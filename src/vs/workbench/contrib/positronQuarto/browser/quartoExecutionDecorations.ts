@@ -173,6 +173,9 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 	/** Tracks cells in the completed animation phase */
 	private readonly _completedCells = new Map<string, CompletedCellInfo>();
 
+	/** Tracks the execution range for running cells (for the completion animation) */
+	private readonly _runningCellRanges = new Map<string, { startLine: number; endLine: number }>();
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
@@ -299,9 +302,29 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 					this._cancelCompletedCell(cell.id);
 				}
 
+				// Check if we have a specific execution range (for partial cell execution)
+				const executionRange = this._executionManager.getExecutionRange(cell.id);
+
+				// Determine the line range to decorate
+				let startLine: number;
+				let endLine: number;
+
+				if (executionRange) {
+					// Use the specific execution range (partial cell execution)
+					startLine = executionRange.startLineNumber;
+					endLine = executionRange.endLineNumber;
+				} else {
+					// Fall back to the full cell range
+					startLine = cell.startLine;
+					endLine = cell.endLine;
+				}
+
+				// Save the line range for the completion animation
+				this._runningCellRanges.set(cell.id, { startLine, endLine });
+
 				// Apply a separate decoration per line with a random animation delay variant
 				// This creates an organic "twinkle" effect where each line pulses independently
-				for (let line = cell.startLine; line <= cell.endLine; line++) {
+				for (let line = startLine; line <= endLine; line++) {
 					const variantIndex = Math.floor(Math.random() * RUNNING_DELAY_VARIANTS);
 					decorations.push({
 						range: new Range(line, 1, line, 1),
@@ -314,10 +337,18 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 		// Detect cells that stopped running and start completion animation
 		for (const cellId of this._previouslyRunningCells) {
 			if (!currentlyRunningCells.has(cellId)) {
-				// Find the cell to get its line range
-				const cell = cells.find(c => c.id === cellId);
-				if (cell) {
-					this._startCompletedAnimation(cellId, cell.startLine, cell.endLine);
+				// Use the saved execution range (for partial cell execution) or fall back to full cell range
+				const savedRange = this._runningCellRanges.get(cellId);
+				if (savedRange) {
+					this._startCompletedAnimation(cellId, savedRange.startLine, savedRange.endLine);
+					// Clean up the saved range
+					this._runningCellRanges.delete(cellId);
+				} else {
+					// Fall back to full cell range
+					const cell = cells.find(c => c.id === cellId);
+					if (cell) {
+						this._startCompletedAnimation(cellId, cell.startLine, cell.endLine);
+					}
 				}
 			}
 		}
@@ -394,6 +425,7 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 		}
 		this._completedCells.clear();
 		this._previouslyRunningCells.clear();
+		this._runningCellRanges.clear();
 	}
 
 	override dispose(): void {

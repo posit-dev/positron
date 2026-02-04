@@ -176,6 +176,18 @@ export interface IQuartoExecutionManager {
 	executeCellRanges(documentUri: URI, cellRanges: Range[], token?: CancellationToken): Promise<void>;
 
 	/**
+	 * Execute inline cells for the "Execute Code" action.
+	 * Unlike executeCellRanges which executes whole cells, this method executes
+	 * just the code in the specified ranges, even if they are partial cells.
+	 * The output replaces any previous output for the containing cell.
+	 *
+	 * @param documentUri URI of the document
+	 * @param codeRanges Ranges of code to execute (can be partial cells)
+	 * @param token Optional cancellation token
+	 */
+	executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken): Promise<void>;
+
+	/**
 	 * Cancel execution for a document.
 	 * @param documentUri URI of the document
 	 * @param cellId Optional specific cell ID to cancel. If not provided, cancels all.
@@ -197,6 +209,13 @@ export interface IQuartoExecutionManager {
 	 * @param cellId Cell ID
 	 */
 	getExecutionState(cellId: string): CellExecutionState;
+
+	/**
+	 * Get the current execution range for a cell (for partial cell execution).
+	 * Returns undefined if the cell is not currently executing a partial range.
+	 * @param cellId Cell ID
+	 */
+	getExecutionRange(cellId: string): Range | undefined;
 
 	/**
 	 * Get IDs of cells currently queued for execution.

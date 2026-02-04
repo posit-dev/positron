@@ -93,6 +93,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/** In-memory cache of outputs by cell ID */
 	private readonly _outputsByCell = new Map<string, ICellOutput[]>();
 
+	/** Current execution ranges by cell ID - for partial cell execution */
+	private readonly _executionRanges = new Map<string, Range>();
+
 	private readonly _onDidChangeExecutionState = this._register(new Emitter<ExecutionStateChangeEvent>());
 	readonly onDidChangeExecutionState: Event<ExecutionStateChangeEvent> = this._onDidChangeExecutionState.event;
 
@@ -216,6 +219,305 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		return this.executeCells(documentUri, cellsToExecute, token);
 	}
 
+	/**
+	 * Execute inline cells for the "Execute Code" action.
+	 * This executes just the code in the specified ranges, even if they are partial cells.
+	 * The output replaces any previous output for the containing cell.
+	 */
+	async executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken): Promise<void> {
+		if (codeRanges.length === 0) {
+			return;
+		}
+
+		this._logService.debug(`[QuartoExecutionManager] Executing ${codeRanges.length} inline code ranges`);
+
+		const documentModel = this._documentModelService.getModelForUri(documentUri);
+		const quartoCells = documentModel.cells;
+
+		// For each range, find the containing cell and prepare execution info
+		interface InlineExecution {
+			cell: QuartoCodeCell;
+			codeRange: Range;
+		}
+		const executions: InlineExecution[] = [];
+
+		for (const range of codeRanges) {
+			// Find the cell containing this range
+			let containingCell: QuartoCodeCell | undefined;
+			for (const quartoCell of quartoCells) {
+				const midpointLine = (range.startLineNumber + range.endLineNumber) / 2;
+				if (midpointLine >= quartoCell.codeStartLine &&
+					midpointLine <= quartoCell.codeEndLine
+				) {
+					containingCell = quartoCell;
+					break;
+				}
+			}
+
+			if (!containingCell) {
+				this._logService.warn(
+					`Skipping inline execution for range at ${JSON.stringify(range)} ` +
+					`in document ${documentUri.toString()} because no cell was found ` +
+					`containing that range.`);
+				continue;
+			}
+
+			executions.push({
+				cell: containingCell,
+				codeRange: range,
+			});
+		}
+
+		// Execute each inline code range
+		for (const execution of executions) {
+			if (token?.isCancellationRequested) {
+				break;
+			}
+
+			try {
+				await this._executeInlineCode(documentUri, execution.cell, execution.codeRange, token);
+			} catch (error) {
+				this._logService.error(`[QuartoExecutionManager] Inline execution error for cell ${execution.cell.id}:`, error);
+				this._setCellState(execution.cell.id, CellExecutionState.Error, documentUri);
+			}
+		}
+	}
+
+	/**
+	 * Execute a specific range of code within a cell.
+	 */
+	private async _executeInlineCode(
+		documentUri: URI,
+		cell: QuartoCodeCell,
+		codeRange: Range,
+		token?: CancellationToken
+	): Promise<void> {
+		// Check if cell language matches the document's primary language
+		// If not, execute via console service instead of kernel
+		const textModel = await this._getTextModel(documentUri);
+		if (textModel) {
+			const quartoModel = this._documentModelService.getModel(textModel);
+			const primaryLanguage = quartoModel.primaryLanguage?.toLowerCase();
+			const cellLanguage = cell.language.toLowerCase();
+
+			if (primaryLanguage && cellLanguage !== primaryLanguage) {
+				// Non-primary language: execute via console service
+				return this._executeInlineCodeViaConsole(documentUri, cell, codeRange, token);
+			}
+		}
+
+		// Ensure kernel is ready
+		const session = await this._kernelManager.ensureKernelForDocument(documentUri, token);
+		if (!session) {
+			this._logService.warn(`[QuartoExecutionManager] No session available for ${documentUri.toString()}`);
+			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			return;
+		}
+
+		// Check cancellation
+		if (token?.isCancellationRequested) {
+			return;
+		}
+
+		// Create execution tracker
+		const executionId = `${QUARTO_EXEC_PREFIX}-${generateUuid()}`;
+		const cts = new CancellationTokenSource(token);
+		const deferred = new DeferredPromise<void>();
+		const disposables = new DisposableStore();
+
+		const tracker: ExecutionTracker = {
+			execution: {
+				cellId: cell.id,
+				state: CellExecutionState.Running,
+				executionId,
+				startTime: Date.now(),
+				documentUri,
+			},
+			cts,
+			deferred,
+			outputSize: 0,
+			outputCount: 0,
+			disposables,
+		};
+
+		this._executionTrackers.set(cell.id, tracker);
+
+		// Update state to running
+		this._runningCells.set(documentUri, cell.id);
+		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
+
+		// Track the execution range for decorations
+		this._executionRanges.set(cell.id, codeRange);
+
+		// Clear previous outputs for this cell
+		this._outputsByCell.delete(cell.id);
+
+		try {
+			// Set up message handlers
+			this._setupMessageHandlers(tracker, session, documentUri);
+
+			// Get just the code in the specified range
+			const code = await this._getCodeInRange(documentUri, codeRange);
+			if (!code) {
+				throw new Error('Could not get code in range');
+			}
+
+			// Execute the code
+			this._logService.debug(`[QuartoExecutionManager] Executing inline code in cell ${cell.id} with execution ID ${executionId}`);
+			session.execute(
+				code,
+				executionId,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue
+			);
+
+			// Fire the event signaling code execution.
+			const event: ILanguageRuntimeCodeExecutedEvent = {
+				executionId: executionId,
+				sessionId: session.sessionId,
+				attribution: {
+					source: CodeAttributionSource.Notebook,
+					metadata: {
+						cell: {
+							uri: cell.id,
+							notebook: {
+								uri: documentUri,
+							},
+						},
+					},
+				},
+				code,
+				languageId: cell.language,
+				runtimeName: session.runtimeMetadata.runtimeName,
+				errorBehavior: RuntimeErrorBehavior.Continue,
+				mode: RuntimeCodeExecutionMode.Interactive,
+			};
+			this._onDidExecuteCode.fire(event);
+
+			// Set up timeout
+			const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;
+			let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+			if (timeoutMs > 0) {
+				timeoutHandle = setTimeout(() => {
+					this._logService.warn(`[QuartoExecutionManager] Execution timeout for cell ${cell.id}`);
+					tracker.cts.cancel();
+					deferred.error(new Error('Execution timeout'));
+				}, timeoutMs);
+
+				disposables.add(toDisposable(() => {
+					if (timeoutHandle) {
+						clearTimeout(timeoutHandle);
+					}
+				}));
+			}
+
+			// Wait for completion
+			await Promise.race([
+				deferred.p,
+				new Promise<void>((_, reject) => {
+					const cancellationListener = cts.token.onCancellationRequested(() => {
+						reject(new Error('Execution cancelled'));
+					});
+					disposables.add(cancellationListener);
+				}),
+			]);
+
+			// Update state to completed
+			this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+
+		} catch (error) {
+			if (cts.token.isCancellationRequested) {
+				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
+			} else {
+				this._logService.error(`[QuartoExecutionManager] Execution failed for cell ${cell.id}:`, error);
+				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			}
+		} finally {
+			// Clean up
+			this._runningCells.delete(documentUri);
+			this._executionTrackers.delete(cell.id);
+			this._executionRanges.delete(cell.id);
+			disposables.dispose();
+			cts.dispose();
+			await this._persistQueueState(documentUri);
+		}
+	}
+
+	/**
+	 * Execute inline code via the console service.
+	 * This is used for cells whose language doesn't match the document's primary language.
+	 */
+	private async _executeInlineCodeViaConsole(
+		documentUri: URI,
+		cell: QuartoCodeCell,
+		codeRange: Range,
+		_token?: CancellationToken
+	): Promise<void> {
+		this._logService.debug(
+			`[QuartoExecutionManager] Executing ${cell.language} inline code via console (non-primary language)`
+		);
+
+		// Update state to running
+		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
+
+		try {
+			// Get just the code in the specified range
+			const code = await this._getCodeInRange(documentUri, codeRange);
+			if (!code) {
+				throw new Error('Could not get code in range');
+			}
+
+			// Execute via console service
+			await this._consoleService.executeCode(
+				cell.language,
+				undefined,
+				code,
+				{
+					source: CodeAttributionSource.Notebook,
+					metadata: {
+						cell: {
+							uri: cell.id,
+							notebook: {
+								uri: documentUri,
+							},
+						},
+					},
+				},
+				true,
+				false,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue,
+			);
+
+			// Mark as completed (output goes to console, not inline)
+			this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+		} catch (error) {
+			this._logService.error(
+				`[QuartoExecutionManager] Console execution failed for cell ${cell.id}:`,
+				error
+			);
+			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+		}
+	}
+
+	/**
+	 * Get code content for a specific range in the document.
+	 */
+	private async _getCodeInRange(documentUri: URI, range: Range): Promise<string | undefined> {
+		try {
+			const textModel = await this._getTextModel(documentUri);
+			if (!textModel) {
+				return undefined;
+			}
+
+			return textModel.getValueInRange(range);
+		} catch (error) {
+			this._logService.warn(`[QuartoExecutionManager] Failed to get code in range:`, error);
+			return undefined;
+		}
+	}
+
 	async cancelQueuedCell(documentUri: URI, cellId: string): Promise<void> {
 		this._logService.debug(`[QuartoExecutionManager] Cancelling queued cell ${cellId} for ${documentUri.toString()}`);
 
@@ -284,6 +586,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	getExecutionState(cellId: string): CellExecutionState {
 		return this._cellStates.get(cellId) ?? CellExecutionState.Idle;
+	}
+
+	getExecutionRange(cellId: string): Range | undefined {
+		return this._executionRanges.get(cellId);
 	}
 
 	getQueuedCells(documentUri: URI): string[] {

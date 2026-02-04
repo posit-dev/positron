@@ -41,6 +41,9 @@ import { createCodeLocation, ICodeLocation } from '../../../services/positronCon
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
 import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { usingQuartoInlineOutput, isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
+import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
 
 /**
  * Positron console command ID's.
@@ -350,10 +353,12 @@ export function registerPositronConsoleActions() {
 			const languageService = accessor.get(ILanguageService);
 			const logService = accessor.get(ILogService);
 			const modelService = accessor.get(IModelService);
+
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			const debugService = accessor.get(IDebugService);
 			const textFileService = accessor.get(ITextFileService);
+			const configurationService = accessor.get(IConfigurationService);
 
 			// By default we advance the cursor to the next statement
 			const advance = opts.advance === undefined ? true : opts.advance;
@@ -395,6 +400,34 @@ export function registerPositronConsoleActions() {
 					return;
 				}
 				position = editorPosition;
+			}
+
+			// Check if this is a Quarto document with inline output enabled.
+			// If so, route execution through the Quarto execution manager for inline output.
+			const isQuartoDoc = isQuartoDocument(model.uri.path, model.getLanguageId());
+			const inlineOutputEnabled = usingQuartoInlineOutput(configurationService);
+
+			logService.debug(`[ExecuteCode] Quarto check: path=${model.uri.path}, langId=${model.getLanguageId()}, isQuartoDoc=${isQuartoDoc}, inlineOutputEnabled=${inlineOutputEnabled}`);
+
+			if (isQuartoDoc && inlineOutputEnabled) {
+				// Delegate to the Quarto execution manager for inline output
+				try {
+					logService.debug(`[ExecuteCode] Taking quarto inline output path`);
+					const quartoExecutionManager = accessor.get(IQuartoExecutionManager);
+					return await this.executeInQuartoInlineOutput(
+						model,
+						editor,
+						position,
+						advance,
+						languageFeaturesService,
+						logService,
+						quartoExecutionManager,
+						editorService
+					);
+				} catch (error) {
+					logService.error(`[ExecuteCode] Error in quarto inline output path:`, error);
+					// Fall through to regular console execution
+				}
 			}
 
 			// Get the code to execute.
@@ -680,6 +713,99 @@ export function registerPositronConsoleActions() {
 				text: '\n'
 			};
 			model.pushEditOperations([], [editOperation], () => []);
+		}
+
+		/**
+		 * Execute code in a Quarto document with inline output.
+		 * This delegates execution to the Quarto execution manager, which displays
+		 * output inline in the editor rather than in the console.
+		 */
+		async executeInQuartoInlineOutput(
+			model: ITextModel,
+			editor: IEditor | undefined,
+			position: Position,
+			advance: boolean,
+			languageFeaturesService: ILanguageFeaturesService,
+			logService: ILogService,
+			quartoExecutionManager: IQuartoExecutionManager,
+			editorService: IEditorService
+		): Promise<Position | undefined> {
+			let nextPosition: Position | undefined;
+			let codeRange: IRange | undefined;
+
+			// Check if there's a selection to execute
+			const selection = editor?.getSelection();
+			if (selection && !selection.isEmpty()) {
+				// Use the selection as the code range
+				codeRange = selection;
+			} else {
+				// No selection - use statement range provider or fall back to line
+				const statementRangeProviders =
+					languageFeaturesService.statementRangeProvider.all(model);
+
+				if (statementRangeProviders.length > 0) {
+					let statementRange: IStatementRange | null | undefined = undefined;
+					try {
+						statementRange = await statementRangeProviders[0].provideStatementRange(
+							model,
+							position,
+							CancellationToken.None
+						);
+					} catch (err) {
+						logService.warn(`Failed to get statement range at ${position}: ${err}`);
+					}
+
+					if (statementRange) {
+						codeRange = statementRange.range;
+
+						if (advance) {
+							nextPosition = await this.advanceStatement(
+								model,
+								editor,
+								statementRange,
+								statementRangeProviders[0],
+								logService
+							);
+						}
+					}
+				}
+
+				// Fall back to current line if no statement range found
+				if (!codeRange) {
+					let lineNumber = position.lineNumber;
+					// Find first non-empty line
+					for (let number = lineNumber; number <= model.getLineCount(); ++number) {
+						const content = trimNewlines(model.getLineContent(number));
+						if (content.length > 0) {
+							lineNumber = number;
+							break;
+						}
+					}
+
+					codeRange = new Range(
+						lineNumber,
+						1,
+						lineNumber,
+						model.getLineMaxColumn(lineNumber)
+					);
+
+					if (advance) {
+						nextPosition = this.advanceLine(model, editor, position, lineNumber, model.getLineContent(lineNumber), editorService);
+					}
+				}
+			}
+
+			// Execute through the Quarto execution manager with the specific range
+			if (codeRange) {
+				// Convert IRange to Range
+				const rangeToExecute = Range.lift(codeRange);
+				await quartoExecutionManager.executeInlineCells(
+					model.uri,
+					[rangeToExecute]
+				);
+			}
+
+			return nextPosition;
 		}
 	});
 

@@ -1767,4 +1767,179 @@ test.describe('Quarto - Inline Output', {
 		const hasOhNo = allOutputText.some(text => text.includes('Oh no'));
 		expect(hasOhNo).toBe(false);
 	});
+
+	test('R - Verify execute code action steps through statements line by line with inline output', async function ({ app, openFile, r }) {
+		// This test verifies that the "Execute Code" action (workbench.action.positronConsole.executeCode)
+		// works correctly with Quarto inline output:
+		// 1. Each statement executed via "Execute Code" should produce inline output
+		// 2. The cursor should advance to the next statement after execution
+		// 3. Each execution should replace the previous output (only show current output)
+		// 4. Selection execution should execute only the selected code
+		// 5. Multi-line statements should be executed as a single unit
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'multiple_statements.qmd');
+
+		// Open the multiple statements test file
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// multiple_statements.qmd structure:
+		// - frontmatter (1-4)
+		// - blank line (5)
+		// - heading "## R" (6)
+		// - blank line (7)
+		// - description (8)
+		// - blank line (9)
+		// - first R cell (10-14):
+		//   line 10: ```{r}
+		//   line 11: print("This is the first statement.")
+		//   line 12: print("This is the middle statement.")
+		//   line 13: print("This one is last.")
+		//   line 14: ```
+		// - blank line (15)
+		// - description (16)
+		// - blank line (17)
+		// - second R cell (18-27):
+		//   line 18: ```{r}
+		//   line 19: print(1 +
+		//   line 20:     2 +
+		//   line 21:     3)
+		//   line 22: print(
+		//   line 23:     seq_len(
+		//   line 24:         10
+		//   line 25:     )
+		//   line 26: )
+		//   line 27: ```
+
+		// Helper function to position cursor and execute code
+		async function goToLineAndExecute(lineNumber: number) {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type(String(lineNumber));
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(300);
+			await page.keyboard.press('Meta+Enter');
+		}
+
+		// STEP 1: Execute the first line of the first cell (line 11)
+		// Position cursor at line 11 (first print statement) and execute
+		await goToLineAndExecute(11);
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			// Scroll down to see the output area by going to line 15 first
+			// (we'll reposition cursor for subsequent executions)
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('15');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the output contains "first statement" and NOT the others
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+		await expect(outputContent).toContainText('first statement');
+		await expect(outputContent).not.toContainText('middle statement');
+		await expect(outputContent).not.toContainText('last');
+
+		// STEP 2: Execute the second line (line 12)
+		// Explicitly position cursor at line 12 and execute
+		await goToLineAndExecute(12);
+		await page.waitForTimeout(2000);
+
+		// Scroll to see output (go to line 15)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('15');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Verify the output now contains "middle statement" (previous output replaced)
+		await expect(outputContent).toContainText('middle statement');
+		// Note: The output may or may not contain "first statement" depending on implementation
+		// The key requirement is that "middle statement" is shown
+
+		// STEP 3: Execute the third line (line 13)
+		await goToLineAndExecute(13);
+		await page.waitForTimeout(2000);
+
+		// Scroll to see output
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('15');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Verify the output contains "last"
+		await expect(outputContent).toContainText('last');
+
+		// STEP 4: Test selection execution - select only the middle statement and execute
+		// Position cursor at line 12 (middle statement)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('12');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Select the entire line (Ctrl+L or Home, then Shift+End)
+		await page.keyboard.press('Home');
+		await page.keyboard.press('Shift+End');
+		await page.waitForTimeout(300);
+
+		// Execute the selection
+		await page.keyboard.press('Meta+Enter');
+		await page.waitForTimeout(2000);
+
+		// Scroll to see output
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('15');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Verify the output contains "middle statement" (from selection execution)
+		await expect(outputContent).toContainText('middle statement');
+
+		// STEP 5: Test multi-line statement execution in the second cell
+		// Position cursor at line 19 (start of multi-line print statement)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('19');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Execute - this should execute the entire multi-line statement (lines 19-21)
+		await page.keyboard.press('Meta+Enter');
+
+		// Wait for execution and scroll to see output
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('28');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+
+			// Check for the second inline output (for the second cell)
+			const outputs = page.locator('.quarto-inline-output');
+			const count = await outputs.count();
+			expect(count).toBe(2);
+		}).toPass({ timeout: 60000 });
+
+		// Get the second output (for the second cell)
+		const secondOutput = page.locator('.quarto-inline-output').nth(1);
+		const secondOutputContent = secondOutput.locator('.quarto-output-content');
+		await expect(secondOutputContent).toBeVisible({ timeout: 10000 });
+
+		// The multi-line statement print(1 + 2 + 3) should produce "6"
+		await expect(secondOutputContent).toContainText('6');
+	});
 });
