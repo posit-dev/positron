@@ -2936,6 +2936,7 @@ class DataExplorerService:
         comm_id=None,
         *,
         sql_string: str | None = None,
+        inline_only: bool = False,
     ):
         """
         Set up a new comm and data explorer table query wrapper to handle requests and manage state.
@@ -2958,6 +2959,9 @@ class DataExplorerService:
             If the data explorer was opened from a SQL query result,
             this is the SQL string that was executed to produce the
             result. This is used for code generation.
+        inline_only : bool, default False
+            If True, the data explorer is for inline display only and
+            should not automatically open the full data explorer panel.
 
         Returns
         -------
@@ -2973,7 +2977,7 @@ class DataExplorerService:
         base_comm = comm.create_comm(
             target_name=self.comm_target,
             comm_id=comm_id,
-            data={"title": title},
+            data={"title": title, "inline_only": inline_only},
         )
 
         def close_callback(_):

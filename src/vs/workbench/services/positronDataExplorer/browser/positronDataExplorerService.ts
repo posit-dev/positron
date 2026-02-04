@@ -26,6 +26,16 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { DataExplorerPreviewEnabled } from './positronDataExplorerSummary.js';
 
 /**
+ * Event data for when a data explorer client is opened.
+ */
+interface DataExplorerClientOpenedEvent {
+	/** The data explorer client instance */
+	client: DataExplorerClientInstance;
+	/** Whether this is for inline display only (should not open full editor) */
+	inlineOnly: boolean;
+}
+
+/**
  * DataExplorerRuntime class.
  */
 class DataExplorerRuntime extends Disposable {
@@ -35,7 +45,7 @@ class DataExplorerRuntime extends Disposable {
 	 * The onDidOpenDataExplorerClient event emitter.
 	 */
 	private readonly _onDidOpenDataExplorerClientEmitter =
-		this._register(new Emitter<DataExplorerClientInstance>);
+		this._register(new Emitter<DataExplorerClientOpenedEvent>);
 
 	/**
 	 * The onDidCloseDataExplorerClient event emitter.
@@ -90,8 +100,14 @@ class DataExplorerRuntime extends Disposable {
 					this._onDidCloseDataExplorerClientEmitter.fire(dataExplorerClientInstance);
 				}));
 
+				// Check if this is an inline-only data explorer (should not auto-open editor)
+				const inlineOnly = e.message.data?.inline_only === true;
+
 				// Raise the onDidOpenDataExplorerClient event.
-				this._onDidOpenDataExplorerClientEmitter.fire(dataExplorerClientInstance);
+				this._onDidOpenDataExplorerClientEmitter.fire({
+					client: dataExplorerClientInstance,
+					inlineOnly
+				});
 			} catch (err) {
 				this._notificationService.error(`Can't open data explorer: ${err.message}`);
 			}
@@ -128,6 +144,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	private _uiEventCommandHandlers = new Map<
 		string, (event: DataExplorerUiEvent) => void
 	>();
+
+	/**
+	 * The onDidRegisterInstance event emitter.
+	 */
+	private readonly _onDidRegisterInstanceEmitter = this._register(new Emitter<IPositronDataExplorerInstance>());
 
 	//#endregion Private Properties
 
@@ -257,6 +278,46 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	}
 
 	/**
+	 * Event that fires when a new data explorer instance is registered.
+	 */
+	readonly onDidRegisterInstance = this._onDidRegisterInstanceEmitter.event;
+
+	/**
+	 * Gets an instance by identifier, waiting for it to be registered if needed.
+	 * @param identifier The instance identifier.
+	 * @param timeoutMs Maximum time to wait in milliseconds (default: 5000).
+	 * @returns A promise that resolves to the instance, or undefined if not found within timeout.
+	 */
+	async getInstanceAsync(identifier: string, timeoutMs: number = 5000): Promise<IPositronDataExplorerInstance | undefined> {
+		// First check if the instance already exists
+		const existingInstance = this._positronDataExplorerInstances.get(identifier);
+		if (existingInstance) {
+			return existingInstance;
+		}
+
+		// If not, wait for the instance to be registered
+		return new Promise<IPositronDataExplorerInstance | undefined>((resolve) => {
+			const disposables: { dispose(): void }[] = [];
+
+			// Set up timeout
+			const timeout = setTimeout(() => {
+				disposables.forEach(d => d.dispose());
+				resolve(undefined);
+			}, timeoutMs);
+			disposables.push({ dispose: () => clearTimeout(timeout) });
+
+			// Listen for new instance registrations
+			const registration = this._onDidRegisterInstanceEmitter.event((instance) => {
+				if (instance.dataExplorerClientInstance.identifier === identifier) {
+					disposables.forEach(d => d.dispose());
+					resolve(instance);
+				}
+			});
+			disposables.push(registration);
+		});
+	}
+
+	/**
 	 * Open a workspace file using the positron-duckdb extension for use with
 	 * the data explorer.
 	 * @param filePath Path to file to open with positron-duckdb extension
@@ -315,7 +376,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		// If the runtime has already been added, check if we need to open a Data Explorer client.
 		if (this._dataExplorerRuntimes.has(session.sessionId)) {
 			// Get the Data Explorer clients for the session.
-			const sessionClients: Array<IRuntimeClientInstance<any, any>> = [];
+			const sessionClients: Array<IRuntimeClientInstance<unknown, unknown>> = [];
 			try {
 				sessionClients.push(...await session.listClients(RuntimeClientType.DataExplorer));
 			} catch (err) {
@@ -348,8 +409,14 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 		// Add the onDidOpenDataExplorerClient event handler.
 		this._register(
-			dataExplorerRuntime.onDidOpenDataExplorerClient(dataExplorerClientInstance => {
-				this.openEditor(session.runtimeMetadata.languageName, dataExplorerClientInstance);
+			dataExplorerRuntime.onDidOpenDataExplorerClient(event => {
+				if (event.inlineOnly) {
+					// For inline-only data explorers, register without opening editor
+					this.registerDataExplorerClient(session.runtimeMetadata.languageName, event.client);
+				} else {
+					// Normal behavior: register and open editor
+					this.openEditor(session.runtimeMetadata.languageName, event.client);
+				}
 			})
 		);
 
@@ -411,6 +478,9 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			client.identifier,
 			instance
 		);
+
+		// Fire the onDidRegisterInstance event
+		this._onDidRegisterInstanceEmitter.fire(instance);
 
 		this._register(client.onDidClose(() => {
 			// When the data explorer client instance is closed, clean up

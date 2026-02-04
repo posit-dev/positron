@@ -8,7 +8,7 @@ import './NotebookCodeCell.css';
 
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { isParsedTextOutput } from '../getOutputContents.js';
+import { isParsedTextOutput, parseOutputData } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
@@ -23,6 +23,9 @@ import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { useCellOutputContextMenu } from './useCellOutputContextMenu.js';
+import { InlineDataExplorer } from './InlineDataExplorer.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 
 
 interface CellOutputsSectionProps {
@@ -115,7 +118,7 @@ function CellOutput(output: NotebookCellOutputs) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed } = output;
+	const { parsed, outputs } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -132,6 +135,29 @@ function CellOutput(output: NotebookCellOutputs) {
 			return renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
+		case 'dataExplorer': {
+			// Check if inline data explorer is enabled
+			const services = PositronReactServices.services;
+			const enabled = services.configurationService.getValue<boolean>(
+				POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY
+			) ?? true;
+
+			if (!enabled) {
+				// Fall back to HTML if inline data explorer is disabled
+				const htmlOutput = outputs.find(o => o.mime === 'text/html');
+				if (htmlOutput) {
+					const htmlParsed = parseOutputData(htmlOutput);
+					if (htmlParsed.type === 'html') {
+						return renderHtml(htmlParsed.content);
+					}
+				}
+				// If no HTML fallback, show a placeholder
+				return <div className='data-explorer-disabled'>
+					{localize('dataExplorerDisabled', 'Inline data explorer is disabled. Enable it in settings to view data grids.')}
+				</div>;
+			}
+			return <InlineDataExplorer {...parsed} />;
+		}
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}
