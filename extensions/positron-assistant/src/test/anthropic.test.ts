@@ -839,4 +839,86 @@ suite('AnthropicModelProvider', () => {
 			});
 		});
 	});
+
+	suite('Rate limit error handling', () => {
+		test('throws error with retry-after when rate limited with header', async () => {
+			// Create headers with retry-after
+			const headers = new Headers();
+			headers.set('retry-after', '30');
+
+			// Create an APIError with 429 status and retry-after header
+			const rateLimitError = new Anthropic.APIError(
+				429,
+				{ error: { type: 'rate_limit_error', message: 'Rate limit exceeded' } },
+				'Rate limit exceeded',
+				headers
+			);
+
+			// Configure mock to reject with rate limit error
+			mockClient.messages.stream.returns(mock<MessageStream>({
+				on: () => mock<MessageStream>({}),
+				abort: () => { },
+				done: () => Promise.reject(rateLimitError),
+				finalMessage: () => Promise.resolve(mock<Anthropic.Message>({})),
+				request_id: 'test-request-id'
+			}));
+
+			const messages = [vscode.LanguageModelChatMessage.User('Test message')];
+
+			await assert.rejects(
+				() => model.provideLanguageModelChatResponse(
+					mockModelInfo,
+					messages,
+					{ requestInitiator: 'test', toolMode: vscode.LanguageModelChatToolMode.Auto },
+					progress,
+					cancellationToken
+				),
+				(error: Error) => {
+					assert.ok(error.message.includes('Rate limit exceeded'), 'Error message should mention rate limit');
+					assert.ok(error.message.includes('retry after 30 seconds'), 'Error message should include retry-after value');
+					return true;
+				}
+			);
+		});
+
+		test('throws error without retry-after when rate limited without header', async () => {
+			// Create empty headers (no retry-after)
+			const headers = new Headers();
+
+			// Create an APIError with 429 status but no retry-after header
+			const rateLimitError = new Anthropic.APIError(
+				429,
+				{ error: { type: 'rate_limit_error', message: 'Rate limit exceeded' } },
+				'Rate limit exceeded',
+				headers
+			);
+
+			// Configure mock to reject with rate limit error
+			mockClient.messages.stream.returns(mock<MessageStream>({
+				on: () => mock<MessageStream>({}),
+				abort: () => { },
+				done: () => Promise.reject(rateLimitError),
+				finalMessage: () => Promise.resolve(mock<Anthropic.Message>({})),
+				request_id: 'test-request-id'
+			}));
+
+			const messages = [vscode.LanguageModelChatMessage.User('Test message')];
+
+			await assert.rejects(
+				() => model.provideLanguageModelChatResponse(
+					mockModelInfo,
+					messages,
+					{ requestInitiator: 'test', toolMode: vscode.LanguageModelChatToolMode.Auto },
+					progress,
+					cancellationToken
+				),
+				(error: Error) => {
+					assert.ok(error.message.includes('Rate limit exceeded'), 'Error message should mention rate limit');
+					assert.ok(error.message.includes('try again later'), 'Error message should suggest trying later');
+					assert.ok(!error.message.includes('retry after'), 'Error message should not include retry-after');
+					return true;
+				}
+			);
+		});
+	});
 });

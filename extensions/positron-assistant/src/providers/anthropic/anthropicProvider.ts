@@ -229,6 +229,16 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		} catch (error) {
 			if (error instanceof Anthropic.APIError) {
 				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
+
+				// Check for rate limit error with retry-after header
+				if (error.status === 429) {
+					const retryAfter = error.headers?.get('retry-after');
+					if (retryAfter) {
+						throw new Error(`[${this.providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
+					}
+					throw new Error(`[${this.providerName}] Rate limit exceeded. Please try again later.`);
+				}
+
 				let data: any;
 				try {
 					data = JSON.parse(error.message);
