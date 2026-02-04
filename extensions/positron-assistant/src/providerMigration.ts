@@ -143,7 +143,7 @@ export async function performProviderMigration(): Promise<void> {
 		'enabledProviders',
 		'provider.{name}.enable',
 		'hideProviderMigrationNotification',
-		vscode.l10n.t(`Your 'positron.assistant.enabledProviders' setting has been migrated to individual enable settings for each provider. The old setting has been removed.`),
+		vscode.l10n.t(`The 'positron.assistant.enabledProviders' setting has been deprecated, and your settings file has been updated to use individual settings for each provider.`),
 		PROVIDER_ENABLE_SETTINGS_SEARCH
 	);
 }
@@ -153,7 +153,7 @@ export async function performModelPreferencesMigration(): Promise<void> {
 		'models.preference.byProvider',
 		'models.preference.{name}',
 		'hideModelPreferencesMigrationNotification',
-		vscode.l10n.t(`Your 'positron.assistant.models.preference.byProvider' setting has been migrated to individual preference settings for each provider. The old setting has been removed.`),
+		vscode.l10n.t(`The 'positron.assistant.models.preference.byProvider' setting has been deprecated, and your settings file has been updated to use individual settings for each provider.`),
 		'positron.assistant.models.preference'
 	);
 }
@@ -163,7 +163,7 @@ export async function performCustomModelsMigration(): Promise<void> {
 		'models.custom',
 		'models.overrides.{name}',
 		'hideCustomModelsMigrationNotification',
-		vscode.l10n.t(`Your 'positron.assistant.models.custom' setting has been migrated to individual model override settings for each provider. The old setting has been removed.`),
+		vscode.l10n.t(`The 'positron.assistant.models.custom' setting has been deprecated, and your settings file has been updated to use individual settings for each provider.`),
 		'positron.assistant.models.overrides'
 	);
 }
