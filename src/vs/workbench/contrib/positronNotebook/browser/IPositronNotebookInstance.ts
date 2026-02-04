@@ -27,7 +27,7 @@ export type GhostCellState =
 	| { status: 'awaiting-request'; executedCellIndex: number; suggestionMode: 'push' | 'pull' }
 	| { status: 'loading'; executedCellIndex: number; suggestionMode: 'push' | 'pull' }
 	| { status: 'streaming'; executedCellIndex: number; code: string; explanation: string; suggestionMode: 'push' | 'pull' }
-	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string; suggestionMode: 'push' | 'pull' }
+	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string; suggestionMode: 'push' | 'pull'; modelName?: string }
 	| { status: 'error'; executedCellIndex: number; message: string };
 
 /**
