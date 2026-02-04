@@ -269,20 +269,21 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 
 			if (state === CellExecutionState.Queued) {
 				// For queued cells, apply different decorations per line to form a single outline
-				const isSingleLine = cell.startLine === cell.endLine;
+				// Use codeStartLine/codeEndLine to match the lines decorated when running
+				const isSingleLine = cell.codeStartLine === cell.codeEndLine;
 				if (isSingleLine) {
 					decorations.push({
-						range: new Range(cell.startLine, 1, cell.startLine, 1),
+						range: new Range(cell.codeStartLine, 1, cell.codeStartLine, 1),
 						options: queuedSingleDecorationOptions,
 					});
 				} else {
 					// First line
 					decorations.push({
-						range: new Range(cell.startLine, 1, cell.startLine, 1),
+						range: new Range(cell.codeStartLine, 1, cell.codeStartLine, 1),
 						options: queuedFirstDecorationOptions,
 					});
 					// Middle lines
-					for (let line = cell.startLine + 1; line < cell.endLine; line++) {
+					for (let line = cell.codeStartLine + 1; line < cell.codeEndLine; line++) {
 						decorations.push({
 							range: new Range(line, 1, line, 1),
 							options: queuedMiddleDecorationOptions,
@@ -290,7 +291,7 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 					}
 					// Last line
 					decorations.push({
-						range: new Range(cell.endLine, 1, cell.endLine, 1),
+						range: new Range(cell.codeEndLine, 1, cell.codeEndLine, 1),
 						options: queuedLastDecorationOptions,
 					});
 				}
