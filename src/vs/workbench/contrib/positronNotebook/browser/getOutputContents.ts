@@ -7,7 +7,12 @@ import { localize } from '../../../../nls.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
-import { ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { ParsedDataExplorerOutput, ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
+
+/**
+ * MIME type for Positron inline data explorer
+ */
+export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+json';
 
 type CellOutputInfo = { id: string; content: string };
 
@@ -120,6 +125,23 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 
 	if (mime === 'text/plain') {
 		return { type: 'text', content: message };
+	}
+
+	// Handle Positron inline data explorer MIME type
+	if (mime === DATA_EXPLORER_MIME_TYPE) {
+		try {
+			const payload = JSON.parse(message);
+			return {
+				type: 'dataExplorer',
+				commId: payload.comm_id,
+				shape: payload.shape,
+				title: payload.title,
+				version: payload.version,
+				source: payload.source,
+			} satisfies ParsedDataExplorerOutput;
+		} catch {
+			// Fall through to unknown if parsing fails
+		}
 	}
 
 	if (mime === 'text/html') {

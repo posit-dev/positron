@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IPositronDataExplorerInstance } from './positronDataExplorerInstance.js';
@@ -63,4 +64,17 @@ export interface IPositronDataExplorerService {
 	 * @param uri The URI, usually a file in the workspace.
 	 */
 	openWithDuckDB(uri: URI): Promise<void>;
+
+	/**
+	 * Event that fires when a new data explorer instance is registered.
+	 */
+	readonly onDidRegisterInstance: Event<IPositronDataExplorerInstance>;
+
+	/**
+	 * Gets an instance by identifier, waiting for it to be registered if needed.
+	 * @param identifier The instance identifier.
+	 * @param timeoutMs Maximum time to wait in milliseconds (default: 5000).
+	 * @returns A promise that resolves to the instance, or undefined if not found within timeout.
+	 */
+	getInstanceAsync(identifier: string, timeoutMs?: number): Promise<IPositronDataExplorerInstance | undefined>;
 }
