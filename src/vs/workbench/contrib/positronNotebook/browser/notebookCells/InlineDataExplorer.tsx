@@ -170,6 +170,11 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		}
 	};
 
+	// Stop wheel events from propagating to the notebook container
+	const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+		e.stopPropagation();
+	};
+
 	// Render based on state
 	return (
 		<div ref={containerRef} className='inline-data-explorer-container' style={{ height: `${maxHeight}px` }}>
@@ -178,7 +183,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				title={title}
 				onOpenInExplorer={state.status === 'connected' ? handleOpenInExplorer : undefined}
 			/>
-			<div className='inline-data-explorer-content'>
+			<div className='inline-data-explorer-content' onWheel={handleWheel}>
 				{state.status === 'loading' && (
 					<div className='inline-data-explorer-loading'>
 						<span className='codicon codicon-loading codicon-modifier-spin' />
