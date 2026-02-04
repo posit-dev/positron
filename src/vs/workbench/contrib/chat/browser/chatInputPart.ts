@@ -531,7 +531,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			}
 
 			this.inputEditor.updateOptions(newOptions);
-
 		}));
 
 		this._chatEditsListPool = this._register(this.instantiationService.createInstance(CollapsibleListPool, this._onDidChangeVisibility.event, MenuId.ChatEditingWidgetModifiedFilesToolbar, { verticalScrollMode: ScrollbarVisibility.Visible }));
