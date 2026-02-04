@@ -22,7 +22,9 @@ const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
 		disableTitleTags: true,
 	})]
 	: [];
-// Custom reporter is opt-in. Supports boolean-like values: true/false, 1/0, yes/no
+// Custom reporter is opt-in (disabled by default).
+// Enable with: ENABLE_CUSTOM_REPORTER=true (or "true", 1, "1", yes, "yes")
+// YAML booleans are converted to strings by GitHub Actions, so both work.
 const enableCustomReporter = process.env.ENABLE_CUSTOM_REPORTER?.toLowerCase() ?? '';
 const customReporter = ['true', '1', 'yes'].includes(enableCustomReporter)
 	? [['@midleman/playwright-reporter',
