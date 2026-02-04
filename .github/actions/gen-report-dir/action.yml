@@ -8,7 +8,7 @@ description: "Generates a unique REPORT_DIR/REPORT_URL and optionally appends to
 #         identifier: ${{ inputs.project }}  # e.g., "e2e-electron"
 #
 #   For non-sharded workflows - omit identifier to auto-use github.job:
-#     - uses: ./positron/.github/actions/gen-report-dir
+#     - uses: ./.github/actions/gen-report-dir
 #
 # Outputs (set as environment variables):
 #   REPORT_DIR  - Directory name (e.g., "playwright-report-123456-1-electron-ubuntu")
@@ -50,7 +50,7 @@ runs:
               case "$OS_ID" in
                 ubuntu|debian) OS_SUFFIX="$OS_ID" ;;
                 rhel|rocky|centos|fedora|almalinux) OS_SUFFIX="rhel" ;;
-                opensuse-leap|opensuse-tumbleweed) OS_SUFFIX="opensuse" ;;
+                opensuse|opensuse-leap|opensuse-tumbleweed) OS_SUFFIX="opensuse" ;;
                 sles) OS_SUFFIX="sles" ;;
                 *) OS_SUFFIX="linux" ;;
               esac
