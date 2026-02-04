@@ -35,6 +35,19 @@ interface CellOutputsSectionProps {
 function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 
+	const handleShowHiddenOutput = () => {
+		cell.expandOutput();
+		/**
+		 * When this handler is fired via a keyboard event (ex: Enter),
+		 * the focus remains on the button that triggered this event.
+		 * However, since expanding the output causes this button
+		 * to be removed from the DOM, focus is lost. To maintain
+		 * focus so keyboard nav/shortcuts still work, we refocus
+		 * the cell container after expanding the output.
+		 */
+		cell.container?.focus();
+	};
+
 	return (
 		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'}`}>
 			<CellOutputLeftActionMenu cell={cell} />
@@ -44,7 +57,7 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 						? (<Button
 							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
 							className='show-hidden-output-button'
-							onPressed={() => cell.expandOutput()}
+							onPressed={handleShowHiddenOutput}
 						>
 							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
 						</Button>
