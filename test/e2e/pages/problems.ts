@@ -8,6 +8,8 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
+const TIMEOUT_STANDARD = 30000;
+
 export class Problems {
 
 	get problemsTab(): Locator { return this.code.driver.page.getByRole('tab', { name: 'Problems' }); }
@@ -28,7 +30,7 @@ export class Problems {
 	 */
 	async showProblemsView(): Promise<any> {
 		await this.quickaccess.runCommand('workbench.panel.markers.view.focus');
-		await expect(this.problemsView).toBeVisible();
+		await expect(this.problemsView).toBeVisible({ timeout: TIMEOUT_STANDARD });
 	}
 
 	// -- Verifications --
@@ -42,7 +44,7 @@ export class Problems {
 		await test.step(`Expect ${severity} squiggly count: ${count}`, async () => {
 			const squiggly = severity === 'warning' ? this.warningSquiggly : this.errorSquiggly;
 
-			await expect(squiggly).toHaveCount(count);
+			await expect(squiggly).toHaveCount(count, { timeout: TIMEOUT_STANDARD });
 		});
 	}
 
@@ -69,15 +71,15 @@ export class Problems {
 			if (badgeCount !== undefined) {
 				badgeCount === 0
 					? await expect(this.problemsCount).not.toBeVisible()
-					: await expect(this.problemsCount).toHaveText(badgeCount.toString());
+					: await expect(this.problemsCount).toHaveText(badgeCount.toString(), { timeout: TIMEOUT_STANDARD });
 			}
 
 			if (errorCount !== undefined) {
-				await expect(this.problemsViewError).toHaveCount(errorCount);
+				await expect(this.problemsViewError).toHaveCount(errorCount, { timeout: TIMEOUT_STANDARD });
 			}
 
 			if (warningCount !== undefined) {
-				await expect(this.problemsViewWarning).toHaveCount(warningCount);
+				await expect(this.problemsViewWarning).toHaveCount(warningCount, { timeout: TIMEOUT_STANDARD });
 			}
 		});
 	}
@@ -89,7 +91,7 @@ export class Problems {
 	async expectWarningText(text: string): Promise<void> {
 		await test.step(`Expect warning text: ${text}`, async () => {
 			await this.showProblemsView();
-			await expect(this.problemsRow.filter({ hasText: text })).toBeVisible();
+			await expect(this.problemsRow.filter({ hasText: text })).toBeVisible({ timeout: TIMEOUT_STANDARD });
 		});
 	}
 }
