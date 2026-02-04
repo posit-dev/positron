@@ -5,10 +5,16 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import Anthropic from '@anthropic-ai/sdk';
 import { createAnthropic, AnthropicProvider } from '@ai-sdk/anthropic';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
-import { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH } from './anthropicProvider.js';
+import {
+	DEFAULT_ANTHROPIC_MODEL_NAME,
+	DEFAULT_ANTHROPIC_MODEL_MATCH,
+	fetchAnthropicModelsFromApi,
+	getAnthropicModelsFromConfig
+} from './anthropicModelUtils.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
@@ -50,6 +56,12 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	protected declare aiProvider: AnthropicProvider;
 
 	/**
+	 * Native Anthropic client for API operations like model listing.
+	 * The Vercel AI SDK doesn't expose model listing, so we use the native client.
+	 */
+	private readonly _client: Anthropic;
+
+	/**
 	 * Static configuration source describing this provider's requirements and defaults.
 	 */
 	static source: positron.ai.LanguageModelSource = {
@@ -72,6 +84,8 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	 */
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
+		// Initialize native client for API operations like model listing
+		this._client = new Anthropic({ apiKey: _config.apiKey });
 	}
 
 	/**
@@ -82,6 +96,31 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	 */
 	protected override initializeProvider() {
 		this.aiProvider = createAnthropic({ apiKey: this._config.apiKey });
+	}
+
+	/**
+	 * Retrieves models from user configuration for Anthropic providers.
+	 */
+	protected override retrieveModelsFromConfig() {
+		return getAnthropicModelsFromConfig(
+			this.providerId,
+			this.providerName,
+			this.capabilities,
+			this.logger
+		);
+	}
+
+	/**
+	 * Fetches models from the Anthropic API with pagination support.
+	 */
+	protected override async retrieveModelsFromApi(_token: vscode.CancellationToken) {
+		return fetchAnthropicModelsFromApi(
+			this._client,
+			this.providerId,
+			this.providerName,
+			this.capabilities,
+			this.logger
+		);
 	}
 
 	override async provideLanguageModelChatResponse(
@@ -104,7 +143,7 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 			options,
 			progress,
 			token,
-			{ toolResultExperimentalContent }
+			{ toolResultExperimentalContent, anthropicCacheBreakpoint: true }
 		);
 	}
 }

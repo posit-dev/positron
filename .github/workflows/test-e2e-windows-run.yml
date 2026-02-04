@@ -104,7 +104,7 @@ permissions:
 jobs:
   e2e-windows-run:
     name: ${{ inputs.display_name || 'e2e-windows-run' }}-${{ matrix.shard }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     runs-on: windows-latest-8x
     strategy:
       fail-fast: false
@@ -423,7 +423,7 @@ jobs:
       - name: Set Report URL
         uses: ./.github/actions/gen-report-dir
         with:
-          project: ${{ inputs.project }}
+          identifier: ${{ inputs.project }}
           skip-summary: true
 
       - name: 🧪 Run Bootstrap Extensions Test
@@ -552,7 +552,7 @@ jobs:
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
         with:
-          project: ${{ inputs.project }}
+          identifier: ${{ inputs.project }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v7

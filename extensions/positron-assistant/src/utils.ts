@@ -14,12 +14,12 @@ import { log } from './log.js';
  *
  * @param messages The messages to convert.
  * @param usesChatCompletions Whether to apply chat completions endpoint transformations.
- * @param bedrockCacheBreakpoint Whether to use Bedrock cache breakpoints.
+ * @param cacheBreakpointProvider The provider to use for cache breakpoints, or undefined to disable.
  */
 export function toAIMessage(
 	messages: vscode.LanguageModelChatMessage2[],
 	usesChatCompletions: boolean = false,
-	bedrockCacheBreakpoint: boolean = false
+	cacheBreakpointProvider?: CacheBreakpointProvider
 ): ai.ModelMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
@@ -61,11 +61,10 @@ export function toAIMessage(
 					content: userContent
 				};
 
-				// If this is a cache breakpoint, note it in the message
-				// content. This is only used by the Bedrock provider.
-				if (cacheBreakpoint && bedrockCacheBreakpoint) {
+				// If this is a cache breakpoint, note it in the message content.
+				if (cacheBreakpoint) {
 					cacheBreakpoint = false;
-					markBedrockCacheBreakpoint(messageContent);
+					markCacheBreakpoint(messageContent, cacheBreakpointProvider);
 				}
 				aiMessages.push(messageContent);
 			}
@@ -82,9 +81,9 @@ export function toAIMessage(
 						handleGetPlotToolResultForChatCompletions(part, toolCall, aiMessages);
 					} else {
 						const toolMessage = convertToolResultPartToAiToolMessage(part, toolCall);
-						if (cacheBreakpoint && bedrockCacheBreakpoint) {
+						if (cacheBreakpoint) {
 							cacheBreakpoint = false;
-							markBedrockCacheBreakpoint(toolMessage);
+							markCacheBreakpoint(toolMessage, cacheBreakpointProvider);
 						}
 						aiMessages.push(toolMessage);
 					}
@@ -122,11 +121,10 @@ export function toAIMessage(
 				content,
 			};
 
-			// If this is a cache breakpoint, note it in the message
-			// content. This is only used by the Bedrock provider.
-			if (cacheBreakpoint && bedrockCacheBreakpoint) {
+			// If this is a cache breakpoint, note it in the message content.
+			if (cacheBreakpoint) {
 				cacheBreakpoint = false;
-				markBedrockCacheBreakpoint(aiMessage);
+				markCacheBreakpoint(aiMessage, cacheBreakpointProvider);
 			}
 			aiMessages.push(aiMessage);
 		} else if (message.role === vscode.LanguageModelChatMessageRole.System) {
@@ -153,10 +151,7 @@ export function toAIMessage(
 		};
 
 		// Add a cache breakpoint for our combined system prompt.
-		// This is only used by the Bedrock provider.
-		if (bedrockCacheBreakpoint) {
-			markBedrockCacheBreakpoint(systemMessage);
-		}
+		markCacheBreakpoint(systemMessage, cacheBreakpointProvider);
 
 		aiMessages.unshift(systemMessage);
 	}
@@ -165,16 +160,58 @@ export function toAIMessage(
 	return aiMessages.filter((message) => message.content.length > 0);
 }
 
-export function markBedrockCacheBreakpoint(message: ai.ModelMessage): ai.ModelMessage {
-	log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
+/**
+ * Supported providers for prompt caching.
+ */
+export type CacheBreakpointProvider = 'bedrock' | 'anthropic' | 'posit';
+
+/**
+ * Mark a message with Anthropic-style cache control.
+ */
+function markAnthropicStyleCacheBreakpoint(message: ai.ModelMessage, providerName: string): ai.ModelMessage {
+	log.trace(`[vercel] Marking ${message.role} message as a ${providerName} cache breakpoint`);
 	message.providerOptions = {
-		bedrock: {
-			cachePoint: {
-				type: 'default',
+		anthropic: {
+			cacheControl: {
+				type: 'ephemeral',
 			}
 		}
 	};
 	return message;
+}
+
+/**
+ * Map of provider names to their cache breakpoint marker functions.
+ */
+const cacheBreakpointMarkers: Record<CacheBreakpointProvider, (message: ai.ModelMessage) => ai.ModelMessage> = {
+	bedrock: (message) => {
+		log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
+		message.providerOptions = {
+			bedrock: {
+				cachePoint: {
+					type: 'default',
+				}
+			}
+		};
+		return message;
+	},
+	anthropic: (message) => markAnthropicStyleCacheBreakpoint(message, 'Anthropic'),
+	posit: (message) => markAnthropicStyleCacheBreakpoint(message, 'Posit'),
+};
+
+/**
+ * Mark a message with a cache breakpoint for the specified provider.
+ *
+ * @param message The message to mark.
+ * @param provider The provider to use for the cache breakpoint, or undefined to skip.
+ */
+export function markCacheBreakpoint(
+	message: ai.ModelMessage,
+	provider?: CacheBreakpointProvider
+): void {
+	if (provider) {
+		cacheBreakpointMarkers[provider]?.(message);
+	}
 }
 
 /**
