@@ -2171,16 +2171,15 @@ declare module 'positron' {
 	}
 
 	/**
-	 * Utilities for pasting files as paths.
+	 * Utilities for formatting file paths for use in code.
 	 */
 	namespace paths {
 		/**
-		 * Options for extracting clipboard file paths
+		 * Options for formatting file paths for use in code.
 		 */
-		export interface ExtractClipboardFilePathsOptions {
+		export interface FormatPathForCodeOptions {
 			/**
 			 * Whether to prefer relative paths when workspace context is available.
-			 * Defaults to true.
 			 */
 			preferRelative?: boolean;
 
@@ -2197,21 +2196,35 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Extract file paths from clipboard.
+		 * Format a file path for use in code.
+		 * Converts backslashes to forward slashes, optionally makes the path relative
+		 * to the workspace or user's home directory, and wraps in double quotes.
+		 *
+		 * @param filePath The file path to format
+		 * @param options Options for path formatting. Defaults to preferRelative: false.
+		 * @returns A quoted, forward-slash path ready for use in code,
+		 *  e.g., "C:/path/file.txt", "relative/path.txt", or "~/relative/path.txt"
+		 */
+		export function formatPathForCode(
+			filePath: string,
+			options?: FormatPathForCodeOptions
+		): string;
+
+		/**
+		 * Extract file paths from clipboard data.
 		 * Detects files copied from file manager and returns their paths for use in scripts.
 		 * Windows: Replaces `\` with `/`.
 		 * Surrounds paths with double quotes (and escapes any internal double quotes).
 		 * Optionally returns relative paths (e.g. to workspace or user's home directory).
-		 * Try to use core utilities (versus DIY path hacking).
-
+		 *
 		 * @param dataTransfer The clipboard data transfer object
-		 * @param options Options for path conversion
+		 * @param options Options for path formatting. Defaults to preferRelative: true.
 		 * @returns A Thenable that resolves to an array of quoted, forward-slash,
 		 *  possibly relative file paths, or null if no files detected
 		 */
 		export function extractClipboardFilePaths(
 			dataTransfer: vscode.DataTransfer,
-			options?: ExtractClipboardFilePathsOptions
+			options?: FormatPathForCodeOptions
 		): Thenable<string[] | null>;
 	}
 

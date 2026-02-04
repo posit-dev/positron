@@ -8,21 +8,21 @@ import { URI } from '../../../../base/common/uri.js';
 import { relativePath, isEqualOrParent } from '../../../../base/common/resources.js';
 
 /**
- * Options for clipboard file conversion
+ * Options for formatting a file path for use in code.
  */
-export interface ConvertClipboardFilesOptions {
+export interface FormatPathForCodeOptions {
 	/**
-	 * Whether to prefer relative paths when baseUri is available (typically the workspace folder).
+	 * Whether to prefer relative paths when baseUri is available.
 	 */
 	preferRelative?: boolean;
 
 	/**
-	 * Base URI for relative path calculation
+	 * Base URI for relative path calculation (typically the workspace folder).
 	 */
 	baseUri?: URI;
 
 	/**
-	 * User home directory URI for home-relative path calculation
+	 * User home directory URI for home-relative path calculation.
 	 */
 	homeUri?: URI;
 }
@@ -37,7 +37,7 @@ export interface ConvertClipboardFilesOptions {
  */
 export function convertClipboardFiles(
 	uriListData: string,
-	options?: ConvertClipboardFilesOptions
+	options?: FormatPathForCodeOptions
 ): string[] | null {
 	let filePaths: string[] = [];
 
@@ -64,19 +64,20 @@ export function convertClipboardFiles(
 		return null;
 	}
 
-	return filePaths.map(filePath => formatForwardSlashPath(filePath, options));
+	return filePaths.map(filePath => formatPathForCode(filePath, options));
 }
 
 /**
- * Formats a file path to forward-slash format with double quotes.
- * Uses relative path if requested and possible.
+ * Formats a file path for use in code: forward slashes, optionally relative,
+ * wrapped in double quotes with escaped internal quotes.
+ *
  * Priority: workspace-relative > home-relative > absolute
  *
  * @param filePath The file path to format
  * @param options Options for path formatting
  * @returns Quoted forward-slash path: "C:/path/file.txt", "relative/path.txt", or "~/relative/path.txt"
  */
-function formatForwardSlashPath(filePath: string, options?: ConvertClipboardFilesOptions): string {
+export function formatPathForCode(filePath: string, options?: FormatPathForCodeOptions): string {
 	if (!filePath) {
 		return '';
 	}

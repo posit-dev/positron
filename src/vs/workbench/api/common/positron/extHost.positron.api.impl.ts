@@ -37,7 +37,7 @@ import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
-import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
+import { convertClipboardFiles, formatPathForCode, FormatPathForCodeOptions } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
 
@@ -269,17 +269,49 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		// Helper to resolve path formatting options:
+		// - Falls back to workspace folder if preferRelative but no baseUri
+		// - Converts vscode.Uri to internal URI type
+		function resolvePathOptions(options?: positron.paths.FormatPathForCodeOptions): FormatPathForCodeOptions | undefined {
+			if (!options) {
+				return undefined;
+			}
+
+			let resolvedOptions = options;
+			if (options.preferRelative && !options.baseUri) {
+				const workspaceFolders = extHostWorkspace.getWorkspaceFolders();
+				if (workspaceFolders && workspaceFolders.length > 0) {
+					resolvedOptions = {
+						...options,
+						baseUri: workspaceFolders[0].uri
+					};
+				}
+			}
+
+			return {
+				...resolvedOptions,
+				baseUri: resolvedOptions.baseUri ? URI.from(resolvedOptions.baseUri) : undefined,
+				homeUri: resolvedOptions.homeUri ? URI.from(resolvedOptions.homeUri) : undefined
+			};
+		}
+
 		const paths: typeof positron.paths = {
+			/**
+			 * Format a file path for use in code.
+			 */
+			formatPathForCode(
+				filePath: string,
+				options?: positron.paths.FormatPathForCodeOptions
+			): string {
+				return formatPathForCode(filePath, resolvePathOptions(options));
+			},
+
 			/**
 			 * Extract file paths from files on the clipboard.
 			 */
 			async extractClipboardFilePaths(
 				dataTransfer: vscode.DataTransfer,
-				options?: {
-					preferRelative?: boolean;
-					baseUri?: vscode.Uri;
-					homeUri?: vscode.Uri;
-				}
+				options?: positron.paths.FormatPathForCodeOptions
 			): Promise<string[] | null> {
 				// Get URI list data from VS Code DataTransfer
 				const uriListItem = dataTransfer.get('text/uri-list');
@@ -293,25 +325,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 						return null;
 					}
 
-					// Provide workspace fallback if no baseUri specified
-					let resolvedOptions = options;
-					if (options?.preferRelative && !options.baseUri) {
-						const workspaceFolders = extHostWorkspace.getWorkspaceFolders();
-						if (workspaceFolders && workspaceFolders.length > 0) {
-							resolvedOptions = {
-								...options,
-								baseUri: workspaceFolders[0].uri
-							};
-						}
-					}
-
-					const convertOptions = resolvedOptions ? {
-						...resolvedOptions,
-						baseUri: resolvedOptions.baseUri ? URI.from(resolvedOptions.baseUri) : undefined,
-						homeUri: resolvedOptions.homeUri ? URI.from(resolvedOptions.homeUri) : undefined
-					} : undefined;
-
-					return convertClipboardFiles(uriListData, convertOptions);
+					return convertClipboardFiles(uriListData, resolvePathOptions(options));
 				} catch {
 					return null;
 				}

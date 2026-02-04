@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as path from 'path';
+import * as os from 'os';
 import { generateDirectInjectionId, PromiseHandles } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
@@ -497,7 +498,10 @@ export async function getFilePathForLoad(resource?: vscode.Uri): Promise<string 
 	// Verify file exists
 	try {
 		await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
-		return filePath.replace(/\\/g, '/'); // POSIX separators for R
+		return positron.paths.formatPathForCode(filePath, {
+			preferRelative: true,
+			homeUri: vscode.Uri.file(os.homedir())
+		});
 	} catch {
 		return undefined;
 	}
@@ -516,7 +520,7 @@ export async function loadRDataFile(resource?: vscode.Uri, showErrors = true): P
 	}
 	const filePath = await getFilePathForLoad(resource);
 	if (filePath) {
-		const command = `load(${JSON.stringify(filePath)})`;
+		const command = `load(${filePath})`; // filePath is already quoted
 		await positron.runtime.executeCode('r', command, true); // focus=true to show result
 	} else if (showErrors) {
 		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: File not found or invalid path {0}', JSON.stringify(resource)));
@@ -534,7 +538,7 @@ export async function loadRdsFileWithVarName(resource: vscode.Uri, varName: stri
 	if (!filePath) {
 		throw new Error(vscode.l10n.t('File not found or invalid path {0}', JSON.stringify(resource)));
 	}
-	const command = `${varName} <- readRDS(${JSON.stringify(filePath)})`;
+	const command = `${varName} <- readRDS(${filePath})`; // filePath is already quoted
 	await positron.runtime.executeCode('r', command, true);
 }
 
