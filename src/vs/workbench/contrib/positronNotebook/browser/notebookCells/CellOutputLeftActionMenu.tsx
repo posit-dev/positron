@@ -10,6 +10,7 @@ import './CellOutputLeftActionMenu.css';
 import React from 'react';
 
 // Other dependencies.
+import { localize } from '../../../../../nls.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useMenu } from '../useMenu.js';
 import { useMenuActions } from '../useMenuActions.js';
@@ -17,6 +18,8 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { NotebookCellMoreActionsMenu } from './actionBar/NotebookCellMoreActionsMenu.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+
+const cellOutputActions = localize('cellOutputActions', 'Cell Output Actions');
 
 interface CellOutputLeftActionMenuProps {
 	cell: PositronNotebookCodeCell;
@@ -42,6 +45,7 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 	return (
 		<div className='cell-output-left-action-menu'>
 			<NotebookCellMoreActionsMenu
+				ariaLabel={cellOutputActions}
 				cell={cell}
 				hoverManager={instance.hoverManager}
 				instance={instance}
