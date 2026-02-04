@@ -22,7 +22,9 @@ const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
 		disableTitleTags: true,
 	})]
 	: [];
-const customReporter = process.env.ENABLE_CUSTOM_REPORTER !== 'false'
+// Custom reporter is opt-in. Supports boolean-like values: true/false, 1/0, yes/no
+const enableCustomReporter = process.env.ENABLE_CUSTOM_REPORTER?.toLowerCase() ?? '';
+const customReporter = ['true', '1', 'yes'].includes(enableCustomReporter)
 	? [['@midleman/playwright-reporter',
 		{
 			repoName: 'positron',
