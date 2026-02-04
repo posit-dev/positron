@@ -48,7 +48,7 @@ interface ConcreteModelProviderConstructor {
  * Result of resolving autoconfigure credentials for a model.
  */
 interface ResolvedCredentials {
-	apiKey: string;
+	apiKey?: string;
 	baseUrl?: string;
 	autoconfigure: NonNullable<ModelConfig['autoconfigure']>;
 }
@@ -80,10 +80,10 @@ async function resolveAutoconfigureCredentials(model: ConcreteModelProviderConst
 	} else if (autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
 		if (model.autoconfigure) {
 			const result = await model.autoconfigure();
-			if (result.configured && result.configuration?.apiKey) {
+			if (result.configured) {
 				return {
-					apiKey: result.configuration.apiKey,
-					baseUrl: result.configuration.baseUrl,
+					apiKey: result.configuration?.apiKey,
+					baseUrl: result.configuration?.baseUrl,
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
 						message: result.message,
@@ -157,7 +157,7 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 				model: model.source.defaults.model,
 				toolCalls: model.source.defaults.toolCalls,
 				completions: model.source.defaults.completions,
-				apiKey: credentials.apiKey,
+				...(credentials.apiKey && { apiKey: credentials.apiKey }),
 				...(credentials.baseUrl && { baseUrl: credentials.baseUrl }),
 				autoconfigure: credentials.autoconfigure,
 			};

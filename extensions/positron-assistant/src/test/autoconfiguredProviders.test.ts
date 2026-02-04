@@ -24,8 +24,7 @@ suite('Autoconfigured Providers', () => {
 		// Mock all Custom-type autoconfigure methods to return configured: true
 		AWSModelProvider.autoconfigure = async () => ({
 			configured: true,
-			message: 'Test AWS creds',
-			configuration: { apiKey: 'test-key' }
+			message: 'Test AWS creds'
 		});
 
 		SnowflakeModelProvider.autoconfigure = async () => ({
