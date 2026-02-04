@@ -1,0 +1,8 @@
+test/**
+src/**
+tsconfig.json
+out/test/**
+extension.webpack.config.js
+cgmanifest.json
+package-lock.json
+pdfjs-legacy-dist.zip

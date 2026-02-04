@@ -64,6 +64,7 @@ export let dirs = [
 	'extensions/markdown-math',
 	'extensions/media-preview',
 	'extensions/merge-conflict',
+	'extensions/pdf-viewer',
 	'extensions/mermaid-chat-features',
 	'extensions/microsoft-authentication',
 	'extensions/notebook-renderers',

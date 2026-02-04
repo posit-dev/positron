@@ -1,0 +1,56 @@
+{
+	"name": "pdf-viewer",
+	"displayName": "PDF Viewer",
+	"description": "Preview PDF files in Positron",
+	"extensionKind": [
+		"ui",
+		"workspace"
+	],
+	"version": "1.0.0",
+	"publisher": "positron",
+	"engines": {
+		"vscode": "^1.70.0"
+	},
+	"main": "./out/extension",
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [],
+	"capabilities": {
+		"virtualWorkspaces": true,
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
+	"contributes": {
+		"customEditors": [
+			{
+				"viewType": "pdfViewer.previewEditor",
+				"displayName": "PDF Preview",
+				"priority": "default",
+				"selector": [
+					{
+						"filenamePattern": "*.pdf"
+					}
+				]
+			}
+		]
+	},
+	"scripts": {
+		"compile": "gulp compile-extension:pdf-viewer",
+		"watch": "gulp watch-extension:pdf-viewer",
+		"vscode:prepublish": "npm run build-ext",
+		"build-ext": "node ../../node_modules/gulp/bin/gulp.js --gulpfile ../../build/gulpfile.extensions.js compile-extension:pdf-viewer ./tsconfig.json"
+	},
+	"dependencies": {
+		"@vscode/extension-telemetry": "^0.9.8",
+		"pdfjs-dist": "^5.4.624"
+	},
+	"devDependencies": {
+		"@types/node": "22.x"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/posit-dev/positron.git"
+	}
+}
