@@ -23,6 +23,7 @@ import sys
 from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
+import matplotlib.pyplot as plt
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
@@ -95,19 +96,20 @@ class FigureManagerPositron(FigureManagerBase):
         # Detect which plotting library was used
         kind = _detect_plotting_library()
 
-        # Create a callback to close the matplotlib figure when the plot is closed.
-        # This ensures matplotlib's internal figure cache is cleared when the frontend
-        # closes the plot, preventing figures from being restored when the comm reopens.
-        def on_close() -> None:
-            import matplotlib.pyplot as plt
-
-            plt.close(num)
-
         # Create the plot instance via the plots service.
         self._plots_service = kernel.plots_service
         self._plot = self._plots_service.create_plot(
-            canvas.render, canvas.intrinsic_size, kind, execution_id, code, num, on_close
+            canvas.render, canvas.intrinsic_size, kind, execution_id, code, num, self._on_close
         )
+
+    def _on_close(self) -> None:
+        """
+        Close the matplotlib figure when the plot is closed.
+
+        This ensures matplotlib's internal figure cache is cleared when the frontend
+        closes the plot, preventing figures from being restored when the comm reopens.
+        """
+        plt.close(self.num)
 
     @property
     def closed(self) -> bool:
