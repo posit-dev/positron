@@ -23,6 +23,8 @@ export interface GhostCellSuggestionResult {
 	explanation: string;
 	/** The language of the code (e.g., 'python', 'r') */
 	language: string;
+	/** The name of the model that generated the suggestion */
+	modelName?: string;
 }
 
 /**
@@ -89,6 +91,7 @@ export async function generateGhostCellSuggestion(
 		log.warn('[ghost-cell] No language model available');
 		return null;
 	}
+	const modelName = model.name;
 
 	// Build context from the executed cell
 	const cellContent = executedCell.document.getText();
@@ -145,6 +148,9 @@ export async function generateGhostCellSuggestion(
 
 		// Parse streaming XML response
 		const result = await parseStreamingXML(response.text, log, token, language, onProgress);
+		if (result) {
+			result.modelName = modelName;
+		}
 		return result;
 
 	} catch (error) {
@@ -311,7 +317,7 @@ async function getModel(
 	log.debug(`[ghost-cell] Available models: ${allModels.length} total`);
 
 	// Check configuration setting first (highest priority)
-	const config = vscode.workspace.getConfiguration('positron.assistant');
+	const config = vscode.workspace.getConfiguration('positron.assistant.notebook');
 	const configuredPatterns = config.get<string[]>('ghostCellSuggestions.model') || [];
 	if (configuredPatterns.length > 0) {
 		log.debug(`[ghost-cell] Checking configured model patterns: ${JSON.stringify(configuredPatterns)}`);
