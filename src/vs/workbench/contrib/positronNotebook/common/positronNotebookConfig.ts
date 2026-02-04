@@ -38,6 +38,9 @@ export const POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY = 'positron.assistant
 // Configuration key for ghost cell suggestion mode (push = automatic, pull = on-demand)
 export const POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY = 'positron.assistant.notebook.ghostCellSuggestions.mode';
 
+// Configuration key for ghost cell suggestion model patterns
+export const POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY = 'positron.assistant.notebook.ghostCellSuggestions.model';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -136,6 +139,16 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.assistant.notebook.ghostCellSuggestions.mode',
 				'Controls how ghost cell suggestions are triggered. "push" shows suggestions automatically, "pull" waits for you to request them.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY]: {
+			type: 'array',
+			items: { type: 'string' },
+			default: ['haiku', 'mini'],
+			markdownDescription: localize(
+				'positron.assistant.notebook.ghostCellSuggestions.model',
+				'An ordered array of model patterns to try when generating ghost cell suggestions. Patterns are tried in order until a match is found. Each pattern supports partial matching on model ID or name (case-insensitive). If no patterns match, falls back to the current chat session model, then the current provider\'s model, then the first available model.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},

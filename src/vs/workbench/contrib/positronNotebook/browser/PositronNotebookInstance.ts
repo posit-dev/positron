@@ -2453,14 +2453,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 
 			if (result && typeof result === 'object' && 'code' in result) {
-				const suggestion = result as { code: string; explanation: string; language: string };
+				const suggestion = result as { code: string; explanation: string; language: string; modelName?: string };
 				this._ghostCellState.set({
 					status: 'ready',
 					executedCellIndex,
 					code: suggestion.code,
 					explanation: suggestion.explanation,
 					language: suggestion.language,
-					suggestionMode
+					suggestionMode,
+					modelName: suggestion.modelName
 				}, undefined);
 			} else {
 				// No suggestion generated, hide ghost cell

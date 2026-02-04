@@ -505,8 +505,10 @@ export const GhostCell: React.FC = () => {
 		const renderer = new PositronModalReactRenderer({
 			container: workbenchLayoutService.getContainer(DOM.getWindow(containerRef.current))
 		});
-		renderer.render(<GhostCellInfoModalDialog renderer={renderer} />);
-	}, [workbenchLayoutService]);
+		// Extract modelName from state if available
+		const modelName = ghostCellState.status === 'ready' ? ghostCellState.modelName : undefined;
+		renderer.render(<GhostCellInfoModalDialog modelName={modelName} renderer={renderer} />);
+	}, [workbenchLayoutService, ghostCellState]);
 
 	// Opt-in prompt handlers
 	const handleOptInEnable = React.useCallback(() => {
