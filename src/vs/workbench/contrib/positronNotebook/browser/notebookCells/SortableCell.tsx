@@ -90,32 +90,32 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 		>
 			<button
 				ref={setActivatorNodeRef}
-				aria-label="Drag to reorder cell"
-				className="cell-drag-handle"
-				type="button"
+				aria-label='Drag to reorder cell'
+				className='cell-drag-handle'
+				type='button'
 				{...attributes}
 				{...listeners}
 			>
-				<span className="codicon codicon-gripper" />
+				<span className='codicon codicon-gripper' />
 			</button>
 			{/* Lines above for multi-drag */}
 			{isDragging && cellsAbove > 0 && (
-				<div className="drag-lines-container drag-lines-above">
+				<div className='drag-lines-container drag-lines-above'>
 					{Array.from({ length: cellsAbove }).map((_, i) => (
-						<div key={`above-${i}`} className="drag-indicator-line" />
+						<div key={`above-${i}`} className='drag-indicator-line' />
 					))}
 				</div>
 			)}
 			{isDragging ? (
-				<div className="drag-content-wrapper" style={{ maxHeight: maxDragHeight }}>
+				<div className='drag-content-wrapper' style={{ maxHeight: maxDragHeight }}>
 					{children}
 				</div>
 			) : children}
 			{/* Lines below for multi-drag */}
 			{isDragging && cellsBelow > 0 && (
-				<div className="drag-lines-container drag-lines-below">
+				<div className='drag-lines-container drag-lines-below'>
 					{Array.from({ length: cellsBelow }).map((_, i) => (
-						<div key={`below-${i}`} className="drag-indicator-line" />
+						<div key={`below-${i}`} className='drag-indicator-line' />
 					))}
 				</div>
 			)}
