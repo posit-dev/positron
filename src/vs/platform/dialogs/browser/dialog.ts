@@ -43,10 +43,22 @@ export function createWorkbenchDialogOptions(options: Partial<IDialogOptions>, k
 	};
 }
 
-export function createBrowserAboutDialogDetails(productService: IProductService): { title: string; details: string; detailsToCopy: string } {
+// --- Start Positron ---
+/**
+ * Attribution info for the About dialog.
+ */
+export interface IAboutDialogAttribution {
+	licensee?: string;
+	issuer?: string;
+}
+// --- End Positron ---
+
+// --- Start Positron ---
+export function createBrowserAboutDialogDetails(productService: IProductService, attribution?: IAboutDialogAttribution): { title: string; details: string; detailsToCopy: string } {
+	// --- End Positron ---
 	const detailString = (useAgo: boolean): string => {
-		return localize('aboutDetail',
-			// --- Start Positron ---
+		// --- Start Positron ---
+		let detail = localize('aboutDetail',
 			"{0} Version: {1} build {2}\nCode - OSS Version: {3}\nCommit: {4}\nDate: {5}\nBrowser: {6}",
 			productService.nameLong,
 			productService.positronVersion,
@@ -57,6 +69,12 @@ export function createBrowserAboutDialogDetails(productService: IProductService)
 			productService.date ? `${productService.date}${useAgo ? ' (' + fromNow(new Date(productService.date), true) + ')' : ''}` : 'Unknown',
 			navigator.userAgent
 		);
+		// --- Start Positron ---
+		if (attribution?.licensee) {
+			detail += '\n' + localize('aboutLicensee', "Licensed to: {0}", attribution.licensee);
+		}
+		return detail;
+		// --- End Positron ---
 	};
 
 	const details = detailString(true);

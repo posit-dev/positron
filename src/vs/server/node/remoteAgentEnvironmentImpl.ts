@@ -21,6 +21,9 @@ import { ServerConnectionToken, ServerConnectionTokenType } from './serverConnec
 import { IExtensionHostStatusService } from './extensionHostStatusService.js';
 import { IUserDataProfilesService } from '../../platform/userDataProfile/common/userDataProfile.js';
 import { joinPath } from '../../base/common/resources.js';
+// --- Start Positron ---
+import { IPositronAttribution } from '../../platform/remote/common/remoteAgentEnvironment.js';
+// --- End Positron ---
 
 export class RemoteAgentEnvironmentChannel implements IServerChannel {
 
@@ -31,6 +34,9 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 		private readonly _environmentService: IServerEnvironmentService,
 		private readonly _userDataProfilesService: IUserDataProfilesService,
 		private readonly _extensionHostStatusService: IExtensionHostStatusService,
+		// --- Start Positron ---
+		private readonly _positronAttribution?: IPositronAttribution,
+		// --- End Positron ---
 	) {
 	}
 
@@ -125,7 +131,10 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 				home: this._userDataProfilesService.profilesHome,
 				all: [...this._userDataProfilesService.profiles].map(profile => ({ ...profile }))
 			},
-			isUnsupportedGlibc
+			isUnsupportedGlibc,
+			// --- Start Positron ---
+			positronAttribution: this._positronAttribution
+			// --- End Positron ---
 		};
 	}
 
