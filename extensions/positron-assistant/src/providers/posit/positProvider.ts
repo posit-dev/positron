@@ -11,6 +11,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { deleteConfiguration, ModelConfig, SecretStorage } from '../../config';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
+import * as ai from 'ai';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
 import { VercelModelProvider } from '../base/vercelModelProvider.js';
 
@@ -416,6 +417,16 @@ export class PositModelProvider extends VercelModelProvider {
 		} catch (error) {
 			if (error instanceof Anthropic.APIError) {
 				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
+
+				// Check for rate limit error with retry-after header
+				if (error.status === 429) {
+					const retryAfter = error.headers?.get('retry-after');
+					if (retryAfter) {
+						throw new Error(`[${this.providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
+					}
+					throw new Error(`[${this.providerName}] Rate limit exceeded. Please try again later.`);
+				}
+
 				let data: any;
 				try {
 					data = JSON.parse(error.message);
@@ -423,7 +434,7 @@ export class PositModelProvider extends VercelModelProvider {
 					// Ignore JSON parse errors.
 				}
 				if (data?.error?.type === 'overloaded_error') {
-					throw new Error(`API is temporarily overloaded.`);
+					throw new Error(`[${this.providerName}] API is temporarily overloaded.`);
 				}
 			} else if (error instanceof Anthropic.AnthropicError) {
 				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
@@ -495,6 +506,27 @@ export class PositModelProvider extends VercelModelProvider {
 
 	private onText(textDelta: string, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
 		progress.report(new vscode.LanguageModelTextPart(textDelta));
+	}
+
+	/**
+	 * Handles Posit AI-specific errors during stream processing (Vercel SDK path).
+	 *
+	 * Checks for rate limit errors (429) and extracts the retry-after header
+	 * to provide a more helpful error message to the user.
+	 *
+	 * @param error - The error that occurred during streaming
+	 * @throws A transformed error with retry information if rate limited
+	 */
+	protected override handleStreamError(error: unknown): never {
+		// Check for rate limit error with retry-after header
+		if (ai.APICallError.isInstance(error) && error.statusCode === 429) {
+			const retryAfter = error.responseHeaders?.['retry-after'];
+			if (retryAfter) {
+				throw new Error(`[${this.providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
+			}
+			throw new Error(`[${this.providerName}] Rate limit exceeded. Please try again later.`);
+		}
+		throw error;
 	}
 
 	/**
