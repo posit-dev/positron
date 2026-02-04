@@ -247,7 +247,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         with:
-          project: ${{ inputs.project }}
+          identifier: ${{ inputs.project }}
 
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
