@@ -1328,7 +1328,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			if (hasEnabledProviders) {
 				// Providers are enabled but user needs to sign in
 				const signInMessage = localize('positronAssistant.signInMessage', "Sign in to a provider");
-				welcomeText = localize('positronAssistant.signInSetupMessage', "To start using Positron Assistant, sign in to an enabled provider.");
+				welcomeText = localize('positronAssistant.signInSetupMessage', "To start using Positron Assistant, sign in to a provider.");
 				welcomeText += `\n\n[${signInMessage}](command:positron-assistant.configureProviders)`;
 			} else {
 				// No providers enabled - need to enable first
