@@ -120,7 +120,7 @@ export function SortableCellList({
 			activeCellsRef.current = [];
 			// Defer React state update to next frame - this prevents sortableItems
 			// from changing while dnd-kit is still cleaning up, which causes crashes
-			requestAnimationFrame(() => {
+			DOM.getActiveWindow().requestAnimationFrame(() => {
 				setActiveCells([]);
 				setPrimaryDragHandleId(null);
 				DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
@@ -164,7 +164,7 @@ export function SortableCellList({
 	const handleDragCancel = React.useCallback(() => {
 		activeCellsRef.current = [];
 		// Defer state update to next frame to allow dnd-kit cleanup
-		requestAnimationFrame(() => {
+		DOM.getActiveWindow().requestAnimationFrame(() => {
 			setActiveCells([]);
 			setPrimaryDragHandleId(null);
 			DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
