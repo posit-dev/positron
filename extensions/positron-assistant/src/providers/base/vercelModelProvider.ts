@@ -198,7 +198,26 @@ export abstract class VercelModelProvider extends ModelProvider {
 			abortSignal: signal,
 		});
 
-		await this.handleStreamResponse(result, model, progress, token, requestId);
+		try {
+			await this.handleStreamResponse(result, model, progress, token, requestId);
+		} catch (error) {
+			// Allow subclasses to handle provider-specific errors
+			this.handleStreamError(error);
+		}
+	}
+
+	/**
+	 * Handles errors that occur during stream processing.
+	 *
+	 * Subclasses can override this method to handle provider-specific errors
+	 * (e.g., rate limiting with retry-after headers). The default implementation
+	 * simply re-throws the error.
+	 *
+	 * @param error - The error that occurred during streaming
+	 * @throws The original error or a transformed error with additional context
+	 */
+	protected handleStreamError(error: unknown): never {
+		throw error;
 	}
 
 	/**

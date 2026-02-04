@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import Anthropic from '@anthropic-ai/sdk';
+import * as ai from 'ai';
 import { createAnthropic, AnthropicProvider } from '@ai-sdk/anthropic';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../config';
@@ -15,6 +16,8 @@ import {
 	fetchAnthropicModelsFromApi,
 	getAnthropicModelsFromConfig
 } from './anthropicModelUtils.js';
+import { getAllModelDefinitions } from '../../modelDefinitions.js';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 
 /**
  * Anthropic Claude model provider implementation.
@@ -101,6 +104,7 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	 */
 	protected override initializeProvider() {
 		this.aiProvider = createAnthropic({ apiKey: this._config.apiKey });
+
 	}
 
 	/**
@@ -150,5 +154,26 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 			token,
 			{ toolResultExperimentalContent, anthropicCacheBreakpoint: true }
 		);
+	}
+
+	/**
+	 * Handles Anthropic-specific errors during stream processing.
+	 *
+	 * Checks for rate limit errors (429) and extracts the retry-after header
+	 * to provide a more helpful error message to the user.
+	 *
+	 * @param error - The error that occurred during streaming
+	 * @throws A transformed error with retry information if rate limited
+	 */
+	protected override handleStreamError(error: unknown): never {
+		// Check for rate limit error with retry-after header
+		if (ai.APICallError.isInstance(error) && error.statusCode === 429) {
+			const retryAfter = error.responseHeaders?.['retry-after'];
+			if (retryAfter) {
+				throw new Error(`[${this.providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
+			}
+			throw new Error(`[${this.providerName}] Rate limit exceeded. Please try again later.`);
+		}
+		throw error;
 	}
 }
