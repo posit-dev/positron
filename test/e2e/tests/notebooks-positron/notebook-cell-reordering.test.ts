@@ -309,12 +309,107 @@ test.describe('Notebook Cell Reordering', {
 		await notebooksPositron.expectCellCountToBe(12);
 	});
 
-	// TODO: Add multi-cell drag-and-drop tests once multi-drag support is implemented.
-	// Multi-drag would allow selecting multiple cells (e.g., via Shift+Click) and
-	// dragging them together to a new position. Currently, multi-cell moves are
-	// only supported via keyboard (Alt+Arrow with multi-select).
-	// Related tests to add:
-	// - 'Drag-and-drop: move multiple selected cells together'
-	// - 'Drag-and-drop: multi-select drag with undo/redo'
-	// - 'Drag-and-drop: multi-select drag across scroll boundary'
+	// --- Multi-Cell Drag-and-Drop Tests ---
+
+	test('Multi-drag: drag multiple selected cells together', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create notebook with 5 cells
+		await notebooksPositron.newNotebook({ codeCells: 5 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3', '# Cell 4']);
+
+		// Select cells 1 and 2 (multi-select)
+		await notebooksPositron.selectCellAtIndex(1, { editMode: false });
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellsToBeSelected([1, 2]);
+
+		// Drag the selected cells to position 4
+		await notebooksPositron.dragCellToPosition(1, 4);
+
+		// Verify cells 1 and 2 moved together to position 3 and 4
+		// Original order: 0, 1, 2, 3, 4
+		// After move: 0, 3, 4, 1, 2
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 3', '# Cell 4', '# Cell 1', '# Cell 2']);
+		await notebooksPositron.expectCellCountToBe(5);
+	});
+
+	test('Multi-drag: single cell drag ignores multi-selection when dragging unselected cell', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create notebook with 5 cells
+		await notebooksPositron.newNotebook({ codeCells: 5 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3', '# Cell 4']);
+
+		// Select cells 1 and 2 (multi-select)
+		await notebooksPositron.selectCellAtIndex(1, { editMode: false });
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellsToBeSelected([1, 2]);
+
+		// Drag cell 0 (not part of selection) to position 3
+		// This should only move cell 0, not the selected cells
+		await notebooksPositron.dragCellToPosition(0, 3);
+
+		// Only cell 0 should move
+		// Original order: 0, 1, 2, 3, 4
+		// After move: 1, 2, 3, 0, 4
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 2', '# Cell 3', '# Cell 0', '# Cell 4']);
+		await notebooksPositron.expectCellCountToBe(5);
+	});
+
+	test('Multi-drag: undo/redo multi-cell drag operation', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create notebook with 4 cells
+		await notebooksPositron.newNotebook({ codeCells: 4 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3']);
+
+		// Select cells 0 and 1 (multi-select)
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellsToBeSelected([0, 1]);
+
+		// Drag selected cells to position 3
+		await notebooksPositron.dragCellToPosition(0, 3);
+
+		// Verify cells moved
+		// Original order: 0, 1, 2, 3
+		// After move: 2, 3, 0, 1
+		await notebooksPositron.expectCellContentsToBe(['# Cell 2', '# Cell 3', '# Cell 0', '# Cell 1']);
+
+		// Undo the multi-cell move
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+		await notebooksPositron.performCellAction('undo');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3']);
+
+		// Redo the multi-cell move
+		await notebooksPositron.performCellAction('redo');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 2', '# Cell 3', '# Cell 0', '# Cell 1']);
+	});
+
+	test('Multi-drag: drag three cells to beginning of notebook', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create notebook with 6 cells
+		await notebooksPositron.newNotebook({ codeCells: 6 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3', '# Cell 4', '# Cell 5']);
+
+		// Select cells 3, 4, and 5 (multi-select)
+		await notebooksPositron.selectCellAtIndex(3, { editMode: false });
+		await keyboard.press('Shift+ArrowDown');
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellsToBeSelected([3, 4, 5]);
+
+		// Drag selected cells to position 0
+		await notebooksPositron.dragCellToPosition(3, 0);
+
+		// Verify cells moved to beginning
+		// Original order: 0, 1, 2, 3, 4, 5
+		// After move: 3, 4, 5, 0, 1, 2
+		await notebooksPositron.expectCellContentsToBe(['# Cell 3', '# Cell 4', '# Cell 5', '# Cell 0', '# Cell 1', '# Cell 2']);
+		await notebooksPositron.expectCellCountToBe(6);
+	});
 });
