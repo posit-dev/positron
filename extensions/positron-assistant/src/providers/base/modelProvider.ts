@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { ModelConfig, SecretStorage, getMaxConnectionAttempts } from '../../config';
+import { ModelConfig, getMaxConnectionAttempts } from '../../config';
 import { isAuthorizationError } from '../../utils';
 import { applyModelFilters } from '../../modelFilters';
 import { getAllModelDefinitions } from '../../modelDefinitions';
@@ -113,12 +113,10 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 *
 	 * @param _config - Configuration for this model provider including API keys, base URLs, and model settings
 	 * @param _context - VS Code extension context for accessing storage and other extension features
-	 * @param _storage - Secret storage for managing sensitive credentials
 	 */
 	constructor(
 		protected readonly _config: ModelConfig,
 		protected readonly _context?: vscode.ExtensionContext,
-		protected readonly _storage?: SecretStorage,
 	) {
 		this.id = _config.id;
 		this.displayName = _config.name;

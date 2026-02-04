@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelProvider } from '../base/modelProvider';
-import { getProviderTimeoutMs, ModelConfig, SecretStorage } from '../../config';
+import { getProviderTimeoutMs, ModelConfig } from '../../config';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
 import { recordTokenUsage, recordRequestTokenUsage, log } from '../../extension.js';
@@ -86,10 +86,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	constructor(
 		_config: ModelConfig,
 		_context?: vscode.ExtensionContext,
-		_storage?: SecretStorage,
 		client?: Anthropic, // For testing only - production uses constructor initialization
 	) {
-		super(_config, _context, _storage);
+		super(_config, _context);
 		this._client = client ?? new Anthropic({ apiKey: _config.apiKey });
 	}
 
