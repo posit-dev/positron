@@ -1,5 +1,5 @@
 ---
-name: Playwright Automation Gap Issue Identifier/Writter (Data Science Workflows)
+name: pw-auto-missing
 description: Identify missing Playwright automation coverage in Positron IDE by focusing on real data science user workflows, and generate complete GitHub issues with TypeScript test plans.
 ---
 
