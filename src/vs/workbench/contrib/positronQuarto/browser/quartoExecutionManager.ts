@@ -268,14 +268,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			});
 		}
 
-		// Execute each inline code range
+		// Execute each code range
 		for (const execution of executions) {
 			if (token?.isCancellationRequested) {
 				break;
 			}
 
 			try {
-				await this._executeInlineCode(documentUri, execution.cell, execution.codeRange, token);
+				await this._executeRange(documentUri, execution.cell, execution.codeRange, token);
 			} catch (error) {
 				this._logService.error(`[QuartoExecutionManager] Inline execution error for cell ${execution.cell.id}:`, error);
 				this._setCellState(execution.cell.id, CellExecutionState.Error, documentUri);
@@ -285,8 +285,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	/**
 	 * Execute a specific range of code within a cell.
+	 * This is the unified execution method used by both cell execution and inline execution.
 	 */
-	private async _executeInlineCode(
+	private async _executeRange(
 		documentUri: URI,
 		cell: QuartoCodeCell,
 		codeRange: Range,
@@ -302,7 +303,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 			if (primaryLanguage && cellLanguage !== primaryLanguage) {
 				// Non-primary language: execute via console service
-				return this._executeInlineCodeViaConsole(documentUri, cell, codeRange, token);
+				return this._executeRangeViaConsole(documentUri, cell, codeRange, token);
 			}
 		}
 
@@ -342,12 +343,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		this._executionTrackers.set(cell.id, tracker);
 
+		// Track the execution range for decorations BEFORE firing state change
+		// This ensures decorations can read the range when handling the state change event
+		this._executionRanges.set(cell.id, codeRange);
+
 		// Update state to running
 		this._runningCells.set(documentUri, cell.id);
 		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
-
-		// Track the execution range for decorations
-		this._executionRanges.set(cell.id, codeRange);
 
 		// Clear previous outputs for this cell
 		this._outputsByCell.delete(cell.id);
@@ -445,18 +447,21 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Execute inline code via the console service.
+	 * Execute a range of code via the console service.
 	 * This is used for cells whose language doesn't match the document's primary language.
 	 */
-	private async _executeInlineCodeViaConsole(
+	private async _executeRangeViaConsole(
 		documentUri: URI,
 		cell: QuartoCodeCell,
 		codeRange: Range,
 		_token?: CancellationToken
 	): Promise<void> {
 		this._logService.debug(
-			`[QuartoExecutionManager] Executing ${cell.language} inline code via console (non-primary language)`
+			`[QuartoExecutionManager] Executing ${cell.language} code via console (non-primary language)`
 		);
+
+		// Track the execution range for decorations BEFORE firing state change
+		this._executionRanges.set(cell.id, codeRange);
 
 		// Update state to running
 		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
@@ -498,6 +503,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				error
 			);
 			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+		} finally {
+			// Clean up execution range
+			this._executionRanges.delete(cell.id);
 		}
 	}
 
@@ -635,6 +643,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	/**
 	 * Execute a single cell and collect output.
+	 * Internally converts the cell to a range and delegates to _executeRange.
 	 */
 	private async _executeCell(
 		documentUri: URI,
@@ -649,156 +658,39 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return;
 		}
 
-		// Check if cell language matches the document's primary language
-		// If not, execute via console service instead of kernel
+		// Look up the current cell position from the document model
+		// (the cell may have moved if the document was edited while queued)
 		const textModel = await this._getTextModel(documentUri);
-		if (textModel) {
-			const quartoModel = this._documentModelService.getModel(textModel);
-			const primaryLanguage = quartoModel.primaryLanguage?.toLowerCase();
-			const cellLanguage = cell.language.toLowerCase();
-
-			if (primaryLanguage && cellLanguage !== primaryLanguage) {
-				// Non-primary language: execute via console service
-				return this._executeCellViaConsole(documentUri, cell, token);
-			}
-		}
-
-		// Primary language: execute via kernel
-		// Ensure kernel is ready
-		const session = await this._kernelManager.ensureKernelForDocument(documentUri, token);
-		if (!session) {
-			this._logService.warn(`[QuartoExecutionManager] No session available for ${documentUri.toString()}`);
+		if (!textModel) {
+			this._logService.warn(`[QuartoExecutionManager] No text model available for ${documentUri.toString()}`);
 			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
 			this._removeFromQueue(documentUri, cell.id);
 			return;
 		}
 
-		// Check cancellation
-		if (token?.isCancellationRequested) {
+		const quartoModel = this._documentModelService.getModel(textModel);
+		const currentCell = quartoModel.getCellById(cell.id);
+		if (!currentCell) {
+			this._logService.warn(`[QuartoExecutionManager] Cell ${cell.id} no longer exists in document`);
+			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			this._removeFromQueue(documentUri, cell.id);
 			return;
 		}
 
-		// Create execution tracker
-		const executionId = `${QUARTO_EXEC_PREFIX}-${generateUuid()}`;
-		const cts = new CancellationTokenSource(token);
-		const deferred = new DeferredPromise<void>();
-		const disposables = new DisposableStore();
+		// Convert the cell to a range covering its code content
+		const codeRange = new Range(
+			currentCell.codeStartLine,
+			1,
+			currentCell.codeEndLine,
+			textModel.getLineMaxColumn(currentCell.codeEndLine)
+		);
 
-		const tracker: ExecutionTracker = {
-			execution: {
-				cellId: cell.id,
-				state: CellExecutionState.Running,
-				executionId,
-				startTime: Date.now(),
-				documentUri,
-			},
-			cts,
-			deferred,
-			outputSize: 0,
-			outputCount: 0,
-			disposables,
-		};
-
-		this._executionTrackers.set(cell.id, tracker);
-
-		// Update state to running
+		// Remove from queue before executing
 		this._removeFromQueue(documentUri, cell.id);
-		this._runningCells.set(documentUri, cell.id);
-		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
 		await this._persistQueueState(documentUri);
 
-		// Clear previous outputs for this cell
-		this._outputsByCell.delete(cell.id);
-
-		try {
-			// Set up message handlers
-			this._setupMessageHandlers(tracker, session, documentUri);
-
-			// Get cell code
-			const code = await this._getCellCode(documentUri, cell);
-			if (!code) {
-				throw new Error('Could not get cell code');
-			}
-
-			// Execute the code
-			this._logService.debug(`[QuartoExecutionManager] Executing cell ${cell.id} with execution ID ${executionId}`);
-			session.execute(
-				code,
-				executionId,
-				RuntimeCodeExecutionMode.Interactive,
-				RuntimeErrorBehavior.Continue
-			);
-
-			// Fire the event signaling code execution.
-			const event: ILanguageRuntimeCodeExecutedEvent = {
-				executionId: executionId,
-				sessionId: session.sessionId,
-				attribution: {
-					source: CodeAttributionSource.Notebook,
-					metadata: {
-						cell: {
-							uri: cell.id,
-							notebook: {
-								uri: documentUri,
-							},
-						},
-					},
-				},
-				code,
-				languageId: cell.language,
-				runtimeName: session.runtimeMetadata.runtimeName,
-				errorBehavior: RuntimeErrorBehavior.Continue,
-				mode: RuntimeCodeExecutionMode.Interactive,
-			};
-			this._onDidExecuteCode.fire(event);
-
-			// Set up timeout
-			const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;
-			let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-
-			if (timeoutMs > 0) {
-				timeoutHandle = setTimeout(() => {
-					this._logService.warn(`[QuartoExecutionManager] Execution timeout for cell ${cell.id}`);
-					tracker.cts.cancel();
-					deferred.error(new Error('Execution timeout'));
-				}, timeoutMs);
-
-				disposables.add(toDisposable(() => {
-					if (timeoutHandle) {
-						clearTimeout(timeoutHandle);
-					}
-				}));
-			}
-
-			// Wait for completion
-			await Promise.race([
-				deferred.p,
-				new Promise<void>((_, reject) => {
-					const cancellationListener = cts.token.onCancellationRequested(() => {
-						reject(new Error('Execution cancelled'));
-					});
-					disposables.add(cancellationListener);
-				}),
-			]);
-
-			// Update state to completed
-			this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
-
-		} catch (error) {
-			if (cts.token.isCancellationRequested) {
-				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
-			} else {
-				this._logService.error(`[QuartoExecutionManager] Execution failed for cell ${cell.id}:`, error);
-				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-			}
-		} finally {
-			// Clean up
-			this._runningCells.delete(documentUri);
-			this._executionTrackers.delete(cell.id);
-			disposables.dispose();
-			cts.dispose();
-			await this._persistQueueState(documentUri);
-		}
+		// Delegate to the unified range execution
+		return this._executeRange(documentUri, currentCell, codeRange, token);
 	}
 
 	/**
@@ -1027,100 +919,6 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			output,
 			documentUri,
 		});
-	}
-
-	/**
-	 * Execute a cell via the console service.
-	 * This is used for cells whose language doesn't match the document's primary language.
-	 * The console service will handle starting the appropriate runtime if needed.
-	 */
-	private async _executeCellViaConsole(
-		documentUri: URI,
-		cell: QuartoCodeCell,
-		_token?: CancellationToken
-	): Promise<void> {
-		this._logService.debug(
-			`[QuartoExecutionManager] Executing ${cell.language} cell via console (non-primary language)`
-		);
-
-		// Update state to running briefly
-		this._removeFromQueue(documentUri, cell.id);
-		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
-
-		try {
-			// Get cell code
-			const code = await this._getCellCode(documentUri, cell);
-			if (!code) {
-				throw new Error('Could not get cell code');
-			}
-
-			// Execute via console service
-			// The console service will choose or start an appropriate runtime for the language
-			await this._consoleService.executeCode(
-				cell.language,              // languageId
-				undefined,                  // sessionId - let console service choose
-				code,                       // code
-				{                           // attribution
-					source: CodeAttributionSource.Notebook,
-					metadata: {
-						cell: {
-							uri: cell.id,
-							notebook: {
-								uri: documentUri,
-							},
-						},
-					},
-				},
-				true,                       // focus - show the console
-				false,                      // allowIncomplete
-				RuntimeCodeExecutionMode.Interactive,
-				RuntimeErrorBehavior.Continue,
-			);
-
-			// Mark as completed (output goes to console, not inline)
-			this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
-		} catch (error) {
-			this._logService.error(
-				`[QuartoExecutionManager] Console execution failed for cell ${cell.id}:`,
-				error
-			);
-			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-		}
-	}
-
-	/**
-	 * Get code content for a cell.
-	 *
-	 * IMPORTANT: This method looks up the cell by ID from the current document model
-	 * to get fresh line numbers. The passed `cell` object may have stale line numbers
-	 * if the document was edited between queueing and execution.
-	 */
-	private async _getCellCode(documentUri: URI, cell: QuartoCodeCell): Promise<string | undefined> {
-		try {
-			// Get the text model from the editor service
-			const textModel = await this._getTextModel(documentUri);
-			if (!textModel) {
-				return undefined;
-			}
-
-			// Get the Quarto document model
-			const quartoModel = this._documentModelService.getModel(textModel);
-
-			// Look up the cell by ID to get current line numbers.
-			// The passed cell object may have stale line numbers if the document
-			// was edited between when the cell was queued and now.
-			const currentCell = quartoModel.getCellById(cell.id);
-			if (!currentCell) {
-				// Cell was deleted or its ID changed significantly
-				this._logService.warn(`[QuartoExecutionManager] Cell ${cell.id} no longer exists in document`);
-				return undefined;
-			}
-
-			return quartoModel.getCellCode(currentCell);
-		} catch (error) {
-			this._logService.warn(`[QuartoExecutionManager] Failed to get cell code:`, error);
-			return undefined;
-		}
 	}
 
 	/**
