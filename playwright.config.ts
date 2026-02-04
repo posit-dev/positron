@@ -22,18 +22,18 @@ const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
 		disableTitleTags: true,
 	})]
 	: [];
-// Custom reporter is opt-in (disabled by default).
-// Enable with: ENABLE_CUSTOM_REPORTER=true (or "true", 1, "1", yes, "yes")
+// Custom reporter is enabled by default.
+// Disable with: ENABLE_CUSTOM_REPORTER=false (or "false", 0, "0", no, "no")
 // YAML booleans are converted to strings by GitHub Actions, so both work.
-const enableCustomReporter = process.env.ENABLE_CUSTOM_REPORTER?.toLowerCase() ?? '';
-const customReporter = ['true', '1', 'yes'].includes(enableCustomReporter)
-	? [['@midleman/playwright-reporter',
+const disableCustomReporter = process.env.ENABLE_CUSTOM_REPORTER?.toLowerCase() ?? '';
+const customReporter = ['false', '0', 'no'].includes(disableCustomReporter)
+	? []
+	: [['@midleman/playwright-reporter',
 		{
 			repoName: 'positron',
 			mode: 'prod'
 		},
-	] as const]
-	: [];
+	] as const];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
