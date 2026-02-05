@@ -115,6 +115,7 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 			background: #525252;
 		}
 		#toolbar {
+			display: none;
 			background: #323639;
 			padding: 8px;
 			display: flex;
@@ -143,7 +144,7 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 		}
 		#viewerContainer {
 			position: absolute;
-			top: 41px;
+			top: 0;
 			left: 0;
 			right: 0;
 			bottom: 0;
@@ -161,13 +162,6 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 	</style>
 </head>
 <body>
-	<div id="toolbar">
-		<button id="zoomOut">-</button>
-		<button id="zoomIn">+</button>
-		<span id="pageInfo"></span>
-		<button id="prevPage">Previous</button>
-		<button id="nextPage">Next</button>
-	</div>
 	<div id="viewerContainer"></div>
 	<script type="module" nonce="${nonce}">
 		import * as pdfjsLib from '${pdfJsUri}';
@@ -191,7 +185,6 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 			console.log('PDF loaded, pages:', pdf.numPages);
 			pdfDoc = pdf;
 			await renderAllPages();
-			updatePageInfo();
 		}).catch(err => {
 			console.error('Failed to load PDF:', err);
 			document.body.innerHTML = '<div style="color:white;padding:20px">Error loading PDF: ' + err.message + '</div>';
@@ -228,62 +221,6 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 				}).promise;
 			}
 		}
-
-		document.getElementById('zoomIn').addEventListener('click', async () => {
-			currentScale *= 1.2;
-			await renderAllPages();
-		});
-
-		document.getElementById('zoomOut').addEventListener('click', async () => {
-			currentScale /= 1.2;
-			await renderAllPages();
-		});
-
-		document.getElementById('prevPage').addEventListener('click', () => {
-			if (currentPage > 1) {
-				currentPage--;
-				scrollToPage(currentPage);
-			}
-		});
-
-		document.getElementById('nextPage').addEventListener('click', () => {
-			if (currentPage < pdfDoc.numPages) {
-				currentPage++;
-				scrollToPage(currentPage);
-			}
-		});
-
-		function scrollToPage(pageNum) {
-			const canvas = canvases[pageNum - 1];
-			if (canvas) {
-				canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
-				updatePageInfo();
-			}
-		}
-
-		function updatePageInfo() {
-			const pageInfo = document.getElementById('pageInfo');
-			const prevBtn = document.getElementById('prevPage');
-			const nextBtn = document.getElementById('nextPage');
-
-			if (pdfDoc) {
-				pageInfo.textContent = \`Page \${currentPage} of \${pdfDoc.numPages}\`;
-				prevBtn.disabled = currentPage === 1;
-				nextBtn.disabled = currentPage === pdfDoc.numPages;
-			}
-		}
-
-		container.addEventListener('scroll', () => {
-			const containerTop = container.scrollTop + 50;
-			for (let i = 0; i < canvases.length; i++) {
-				const canvas = canvases[i];
-				if (canvas.offsetTop <= containerTop && canvas.offsetTop + canvas.offsetHeight > containerTop) {
-					currentPage = i + 1;
-					updatePageInfo();
-					break;
-				}
-			}
-		});
 	</script>
 </body>
 </html>`;
