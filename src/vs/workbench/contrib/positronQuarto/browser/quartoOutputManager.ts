@@ -26,6 +26,8 @@ import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionSta
 import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOutputKind, PositronOutputLocation } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
 export const IQuartoOutputManager = createDecorator<IQuartoOutputManager>('quartoOutputManager');
 
@@ -805,6 +807,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				case 'html':
 					await this._openHtmlInViewer(popout.html, request.cellId);
 					break;
+				case 'webview':
+					await this._openWebviewInViewer(popout.rawData, popout.outputId);
+					break;
 			}
 		} catch (error) {
 			this._logService.error('[QuartoOutputContribution] Popout failed:', error);
@@ -886,7 +891,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
 		const cellIndex = cellId.split('-')[0];
 		const filename = `.positron-temp-${docNameWithoutExt}_cell${cellIndex}.html`;
-		const title = `${docNameWithoutExt} - Cell ${cellIndex} Output`;
 
 		// Write HTML to a temp file in the same directory as the document
 		const tempDir = dirname(this._documentUri);
@@ -894,8 +898,61 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		await this._fileService.writeFile(tempUri, VSBuffer.fromString(html));
 
-		// Open the temp file in the preview editor
-		await this._previewService.openEditor(tempUri, title);
+		// Open the temp file in the Viewer pane using openHtml
+		// openHtml uses the Positron Proxy extension to serve the file
+		// and displays it in the Viewer panel (not an editor tab)
+		const previewId = `quartoHtmlOutput.${cellId}`;
+
+		// Create extension description for the preview service
+		const extension = { id: new ExtensionIdentifier('positron.quarto') };
+
+		await this._previewService.openHtml(previewId, extension, tempUri.fsPath);
+	}
+
+	/**
+	 * Open a webview output in the Viewer pane.
+	 * Uses the notebook output webview service to render the output using the same
+	 * mechanism as inline output display.
+	 */
+	private async _openWebviewInViewer(rawData: Record<string, unknown>, outputId: string): Promise<void> {
+		if (!this._documentUri) {
+			return;
+		}
+
+		// Get the runtime session for this document
+		const session = this._kernelManager.getSessionForDocument(this._documentUri);
+		if (!session) {
+			throw new Error('No active session for document');
+		}
+
+		// Construct a runtime output message from the raw data
+		// This format is what createNotebookOutputWebview expects
+		const runtimeMessage: ILanguageRuntimeMessageWebOutput = {
+			id: `popout-${outputId}`,
+			parent_id: '',
+			when: new Date().toISOString(),
+			event_clock: 0,
+			type: LanguageRuntimeMessageType.Output,
+			kind: RuntimeOutputKind.ViewerWidget,
+			data: rawData,
+			output_location: PositronOutputLocation.Viewer,
+			resource_roots: undefined,
+		};
+
+		// Create a notebook output webview for the output
+		const notebookWebview = await this._webviewService.createNotebookOutputWebview({
+			id: runtimeMessage.id,
+			runtime: session,
+			output: runtimeMessage,
+		});
+
+		if (!notebookWebview) {
+			throw new Error('Failed to create webview for output');
+		}
+
+		// Open the webview in the Viewer pane using the preview service
+		const previewId = `quartoWebviewOutput.${outputId}`;
+		this._previewService.openWebview(previewId, notebookWebview.webview, 'Quarto Output');
 	}
 
 	/**

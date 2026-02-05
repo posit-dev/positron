@@ -2227,11 +2227,11 @@ test.describe('Quarto - Inline Output', {
 		await expect(untitledTab).toBeVisible({ timeout: 5000 });
 	});
 
-	test('Python - Verify popout button opens HTML output in viewer', async function ({ app, openFile }) {
+	test('Python - Verify popout button opens interactive HTML in viewer panel', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 
-		// Open a Quarto document with DataFrame output (HTML table)
-		const filePath = join('workspaces', 'quarto_inline_output', 'py_data_frame.qmd');
+		// Open a Quarto document with interactive Plotly output
+		const filePath = join('workspaces', 'quarto_inline_output', 'interactive_plot.qmd');
 		await openFile(filePath);
 
 		// Wait for the editor to be ready
@@ -2247,41 +2247,51 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Position cursor in the Python code cell
-		// py_data_frame.qmd has pandas DataFrame output which renders as HTML
+		// interactive_plot.qmd: frontmatter (1-4), blank line (5), cell starts at line 6
+		// Position at line 8 which is inside the cell
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('12');
+		await page.keyboard.type('8');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
-		// Run the cell to generate HTML output
+		// Run the cell to generate interactive HTML output
 		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('20');
+			await page.keyboard.type('15');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
 		}).toPass({ timeout: 120000 });
 
-		// The output should contain HTML content
-		const outputContent = inlineOutput.locator('.quarto-output-content');
-		await expect(outputContent).toBeVisible({ timeout: 10000 });
+		// Wait for webview container to be visible (interactive content)
+		const webviewContainer = inlineOutput.locator('.quarto-output-webview-container');
+		await expect(webviewContainer).toBeVisible({ timeout: 30000 });
 
-		// The popout button should be visible for HTML output
+		// Wait for the webview to fully render
+		await page.waitForTimeout(3000);
+
+		// The popout button should be visible for interactive HTML output
 		const popoutButton = inlineOutput.locator('.quarto-output-popout');
 		await expect(popoutButton).toBeVisible({ timeout: 10000 });
 
 		// Click the popout button
 		await popoutButton.click();
+
+		// Wait for the Viewer panel to appear and have content
+		// The Viewer panel has id 'workbench.panel.positronPreview' and appears in the auxiliary bar
+		const viewerPanel = page.locator('[id="workbench.panel.positronPreview"]');
+		await expect(viewerPanel).toBeVisible({ timeout: 10000 });
+
+		// Wait a moment for the webview to render
 		await page.waitForTimeout(2000);
 
-		// Verify that a new editor tab was opened (the preview editor)
-		// The temp HTML file should be opened
-		const tabs = await page.locator('.tabs-container .tab').count();
-		expect(tabs).toBeGreaterThan(1);
+		// Also verify no error notification was shown
+		const errorNotification = page.locator('.notifications-toasts').filter({ hasText: 'Failed to open' });
+		await expect(errorNotification).not.toBeVisible({ timeout: 1000 });
 	});
 
 	test('Python - Verify popout button is hidden for error-only output', async function ({ app, openFile }) {

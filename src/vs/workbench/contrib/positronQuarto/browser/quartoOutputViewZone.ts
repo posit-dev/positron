@@ -52,7 +52,8 @@ export interface SavePlotRequest {
 export type PopoutType =
 	| { type: 'plot'; dataUrl: string; mimeType: string }
 	| { type: 'text'; text: string }
-	| { type: 'html'; html: string; webviewMetadata?: ICellOutput['webviewMetadata'] };
+	| { type: 'html'; html: string; webviewMetadata?: ICellOutput['webviewMetadata'] }
+	| { type: 'webview'; rawData: Record<string, unknown>; outputId: string };
 
 /**
  * Request to pop out output content.
@@ -711,23 +712,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}
 		}
 
-		// Second pass: look for HTML/webview content
+		// Second pass: look for webview outputs
+		// For webview outputs, return the raw data so it can be rendered using
+		// the notebook output webview service (same rendering as inline output)
 		for (const output of this._outputs) {
-			// Check for webview metadata (interactive HTML like Plotly, widgets)
-			if (output.webviewMetadata?.webviewType) {
-				// Find the HTML content
-				for (const item of output.items) {
-					if (item.mime === 'text/html') {
-						return {
-							type: 'html',
-							html: item.data,
-							webviewMetadata: output.webviewMetadata,
-						};
-					}
-				}
+			if (output.webviewMetadata?.webviewType && output.webviewMetadata.rawData) {
+				return {
+					type: 'webview',
+					rawData: output.webviewMetadata.rawData,
+					outputId: output.outputId,
+				};
 			}
+		}
 
-			// Check for regular HTML content
+		// Third pass: look for regular HTML content in output items
+		for (const output of this._outputs) {
 			for (const item of output.items) {
 				if (item.mime === 'text/html') {
 					return { type: 'html', html: item.data };
@@ -735,7 +734,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}
 		}
 
-		// Third pass: collect text content (only if no images or HTML found)
+		// Fourth pass: collect text content (only if no images, webview, or HTML found)
 		const textParts: string[] = [];
 		let hasNonErrorContent = false;
 
@@ -776,6 +775,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Returns true if there's any plot, HTML, or text content (not just errors).
 	 */
 	hasPopoutContent(): boolean {
+		// For webview outputs, we always have popout content (the HTML representation)
+		const hasWebview = this._outputs.some(output => output.webviewMetadata?.webviewType);
+		if (hasWebview) {
+			return true;
+		}
 		return this._getPopoutContent() !== undefined;
 	}
 

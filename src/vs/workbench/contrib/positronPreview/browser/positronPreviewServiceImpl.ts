@@ -563,4 +563,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// Remove the preview
 		this._editors.delete(previewId);
 	}
+
+	/**
+	 * Opens an existing overlay webview in the Viewer pane.
+	 * Used for displaying notebook output webviews that have already been created.
+	 */
+	public openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview {
+		const preview = this.createPreviewWebview(previewId, webview, 'notebookRenderer', title);
+		this.makeActivePreview(preview);
+		return preview;
+	}
 }

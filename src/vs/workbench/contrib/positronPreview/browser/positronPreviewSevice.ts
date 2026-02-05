@@ -8,7 +8,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewWebview } from './previewWebview.js';
-import { WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
+import { IOverlayWebview, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 
 export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
@@ -126,4 +126,14 @@ export interface IPositronPreviewService {
 	editorTitle(previewId: string): string | undefined;
 
 	disposeEditor(previewId: string): void;
+
+	/**
+	 * Opens an existing overlay webview in the Viewer pane.
+	 * Used for displaying notebook output webviews that have already been created.
+	 *
+	 * @param previewId The unique ID for the preview.
+	 * @param webview The overlay webview to display.
+	 * @param title The title for the preview.
+	 */
+	openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview;
 }
