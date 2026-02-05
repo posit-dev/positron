@@ -8,14 +8,12 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { showConfigurationDialog } from '../config.js';
-import { GlobalSecretStorage } from '../configTypes.js';
 import * as providersModule from '../providers';
 import * as completionModule from '../completion';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from '../constants.js';
 
 suite('Configuration Dialog Tests', () => {
 	let mockContext: vscode.ExtensionContext;
-	let mockSecretStorage: GlobalSecretStorage;
 	let mockGetEnabledProviders: sinon.SinonStub;
 	let mockShowLanguageModelConfig: sinon.SinonStub;
 	let mockShowInformationMessage: sinon.SinonStub;
@@ -35,8 +33,6 @@ suite('Configuration Dialog Tests', () => {
 				delete: sinon.stub().resolves()
 			}
 		} as unknown as vscode.ExtensionContext;
-
-		mockSecretStorage = new GlobalSecretStorage(mockContext);
 
 		// Mock positron.ai.getEnabledProviders
 		mockGetEnabledProviders = sinon.stub(positron.ai, 'getEnabledProviders');
@@ -84,7 +80,7 @@ suite('Configuration Dialog Tests', () => {
 			// Mock no enabled providers
 			mockGetEnabledProviders.resolves([]);
 
-			await showConfigurationDialog(mockContext, mockSecretStorage);
+			await showConfigurationDialog(mockContext);
 
 			assert.ok(mockShowInformationMessage.called, 'Should show information message');
 			assert.ok(!mockShowLanguageModelConfig.called, 'Should not show configuration dialog');
@@ -99,7 +95,7 @@ suite('Configuration Dialog Tests', () => {
 			mockGetEnabledProviders.resolves([]);
 			mockShowInformationMessage.resolves('Open Settings');
 
-			await showConfigurationDialog(mockContext, mockSecretStorage);
+			await showConfigurationDialog(mockContext);
 
 			assert.ok(mockExecuteCommand.called, 'Should execute command');
 			assert.ok(
@@ -113,7 +109,7 @@ suite('Configuration Dialog Tests', () => {
 			mockGetEnabledProviders.resolves([]);
 			mockShowInformationMessage.resolves('View Documentation');
 
-			await showConfigurationDialog(mockContext, mockSecretStorage);
+			await showConfigurationDialog(mockContext);
 
 			assert.ok(mockOpenExternal.called, 'Should open external link');
 			const externalCall = mockOpenExternal.getCall(0);
@@ -125,7 +121,7 @@ suite('Configuration Dialog Tests', () => {
 		test('shows modal when at least one provider is enabled', async () => {
 			mockGetEnabledProviders.resolves(['anthropic-api']);
 
-			await showConfigurationDialog(mockContext, mockSecretStorage);
+			await showConfigurationDialog(mockContext);
 
 			assert.ok(!mockShowInformationMessage.called, 'Should not show information message');
 			assert.ok(mockShowLanguageModelConfig.called, 'Should show configuration dialog');

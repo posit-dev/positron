@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { generateDiagnosticsContent } from './diagnostics';
 import { CopilotService } from './copilot';
 import { getStoredModels } from './config';
-import { GlobalSecretStorage } from './configTypes.js';
 import { log } from './log.js';
 import { disposeModels } from './modelRegistration';
 
@@ -51,10 +50,9 @@ async function clearAssistantState(context: vscode.ExtensionContext): Promise<vo
 		}
 	}
 
-	const storage = new GlobalSecretStorage(context);
 	for (const model of storedModels) {
 		try {
-			await storage.delete(`apiKey-${model.id}`);
+			await context.secrets.delete(`apiKey-${model.id}`);
 		} catch (error) {
 			log.trace(`Failed to delete API key for model ${model.id}: ${formatError(error)}`);
 		}

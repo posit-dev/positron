@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
 import { getModelConfigurations } from './config';
-import { ModelConfig, SecretStorage, StoredModelConfig } from './configTypes.js';
+import { ModelConfig, StoredModelConfig } from './configTypes.js';
 import { newCompletionProvider } from './completion';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 import { AssistantError } from './errors';
@@ -86,14 +86,14 @@ export function disposeModels(id?: string) {
 	}
 }
 
-export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext) {
 	try {
 		const modelConfig: ModelConfig = {
 			...config,
 			apiKey: undefined // will be filled in below if needed
 		};
 
-		const apiKey = await storage.get(`apiKey-${modelConfig.id}`);
+		const apiKey = await context.secrets.get(`apiKey-${modelConfig.id}`);
 		if (apiKey) {
 			modelConfig.apiKey = apiKey;
 		}
@@ -114,7 +114,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		await registerModelWithAPI(modelConfig, context, storage);
+		await registerModelWithAPI(modelConfig, context);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
@@ -123,7 +123,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 	}
 }
 
-export async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModels(context: vscode.ExtensionContext) {
 	// Dispose of existing models
 	disposeModels();
 
@@ -133,7 +133,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		// Refresh the set of enabled providers
 		const enabledProviders = await positron.ai.getEnabledProviders();
 
-		modelConfigs = await getModelConfigurations(context, storage);
+		modelConfigs = await getModelConfigurations(context);
 		modelConfigs = modelConfigs.filter(config => {
 			const enabled = enabledProviders.length === 0 ||
 				enabledProviders.includes(config.provider);
@@ -164,7 +164,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	const registeredModels: ModelConfig[] = [];
 	for (const config of modelConfigs) {
 		try {
-			await registerModelWithAPI(config, context, storage);
+			await registerModelWithAPI(config, context);
 			registeredModels.push(config);
 			if (autoModelConfigs.includes(config)) {
 				// In addition, track auto-configured models separately
@@ -205,13 +205,13 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-export async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, instance?: positron.ai.LanguageModelChatProvider<vscode.LanguageModelChatInformation>) {
+export async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, instance?: positron.ai.LanguageModelChatProvider<vscode.LanguageModelChatInformation>) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
 		// const models = availableModels.get(modelConfig.provider);
 		// const modelsCopy = models ? [...models] : [];
 
-		const languageModel = instance ?? newLanguageModelChatProvider(modelConfig, context, storage);
+		const languageModel = instance ?? newLanguageModelChatProvider(modelConfig, context);
 
 		try {
 			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);

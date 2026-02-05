@@ -16,7 +16,7 @@ import {
 } from '@aws-sdk/client-bedrock';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { getStoredModels, expandConfigToSource } from '../../config';
-import { ModelConfig, SecretStorage } from '../../configTypes.js';
+import { ModelConfig } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
 import { AssistantError } from '../../errors';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
@@ -136,8 +136,8 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		},
 	};
 
-	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
-		super(_config, _context, _storage);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 	}
 
 	/**
@@ -334,7 +334,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						registerModelWithAPI(
 							this._config,
 							this._context,
-							this._storage,
 							this
 						).then(() => {
 							positron.ai.addLanguageModelConfig(expandConfigToSource(this._config));

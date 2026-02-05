@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig, SecretStorage } from '../../configTypes.js';
+import { ModelConfig } from '../../configTypes.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
@@ -55,8 +55,8 @@ export class GoogleModelProvider extends VercelModelProvider implements positron
 		},
 	};
 
-	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
-		super(_config, _context, _storage);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 	}
 
 	/**
