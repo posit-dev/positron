@@ -111,9 +111,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 		});
 	});
 
-	// Skip: The "Open in Data Explorer" functionality needs further investigation
-	// for the inline notebook data explorer context
-	test.skip('Python - Verify open full Data Explorer and return to inline view', async function ({ app, hotKeys }) {
+	test('Python - Verify open full Data Explorer and return to inline view', async function ({ app, hotKeys }) {
 		const { notebooksPositron, editors } = app.workbench;
 		const page = app.code.driver.page;
 

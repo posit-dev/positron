@@ -225,6 +225,25 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Initializes the grid by fetching backend state and setting up layout.
+	 * This should be called once after construction to populate the grid.
+	 * Unlike fetchData(), this explicitly gets the backend state first to ensure
+	 * layout entries are set up before attempting to fetch data.
+	 * @returns A Promise<void> that resolves when initialization is complete.
+	 */
+	async initialize(): Promise<void> {
+		// Get the current backend state
+		const state = await this._dataExplorerClientInstance.getBackendState();
+
+		// Set up layout entries from the backend state
+		this._columnLayoutManager.setEntries(state.table_shape.num_columns);
+		this._rowLayoutManager.setEntries(state.table_shape.num_rows);
+
+		// Now fetch the actual data
+		await this.fetchData(InvalidateCacheFlags.All);
+	}
+
+	/**
 	 * Gets a column.
 	 * @param columnIndex The column index.
 	 * @returns The column.
