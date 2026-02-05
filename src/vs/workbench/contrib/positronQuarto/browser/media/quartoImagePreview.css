@@ -1,0 +1,30 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Outer wrapper for image preview view zone */
+.quarto-image-preview-wrapper {
+	box-sizing: border-box;
+	pointer-events: auto !important;
+	user-select: none;
+	-webkit-user-select: none;
+	position: relative;
+	z-index: 5;
+}
+
+/* Image container - no borders or styling, just the image */
+.quarto-image-preview-container {
+	display: flex;
+	justify-content: flex-start;
+	align-items: flex-start;
+	padding: 4px 0;
+}
+
+/* The image itself - no borders, no background, just the image */
+.quarto-image-preview {
+	max-width: 100%;
+	max-height: 400px;
+	height: auto;
+	/* No border, no background - just the image */
+}

@@ -1768,6 +1768,76 @@ test.describe('Quarto - Inline Output', {
 		expect(hasOhNo).toBe(false);
 	});
 
+	test('Verify markdown image preview appears below image declaration', async function ({ app, openFile }) {
+		// This test verifies that markdown images declared in Quarto documents
+		// are automatically previewed inline below the declaration line.
+		// The preview should show just the image without any borders or decorations.
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'images_and_equations.qmd');
+
+		// Open the images and equations test file
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// images_and_equations.qmd structure:
+		// - frontmatter (1-4)
+		// - blank line (5)
+		// - text (6)
+		// - blank line (7)
+		// - image line (8): ![The Mandlebrot Set](mandelbrot.jpg)
+		// - blank line (9)
+		// - text (10)
+		// - blank line (11)
+		// - equation (12-14)
+
+		// CRITICAL ASSERTIONS:
+
+		// 1. Verify the image preview view zone exists
+		// Use retry pattern since Monaco virtualizes content and may need scrolling
+		const imagePreview = page.locator('.quarto-image-preview-wrapper');
+		await expect(async () => {
+			// Scroll to where the image preview should appear (after line 8)
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('10');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(imagePreview).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
+
+		// 2. Verify the image element is present and visible
+		const imageElement = page.locator('.quarto-image-preview');
+		await expect(imageElement).toBeVisible({ timeout: 10000 });
+
+		// 3. Verify the image has loaded (has a src attribute with data URL)
+		const imgSrc = await imageElement.getAttribute('src');
+		expect(imgSrc).toBeTruthy();
+		// The image is converted to a data URL for security in Electron
+		expect(imgSrc).toMatch(/^data:image\/jpeg;base64,/);
+
+		// 4. Verify the image has the correct alt text
+		const imgAlt = await imageElement.getAttribute('alt');
+		expect(imgAlt).toBe('The Mandlebrot Set');
+
+		// 5. Verify the preview has no borders (just the image)
+		// The container should have minimal styling
+		const previewContainer = page.locator('.quarto-image-preview-container');
+		await expect(previewContainer).toBeVisible({ timeout: 5000 });
+	});
+
 	test('R - Verify execute code action steps through statements line by line with inline output', async function ({ app, openFile, r }) {
 		// This test verifies that the "Execute Code" action (workbench.action.positronConsole.executeCode)
 		// works correctly with Quarto inline output:
