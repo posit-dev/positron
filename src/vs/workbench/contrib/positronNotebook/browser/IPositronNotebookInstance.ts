@@ -509,6 +509,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	enableGhostCellSuggestions(): void;
 
 	/**
+	 * Enable ghost cell suggestions for this notebook by clearing the per-notebook disable setting.
+	 * This clears the 'disabled' metadata from the notebook and triggers a suggestion if globally enabled.
+	 */
+	enableGhostCellSuggestionsForNotebook(): void;
+
+	/**
 	 * Dismiss the opt-in prompt for this notebook open only.
 	 * The prompt will appear again the next time the notebook is opened.
 	 */

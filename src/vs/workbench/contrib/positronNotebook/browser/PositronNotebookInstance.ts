@@ -59,6 +59,7 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -507,6 +508,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IHoverService private readonly _hoverService: IHoverService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		super();
 
@@ -2548,6 +2550,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					editType: CellEditType.DocumentMetadata,
 					metadata: newMetadata
 				}], true, undefined, () => undefined, undefined, true);
+
+				// Show notification with re-enable action
+				this._notificationService.prompt(
+					Severity.Info,
+					localize('ghostCell.disabledForNotebook', "Ghost cell suggestions disabled for this notebook"),
+					[{
+						label: localize('ghostCell.reenable', "Re-enable"),
+						run: () => this.enableGhostCellSuggestionsForNotebook()
+					}]
+				);
 			}
 		}
 	}
@@ -2624,6 +2636,33 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Trigger suggestion immediately
 		if (executedCellIndex >= 0) {
 			this.triggerGhostCellSuggestion(executedCellIndex);
+		}
+	}
+
+	/**
+	 * Enable ghost cell suggestions for this notebook by clearing the per-notebook disable setting.
+	 * This clears the 'disabled' metadata from the notebook and triggers a suggestion if globally enabled.
+	 */
+	enableGhostCellSuggestionsForNotebook(): void {
+		const textModel = this._textModel.get();
+		if (textModel) {
+			// Clear the per-notebook disabled setting by setting to undefined
+			const newMetadata = setAssistantSettings({ ...textModel.metadata }, { ghostCellSuggestions: undefined });
+			textModel.applyEdits([{
+				editType: CellEditType.DocumentMetadata,
+				metadata: newMetadata
+			}], true, undefined, () => undefined, undefined, true);
+
+			// Get the last executed cell index for triggering suggestion
+			const state = this._ghostCellState.get();
+			const executedCellIndex = state.status !== 'hidden' && 'executedCellIndex' in state
+				? state.executedCellIndex
+				: this.cells.get().length - 1;
+
+			// Trigger suggestion if globally enabled and we have a valid cell index
+			if (executedCellIndex >= 0) {
+				this.triggerGhostCellSuggestion(executedCellIndex);
+			}
 		}
 	}
 

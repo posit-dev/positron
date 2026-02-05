@@ -1613,6 +1613,22 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Enable ghost cell suggestions for this notebook - clears per-notebook disable setting
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.enableGhostCellSuggestionsForNotebook',
+			title: localize2('positronNotebook.enableGhostCellSuggestionsForNotebook', 'Enable Ghost Cell Suggestions for This Notebook'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.enableGhostCellSuggestionsForNotebook();
+	}
+});
+
 //#endregion Ghost Cell Actions
 
 // Register actions
