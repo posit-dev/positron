@@ -3,6 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * IMPORTANT: This module is intentionally duplicated across the extension/workbench boundary.
+ * The workbench counterpart lives at:
+ *   src/vs/workbench/contrib/positronNotebook/common/notebookAssistantMetadata.ts
+ *
+ * The two files share identical types (AssistantSettings, override types) and validation
+ * logic (getAssistantSettings). The only difference is the parameter type of
+ * getAssistantSettings: this file accepts `{ [key: string]: unknown } | undefined`
+ * while the workbench version accepts `NotebookDocumentMetadata | undefined`.
+ *
+ * When modifying types or validation logic, update BOTH files.
+ */
+
 import * as vscode from 'vscode';
 
 /**
