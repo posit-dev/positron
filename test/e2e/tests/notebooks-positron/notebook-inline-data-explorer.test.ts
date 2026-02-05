@@ -166,4 +166,107 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 			await expect(inlineExplorer.getByText('Alice')).toBeVisible();
 		});
 	});
+
+	test('Python - Copy single cell to clipboard', async function ({ app }) {
+		const { notebooksPositron, clipboard } = app.workbench;
+		const page = app.code.driver.page;
+
+		await test.step('Execute cell that returns a DataFrame', async () => {
+			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
+		});
+
+		await test.step('Click on a cell and copy', async () => {
+			const inlineExplorer = page.locator('.inline-data-explorer-container');
+			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
+
+			// Click on "Alice" cell (first data cell in Name column)
+			// The cell content is inside .data-grid-row-cell .content
+			const aliceCell = inlineExplorer.locator('.data-grid-row-cell .content').filter({ hasText: 'Alice' });
+			await aliceCell.click();
+
+			// Copy and verify
+			await clipboard.copy();
+			await clipboard.expectClipboardTextToBe('Alice');
+		});
+	});
+
+	test('Python - Copy cell range to clipboard', async function ({ app }) {
+		const { notebooksPositron, clipboard } = app.workbench;
+		const page = app.code.driver.page;
+
+		const code = `import pandas as pd
+df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
+df`;
+
+		await test.step('Execute cell with DataFrame', async () => {
+			await notebooksPositron.addCodeToCell(0, code, { run: true, waitForSpinner: true });
+		});
+
+		await test.step('Select a range and copy', async () => {
+			const inlineExplorer = page.locator('.inline-data-explorer-container');
+			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
+
+			// Click first cell (value "1") to set start of selection
+			const firstCell = inlineExplorer.locator('.data-grid-row-cell .content').filter({ hasText: /^1$/ }).first();
+			await firstCell.click();
+
+			// Shift+click to extend selection to cell with value "5" (2x2 range)
+			const lastCell = inlineExplorer.locator('.data-grid-row-cell .content').filter({ hasText: /^5$/ });
+			await lastCell.click({ modifiers: ['Shift'] });
+
+			// Copy and verify TSV format (columns tab-separated, rows newline-separated)
+			await clipboard.copy();
+			await clipboard.expectClipboardTextToBe('A\tB\n1\t4\n2\t5', '\n');
+		});
+	});
+
+	test('Python - Copy column via context menu', async function ({ app }) {
+		const { notebooksPositron, clipboard } = app.workbench;
+		const page = app.code.driver.page;
+
+		await test.step('Execute cell that returns a DataFrame', async () => {
+			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
+		});
+
+		await test.step('Right-click column header and copy', async () => {
+			const inlineExplorer = page.locator('.inline-data-explorer-container');
+			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
+
+			// Right-click on "Name" column header
+			const nameHeader = inlineExplorer.locator('.data-grid-column-header').filter({ hasText: 'Name' });
+			await nameHeader.click({ button: 'right' });
+
+			// Click "Copy Column" in context menu
+			const contextMenu = page.locator('.positron-modal-popup');
+			await contextMenu.getByText('Copy Column').click();
+
+			// Verify clipboard contains the column data
+			await clipboard.expectClipboardTextToBe('Name\nAlice\nBob\nCharlie\nDavid\nEve', '\n');
+		});
+	});
+
+	test('Python - Copy row via context menu', async function ({ app }) {
+		const { notebooksPositron, clipboard } = app.workbench;
+		const page = app.code.driver.page;
+
+		await test.step('Execute cell that returns a DataFrame', async () => {
+			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
+		});
+
+		await test.step('Right-click row header and copy', async () => {
+			const inlineExplorer = page.locator('.inline-data-explorer-container');
+			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
+
+			// Right-click on first row header (row index 0)
+			const rowHeader = inlineExplorer.locator('.data-grid-row-header').first();
+			await rowHeader.click({ button: 'right' });
+
+			// Click "Copy Row" in context menu
+			const contextMenu = page.locator('.positron-modal-popup');
+			await contextMenu.getByText('Copy Row').click();
+
+			// Verify clipboard contains header + first data row
+			await clipboard.expectClipboardTextToBe('Name\tAge\tCity\nAlice\t25\tNYC', '\n');
+		});
+	});
 });
