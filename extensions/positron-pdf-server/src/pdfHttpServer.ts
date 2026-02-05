@@ -42,9 +42,9 @@ export class PdfHttpServer {
 	 * Setup Express routes.
 	 */
 	private setupRoutes(): void {
-		// Serve PDF.js library files statically.
+		// Serve PDF.js distribution files statically (includes web/viewer.html, build/, etc.).
 		this.app.use('/pdfjs', express.static(
-			path.join(__dirname, '../node_modules/pdfjs-dist')
+			path.join(__dirname, '../pdfjs-dist')
 		));
 
 		// Serve individual PDFs with unique IDs.

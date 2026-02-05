@@ -38,18 +38,21 @@ export async function createWebviewHtml(
 	console.log(`PDF Server URL: ${serverUrl}`);
 	console.log(`PDF ID: ${pdfId}`);
 
-	// Build CSP allowing localhost iframes.
+	// Build CSP allowing localhost iframes with full PDF.js viewer resources.
 	const csp = [
 		`default-src 'none'`,
-		`style-src ${cspSource} 'unsafe-inline'`,
-		`script-src ${cspSource} 'nonce-${nonce}'`,
+		`style-src ${cspSource} 'unsafe-inline' ${serverUrl} http://localhost:* http://127.0.0.1:*`,
+		`script-src ${cspSource} 'nonce-${nonce}' ${serverUrl} http://localhost:* http://127.0.0.1:* 'unsafe-eval'`,
 		`frame-src ${serverUrl} http://localhost:* http://127.0.0.1:*`,
-		`img-src ${cspSource} data:`,
-		`worker-src ${cspSource} blob:`
+		`img-src ${cspSource} data: ${serverUrl} http://localhost:* http://127.0.0.1:*`,
+		`font-src ${cspSource} data: ${serverUrl} http://localhost:* http://127.0.0.1:*`,
+		`worker-src ${cspSource} blob: ${serverUrl} http://localhost:* http://127.0.0.1:*`,
+		`connect-src ${serverUrl} http://localhost:* http://127.0.0.1:*`
 	].join('; ');
 
-	// Build viewer URL.
-	const viewerUrl = `${serverUrl}/viewer?file=${encodeURIComponent(`/pdf/${pdfId}`)}`;
+	// Build viewer URL - use the legacy PDF.js viewer.
+	const pdfUrl = `${serverUrl}/pdf/${pdfId}`;
+	const viewerUrl = `${serverUrl}/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}`;
 	console.log(`Viewer URL: ${viewerUrl}`);
 
 	return `<!DOCTYPE html>

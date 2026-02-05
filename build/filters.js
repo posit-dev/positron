@@ -38,6 +38,9 @@ module.exports.all = [
 	// rules
 	'!extensions/positron-python/**/*',
 
+	// Excluded since it's third-party PDF.js distribution
+	'!extensions/positron-pdf-server/pdfjs-dist/**/*',
+
 	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
 	'!test/e2e/test-repo/**/*',
