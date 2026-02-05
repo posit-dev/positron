@@ -338,6 +338,7 @@ function registerGenerateGhostCellSuggestionCommand(
 				notebookUri: string,
 				executedCellIndex: number,
 				progressCallbackCommand?: string,
+				skipConfigCheck?: boolean,
 				token?: vscode.CancellationToken
 			): Promise<GhostCellSuggestionResult | null> => {
 				// Create a token source only if no token is provided
@@ -360,7 +361,8 @@ function registerGenerateGhostCellSuggestionCommand(
 						participantService,
 						log,
 						cancellationToken,
-						onProgress
+						onProgress,
+						skipConfigCheck
 					);
 				} finally {
 					// Only dispose if we created the token

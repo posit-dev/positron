@@ -1,7 +1,7 @@
 # Task: Ghost Cell Streaming
 
 **Status:** in-progress
-**Last Updated:** 2026-02-02 (added pull mode)
+**Last Updated:** 2026-02-05 (fixed Enable button race condition)
 **Branch:** positron-nb-ghost-suggestions
 
 ## Context for Claude
@@ -20,7 +20,8 @@ Wire up streaming infrastructure for ghost cell suggestions so code appears prog
 ## Key Files
 - `src/vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance.ts` - Workbench side: registers callback command and passes to extension
 - `src/vs/workbench/contrib/positronNotebook/browser/IPositronNotebookInstance.ts` - GhostCellState type (includes 'streaming', 'opt-in-prompt', 'awaiting-request' status)
-- `src/vs/workbench/contrib/positronNotebook/common/positronNotebookConfig.ts` - Settings definitions (ghostCellSuggestions, hasOptedIn, delay, mode)
+- `src/vs/workbench/contrib/positronNotebook/common/positronNotebookConfig.ts` - Settings definitions (ghostCellSuggestions, hasOptedIn, delay, mode, model)
+- `extensions/positron-assistant/src/commands/ghostCellModelPicker.ts` - Quick pick UI for selecting ghost cell model
 - `src/vs/workbench/contrib/positronNotebook/common/notebookAssistantMetadata.ts` - Workbench-side per-notebook metadata (showDiff, autoFollow, ghostCellSuggestions, suggestionMode)
 - `extensions/positron-assistant/src/extension.ts` - Extension side: accepts progressCallbackCommand parameter
 - `extensions/positron-assistant/src/ghostCellSuggestions.ts` - Calls onProgress with partial code chunks
@@ -49,6 +50,11 @@ Wire up streaming infrastructure for ghost cell suggestions so code appears prog
   - Button label: "Get Suggestion"
   - Keyboard shortcut: Cmd/Ctrl+Shift+G
   - Placeholder uses same delay as push mode (waits before showing awaiting-request state)
+- **Model configuration:** Users can configure which model generates suggestions
+  - Default is auto-select fast models (patterns: `['haiku', 'mini']`)
+  - Setting stored as array of model ID patterns for fallback selection
+  - Model name shown in ghost cell footer (clickable to change)
+  - Fallback warning indicator when configured model unavailable
 
 ## Current State
 **Done:**
@@ -99,6 +105,40 @@ Wire up streaming infrastructure for ghost cell suggestions so code appears prog
   - Added keyboard shortcut Cmd/Ctrl+Shift+G for requesting suggestion (only active when awaiting-request)
   - Context key updates automatically via subscription to ghost cell state changes
 
+- **Truncated explanation hover tooltip:**
+  - Created `TruncatedExplanation` component with `ResizeObserver` to detect truncation
+  - Shows full explanation text in tooltip when truncated in the UI
+  - Uses `scrollWidth > clientWidth` comparison to detect overflow
+
+- **Model setting and display:**
+  - Added `POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY` setting (array of model ID patterns)
+  - Default patterns `['haiku', 'mini']` auto-select fast models
+  - Extended `GhostCellState` 'ready' status with `modelName` and `usedFallback` fields
+  - Extension passes model name and fallback status back via progress callback
+  - Info modal displays which model generated the current suggestion
+
+- **Model picker for ghost cell suggestions:**
+  - Created `ghostCellModelPicker.ts` with `selectGhostCellModel()` command
+  - Quick pick UI groups available models by vendor
+  - "Use Default (Auto-select)" option restores default behavior
+  - Current selection marked with checkmark icon
+  - Added command registration in extension activation
+  - Ghost cell footer shows model name (clickable button to open picker)
+  - Warning indicator (codicon-warning) when configured model was unavailable and fallback was used
+
+- **Re-enable per-notebook ghost cell suggestions:**
+  - Added `enableGhostCellSuggestionsForNotebook()` method to instance interface and implementation
+  - Clears `ghostCellSuggestions: 'disabled'` metadata from notebook, triggers suggestion if globally enabled
+  - Added command `positronNotebook.enableGhostCellSuggestionsForNotebook` to command palette
+  - Shows info notification with "Re-enable" button when user disables for notebook
+  - Addresses PR feedback #1 (no way to re-enable after "Don't suggest in this notebook again")
+
+- **Fixed Enable button race condition (ghost cell disappearing after opt-in):**
+  - Root cause: workbench fires async config updates, then immediately calls extension which reads stale config
+  - Added `skipConfigCheck` parameter to `triggerGhostCellSuggestion()` and extension command
+  - When workbench has already verified (user just clicked Enable), passes `true` to skip extension-side config check
+  - Files modified: `extension.ts`, `ghostCellSuggestions.ts`, `PositronNotebookInstance.ts`, `IPositronNotebookInstance.ts`
+
 **Next:**
 - Test end-to-end streaming behavior
 - Test opt-in flow (fresh user, enable, not now, don't ask again)
@@ -107,6 +147,10 @@ Wire up streaming infrastructure for ghost cell suggestions so code appears prog
   - Click "Get Suggestion" button, verify loading then suggestion
   - Test Cmd/Ctrl+Shift+G keyboard shortcut
   - Test per-notebook override via metadata
+- Test model picker flow:
+  - Click model name in ghost cell footer, verify picker opens
+  - Select different model, verify next suggestion uses it
+  - Configure unavailable model, verify fallback warning appears
+  - Use command palette "Select Ghost Cell Suggestion Model"
 - Verify UI handles all states correctly
-- Come up with a clear pattern for what model is being used and letting the user know what it is an how to configure it.
 - Address issues as they emerge during testing
