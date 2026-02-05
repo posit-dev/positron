@@ -75,7 +75,9 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	const services = PositronReactServices.services;
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
-	const disposablesRef = useRef<DisposableStore>(new DisposableStore());
+	// Don't create DisposableStore in useRef - it will leak on remount.
+	// The store is created in the effect below.
+	const disposablesRef = useRef<DisposableStore | null>(null);
 
 	// Get data explorer service
 	const dataExplorerService = services.positronDataExplorerService;
@@ -86,12 +88,14 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	) ?? 300;
 
 	useEffect(() => {
-		const disposables = disposablesRef.current;
+		// Create a fresh disposable store for this mount cycle
+		const disposables = new DisposableStore();
+		disposablesRef.current = disposables;
 
 		// Clean up on unmount or when commId changes
 		return () => {
 			disposables.dispose();
-			disposablesRef.current = new DisposableStore();
+			disposablesRef.current = null;
 		};
 	}, [commId]);
 
@@ -101,10 +105,15 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 
 		async function initializeGrid() {
 			try {
+				// Check if store is already disposed (race condition protection)
+				if (!disposables || disposables.isDisposed) {
+					return;
+				}
+
 				// Wait for the instance to be available (with timeout)
 				const instance = await dataExplorerService.getInstanceAsync(commId, 10000);
 
-				if (cancelled) {
+				if (cancelled || !disposables || disposables.isDisposed) {
 					return;
 				}
 
@@ -133,10 +142,10 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 					}
 				}));
 
-				// Initialize the grid
-				await gridInstance.fetchData();
+				// Initialize the grid - this fetches backend state and sets up layout before fetching data
+				await gridInstance.initialize();
 
-				if (cancelled) {
+				if (cancelled || disposables.isDisposed) {
 					return;
 				}
 
@@ -161,12 +170,22 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		};
 	}, [commId, dataExplorerService]);
 
-	const handleOpenInExplorer = () => {
-		// The data explorer editor should already be open since the instance is registered
-		// Focus on the existing editor
-		const instance = dataExplorerService.getInstance(commId);
+	const handleOpenInExplorer = async () => {
+		// Try to get the instance synchronously first
+		let instance = dataExplorerService.getInstance(commId);
+
+		// If not found, try async lookup in case of timing issue
+		if (!instance) {
+			instance = await dataExplorerService.getInstanceAsync(commId, 2000);
+		}
+
 		if (instance) {
 			instance.requestFocus();
+		} else {
+			// Notify user that the instance could not be found
+			services.notificationService.warn(
+				localize('dataExplorerNotFound', 'Unable to open Data Explorer. Please re-run the cell.')
+			);
 		}
 	};
 
@@ -175,13 +194,17 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		e.stopPropagation();
 	};
 
+	// Check if grid instance has become stale (no data but still "connected")
+	const isGridStale = state.status === 'connected' &&
+		(state.gridInstance.columns === 0 || state.gridInstance.rows === 0);
+
 	// Render based on state
 	return (
 		<div ref={containerRef} className='inline-data-explorer-container' style={{ height: `${maxHeight}px` }}>
 			<InlineDataExplorerHeader
 				shape={shape}
 				title={title}
-				onOpenInExplorer={state.status === 'connected' ? handleOpenInExplorer : undefined}
+				onOpenInExplorer={state.status === 'connected' && !isGridStale ? handleOpenInExplorer : undefined}
 			/>
 			<div className='inline-data-explorer-content' onWheel={handleWheel}>
 				{state.status === 'loading' && (
@@ -190,10 +213,16 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 						{localize('loading', 'Loading...')}
 					</div>
 				)}
-				{state.status === 'connected' && (
+				{state.status === 'connected' && !isGridStale && (
 					<PositronDataGrid
 						instance={state.gridInstance}
 					/>
+				)}
+				{state.status === 'connected' && isGridStale && (
+					<div className='inline-data-explorer-disconnected'>
+						<span className='codicon codicon-warning' />
+						{localize('dataStale', 'Data connection lost. Re-run cell to view.')}
+					</div>
 				)}
 				{state.status === 'disconnected' && (
 					<div className='inline-data-explorer-disconnected'>
