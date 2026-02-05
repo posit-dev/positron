@@ -7,11 +7,12 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { deleteConfiguration, ModelConfig, SecretStorage } from '../../config';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
-import { ModelProvider } from '../base/modelProvider.js';
+import { VercelModelProvider } from '../base/vercelModelProvider.js';
 
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
@@ -32,11 +33,12 @@ export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
  * - Authentication: OAuth (no API key required)
  * - Managed through workspace settings for authHost, scope, clientId, and baseUrl
  */
-export class PositModelProvider extends ModelProvider {
+export class PositModelProvider extends VercelModelProvider {
 	/** The cancellation token for the current operation. */
 	private static _cancellationToken: vscode.CancellationTokenSource | null = null;
 
-	private _anthropicClient: Anthropic;
+	private _anthropicClient!: Anthropic;
+	private _useNativeSdk!: boolean;
 	public readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -247,14 +249,31 @@ export class PositModelProvider extends ModelProvider {
 
 	/**
 	 * Initializes the Posit AI provider with OAuth-authenticated Anthropic client.
+	 * Uses either native Anthropic SDK or Vercel AI SDK based on the useAnthropicSdk preference.
 	 */
 	protected override initializeProvider() {
 		const params = PositModelProvider.getOAuthParameters();
-		this._anthropicClient = new Anthropic({
-			authToken: '_', // Actual token is set in authFetch
-			fetch: this.authFetch.bind(this),
-			baseURL: `${params.baseUrl}/anthropic`,
-		});
+
+		// Check preference: true (default) = native SDK, false = Vercel SDK
+		this._useNativeSdk = vscode.workspace.getConfiguration('positron.assistant')
+			.get('useAnthropicSdk', true);
+
+		if (this._useNativeSdk) {
+			// Initialize native Anthropic SDK (existing behavior)
+			this._anthropicClient = new Anthropic({
+				authToken: '_', // Actual token is set in authFetch
+				apiKey: '_',   // API key is not used
+				fetch: this.authFetch.bind(this),
+				baseURL: `${params.baseUrl}/anthropic`,
+			});
+		} else {
+			// Initialize Vercel AI SDK provider with OAuth fetch
+			// Note: Vercel SDK expects baseURL to include /v1 (default is https://api.anthropic.com/v1)
+			this.aiProvider = createAnthropic({
+				baseURL: `${params.baseUrl}/anthropic/v1`,
+				fetch: this.authFetch.bind(this),
+			});
+		}
 	}
 
 	/**
@@ -292,7 +311,7 @@ export class PositModelProvider extends ModelProvider {
 	}
 
 	/**
-	 * Provides chat response using Anthropic SDK with OAuth authentication.
+	 * Provides chat response using either native Anthropic SDK or Vercel AI SDK with OAuth authentication.
 	 */
 	override async provideLanguageModelChatResponse(
 		model: vscode.LanguageModelChatInformation,
@@ -301,6 +320,15 @@ export class PositModelProvider extends ModelProvider {
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	) {
+		// If using Vercel SDK, delegate to base class implementation
+		if (!this._useNativeSdk) {
+			return this.provideVercelResponse(model, messages, options, progress, token, {
+				toolResultExperimentalContent: true,
+				anthropicCacheBreakpoint: true
+			});
+		}
+
+		// Native SDK implementation follows
 		const cacheControlOptions = isCacheControlOptions(options.modelOptions?.cacheControl)
 			? options.modelOptions.cacheControl
 			: undefined;
@@ -442,11 +470,16 @@ export class PositModelProvider extends ModelProvider {
 
 	/**
 	 * Sends a test message to verify model connectivity.
-	 * For Posit AI, this is handled by resolveConnection.
+	 * When using Vercel SDK, delegates to base class. When using native SDK,
+	 * connection is verified via OAuth token in resolveConnection.
 	 */
-	protected async sendTestMessage(modelId: string) {
-		// Posit AI connection is verified via OAuth token in resolveConnection
-		return Promise.resolve();
+	protected override async sendTestMessage(modelId: string) {
+		if (!this._useNativeSdk) {
+			// Use Vercel SDK's test message implementation
+			return super.sendTestMessage(modelId);
+		}
+		// For native SDK, connection is verified via OAuth token in resolveConnection
+		return Promise.resolve() as any;
 	}
 
 	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {

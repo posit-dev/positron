@@ -23,7 +23,6 @@ Claude Code will automatically detect these files and may suggest them based on 
 - **language-support.md** - Python/R language features (coming soon)
 - **ui-components.md** - Positron-specific UI development (coming soon)
 - **backend.md** - Kernel and service integration (coming soon)
-- **build-system.md** - Build daemons, compilation, and development workflows
 
 ## Best Practices
 

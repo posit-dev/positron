@@ -193,7 +193,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         with:
-          project: ${{ inputs.project }}
+          identifier: ${{ inputs.project }}
 
       - name: 🧪 Run Playwright Tests
         shell: bash
