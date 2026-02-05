@@ -12,9 +12,16 @@
 	*/
 	--_container-offset-left: -24px;
 	--_container-size: 20px;
+	/*
+	 * To line up output menu with the first line of the output, we need to position the menu
+	 * the same distance from the top of the cell as the start of the output contents.
+	 * The output contents are 0.5rem from the top of the cell because of the padding.
+	 * So we need to offset the menu 0.5rem from the top of the cell as well.
+	 */
+	--_container-offset-top: 0.5rem;
 
 	position: absolute;
-	top: 0;
+	top: var(--_container-offset-top);
 	left: var(--_container-offset-left);
 	width: var(--_container-size);
 	height: var(--_container-size);
