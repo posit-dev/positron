@@ -24,7 +24,9 @@ import { isMacintosh } from '../../../../../base/common/platform.js';
  * InlineDataExplorerProps interface.
  */
 interface InlineDataExplorerProps extends ParsedDataExplorerOutput {
-	// Additional props if needed
+	/** Called when the data explorer instance can't be found quickly, signaling
+	 *  the parent to render a fallback (e.g. HTML table) instead. */
+	onFallback?: () => void;
 }
 
 /**
@@ -111,14 +113,21 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 					return;
 				}
 
-				// Wait for the instance to be available (with timeout)
-				const instance = await dataExplorerService.getInstanceAsync(commId, 10000);
+				// When a fallback is available, use a short timeout since comms
+				// register within milliseconds during normal execution. On reload,
+				// the comm won't exist so we fall back quickly instead of waiting.
+				const timeout = props.onFallback ? 500 : 10000;
+				const instance = await dataExplorerService.getInstanceAsync(commId, timeout);
 
 				if (cancelled || !disposables || disposables.isDisposed) {
 					return;
 				}
 
 				if (!instance) {
+					if (props.onFallback) {
+						props.onFallback();
+						return;
+					}
 					setState({
 						status: 'error',
 						message: localize('instanceNotFound', 'Data explorer instance not found. Re-run the cell to view the data.')

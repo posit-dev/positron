@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { NotebookCellOutputItem } from './IPositronNotebookCell.js';
-import { DATA_EXPLORER_MIME_TYPE } from '../getOutputContents.js';
+import { isDataExplorerMimeType } from '../getOutputContents.js';
 
 /**
  * Options for getting MIME type priority
@@ -22,7 +22,7 @@ interface MimeTypePriorityOptions {
  */
 function getMimeTypePriority(mime: string, options?: MimeTypePriorityOptions): number | null {
 	// Positron inline data explorer has highest priority (if not skipped)
-	if (mime === DATA_EXPLORER_MIME_TYPE) {
+	if (isDataExplorerMimeType(mime)) {
 		if (options?.skipDataExplorer) {
 			return null; // Treat as unknown, will fall back to HTML
 		}
