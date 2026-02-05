@@ -21,7 +21,7 @@ Feedback from **seeM** on the ghost cell suggestions feature.
     - `positron.assistant.notebook.ghostCellSuggestions.mode`
     - `positron.assistant.notebook.ghostCellSuggestions.enabled`
   - Only write when user changes from default
-  - **Done:** Use `undefined` to remove settings when value matches default (enabled=false, mode='push')
+  - **Done:** Removed `hasOptedIn` setting entirely. Now use `inspect()` to detect if user has explicitly set `enabled`. Renamed `mode` to `automatic` (boolean). Use `undefined` to remove settings matching defaults.
 
 ## UI Styling (Toggle)
 
@@ -34,36 +34,46 @@ Feedback from **seeM** on the ghost cell suggestions feature.
 
 ## UI Layout
 
-- [ ] **#4** Move About button to right side
+- [x] **#4** Move About button to right side
   - Left side is valuable real estate; About is infrequently used
+  - **Done:** Moved info button to footer alongside model indicator
 
-- [ ] **#5** Add collapse/expand for truncated description text
+- [x] **#5** Add collapse/expand for truncated description text
   - Tooltip is uncomfortable for reading medium-sized descriptions
+  - **Done:** Added "Show more"/"Show less" button when explanation is truncated
 
-- [ ] **#6** Remove sparkles icon from ghost cell
+- [x] **#6** Remove sparkles icon from ghost cell
   - Dashed border already distinguishes the suggestion cell
+  - **Done:** Removed sparkle icons from opt-in prompt, awaiting-request, and content header
 
-- [ ] **#7** Streamline on-demand mode UI to single line
+- [x] **#7** Streamline on-demand mode UI to single line
   - Remove "AI suggestion available on request" text
   - Move buttons next to toggle for compact layout
+  - **Done:** Simplified to single row: text, buttons, spacer, toggle, info button
 
 ## UI Polish
 
-- [ ] **#9** Change About button cursor from question mark to pointer
+- [x] **#9** Change About button cursor from question mark to pointer
+  - **Done:** Changed `cursor: help` to `cursor: pointer` for info button (fallback warning keeps `help` since it's tooltip-only)
 
-- [ ] **#10** Fix blue borders on Dismiss/Regenerate buttons
+- [x] **#10** Fix blue borders on Dismiss/Regenerate buttons
   - Match existing button styling in notebook/Positron
+  - **Done:** Split hover/focus styles, use `:focus-visible` pattern to only show outline on keyboard navigation
 
 - [ ] **#11** Remove vertical black line from ghost cell
+  - Skipped: No explicit vertical line found in CSS
 
-- [ ] **#12** Remove animation when switching editors and back
+- [x] **#12** Remove animation when switching editors and back
+  - **Done:** Removed `ghost-cell-fade-in` animation and keyframes
 
-- [ ] **#13** Make hover transition instant (match notebook pattern)
+- [x] **#13** Make hover transition instant (match notebook pattern)
   - Current delay differs from other notebook transitions
+  - **Done:** Changed transitions from 200ms to 0.1s to match AssistantPanel pattern
 
 ## Cleanup
 
-- [ ] **#14** Check if .gitignore line 50 is still needed
+- [x] **#14** Check if .gitignore line 50 is still needed
+  - **Done:** No action needed - file ends at line 49, no ghost cell related entries
 
 ---
 
