@@ -255,7 +255,7 @@ class PositronDisplayFormatter(DisplayFormatter):
             # Generate a unique title for the inline display
             rows, cols = _get_table_shape(obj)
             source = _get_table_source(obj)
-            title = f"Inline {source} ({rows} x {cols})"
+            title = source
 
             # Register without opening a full data explorer panel
             comm_id = self._kernel.data_explorer_service.register_table(
