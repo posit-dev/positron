@@ -6,8 +6,6 @@
 import { URI } from '../../../../base/common/uri.js';
 import { IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
-import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 
 /**
@@ -35,12 +33,8 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	/**
 	 * Constructor.
 	 * @param resource The resource.
-	 * @param _positronDataExplorerService The Positron data explorer service.
 	 */
-	constructor(
-		readonly resource: URI,
-		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService
-	) {
+	constructor(readonly resource: URI) {
 		// Call the base class's constructor.
 		super();
 	}
@@ -49,14 +43,11 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
-		// Dispose of the data explorer client instance.
-		const identifier = PositronDataExplorerUri.parse(this.resource);
-		if (identifier) {
-			const instance = this._positronDataExplorerService.getInstance(identifier);
-			if (instance) {
-				instance.dataExplorerClientInstance.dispose();
-			}
-		}
+		// Note: We intentionally do NOT dispose the dataExplorerClientInstance here.
+		// The client instance lifecycle is managed by the kernel/runtime that created it.
+		// Disposing it here would break inline data explorers in notebooks that share
+		// the same instance. The instance will be properly cleaned up when the kernel
+		// closes the comm or the runtime is shut down.
 
 		// Call the base class's dispose method.
 		super.dispose();
