@@ -110,7 +110,21 @@ export async function createPythonRuntimeMetadata(
 
     // Get the Python version from sysVersion since only that includes alpha/beta info (e.g '3.12.0b1')
     const pythonVersion = interpreter.sysVersion?.split(' ')[0] || interpreter.version?.raw || '0.0.1';
-    const envName = interpreter.envName ?? '';
+
+    // Get the environment name, using parent directory name for .venv/.conda folders (like uv does)
+    let envName = interpreter.envName ?? '';
+    if ((envName === '.venv' || envName === '.conda') && interpreter.path) {
+        // For .venv or .conda folders, use the parent directory name instead
+        // interpreter.path is like /project/.venv/bin/python (Unix) or /project/.venv/Scripts/python.exe (Windows)
+        // We want to extract "project" from this path
+        const venvDir = path.dirname(path.dirname(interpreter.path)); // Go up from python to bin/Scripts, then to .venv
+        const projectDir = path.dirname(venvDir); // Go up from .venv to project
+        const projectName = path.basename(projectDir);
+        if (projectName && !projectName.startsWith('.')) {
+            envName = projectName;
+        }
+    }
+
     const runtimeSource = interpreter.envType;
 
     // Construct the display name for the runtime, like 'Python (Pyenv: venv-name)'.

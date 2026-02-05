@@ -89,7 +89,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	useEffect(() => {
 		if (envSetupType === EnvironmentSetupType.NewEnvironment && envProviders && envProviderId) {
 			const providerName = envProviderNameForId(envProviderId, envProviders);
-			const defaultName = getDefaultEnvName(providerName, context.folderName);
+			const defaultName = getDefaultEnvName(providerName);
 			// Only set if no name has been set yet (undefined or null, not empty string)
 			if (envName === undefined || envName === null) {
 				setEnvName(defaultName);
@@ -160,7 +160,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		setEnvProviderId(identifier);
 		// Reset the environment name to the default for the new provider.
 		const providerName = envProviderNameForId(identifier, envProviders!);
-		const defaultName = getDefaultEnvName(providerName, context.folderName);
+		const defaultName = getDefaultEnvName(providerName);
 		setEnvName(defaultName);
 		context.pythonEnvName = defaultName;
 	};
