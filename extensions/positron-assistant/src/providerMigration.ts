@@ -67,6 +67,14 @@ function showMigrationNotification(
  *
  * The old setting always takes precedence: if a value exists in the old setting,
  * it will overwrite any existing value in the corresponding new per-provider setting.
+ * This is intentional because:
+ * 1. The old setting is removed after migration, so if it reappears, the user
+ *    deliberately added it again and we should honour that intent.
+ * 2. A Workbench admin may have the old setting configured in enforced settings
+ *    and update it instead of switching to the new setting. We need to ensure admin
+ *    changes still propagate to the per-provider settings rather than being ignored
+ *    if the user already has the new settings.
+ *
  * After migration, the old setting is removed.
  *
  * @param oldKey - The old setting key (e.g., 'models.custom')
