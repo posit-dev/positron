@@ -1,0 +1,58 @@
+{
+	"name": "positron-pdf-server",
+	"displayName": "PDF Server Viewer",
+	"description": "View PDF files using PDF.js served via local HTTP server",
+	"version": "1.0.0",
+	"publisher": "positron",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.70.0"
+	},
+	"extensionKind": [
+		"ui",
+		"workspace"
+	],
+	"main": "./out/extension",
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [],
+	"capabilities": {
+		"virtualWorkspaces": true,
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
+	"contributes": {
+		"customEditors": [
+			{
+				"viewType": "positronPdfServer.previewEditor",
+				"displayName": "PDF Server Preview",
+				"priority": "option",
+				"selector": [
+					{
+						"filenamePattern": "*.pdf"
+					}
+				]
+			}
+		]
+	},
+	"scripts": {
+		"compile": "gulp compile-extension:positron-pdf-server",
+		"watch": "gulp watch-extension:positron-pdf-server",
+		"vscode:prepublish": "npm run build-ext",
+		"build-ext": "node ../../node_modules/gulp/bin/gulp.js --gulpfile ../../build/gulpfile.extensions.js compile-extension:positron-pdf-server ./tsconfig.json"
+	},
+	"dependencies": {
+		"express": "^4.22.0",
+		"pdfjs-dist": "^5.4.624"
+	},
+	"devDependencies": {
+		"@types/express": "^4.17.17",
+		"@types/node": "22.x"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/posit-dev/positron.git"
+	}
+}
