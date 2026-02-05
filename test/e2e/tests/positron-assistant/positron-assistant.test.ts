@@ -256,19 +256,50 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
  * @see https://github.com/posit-dev/positron/pull/11299
  */
 test.describe('Positron Assistant Model Picker Default Indicator - Multiple Providers', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
-	test.beforeAll('Enable Assistant and sign in to providers', async function ({ app }) {
+	test.beforeAll('Enable Assistant and sign in to providers', async function ({ app, settings }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 
 		// Sign in to Echo provider
 		await app.workbench.assistant.runConfigureProviders();
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
+
+		// Sign in to Anthropic if ANTHROPIC_KEY is provided
+		if (process.env.ANTHROPIC_KEY) {
+			await app.workbench.assistant.selectModelProvider('anthropic-api');
+			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
+			await app.workbench.assistant.clickSignInButton();
+			await app.workbench.assistant.verifySignOutButtonVisible();
+		}
+
+		// Close the providers dialog
 		await app.workbench.assistant.clickCloseButton();
+
+		// Configure defaults for both Anthropic and Echo providers
+		await settings.set({
+			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
+			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
+		}, { reload: true });
+
+		// Wait until providers are visible in the model picker.
+		// Models load asynchronously after sign-in.
+		await expect(async () => {
+			await app.workbench.assistant.pickModel();
+			const models = await app.workbench.assistant.getModelPickerItems();
+			const hasEcho = models.some(m => m.label.startsWith('Echo'));
+			await app.workbench.assistant.closeModelPickerDropdown();
+			expect(hasEcho, 'Expected Echo models to be present').toBe(true);
+			if (process.env.ANTHROPIC_KEY) {
+				const hasAnthropic = models.some(m => m.label.includes('Claude'));
+				expect(hasAnthropic, 'Expected Anthropic models to be present').toBe(true);
+			}
+		}).toPass({ timeout: 30000 });
 	});
 
 	test.afterAll('Sign out of providers and clean up', async function ({ app, settings }) {
 		// Clean up settings
 		await settings.set({
+			'positron.assistant.models.preference.anthropic': '',
 			'positron.assistant.models.preference.echo': ''
 		});
 
@@ -297,25 +328,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	 * 1. Each provider shows its respective default model with "(default)" suffix
 	 * 2. Each default model appears first in its provider group
 	 */
-	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings, runCommand }) {
-		// Configure defaults for both Anthropic and Echo providers
-		await settings.set({
-			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
-			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
-		}, { reload: true });
-
-		// Only sign in to Anthropic if ANTHROPIC_KEY is provided
-		// Otherwise, assume already signed in via another method (e.g., OAuth)
-		if (process.env.ANTHROPIC_KEY) {
-			await app.workbench.assistant.clickAddModelButton();
-			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
-			await app.workbench.assistant.clickSignInButton();
-			await app.workbench.assistant.verifySignOutButtonVisible();
-			await app.workbench.assistant.clickCloseButton();
-			await runCommand('workbench.action.reloadWindow');
-		}
-
+	test('Verify default model indicators and ordering for multiple providers', async function ({ app }) {
 		await expect(async () => {
 			await app.workbench.assistant.pickModel();
 
