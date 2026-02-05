@@ -17,57 +17,6 @@ export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig,
 	id: string;
 }
 
-/**
- * Interface for storing and retrieving secrets.
- */
-export interface SecretStorage {
-	store(key: string, value: string): Thenable<void>;
-	get(key: string): Thenable<string | undefined>;
-	delete(key: string): Thenable<void>;
-}
-
-/**
- * Implementation of SecretStorage that uses VS Code's secret storage API.
- *
- * This class should be used in desktop mode to store secrets securely.
- */
-export class EncryptedSecretStorage implements SecretStorage {
-	constructor(private context: vscode.ExtensionContext) { }
-	store(key: string, value: string): Thenable<void> {
-		return this.context.secrets.store(key, value);
-	}
-	get(key: string): Thenable<string | undefined> {
-		return this.context.secrets.get(key);
-	}
-	delete(key: string): Thenable<void> {
-		return this.context.secrets.delete(key);
-	}
-}
-
-/**
- * Implementation of SecretStorage that uses VS Code's global storage API.
- *
- * This class stores secrets **insecurely** using VS Code's global storage API.
- * It is used in web mode, where there is no durable secret storage.
- *
- * This class should be replaced with one that uses a secure storage mechanism,
- * or just removed altogether when Positron gains secure storage capabilities in web mode.
- *
- * https://github.com/rstudio/vscode-server/issues/174
- */
-export class GlobalSecretStorage implements SecretStorage {
-	constructor(private context: vscode.ExtensionContext) { }
-	store(key: string, value: string): Thenable<void> {
-		return this.context.globalState.update(key, value);
-	}
-	get(key: string): Thenable<string | undefined> {
-		return Promise.resolve(this.context.globalState.get(key));
-	}
-	delete(key: string): Thenable<void> {
-		return this.context.globalState.update(key, undefined);
-	}
-}
-
 export interface ModelConfig extends StoredModelConfig {
 	apiKey: string;
 }
@@ -76,7 +25,7 @@ export function getStoredModels(context: vscode.ExtensionContext): StoredModelCo
 	return context.globalState.get('positron.assistant.models') || [];
 }
 
-export async function getModelConfiguration(id: string, context: vscode.ExtensionContext, storage: SecretStorage): Promise<ModelConfig | undefined> {
+export async function getModelConfiguration(id: string, context: vscode.ExtensionContext): Promise<ModelConfig | undefined> {
 	const storedConfigs = getStoredModels(context);
 	const config = storedConfigs.find((config) => config.id === id);
 
@@ -84,19 +33,19 @@ export async function getModelConfiguration(id: string, context: vscode.Extensio
 		return undefined;
 	}
 
-	const apiKey = await storage.get(`apiKey-${config.id}`);
+	const apiKey = await context.secrets.get(`apiKey-${config.id}`);
 	return {
 		...config,
 		apiKey: apiKey || ''
 	};
 }
 
-export async function getModelConfigurations(context: vscode.ExtensionContext, storage: SecretStorage): Promise<ModelConfig[]> {
+export async function getModelConfigurations(context: vscode.ExtensionContext): Promise<ModelConfig[]> {
 	const storedConfigs = getStoredModels(context);
 
 	const fullConfigs: ModelConfig[] = await Promise.all(
 		storedConfigs.map(async (config) => {
-			const apiKey = await storage.get(`apiKey-${config.id}`);
+			const apiKey = await context.secrets.get(`apiKey-${config.id}`);
 			return {
 				...config,
 				apiKey: apiKey || ''
@@ -149,7 +98,7 @@ export function getMaxConnectionAttempts(): number {
 	return maxAttempts;
 }
 
-export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function showConfigurationDialog(context: vscode.ExtensionContext) {
 
 	// Gather model sources; ignore disabled providers
 	const enabledProviders = await getEnabledProviders();
@@ -242,16 +191,16 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	return positron.ai.showLanguageModelConfig(sources, async (userConfig, action) => {
 		switch (action) {
 			case 'save':
-				await saveModel(userConfig, sources, storage, context);
+				await saveModel(userConfig, sources, context);
 				break;
 			case 'delete':
-				await deleteConfigurationByProvider(context, storage, userConfig.provider);
+				await deleteConfigurationByProvider(context, userConfig.provider);
 				break;
 			case 'oauth-signin':
-				await oauthSignin(userConfig, sources, storage, context);
+				await oauthSignin(userConfig, sources, context);
 				break;
 			case 'oauth-signout':
-				await oauthSignout(userConfig, sources, storage, context);
+				await oauthSignout(userConfig, sources, context);
 				break;
 			case 'cancel':
 				// User cancelled the dialog, clean up any pending operations
@@ -264,7 +213,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 
 }
 
-async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
+async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
 	const { name: nameRaw, model: modelRaw, baseUrl: baseUrlRaw, apiKey: apiKeyRaw, oauth: oauth, ...otherConfig } = userConfig;
 	const name = nameRaw.trim();
 	const model = modelRaw.trim();
@@ -292,7 +241,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 
 	// Store API key in secret storage
 	if (apiKey) {
-		await storage.store(`apiKey-${id}`, apiKey);
+		await context.secrets.store(`apiKey-${id}`, apiKey);
 	}
 
 	// Get existing configurations
@@ -313,7 +262,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Note: Autoconfigurable providers are registered upon extension activation, so don't need to be handled here.
 	// Likewise, the configuration dialog hides affordances to login/logout for autoconfigured models, so we'd never reach this state.
 	try {
-		await registerModel(newConfig, context, storage);
+		await registerModel(newConfig, context);
 		// Update persistent storage with new configuration
 		await context.globalState.update(
 			'positron.assistant.models',
@@ -337,7 +286,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
 		);
 	} catch (error) {
-		await storage.delete(`apiKey-${id}`);
+		await context.secrets.delete(`apiKey-${id}`);
 		await context.globalState.update(
 			'positron.assistant.models',
 			existingConfigs
@@ -347,7 +296,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	}
 }
 
-async function deleteConfigurationByProvider(context: vscode.ExtensionContext, storage: SecretStorage, providerId: string) {
+async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const targetConfig = existingConfigs.find(config => config.provider === providerId);
 	if (targetConfig === undefined) {
@@ -356,17 +305,17 @@ async function deleteConfigurationByProvider(context: vscode.ExtensionContext, s
 		removeAutoconfiguredModel(providerId);
 		return;
 	}
-	await deleteConfiguration(context, storage, targetConfig.id);
+	await deleteConfiguration(context, targetConfig.id);
 }
 
-async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
+async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
 	try {
 		switch (userConfig.provider) {
 			case 'copilot-auth':
 				await CopilotService.instance().signIn();
 				break;
 			case 'posit-ai':
-				await PositModelProvider.signIn(storage);
+				await PositModelProvider.signIn(context);
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
@@ -374,7 +323,7 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 
 		// Special case: Copilot handles saving its own configuration internally
 		if (userConfig.provider !== 'copilot-auth') {
-			await saveModel(userConfig, sources, storage, context);
+			await saveModel(userConfig, sources, context);
 		}
 
 		PositronAssistantApi.get().notifySignIn(userConfig.provider);
@@ -389,7 +338,7 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 	}
 }
 
-async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
+async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
 	let oauthCompleted = false;
 	try {
 		switch (userConfig.provider) {
@@ -397,14 +346,14 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 				oauthCompleted = await CopilotService.instance().signOut();
 				break;
 			case 'posit-ai':
-				oauthCompleted = await PositModelProvider.signOut(storage);
+				oauthCompleted = await PositModelProvider.signOut(context);
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));
 		}
 
 		if (oauthCompleted) {
-			await deleteConfigurationByProvider(context, storage, userConfig.provider);
+			await deleteConfigurationByProvider(context, userConfig.provider);
 		} else {
 			throw new Error(vscode.l10n.t('OAuth sign-out was not completed successfully.'));
 		}
@@ -436,7 +385,7 @@ export function expandConfigToSource(config: StoredModelConfig): positron.ai.Lan
 	};
 }
 
-export async function deleteConfiguration(context: vscode.ExtensionContext, storage: SecretStorage, id: string) {
+export async function deleteConfiguration(context: vscode.ExtensionContext, id: string) {
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const updatedConfigs = existingConfigs.filter(config => config.id !== id);
 
@@ -450,7 +399,7 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 		updatedConfigs
 	);
 
-	await storage.delete(`apiKey-${id}`);
+	await context.secrets.delete(`apiKey-${id}`);
 
 	disposeModels(id);
 
