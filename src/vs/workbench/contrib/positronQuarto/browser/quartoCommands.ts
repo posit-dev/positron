@@ -42,6 +42,7 @@ export const enum QuartoCommandId {
 	ChangeKernel = 'positronQuarto.changeKernel',
 	CopyOutput = 'positronQuarto.copyOutput',
 	SaveCellPlot = 'positronQuarto.saveCellPlot',
+	PopoutOutput = 'positronQuarto.popoutOutput',
 }
 
 /**
@@ -743,5 +744,58 @@ registerAction2(class SaveCellPlotAction extends Action2 {
 
 		// Save the plot
 		return contribution.savePlot(plotInfo.dataUrl, plotInfo.mimeType, plotInfo.cellId, targetUri);
+	}
+});
+
+/**
+ * Open the output of the cell at the current cursor position in a new tab.
+ * - PLOT outputs: Opens the image in a new editor tab
+ * - TEXT outputs: Opens in a new untitled editor (ANSI stripped)
+ * - HTML outputs: Opens in the Viewer pane
+ */
+registerAction2(class PopoutOutputAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.PopoutOutput,
+			title: {
+				value: localize('quarto.popoutOutput', 'Open Output in New Tab'),
+				original: 'Open Output in New Tab',
+			},
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_PRECONDITION,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<boolean> {
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return false;
+		}
+
+		const { editor } = context;
+		const position = editor.getPosition();
+		if (!position) {
+			notificationService.warn(localize('quarto.popoutOutput.noCursor', 'No cursor position'));
+			return false;
+		}
+
+		// Get the QuartoOutputContribution from the editor
+		const contribution = editor.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+		if (!contribution) {
+			return false;
+		}
+
+		// Try to popout the output for the cell at cursor position
+		const success = contribution.popoutForCellAtLine(position.lineNumber);
+		if (!success) {
+			notificationService.warn(localize('quarto.popoutOutput.noOutput', 'No output available to open'));
+			return false;
+		}
+
+		return true;
 	}
 });

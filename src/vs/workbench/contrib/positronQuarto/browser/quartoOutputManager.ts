@@ -11,7 +11,7 @@ import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { QuartoOutputViewZone, CopyOutputRequest, SavePlotRequest } from './quartoOutputViewZone.js';
+import { QuartoOutputViewZone, CopyOutputRequest, SavePlotRequest, PopoutRequest } from './quartoOutputViewZone.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
@@ -19,6 +19,8 @@ import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { dirname, basename, extname } from '../../../../base/common/resources.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
@@ -120,6 +122,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
 		@IFileService private readonly _fileService: IFileService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IPositronPreviewService private readonly _previewService: IPositronPreviewService,
 	) {
 		super();
 
@@ -737,6 +741,11 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._handleSaveRequest(request, cellId);
 		}));
 
+		// Set up popout handler
+		this._outputHandlingDisposables.add(viewZone.onPopoutRequested(request => {
+			this._handlePopoutRequest(request);
+		}));
+
 		// Set initial execution state
 		const executionState = this._executionManager.getExecutionState(cellId);
 		viewZone.setExecuting(executionState === CellExecutionState.Running);
@@ -773,6 +782,157 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 */
 	private async _handleSaveRequest(request: SavePlotRequest, cellId: string): Promise<void> {
 		await this._savePlot(request.dataUrl, request.mimeType, cellId);
+	}
+
+	/**
+	 * Handle a popout request from a view zone.
+	 * Opens the output in an appropriate location based on type:
+	 * - PLOT: Opens image in a new editor tab
+	 * - TEXT: Opens in a new untitled editor
+	 * - HTML: Opens in the Viewer pane
+	 */
+	private async _handlePopoutRequest(request: PopoutRequest): Promise<void> {
+		const { popout } = request;
+
+		try {
+			switch (popout.type) {
+				case 'plot':
+					await this._openPlotInEditor(popout.dataUrl, popout.mimeType, request.cellId);
+					break;
+				case 'text':
+					await this._openTextInEditor(popout.text);
+					break;
+				case 'html':
+					await this._openHtmlInViewer(popout.html, request.cellId);
+					break;
+			}
+		} catch (error) {
+			this._logService.error('[QuartoOutputContribution] Popout failed:', error);
+			this._notificationService.error(localize('popoutFailed', 'Failed to open output'));
+		}
+	}
+
+	/**
+	 * Open a plot image in a new editor tab.
+	 */
+	private async _openPlotInEditor(dataUrl: string, mimeType: string, cellId: string): Promise<void> {
+		if (!this._documentUri) {
+			return;
+		}
+
+		// Extract base64 data from data URL
+		const base64Data = this._extractBase64FromDataUrl(dataUrl);
+		if (!base64Data) {
+			throw new Error('Invalid data URL format');
+		}
+
+		// Decode base64 to binary
+		const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+
+		// Create a temporary file to open the image
+		// Use the document name + cell index for the filename
+		const extension = this._getExtensionForMimeType(mimeType);
+		const docName = basename(this._documentUri);
+		const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
+		const cellIndex = cellId.split('-')[0];
+		const filename = `${docNameWithoutExt}_cell${cellIndex}${extension}`;
+
+		// Write to a temp location and open it
+		const tempDir = dirname(this._documentUri);
+		const tempUri = tempDir.with({ path: `${tempDir.path}/.positron-temp-${filename}` });
+
+		await this._fileService.writeFile(tempUri, VSBuffer.wrap(binaryData));
+
+		// Open the temp file in the editor
+		await this._editorService.openEditor({
+			resource: tempUri,
+			options: {
+				pinned: false,
+				preserveFocus: false,
+			}
+		});
+	}
+
+	/**
+	 * Open text content in a new untitled editor.
+	 */
+	private async _openTextInEditor(text: string): Promise<void> {
+		// Create an untitled document with the text content
+		const untitledUri = URI.from({
+			scheme: 'untitled',
+			path: 'Output',
+		});
+
+		await this._editorService.openEditor({
+			resource: untitledUri,
+			contents: text,
+			options: {
+				pinned: false,
+				preserveFocus: false,
+			}
+		});
+	}
+
+	/**
+	 * Open HTML content in the Viewer pane.
+	 */
+	private async _openHtmlInViewer(html: string, cellId: string): Promise<void> {
+		if (!this._documentUri) {
+			return;
+		}
+
+		// Generate a unique preview ID based on document and cell
+		const docName = basename(this._documentUri);
+		const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
+		const cellIndex = cellId.split('-')[0];
+		const previewId = `quarto-output-${docNameWithoutExt}-cell${cellIndex}`;
+
+		// Create a data URI for the HTML content
+		const htmlDataUri = URI.from({
+			scheme: 'data',
+			path: `text/html;base64,${btoa(html)}`,
+		});
+
+		// Open in the preview/viewer pane
+		this._previewService.openUri(
+			previewId,
+			undefined, // extension
+			htmlDataUri,
+			{ type: 'quarto-inline-output', id: cellId }
+		);
+	}
+
+	/**
+	 * Popout the output for the cell at the given line number.
+	 * Returns true if popout was initiated, false if no popout content exists.
+	 */
+	popoutForCellAtLine(lineNumber: number): boolean {
+		const model = this._editor.getModel();
+		if (!model) {
+			return false;
+		}
+
+		// Get the cell at this line
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellAtLine(lineNumber);
+		if (!cell) {
+			return false;
+		}
+
+		// Get the view zone for this cell
+		const viewZone = this._viewZones.get(cell.id);
+		if (!viewZone || !viewZone.hasPopoutContent()) {
+			return false;
+		}
+
+		// Get the content and handle it
+		const popout = viewZone.getPopoutContent();
+		if (popout) {
+			this._handlePopoutRequest({ cellId: cell.id, popout });
+			return true;
+		}
+
+		return false;
 	}
 
 	/**

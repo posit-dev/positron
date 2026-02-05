@@ -47,6 +47,24 @@ export interface SavePlotRequest {
 }
 
 /**
+ * Type of popout action to perform.
+ */
+export type PopoutType =
+	| { type: 'plot'; dataUrl: string; mimeType: string }
+	| { type: 'text'; text: string }
+	| { type: 'html'; html: string; webviewMetadata?: ICellOutput['webviewMetadata'] };
+
+/**
+ * Request to pop out output content.
+ */
+export interface PopoutRequest {
+	/** The cell ID */
+	readonly cellId: string;
+	/** The popout type and content */
+	readonly popout: PopoutType;
+}
+
+/**
  * Request to copy output content.
  */
 export interface CopyOutputRequest {
@@ -146,6 +164,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _onSaveRequested = this._register(new Emitter<SavePlotRequest>());
 	readonly onSaveRequested: VSEvent<SavePlotRequest> = this._onSaveRequested.event;
 
+	// Popout button
+	private readonly _popoutButton: HTMLButtonElement;
+	// Icon element inside the popout button
+	private _popoutButtonIcon!: HTMLSpanElement;
+	// Event emitted when popout is requested (signals to outer code to open output in new tab/viewer)
+	private readonly _onPopoutRequested = this._register(new Emitter<PopoutRequest>());
+	readonly onPopoutRequested: VSEvent<PopoutRequest> = this._onPopoutRequested.event;
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		public readonly cellId: string,
@@ -180,6 +206,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Create close button
 		this._closeButton = this._createCloseButton();
 		buttonContainer.appendChild(this._closeButton);
+
+		// Create popout button; initially hidden
+		this._popoutButton = this._createPopoutButton();
+		buttonContainer.appendChild(this._popoutButton);
+		this._popoutButton.style.display = 'none';
 
 		// Create copy button; initially hidden
 		this._copyButton = this._createCopyButton();
@@ -589,6 +620,33 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		return button;
 	}
 
+	private _createPopoutButton(): HTMLButtonElement {
+		const button = document.createElement('button');
+		button.className = 'quarto-output-popout';
+		button.setAttribute('aria-label', localize('popoutOutput', 'Open output in new tab'));
+		button.title = localize('popoutOutput', 'Open output in new tab');
+
+		// Use codicon for popout button (link-external icon)
+		this._popoutButtonIcon = document.createElement('span');
+		this._popoutButtonIcon.className = ThemeIcon.asClassName(Codicon.linkExternal);
+		button.appendChild(this._popoutButtonIcon);
+
+		// Handle mousedown to prevent the editor from consuming the event
+		button.addEventListener('mousedown', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+		});
+
+		// Handle click to trigger popout
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this._handlePopoutClick();
+		});
+
+		return button;
+	}
+
 	/**
 	 * Handle click on the copy button.
 	 * Determines what content to copy and emits the copy request event.
@@ -616,6 +674,116 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				mimeType: plotInfo.mimeType,
 			});
 		}
+	}
+
+	/**
+	 * Handle click on the popout button.
+	 * Determines popout content type and emits the popout request event.
+	 */
+	private _handlePopoutClick(): void {
+		const popout = this._getPopoutContent();
+		if (popout) {
+			this._onPopoutRequested.fire({
+				cellId: this.cellId,
+				popout,
+			});
+		}
+	}
+
+	/**
+	 * Get the popout content based on output types.
+	 * Priority:
+	 * - If any output contains a plot image, return the first plot
+	 * - If any output contains HTML/webview content, return the first HTML
+	 * - If all outputs are text only, return concatenated text (stripped of ANSI)
+	 * - If outputs contain only errors, return undefined (no popout available)
+	 */
+	private _getPopoutContent(): PopoutType | undefined {
+		// First pass: look for plot images
+		for (const output of this._outputs) {
+			for (const item of output.items) {
+				if (item.mime.startsWith('image/')) {
+					const dataUrl = item.data.startsWith('data:')
+						? item.data
+						: `data:${item.mime};base64,${item.data}`;
+					return { type: 'plot', dataUrl, mimeType: item.mime };
+				}
+			}
+		}
+
+		// Second pass: look for HTML/webview content
+		for (const output of this._outputs) {
+			// Check for webview metadata (interactive HTML like Plotly, widgets)
+			if (output.webviewMetadata?.webviewType) {
+				// Find the HTML content
+				for (const item of output.items) {
+					if (item.mime === 'text/html') {
+						return {
+							type: 'html',
+							html: item.data,
+							webviewMetadata: output.webviewMetadata,
+						};
+					}
+				}
+			}
+
+			// Check for regular HTML content
+			for (const item of output.items) {
+				if (item.mime === 'text/html') {
+					return { type: 'html', html: item.data };
+				}
+			}
+		}
+
+		// Third pass: collect text content (only if no images or HTML found)
+		const textParts: string[] = [];
+		let hasNonErrorContent = false;
+
+		for (const output of this._outputs) {
+			for (const item of output.items) {
+				if (item.mime === 'application/vnd.code.notebook.error') {
+					// Skip error content for popout - we only want text output
+					continue;
+				}
+				const text = this._extractTextFromItem(item);
+				if (text) {
+					// Strip ANSI escape sequences for popout
+					textParts.push(this._stripAnsi(text));
+					hasNonErrorContent = true;
+				}
+			}
+		}
+
+		// Only return text if we have non-error content
+		if (hasNonErrorContent && textParts.length > 0) {
+			return { type: 'text', text: textParts.join('\n') };
+		}
+
+		// No popout available (only errors or empty)
+		return undefined;
+	}
+
+	/**
+	 * Strip ANSI escape sequences from text.
+	 */
+	private _stripAnsi(text: string): string {
+
+		return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+	}
+
+	/**
+	 * Check if popout is available for the current outputs.
+	 * Returns true if there's any plot, HTML, or text content (not just errors).
+	 */
+	hasPopoutContent(): boolean {
+		return this._getPopoutContent() !== undefined;
+	}
+
+	/**
+	 * Get the popout content for external callers.
+	 */
+	getPopoutContent(): PopoutType | undefined {
+		return this._getPopoutContent();
 	}
 
 	/**
@@ -1428,11 +1596,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Measure the styled container's height (content + padding + border, but not margin)
 		const styledHeight = this._styledContainer.offsetHeight;
 
+		// Show the Popout button if there's enough room and there's popout content
+		// (not just errors - plot, HTML, or text content)
+		this._popoutButton.style.display = styledHeight > 40 && this.hasPopoutContent() ? 'block' : 'none';
+
 		// Show the Copy button if there's enough room and there's copiable content
-		this._copyButton.style.display = styledHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
+		this._copyButton.style.display = styledHeight > 60 && this.hasCopiableContent() ? 'block' : 'none';
 
 		// Show the Save button if there's enough room and there's exactly one plot
-		this._saveButton.style.display = styledHeight > 40 && this.hasSinglePlot() ? 'block' : 'none';
+		this._saveButton.style.display = styledHeight > 60 && this.hasSinglePlot() ? 'block' : 'none';
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);

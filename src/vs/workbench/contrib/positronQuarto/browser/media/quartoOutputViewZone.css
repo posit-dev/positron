@@ -50,6 +50,7 @@
 }
 
 /* Disable action buttons (except stop) during recomputing state */
+.quarto-inline-output.quarto-output-recomputing .quarto-output-popout,
 .quarto-inline-output.quarto-output-recomputing .quarto-output-copy,
 .quarto-inline-output.quarto-output-recomputing .quarto-output-save {
 	opacity: 0.3;
@@ -69,6 +70,7 @@
 
 /* Shared button styles */
 .quarto-output-close,
+.quarto-output-popout,
 .quarto-output-copy,
 .quarto-output-save {
 	width: 22px;
@@ -87,6 +89,7 @@
 }
 
 .quarto-output-close:hover,
+.quarto-output-popout:hover,
 .quarto-output-copy:hover,
 .quarto-output-save:hover {
 	opacity: 1;
@@ -94,6 +97,7 @@
 }
 
 .quarto-output-close:focus,
+.quarto-output-popout:focus,
 .quarto-output-copy:focus,
 .quarto-output-save:focus {
 	opacity: 1;
@@ -238,6 +242,8 @@
 
 .hc-black .quarto-output-close:focus,
 .hc-light .quarto-output-close:focus,
+.hc-black .quarto-output-popout:focus,
+.hc-light .quarto-output-popout:focus,
 .hc-black .quarto-output-copy:focus,
 .hc-light .quarto-output-copy:focus,
 .hc-black .quarto-output-save:focus,
