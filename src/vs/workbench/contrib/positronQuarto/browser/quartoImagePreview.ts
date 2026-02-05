@@ -9,11 +9,12 @@ import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { dirname, joinPath } from '../../../../base/common/resources.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
+import { dirname, joinPath, basename } from '../../../../base/common/resources.js';
+import { IFileService, FileOperationError, FileOperationResult } from '../../../../platform/files/common/files.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { EditorLayoutInfo } from '../../../../editor/common/config/editorOptions.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
+import * as nls from '../../../../nls.js';
 
 /**
  * Regular expression to match markdown image syntax: ![alt text](image path)
@@ -27,9 +28,29 @@ const MARKDOWN_IMAGE_REGEX = /^!\[([^\]]*)\]\(([^)]+)\)\s*$/;
 const MIN_VIEW_ZONE_HEIGHT = 24;
 
 /**
+ * Height for error view zones in pixels.
+ * Includes padding (8px top + 8px bottom) and margin (8px top + 8px bottom).
+ */
+const ERROR_VIEW_ZONE_HEIGHT = 56;
+
+/**
  * Maximum height for an image preview in pixels.
  */
 const MAX_IMAGE_HEIGHT = 400;
+
+/**
+ * Result of resolving an image path.
+ */
+interface ImageResolveResult {
+	/** True if the image was resolved successfully */
+	success: boolean;
+	/** The data URL for the image (if success is true) */
+	dataUrl?: string;
+	/** Error message (if success is false and not skipped) */
+	errorMessage?: string;
+	/** True if the image should be skipped entirely (e.g., remote URLs) */
+	skip?: boolean;
+}
 
 /**
  * Represents a markdown image found in the document.
@@ -45,7 +66,8 @@ interface MarkdownImage {
 
 /**
  * View zone for displaying a markdown image preview inline in the editor.
- * Displays just the image without any borders or decorations.
+ * Displays just the image without any borders or decorations, or an error
+ * message if the image could not be loaded.
  */
 class QuartoImagePreviewViewZone extends Disposable implements IViewZone {
 	// IViewZone properties
@@ -56,19 +78,23 @@ class QuartoImagePreviewViewZone extends Disposable implements IViewZone {
 
 	private _zoneId: string | undefined;
 	private readonly _imageContainer: HTMLElement;
-	private readonly _img: HTMLImageElement;
+	private readonly _img: HTMLImageElement | undefined;
+	private readonly _errorContainer: HTMLElement | undefined;
 	private _resizeObserver: ResizeObserver | undefined;
+	private readonly _isError: boolean;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
 		public readonly lineNumber: number,
-		private readonly _imageSrc: string,
+		private readonly _imageSrc: string | undefined,
 		private readonly _altText: string,
+		private readonly _errorMessage?: string,
 	) {
 		super();
 
 		this.afterLineNumber = lineNumber;
-		this.heightInPx = MIN_VIEW_ZONE_HEIGHT;
+		this._isError = !_imageSrc && !!_errorMessage;
+		this.heightInPx = this._isError ? ERROR_VIEW_ZONE_HEIGHT : MIN_VIEW_ZONE_HEIGHT;
 
 		// Create outer wrapper
 		this.domNode = document.createElement('div');
@@ -79,25 +105,39 @@ class QuartoImagePreviewViewZone extends Disposable implements IViewZone {
 		this._imageContainer.className = 'quarto-image-preview-container';
 		this.domNode.appendChild(this._imageContainer);
 
-		// Create image element
-		this._img = document.createElement('img');
-		this._img.className = 'quarto-image-preview';
-		this._img.alt = this._altText;
-		this._img.src = this._imageSrc;
+		if (this._isError && this._errorMessage) {
+			// Create error container
+			this._errorContainer = document.createElement('div');
+			this._errorContainer.className = 'quarto-image-preview-error';
 
-		// Handle image load to update height
-		this._img.addEventListener('load', () => {
-			this._updateHeight();
-		});
+			// Create error text
+			const errorText = document.createElement('span');
+			errorText.className = 'quarto-image-preview-error-text';
+			errorText.textContent = this._errorMessage;
+			this._errorContainer.appendChild(errorText);
 
-		// Handle image error - don't hide, show placeholder
-		this._img.addEventListener('error', (e) => {
-			console.error('[QuartoImagePreview] Image failed to load:', this._imageSrc, e);
-			// Don't hide - leave the view zone visible for debugging
-			// In production we might want to show a placeholder or error message
-		});
+			this._imageContainer.appendChild(this._errorContainer);
+		} else if (this._imageSrc) {
+			// Create image element
+			this._img = document.createElement('img');
+			this._img.className = 'quarto-image-preview';
+			this._img.alt = this._altText;
+			this._img.src = this._imageSrc;
 
-		this._imageContainer.appendChild(this._img);
+			// Handle image load to update height
+			this._img.addEventListener('load', () => {
+				this._updateHeight();
+			});
+
+			// Handle image error - don't hide, show placeholder
+			this._img.addEventListener('error', (e) => {
+				console.error('[QuartoImagePreview] Image failed to load:', this._imageSrc, e);
+				// Don't hide - leave the view zone visible for debugging
+				// In production we might want to show a placeholder or error message
+			});
+
+			this._imageContainer.appendChild(this._img);
+		}
 
 		// Listen for layout changes to update width
 		this._register(this._editor.onDidLayoutChange(() => {
@@ -204,6 +244,11 @@ class QuartoImagePreviewViewZone extends Disposable implements IViewZone {
 	}
 
 	private _updateHeight(): void {
+		// For error states, use fixed height
+		if (this._isError || !this._img) {
+			return;
+		}
+
 		// Get the natural height of the image, capped at max height
 		const imgHeight = Math.min(this._img.naturalHeight || this._img.offsetHeight, MAX_IMAGE_HEIGHT);
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, imgHeight + 8); // 8px for padding
@@ -387,20 +432,34 @@ export class QuartoImagePreviewContribution extends Disposable implements IEdito
 		this._logService.debug('[QuartoImagePreview] Creating view zone for image at line', image.lineNumber, ':', image.imagePath);
 
 		// Resolve the image path relative to the document
-		const imageSrc = await this._resolveImagePath(image.imagePath);
-		if (!imageSrc) {
-			this._logService.info('[QuartoImagePreview] Could not resolve image path:', image.imagePath);
+		const result = await this._resolveImagePath(image.imagePath);
+
+		// Skip remote URLs - don't show preview or error
+		if (result.skip) {
+			this._logService.debug('[QuartoImagePreview] Skipping remote image:', image.imagePath);
 			return;
 		}
 
-		this._logService.debug('[QuartoImagePreview] Resolved image src:', imageSrc);
-
-		const viewZone = new QuartoImagePreviewViewZone(
-			this._editor,
-			image.lineNumber,
-			imageSrc,
-			image.altText,
-		);
+		let viewZone: QuartoImagePreviewViewZone;
+		if (result.success && result.dataUrl) {
+			this._logService.debug('[QuartoImagePreview] Resolved image src, length:', result.dataUrl.length);
+			viewZone = new QuartoImagePreviewViewZone(
+				this._editor,
+				image.lineNumber,
+				result.dataUrl,
+				image.altText,
+			);
+		} else {
+			// Create an error view zone
+			this._logService.info('[QuartoImagePreview] Could not resolve image path:', image.imagePath, '-', result.errorMessage);
+			viewZone = new QuartoImagePreviewViewZone(
+				this._editor,
+				image.lineNumber,
+				undefined,
+				image.altText,
+				result.errorMessage,
+			);
+		}
 
 		this._viewZones.set(image.lineNumber, viewZone);
 		viewZone.show();
@@ -411,20 +470,30 @@ export class QuartoImagePreviewContribution extends Disposable implements IEdito
 	 * Resolve an image path to a data URL that can be used as an img src.
 	 * We read the file and convert to data URL to avoid Electron security restrictions
 	 * on file:// URLs.
+	 * Returns an ImageResolveResult with either the data URL or an error message.
 	 */
-	private async _resolveImagePath(imagePath: string): Promise<string | undefined> {
+	private async _resolveImagePath(imagePath: string): Promise<ImageResolveResult> {
 		if (!this._documentUri) {
-			return undefined;
+			return {
+				success: false,
+				errorMessage: nls.localize('quarto.imagePreview.noDocument', 'No document URI')
+			};
 		}
 
-		// Check if it's already a URL
-		if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
-			return imagePath;
+		// Skip remote URLs - we can only preview local files
+		if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+			return { success: false, skip: true };
+		}
+
+		// Data URLs are already resolved
+		if (imagePath.startsWith('data:')) {
+			return { success: true, dataUrl: imagePath };
 		}
 
 		// Resolve relative to document directory
 		const documentDir = dirname(this._documentUri);
 		const imageUri = joinPath(documentDir, imagePath);
+		const fileName = basename(imageUri);
 
 		this._logService.debug('[QuartoImagePreview] Resolving image path:', imagePath);
 		this._logService.debug('[QuartoImagePreview] Document dir:', documentDir.toString());
@@ -453,15 +522,42 @@ export class QuartoImagePreviewContribution extends Disposable implements IEdito
 				const dataUrl = `data:${mimeType};base64,${base64}`;
 
 				this._logService.debug('[QuartoImagePreview] Converted to data URL, length:', dataUrl.length);
-				return dataUrl;
+				return { success: true, dataUrl };
 			}
+			// If content is null/undefined, return error
+			return {
+				success: false,
+				errorMessage: nls.localize('quarto.imagePreview.emptyFile', '{0}: File is empty', fileName)
+			};
 		} catch (error) {
-			// File doesn't exist or couldn't be read
+			// File doesn't exist or couldn't be read - provide specific error message
 			this._logService.debug('[QuartoImagePreview] File read failed:', error);
-			return undefined;
-		}
 
-		return undefined;
+			let errorMessage: string;
+			if (error instanceof FileOperationError) {
+				switch (error.fileOperationResult) {
+					case FileOperationResult.FILE_NOT_FOUND:
+						errorMessage = nls.localize('quarto.imagePreview.notFound', '{0}: File not found', fileName);
+						break;
+					case FileOperationResult.FILE_PERMISSION_DENIED:
+						errorMessage = nls.localize('quarto.imagePreview.permissionDenied', '{0}: Permission denied', fileName);
+						break;
+					case FileOperationResult.FILE_IS_DIRECTORY:
+						errorMessage = nls.localize('quarto.imagePreview.isDirectory', '{0}: Path is a directory', fileName);
+						break;
+					case FileOperationResult.FILE_TOO_LARGE:
+						errorMessage = nls.localize('quarto.imagePreview.tooLarge', '{0}: File is too large', fileName);
+						break;
+					default:
+						errorMessage = nls.localize('quarto.imagePreview.readError', '{0}: Could not read file', fileName);
+				}
+			} else {
+				// Generic error
+				errorMessage = nls.localize('quarto.imagePreview.genericError', '{0}: Could not load image', fileName);
+			}
+
+			return { success: false, errorMessage };
+		}
 	}
 
 	private _isQuartoDocument(): boolean {

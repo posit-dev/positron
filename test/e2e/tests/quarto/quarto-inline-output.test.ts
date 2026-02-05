@@ -1838,6 +1838,78 @@ test.describe('Quarto - Inline Output', {
 		await expect(previewContainer).toBeVisible({ timeout: 5000 });
 	});
 
+	test('Verify missing image shows error message in preview', async function ({ app, openFile }) {
+		// This test verifies that when a markdown image references a file that
+		// doesn't exist, an error message is shown in the view zone instead of
+		// an image. The error should be styled consistently with other Quarto
+		// inline output errors.
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+		// The images_and_equations.qmd file has a reference to julia.jpg which
+		// is intentionally missing to test this error handling.
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'images_and_equations.qmd');
+
+		// Open the images and equations test file
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// images_and_equations.qmd structure:
+		// - frontmatter (1-4)
+		// - blank line (5)
+		// - text (6)
+		// - blank line (7)
+		// - image line (8): ![The Mandlebrot Set](mandelbrot.jpg) - EXISTS
+		// - blank line (9)
+		// - text (10)
+		// - blank line (11)
+		// - equation (12-14)
+		// - blank line (15)
+		// - text (16)
+		// - blank line (17)
+		// - image line (18): ![Julia Set](julia.jpg) - MISSING
+
+		// CRITICAL ASSERTIONS:
+
+		// 1. Verify the error view zone exists for the missing image
+		// Use retry pattern since Monaco virtualizes content and may need scrolling
+		const errorPreview = page.locator('.quarto-image-preview-error');
+		await expect(async () => {
+			// Scroll to where the error preview should appear (after line 18)
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('20');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(errorPreview).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
+
+		// 2. Verify the error message contains the filename
+		const errorText = page.locator('.quarto-image-preview-error-text');
+		await expect(errorText).toBeVisible({ timeout: 10000 });
+		const errorContent = await errorText.textContent();
+		expect(errorContent).toContain('julia.jpg');
+
+		// 3. Verify the error message indicates the file was not found
+		expect(errorContent).toContain('not found');
+
+		// 4. Verify the error is styled with error colors (red border/background)
+		// The error container should have the error styling classes
+		const errorContainer = page.locator('.quarto-image-preview-error');
+		await expect(errorContainer).toBeVisible({ timeout: 5000 });
+	});
+
 	test('R - Verify execute code action steps through statements line by line with inline output', async function ({ app, openFile, r }) {
 		// This test verifies that the "Execute Code" action (workbench.action.positronConsole.executeCode)
 		// works correctly with Quarto inline output:

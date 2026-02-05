@@ -28,3 +28,24 @@
 	height: auto;
 	/* No border, no background - just the image */
 }
+
+/* Error container - styled consistently with quarto inline output errors */
+.quarto-image-preview-error {
+	padding: 8px 12px;
+	margin: 8px 0;
+	background: var(--vscode-inputValidation-errorBackground);
+	border: 1px solid var(--vscode-inputValidation-errorBorder);
+	border-radius: 2px;
+	color: var(--vscode-errorForeground);
+	display: flex;
+	align-items: center;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* Error text */
+.quarto-image-preview-error-text {
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	line-height: 1.4;
+}
