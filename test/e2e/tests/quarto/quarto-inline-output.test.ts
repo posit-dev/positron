@@ -1030,11 +1030,20 @@ test.describe('Quarto - Inline Output', {
 			await page.keyboard.press('Backquote');
 			await page.keyboard.press('Backquote');
 
-			await page.waitForTimeout(1500); // Wait for document to parse
+			await page.waitForTimeout(2000); // Wait for document to parse (longer wait for reliability)
+
+			// Wait for the cell toolbar to appear using retry pattern
+			const cellToolbar = page.locator('.quarto-cell-toolbar');
+			await expect(async () => {
+				// Scroll to make sure the cell is visible
+				await runCommand('workbench.action.gotoLine', { keepOpen: true });
+				await page.keyboard.type('8');
+				await page.keyboard.press('Enter');
+				await page.waitForTimeout(500);
+				await expect(cellToolbar.first()).toBeVisible({ timeout: 1000 });
+			}).toPass({ timeout: 30000 });
 
 			// Click the run button on the cell toolbar
-			const cellToolbar = page.locator('.quarto-cell-toolbar');
-			await expect(cellToolbar.first()).toBeVisible({ timeout: 10000 });
 			const runButton = cellToolbar.locator('button.quarto-toolbar-run').first();
 			await runButton.click();
 
@@ -1334,18 +1343,18 @@ test.describe('Quarto - Inline Output', {
 		// Wait for the cache service to load cached outputs
 		await page.waitForTimeout(2000);
 
-		// Scroll to where output should be
+		// Scroll to where output should be and verify webview/HTML container is visible
+		// Use retry pattern since Monaco virtualization can make elements hidden until scrolled into view
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
 			await page.keyboard.type('15');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+			// CRITICAL CHECK AFTER RELOAD: The output should STILL be rendered as HTML/webview,
+			// NOT as a JSON blob.
+			await expect(webviewOrHtml.first()).toBeVisible({ timeout: 1000 });
 		}).toPass({ timeout: 30000 });
-
-		// CRITICAL CHECK AFTER RELOAD: The output should STILL be rendered as HTML/webview,
-		// NOT as a JSON blob.
-		await expect(webviewOrHtml.first()).toBeVisible({ timeout: 10000 });
 
 		// Verify there's NO raw JSON blob after reload (this is the bug we're testing for)
 		const stdoutAfterReload = inlineOutput.locator('.quarto-output-stdout');
@@ -1434,13 +1443,15 @@ test.describe('Quarto - Inline Output', {
 
 		// Scroll further down to ensure the second output (after line 22) is in the viewport
 		// Monaco virtualizes content, so we need to scroll to make the second view zone visible
-		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('25');
-		await page.keyboard.press('Enter');
-		await page.waitForTimeout(500);
-
-		// Verify second output is visible
-		await expect(inlineOutputs.nth(1)).toBeVisible({ timeout: 10000 });
+		// Use retry pattern since Monaco might need multiple scroll attempts
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('25');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			// Verify second output is visible
+			await expect(inlineOutputs.nth(1)).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
 
 		// Step 2: Add text BETWEEN the two cells
 		// Go to line 17 (after first cell, before second cell)
