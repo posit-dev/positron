@@ -3,6 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * IMPORTANT: This module is intentionally duplicated across the extension/workbench boundary.
+ * The extension counterpart lives at:
+ *   extensions/positron-assistant/src/notebookAssistantMetadata.ts
+ *
+ * The two files share identical types (AssistantSettings, override types) and validation
+ * logic (getAssistantSettings). The only difference is the parameter type of
+ * getAssistantSettings: the extension version accepts `{ [key: string]: unknown } | undefined`
+ * while this file accepts `NotebookDocumentMetadata | undefined`.
+ *
+ * When modifying types or validation logic, update BOTH files.
+ */
+
 import { NotebookDocumentMetadata } from '../../notebook/common/notebookCommon.js';
 
 /**
