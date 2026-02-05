@@ -14,6 +14,16 @@ import { ParsedDataExplorerOutput, ParsedOutput, ParsedTextOutput } from './Posi
  */
 export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+json';
 
+/**
+ * Case-insensitive check for the data explorer MIME type. Needed because
+ * MIME types are case-insensitive per RFC 2045, and VS Code's
+ * normalizeMimeType lowercases the type/subtype when loading notebooks from
+ * disk, while live kernel execution preserves the original casing.
+ */
+export function isDataExplorerMimeType(mime: string): boolean {
+	return mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase();
+}
+
 type CellOutputInfo = { id: string; content: string };
 
 /**
@@ -128,7 +138,7 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 	}
 
 	// Handle Positron inline data explorer MIME type
-	if (mime === DATA_EXPLORER_MIME_TYPE) {
+	if (isDataExplorerMimeType(mime)) {
 		try {
 			const payload = JSON.parse(message);
 			return {

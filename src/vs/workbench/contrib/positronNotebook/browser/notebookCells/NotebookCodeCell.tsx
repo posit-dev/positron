@@ -6,8 +6,12 @@
 // CSS.
 import './NotebookCodeCell.css';
 
+// React.
+import React, { useState } from 'react';
+
 // Other dependencies.
-import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { NotebookCellOutputs, ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 import { isParsedTextOutput, parseOutputData } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
@@ -135,32 +139,44 @@ function CellOutput(output: NotebookCellOutputs) {
 			return renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
-		case 'dataExplorer': {
-			// Check if inline data explorer is enabled
-			const services = PositronReactServices.services;
-			const enabled = services.configurationService.getValue<boolean>(
-				POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY
-			) ?? true;
-
-			if (!enabled) {
-				// Fall back to HTML if inline data explorer is disabled
-				const htmlOutput = outputs.find(o => o.mime === 'text/html');
-				if (htmlOutput) {
-					const htmlParsed = parseOutputData(htmlOutput);
-					if (htmlParsed.type === 'html') {
-						return renderHtml(htmlParsed.content);
-					}
-				}
-				// If no HTML fallback, show a placeholder
-				return <div className='data-explorer-disabled'>
-					{localize('dataExplorerDisabled', 'Inline data explorer is disabled. Enable it in settings to view data grids.')}
-				</div>;
-			}
-			return <InlineDataExplorer {...parsed} />;
-		}
+		case 'dataExplorer':
+			return <DataExplorerCellOutput outputs={outputs} parsed={parsed} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}
 			</div>;
 	}
+}
+
+/**
+ * Wrapper component for data explorer outputs that handles fallback to HTML
+ * when the data explorer comm is unavailable (e.g. after notebook reload).
+ */
+function DataExplorerCellOutput({ parsed, outputs }: {
+	parsed: ParsedDataExplorerOutput;
+	outputs: IOutputItemDto[];
+}) {
+	const services = PositronReactServices.services;
+	const enabled = services.configurationService.getValue<boolean>(
+		POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY
+	) ?? true;
+
+	const [useFallback, setUseFallback] = useState(false);
+
+	if (!enabled || useFallback) {
+		const htmlOutput = outputs.find(o => o.mime === 'text/html');
+		if (htmlOutput) {
+			const htmlParsed = parseOutputData(htmlOutput);
+			if (htmlParsed.type === 'html') {
+				return renderHtml(htmlParsed.content);
+			}
+		}
+		if (!enabled) {
+			return <div className='data-explorer-disabled'>
+				{localize('dataExplorerDisabled', 'Inline data explorer is disabled. Enable it in settings to view data grids.')}
+			</div>;
+		}
+	}
+
+	return <InlineDataExplorer {...parsed} onFallback={() => setUseFallback(true)} />;
 }
