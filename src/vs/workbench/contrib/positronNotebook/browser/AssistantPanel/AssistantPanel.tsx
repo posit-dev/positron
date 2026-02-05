@@ -32,6 +32,7 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../../common/positronNotebookConfig.js';
 import { CellEditType } from '../../../notebook/common/notebookCommon.js';
 import { AssistantSettings, ShowDiffOverride, AutoFollowOverride, GhostCellSuggestionsOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
+import { SegmentedToggle } from '../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
 
 // Localized strings.
 const loadingText = localize('assistantPanel.loading', 'Preparing notebook assistant...');
@@ -140,6 +141,61 @@ const ErrorState = ({ message, onClose }: ErrorStateProps) => (
 );
 
 /**
+ * Props for SettingToggleRow -- a single row in the settings section
+ * with a label, "follow global" checkbox, and yes/no toggle.
+ */
+interface SettingToggleRowProps {
+	label: string;
+	tooltip: string;
+	/** Whether the per-notebook override is active (undefined = follow global) */
+	overrideActive: boolean;
+	/** The effective value after resolving override vs global */
+	effectiveValue: boolean;
+	onFollowGlobalChanged: (followGlobal: boolean) => void;
+	onToggle: () => void;
+}
+
+/**
+ * SettingToggleRow component.
+ * Renders a settings row with label, info icon, follow-global checkbox, and yes/no toggle.
+ */
+const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
+	label,
+	tooltip,
+	overrideActive,
+	effectiveValue,
+	onFollowGlobalChanged,
+	onToggle,
+}) => (
+	<div className='assistant-panel-setting-row'>
+		<span className='assistant-panel-setting-label'>
+			{label}
+			<span className='assistant-panel-setting-info codicon codicon-info' title={tooltip} />
+		</span>
+		<div className='assistant-panel-setting-controls'>
+			<label className='assistant-panel-follow-global-label'>
+				{followGlobalLabel}
+				<input
+					checked={!overrideActive}
+					className='assistant-panel-checkbox'
+					type='checkbox'
+					onChange={(e) => onFollowGlobalChanged(e.target.checked)}
+				/>
+				<span className='assistant-panel-checkbox-indicator' />
+			</label>
+			<SegmentedToggle
+				ariaLabel={label}
+				disabled={!overrideActive}
+				leftActive={effectiveValue}
+				leftLabel={yesLabel}
+				rightLabel={noLabel}
+				onToggle={onToggle}
+			/>
+		</div>
+	</div>
+);
+
+/**
  * ReadyStateProps interface.
  */
 interface ReadyStateProps {
@@ -204,146 +260,48 @@ const ReadyState = ({
 				{settingsHeader}
 			</div>
 			<div className='assistant-panel-settings-section'>
-				<div className='assistant-panel-setting-row'>
-					{/* Setting label */}
-					<span className='assistant-panel-setting-label'>
-						{showDiffLabel}
-						<span className='assistant-panel-setting-info codicon codicon-info' title={showDiffTooltip} />
-					</span>
-
-					{/* Controls aligned right */}
-					<div className='assistant-panel-setting-controls'>
-						{/* Follow global checkbox */}
-						<label className='assistant-panel-follow-global-label'>
-							{followGlobalLabel}
-							<input
-								checked={showDiffOverride === undefined}
-								className='assistant-panel-checkbox'
-								type='checkbox'
-								onChange={(e) => {
-									if (e.target.checked) {
-										onShowDiffChanged(undefined);
-									} else {
-										onShowDiffChanged(globalShowDiff ? 'showDiff' : 'noDiff');
-									}
-								}}
-							/>
-							<span className='assistant-panel-checkbox-indicator' />
-						</label>
-
-						{/* Yes/No toggle - styled like ActionBarToggle */}
-						<div className='assistant-panel-toggle'>
-							<button
-								aria-checked={effectiveShowDiff}
-								aria-label={showDiffLabel}
-								className={`toggle-container ${showDiffOverride === undefined ? 'disabled' : ''}`}
-								disabled={showDiffOverride === undefined}
-								onClick={() => onShowDiffChanged(effectiveShowDiff ? 'noDiff' : 'showDiff')}
-							>
-								<div className={`toggle-button left ${effectiveShowDiff ? 'highlighted' : ''}`}>
-									{yesLabel}
-								</div>
-								<div className={`toggle-button right ${!effectiveShowDiff ? 'highlighted' : ''}`}>
-									{noLabel}
-								</div>
-							</button>
-						</div>
-					</div>
-				</div>
-
-				<div className='assistant-panel-setting-row'>
-					{/* Setting label */}
-					<span className='assistant-panel-setting-label'>
-						{autoFollowLabel}
-						<span className='assistant-panel-setting-info codicon codicon-info' title={autoFollowTooltip} />
-					</span>
-
-					{/* Controls aligned right */}
-					<div className='assistant-panel-setting-controls'>
-						{/* Follow global checkbox */}
-						<label className='assistant-panel-follow-global-label'>
-							{followGlobalLabel}
-							<input
-								checked={autoFollowOverride === undefined}
-								className='assistant-panel-checkbox'
-								type='checkbox'
-								onChange={(e) => {
-									if (e.target.checked) {
-										onAutoFollowChanged(undefined);
-									} else {
-										onAutoFollowChanged(globalAutoFollow ? 'autoFollow' : 'noAutoFollow');
-									}
-								}}
-							/>
-							<span className='assistant-panel-checkbox-indicator' />
-						</label>
-
-						{/* Yes/No toggle - styled like ActionBarToggle */}
-						<div className='assistant-panel-toggle'>
-							<button
-								aria-checked={effectiveAutoFollow}
-								aria-label={autoFollowLabel}
-								className={`toggle-container ${autoFollowOverride === undefined ? 'disabled' : ''}`}
-								disabled={autoFollowOverride === undefined}
-								onClick={() => onAutoFollowChanged(effectiveAutoFollow ? 'noAutoFollow' : 'autoFollow')}
-							>
-								<div className={`toggle-button left ${effectiveAutoFollow ? 'highlighted' : ''}`}>
-									{yesLabel}
-								</div>
-								<div className={`toggle-button right ${!effectiveAutoFollow ? 'highlighted' : ''}`}>
-									{noLabel}
-								</div>
-							</button>
-						</div>
-					</div>
-				</div>
-
-				<div className='assistant-panel-setting-row'>
-					{/* Setting label */}
-					<span className='assistant-panel-setting-label'>
-						{ghostCellSuggestionsLabel}
-						<span className='assistant-panel-setting-info codicon codicon-info' title={ghostCellSuggestionsTooltip} />
-					</span>
-
-					{/* Controls aligned right */}
-					<div className='assistant-panel-setting-controls'>
-						{/* Follow global checkbox */}
-						<label className='assistant-panel-follow-global-label'>
-							{followGlobalLabel}
-							<input
-								checked={ghostCellSuggestionsOverride === undefined}
-								className='assistant-panel-checkbox'
-								type='checkbox'
-								onChange={(e) => {
-									if (e.target.checked) {
-										onGhostCellSuggestionsChanged(undefined);
-									} else {
-										onGhostCellSuggestionsChanged(globalGhostCellSuggestions ? 'enabled' : 'disabled');
-									}
-								}}
-							/>
-							<span className='assistant-panel-checkbox-indicator' />
-						</label>
-
-						{/* Yes/No toggle - styled like ActionBarToggle */}
-						<div className='assistant-panel-toggle'>
-							<button
-								aria-checked={effectiveGhostCellSuggestions}
-								aria-label={ghostCellSuggestionsLabel}
-								className={`toggle-container ${ghostCellSuggestionsOverride === undefined ? 'disabled' : ''}`}
-								disabled={ghostCellSuggestionsOverride === undefined}
-								onClick={() => onGhostCellSuggestionsChanged(effectiveGhostCellSuggestions ? 'disabled' : 'enabled')}
-							>
-								<div className={`toggle-button left ${effectiveGhostCellSuggestions ? 'highlighted' : ''}`}>
-									{yesLabel}
-								</div>
-								<div className={`toggle-button right ${!effectiveGhostCellSuggestions ? 'highlighted' : ''}`}>
-									{noLabel}
-								</div>
-							</button>
-						</div>
-					</div>
-				</div>
+				<SettingToggleRow
+					effectiveValue={effectiveShowDiff}
+					label={showDiffLabel}
+					overrideActive={showDiffOverride !== undefined}
+					tooltip={showDiffTooltip}
+					onFollowGlobalChanged={(followGlobal) => {
+						if (followGlobal) {
+							onShowDiffChanged(undefined);
+						} else {
+							onShowDiffChanged(globalShowDiff ? 'showDiff' : 'noDiff');
+						}
+					}}
+					onToggle={() => onShowDiffChanged(effectiveShowDiff ? 'noDiff' : 'showDiff')}
+				/>
+				<SettingToggleRow
+					effectiveValue={effectiveAutoFollow}
+					label={autoFollowLabel}
+					overrideActive={autoFollowOverride !== undefined}
+					tooltip={autoFollowTooltip}
+					onFollowGlobalChanged={(followGlobal) => {
+						if (followGlobal) {
+							onAutoFollowChanged(undefined);
+						} else {
+							onAutoFollowChanged(globalAutoFollow ? 'autoFollow' : 'noAutoFollow');
+						}
+					}}
+					onToggle={() => onAutoFollowChanged(effectiveAutoFollow ? 'noAutoFollow' : 'autoFollow')}
+				/>
+				<SettingToggleRow
+					effectiveValue={effectiveGhostCellSuggestions}
+					label={ghostCellSuggestionsLabel}
+					overrideActive={ghostCellSuggestionsOverride !== undefined}
+					tooltip={ghostCellSuggestionsTooltip}
+					onFollowGlobalChanged={(followGlobal) => {
+						if (followGlobal) {
+							onGhostCellSuggestionsChanged(undefined);
+						} else {
+							onGhostCellSuggestionsChanged(globalGhostCellSuggestions ? 'enabled' : 'disabled');
+						}
+					}}
+					onToggle={() => onGhostCellSuggestionsChanged(effectiveGhostCellSuggestions ? 'disabled' : 'enabled')}
+				/>
 
 				<button className='assistant-panel-settings-link' onClick={onOpenSettings}>
 					<span className='codicon codicon-gear' />

@@ -22,6 +22,7 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { SegmentedToggle } from '../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
 
 // Localized strings.
 const loadingText = localize('ghostCell.loading', 'Generating suggestion...');
@@ -129,25 +130,16 @@ interface SuggestionModeToggleProps {
 
 /**
  * SuggestionModeToggle - a segmented toggle switch for automatic/on-demand mode
- * Styled to match the AssistantPanel toggle pattern.
  */
 const SuggestionModeToggle: React.FC<SuggestionModeToggleProps> = ({ automatic, onToggle }) => (
-	<div className='ghost-cell-mode-toggle'>
-		<button
-			aria-checked={automatic}
-			aria-label={modeToggleTooltip}
-			className='toggle-container'
-			title={modeToggleTooltip}
-			onClick={onToggle}
-		>
-			<div className={`toggle-button left ${automatic ? 'highlighted' : ''}`}>
-				{automaticModeLabel}
-			</div>
-			<div className={`toggle-button right ${!automatic ? 'highlighted' : ''}`}>
-				{onDemandModeLabel}
-			</div>
-		</button>
-	</div>
+	<SegmentedToggle
+		ariaLabel={modeToggleTooltip}
+		className='ghost-cell-mode-toggle'
+		leftActive={automatic}
+		leftLabel={automaticModeLabel}
+		rightLabel={onDemandModeLabel}
+		onToggle={onToggle}
+	/>
 );
 
 /**
@@ -387,49 +379,57 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 };
 
 /**
+ * Context for rendering ghost cell state.
+ * Groups the callbacks and data needed by sub-components.
+ */
+interface GhostCellRenderContext {
+	state: GhostCellState;
+	automatic: boolean;
+	modelName?: string;
+	usedFallback?: boolean;
+	acceptActions: IAction[];
+	dismissActions: IAction[];
+	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'];
+	handlers: {
+		onAcceptAndRun: () => void;
+		onDismiss: () => void;
+		onRegenerate: () => void;
+		onShowInfo: () => void;
+		onChangeModel: () => void;
+		onOptInEnable: () => void;
+		onOptInNotNow: () => void;
+		onOptInDontAskAgain: () => void;
+		onGetSuggestion: () => void;
+		onToggleMode: () => void;
+	};
+}
+
+/**
  * Renders content based on ghost cell state
  */
-function renderGhostCellState(
-	state: GhostCellState,
-	onAcceptAndRun: () => void,
-	onDismiss: () => void,
-	onRegenerate: () => void,
-	onShowInfo: () => void,
-	onChangeModel: () => void,
-	acceptActions: IAction[],
-	dismissActions: IAction[],
-	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'],
-	onOptInEnable: () => void,
-	onOptInNotNow: () => void,
-	onOptInDontAskAgain: () => void,
-	onGetSuggestion: () => void,
-	automatic: boolean,
-	onToggleMode: () => void,
-	modelName?: string,
-	usedFallback?: boolean
-): React.ReactNode {
-	switch (state.status) {
+function renderGhostCellState(ctx: GhostCellRenderContext): React.ReactNode {
+	switch (ctx.state.status) {
 		case 'hidden':
 			return null;
 
 		case 'opt-in-prompt':
 			return (
 				<GhostCellOptInPrompt
-					onDontAskAgain={onOptInDontAskAgain}
-					onEnable={onOptInEnable}
-					onNotNow={onOptInNotNow}
-					onShowInfo={onShowInfo}
+					onDontAskAgain={ctx.handlers.onOptInDontAskAgain}
+					onEnable={ctx.handlers.onOptInEnable}
+					onNotNow={ctx.handlers.onOptInNotNow}
+					onShowInfo={ctx.handlers.onShowInfo}
 				/>
 			);
 
 		case 'awaiting-request':
 			return (
 				<GhostCellAwaitingRequest
-					automatic={automatic}
-					onDismiss={onDismiss}
-					onGetSuggestion={onGetSuggestion}
-					onShowInfo={onShowInfo}
-					onToggleMode={onToggleMode}
+					automatic={ctx.automatic}
+					onDismiss={ctx.handlers.onDismiss}
+					onGetSuggestion={ctx.handlers.onGetSuggestion}
+					onShowInfo={ctx.handlers.onShowInfo}
+					onToggleMode={ctx.handlers.onToggleMode}
 				/>
 			);
 
@@ -439,45 +439,45 @@ function renderGhostCellState(
 		case 'streaming':
 			return (
 				<GhostCellContent
-					acceptActions={acceptActions}
-					automatic={automatic}
-					code={state.code}
-					contextMenuService={contextMenuService}
-					dismissActions={dismissActions}
-					explanation={state.explanation}
+					acceptActions={ctx.acceptActions}
+					automatic={ctx.automatic}
+					code={ctx.state.code}
+					contextMenuService={ctx.contextMenuService}
+					dismissActions={ctx.dismissActions}
+					explanation={ctx.state.explanation}
 					isStreaming={true}
-					onAcceptAndRun={onAcceptAndRun}
-					onChangeModel={onChangeModel}
-					onDismiss={onDismiss}
-					onRegenerate={onRegenerate}
-					onShowInfo={onShowInfo}
-					onToggleMode={onToggleMode}
+					onAcceptAndRun={ctx.handlers.onAcceptAndRun}
+					onChangeModel={ctx.handlers.onChangeModel}
+					onDismiss={ctx.handlers.onDismiss}
+					onRegenerate={ctx.handlers.onRegenerate}
+					onShowInfo={ctx.handlers.onShowInfo}
+					onToggleMode={ctx.handlers.onToggleMode}
 				/>
 			);
 
 		case 'ready':
 			return (
 				<GhostCellContent
-					acceptActions={acceptActions}
-					automatic={automatic}
-					code={state.code}
-					contextMenuService={contextMenuService}
-					dismissActions={dismissActions}
-					explanation={state.explanation}
+					acceptActions={ctx.acceptActions}
+					automatic={ctx.automatic}
+					code={ctx.state.code}
+					contextMenuService={ctx.contextMenuService}
+					dismissActions={ctx.dismissActions}
+					explanation={ctx.state.explanation}
 					isStreaming={false}
-					modelName={modelName}
-					usedFallback={usedFallback}
-					onAcceptAndRun={onAcceptAndRun}
-					onChangeModel={onChangeModel}
-					onDismiss={onDismiss}
-					onRegenerate={onRegenerate}
-					onShowInfo={onShowInfo}
-					onToggleMode={onToggleMode}
+					modelName={ctx.modelName}
+					usedFallback={ctx.usedFallback}
+					onAcceptAndRun={ctx.handlers.onAcceptAndRun}
+					onChangeModel={ctx.handlers.onChangeModel}
+					onDismiss={ctx.handlers.onDismiss}
+					onRegenerate={ctx.handlers.onRegenerate}
+					onShowInfo={ctx.handlers.onShowInfo}
+					onToggleMode={ctx.handlers.onToggleMode}
 				/>
 			);
 
 		case 'error':
-			return <GhostCellError message={state.message} />;
+			return <GhostCellError message={ctx.state.message} />;
 	}
 }
 
@@ -647,25 +647,27 @@ export const GhostCell: React.FC = () => {
 			className={containerClass}
 		>
 			<div className='ghost-cell-container'>
-				{renderGhostCellState(
-					ghostCellState,
-					handleAcceptAndRun,
-					handleDismiss,
-					handleRegenerate,
-					handleShowInfo,
-					handleChangeModel,
+				{renderGhostCellState({
+					state: ghostCellState,
+					automatic,
+					modelName: ghostCellState.status === 'ready' ? ghostCellState.modelName : undefined,
+					usedFallback: ghostCellState.status === 'ready' ? ghostCellState.usedFallback : undefined,
 					acceptActions,
 					dismissActions,
 					contextMenuService,
-					handleOptInEnable,
-					handleOptInNotNow,
-					handleOptInDontAskAgain,
-					handleGetSuggestion,
-					automatic,
-					handleToggleMode,
-					ghostCellState.status === 'ready' ? ghostCellState.modelName : undefined,
-					ghostCellState.status === 'ready' ? ghostCellState.usedFallback : undefined
-				)}
+					handlers: {
+						onAcceptAndRun: handleAcceptAndRun,
+						onDismiss: handleDismiss,
+						onRegenerate: handleRegenerate,
+						onShowInfo: handleShowInfo,
+						onChangeModel: handleChangeModel,
+						onOptInEnable: handleOptInEnable,
+						onOptInNotNow: handleOptInNotNow,
+						onOptInDontAskAgain: handleOptInDontAskAgain,
+						onGetSuggestion: handleGetSuggestion,
+						onToggleMode: handleToggleMode,
+					},
+				})}
 			</div>
 			<ScreenReaderOnly className='ghost-cell-announcements'>
 				{announcement}
