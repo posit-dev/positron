@@ -31,6 +31,7 @@ export let dirs = [
 	'extensions/positron-ipywidgets',
 	'extensions/positron-javascript',
 	'extensions/positron-notebooks',
+	'extensions/positron-pdf-server',
 	'extensions/positron-r',
 	'extensions/positron-reticulate',
 	'extensions/positron-run-app',
