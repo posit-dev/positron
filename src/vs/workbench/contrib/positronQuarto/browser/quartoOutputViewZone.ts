@@ -207,15 +207,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._closeButton = this._createCloseButton();
 		buttonContainer.appendChild(this._closeButton);
 
+		// Create copy button; initially hidden (shown first after close since it's most common)
+		this._copyButton = this._createCopyButton();
+		buttonContainer.appendChild(this._copyButton);
+		this._copyButton.style.display = 'none';
+
 		// Create popout button; initially hidden
 		this._popoutButton = this._createPopoutButton();
 		buttonContainer.appendChild(this._popoutButton);
 		this._popoutButton.style.display = 'none';
-
-		// Create copy button; initially hidden
-		this._copyButton = this._createCopyButton();
-		buttonContainer.appendChild(this._copyButton);
-		this._copyButton.style.display = 'none';
 
 		// Create save button; initially hidden
 		this._saveButton = this._createSaveButton();
@@ -1596,15 +1596,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Measure the styled container's height (content + padding + border, but not margin)
 		const styledHeight = this._styledContainer.offsetHeight;
 
-		// Show the Popout button if there's enough room and there's popout content
-		// (not just errors - plot, HTML, or text content)
-		this._popoutButton.style.display = styledHeight > 40 && this.hasPopoutContent() ? 'block' : 'none';
-
 		// Show the Copy button if there's enough room and there's copiable content
-		this._copyButton.style.display = styledHeight > 60 && this.hasCopiableContent() ? 'block' : 'none';
+		// Copy is prioritized (shown first) since it's the most common action
+		this._copyButton.style.display = styledHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
 
-		// Show the Save button if there's enough room and there's exactly one plot
-		this._saveButton.style.display = styledHeight > 60 && this.hasSinglePlot() ? 'block' : 'none';
+		// Show the Popout button if there's more room and there's popout content
+		// (not just errors - plot, HTML, or text content)
+		this._popoutButton.style.display = styledHeight > 60 && this.hasPopoutContent() ? 'block' : 'none';
+
+		// Show the Save button if there's even more room and there's exactly one plot
+		this._saveButton.style.display = styledHeight > 80 && this.hasSinglePlot() ? 'block' : 'none';
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);

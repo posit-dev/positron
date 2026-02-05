@@ -881,25 +881,21 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			return;
 		}
 
-		// Generate a unique preview ID based on document and cell
+		// Generate a filename for the temp HTML file
 		const docName = basename(this._documentUri);
 		const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
 		const cellIndex = cellId.split('-')[0];
-		const previewId = `quarto-output-${docNameWithoutExt}-cell${cellIndex}`;
+		const filename = `.positron-temp-${docNameWithoutExt}_cell${cellIndex}.html`;
+		const title = `${docNameWithoutExt} - Cell ${cellIndex} Output`;
 
-		// Create a data URI for the HTML content
-		const htmlDataUri = URI.from({
-			scheme: 'data',
-			path: `text/html;base64,${btoa(html)}`,
-		});
+		// Write HTML to a temp file in the same directory as the document
+		const tempDir = dirname(this._documentUri);
+		const tempUri = tempDir.with({ path: `${tempDir.path}/${filename}` });
 
-		// Open in the preview/viewer pane
-		this._previewService.openUri(
-			previewId,
-			undefined, // extension
-			htmlDataUri,
-			{ type: 'quarto-inline-output', id: cellId }
-		);
+		await this._fileService.writeFile(tempUri, VSBuffer.fromString(html));
+
+		// Open the temp file in the preview editor
+		await this._previewService.openEditor(tempUri, title);
 	}
 
 	/**
@@ -909,6 +905,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	popoutForCellAtLine(lineNumber: number): boolean {
 		const model = this._editor.getModel();
 		if (!model) {
+			this._logService.debug('[QuartoOutputContribution] popoutForCellAtLine: No editor model');
 			return false;
 		}
 
@@ -916,23 +913,28 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		const quartoModel = this._documentModelService.getModel(model);
 		const cell = quartoModel.getCellAtLine(lineNumber);
 		if (!cell) {
+			this._logService.debug(`[QuartoOutputContribution] popoutForCellAtLine: No cell at line ${lineNumber}`);
 			return false;
 		}
 
+		this._logService.debug(`[QuartoOutputContribution] popoutForCellAtLine: Found cell ${cell.id} at line ${lineNumber}`);
+
 		// Get the view zone for this cell
 		const viewZone = this._viewZones.get(cell.id);
-		if (!viewZone || !viewZone.hasPopoutContent()) {
+		if (!viewZone) {
+			this._logService.debug(`[QuartoOutputContribution] popoutForCellAtLine: No view zone for cell ${cell.id}. Available: ${Array.from(this._viewZones.keys()).join(', ')}`);
 			return false;
 		}
 
 		// Get the content and handle it
 		const popout = viewZone.getPopoutContent();
-		if (popout) {
-			this._handlePopoutRequest({ cellId: cell.id, popout });
-			return true;
+		if (!popout) {
+			this._logService.debug(`[QuartoOutputContribution] popoutForCellAtLine: No popout content for cell ${cell.id}`);
+			return false;
 		}
 
-		return false;
+		this._handlePopoutRequest({ cellId: cell.id, popout });
+		return true;
 	}
 
 	/**

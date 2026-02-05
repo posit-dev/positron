@@ -2227,9 +2227,62 @@ test.describe('Quarto - Inline Output', {
 		await expect(untitledTab).toBeVisible({ timeout: 5000 });
 	});
 
-	// Note: Interactive HTML (webview) popout is not currently supported because
-	// webview outputs don't expose their HTML content through the output items array.
-	// The popout feature works for plot images and text outputs.
+	test('Python - Verify popout button opens HTML output in viewer', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+
+		// Open a Quarto document with DataFrame output (HTML table)
+		const filePath = join('workspaces', 'quarto_inline_output', 'py_data_frame.qmd');
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell
+		// py_data_frame.qmd has pandas DataFrame output which renders as HTML
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('12');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the cell to generate HTML output
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('20');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// The output should contain HTML content
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// The popout button should be visible for HTML output
+		const popoutButton = inlineOutput.locator('.quarto-output-popout');
+		await expect(popoutButton).toBeVisible({ timeout: 10000 });
+
+		// Click the popout button
+		await popoutButton.click();
+		await page.waitForTimeout(2000);
+
+		// Verify that a new editor tab was opened (the preview editor)
+		// The temp HTML file should be opened
+		const tabs = await page.locator('.tabs-container .tab').count();
+		expect(tabs).toBeGreaterThan(1);
+	});
 
 	test('Python - Verify popout button is hidden for error-only output', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
@@ -2278,7 +2331,70 @@ test.describe('Quarto - Inline Output', {
 		await expect(popoutButton).not.toBeVisible({ timeout: 5000 });
 	});
 
-	// Note: The command test is skipped because getCellAtLine doesn't reliably
-	// find the cell when called from the command. The button-based popout
-	// works correctly as verified by the tests above.
+	test('Python - Verify Open Output in New Tab command works', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+
+		// Close all editors first to get a clean state
+		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await page.waitForTimeout(500);
+
+		// Open a Quarto document with a plot (using simple_plot.qmd which has reliable output)
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell (line 12)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('12');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the cell to generate plot output
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('25');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the output has an image (confirms output is ready)
+		const outputImage = inlineOutput.locator('.quarto-output-image');
+		await expect(outputImage).toBeVisible({ timeout: 10000 });
+
+		// Click on the editor to ensure it has focus
+		await editor.click();
+		await page.waitForTimeout(300);
+
+		// Position cursor inside the cell code (line 12 is where we originally ran from)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('12');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(1000);
+
+		// Count tabs before
+		const tabsBefore = await page.locator('.tabs-container .tab').count();
+
+		// Run the popout command - this should open the plot in a new tab
+		await app.workbench.quickaccess.runCommand('positronQuarto.popoutOutput');
+		await page.waitForTimeout(3000);
+
+		// Verify a new tab was opened (we started with 1 tab after closing all)
+		const tabsAfter = await page.locator('.tabs-container .tab').count();
+		expect(tabsAfter).toBeGreaterThan(tabsBefore);
+	});
 });

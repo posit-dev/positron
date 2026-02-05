@@ -789,10 +789,17 @@ registerAction2(class PopoutOutputAction extends Action2 {
 			return false;
 		}
 
+		// Check if cursor is in a cell
+		const cellId = contribution.getCellIdAtLine(position.lineNumber);
+		if (!cellId) {
+			notificationService.warn(localize('quarto.popoutOutput.noCell', 'Cursor is not in a code cell'));
+			return false;
+		}
+
 		// Try to popout the output for the cell at cursor position
 		const success = contribution.popoutForCellAtLine(position.lineNumber);
 		if (!success) {
-			notificationService.warn(localize('quarto.popoutOutput.noOutput', 'No output available to open'));
+			notificationService.warn(localize('quarto.popoutOutput.noOutput', 'No output available to open for this cell'));
 			return false;
 		}
 
