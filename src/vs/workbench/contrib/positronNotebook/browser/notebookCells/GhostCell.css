@@ -249,13 +249,14 @@
 }
 
 .ghost-cell-mode-toggle .toggle-container {
-	height: 20px;
+	height: 22px;
 	border: none;
 	display: grid;
 	padding: 0 .5px;
 	cursor: pointer;
-	border-radius: 5px;
+	border-radius: 6px;
 	align-items: center;
+	user-select: none;
 	grid-template-columns: [left] 1fr [right] 1fr [end];
 	background-color: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
 }
@@ -271,13 +272,17 @@
 
 .ghost-cell-mode-toggle .toggle-container .toggle-button {
 	display: flex;
-	height: 18px;
+	height: 20px;
 	padding: 0 6px;
-	border-radius: 4px;
+	border-radius: 6px;
 	align-items: center;
 	justify-content: center;
 	border: 1px solid transparent;
 	white-space: nowrap;
+}
+
+.ghost-cell-mode-toggle .toggle-container .toggle-button:not(.highlighted):hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 .ghost-cell-mode-toggle .toggle-container .toggle-button.highlighted {
