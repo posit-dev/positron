@@ -313,7 +313,7 @@
 	}
 }
 
-/* Truncation indicator */
+/* Truncation indicator (legacy) */
 .quarto-output-truncated {
 	padding: 4px 8px;
 	background: var(--vscode-inputValidation-infoBackground);
@@ -322,6 +322,44 @@
 	color: var(--vscode-inputValidation-infoForeground);
 	font-size: 12px;
 	font-style: italic;
+}
+
+/* Truncation header for long text output */
+.quarto-output-truncation-header {
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 4px;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* Clickable link in truncation header */
+.quarto-output-open-in-editor {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.quarto-output-open-in-editor:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
+.quarto-output-open-in-editor:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+/* Container for truncated output content */
+.quarto-output-truncated-content {
+	position: relative;
+}
+
+/* Gradient effect on first line of truncated output */
+.quarto-output-first-line-gradient {
+	position: relative;
+	-webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 30%, rgba(0, 0, 0, 0.7) 60%, black 100%);
+	mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 30%, rgba(0, 0, 0, 0.7) 60%, black 100%);
 }
 
 /* Widget-level error styling (when only output is an error) */

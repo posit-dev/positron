@@ -23,7 +23,8 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
-import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
@@ -98,6 +99,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private _documentUri: URI | undefined;
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
+	private _maxLines: number;
 
 	// Track subscriptions from _initializeOutputHandling() separately so they can be
 	// disposed when the model changes, preventing duplicate event handlers
@@ -126,12 +128,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IFileService private readonly _fileService: IFileService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronPreviewService private readonly _previewService: IPositronPreviewService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 
 		// Get document URI from editor model
 		const model = this._editor.getModel();
 		this._documentUri = model?.uri;
+
+		// Get max lines configuration
+		this._maxLines = this._configurationService.getValue<number>(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY) ?? 40;
 
 		// Check if feature is enabled (context key checks both setting and extension installation)
 		this._featureEnabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
@@ -140,6 +146,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._register(this._contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(new Set([QUARTO_INLINE_OUTPUT_ENABLED.key]))) {
 				this._handleFeatureToggle();
+			}
+		}));
+
+		// Listen for max lines configuration changes
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY)) {
+				this._maxLines = this._configurationService.getValue<number>(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY) ?? 40;
+				// Update all existing view zones
+				for (const viewZone of this._viewZones.values()) {
+					viewZone.maxLines = this._maxLines;
+				}
 			}
 		}));
 
@@ -712,7 +729,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			cellId,
 			cell.endLine,
 			this._webviewService,
-			session
+			session,
+			this._maxLines
 		);
 
 		// Set up clear callback

@@ -19,6 +19,12 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.enabled';
 
 /**
+ * Configuration key for the maximum number of lines to display in inline text output.
+ * If output exceeds this limit, only the last N lines are shown with a truncation indicator.
+ */
+export const POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY = 'positron.quarto.inlineOutput.maxLines';
+
+/**
  * Context key for whether Quarto inline output is enabled.
  * Used for conditionally showing commands and menus.
  */
@@ -64,6 +70,18 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.quarto.inlineOutput.enabled',
 				'Enable inline output display for Quarto documents. When enabled, code execution results appear directly in the editor below the executed cell.'
+			),
+			tags: ['preview'],
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY]: {
+			type: 'number',
+			default: 40,
+			minimum: 5,
+			maximum: 1000,
+			markdownDescription: localize(
+				'positron.quarto.inlineOutput.maxLines',
+				'Maximum number of lines to display in inline text output. If output exceeds this limit, only the last N lines are shown with a link to open the full output in an editor.'
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,

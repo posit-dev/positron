@@ -89,6 +89,8 @@ export interface QuartoOutputViewZoneOptions {
 	readonly webviewService?: IPositronNotebookOutputWebviewService;
 	/** Optional runtime session for webview creation */
 	readonly session?: ILanguageRuntimeSession;
+	/** Maximum number of lines to display in text output before truncating */
+	readonly maxLines?: number;
 }
 
 /**
@@ -140,6 +142,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Whether the cell is in "recomputing" state (waiting for new output to replace old)
 	private _isRecomputing = false;
 
+	// Maximum number of lines to display for text output before truncating
+	private _maxLines: number;
+
 	// Inner styled container (separate from domNode so Monaco's height doesn't stretch it)
 	private readonly _styledContainer: HTMLElement;
 
@@ -179,11 +184,13 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		afterLine: number,
 		webviewService?: IPositronNotebookOutputWebviewService,
 		session?: ILanguageRuntimeSession,
+		maxLines: number = 40,
 	) {
 		super();
 
 		this._webviewService = webviewService;
 		this._session = session;
+		this._maxLines = maxLines;
 
 		this.afterLineNumber = afterLine;
 		this.heightInPx = MIN_VIEW_ZONE_HEIGHT;
@@ -296,6 +303,28 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	set onClear(callback: (() => void) | undefined) {
 		this._onClear = callback;
+	}
+
+	/**
+	 * Set the maximum number of lines to display in text output.
+	 * If output exceeds this limit, only the last N lines are shown with a truncation indicator.
+	 */
+	set maxLines(value: number) {
+		if (this._maxLines !== value) {
+			this._maxLines = value;
+			// Re-render outputs if they exist
+			if (this._outputs.length > 0) {
+				this._renderAllOutputs();
+				this._updateHeight();
+			}
+		}
+	}
+
+	/**
+	 * Get the maximum number of lines to display in text output.
+	 */
+	get maxLines(): number {
+		return this._maxLines;
 	}
 
 	/**
@@ -1105,7 +1134,60 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Process ANSI escape sequences
 		const outputLines = ANSIOutput.processOutput(content);
-		this._renderAnsiOutputLines(outputLines, container);
+		const totalLines = outputLines.length;
+
+		// Check if we need to truncate
+		if (totalLines > this._maxLines) {
+			const omittedCount = totalLines - this._maxLines;
+
+			// Create truncation header
+			const truncationHeader = document.createElement('div');
+			truncationHeader.className = 'quarto-output-truncation-header';
+
+			// Create the text span
+			const textSpan = document.createElement('span');
+			textSpan.textContent = `...${omittedCount.toLocaleString()} ${omittedCount === 1 ? 'line' : 'lines'} omitted `;
+
+			// Create the clickable link
+			const openLink = document.createElement('a');
+			openLink.className = 'quarto-output-open-in-editor';
+			openLink.textContent = '(open in editor)';
+			openLink.href = '#';
+			openLink.setAttribute('role', 'button');
+			openLink.setAttribute('aria-label', localize('openFullOutput', 'Open full output in editor'));
+			openLink.addEventListener('click', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				// Trigger popout with the full text (stripped of ANSI)
+				this._onPopoutRequested.fire({
+					cellId: this.cellId,
+					popout: { type: 'text', text: this._stripAnsi(content) },
+				});
+			});
+
+			truncationHeader.appendChild(textSpan);
+			truncationHeader.appendChild(openLink);
+			container.appendChild(truncationHeader);
+
+			// Render only the last maxLines lines
+			const truncatedLines = outputLines.slice(-this._maxLines);
+
+			// Create a container for the truncated content with gradient on first line
+			const truncatedContainer = document.createElement('div');
+			truncatedContainer.className = 'quarto-output-truncated-content';
+
+			this._renderAnsiOutputLines(truncatedLines, truncatedContainer);
+
+			// Apply gradient to first line
+			if (truncatedContainer.firstElementChild) {
+				truncatedContainer.firstElementChild.classList.add('quarto-output-first-line-gradient');
+			}
+
+			container.appendChild(truncatedContainer);
+		} else {
+			// No truncation needed - render all lines
+			this._renderAnsiOutputLines(outputLines, container);
+		}
 
 		return container;
 	}

@@ -2407,4 +2407,108 @@ test.describe('Quarto - Inline Output', {
 		const tabsAfter = await page.locator('.tabs-container .tab').count();
 		expect(tabsAfter).toBeGreaterThan(tabsBefore);
 	});
+
+	test('R - Verify long text output is truncated with "open in editor" link', async function ({ app, openFile, r }) {
+		// This test verifies the long output truncation feature:
+		// 1. When text output exceeds maxLines (default 40), only the last 40 lines are shown
+		// 2. A truncation header appears showing "...X lines omitted (open in editor)"
+		// 3. Clicking "open in editor" opens the full output in a new editor tab
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+		// to be set, as the long_output.qmd file only exists on that branch.
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'long_output.qmd');
+
+		// Open the long output test file
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// long_output.qmd structure:
+		// - frontmatter (1-4)
+		// - blank line (5)
+		// - R cell (6-9):
+		//   line 6: ```{r}
+		//   line 7: options(max.print = 5000)
+		//   line 8: runif(5000)
+		//   line 9: ```
+
+		// Position cursor in the R code cell (line 7)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('7');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell (this will generate 5000 random numbers)
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear (includes kernel startup time)
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('15');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 180000 }); // Longer timeout for R kernel and 5000 numbers
+
+		// Verify output content is present
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// CRITICAL ASSERTIONS:
+
+		// 1. Verify the truncation header is visible
+		// The header shows "...X lines omitted (open in editor)"
+		const truncationHeader = inlineOutput.locator('.quarto-output-truncation-header');
+		await expect(truncationHeader).toBeVisible({ timeout: 10000 });
+
+		// 2. Verify the truncation header contains the expected text pattern
+		const headerText = await truncationHeader.textContent();
+		expect(headerText).toMatch(/\.\.\.\d[\d,]* lines? omitted/);
+		expect(headerText).toContain('(open in editor)');
+
+		// 3. Verify the number of omitted lines is reasonable (5000 random numbers should be many lines)
+		// R prints ~10 numbers per line, so 5000 numbers ≈ 500 lines, minus 40 shown ≈ 460+ omitted
+		const omittedMatch = headerText?.match(/\.\.\.(\d[\d,]*) lines? omitted/);
+		expect(omittedMatch).toBeTruthy();
+		const omittedCount = parseInt(omittedMatch![1].replace(/,/g, ''), 10);
+		// Should have omitted more than 100 lines (conservative check)
+		expect(omittedCount).toBeGreaterThan(100);
+
+		// 4. Verify the first visible line has the gradient effect
+		const gradientLine = inlineOutput.locator('.quarto-output-first-line-gradient');
+		await expect(gradientLine).toBeVisible({ timeout: 5000 });
+
+		// 5. Verify the "open in editor" link works
+		// Count tabs before clicking
+		const tabsBefore = await page.locator('.tabs-container .tab').count();
+
+		// Click the "open in editor" link
+		const openInEditorLink = inlineOutput.locator('.quarto-output-open-in-editor');
+		await expect(openInEditorLink).toBeVisible({ timeout: 5000 });
+		await openInEditorLink.click();
+
+		// Wait for the new editor tab to open
+		await page.waitForTimeout(2000);
+
+		// 6. Verify a new editor tab was opened
+		const tabsAfter = await page.locator('.tabs-container .tab').count();
+		expect(tabsAfter).toBeGreaterThan(tabsBefore);
+
+		// 7. Verify the new tab is an untitled document (dirty and selected)
+		const untitledTab = page.locator('.tabs-container .tab.dirty.selected');
+		await expect(untitledTab).toBeVisible({ timeout: 5000 });
+	});
 });
