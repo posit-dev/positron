@@ -7,6 +7,7 @@
 import React, { JSX } from 'react';
 
 // Other dependencies.
+import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DataGridInstance, ColumnSortKeyDescriptor } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
@@ -16,6 +17,10 @@ import { TableDataCell } from './components/tableDataCell.js';
 import { TableDataRowHeader } from './components/tableDataRowHeader.js';
 import { BackendState } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
+import { AnchorPoint } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
+import { CustomContextMenuItem } from '../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
+import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 
 /**
  * Constants.
@@ -27,10 +32,9 @@ const OVERSCAN_FACTOR = 3;
  *
  * A simplified data grid instance for displaying dataframes inline in notebook cells.
  * This is a stripped-down version of TableDataDataGridInstance with:
- * - Sorting enabled via column headers
+ * - Sorting enabled via column headers and context menu
  * - No column/row resize
  * - No column/row pinning
- * - No context menus
  * - No filtering (filtering is handled by the full data explorer)
  */
 export class InlineTableDataGridInstance extends DataGridInstance {
@@ -290,6 +294,52 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 				dataCell={dataCell}
 			/>
 		);
+	}
+
+	/**
+	 * Shows the column context menu with sorting options.
+	 * @param columnIndex The column index.
+	 * @param anchorElement The anchor element.
+	 * @param anchorPoint The anchor point.
+	 * @returns A Promise<void> that resolves when the context menu is complete.
+	 */
+	override async showColumnContextMenu(
+		columnIndex: number,
+		anchorElement: HTMLElement,
+		anchorPoint?: AnchorPoint
+	): Promise<void> {
+		const columnSortKey = this.columnSortKey(columnIndex);
+
+		const entries: CustomContextMenuEntry[] = [
+			new CustomContextMenuItem({
+				checked: columnSortKey?.ascending === true,
+				icon: 'arrow-up',
+				label: localize('positron.sortAscending', "Sort Ascending"),
+				onSelected: async () => this.setColumnSortKey(columnIndex, true)
+			}),
+			new CustomContextMenuItem({
+				checked: columnSortKey?.ascending === false,
+				icon: 'arrow-down',
+				label: localize('positron.sortDescending', "Sort Descending"),
+				onSelected: async () => this.setColumnSortKey(columnIndex, false)
+			}),
+			new CustomContextMenuSeparator(),
+			new CustomContextMenuItem({
+				icon: 'positron-clear-sorting',
+				label: localize('positron.clearSorting', "Clear Sorting"),
+				disabled: !columnSortKey,
+				onSelected: async () => this.removeColumnSortKey(columnIndex)
+			}),
+		];
+
+		await showCustomContextMenu({
+			anchorElement,
+			anchorPoint,
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
+			width: 200,
+			entries
+		});
 	}
 
 	//#endregion DataGridInstance Methods
