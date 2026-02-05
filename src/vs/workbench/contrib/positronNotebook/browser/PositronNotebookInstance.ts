@@ -2453,7 +2453,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 
 			if (result && typeof result === 'object' && 'code' in result) {
-				const suggestion = result as { code: string; explanation: string; language: string; modelName?: string };
+				const suggestion = result as { code: string; explanation: string; language: string; modelName?: string; usedFallback?: boolean };
 				this._ghostCellState.set({
 					status: 'ready',
 					executedCellIndex,
@@ -2461,7 +2461,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					explanation: suggestion.explanation,
 					language: suggestion.language,
 					suggestionMode,
-					modelName: suggestion.modelName
+					modelName: suggestion.modelName,
+					usedFallback: suggestion.usedFallback
 				}, undefined);
 			} else {
 				// No suggestion generated, hide ghost cell

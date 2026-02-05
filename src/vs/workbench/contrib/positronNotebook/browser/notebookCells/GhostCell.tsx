@@ -56,6 +56,12 @@ const automaticModeLabel = localize('ghostCell.automaticMode', 'Automatic');
 const onDemandModeLabel = localize('ghostCell.onDemandMode', 'On-demand');
 const modeToggleTooltip = localize('ghostCell.modeToggleTooltip', 'Toggle suggestion mode');
 
+// Model fallback warning
+const fallbackWarningTooltip = localize('ghostCell.fallbackWarning', 'Configured model unavailable, using fallback');
+
+// Model picker
+const changeModelTooltip = localize('ghostCell.changeModel', 'Change model');
+
 /**
  * Props for TruncatedExplanation component
  */
@@ -272,11 +278,14 @@ interface GhostCellContentProps {
 	onDismiss: () => void;
 	onRegenerate: () => void;
 	onShowInfo: () => void;
+	onChangeModel: () => void;
 	acceptActions: IAction[];
 	dismissActions: IAction[];
 	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'];
 	suggestionMode: 'push' | 'pull';
 	onToggleMode: () => void;
+	modelName?: string;
+	usedFallback?: boolean;
 }
 
 /**
@@ -290,11 +299,14 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 	onDismiss,
 	onRegenerate,
 	onShowInfo,
+	onChangeModel,
 	acceptActions,
 	dismissActions,
 	contextMenuService,
 	suggestionMode,
-	onToggleMode
+	onToggleMode,
+	modelName,
+	usedFallback
 }) => {
 	return (
 		<>
@@ -342,6 +354,23 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 			<div className='ghost-cell-code-preview'>
 				<pre className='ghost-cell-code-text'>{code}</pre>
 			</div>
+			{modelName && (
+				<div className='ghost-cell-footer'>
+					{usedFallback && (
+						<span
+							className='ghost-cell-fallback-warning codicon codicon-warning'
+							title={fallbackWarningTooltip}
+						/>
+					)}
+					<button
+						className='ghost-cell-model-indicator'
+						title={changeModelTooltip}
+						onClick={onChangeModel}
+					>
+						{modelName}
+					</button>
+				</div>
+			)}
 		</>
 	);
 };
@@ -355,6 +384,7 @@ function renderGhostCellState(
 	onDismiss: () => void,
 	onRegenerate: () => void,
 	onShowInfo: () => void,
+	onChangeModel: () => void,
 	acceptActions: IAction[],
 	dismissActions: IAction[],
 	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'],
@@ -363,7 +393,9 @@ function renderGhostCellState(
 	onOptInDontAskAgain: () => void,
 	onGetSuggestion: () => void,
 	suggestionMode: 'push' | 'pull',
-	onToggleMode: () => void
+	onToggleMode: () => void,
+	modelName?: string,
+	usedFallback?: boolean
 ): React.ReactNode {
 	switch (state.status) {
 		case 'hidden':
@@ -404,6 +436,7 @@ function renderGhostCellState(
 					isStreaming={true}
 					suggestionMode={suggestionMode}
 					onAcceptAndRun={onAcceptAndRun}
+					onChangeModel={onChangeModel}
 					onDismiss={onDismiss}
 					onRegenerate={onRegenerate}
 					onShowInfo={onShowInfo}
@@ -420,8 +453,11 @@ function renderGhostCellState(
 					dismissActions={dismissActions}
 					explanation={state.explanation}
 					isStreaming={false}
+					modelName={modelName}
 					suggestionMode={suggestionMode}
+					usedFallback={usedFallback}
 					onAcceptAndRun={onAcceptAndRun}
+					onChangeModel={onChangeModel}
 					onDismiss={onDismiss}
 					onRegenerate={onRegenerate}
 					onShowInfo={onShowInfo}
@@ -533,6 +569,11 @@ export const GhostCell: React.FC = () => {
 		instance.toggleSuggestionMode();
 	}, [instance]);
 
+	// Model picker handler
+	const handleChangeModel = React.useCallback(() => {
+		services.commandService.executeCommand('positron-assistant.selectGhostCellModel');
+	}, [services.commandService]);
+
 	// Get suggestion mode from state (for immediate UI feedback) or fall back to instance method
 	const suggestionMode = ghostCellState.status !== 'hidden' && ghostCellState.status !== 'opt-in-prompt' && ghostCellState.status !== 'error'
 		? ghostCellState.suggestionMode
@@ -601,6 +642,7 @@ export const GhostCell: React.FC = () => {
 					handleDismiss,
 					handleRegenerate,
 					handleShowInfo,
+					handleChangeModel,
 					acceptActions,
 					dismissActions,
 					contextMenuService,
@@ -609,7 +651,9 @@ export const GhostCell: React.FC = () => {
 					handleOptInDontAskAgain,
 					handleGetSuggestion,
 					suggestionMode,
-					handleToggleMode
+					handleToggleMode,
+					ghostCellState.status === 'ready' ? ghostCellState.modelName : undefined,
+					ghostCellState.status === 'ready' ? ghostCellState.usedFallback : undefined
 				)}
 			</div>
 			<ScreenReaderOnly className='ghost-cell-announcements'>

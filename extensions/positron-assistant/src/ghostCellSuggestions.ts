@@ -25,6 +25,8 @@ export interface GhostCellSuggestionResult {
 	language: string;
 	/** The name of the model that generated the suggestion */
 	modelName?: string;
+	/** Whether a fallback model was used because the configured model was unavailable */
+	usedFallback?: boolean;
 }
 
 /**
@@ -86,11 +88,12 @@ export async function generateGhostCellSuggestion(
 	}
 
 	// Get the model to use for generation
-	const model = await getModel(participantService, log);
-	if (!model) {
+	const modelSelection = await getModel(participantService, log);
+	if (!modelSelection) {
 		log.warn('[ghost-cell] No language model available');
 		return null;
 	}
+	const { model, usedFallback } = modelSelection;
 	const modelName = model.name;
 
 	// Build context from the executed cell
@@ -150,6 +153,7 @@ export async function generateGhostCellSuggestion(
 		const result = await parseStreamingXML(response.text, log, token, language, onProgress);
 		if (result) {
 			result.modelName = modelName;
+			result.usedFallback = usedFallback;
 		}
 		return result;
 
@@ -305,13 +309,22 @@ async function parseStreamingXML(
 }
 
 /**
+ * Result of model selection
+ */
+interface ModelSelectionResult {
+	model: vscode.LanguageModelChat;
+	/** True if the configured model was not available and we fell back to another model */
+	usedFallback: boolean;
+}
+
+/**
  * Get the language model to use for generation.
  * Follows the same pattern as notebookSuggestions.ts
  */
 async function getModel(
 	participantService: ParticipantService,
 	log: vscode.LogOutputChannel
-): Promise<vscode.LanguageModelChat | null> {
+): Promise<ModelSelectionResult | null> {
 	// Log all available models for debugging
 	const allModels = await vscode.lm.selectChatModels();
 	log.debug(`[ghost-cell] Available models: ${allModels.length} total`);
@@ -319,7 +332,9 @@ async function getModel(
 	// Check configuration setting first (highest priority)
 	const config = vscode.workspace.getConfiguration('positron.assistant.notebook');
 	const configuredPatterns = config.get<string[]>('ghostCellSuggestions.model') || [];
-	if (configuredPatterns.length > 0) {
+	const hasConfiguredModel = configuredPatterns.length > 0 && configuredPatterns.some(p => p && p.trim() !== '');
+
+	if (hasConfiguredModel) {
 		log.debug(`[ghost-cell] Checking configured model patterns: ${JSON.stringify(configuredPatterns)}`);
 		for (const pattern of configuredPatterns) {
 			if (!pattern || pattern.trim() === '') {
@@ -330,7 +345,7 @@ async function getModel(
 			const exactMatch = allModels.find(m => m.id === pattern);
 			if (exactMatch) {
 				log.debug(`[ghost-cell] Using configured model (exact match): ${exactMatch.name}`);
-				return exactMatch;
+				return { model: exactMatch, usedFallback: false };
 			}
 			// Try partial match
 			const partialMatch = allModels.find(m =>
@@ -338,9 +353,11 @@ async function getModel(
 			);
 			if (partialMatch) {
 				log.debug(`[ghost-cell] Using configured model (partial match): ${partialMatch.name}`);
-				return partialMatch;
+				return { model: partialMatch, usedFallback: false };
 			}
 		}
+		// User configured a model but none matched - we'll fall back but mark it
+		log.warn(`[ghost-cell] Configured model patterns not found: ${JSON.stringify(configuredPatterns)}`);
 	}
 
 	// Check for the latest chat session and use its model
@@ -349,7 +366,7 @@ async function getModel(
 		const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
 		if (models && models.length > 0) {
 			log.debug(`[ghost-cell] Using session model: ${models[0].name}`);
-			return models[0];
+			return { model: models[0], usedFallback: hasConfiguredModel };
 		}
 	}
 
@@ -359,7 +376,7 @@ async function getModel(
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
 		if (models && models.length > 0) {
 			log.debug(`[ghost-cell] Using provider model: ${models[0].name}`);
-			return models[0];
+			return { model: models[0], usedFallback: hasConfiguredModel };
 		}
 	}
 
@@ -367,7 +384,7 @@ async function getModel(
 	const [firstModel] = await vscode.lm.selectChatModels();
 	if (firstModel) {
 		log.debug(`[ghost-cell] Using fallback model: ${firstModel.name}`);
-		return firstModel;
+		return { model: firstModel, usedFallback: hasConfiguredModel };
 	}
 
 	return null;

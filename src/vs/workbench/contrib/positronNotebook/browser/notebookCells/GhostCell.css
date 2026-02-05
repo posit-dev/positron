@@ -171,6 +171,41 @@
 	opacity: 0.85;
 }
 
+/* Footer with model indicator */
+.ghost-cell-footer {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 4px;
+	padding: 4px 12px 6px;
+	border-top: 1px solid var(--vscode-widget-border);
+	background: var(--vscode-notifications-background);
+}
+
+.ghost-cell-model-indicator {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	opacity: 0.7;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 2px;
+	transition: opacity 150ms ease-in-out, background 150ms ease-in-out;
+}
+
+.ghost-cell-model-indicator:hover {
+	opacity: 1;
+	background: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
+	text-decoration: underline;
+}
+
+.ghost-cell-fallback-warning {
+	font-size: 12px;
+	color: var(--vscode-editorWarning-foreground);
+	cursor: help;
+}
+
 /* Opt-in prompt state */
 .ghost-cell-opt-in {
 	display: flex;
