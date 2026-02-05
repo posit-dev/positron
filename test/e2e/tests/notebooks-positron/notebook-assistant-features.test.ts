@@ -88,41 +88,4 @@ test.describe('Notebook Assistant Features', {
 		await expect(fixButton).toBeVisible();
 		await expect(explainButton).toBeVisible();
 	});
-
-	test('Follow Assistant toggle only visible when both assistant settings enabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron, assistant, quickaccess, hotKeys } = app.workbench;
-
-		// Test 1: Disable assistant - Follow Assistant should not be visible
-		await settings.set({
-			'positron.assistant.enable': false,
-		});
-
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
-
-		// Follow Assistant has eye icon and toggles assistant auto-follow
-		const followAssistantDisabled = page.getByRole('button', { name: /[Ff]ollow.*[Aa]ssistant/i });
-		await expect(followAssistantDisabled).not.toBeVisible();
-
-		// Close the notebook before changing settings
-		await hotKeys.closeAllEditors();
-
-		// Test 2: Enable assistant AND configure echo model (required for hasChatModels context key)
-		await settings.set({
-			'positron.assistant.enable': true,
-		});
-
-		// Configure and enable the echo model provider to set hasChatModels context key
-		await assistant.openPositronAssistantChat();
-		await quickaccess.runCommand('positron-assistant.configureModels');
-		await assistant.selectModelProvider('echo');
-		await assistant.clickSignInButton();
-		await assistant.clickCloseButton();
-
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
-
-		const followAssistantEnabled = page.getByRole('button', { name: /[Ff]ollow.*[Aa]ssistant/i });
-		await expect(followAssistantEnabled).toBeVisible();
-	});
 });

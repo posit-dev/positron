@@ -7,10 +7,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import logging
 import os
 import re
+import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
@@ -267,7 +269,7 @@ class PositronShell(ZMQInteractiveShell):
         # to override the parent to do that.
         parent = cast("PositronIPyKernel", kwargs["parent"])
         self.session_mode = parent.session_mode
-
+        self._editor_path_added = None
         super().__init__(*args, **kwargs)
 
     def init_events(self) -> None:
@@ -334,6 +336,10 @@ class PositronShell(ZMQInteractiveShell):
         if not raw_cell or raw_cell.isspace():
             return
 
+        # Add the directory of the last active editor to sys.path if it differs
+        # from the working directory. This allows imports from the editor's directory.
+        self._editor_path_added = self._add_editor_dir_to_sys_path()
+
         try:
             self.kernel.variables_service.snapshot_user_ns()
         except Exception:
@@ -352,6 +358,9 @@ class PositronShell(ZMQInteractiveShell):
         if not raw_cell or raw_cell.isspace():
             return
 
+        # Remove the temporarily added editor directory from sys.path
+        self._remove_editor_dir_from_sys_path()
+
         # TODO: Split these to separate callbacks?
         # Check for changes to the working directory
         try:
@@ -363,6 +372,56 @@ class PositronShell(ZMQInteractiveShell):
             self.kernel.variables_service.poll_variables()
         except Exception:
             logger.exception("Error polling variables")
+
+    def _add_editor_dir_to_sys_path(self) -> str | None:
+        """
+        Add the directory of the last active editor to sys.path.
+
+        Only adds the path if it differs from the working directory and code is being
+        executed from a file. This only adds the path when is_execution_source is True,
+        which indicates that code is being executed from a script file (not typed in
+        the console).
+
+        Returns the path that was added, or None if no path was added.
+        """
+        try:
+            ui_service = self.kernel.ui_service
+
+            # Only add to sys.path when executing code from a file
+            if not ui_service.is_execution_source:
+                return None
+
+            editor_path = ui_service.get_editor_file_path()
+            if editor_path is None:
+                return None
+
+            editor_dir = str(editor_path.parent)
+            working_dir = str(ui_service.working_directory or Path.cwd())
+
+            # If editor directory differs from working directory, add to sys.path
+            if editor_dir != working_dir and editor_dir not in sys.path:
+                sys.path.insert(0, editor_dir)
+                logger.debug(f"Added editor directory to sys.path: {editor_dir}")
+                return editor_dir
+        except Exception:
+            logger.warning("Failed to update sys.path with editor directory", exc_info=True)
+        return None
+
+    def _remove_editor_dir_from_sys_path(self) -> None:
+        """Remove the temporarily added editor directory from sys.path."""
+        editor_dir = getattr(self, "_editor_path_added", None)
+        if editor_dir is not None and editor_dir in sys.path:
+            try:
+                sys.path.remove(editor_dir)
+                logger.debug(f"Removed editor directory from sys.path: {editor_dir}")
+            except ValueError:
+                pass  # Already removed
+            finally:
+                self._editor_path_added = None
+
+        # Clear the execution source flag
+        with contextlib.suppress(Exception):
+            self.kernel.ui_service.clear_execution_source()
 
     async def _stop(self):
         # Initiate the kernel shutdown sequence.

@@ -9,10 +9,10 @@ import { type Cell, type CellParser, getParser } from './parser';
 import { canHaveCells, getOrCreateDocumentManager } from './documentManager';
 
 export interface ExecuteCode {
-	(language: string, code: string): Promise<void>;
+	(language: string, code: string, documentUri?: vscode.Uri): Promise<void>;
 }
-const defaultExecuteCode: ExecuteCode = async (language, code) => {
-	await positron.runtime.executeCode(language, code, false, true);
+const defaultExecuteCode: ExecuteCode = async (language, code, documentUri) => {
+	await positron.runtime.executeCode(language, code, false, true, undefined, undefined, undefined, undefined, documentUri);
 };
 
 // Handles execution of cells via editor
@@ -76,7 +76,7 @@ export class CodeCellManager {
 	private runCell(cell: Cell): void {
 		if (!this.parser) { return; }
 		const text = this.parser.getCellText(cell, this.editor.document);
-		this.executeCode(this.editor.document.languageId, text);
+		this.executeCode(this.editor.document.languageId, text, this.editor.document.uri);
 	}
 
 	// Public commands

@@ -1859,6 +1859,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			// Reply to the prompt.
 			this._session.replyToPrompt(id, value);
+
+			// Drive focus to the input.
+			setTimeout(() => {
+				this.focusInput();
+			}, 0);
 		}
 	}
 

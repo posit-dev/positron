@@ -1919,7 +1919,8 @@ declare module 'positron' {
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
 			observer?: ExecutionObserver,
-			sessionId?: string): Thenable<Record<string, any>>;
+			sessionId?: string,
+			documentUri?: vscode.Uri): Thenable<Record<string, any>>;
 
 		/**
 		 * Executes a set of cells in a source document. The results are

@@ -299,7 +299,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	 * 1. Each provider shows its respective default model with "(default)" suffix
 	 * 2. Each default model appears first in its provider group
 	 */
-	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings }) {
+	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings, runCommand }) {
 		// Configure defaults for both Anthropic and Echo providers
 		await settings.set({
 			'positron.assistant.models.preference.byProvider': {
@@ -317,6 +317,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			await app.workbench.assistant.clickSignInButton();
 			await app.workbench.assistant.verifySignOutButtonVisible();
 			await app.workbench.assistant.clickCloseButton();
+			await runCommand('workbench.action.reloadWindow');
 		}
 
 		await expect(async () => {
