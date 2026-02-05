@@ -18,6 +18,7 @@ import { PositronDataGrid } from '../../../../browser/positronDataGrid/positronD
 import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
 
 /**
  * InlineDataExplorerProps interface.
@@ -198,6 +199,18 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	const isGridStale = state.status === 'connected' &&
 		(state.gridInstance.columns === 0 || state.gridInstance.rows === 0);
 
+	// Handle keyboard events for copy (Cmd+C / Ctrl+C)
+	const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
+		// Check for Cmd+C (Mac) or Ctrl+C (Windows/Linux)
+		if (e.code === 'KeyC' && (isMacintosh ? e.metaKey : e.ctrlKey)) {
+			if (state.status === 'connected' && !isGridStale) {
+				e.preventDefault();
+				e.stopPropagation();
+				await state.gridInstance.copyToClipboard();
+			}
+		}
+	};
+
 	// Render based on state
 	return (
 		<div ref={containerRef} className='inline-data-explorer-container' style={{ height: `${maxHeight}px` }}>
@@ -206,7 +219,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				title={title}
 				onOpenInExplorer={state.status === 'connected' && !isGridStale ? handleOpenInExplorer : undefined}
 			/>
-			<div className='inline-data-explorer-content' onWheel={handleWheel}>
+			<div className='inline-data-explorer-content' onKeyDownCapture={handleKeyDown} onWheel={handleWheel}>
 				{state.status === 'loading' && (
 					<div className='inline-data-explorer-loading'>
 						<span className='codicon codicon-loading codicon-modifier-spin' />

@@ -510,6 +510,19 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				context.instance.moveCursorRight();
 				break;
 			}
+
+			// C key - for copy.
+			case 'KeyC': {
+				// Handle Cmd+C / Ctrl+C for copy.
+				if (isMacintosh ? e.metaKey : e.ctrlKey) {
+					// Only handle if instance has copyToClipboard method.
+					if ('copyToClipboard' in context.instance && typeof context.instance.copyToClipboard === 'function') {
+						consumeEvent();
+						await (context.instance as { copyToClipboard: () => Promise<void> }).copyToClipboard();
+					}
+				}
+				break;
+			}
 		}
 	};
 
