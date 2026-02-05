@@ -11,8 +11,8 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { deleteConfiguration, ModelConfig, SecretStorage } from '../../config';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
-import * as ai from 'ai';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
+import { handleNativeSdkRateLimitError, handleVercelSdkRateLimitError } from '../anthropic/anthropicModelUtils.js';
 import { VercelModelProvider } from '../base/vercelModelProvider.js';
 
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
@@ -419,13 +419,7 @@ export class PositModelProvider extends VercelModelProvider {
 				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
 
 				// Check for rate limit error with retry-after header
-				if (error.status === 429) {
-					const retryAfter = error.headers?.get('retry-after');
-					if (retryAfter) {
-						throw new Error(`[${this.providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
-					}
-					throw new Error(`[${this.providerName}] Rate limit exceeded. Please try again later.`);
-				}
+				handleNativeSdkRateLimitError(error, this.providerName);
 
 				let data: any;
 				try {
@@ -519,13 +513,7 @@ export class PositModelProvider extends VercelModelProvider {
 	 */
 	protected override handleStreamError(error: unknown): never {
 		// Check for rate limit error with retry-after header
-		if (ai.APICallError.isInstance(error) && error.statusCode === 429) {
-			const retryAfter = error.responseHeaders?.['retry-after'];
-			if (retryAfter) {
-				throw new Error(`[${this.providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
-			}
-			throw new Error(`[${this.providerName}] Rate limit exceeded. Please try again later.`);
-		}
+		handleVercelSdkRateLimitError(error, this.providerName);
 		throw error;
 	}
 

@@ -6,9 +6,14 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
-import * as ai from 'ai';
 import { AnthropicAIModelProvider } from '../providers/anthropic/anthropicVercelProvider';
 import { ModelConfig } from '../config';
+import {
+	createVercelRateLimitError,
+	createVercelServerError,
+	assertRateLimitErrorWithRetry,
+	assertRateLimitErrorWithoutRetry
+} from './utils.js';
 
 suite('AnthropicAIModelProvider (Vercel)', () => {
 	let model: AnthropicAIModelProvider;
@@ -34,61 +39,31 @@ suite('AnthropicAIModelProvider (Vercel)', () => {
 
 	suite('Rate limit error handling', () => {
 		test('throws error with retry-after when rate limited with header', () => {
-			// Create an APICallError with 429 status and retry-after header
-			const rateLimitError = new ai.APICallError({
-				message: 'Rate limit exceeded',
-				url: 'https://api.anthropic.com/v1/messages',
-				requestBodyValues: {},
-				statusCode: 429,
-				responseHeaders: { 'retry-after': '30' },
-				responseBody: JSON.stringify({ error: { type: 'rate_limit_error', message: 'Rate limit exceeded' } }),
-				isRetryable: true,
-			});
+			const rateLimitError = createVercelRateLimitError('30');
 
 			assert.throws(
 				() => (model as any).handleStreamError(rateLimitError),
 				(error: Error) => {
-					assert.ok(error.message.includes('Rate limit exceeded'), 'Error message should mention rate limit');
-					assert.ok(error.message.includes('retry after 30 seconds'), 'Error message should include retry-after value');
+					assertRateLimitErrorWithRetry(error, '30');
 					return true;
 				}
 			);
 		});
 
 		test('throws error without retry-after when rate limited without header', () => {
-			// Create an APICallError with 429 status but no retry-after header
-			const rateLimitError = new ai.APICallError({
-				message: 'Rate limit exceeded',
-				url: 'https://api.anthropic.com/v1/messages',
-				requestBodyValues: {},
-				statusCode: 429,
-				responseHeaders: {},
-				responseBody: JSON.stringify({ error: { type: 'rate_limit_error', message: 'Rate limit exceeded' } }),
-				isRetryable: true,
-			});
+			const rateLimitError = createVercelRateLimitError();
 
 			assert.throws(
 				() => (model as any).handleStreamError(rateLimitError),
 				(error: Error) => {
-					assert.ok(error.message.includes('Rate limit exceeded'), 'Error message should mention rate limit');
-					assert.ok(error.message.includes('try again later'), 'Error message should suggest trying later');
-					assert.ok(!error.message.includes('retry after'), 'Error message should not include retry-after');
+					assertRateLimitErrorWithoutRetry(error);
 					return true;
 				}
 			);
 		});
 
 		test('re-throws non-rate-limit APICallError unchanged', () => {
-			// Create an APICallError with non-429 status
-			const serverError = new ai.APICallError({
-				message: 'Internal server error',
-				url: 'https://api.anthropic.com/v1/messages',
-				requestBodyValues: {},
-				statusCode: 500,
-				responseHeaders: {},
-				responseBody: JSON.stringify({ error: { type: 'server_error', message: 'Internal server error' } }),
-				isRetryable: true,
-			});
+			const serverError = createVercelServerError(500, 'Internal server error');
 
 			assert.throws(
 				() => (model as any).handleStreamError(serverError),

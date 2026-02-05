@@ -13,7 +13,12 @@ import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from 
 import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
-import { mock } from './utils.js';
+import {
+	mock,
+	createNativeRateLimitError,
+	assertRateLimitErrorWithRetry,
+	assertRateLimitErrorWithoutRetry
+} from './utils.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import * as helpersModule from '../modelResolutionHelpers.js';
 
@@ -842,17 +847,7 @@ suite('AnthropicModelProvider', () => {
 
 	suite('Rate limit error handling', () => {
 		test('throws error with retry-after when rate limited with header', async () => {
-			// Create headers with retry-after
-			const headers = new Headers();
-			headers.set('retry-after', '30');
-
-			// Create an APIError with 429 status and retry-after header
-			const rateLimitError = new Anthropic.APIError(
-				429,
-				{ error: { type: 'rate_limit_error', message: 'Rate limit exceeded' } },
-				'Rate limit exceeded',
-				headers
-			);
+			const rateLimitError = createNativeRateLimitError('30');
 
 			// Configure mock to reject with rate limit error
 			mockClient.messages.stream.returns(mock<MessageStream>({
@@ -874,24 +869,14 @@ suite('AnthropicModelProvider', () => {
 					cancellationToken
 				),
 				(error: Error) => {
-					assert.ok(error.message.includes('Rate limit exceeded'), 'Error message should mention rate limit');
-					assert.ok(error.message.includes('retry after 30 seconds'), 'Error message should include retry-after value');
+					assertRateLimitErrorWithRetry(error, '30');
 					return true;
 				}
 			);
 		});
 
 		test('throws error without retry-after when rate limited without header', async () => {
-			// Create empty headers (no retry-after)
-			const headers = new Headers();
-
-			// Create an APIError with 429 status but no retry-after header
-			const rateLimitError = new Anthropic.APIError(
-				429,
-				{ error: { type: 'rate_limit_error', message: 'Rate limit exceeded' } },
-				'Rate limit exceeded',
-				headers
-			);
+			const rateLimitError = createNativeRateLimitError();
 
 			// Configure mock to reject with rate limit error
 			mockClient.messages.stream.returns(mock<MessageStream>({
@@ -913,9 +898,7 @@ suite('AnthropicModelProvider', () => {
 					cancellationToken
 				),
 				(error: Error) => {
-					assert.ok(error.message.includes('Rate limit exceeded'), 'Error message should mention rate limit');
-					assert.ok(error.message.includes('try again later'), 'Error message should suggest trying later');
-					assert.ok(!error.message.includes('retry after'), 'Error message should not include retry-after');
+					assertRateLimitErrorWithoutRetry(error);
 					return true;
 				}
 			);

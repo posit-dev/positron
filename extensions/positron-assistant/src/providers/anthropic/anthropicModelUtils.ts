@@ -4,11 +4,50 @@
  *--------------------------------------------------------------------------------------------*/
 
 import Anthropic from '@anthropic-ai/sdk';
+import * as ai from 'ai';
 import * as vscode from 'vscode';
 import { getAllModelDefinitions } from '../../modelDefinitions.js';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 import { ModelCapabilities } from '../base/modelProviderTypes.js';
 import { ModelProviderLogger } from '../base/modelProviderLogger.js';
+
+/**
+ * Checks if an error is a rate limit error (HTTP 429) from the native Anthropic SDK
+ * and throws a user-friendly error with retry-after information if available.
+ *
+ * @param error - The error to check
+ * @param providerName - The name of the provider for the error message prefix
+ * @returns true if the error was handled (and thrown), false otherwise
+ */
+export function handleNativeSdkRateLimitError(error: unknown, providerName: string): boolean {
+	if (error instanceof Anthropic.APIError && error.status === 429) {
+		const retryAfter = error.headers?.get('retry-after');
+		if (retryAfter) {
+			throw new Error(`[${providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
+		}
+		throw new Error(`[${providerName}] Rate limit exceeded. Please try again later.`);
+	}
+	return false;
+}
+
+/**
+ * Checks if an error is a rate limit error (HTTP 429) from the Vercel AI SDK
+ * and throws a user-friendly error with retry-after information if available.
+ *
+ * @param error - The error to check
+ * @param providerName - The name of the provider for the error message prefix
+ * @returns true if the error was handled (and thrown), false otherwise
+ */
+export function handleVercelSdkRateLimitError(error: unknown, providerName: string): boolean {
+	if (ai.APICallError.isInstance(error) && error.statusCode === 429) {
+		const retryAfter = error.responseHeaders?.['retry-after'];
+		if (retryAfter) {
+			throw new Error(`[${providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
+		}
+		throw new Error(`[${providerName}] Rate limit exceeded. Please try again later.`);
+	}
+	return false;
+}
 
 export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
 export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4';
