@@ -190,10 +190,6 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		}
 	};
 
-	// Stop wheel events from propagating to the notebook container
-	const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-		e.stopPropagation();
-	};
 
 	// Check if grid instance has become stale (no data but still "connected")
 	const isGridStale = state.status === 'connected' &&
@@ -219,7 +215,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				title={title}
 				onOpenInExplorer={state.status === 'connected' && !isGridStale ? handleOpenInExplorer : undefined}
 			/>
-			<div className='inline-data-explorer-content' onKeyDownCapture={handleKeyDown} onWheel={handleWheel}>
+			<div className='inline-data-explorer-content' onKeyDownCapture={handleKeyDown}>
 				{state.status === 'loading' && (
 					<div className='inline-data-explorer-loading'>
 						<span className='codicon codicon-loading codicon-modifier-spin' />

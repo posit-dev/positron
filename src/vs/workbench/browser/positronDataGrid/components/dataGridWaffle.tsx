@@ -526,56 +526,71 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		}
 	};
 
-	/**
-	 * onWheel event handler.
-	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the mouse wheel.
-	 * @returns A Promise<void> that resolves when the operation is complete.
-	 */
-	const wheelHandler = async (e: WheelEvent<HTMLDivElement>) => {
-		// Record the last wheel event.
-		setLastWheelEvent(e.timeStamp);
+	// Use a native wheel event listener with { passive: false } to reliably
+	// call preventDefault(). React's synthetic onWheel uses passive listeners
+	// by default (Chrome 73+), which silently ignores preventDefault() and
+	// allows scroll chaining to parent containers like the notebook.
+	// This matches the pattern used by VS Code's ScrollableElement and
+	// Positron's plotsContainer.tsx.
+	useEffect(() => {
+		const element = dataGridWaffleRef.current;
+		if (!element) {
+			return;
+		}
 
-		// Get the delta X and delta Y.
-		let deltaX = e.deltaX;
-		let deltaY = e.deltaY;
+		const onWheel = (e: globalThis.WheelEvent) => {
+			// Consume the event to prevent scroll chaining to parent containers.
+			e.preventDefault();
+			e.stopPropagation();
 
-		// Suppress jitter on the non-dominant wheel axis.
-		{
-			// This bias factor prevents minor input noise from falsely flipping axis dominance.
-			const bias = 1.1;
+			// Record the last wheel event.
+			setLastWheelEvent(e.timeStamp);
 
-			// Zero out the non-dominant axis.
-			const absDeltaX = Math.abs(deltaX);
-			const absDeltaY = Math.abs(deltaY);
-			if (absDeltaX > absDeltaY * bias) {
-				deltaY = 0;
-			} else if (absDeltaY > absDeltaX * bias) {
-				deltaX = 0;
+			// Get the delta X and delta Y.
+			let deltaX = e.deltaX;
+			let deltaY = e.deltaY;
+
+			// Suppress jitter on the non-dominant wheel axis.
+			{
+				// This bias factor prevents minor input noise from falsely
+				// flipping axis dominance.
+				const bias = 1.1;
+
+				// Zero out the non-dominant axis.
+				const absDeltaX = Math.abs(deltaX);
+				const absDeltaY = Math.abs(deltaY);
+				if (absDeltaX > absDeltaY * bias) {
+					deltaY = 0;
+				} else if (absDeltaY > absDeltaX * bias) {
+					deltaX = 0;
+				}
 			}
-		}
 
-		// If the alt key is pressed, scroll by 10 times the delta X and delta Y.
-		if (e.altKey) {
-			deltaX *= 10;
-			deltaY *= 10;
-		}
+			// If the alt key is pressed, scroll by 10 times the delta X and
+			// delta Y.
+			if (e.altKey) {
+				deltaX *= 10;
+				deltaY *= 10;
+			}
 
-		/**
-		 * Sets the scroll offsets.
-		 */
-		await context.instance.setScrollOffsets(
-			pinToRange(
-				context.instance.horizontalScrollOffset + deltaX,
-				0,
-				context.instance.maximumHorizontalScrollOffset
-			),
-			pinToRange(
-				context.instance.verticalScrollOffset + deltaY,
-				0,
-				context.instance.maximumVerticalScrollOffset
-			)
-		);
-	};
+			// Set the scroll offsets.
+			context.instance.setScrollOffsets(
+				pinToRange(
+					context.instance.horizontalScrollOffset + deltaX,
+					0,
+					context.instance.maximumHorizontalScrollOffset
+				),
+				pinToRange(
+					context.instance.verticalScrollOffset + deltaY,
+					0,
+					context.instance.maximumVerticalScrollOffset
+				)
+			);
+		};
+
+		element.addEventListener('wheel', onWheel, { passive: false });
+		return () => element.removeEventListener('wheel', onWheel);
+	}, [context.instance]);
 
 	// Get the column descriptors and row descriptors.
 	const columnDescriptors = context.instance.getColumnDescriptors(
@@ -627,7 +642,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			onBlur={() => context.instance.setFocused(false)}
 			onFocus={() => context.instance.setFocused(true)}
 			onKeyDown={keyDownHandler}
-			onWheel={wheelHandler}
 		>
 			{context.instance.columnHeaders && context.instance.rowHeaders && context.instance.columns !== 0 &&
 				<DataGridCornerTopLeft
