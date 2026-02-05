@@ -48,6 +48,7 @@ type GhostCellTag = 'suggestion' | 'explanation' | 'code';
  * @param log Log output channel for debugging
  * @param token Cancellation token
  * @param onProgress Optional callback for streaming partial results
+ * @param skipConfigCheck If true, skip the config check (used when workbench has already verified)
  * @returns The suggestion result, or null if generation failed or was cancelled
  */
 export async function generateGhostCellSuggestion(
@@ -56,7 +57,8 @@ export async function generateGhostCellSuggestion(
 	participantService: ParticipantService,
 	log: vscode.LogOutputChannel,
 	token: vscode.CancellationToken,
-	onProgress?: GhostCellProgressCallback
+	onProgress?: GhostCellProgressCallback,
+	skipConfigCheck?: boolean
 ): Promise<GhostCellSuggestionResult | null> {
 	// Get the notebook document
 	const uri = vscode.Uri.parse(notebookUri);
@@ -68,7 +70,8 @@ export async function generateGhostCellSuggestion(
 	}
 
 	// Check if ghost cell suggestions are enabled for this notebook
-	if (!resolveGhostCellSuggestions(notebook)) {
+	// skipConfigCheck allows bypassing this when the workbench has already verified (e.g., user just clicked Enable)
+	if (!skipConfigCheck && !resolveGhostCellSuggestions(notebook)) {
 		log.debug('[ghost-cell] Ghost cell suggestions disabled for this notebook');
 		return null;
 	}

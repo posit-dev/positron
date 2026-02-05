@@ -476,8 +476,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	/**
 	 * Trigger generation of a ghost cell suggestion after cell execution.
 	 * @param executedCellIndex The index of the cell that was just executed
+	 * @param skipConfigCheck If true, skip the extension-side config check (used when workbench has already verified)
 	 */
-	triggerGhostCellSuggestion(executedCellIndex: number): void;
+	triggerGhostCellSuggestion(executedCellIndex: number, skipConfigCheck?: boolean): void;
 
 	/**
 	 * Accept the current ghost cell suggestion by inserting it as a new cell.

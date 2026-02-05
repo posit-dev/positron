@@ -2397,8 +2397,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Trigger generation of a ghost cell suggestion.
 	 * @param executedCellIndex The index of the cell that was just executed
+	 * @param skipConfigCheck If true, skip the extension-side config check (used when workbench has already verified)
 	 */
-	triggerGhostCellSuggestion(executedCellIndex: number): void {
+	triggerGhostCellSuggestion(executedCellIndex: number, skipConfigCheck: boolean = false): void {
 		// Cancel any existing request
 		if (this._ghostCellCancellationToken) {
 			this._ghostCellCancellationToken.cancel();
@@ -2446,6 +2447,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this.uri.toString(),
 			executedCellIndex,
 			callbackCommandId,
+			skipConfigCheck,
 			token
 		).then((result: unknown) => {
 			callbackDisposable.dispose();
@@ -2633,9 +2635,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			ConfigurationTarget.USER
 		);
 
-		// Trigger suggestion immediately
+		// Trigger suggestion immediately, skipping config check since we just set the flag
 		if (executedCellIndex >= 0) {
-			this.triggerGhostCellSuggestion(executedCellIndex);
+			this.triggerGhostCellSuggestion(executedCellIndex, true);
 		}
 	}
 
