@@ -263,6 +263,15 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
 
 	/**
+	 * Inserts a new raw cell either above or below the current selection
+	 * and focuses the container.
+	 *
+	 * @param aboveOrBelow Whether to insert the cell above or below the current selection
+	 * @param referenceCell Optional cell to insert relative to. If not provided, uses the currently selected cell
+	 */
+	insertRawCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
+
+	/**
 	 * Changes a cell to a different kind (code or markdown) and/or changes its language.
 	 * Cell content, metadata, and outputs are all preserved (outputs survive round-trip conversions).
 	 *

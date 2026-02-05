@@ -684,7 +684,7 @@ registerAction2(class extends NotebookAction2 {
 		const state = notebook.selectionStateMachine.state.get();
 		const cell = getActiveCell(state);
 		if (cell) {
-			notebook.addCell(CellKind.Code, cell.index, true, '', 'raw');
+			cell.insertRawCellAbove();
 		}
 	}
 });
@@ -709,7 +709,7 @@ registerAction2(class extends NotebookAction2 {
 		const state = notebook.selectionStateMachine.state.get();
 		const cell = getActiveCell(state);
 		if (cell) {
-			notebook.addCell(CellKind.Code, cell.index + 1, true, '', 'raw');
+			cell.insertRawCellBelow();
 		}
 	}
 });

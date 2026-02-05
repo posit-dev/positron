@@ -126,6 +126,16 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	insertMarkdownCellBelow(): void;
 
 	/**
+	 * Insert a new raw cell above this cell
+	 */
+	insertRawCellAbove(): void;
+
+	/**
+	 * Insert a new raw cell below this cell
+	 */
+	insertRawCellBelow(): void;
+
+	/**
 	 * Type guard for checking if cell is a markdown cell
 	 */
 	isMarkdownCell(): this is IPositronNotebookMarkdownCell;

@@ -1063,7 +1063,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._onDidChangeContent.fire();
 	}
 
-	private _insertCellAndFocusContainer(type: CellKind, aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+	private _insertCellAndFocusContainer(type: CellKind, aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell, language?: string): void {
 		let index: number | undefined;
 
 		this._assertTextModel();
@@ -1079,7 +1079,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), false);
+		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), false, '', language);
 	}
 
 	/**
@@ -1093,6 +1093,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
 		this._insertCellAndFocusContainer(CellKind.Markup, aboveOrBelow, referenceCell);
+	}
+
+	insertRawCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+		this._insertCellAndFocusContainer(CellKind.Code, aboveOrBelow, referenceCell, 'raw');
 	}
 
 	/**

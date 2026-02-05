@@ -382,5 +382,13 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	insertMarkdownCellBelow(): void {
 		this._instance.insertMarkdownCellAndFocusContainer('below', this);
 	}
+
+	insertRawCellAbove(): void {
+		this._instance.insertRawCellAndFocusContainer('above', this);
+	}
+
+	insertRawCellBelow(): void {
+		this._instance.insertRawCellAndFocusContainer('below', this);
+	}
 }
 
