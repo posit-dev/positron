@@ -15,20 +15,22 @@ Feedback from **seeM** on the ghost cell suggestions feature.
 
 ## Settings/Behavior
 
-- [ ] **#8** Don't write default settings to settings.json
+- [x] **#8** Don't write default settings to settings.json
   - These settings appear without user explicitly changing them:
     - `positron.assistant.notebook.ghostCellSuggestions.hasOptedIn`
     - `positron.assistant.notebook.ghostCellSuggestions.mode`
     - `positron.assistant.notebook.ghostCellSuggestions.enabled`
   - Only write when user changes from default
+  - **Done:** Use `undefined` to remove settings when value matches default (enabled=false, mode='push')
 
 ## UI Styling (Toggle)
 
-- [ ] **#3** Match Automatic/On-demand toggle to existing Positron patterns
+- [x] **#3** Match Automatic/On-demand toggle to existing Positron patterns
   - Visual state confusion (hard to tell which is selected)
   - No hover style
   - Color inconsistency (blue vs gray/white elsewhere)
   - Double-clicking selects text (shouldn't)
+  - **Done:** Updated to match ActionBarToggle pattern (sizing, hover effect, user-select: none)
 
 ## UI Layout
 
