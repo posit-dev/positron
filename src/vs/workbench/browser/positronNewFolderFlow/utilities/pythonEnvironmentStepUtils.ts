@@ -18,10 +18,14 @@ export interface PythonEnvironmentProviderInfo {
 /**
  * Returns the default environment name for a given provider.
  * @param envProviderName The name of the Python environment provider.
+ * @param projectName The name of the project folder, used as the environment name for non-Conda environments.
  * @returns The default environment name.
  */
-export const getDefaultEnvName = (envProviderName: string | undefined): string => {
-	return envProviderName === PythonEnvironmentProvider.Conda ? '.conda' : '.venv';
+export const getDefaultEnvName = (envProviderName: string | undefined, projectName?: string): string => {
+	if (envProviderName === PythonEnvironmentProvider.Conda) {
+		return projectName || '.conda';
+	}
+	return projectName || '.venv';
 };
 
 /**
