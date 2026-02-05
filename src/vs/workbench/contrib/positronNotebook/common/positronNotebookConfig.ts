@@ -32,11 +32,8 @@ export const POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY = 'positron.assistant.
 // Configuration key for ghost cell suggestion delay
 export const POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY = 'positron.assistant.notebook.ghostCellSuggestions.delay';
 
-// Configuration key for tracking whether user has opted in/out of ghost cell suggestions
-export const POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY = 'positron.assistant.notebook.ghostCellSuggestions.hasOptedIn';
-
-// Configuration key for ghost cell suggestion mode (push = automatic, pull = on-demand)
-export const POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY = 'positron.assistant.notebook.ghostCellSuggestions.mode';
+// Configuration key for ghost cell automatic mode (true = automatic, false = on-demand)
+export const POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY = 'positron.assistant.notebook.ghostCellSuggestions.automatic';
 
 // Configuration key for ghost cell suggestion model patterns
 export const POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY = 'positron.assistant.notebook.ghostCellSuggestions.model';
@@ -119,26 +116,12 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
-		[POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY]: {
+		[POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
-				'positron.assistant.notebook.ghostCellSuggestions.hasOptedIn',
-				'Whether you have made a choice about ghost cell suggestions. When false, you will be prompted to enable or disable suggestions after cell execution.'
-			),
-			scope: ConfigurationScope.WINDOW,
-		},
-		[POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY]: {
-			type: 'string',
-			enum: ['push', 'pull'],
-			enumDescriptions: [
-				localize('positron.assistant.notebook.ghostCellSuggestions.mode.push', 'Suggestions appear automatically after cell execution (default).'),
-				localize('positron.assistant.notebook.ghostCellSuggestions.mode.pull', 'A placeholder appears after cell execution. Click "Get Suggestion" or press Cmd/Ctrl+Shift+G to request a suggestion.')
-			],
-			default: 'push',
-			markdownDescription: localize(
-				'positron.assistant.notebook.ghostCellSuggestions.mode',
-				'Controls how ghost cell suggestions are triggered. "push" shows suggestions automatically, "pull" waits for you to request them.'
+				'positron.assistant.notebook.ghostCellSuggestions.automatic',
+				'When enabled, suggestions appear automatically after cell execution. When disabled, a placeholder appears and you can request a suggestion by clicking "Get Suggestion" or pressing Cmd/Ctrl+Shift+G.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
