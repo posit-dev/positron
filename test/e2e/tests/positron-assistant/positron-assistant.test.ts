@@ -26,6 +26,19 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.verifyConfigureProvidersButtonVisible();
 	});
 
+	/**
+	 * Verifies that Posit AI is the first provider in the Configure Providers modal.
+	 * This ensures Posit AI has prominence as the default/recommended provider.
+	 *
+	 * @param app - Application fixture providing access to UI elements
+	 */
+	test('Verify Posit AI is first provider in modal', async function ({ app }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.clickAddModelButton();
+		const providerNames = await app.workbench.assistant.getProviderButtonNames();
+		expect(providerNames[0]).toBe('Posit AI');
+		await app.workbench.assistant.clickCloseButton();
+	});
 
 	/**
 	 * Verifies an error is returned when a bad api key is input.

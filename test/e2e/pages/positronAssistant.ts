@@ -199,6 +199,19 @@ export class Assistant {
 		}
 	}
 
+	/**
+	 * Gets the provider display names in their display order from the Configure Providers modal.
+	 * The modal must already be open before calling this method.
+	 * @returns Array of provider display names in display order (e.g., "Posit AI", "Anthropic")
+	 */
+	async getProviderButtonNames(): Promise<string[]> {
+		const providerButtons = this.code.driver.page.locator('div[id$="-provider-button"]');
+		await providerButtons.first().waitFor({ state: 'visible' });
+
+		const texts = await providerButtons.allTextContents();
+		return texts.map(t => t.trim()).filter(Boolean);
+	}
+
 	async enterChatMessage(message: string, waitForResponse: boolean = true) {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });

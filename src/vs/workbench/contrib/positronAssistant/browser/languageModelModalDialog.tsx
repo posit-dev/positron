@@ -69,6 +69,14 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth'))
 		.sort((a, b) => {
+			// Posit AI should always be first
+			if (a.provider.id === 'posit-ai') {
+				return -1;
+			}
+			if (b.provider.id === 'posit-ai') {
+				return 1;
+			}
+			// Echo and Error providers should always be last
 			if (a.provider.id === 'echo' || a.provider.id === 'error') {
 				return 1;
 			}

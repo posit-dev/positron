@@ -7,6 +7,7 @@
   "files.simpleDialog.enable": true,
   "positron.importSettings.enable": false,
 	"positron.assistant.enable": true,
+	"positron.assistant.provider.positAI.enable": true,
 	"positron.assistant.provider.anthropic.enable": true,
 	"positron.assistant.provider.githubCopilot.enable": true,
 	"positron.assistant.provider.openAI.enable": true,
