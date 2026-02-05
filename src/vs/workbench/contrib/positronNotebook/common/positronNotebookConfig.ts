@@ -148,7 +148,7 @@ configurationRegistry.registerConfiguration({
 			default: ['haiku', 'mini'],
 			markdownDescription: localize(
 				'positron.assistant.notebook.ghostCellSuggestions.model',
-				'An ordered array of model patterns to try when generating ghost cell suggestions. Patterns are tried in order until a match is found. Each pattern supports partial matching on model ID or name (case-insensitive). If no patterns match, falls back to the current chat session model, then the current provider\'s model, then the first available model.'
+				'Model patterns for ghost cell suggestions. [Select a model](command:positron-assistant.selectGhostCellModel) or specify patterns manually. Patterns are tried in order until a match is found (case-insensitive partial matching). Falls back to the current chat session model, then the provider\'s model, then the first available model.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},

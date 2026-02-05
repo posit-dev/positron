@@ -210,6 +210,12 @@
         "title": "%commands.resetState.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.selectGhostCellModel",
+        "title": "%commands.selectGhostCellModel.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [

@@ -22,6 +22,7 @@ import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from '
 import { AnthropicModelProvider } from './providers/anthropic/anthropicProvider.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
+import { selectGhostCellModel } from './commands/ghostCellModelPicker.js';
 import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
@@ -480,6 +481,11 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register chat commands
 	registerAssistantCommands();
+
+	// Register ghost cell model picker command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.selectGhostCellModel', selectGhostCellModel)
+	);
 
 	// Dispose cleanup
 	context.subscriptions.push({
