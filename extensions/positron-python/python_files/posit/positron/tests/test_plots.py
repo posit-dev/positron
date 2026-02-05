@@ -290,11 +290,18 @@ def test_mpl_frontend_close_then_draw(shell: PositronShell, plots_service: Plots
     _do_render(plot_comm)
     _do_close(plot_comm)
 
-    # Drawing again should re-open the comm
+    # Drawing again should create a new figure (not re-open the old one),
+    # since frontend close also closes the matplotlib figure.
     shell.run_cell("plt.plot([1, 2])")
 
-    assert not plot_comm._closed  # noqa: SLF001
-    assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
+    # Original comm stays closed
+    assert plot_comm._closed  # noqa: SLF001
+    assert plot_comm.messages == []
+
+    # A new plot was created
+    assert len(plots_service._plots) == 2  # noqa: SLF001
+    new_plot_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
+    assert not new_plot_comm._closed  # noqa: SLF001
 
 
 def test_mpl_frontend_close_then_show(shell: PositronShell, plots_service: PlotsService) -> None:
@@ -302,11 +309,16 @@ def test_mpl_frontend_close_then_show(shell: PositronShell, plots_service: Plots
     _do_render(plot_comm)
     _do_close(plot_comm)
 
-    # Showing again should re-open the comm
+    # Showing again does nothing since the matplotlib figure was closed.
+    # plt.show() only shows existing figures, it doesn't create new ones.
     shell.run_cell("plt.show()")
 
-    assert not plot_comm._closed  # noqa: SLF001
-    assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
+    # Original comm stays closed, no new messages
+    assert plot_comm._closed  # noqa: SLF001
+    assert plot_comm.messages == []
+
+    # No new plots were created
+    assert len(plots_service._plots) == 1  # noqa: SLF001
 
 
 def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService) -> None:

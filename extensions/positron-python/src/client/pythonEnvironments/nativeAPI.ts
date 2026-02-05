@@ -46,6 +46,7 @@ import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalIn
 import { PythonEnvSource } from './base/info';
 import { getShortestString } from '../common/stringUtils';
 import { arePathsSame, isParentPath, resolveSymbolicLink } from './common/externalDependencies';
+import { ModuleEnvironmentLocator, moduleMetadataMap } from './base/locators/lowLevel/moduleEnvironmentLocator';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -109,6 +110,8 @@ function kindToShortString(kind: PythonEnvKind): string | undefined {
         // --- Start Positron ---
         case PythonEnvKind.Uv:
             return 'uv';
+        case PythonEnvKind.Module:
+            return 'Module';
         // --- End Positron ---
         case PythonEnvKind.System:
         case PythonEnvKind.Unknown:
@@ -693,6 +696,188 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
     return native;
 }
 
+/**
+ * Wrapper that combines the native Python environments API with module environments.
+ * Module environments are discovered using the ModuleEnvironmentLocator and merged
+ * with the environments from the native API.
+ */
+class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
+    private readonly _onProgress: EventEmitter<ProgressNotificationEvent>;
+    private readonly _onChanged: EventEmitter<PythonEnvCollectionChangedEvent>;
+    private readonly _disposables: Disposable[] = [];
+    private readonly _moduleLocator: ModuleEnvironmentLocator;
+    private _moduleEnvs: PythonEnvInfo[] = [];
+    private _refreshPromise?: Deferred<void>;
+
+    constructor(private readonly nativeApi: NativePythonEnvironments) {
+        this._onProgress = new EventEmitter<ProgressNotificationEvent>();
+        this._onChanged = new EventEmitter<PythonEnvCollectionChangedEvent>();
+        this._moduleLocator = new ModuleEnvironmentLocator();
+
+        this._disposables.push(this._onProgress, this._onChanged);
+
+        // Forward events from native API
+        this._disposables.push(
+            this.nativeApi.onProgress((e) => this._onProgress.fire(e)),
+            this.nativeApi.onChanged((e) => this._onChanged.fire(e)),
+        );
+    }
+
+    dispose(): void {
+        this._disposables.forEach((d) => d.dispose());
+        this.nativeApi.dispose();
+    }
+
+    get refreshState(): ProgressReportStage {
+        return this.nativeApi.refreshState;
+    }
+
+    get onProgress(): Event<ProgressNotificationEvent> {
+        return this._onProgress.event;
+    }
+
+    get onChanged(): Event<PythonEnvCollectionChangedEvent> {
+        return this._onChanged.event;
+    }
+
+    getRefreshPromise(options?: GetRefreshEnvironmentsOptions): Promise<void> | undefined {
+        return this._refreshPromise?.promise ?? this.nativeApi.getRefreshPromise(options);
+    }
+
+    async triggerRefresh(query?: PythonLocatorQuery, options?: TriggerRefreshOptions): Promise<void> {
+        if (this._refreshPromise?.promise) {
+            return this._refreshPromise.promise;
+        }
+
+        this._refreshPromise = createDeferred();
+
+        try {
+            // Trigger both native and module discovery in parallel
+            const [, moduleEnvs] = await Promise.all([
+                this.nativeApi.triggerRefresh(query, options),
+                this.discoverModuleEnvironments(),
+            ]);
+
+            // Update module environments and fire change events for new ones
+            const oldModuleEnvPaths = new Set(this._moduleEnvs.map((e) => e.executable.filename));
+            const newModuleEnvPaths = new Set(moduleEnvs.map((e) => e.executable.filename));
+
+            // Fire events for removed module environments
+            for (const oldEnv of this._moduleEnvs) {
+                if (!newModuleEnvPaths.has(oldEnv.executable.filename)) {
+                    this._onChanged.fire({ type: FileChangeType.Deleted, old: oldEnv });
+                }
+            }
+
+            // Fire events for new module environments
+            for (const newEnv of moduleEnvs) {
+                if (!oldModuleEnvPaths.has(newEnv.executable.filename)) {
+                    this._onChanged.fire({ type: FileChangeType.Created, new: newEnv });
+                }
+            }
+
+            this._moduleEnvs = moduleEnvs;
+            this._refreshPromise.resolve();
+        } catch (error) {
+            this._refreshPromise.reject(error);
+        } finally {
+            this._refreshPromise = undefined;
+        }
+    }
+
+    getEnvs(query?: PythonLocatorQuery): PythonEnvInfo[] {
+        const nativeEnvs = this.nativeApi.getEnvs(query);
+        // Combine native envs with module envs, avoiding duplicates by executable path
+        const nativeEnvPaths = new Set(nativeEnvs.map((e) => e.executable.filename));
+        const uniqueModuleEnvs = this._moduleEnvs.filter((e) => !nativeEnvPaths.has(e.executable.filename));
+        return [...nativeEnvs, ...uniqueModuleEnvs];
+    }
+
+    async resolveEnv(envPath: string): Promise<PythonEnvInfo | undefined> {
+        // First check if it's a module environment
+        const moduleEnv = this._moduleEnvs.find((e) => e.executable.filename === envPath);
+        if (moduleEnv) {
+            return moduleEnv;
+        }
+        // Fall back to native resolution
+        return this.nativeApi.resolveEnv(envPath);
+    }
+
+    /**
+     * Discovers Python environments from environment modules.
+     */
+    private async discoverModuleEnvironments(): Promise<PythonEnvInfo[]> {
+        const envs: PythonEnvInfo[] = [];
+
+        // Module systems are only supported on Linux
+        if (process.platform === 'win32' || process.platform === 'darwin') {
+            return envs;
+        }
+
+        try {
+            traceInfo('[NativeWithModulesApi] Discovering module environments');
+            for await (const basicEnv of this._moduleLocator.iterEnvs()) {
+                const envInfo = this.basicEnvToPythonEnvInfo(basicEnv);
+                if (envInfo) {
+                    envs.push(envInfo);
+                }
+            }
+            traceInfo(`[NativeWithModulesApi] Found ${envs.length} module environments`);
+        } catch (error) {
+            traceError(`[NativeWithModulesApi] Error discovering module environments: ${error}`);
+        }
+
+        return envs;
+    }
+
+    /**
+     * Converts a BasicEnvInfo from the module locator to a PythonEnvInfo.
+     */
+    private basicEnvToPythonEnvInfo(basicEnv: {
+        kind: PythonEnvKind;
+        executablePath: string;
+        source?: PythonEnvSource[];
+        envPath?: string;
+    }): PythonEnvInfo | undefined {
+        const metadata = moduleMetadataMap.get(basicEnv.executablePath);
+
+        // Parse version from metadata (format: "3.11.3")
+        const version = metadata?.version ? parseVersion(metadata.version) : { major: -1, minor: -1, micro: -1 };
+        const versionStr = version.major >= 0 ? `${version.major}.${version.minor}.${version.micro}` : '';
+
+        // Format display name as "Python X.Y.Z (Module: envName)"
+        const moduleLabel = metadata ? `Module: ${metadata.environmentName}` : 'Module';
+        const displayName = versionStr ? `Python ${versionStr} (${moduleLabel})` : `Python (${moduleLabel})`;
+
+        return {
+            name: metadata?.environmentName ?? '',
+            location: basicEnv.executablePath,
+            kind: basicEnv.kind,
+            id: basicEnv.executablePath,
+            executable: {
+                filename: basicEnv.executablePath,
+                sysPrefix: basicEnv.envPath ?? '',
+                ctime: -1,
+                mtime: -1,
+            },
+            version: {
+                major: version.major,
+                minor: version.minor,
+                micro: version.micro,
+                sysVersion: metadata?.version,
+            },
+            arch: Architecture.Unknown,
+            distro: {
+                org: '',
+            },
+            source: basicEnv.source ?? [],
+            detailedDisplayName: displayName,
+            display: displayName,
+            type: undefined,
+        };
+    }
+}
+
 // --- Start Positron ---
 /**
  * Checks for an equivalent environment if the new environment to be added is one of
@@ -771,4 +956,16 @@ async function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo)
     // Result: replace the existing env with the new env.
     return { reason: ExistingEnvAction.ReplaceExistingEnv, existingEnv };
 }
+
+/**
+ * Creates a native environments API that also includes module environments.
+ * This wraps the native API and adds environments discovered from the ModuleEnvironmentLocator.
+ */
+export function createNativeEnvironmentsApiWithModules(finder: NativePythonFinder): IDiscoveryAPI & Disposable {
+    const native = new NativePythonEnvironments(finder);
+    const wrapper = new NativeWithModulesApi(native);
+    wrapper.triggerRefresh().ignoreErrors();
+    return wrapper;
+}
+
 // --- End Positron ---

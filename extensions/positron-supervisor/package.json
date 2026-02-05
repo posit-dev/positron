@@ -43,7 +43,7 @@
         "kernelSupervisor.startupTimeout": {
           "scope": "window",
           "type": "number",
-          "default": 10,
+          "default": 15,
           "minimum": 1,
           "description": "%configuration.startupTimeout.description%"
         },
@@ -189,7 +189,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.62"
+      "kallichore": "0.1.63"
     }
   },
   "extensionDependencies": [

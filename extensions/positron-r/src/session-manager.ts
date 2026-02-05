@@ -165,11 +165,11 @@ export class RSessionManager implements vscode.Disposable {
 	 * the safer `activateConsoleSession()`.
 	 */
 	private async activateSession(session: RSession, reason: string): Promise<void> {
-		await session.activateLsp(reason);
+		await session.activateServices(reason);
 	}
 
 	private async deactivateSession(session: RSession, reason: string): Promise<void> {
-		await session.deactivateLsp(reason);
+		await session.deactivateServices(reason);
 	}
 
 	/**

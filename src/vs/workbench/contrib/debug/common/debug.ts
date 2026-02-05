@@ -30,6 +30,10 @@ import { ITaskIdentifier } from '../../tasks/common/tasks.js';
 import { LiveTestResult } from '../../testing/common/testResult.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IView } from '../../../common/views.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
 
 export const VIEWLET_ID = 'workbench.view.debug';
 
@@ -108,6 +112,39 @@ export const CONTEXT_DISASSEMBLE_REQUEST_SUPPORTED = new RawContextKey<boolean>(
 export const CONTEXT_DISASSEMBLY_VIEW_FOCUS = new RawContextKey<boolean>('disassemblyViewFocus', false, { type: 'boolean', description: nls.localize('disassemblyViewFocus', "True when the Disassembly View is focused.") });
 export const CONTEXT_LANGUAGE_SUPPORTS_DISASSEMBLE_REQUEST = new RawContextKey<boolean>('languageSupportsDisassembleRequest', false, { type: 'boolean', description: nls.localize('languageSupportsDisassembleRequest', "True when the language in the current editor supports disassemble request.") });
 export const CONTEXT_FOCUSED_STACK_FRAME_HAS_INSTRUCTION_POINTER_REFERENCE = new RawContextKey<boolean>('focusedStackFrameHasInstructionReference', false, { type: 'boolean', description: nls.localize('focusedStackFrameHasInstructionReference', "True when the focused stack frame has instruction pointer reference.") });
+
+// --- Start Positron ---
+export const CONTEXT_DEBUG_TOOLBAR_SUPPRESSED = new RawContextKey<boolean>('debugToolbarSuppressed', false, { type: 'boolean', description: nls.localize('debugToolbarSuppressed', "True when the debug toolbar is suppressed by an extension.") });
+
+/**
+ * Returns true when there is an active "foreground" debug session, i.e., a
+ * debug session is active and the debug toolbar is not suppressed by an
+ * extension. This is useful for determining whether to use debug-specific
+ * behavior (like debug history) vs normal behavior.
+ *
+ * Note: This is independent from user preferences about toolbar visibility
+ * (`debug.toolBarLocation`). See `debugToolBar.ts` for implementation details.
+ */
+export function isForegroundDebugSession(contextKeyService: IContextKeyService): boolean {
+	const debugState = CONTEXT_DEBUG_STATE.getValue(contextKeyService);
+	const isDebugActive = debugState !== undefined && debugState !== 'inactive';
+	const isSuppressed = CONTEXT_DEBUG_TOOLBAR_SUPPRESSED.getValue(contextKeyService) ?? false;
+	return isDebugActive && !isSuppressed;
+}
+
+/**
+ * Returns the debug state when there's a foreground debug session, or 'inactive'
+ * otherwise. A foreground session is one where the debug toolbar is not suppressed
+ * by an extension (e.g., R's always-connected DAP for breakpoints is a background
+ * session).
+ */
+export function getForegroundDebugState(contextKeyService: IContextKeyService): string | undefined {
+	if (isForegroundDebugSession(contextKeyService)) {
+		return CONTEXT_DEBUG_STATE.getValue(contextKeyService);
+	}
+	return 'inactive';
+}
+// --- End Positron ---
 
 export const debuggerDisabledMessage = (debugType: string) => nls.localize('debuggerDisabled', "Configured debug type '{0}' is installed but not supported in this environment.", debugType);
 
@@ -201,6 +238,10 @@ export interface IDebuggerMetadata {
 	type: string;
 	strings?: { [key in DebuggerString]: string };
 	interestedInLanguage(languageId: string): boolean;
+	// --- Start Positron ---
+	// Whether this debugger can verify breakpoints in dirty (unsaved) documents
+	verifyBreakpointsInDirtyDocuments?: boolean;
+	// --- End Positron ---
 }
 
 export const enum State {
@@ -399,6 +440,11 @@ export interface IDebugSession extends ITreeElement, IDisposable {
 	setName(name: string): void;
 	readonly onDidChangeName: Event<string>;
 	getLabel(): string;
+
+	// --- Start Positron ---
+	setSuppressDebugToolbar(value: boolean): void;
+	setSuppressDebugStatusbar(value: boolean): void;
+	// --- End Positron ---
 
 	getSourceForUri(modelUri: uri): Source | undefined;
 	getSource(raw?: DebugProtocol.Source): Source;
@@ -957,6 +1003,12 @@ export interface IDebuggerContribution extends IPlatformSpecificAdapterContribut
 	// --- Start Positron ---
 	// Whether this debugger supports launching from the Run and Debug UI
 	supportsUiLaunch?: boolean;
+
+	// Whether this debugger wants SetBreakpoints on every save (not just when positions change)
+	sendBreakpointsOnAllSaves?: boolean;
+
+	// Whether this debugger can verify breakpoints in dirty (unsaved) documents
+	verifyBreakpointsInDirtyDocuments?: boolean;
 	// --- End Positron ---
 
 	// debug configuration support
@@ -1061,6 +1113,8 @@ export interface IAdapterManager {
 	someDebuggerInterestedInLanguage(language: string): boolean;
 	// --- Start Positron ---
 	someDebuggerInterestedInLanguageSupportsUiLaunch(language: string): boolean;
+	shouldSendBreakpointsOnAllSaves(languageId: string): boolean;
+	shouldVerifyBreakpointsInDirtyDocuments(uri: uri): boolean;
 	// --- End Positron ---
 	getDebugger(type: string): IDebuggerMetadata | undefined;
 
@@ -1325,6 +1379,14 @@ export interface IDebugService {
 	 * Stops the session. If no session is specified then all sessions are stopped.
 	 */
 	stopSession(session: IDebugSession | undefined, disconnect?: boolean, suspend?: boolean): Promise<void>;
+
+	// --- Start Positron ---
+	/**
+	 * Sets whether a debug session is in the foreground (actively debugging) or background.
+	 * Foreground sessions show the debug toolbar and status bar styling.
+	 */
+	setSessionForeground(session: IDebugSession, foreground: boolean): void;
+	// --- End Positron ---
 
 	/**
 	 * Makes unavailable all sources with the passed uri. Source will appear as grayed out in callstack view.

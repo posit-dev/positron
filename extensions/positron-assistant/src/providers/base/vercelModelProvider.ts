@@ -6,11 +6,11 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
-import { processMessages, toAIMessage } from '../../utils';
+import { CacheBreakpointProvider, processMessages, toAIMessage } from '../../utils';
 import { getProviderTimeoutMs } from '../../config';
 import { TokenUsage } from '../../tokens';
 import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
-import { getMaxTokens, createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 
@@ -54,13 +54,23 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * This function creates a language model instance given a model ID and optional configuration.
 	 * Subclasses must set this in their {@link initializeProvider} method.
 	 */
-	protected aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
+	protected aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModel;
 
 	/**
 	 * Additional options passed to the AI provider when creating model instances.
 	 * Provider-specific options like temperature, top_p, etc.
 	 */
 	protected aiOptions: Record<string, any> = {};
+
+	/**
+	 * Whether this provider uses the older /v1/chat/completions endpoint,
+	 * as opposed to the newer /v1/responses endpoint.
+	 *
+	 * This affects how certain features are handled, such as tool result
+	 * formatting (e.g., image support).
+	 */
+	protected usesChatCompletions: boolean = false;
+
 
 	/**
 	 * Sends a test message to verify model connectivity.
@@ -130,6 +140,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		providerOptions?: {
 			toolResultExperimentalContent?: boolean;
 			bedrockCacheBreakpoint?: boolean;
+			anthropicCacheBreakpoint?: boolean;
 		}
 	): Promise<void> {
 		const aiModel = this.aiProvider(model.id);
@@ -153,13 +164,19 @@ export abstract class VercelModelProvider extends ModelProvider {
 		}
 
 		// Extract provider-specific options
-		const { bedrockCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
+		const { bedrockCacheBreakpoint = false, anthropicCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
+
+		// Determine which cache breakpoint provider to use (if any)
+		const cacheBreakpointProvider: CacheBreakpointProvider | undefined =
+			bedrockCacheBreakpoint ? 'bedrock' :
+				anthropicCacheBreakpoint ? 'anthropic' :
+					undefined;
 
 		// Convert all messages to the Vercel AI format
-		const aiMessages: ai.CoreMessage[] = toAIMessage(
+		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
-			toolResultExperimentalContent,
-			bedrockCacheBreakpoint
+			this.usesChatCompletions,
+			cacheBreakpointProvider
 		);
 
 		// Set up tools if provided
@@ -170,17 +187,15 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = options.modelOptions?.requestId;
 
-		this.logger.info(`[vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
+		this.logger.debug(`[vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 		this.logger.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 
 		// Stream the response
 		const result = ai.streamText({
 			model: aiModel,
 			messages: aiMessages,
-			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: getMaxTokens(aiModel.modelId, 'output', this._config.provider, this._config.maxOutputTokens, this.providerName),
 		});
 
 		await this.handleStreamResponse(result, model, progress, token, requestId);
@@ -198,23 +213,35 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 */
 	protected setupTools(tools: vscode.LanguageModelChatTool[]): Record<string, ai.Tool> {
 		return tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
-			// Some providers require a type for all tool input schemas
-			const input_schema = tool.inputSchema as Record<string, any> ?? {
-				type: 'object',
-				properties: {},
-				required: [],
-			};
+			// Some providers require type, properties, and required for all tool input schemas
+			const baseSchema = tool.inputSchema as Record<string, any> ?? {};
+			const missingFields: string[] = [];
 
-			// Ensure schema has a type field
-			if (!input_schema.type) {
-				this.logger.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
-				input_schema.type = 'object';
+			if (!baseSchema.type) {
+				missingFields.push('type');
+			}
+			if (!baseSchema.properties) {
+				missingFields.push('properties');
+			}
+			if (!baseSchema.required) {
+				missingFields.push('required');
 			}
 
-			acc[tool.name] = ai.tool({
-				description: tool.description,
-				parameters: ai.jsonSchema(input_schema),
-			});
+			if (missingFields.length > 0) {
+				this.logger.trace(`Tool '${tool.name}' is missing input schema fields: ${missingFields.join(', ')}; using defaults`);
+			}
+
+			const input_schema: Record<string, any> = {
+				...baseSchema,
+				type: baseSchema.type ?? 'object',
+				properties: baseSchema.properties ?? {},
+				required: baseSchema.required ?? [],
+			};
+
+			acc[tool.name] = {
+				description: tool.description || '',
+				inputSchema: ai.jsonSchema(input_schema),
+			};
 			return acc;
 		}, {});
 	}
@@ -262,21 +289,15 @@ export abstract class VercelModelProvider extends ModelProvider {
 				break;
 			}
 
-			if (part.type === 'reasoning') {
-				flushAccumulatedTextDeltas();
-				this.logger.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
-				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
-			}
-
 			if (part.type === 'text-delta') {
-				accumulatedTextDeltas.push(part.textDelta);
-				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
+				accumulatedTextDeltas.push(part.text);
+				progress.report(new vscode.LanguageModelTextPart(part.text));
 			}
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
-				this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
-				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args));
+				this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with input: ${JSON.stringify(part.input)}`);
+				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
 			}
 
 			if (part.type === 'error') {
@@ -325,8 +346,8 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const usage = await result.usage;
 		const metadata = await result.providerMetadata;
 		const tokens: TokenUsage = {
-			inputTokens: usage.promptTokens,
-			outputTokens: usage.completionTokens,
+			inputTokens: usage.inputTokens,
+			outputTokens: usage.outputTokens,
 			cachedTokens: 0,
 			providerMetadata: metadata,
 		};
@@ -344,6 +365,15 @@ export abstract class VercelModelProvider extends ModelProvider {
 			}
 
 			this.logger.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
+		}
+
+		// Handle Anthropic-specific usage (cache tokens are directly on metadata.anthropic, not nested under usage)
+		if (metadata && metadata.anthropic) {
+			const anthropicMeta = metadata.anthropic as Record<string, any>;
+			tokens.inputTokens += anthropicMeta.cacheCreationInputTokens || anthropicMeta.usage?.cache_creation_input_tokens || 0;
+			tokens.cachedTokens += anthropicMeta.cacheReadInputTokens || anthropicMeta.usage?.cache_read_input_tokens || 0;
+
+			this.logger.debug(`[${model.name}]: Anthropic usage: ${JSON.stringify(anthropicMeta, null, 2)}`);
 		}
 
 		if (requestId) {
@@ -378,7 +408,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 				id: model.identifier,
 				name: model.name,
 				family: this.providerId,
-				version: this.aiProvider ? this.aiProvider(model.identifier).specificationVersion : '1.0',
+				version: '',
 				provider: this.providerId,
 				providerName: this.providerName,
 				capabilities: this.capabilities,

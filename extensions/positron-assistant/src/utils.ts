@@ -1,26 +1,26 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { JSONTree } from '@vscode/prompt-tsx';
-import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName, PromptInstructionsReference, RuntimeSessionReference } from './types.js';
+import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PromptInstructionsReference, RuntimeSessionReference, PositronAssistantToolName } from './types.js';
 import { log } from './extension.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
  *
  * @param messages The messages to convert.
- * @param toolResultExperimentalContent Whether to use experimental content for tool results.
- * @param bedrockCacheBreakpoint Whether to use Bedrock cache breakpoints.
+ * @param usesChatCompletions Whether to apply chat completions endpoint transformations.
+ * @param cacheBreakpointProvider The provider to use for cache breakpoints, or undefined to disable.
  */
 export function toAIMessage(
 	messages: vscode.LanguageModelChatMessage2[],
-	toolResultExperimentalContent: boolean = false,
-	bedrockCacheBreakpoint: boolean = false
-): ai.CoreMessage[] {
+	usesChatCompletions: boolean = false,
+	cacheBreakpointProvider?: CacheBreakpointProvider
+): ai.ModelMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
 		for (const part of message.content) {
@@ -32,7 +32,7 @@ export function toAIMessage(
 	}, {});
 
 	// Convert messages from vscode to ai format
-	const aiMessages: ai.CoreMessage[] = [];
+	const aiMessages: ai.ModelMessage[] = [];
 	const systemContent: string[] = [];
 	for (const message of messages) {
 		if (message.role === vscode.LanguageModelChatMessageRole.User) {
@@ -49,23 +49,22 @@ export function toAIMessage(
 					userContent.push({ type: 'text', text: part.value });
 				} else if (part instanceof vscode.LanguageModelDataPart) {
 					if (isChatImagePart(part)) {
-						userContent.push({ type: 'image', image: part.data, mimeType: part.mimeType });
+						userContent.push({ type: 'image', image: part.data, mediaType: part.mimeType });
 					} else if (part.mimeType === LanguageModelDataPartMimeType.CacheControl) {
 						cacheBreakpoint = true;
 					}
 				}
 			}
 			if (userContent.length > 0) {
-				const messageContent: ai.CoreUserMessage = {
+				const messageContent: ai.UserModelMessage = {
 					role: 'user',
 					content: userContent
 				};
 
-				// If this is a cache breakpoint, note it in the message
-				// content. This is only used by the Bedrock provider.
-				if (cacheBreakpoint && bedrockCacheBreakpoint) {
+				// If this is a cache breakpoint, note it in the message content.
+				if (cacheBreakpoint) {
 					cacheBreakpoint = false;
-					markBedrockCacheBreakpoint(messageContent);
+					markCacheBreakpoint(messageContent, cacheBreakpointProvider);
 				}
 				aiMessages.push(messageContent);
 			}
@@ -73,35 +72,20 @@ export function toAIMessage(
 			// Add the tool messages.
 			for (const part of message.content) {
 				if (part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2) {
-					if (toolResultExperimentalContent) {
-						const toolCall = toolCalls[part.callId];
-						const toolMessage = convertToolResultToAiMessageExperimentalContent(part, toolCall);
-						if (cacheBreakpoint && bedrockCacheBreakpoint) {
+					const toolCall = toolCalls[part.callId];
+					if (!toolCall) {
+						log.warn(`[toAIMessage] Tool result with callId '${part.callId}' has no matching tool call in conversation history. Available tool calls: ${Object.keys(toolCalls).join(', ')}`);
+					}
+
+					if (usesChatCompletions && toolCall?.name === PositronAssistantToolName.GetPlot) {
+						handleGetPlotToolResultForChatCompletions(part, toolCall, aiMessages);
+					} else {
+						const toolMessage = convertToolResultPartToAiToolMessage(part, toolCall);
+						if (cacheBreakpoint) {
 							cacheBreakpoint = false;
-							markBedrockCacheBreakpoint(toolMessage);
+							markCacheBreakpoint(toolMessage, cacheBreakpointProvider);
 						}
 						aiMessages.push(toolMessage);
-					} else {
-						// Note that we don't need to check for cache
-						// breakpoints here since Anthropic models that support
-						// caching use the experimental content format above.
-						const toolCall = toolCalls[part.callId];
-						if (toolCall.name === PositronAssistantToolName.GetPlot) {
-							aiMessages.push(getPlotToolResultToAiMessage(part));
-						} else {
-							aiMessages.push({
-								role: 'tool',
-								content: [
-									{
-										type: 'tool-result',
-										toolCallId: part.callId,
-										toolName: toolCall.name,
-										result: part.content,
-									},
-								],
-							});
-						}
-
 					}
 				}
 			}
@@ -117,24 +101,11 @@ export function toAIMessage(
 						cacheBreakpoint = true;
 					}
 				} else if (part instanceof vscode.LanguageModelToolCallPart) {
-					if (
-						!toolResultExperimentalContent &&
-						part.name === PositronAssistantToolName.GetPlot
-					) {
-						// Vercel AI does not yet support image tool results,
-						// so replace getPlot tool calls with text asking for the plot.
-						// The corresponding tool result will be replaced with a user
-						// message containing the plot image.
-						content.push({
-							type: 'text',
-							text: 'Please provide the current active plot.'
-						});
-					}
 					content.push({
 						type: 'tool-call',
 						toolCallId: part.callId,
 						toolName: part.name,
-						args: part.input,
+						input: part.input,
 					});
 				} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
 					// Convert PromptTSX parts to text
@@ -145,16 +116,15 @@ export function toAIMessage(
 					log.warn(`[vercel] Skipping unsupported part type in assistant message: ${part.constructor.name}`);
 				}
 			}
-			const aiMessage: ai.CoreAssistantMessage = {
+			const aiMessage: ai.AssistantModelMessage = {
 				role: 'assistant',
 				content,
 			};
 
-			// If this is a cache breakpoint, note it in the message
-			// content. This is only used by the Bedrock provider.
-			if (cacheBreakpoint && bedrockCacheBreakpoint) {
+			// If this is a cache breakpoint, note it in the message content.
+			if (cacheBreakpoint) {
 				cacheBreakpoint = false;
-				markBedrockCacheBreakpoint(aiMessage);
+				markCacheBreakpoint(aiMessage, cacheBreakpointProvider);
 			}
 			aiMessages.push(aiMessage);
 		} else if (message.role === vscode.LanguageModelChatMessageRole.System) {
@@ -175,16 +145,13 @@ export function toAIMessage(
 
 	if (systemContent.length > 0) {
 		// Not all providers support multiple system messages, so we consolidate.
-		const systemMessage: ai.CoreSystemMessage = {
+		const systemMessage: ai.SystemModelMessage = {
 			role: 'system',
 			content: systemContent.join('\n'),
 		};
 
 		// Add a cache breakpoint for our combined system prompt.
-		// This is only used by the Bedrock provider.
-		if (bedrockCacheBreakpoint) {
-			markBedrockCacheBreakpoint(systemMessage);
-		}
+		markCacheBreakpoint(systemMessage, cacheBreakpointProvider);
 
 		aiMessages.unshift(systemMessage);
 	}
@@ -193,12 +160,20 @@ export function toAIMessage(
 	return aiMessages.filter((message) => message.content.length > 0);
 }
 
-export function markBedrockCacheBreakpoint(message: ai.CoreMessage): ai.CoreMessage {
-	log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
+/**
+ * Supported providers for prompt caching.
+ */
+export type CacheBreakpointProvider = 'bedrock' | 'anthropic' | 'posit';
+
+/**
+ * Mark a message with Anthropic-style cache control.
+ */
+function markAnthropicStyleCacheBreakpoint(message: ai.ModelMessage, providerName: string): ai.ModelMessage {
+	log.trace(`[vercel] Marking ${message.role} message as a ${providerName} cache breakpoint`);
 	message.providerOptions = {
-		bedrock: {
-			cachePoint: {
-				type: 'default',
+		anthropic: {
+			cacheControl: {
+				type: 'ephemeral',
 			}
 		}
 	};
@@ -206,42 +181,78 @@ export function markBedrockCacheBreakpoint(message: ai.CoreMessage): ai.CoreMess
 }
 
 /**
+ * Map of provider names to their cache breakpoint marker functions.
+ */
+const cacheBreakpointMarkers: Record<CacheBreakpointProvider, (message: ai.ModelMessage) => ai.ModelMessage> = {
+	bedrock: (message) => {
+		log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
+		message.providerOptions = {
+			bedrock: {
+				cachePoint: {
+					type: 'default',
+				}
+			}
+		};
+		return message;
+	},
+	anthropic: (message) => markAnthropicStyleCacheBreakpoint(message, 'Anthropic'),
+	posit: (message) => markAnthropicStyleCacheBreakpoint(message, 'Posit'),
+};
+
+/**
+ * Mark a message with a cache breakpoint for the specified provider.
+ *
+ * @param message The message to mark.
+ * @param provider The provider to use for the cache breakpoint, or undefined to skip.
+ */
+export function markCacheBreakpoint(
+	message: ai.ModelMessage,
+	provider?: CacheBreakpointProvider
+): void {
+	if (provider) {
+		cacheBreakpointMarkers[provider]?.(message);
+	}
+}
+
+/**
  * Convert a tool result into a Vercel AI message with experimental content.
  * This is useful for tool results that contain images.
  */
-function convertToolResultToAiMessageExperimentalContent(
+function convertToolResultPartToAiToolMessage(
 	part: vscode.LanguageModelToolResultPart,
 	toolCall: vscode.LanguageModelToolCallPart,
-): ai.CoreToolMessage {
-	// If experimental content is enabled for tool calls,
-	// that means tool results can contain images.
-
-	const toolMessage: ai.CoreToolMessage = {
+): ai.ToolModelMessage {
+	const toolMessage: ai.ToolModelMessage = {
 		role: 'tool',
 		content: [
 			{
 				type: 'tool-result',
 				toolCallId: part.callId,
 				toolName: toolCall.name,
-				result: '',
+				output: { type: 'text', value: '' },
 			},
 		],
 	};
 
 	// If there's 0 or 1 parts and that part is text, we can just return a
-	// normal CoreToolMessage object with a `result` field.
+	// normal ToolModelMessage object with a `output` field.
 	if (
 		part.content.length <= 1 &&
 		part.content.every(
 			(content) => content instanceof vscode.LanguageModelTextPart
 		)
 	) {
-		toolMessage.content[0].result = part.content;
+		// Convert text parts to string for output
+		// AI SDK 5 expects { type: 'text', value: string }
+		const textContent = part.content
+			.map(c => c.value)
+			.join('');
+		toolMessage.content[0].output = { type: 'text' as const, value: textContent };
 	} else {
-		// This is a multi-part tool result, and may contain images. We can
-		// convert it to a Vercel AI message with experimental_content.
-		const toolResultContent: ToolResultContent = part.content.map(
-			(content): ToolResultContent[number] => {
+		// This is a multi-part tool result, and may contain images.
+		// AI SDK 5 expects { type: 'content', value: [...] } for multi-part results
+		const toolResultContent = part.content.map(
+			(content): { type: 'text'; text: string } | { type: 'media'; data: string; mediaType: string } => {
 				if (content instanceof vscode.LanguageModelTextPart) {
 					return {
 						type: 'text',
@@ -249,9 +260,9 @@ function convertToolResultToAiMessageExperimentalContent(
 					};
 				} else if (content instanceof vscode.LanguageModelDataPart && isChatImagePart(content)) {
 					return {
-						type: 'image',
+						type: 'media',
 						data: Buffer.from(content.data).toString('base64'),
-						mimeType: content.mimeType,
+						mediaType: content.mimeType,
 					};
 				} else if (content instanceof vscode.LanguageModelPromptTsxPart) {
 					return {
@@ -260,58 +271,15 @@ function convertToolResultToAiMessageExperimentalContent(
 					};
 				} else {
 					throw new Error(
-						`Unsupported part type on tool result message: ${(content as any).constructor?.name ?? typeof content}`
+						`Unsupported part type on tool result message: ${typeof content === 'object' && content !== null && 'constructor' in content ? (content.constructor as { name?: string }).name : typeof content}`
 					);
 				}
 			}
 		);
-		toolMessage.content[0].result = toolResultContent;
-		toolMessage.content[0].experimental_content = toolResultContent;
+		toolMessage.content[0].output = { type: 'content' as const, value: toolResultContent };
 	}
 
 	return toolMessage;
-}
-
-/**
- * Convert a getPlot tool result into a Vercel AI message.
- */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.CoreUserMessage {
-	const isImageDataPart = (content: unknown): content is vscode.LanguageModelDataPart => {
-		return content instanceof vscode.LanguageModelDataPart && isChatImagePart(content);
-	};
-	const imageParts = part.content.filter(isImageDataPart);
-
-	// If there was no image, forward the response as text.
-	if (imageParts.length === 0) {
-		return {
-			role: 'user',
-			content: [
-				{
-					type: 'text',
-					text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
-				},
-			],
-		};
-	}
-
-	// Otherwise, convert to a user message containing the image,
-	// as Vercel AI doesn't support image tool results.
-	return {
-		role: 'user',
-		// We only expect one image part, but just in case,
-		// include all image parts in the message.
-		content: imageParts.flatMap((imgPart) => ([
-			{
-				type: 'text',
-				text: 'Here is the current active plot:',
-			},
-			{
-				type: 'image',
-				image: Buffer.from(imgPart.data).toString('base64'),
-				mimeType: imgPart.mimeType,
-			}
-		])),
-	};
 }
 
 /**
@@ -543,19 +511,6 @@ function stringifyPromptNodeJSON(node: JSONTree.PromptNodeJSON, strs: string[]):
 	}
 }
 
-// This type definition is from Vercel AI, but the type is not exported.
-type ToolResultContent = Array<
-	| {
-		type: 'text';
-		text: string;
-	}
-	| {
-		type: 'image';
-		data: string;
-		mimeType?: string;
-	}
->;
-
 /** Whether a chat request is from an inline editor context. */
 export function isTextEditRequest(request: vscode.ChatRequest):
 	request is vscode.ChatRequest & { location2: vscode.ChatRequestEditorData } {
@@ -685,4 +640,63 @@ export function isAuthorizationError(error: any): boolean {
 	return authPatterns.some(pattern =>
 		message.toLowerCase().includes(pattern.toLowerCase())
 	);
+}
+
+/**
+ * Handle getPlot tool results for OpenAI-compatible providers (chat completions endpoint).
+ *
+ * This creates both:
+ * 1. A proper tool result message (maintains tool call/result semantics for the model)
+ * 2. A separate user message with the image (ensures image compatibility with chat completions)
+ */
+function handleGetPlotToolResultForChatCompletions(
+	part: vscode.LanguageModelToolResultPart | vscode.LanguageModelToolResultPart2,
+	toolCall: vscode.LanguageModelToolCallPart,
+	aiMessages: ai.ModelMessage[]
+): void {
+	log.debug(`[handleGetPlotToolResultForChatCompletions] Processing getPlot tool result for OpenAI-compatible provider`);
+
+	// 1. Add proper tool result message with clear indication that image follows
+	const imageDataParts = part.content.filter(isChatImagePart);
+	const hasImage = imageDataParts.length > 0;
+
+	const toolResultText = hasImage
+		? 'Retrieved. Image follows.'
+		: part.content
+			.filter(p => p instanceof vscode.LanguageModelTextPart)
+			.map(p => (p as vscode.LanguageModelTextPart).value)
+			.join('') || 'No plot available';
+
+	const toolMessage: ai.ToolModelMessage = {
+		role: 'tool',
+		content: [{
+			type: 'tool-result',
+			toolCallId: part.callId,
+			toolName: toolCall.name,
+			output: { type: 'text' as const, value: toolResultText }
+		}]
+	};
+	aiMessages.push(toolMessage);
+
+	// 2. Add separate user message with image content (for compatibility)
+	if (hasImage) {
+		const imageUserMessage: ai.UserModelMessage = {
+			role: 'user',
+			content: [
+				{
+					type: 'text',
+					text: 'Here is the current active plot:'
+				},
+				...imageDataParts.map(imagePart => ({
+					type: 'image' as const,
+					image: (imagePart as vscode.LanguageModelDataPart).data,
+					mediaType: (imagePart as vscode.LanguageModelDataPart).mimeType
+				}))
+			]
+		};
+		aiMessages.push(imageUserMessage);
+		log.debug(`[handleGetPlotToolResultForChatCompletions] Added tool result message and user image message`);
+	} else {
+		log.debug(`[handleGetPlotToolResultForChatCompletions] Added tool result message (no image data)`);
+	}
 }

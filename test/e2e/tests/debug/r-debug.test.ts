@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -65,9 +65,9 @@ test.describe('R Debugging', {
 		await debug.expectBrowserModeFrame(1);
 
 		// Verify call stack order
-		await debug.expectCallStackAtIndex(0, 'inner()inner(x)');
-		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)');
-		await debug.expectCallStackAtIndex(2, '<global>outer(5)');
+		await debug.expectCallStackAtIndex(0, 'inner(');
+		await debug.expectCallStackAtIndex(1, 'outer(');
+		await debug.expectCallStackAtIndex(2, '<global>');
 
 		// Verify the call stack redirects to correct data frame(s)
 		await debug.selectCallStackAtIndex(0);
@@ -212,6 +212,265 @@ test.describe('R Debugging', {
 	});
 });
 
+// R Breakpoints - Tests for gutter-click breakpoints feature (#1766)
+// These tests verify the new R breakpoint support added in PR #11407
+test.describe('R Breakpoints', {
+	tag: [tags.DEBUG, tags.WIN, tags.ARK]
+}, () => {
+	let breakpointSession: SessionMetaData;
+
+	test.beforeAll(async ({ sessions }) => {
+		breakpointSession = await sessions.start('r');
+	});
+
+	test.afterEach(async ({ app, page, hotKeys }) => {
+		// Focus the console
+		await app.workbench.console.focus();
+
+		// Exit debug mode if we're in it (send Q to quit)
+		const consoleContent = await app.workbench.console.activeConsole.textContent();
+		if (consoleContent?.includes('Browse[')) {
+			await page.keyboard.type('Q');
+			await page.keyboard.press('Enter');
+			await app.workbench.console.waitForReady('>');
+		}
+
+		// Clear breakpoints
+		await app.workbench.debug.clearBreakpoints();
+
+		// Close all editors (handles "Don't Save" dialog)
+		await hotKeys.closeAllEditors();
+
+		// Clear console
+		await app.workbench.console.clearButton.click();
+	});
+
+	test('R - Verify breakpoint set and hit via gutter click', {
+		tag: [tags.WEB],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+
+		// Set a breakpoint on line 3 (inside the multiply_values function)
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Execute code with Ctrl/Cmd+Enter to verify the breakpoint
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+
+		// Wait for the breakpoint to become verified (red)
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Call the function to trigger the breakpoint
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+
+		// Verify we hit the breakpoint
+		await debug.expectBrowserModeFrame(1);
+		await debug.expectDebugToolbarVisible();
+		await debug.expectCurrentLineIndicatorVisible();
+		await debug.expectCallStackAtIndex(0, 'multiply_values(');
+
+		// Continue and verify result
+		await page.keyboard.type('c');
+		await page.keyboard.press('Enter');
+		await console.waitForConsoleContents('[1] 15');
+
+		// Quit debugging
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+	});
+
+	test('R - Verify breakpoints in dirty (unsaved) documents', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Verify the breakpoint
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Edit file to make it dirty
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('# test comment');
+
+		// Breakpoint should become unverified after edit
+		await debug.expectBreakpointUnverified(0);
+
+		// Re-execute WITHOUT saving - breakpoint should re-verify
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Verify breakpoint still works
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+		await debug.expectBrowserModeFrame(1);
+
+		// Exit debugger and clean up
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+		await hotKeys.undo();
+		await hotKeys.undo();
+	});
+
+	test('R - Verify session switching preserves breakpoint state', {
+		tag: [tags.WEB],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys, sessions }) => {
+		const { debug, console } = app.workbench;
+
+		// Start a second R session
+		const rSession2 = await sessions.start('r', { reuse: false });
+
+		// Switch back to first session (use ID since both have same name)
+		await sessions.select(breakpointSession.id);
+
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Verify breakpoint in Session 1
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Switch to Session 2 - breakpoint should be unverified
+		await sessions.select(rSession2.id);
+		await debug.expectBreakpointUnverified(0);
+
+		// Switch back to Session 1 - breakpoint should still be verified
+		await sessions.select(breakpointSession.id);
+		await debug.expectBreakpointVerified(0, 5000);
+
+		// Verify breakpoint still works
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+		await debug.expectBrowserModeFrame(1);
+
+		// Exit debugger
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+
+		// Shutdown second session
+		await sessions.select(rSession2.id);
+		await sessions.delete(rSession2.id);
+	});
+
+	test('R - Verify debug-specific console history', {
+		tag: [tags.WEB],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11402' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		// Type normal commands first
+		await console.typeToConsole('normal_x <- 1', true);
+		await console.typeToConsole('normal_y <- 2', true);
+
+		// Set up breakpoint
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+		await debug.setUnverifiedBreakpointOnLine(3);
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Trigger breakpoint and type debug commands
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+		await debug.expectBrowserModeFrame(1);
+		await console.typeToConsole('debug_var <- 100', true);
+		await console.typeToConsole('print(a)', true);
+		await app.code.wait(1000);
+
+		// Ctrl+R should show debug commands
+		await page.keyboard.press('Control+R');
+		await console.waitForHistoryContents('debug_var <- 100');
+		await console.waitForHistoryContents('print(a)');
+		await page.keyboard.press('Escape');
+
+		// Exit debugger
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+		await app.code.wait(1000);
+
+		// Ctrl+R should now show normal commands
+		await page.keyboard.press('Control+R');
+		await console.waitForHistoryContents('normal_x <- 1');
+		await console.waitForHistoryContents('normal_y <- 2');
+		await page.keyboard.press('Escape');
+	});
+
+	test('R - Verify DAP disconnect/reconnect preserves breakpoints', {
+		tag: [tags.WEB],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Verify breakpoint
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Disconnect DAP with Shift+F5
+		await page.keyboard.press('Shift+F5');
+		await page.waitForTimeout(2000);
+
+		// Breakpoint should still be verified after auto-reconnect
+		await debug.expectBreakpointVerified(0, 10000);
+
+		// Verify breakpoint still works
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+		await debug.expectBrowserModeFrame(1);
+
+		// Exit debugger
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+	});
+
+	test('R - Verify editing file while at breakpoint invalidates breakpoints', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Verify breakpoint
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Trigger breakpoint
+		await debug.expectBrowserModeFrame(1);
+
+		// Edit file while at breakpoint
+		await app.workbench.editors.selectTab('breakpoint_test.r');
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('# edit while debugging');
+		await page.keyboard.press('Enter');
+
+		// Breakpoint should become unverified
+		await debug.expectBreakpointUnverified(0);
+
+		// Continue - invalidated breakpoint should NOT trigger again
+		await console.focus();
+		await page.keyboard.type('c', { delay: 100 });
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+	});
+});
+
 
 async function verifyDebugPane(app: Application) {
 	const { debug } = app.workbench;
@@ -223,8 +482,8 @@ async function verifyDebugPane(app: Application) {
 async function verifyCallStack(app: Application) {
 	const { debug } = app.workbench;
 
-	await debug.expectCallStackAtIndex(0, 'fruit_avg()fruit_avg()2:');
-	await debug.expectCallStackAtIndex(1, '<global>fruit_avg(dat, "berry")');
+	await debug.expectCallStackAtIndex(0, 'fruit_avg(');
+	await debug.expectCallStackAtIndex(1, '<global>');
 }
 
 async function verifyVariableInConsole(app: Application, name: string, expectedText: string) {

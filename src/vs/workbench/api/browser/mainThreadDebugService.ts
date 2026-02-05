@@ -347,6 +347,15 @@ export class MainThreadDebugService implements MainThreadDebugServiceShape, IDeb
 		session?.setName(name);
 	}
 
+	// --- Start Positron ---
+	public $setDebugSessionForeground(sessionId: DebugSessionUUID, foreground: boolean): void {
+		const session = this.debugService.getModel().getSession(sessionId);
+		if (session) {
+			this.debugService.setSessionForeground(session, foreground);
+		}
+	}
+	// --- End Positron ---
+
 	public $customDebugAdapterRequest(sessionId: DebugSessionUUID, request: string, args: unknown): Promise<unknown> {
 		const session = this.debugService.getModel().getSession(sessionId, true);
 		if (session) {

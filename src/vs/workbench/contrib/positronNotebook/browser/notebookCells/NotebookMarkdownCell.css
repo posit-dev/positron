@@ -3,22 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-notebook-markdown-rendered {
+/* Markdown cell rendered output container */
+.positron-notebook-markdown-cell .positron-notebook-cell-outputs {
 	padding-inline: 1rem;
-	padding-block: 0.5rem;
+	padding-block: 1rem; /* Match CellEditorMonacoWidget padding for consistent spacing between cell action bar and rendered text */
+	cursor: pointer; /* Entire area is clickable (to edit markdown cell) */
 
-	&:has(.empty-output-msg) {
-		border: 1px dashed var(--vscode-positronNotebook-border-color);
-		border-radius: var(--vscode-positronNotebook-cell-radius);
-	}
+	/* NOTE: the border and border-radius styles are handled by NotebookCellSelection.css to keep selection styling together */
 
+	/* Empty cell message styling */
 	.empty-output-msg {
 		opacity: 0.75;
 		font-style: italic;
 		text-align: center;
-		cursor: pointer;
 	}
 
+	/* Markdown images should respect container width */
 	img {
 		max-width: 100%;
 	}

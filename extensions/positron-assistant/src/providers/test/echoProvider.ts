@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { ModelConfig, SecretStorage } from '../../config';
+import { ModelConfig } from '../../config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABILITIES } from '../../constants';
 import { recordTokenUsage, recordRequestTokenUsage } from '../../extension';
 import { toAIMessage } from '../../utils';
@@ -24,9 +24,8 @@ export class EchoModelProvider extends ModelProvider {
 	constructor(
 		_config: ModelConfig,
 		_context?: vscode.ExtensionContext,
-		_storage?: SecretStorage,
 	) {
-		super(_config, _context, _storage);
+		super(_config, _context);
 	}
 
 	static source = {

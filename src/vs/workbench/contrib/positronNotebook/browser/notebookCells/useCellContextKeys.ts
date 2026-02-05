@@ -71,6 +71,7 @@ export function useCellContextKeys(
 			const cellType = cell.kind;
 			keys.isCode.set(cellType === CellKind.Code);
 			keys.isMarkdown.set(cellType === CellKind.Markup);
+			keys.isRaw.set(cellType === CellKind.Code && cell.model.language === 'raw');
 			keys.isRunning.set(executionStatus === 'running');
 			keys.isPending.set(executionStatus === 'pending');
 			keys.isFirst.set(cell.index === 0);

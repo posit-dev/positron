@@ -15,7 +15,7 @@ import {
 	ListInferenceProfilesCommand
 } from '@aws-sdk/client-bedrock';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig, SecretStorage, getStoredModels, expandConfigToSource } from '../../config';
+import { ModelConfig, getStoredModels, expandConfigToSource } from '../../config';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
 import { registerModelWithAPI, AssistantError } from '../../extension';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
@@ -65,6 +65,12 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	private _resolvingConnection: boolean = false;
 
 	/**
+	 * The preferred inference profile region.
+	 * Derived from AWS_REGION or explicitly set via user setting.
+	 */
+	private _inferenceProfileRegion!: string;
+
+	/**
 	 * The last error encountered during model resolution.
 	 * Used to manage re-authentication prompts.
 	 */
@@ -91,6 +97,26 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	static DEFAULT_MAX_TOKENS_INPUT = DEFAULT_MAX_TOKEN_INPUT;
 	static DEFAULT_MAX_TOKENS_OUTPUT = 8192;
 
+	/**
+	 * Maps AWS region prefixes to Bedrock inference profile regions.
+	 * Most regions use the same prefix, but some differ
+	 */
+	private static readonly REGION_PREFIX_MAP: Record<string, string> = {
+		'ap': 'apac',
+	};
+
+	/**
+	 * Derives the inference profile region from an AWS region.
+	 * AWS regions follow pattern: {region}-{zone}-{number}
+	 *
+	 * @param awsRegion The AWS region (e.g., 'us-east-1', 'ap-southeast-1')
+	 * @returns The inference profile region prefix (e.g., 'us', 'apac')
+	 */
+	static deriveInferenceProfileRegion(awsRegion: string): string {
+		const prefix = awsRegion.split('-')[0];
+		return this.REGION_PREFIX_MAP[prefix] ?? prefix;
+	}
+
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
@@ -110,8 +136,8 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		},
 	};
 
-	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
-		super(_config, _context, _storage);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 	}
 
 	/**
@@ -137,7 +163,19 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		const profile = AWS_PROFILE ?? 'default';
 		const credentials = fromNodeProviderChain({ profile });
 
-		this.logger.info(`Using AWS region: ${region} and profile: ${AWS_PROFILE ?? 'default'}`);
+		const inferenceProfileRegion = vscode.workspace
+			.getConfiguration('positron.assistant.bedrock')
+			.get<string>('inferenceProfileRegion');
+
+		if (inferenceProfileRegion) {
+			this._inferenceProfileRegion = inferenceProfileRegion;
+		} else {
+			this._inferenceProfileRegion = AWSModelProvider.deriveInferenceProfileRegion(region);
+		}
+		this.logger.info(
+			`Using AWS region: ${region}, profile: ${profile}, ` +
+			`inference profile region: ${this._inferenceProfileRegion}`
+		);
 
 		// Initialize Vercel AI SDK provider for chat generation
 		this.aiProvider = createAmazonBedrock({
@@ -296,7 +334,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						registerModelWithAPI(
 							this._config,
 							this._context,
-							this._storage,
 							this
 						).then(() => {
 							positron.ai.addLanguageModelConfig(expandConfigToSource(this._config));
@@ -526,6 +563,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	 * This ensures that we can use the model and AWS will handle
 	 * routing for regions and resource allocation.
 	 *
+	 * Prefers profiles matching the configured inference profile region.
+	 * Falls back to any matching profile if no region-specific profile is found.
+	 *
 	 * @param modelArn The model ARN to get the inference ARN for.
 	 * @param inferenceProfiles Profiles that the authenticated client can use.
 	 * @returns The inference profile ARN or undefined if not found.
@@ -538,13 +578,55 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			return undefined;
 		}
 
+		let fallbackProfileArn: string | undefined;
+
 		for (const profile of inferenceProfiles) {
 			const models = profile.models?.map(m => m.modelArn);
 			if (models?.includes(modelArn)) {
-				return profile.inferenceProfileArn;
+				const profileArn = profile.inferenceProfileArn;
+				if (profileArn && this.matchesPreferredRegion(profileArn)) {
+					return profileArn;
+				}
+
+				if (!fallbackProfileArn) {
+					fallbackProfileArn = profileArn;
+				}
 			}
 		}
+
+		if (fallbackProfileArn) {
+			const fallbackRegion = this.extractRegionFromProfileArn(fallbackProfileArn);
+			this.logger.warn(
+				`No inference profile found in preferred region '${this._inferenceProfileRegion}' ` +
+				`for model ${modelArn}. Using fallback profile from region '${fallbackRegion}': ${fallbackProfileArn}`
+			);
+			return fallbackProfileArn;
+		}
+
 		return undefined;
+	}
+
+	/**
+	 * Extracts the region prefix from an inference profile ARN.
+	 * Profile ARNs have format: arn:aws:bedrock:*:*:inference-profile/{region}.{provider}.{model}
+	 *
+	 * @param profileArn The inference profile ARN
+	 * @returns The region prefix (e.g., 'us', 'eu', 'global') or 'unknown' if not found
+	 */
+	private extractRegionFromProfileArn(profileArn: string): string {
+		const match = profileArn.match(/inference-profile\/([^.]+)\./);
+		return match ? match[1] : 'unknown';
+	}
+
+	/**
+	 * Checks if an inference profile ARN matches the preferred region.
+	 *
+	 * @param profileArn The inference profile ARN to check
+	 * @returns true if the profile matches the preferred region
+	 */
+	private matchesPreferredRegion(profileArn: string): boolean {
+		const profileRegion = this.extractRegionFromProfileArn(profileArn);
+		return profileRegion === this._inferenceProfileRegion;
 	}
 
 	/**

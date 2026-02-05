@@ -313,7 +313,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			tool => toolAvailability.get(tool.name as PositronAssistantToolName) === true
 		);
 
-		log.debug(`[tools] Available tools for participant ${this.id}:\n${tools.length > 0 ? tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n') : 'No tools available'}`);
+		log.debug(`[tools] ${tools.length} Available tools for participant ${this.id}:\n${tools.length > 0 ? tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n') : 'No tools available'}`);
 
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
@@ -434,10 +434,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// Limit the number of variables to prevent excessive context size
 					const vars = value.variables.slice(0, MAX_CONTEXT_VARIABLES);
 					const variablesSummary = vars.map((v) => {
-						return `${v.display_name}|${v.kind || ''}|${v.display_type}|${v.access_key}`;
+						return `${v.display_name}|${v.kind || ''}|${v.display_type}`;
 					}).join('\n');
 					sessionContent += '\n' + xml.node('variables', variablesSummary, {
-						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type|access_key`.',
+						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type`.',
 					});
 					sessionPrompts.push(xml.node('session', sessionContent));
 					log.debug(`[context] adding session context for session ${value.activeSession!.identifier}: ${sessionContent.length} characters`);

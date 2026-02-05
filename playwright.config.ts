@@ -22,14 +22,18 @@ const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
 		disableTitleTags: true,
 	})]
 	: [];
-const customReporter = process.env.ENABLE_CUSTOM_REPORTER !== 'false'
-	? [['@midleman/playwright-reporter',
+// Custom reporter is enabled by default.
+// Disable with: ENABLE_CUSTOM_REPORTER=false (or "false", 0, "0", no, "no")
+// YAML booleans are converted to strings by GitHub Actions, so both work.
+const disableCustomReporter = process.env.ENABLE_CUSTOM_REPORTER?.toLowerCase() ?? '';
+const customReporter = ['false', '0', 'no'].includes(disableCustomReporter)
+	? []
+	: [['@midleman/playwright-reporter',
 		{
 			repoName: 'positron',
 			mode: 'prod'
 		},
-	] as const]
-	: [];
+	] as const];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -220,6 +224,24 @@ function isOpenSUSE(): boolean {
 	}
 }
 
+/**
+ * Check if the current platform is SLES (SUSE Linux Enterprise Server)
+ */
+function isSLES(): boolean {
+	try {
+		const osRelease = fs.readFileSync('/etc/os-release', 'utf8').toLowerCase();
+		const id = osRelease.match(/^id=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
+		const idLike = osRelease.match(/^id_like=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
+
+		return id === 'sles' || idLike.includes('sles');
+	} catch {
+		return false;
+	}
+}
+
 // Set environment variable for tests to check
 const IS_OPENSUSE = isOpenSUSE();
 process.env.IS_OPENSUSE = IS_OPENSUSE ? 'true' : 'false';
+
+const IS_SLES = isSLES();
+process.env.IS_SLES = IS_SLES ? 'true' : 'false';

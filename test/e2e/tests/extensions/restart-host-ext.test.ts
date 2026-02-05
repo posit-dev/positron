@@ -9,7 +9,6 @@ test.use({
 	suiteId: __filename
 });
 
-
 test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS, tags.WIN] }, () => {
 
 	test.afterEach(async ({ app }) => {
