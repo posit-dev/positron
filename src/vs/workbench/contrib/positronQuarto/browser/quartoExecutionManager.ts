@@ -93,8 +93,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/** In-memory cache of outputs by cell ID */
 	private readonly _outputsByCell = new Map<string, ICellOutput[]>();
 
-	/** Current execution ranges by cell ID - for partial cell execution */
-	private readonly _executionRanges = new Map<string, Range>();
+	/** Currently running range by cell ID - for partial cell execution */
+	private readonly _runningRanges = new Map<string, Range>();
+
+	/** Queued ranges by cell ID - multiple ranges can be queued within same cell */
+	private readonly _queuedRanges = new Map<string, Range[]>();
 
 	private readonly _onDidChangeExecutionState = this._register(new Emitter<ExecutionStateChangeEvent>());
 	readonly onDidChangeExecutionState: Event<ExecutionStateChangeEvent> = this._onDidChangeExecutionState.event;
@@ -223,13 +226,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * Execute inline cells for the "Execute Code" action.
 	 * This executes just the code in the specified ranges, even if they are partial cells.
 	 * The output replaces any previous output for the containing cell.
+	 * Multiple calls to this method will queue executions properly.
 	 */
 	async executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken): Promise<void> {
 		if (codeRanges.length === 0) {
 			return;
 		}
 
-		this._logService.debug(`[QuartoExecutionManager] Executing ${codeRanges.length} inline code ranges`);
+		this._logService.debug(`[QuartoExecutionManager] Queueing ${codeRanges.length} inline code ranges for execution`);
 
 		const documentModel = this._documentModelService.getModelForUri(documentUri);
 		const quartoCells = documentModel.cells;
@@ -268,19 +272,62 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			});
 		}
 
-		// Execute each code range
-		for (const execution of executions) {
-			if (token?.isCancellationRequested) {
-				break;
-			}
+		if (executions.length === 0) {
+			return;
+		}
 
-			try {
-				await this._executeRange(documentUri, execution.cell, execution.codeRange, token);
-			} catch (error) {
-				this._logService.error(`[QuartoExecutionManager] Inline execution error for cell ${execution.cell.id}:`, error);
-				this._setCellState(execution.cell.id, CellExecutionState.Error, documentUri);
+		// Add all ranges to queued state with decorations
+		for (const execution of executions) {
+			this._addToQueuedRanges(execution.cell.id, execution.codeRange);
+			// Only set state to Queued if cell is not already running
+			// (if it's running, the queued range decoration will still show)
+			const currentState = this.getExecutionState(execution.cell.id);
+			if (currentState !== CellExecutionState.Running) {
+				this._setCellState(execution.cell.id, CellExecutionState.Queued, documentUri);
 			}
 		}
+
+		// Fire state change to update decorations immediately
+		this._onDidChangeExecutionState.fire({
+			execution: {
+				cellId: executions[0].cell.id,
+				state: CellExecutionState.Queued,
+				executionId: '',
+				documentUri,
+			},
+			previousState: CellExecutionState.Idle,
+		});
+
+		// Chain execution promises using the document-level queue
+		const lastPromise = this._executionQueue.get(documentUri) ?? Promise.resolve();
+
+		const executionPromise = lastPromise.then(async () => {
+			for (const execution of executions) {
+				// Check cancellation before each range
+				if (token?.isCancellationRequested) {
+					// Mark remaining queued ranges as idle
+					for (const e of executions) {
+						this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+					}
+					break;
+				}
+
+				try {
+					await this._executeRange(documentUri, execution.cell, execution.codeRange, token);
+				} catch (error) {
+					this._logService.error(`[QuartoExecutionManager] Inline execution error for cell ${execution.cell.id}:`, error);
+					this._setCellState(execution.cell.id, CellExecutionState.Error, documentUri);
+				}
+			}
+		}).finally(() => {
+			// Clean up queue reference when chain completes
+			if (this._executionQueue.get(documentUri) === executionPromise) {
+				this._executionQueue.delete(documentUri);
+			}
+		});
+
+		this._executionQueue.set(documentUri, executionPromise);
+		return executionPromise;
 	}
 
 	/**
@@ -343,9 +390,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		this._executionTrackers.set(cell.id, tracker);
 
-		// Track the execution range for decorations BEFORE firing state change
+		// Remove this range from the queued ranges (it's now running)
+		this._removeFromQueuedRanges(cell.id, codeRange);
+
+		// Track the running range for decorations BEFORE firing state change
 		// This ensures decorations can read the range when handling the state change event
-		this._executionRanges.set(cell.id, codeRange);
+		this._runningRanges.set(cell.id, codeRange);
 
 		// Update state to running
 		this._runningCells.set(documentUri, cell.id);
@@ -439,7 +489,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			// Clean up
 			this._runningCells.delete(documentUri);
 			this._executionTrackers.delete(cell.id);
-			this._executionRanges.delete(cell.id);
+			this._runningRanges.delete(cell.id);
 			disposables.dispose();
 			cts.dispose();
 			await this._persistQueueState(documentUri);
@@ -460,8 +510,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			`[QuartoExecutionManager] Executing ${cell.language} code via console (non-primary language)`
 		);
 
-		// Track the execution range for decorations BEFORE firing state change
-		this._executionRanges.set(cell.id, codeRange);
+		// Remove this range from the queued ranges (it's now running)
+		this._removeFromQueuedRanges(cell.id, codeRange);
+
+		// Track the running range for decorations BEFORE firing state change
+		this._runningRanges.set(cell.id, codeRange);
 
 		// Update state to running
 		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
@@ -504,8 +557,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			);
 			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
 		} finally {
-			// Clean up execution range
-			this._executionRanges.delete(cell.id);
+			// Clean up running range
+			this._runningRanges.delete(cell.id);
 		}
 	}
 
@@ -597,7 +650,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	getExecutionRange(cellId: string): Range | undefined {
-		return this._executionRanges.get(cellId);
+		return this._runningRanges.get(cellId);
+	}
+
+	getQueuedRanges(cellId: string): Range[] {
+		return [...(this._queuedRanges.get(cellId) ?? [])];
 	}
 
 	getQueuedCells(documentUri: URI): string[] {
@@ -986,6 +1043,41 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				queued.splice(index, 1);
 				if (queued.length === 0) {
 					this._queuedCells.delete(documentUri);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Add a range to the queued ranges for a cell.
+	 */
+	private _addToQueuedRanges(cellId: string, range: Range): void {
+		const ranges = this._queuedRanges.get(cellId) ?? [];
+		// Check if this exact range is already queued (by line numbers)
+		const exists = ranges.some(r =>
+			r.startLineNumber === range.startLineNumber &&
+			r.endLineNumber === range.endLineNumber
+		);
+		if (!exists) {
+			ranges.push(range);
+			this._queuedRanges.set(cellId, ranges);
+		}
+	}
+
+	/**
+	 * Remove a range from the queued ranges for a cell.
+	 */
+	private _removeFromQueuedRanges(cellId: string, range: Range): void {
+		const ranges = this._queuedRanges.get(cellId);
+		if (ranges) {
+			const index = ranges.findIndex(r =>
+				r.startLineNumber === range.startLineNumber &&
+				r.endLineNumber === range.endLineNumber
+			);
+			if (index >= 0) {
+				ranges.splice(index, 1);
+				if (ranges.length === 0) {
+					this._queuedRanges.delete(cellId);
 				}
 			}
 		}

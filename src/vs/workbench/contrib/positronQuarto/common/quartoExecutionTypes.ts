@@ -218,6 +218,13 @@ export interface IQuartoExecutionManager {
 	getExecutionRange(cellId: string): Range | undefined;
 
 	/**
+	 * Get the queued ranges for a cell (for linewise execution queuing).
+	 * Returns an empty array if no ranges are queued.
+	 * @param cellId Cell ID
+	 */
+	getQueuedRanges(cellId: string): Range[];
+
+	/**
 	 * Get IDs of cells currently queued for execution.
 	 * @param documentUri URI of the document
 	 */
