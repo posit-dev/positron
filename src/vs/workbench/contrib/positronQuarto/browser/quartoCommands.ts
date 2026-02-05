@@ -31,6 +31,7 @@ import { URI } from '../../../../base/common/uri.js';
  */
 export const enum QuartoCommandId {
 	RunCurrentCell = 'positronQuarto.runCurrentCell',
+	RunAllCells = 'positronQuarto.runAllCells',
 	CancelExecution = 'positronQuarto.cancelExecution',
 	ClearAllOutputs = 'positronQuarto.clearAllOutputs',
 	ClearOutputCache = 'positronQuarto.clearOutputCache',
@@ -145,6 +146,54 @@ registerAction2(class RunCurrentCellAction extends Action2 {
 
 		// Execute the cell
 		await executionManager.executeCell(documentUri, cell);
+	}
+});
+
+/**
+ * Run all code cells in the current document.
+ */
+registerAction2(class RunAllCellsAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.RunAllCells,
+			title: {
+				value: localize('quarto.runAllCells', 'Run All Cells'),
+				original: 'Run All Cells',
+			},
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_PRECONDITION,
+			keybinding: {
+				when: QUARTO_PRECONDITION,
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Enter,
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Extract all services synchronously before any async operations
+		const editorService = accessor.get(IEditorService);
+		const executionManager = accessor.get(IQuartoExecutionManager);
+		const documentModelService = accessor.get(IQuartoDocumentModelService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const { textModel, documentUri } = context;
+
+		// Get the document model to find all cells
+		const documentModel = documentModelService.getModel(textModel);
+		const cells = documentModel.cells;
+
+		if (cells.length === 0) {
+			return;
+		}
+
+		// Execute all cells
+		await executionManager.executeCells(documentUri, [...cells]);
 	}
 });
 

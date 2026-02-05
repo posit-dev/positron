@@ -1819,7 +1819,9 @@ test.describe('Quarto - Inline Output', {
 
 		// 1. Verify the image preview view zone exists
 		// Use retry pattern since Monaco virtualizes content and may need scrolling
-		const imagePreview = page.locator('.quarto-image-preview-wrapper');
+		// Note: The file has multiple images (mandelbrot.jpg exists, julia.jpg doesn't),
+		// so we need to select the specific image preview we're testing
+		const imagePreview = page.locator('.quarto-image-preview-wrapper').first();
 		await expect(async () => {
 			// Scroll to where the image preview should appear (after line 8)
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
@@ -1829,23 +1831,21 @@ test.describe('Quarto - Inline Output', {
 			await expect(imagePreview).toBeVisible({ timeout: 1000 });
 		}).toPass({ timeout: 30000 });
 
-		// 2. Verify the image element is present and visible
-		const imageElement = page.locator('.quarto-image-preview');
-		await expect(imageElement).toBeVisible({ timeout: 10000 });
+		// 2. Verify there is at least one successfully loaded image
+		// We use a filter to find the image with the correct alt text since there
+		// may be multiple image previews (including error ones for missing images)
+		const mandelbrotImage = page.locator('.quarto-image-preview[alt="The Mandlebrot Set"]');
+		await expect(mandelbrotImage).toBeVisible({ timeout: 10000 });
 
 		// 3. Verify the image has loaded (has a src attribute with data URL)
-		const imgSrc = await imageElement.getAttribute('src');
+		const imgSrc = await mandelbrotImage.getAttribute('src');
 		expect(imgSrc).toBeTruthy();
 		// The image is converted to a data URL for security in Electron
 		expect(imgSrc).toMatch(/^data:image\/jpeg;base64,/);
 
-		// 4. Verify the image has the correct alt text
-		const imgAlt = await imageElement.getAttribute('alt');
-		expect(imgAlt).toBe('The Mandlebrot Set');
-
-		// 5. Verify the preview has no borders (just the image)
+		// 4. Verify the preview container exists
 		// The container should have minimal styling
-		const previewContainer = page.locator('.quarto-image-preview-container');
+		const previewContainer = page.locator('.quarto-image-preview-container').first();
 		await expect(previewContainer).toBeVisible({ timeout: 5000 });
 	});
 
