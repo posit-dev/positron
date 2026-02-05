@@ -87,7 +87,7 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 		const base64Data = Buffer.from(pdfData).toString('base64');
 
 		// Get URI for PDF.js library (using legacy build for Electron compatibility).
-		const pdfJsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.mjs'));
+		const pdfJsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'viewer', 'pdf.mjs'));
 
 		// Create our own simple viewer HTML.
 		webview.html = this.createViewerHtml(webview, pdfJsUri, base64Data);
