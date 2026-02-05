@@ -5,8 +5,12 @@
 
 /* Container for output left action menu - positioned in the gutter area */
 .cell-output-left-action-menu {
-	/* Use the same offset as CellLeftActionMenu for consistent gutter positioning */
-	--_container-offset-left: -25px;
+	/*
+	* A -24px offset will vertically align this menu with the CellLeftActionMenu
+	* in the cell gutter. The offset is 1px less than CellLeftActionMenu because
+	* there is no 1px border on the parent of this element.
+	*/
+	--_container-offset-left: -24px;
 	--_container-size: 20px;
 
 	position: absolute;
