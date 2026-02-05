@@ -14,6 +14,7 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { IQuartoExecutionManager, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoOutputManager } from './quartoOutputManager.js';
+import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_RUNNING, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
@@ -29,7 +30,7 @@ import { URI } from '../../../../base/common/uri.js';
  * Command IDs for Quarto execution commands.
  */
 export const enum QuartoCommandId {
-	RunCurrentCell = 'quarto.runCurrent',
+	RunCurrentCell = 'positronQuarto.runCurrentCell',
 	CancelExecution = 'positronQuarto.cancelExecution',
 	ClearAllOutputs = 'positronQuarto.clearAllOutputs',
 	ClearOutputCache = 'positronQuarto.clearOutputCache',
@@ -89,6 +90,63 @@ function getQuartoContext(editorService: IEditorService): {
 	};
 }
 
+
+/**
+ * Run the code cell at the cursor position.
+ */
+registerAction2(class RunCurrentCellAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.RunCurrentCell,
+			title: {
+				value: localize('quarto.runCurrentCell', 'Run Current Cell'),
+				original: 'Run Current Cell',
+			},
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_PRECONDITION,
+			keybinding: {
+				when: QUARTO_PRECONDITION,
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyCode.Enter,
+				mac: {
+					primary: KeyMod.CtrlCmd | KeyCode.Enter,
+					secondary: [KeyMod.WinCtrl | KeyCode.Enter],
+				},
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Extract all services synchronously before any async operations
+		const editorService = accessor.get(IEditorService);
+		const executionManager = accessor.get(IQuartoExecutionManager);
+		const documentModelService = accessor.get(IQuartoDocumentModelService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const { editor, textModel, documentUri } = context;
+
+		// Get the cursor position
+		const position = editor.getPosition();
+		if (!position) {
+			return;
+		}
+
+		// Get the document model to find the cell at the cursor
+		const documentModel = documentModelService.getModel(textModel);
+		const cell = documentModel.getCellAtLine(position.lineNumber);
+		if (!cell) {
+			return;
+		}
+
+		// Execute the cell
+		await executionManager.executeCell(documentUri, cell);
+	}
+});
 
 /**
  * Cancel running or queued execution.

@@ -10,7 +10,9 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QuartoExecutionManager } from '../../browser/quartoExecutionManager.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
@@ -74,6 +76,7 @@ suite('QuartoExecutionManager', () => {
 		const mockEphemeralStateService = new MockEphemeralStateService();
 		const mockWorkspaceContextService = new MockWorkspaceContextService();
 		const mockConsoleService = new MockPositronConsoleService();
+		const mockRuntimeSessionService = new MockRuntimeSessionService();
 
 		// Create execution manager
 		executionManager = new QuartoExecutionManager(
@@ -84,6 +87,7 @@ suite('QuartoExecutionManager', () => {
 			mockWorkspaceContextService as unknown as IWorkspaceContextService,
 			logService,
 			mockConsoleService as unknown as IPositronConsoleService,
+			mockRuntimeSessionService as unknown as IRuntimeSessionService,
 		);
 		disposables.add(executionManager);
 	});
@@ -410,6 +414,7 @@ suite('QuartoExecutionManager', () => {
 				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
 				logService,
 				new MockPositronConsoleService() as unknown as IPositronConsoleService,
+				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
 			);
 			disposables.add(executionManagerWithMock);
 
@@ -631,6 +636,9 @@ class MockWorkspaceContextService {
 }
 
 class MockPositronConsoleService {
+	private readonly _onDidExecuteCode = new Emitter<ILanguageRuntimeCodeExecutedEvent>();
+	readonly onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._onDidExecuteCode.event;
+
 	async executeCode(
 		_languageId: string,
 		_sessionId: string | undefined,
@@ -643,5 +651,11 @@ class MockPositronConsoleService {
 		_executionId?: string
 	): Promise<string> {
 		return 'mock-session-id';
+	}
+}
+
+class MockRuntimeSessionService {
+	getSession(_sessionId: string): ILanguageRuntimeSession | undefined {
+		return undefined;
 	}
 }

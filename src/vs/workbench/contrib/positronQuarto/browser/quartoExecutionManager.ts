@@ -34,6 +34,7 @@ import { getWebviewMessageType } from '../../../services/positronIPyWidgets/comm
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 // Re-export for convenience
 export { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -116,6 +117,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		super();
 
@@ -499,12 +501,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/**
 	 * Execute a range of code via the console service.
 	 * This is used for cells whose language doesn't match the document's primary language.
+	 * Also captures outputs to show as inline output in addition to console output.
 	 */
 	private async _executeRangeViaConsole(
 		documentUri: URI,
 		cell: QuartoCodeCell,
 		codeRange: Range,
-		_token?: CancellationToken
+		token?: CancellationToken
 	): Promise<void> {
 		this._logService.debug(
 			`[QuartoExecutionManager] Executing ${cell.language} code via console (non-primary language)`
@@ -519,6 +522,34 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		// Update state to running
 		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
 
+		// Clear previous outputs for this cell
+		this._outputsByCell.delete(cell.id);
+
+		// Generate our own execution ID so we can listen for outputs
+		const executionId = `${QUARTO_EXEC_PREFIX}-console-${generateUuid()}`;
+
+		// Create a tracker for this execution
+		const cts = new CancellationTokenSource(token);
+		const deferred = new DeferredPromise<void>();
+		const disposables = new DisposableStore();
+
+		const tracker: ExecutionTracker = {
+			execution: {
+				cellId: cell.id,
+				state: CellExecutionState.Running,
+				executionId,
+				startTime: Date.now(),
+				documentUri,
+			},
+			cts,
+			deferred,
+			outputSize: 0,
+			outputCount: 0,
+			disposables,
+		};
+
+		this._executionTrackers.set(cell.id, tracker);
+
 		try {
 			// Get just the code in the specified range
 			const code = await this._getCodeInRange(documentUri, codeRange);
@@ -526,8 +557,17 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				throw new Error('Could not get code in range');
 			}
 
-			// Execute via console service
-			await this._consoleService.executeCode(
+			// Try to get the existing console session for this language BEFORE executing.
+			// If one exists, we can set up message handlers before execution starts.
+			// This avoids the race condition where execution starts before handlers are set up.
+			const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(cell.language);
+			if (existingSession) {
+				this._setupConsoleMessageHandlers(tracker, existingSession, documentUri);
+			}
+
+			// Execute via console service with our execution ID
+			// This will create/start the session if needed and return the session ID
+			const sessionId = await this._consoleService.executeCode(
 				cell.language,
 				undefined,
 				code,
@@ -542,24 +582,121 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						},
 					},
 				},
-				true,
-				false,
+				true,  // focus
+				false, // allowIncomplete
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Continue,
+				executionId,
 			);
 
-			// Mark as completed (output goes to console, not inline)
+			// If we didn't have an existing session, a new one was created.
+			// Set up handlers now - since the session is new, it won't have executed yet.
+			if (!existingSession) {
+				const newSession = this._runtimeSessionService.getSession(sessionId);
+				if (newSession) {
+					this._setupConsoleMessageHandlers(tracker, newSession, documentUri);
+				}
+			}
+
+			// Wait for execution to complete
+			await Promise.race([
+				deferred.p,
+				new Promise<void>((_, reject) => {
+					const cancellationListener = cts.token.onCancellationRequested(() => {
+						reject(new Error('Execution cancelled'));
+					});
+					disposables.add(cancellationListener);
+				}),
+			]);
+
+			// Mark as completed
 			this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
 		} catch (error) {
-			this._logService.error(
-				`[QuartoExecutionManager] Console execution failed for cell ${cell.id}:`,
-				error
-			);
-			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			if (cts.token.isCancellationRequested) {
+				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
+			} else {
+				this._logService.error(
+					`[QuartoExecutionManager] Console execution failed for cell ${cell.id}:`,
+					error
+				);
+				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			}
 		} finally {
-			// Clean up running range
+			// Clean up
 			this._runningRanges.delete(cell.id);
+			this._executionTrackers.delete(cell.id);
+			disposables.dispose();
+			cts.dispose();
 		}
+	}
+
+	/**
+	 * Set up message handlers for console session output.
+	 * Similar to _setupMessageHandlers but for console sessions.
+	 */
+	private _setupConsoleMessageHandlers(
+		tracker: ExecutionTracker,
+		session: ILanguageRuntimeSession,
+		documentUri: URI
+	): void {
+		const { execution, deferred, disposables } = tracker;
+		const executionId = execution.executionId;
+
+		// Handle output messages (display_data)
+		disposables.add(session.onDidReceiveRuntimeMessageOutput(message => {
+			if (message.parent_id !== executionId) {
+				return;
+			}
+			const webMessage = message as ILanguageRuntimeMessageWebOutput;
+			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
+		}));
+
+		// Handle result messages (execute_result)
+		disposables.add(session.onDidReceiveRuntimeMessageResult(message => {
+			if (message.parent_id !== executionId) {
+				return;
+			}
+			const webMessage = message as ILanguageRuntimeMessageWebOutput;
+			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
+		}));
+
+		// Handle stream messages (stdout/stderr)
+		disposables.add(session.onDidReceiveRuntimeMessageStream(message => {
+			if (message.parent_id !== executionId) {
+				return;
+			}
+			const mime = message.name === 'stderr' ? 'application/vnd.code.notebook.stderr' : 'application/vnd.code.notebook.stdout';
+			this._addOutput(tracker, documentUri, [{
+				mime,
+				data: message.text,
+			}]);
+		}));
+
+		// Handle error messages
+		disposables.add(session.onDidReceiveRuntimeMessageError(message => {
+			if (message.parent_id !== executionId) {
+				return;
+			}
+			this._addOutput(tracker, documentUri, [{
+				mime: 'application/vnd.code.notebook.error',
+				data: JSON.stringify({
+					name: message.name,
+					message: message.message,
+					stack: message.traceback.join('\n'),
+				}),
+			}]);
+		}));
+
+		// Handle state messages (completion detection)
+		disposables.add(session.onDidReceiveRuntimeMessageState(message => {
+			if (message.parent_id !== executionId) {
+				return;
+			}
+			if (message.state === RuntimeOnlineState.Idle) {
+				this._logService.debug(`[QuartoExecutionManager] Console execution completed for ${executionId}`);
+				deferred.complete();
+			}
+		}));
 	}
 
 	/**

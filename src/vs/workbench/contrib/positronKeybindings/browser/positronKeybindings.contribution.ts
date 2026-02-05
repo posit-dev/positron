@@ -176,10 +176,9 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyI
 		}));
 
-		// Run current
-
+		// Run current cell - Cmd/Ctrl+Enter
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
-			id: 'quarto.runCurrent',
+			id: 'positronQuarto.runCurrentCell',
 			weight: KeybindingWeight.BuiltinExtension,
 			when: ContextKeyExpr.and(
 				EditorContextKeys.editorTextFocus,

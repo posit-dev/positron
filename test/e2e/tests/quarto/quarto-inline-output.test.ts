@@ -433,13 +433,13 @@ test.describe('Quarto - Inline Output', {
 		await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
 	});
 
-	test('R - Verify multi-language document executes non-primary language in console', async function ({ app, openFile, r, python }) {
+	test('R - Verify multi-language document shows inline output for both languages', async function ({ app, openFile, r, python }) {
 		// This test verifies that in a multi-language Quarto document:
 		// 1. The primary language (R) cells execute inline via the kernel
-		// 2. Non-primary language (Python) cells execute via the console service
+		// 2. Non-primary language (Python) cells execute via console AND show inline output
 		//
 		// This ensures users can work with documents containing multiple languages
-		// without being blocked by a warning toast.
+		// and see output inline for all languages.
 		//
 		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
 
@@ -499,23 +499,23 @@ test.describe('Quarto - Inline Output', {
 
 		// Verify the R output contains our expected text
 		const outputContent = inlineOutput.locator('.quarto-output-content');
-		await expect(outputContent).toBeVisible({ timeout: 10000 });
-		await expect(outputContent).toContainText('Hello from R');
+		await expect(outputContent.first()).toBeVisible({ timeout: 10000 });
+		await expect(outputContent.first()).toContainText('Hello from R');
 
-		// STEP 2: Run the Python cell (non-primary language - should execute in console)
+		// STEP 2: Run the Python cell (non-primary language)
+		// Should execute via console AND produce inline output
 		// Position cursor in the Python code cell (line 21)
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
 		await page.keyboard.type('21');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
-		// Run the Python cell - this should NOT show a warning toast, and should
-		// execute the code via the console service
+		// Run the Python cell - should execute via console and show inline output
 		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
 
 		// Wait for Python console to show output
 		// The Python code is: import os; os.getpid()
-		// The output should appear in the Python console, not inline
+		// The output should appear in BOTH the Python console AND inline
 		await expect(async () => {
 			// Focus the console panel
 			await app.workbench.quickaccess.runCommand('workbench.panel.positronConsole.focus');
@@ -532,20 +532,31 @@ test.describe('Quarto - Inline Output', {
 			expect(consoleText).toContain('os');
 		}).toPass({ timeout: 60000 });
 
-		// Verify there's still only ONE inline output (from R), not two
-		// This confirms the Python code went to console, not inline
+		// Now verify that inline output ALSO appeared for the Python cell
 		await app.workbench.quickaccess.runCommand('workbench.action.focusActiveEditorGroup');
 		await page.waitForTimeout(500);
 
-		// Scroll back to see inline outputs
-		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('14');
-		await page.keyboard.press('Enter');
-		await page.waitForTimeout(500);
+		// Scroll to see the Python cell's inline output (after line 22)
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('25');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
 
-		// Count inline outputs - should be exactly 1 (the R output)
-		const inlineOutputCount = await inlineOutput.count();
-		expect(inlineOutputCount).toBe(1);
+			// Count inline outputs - should be exactly 2 (R output + Python output)
+			const inlineOutputCount = await inlineOutput.count();
+			expect(inlineOutputCount).toBe(2);
+		}).toPass({ timeout: 30000 });
+
+		// Verify the second output contains Python output (the PID)
+		// The Python code runs os.getpid() which returns an integer
+		const secondOutput = inlineOutput.nth(1).locator('.quarto-output-content');
+		await expect(secondOutput).toBeVisible({ timeout: 10000 });
+		// The output should contain a number (the PID)
+		const outputText = await secondOutput.textContent();
+		expect(outputText).toBeTruthy();
+		// PID should be a number - just verify it's not empty
+		expect(outputText!.trim().length).toBeGreaterThan(0);
 	});
 
 	test('Python - Verify text can be selected via click and drag in inline output', async function ({ app, openFile }) {
