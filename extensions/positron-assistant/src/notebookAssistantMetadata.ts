@@ -24,10 +24,10 @@ export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
 export type GhostCellSuggestionsOverride = 'enabled' | 'disabled' | undefined;
 
 /**
- * Valid values for the suggestionMode per-notebook override.
- * undefined = follow global setting, 'push' = automatic, 'pull' = on-demand
+ * Valid values for the automatic per-notebook override.
+ * undefined = follow global setting, true = automatic, false = on-demand
  */
-export type SuggestionModeOverride = 'push' | 'pull' | undefined;
+export type AutomaticOverride = boolean | undefined;
 
 /**
  * Per-notebook assistant settings stored at metadata.metadata.positron.assistant
@@ -39,13 +39,12 @@ export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
 	autoFollow?: AutoFollowOverride;
 	ghostCellSuggestions?: GhostCellSuggestionsOverride;
-	suggestionMode?: SuggestionModeOverride;
+	automatic?: AutomaticOverride;
 }
 
 const VALID_SHOW_DIFF_VALUES = new Set<string>(['showDiff', 'noDiff']);
 const VALID_AUTO_FOLLOW_VALUES = new Set<string>(['autoFollow', 'noAutoFollow']);
 const VALID_GHOST_CELL_SUGGESTIONS_VALUES = new Set<string>(['enabled', 'disabled']);
-const VALID_SUGGESTION_MODE_VALUES = new Set<string>(['push', 'pull']);
 
 /**
  * Read assistant settings from notebook metadata.
@@ -75,13 +74,13 @@ export function getAssistantSettings(metadata: { [key: string]: unknown } | unde
 		? rawGhostCellSuggestions as GhostCellSuggestionsOverride
 		: undefined;
 
-	// Validate suggestionMode value
-	const rawSuggestionMode = assistant?.suggestionMode;
-	const suggestionMode = typeof rawSuggestionMode === 'string' && VALID_SUGGESTION_MODE_VALUES.has(rawSuggestionMode)
-		? rawSuggestionMode as SuggestionModeOverride
+	// Validate automatic value (boolean)
+	const rawAutomatic = assistant?.automatic;
+	const automatic = typeof rawAutomatic === 'boolean'
+		? rawAutomatic as AutomaticOverride
 		: undefined;
 
-	return { showDiff, autoFollow, ghostCellSuggestions, suggestionMode };
+	return { showDiff, autoFollow, ghostCellSuggestions, automatic };
 }
 
 /**
@@ -111,7 +110,7 @@ export function resolveAutoFollow(notebook: vscode.NotebookDocument): boolean {
 }
 
 /**
- * Resolve ghostCellSuggestions setting: notebook metadata first, then check opt-in, then global config.
+ * Resolve ghostCellSuggestions setting: notebook metadata first, then check if user explicitly set enabled, then global config.
  */
 export function resolveGhostCellSuggestions(notebook: vscode.NotebookDocument): boolean {
 	const settings = getAssistantSettings(notebook.metadata);
@@ -120,12 +119,13 @@ export function resolveGhostCellSuggestions(notebook: vscode.NotebookDocument): 
 		return settings.ghostCellSuggestions === 'enabled';
 	}
 
-	// Check if user has opted in - if not, return false (workbench handles showing prompt)
+	// Check if user has explicitly set the enabled setting using inspect()
+	// If globalValue is undefined, user hasn't made a choice yet (workbench handles showing prompt)
 	const config = vscode.workspace.getConfiguration('positron.assistant.notebook.ghostCellSuggestions');
-	const hasOptedIn = config.get('hasOptedIn', false);
-	if (!hasOptedIn) {
+	const inspected = config.inspect<boolean>('enabled');
+	if (inspected?.globalValue === undefined) {
 		return false;
 	}
 
-	return vscode.workspace.getConfiguration('positron.assistant.notebook.ghostCellSuggestions').get('enabled', false);
+	return config.get('enabled', false);
 }

@@ -48,8 +48,8 @@ const learnMoreLabel = localize('ghostCell.learnMore', 'Learn more');
 
 // Awaiting-request (pull mode) strings
 const getSuggestionLabel = localize('ghostCell.getSuggestion', 'Get Suggestion');
-const awaitingRequestText = localize('ghostCell.awaitingRequest', 'AI suggestion available on request');
 const awaitingRequestAnnouncement = localize('ghostCell.awaitingRequestAnnouncement', 'AI suggestion available. Press the Get Suggestion button or use Cmd+Shift+G to request.');
+const awaitingRequestText = localize('ghostCell.awaitingRequestText', 'AI suggestion available on request');
 
 // Mode toggle strings
 const automaticModeLabel = localize('ghostCell.automaticMode', 'Automatic');
@@ -62,6 +62,10 @@ const fallbackWarningTooltip = localize('ghostCell.fallbackWarning', 'Configured
 // Model picker
 const changeModelTooltip = localize('ghostCell.changeModel', 'Change model');
 
+// Expand/collapse strings
+const showMoreLabel = localize('ghostCell.showMore', 'Show more');
+const showLessLabel = localize('ghostCell.showLess', 'Show less');
+
 /**
  * Props for TruncatedExplanation component
  */
@@ -70,15 +74,16 @@ interface TruncatedExplanationProps {
 }
 
 /**
- * TruncatedExplanation component - displays explanation text with a tooltip when truncated
+ * TruncatedExplanation component - displays explanation text with expand/collapse when truncated
  */
 const TruncatedExplanation: React.FC<TruncatedExplanationProps> = ({ text }) => {
 	const spanRef = React.useRef<HTMLSpanElement>(null);
 	const [isTruncated, setIsTruncated] = React.useState(false);
+	const [isExpanded, setIsExpanded] = React.useState(false);
 
 	React.useEffect(() => {
 		const checkTruncation = () => {
-			if (spanRef.current) {
+			if (spanRef.current && !isExpanded) {
 				setIsTruncated(spanRef.current.scrollWidth > spanRef.current.clientWidth);
 			}
 		};
@@ -91,15 +96,25 @@ const TruncatedExplanation: React.FC<TruncatedExplanationProps> = ({ text }) => 
 		}
 
 		return () => resizeObserver.disconnect();
-	}, [text]);
+	}, [text, isExpanded]);
+
+	const handleToggle = () => {
+		setIsExpanded(!isExpanded);
+	};
 
 	return (
-		<span
-			ref={spanRef}
-			className='ghost-cell-explanation'
-			title={isTruncated ? text : undefined}
-		>
-			{text}
+		<span className={`ghost-cell-explanation ${isExpanded ? 'expanded' : ''}`}>
+			<span ref={spanRef} className='ghost-cell-explanation-text'>
+				{text}
+			</span>
+			{(isTruncated || isExpanded) && (
+				<button
+					className='ghost-cell-expand-button'
+					onClick={handleToggle}
+				>
+					{isExpanded ? showLessLabel : showMoreLabel}
+				</button>
+			)}
 		</span>
 	);
 };
@@ -108,27 +123,27 @@ const TruncatedExplanation: React.FC<TruncatedExplanationProps> = ({ text }) => 
  * Props for SuggestionModeToggle component
  */
 interface SuggestionModeToggleProps {
-	mode: 'push' | 'pull';
+	automatic: boolean;
 	onToggle: () => void;
 }
 
 /**
- * SuggestionModeToggle - a segmented toggle switch for push/pull mode
+ * SuggestionModeToggle - a segmented toggle switch for automatic/on-demand mode
  * Styled to match the AssistantPanel toggle pattern.
  */
-const SuggestionModeToggle: React.FC<SuggestionModeToggleProps> = ({ mode, onToggle }) => (
+const SuggestionModeToggle: React.FC<SuggestionModeToggleProps> = ({ automatic, onToggle }) => (
 	<div className='ghost-cell-mode-toggle'>
 		<button
-			aria-checked={mode === 'push'}
+			aria-checked={automatic}
 			aria-label={modeToggleTooltip}
 			className='toggle-container'
 			title={modeToggleTooltip}
 			onClick={onToggle}
 		>
-			<div className={`toggle-button left ${mode === 'push' ? 'highlighted' : ''}`}>
+			<div className={`toggle-button left ${automatic ? 'highlighted' : ''}`}>
 				{automaticModeLabel}
 			</div>
-			<div className={`toggle-button right ${mode === 'pull' ? 'highlighted' : ''}`}>
+			<div className={`toggle-button right ${!automatic ? 'highlighted' : ''}`}>
 				{onDemandModeLabel}
 			</div>
 		</button>
@@ -156,7 +171,6 @@ const GhostCellOptInPrompt: React.FC<GhostCellOptInPromptProps> = ({
 }) => (
 	<div className='ghost-cell-opt-in'>
 		<div className='ghost-cell-opt-in-content'>
-			<span className='ghost-cell-icon codicon codicon-sparkle' />
 			<span className='ghost-cell-opt-in-text'>
 				{optInPromptText}
 				{' '}
@@ -202,48 +216,44 @@ interface GhostCellAwaitingRequestProps {
 	onGetSuggestion: () => void;
 	onDismiss: () => void;
 	onShowInfo: () => void;
-	suggestionMode: 'push' | 'pull';
+	automatic: boolean;
 	onToggleMode: () => void;
 }
 
 /**
- * GhostCellAwaitingRequest component - displays pull mode placeholder with "Get Suggestion" button
+ * GhostCellAwaitingRequest component - displays on-demand mode placeholder with "Get Suggestion" button
  */
 const GhostCellAwaitingRequest: React.FC<GhostCellAwaitingRequestProps> = ({
 	onGetSuggestion,
 	onDismiss,
 	onShowInfo,
-	suggestionMode,
+	automatic,
 	onToggleMode
 }) => (
 	<div className='ghost-cell-awaiting-request'>
-		<div className='ghost-cell-awaiting-request-content'>
-			<span className='ghost-cell-icon codicon codicon-sparkle' />
-			<button
-				aria-label={infoButtonLabel}
-				className='ghost-cell-info-button codicon codicon-info'
-				title={infoButtonLabel}
-				onClick={onShowInfo}
-			/>
-			<span className='ghost-cell-awaiting-request-text'>{awaitingRequestText}</span>
-			<SuggestionModeToggle mode={suggestionMode} onToggle={onToggleMode} />
-		</div>
-		<div className='ghost-cell-awaiting-request-actions'>
-			<Button
-				ariaLabel={getSuggestionLabel}
-				className='ghost-cell-get-suggestion default'
-				onPressed={onGetSuggestion}
-			>
-				{getSuggestionLabel}
-			</Button>
-			<Button
-				ariaLabel={dismissLabel}
-				className='ghost-cell-dismiss-button'
-				onPressed={onDismiss}
-			>
-				{dismissLabel}
-			</Button>
-		</div>
+		<span className='ghost-cell-awaiting-text'>{awaitingRequestText}</span>
+		<Button
+			ariaLabel={getSuggestionLabel}
+			className='ghost-cell-get-suggestion default'
+			onPressed={onGetSuggestion}
+		>
+			{getSuggestionLabel}
+		</Button>
+		<Button
+			ariaLabel={dismissLabel}
+			className='ghost-cell-dismiss-button'
+			onPressed={onDismiss}
+		>
+			{dismissLabel}
+		</Button>
+		<div className='ghost-cell-spacer' />
+		<SuggestionModeToggle automatic={automatic} onToggle={onToggleMode} />
+		<button
+			aria-label={infoButtonLabel}
+			className='ghost-cell-info-button codicon codicon-info'
+			title={infoButtonLabel}
+			onClick={onShowInfo}
+		/>
 	</div>
 );
 
@@ -282,7 +292,7 @@ interface GhostCellContentProps {
 	acceptActions: IAction[];
 	dismissActions: IAction[];
 	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'];
-	suggestionMode: 'push' | 'pull';
+	automatic: boolean;
 	onToggleMode: () => void;
 	modelName?: string;
 	usedFallback?: boolean;
@@ -303,7 +313,7 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 	acceptActions,
 	dismissActions,
 	contextMenuService,
-	suggestionMode,
+	automatic,
 	onToggleMode,
 	modelName,
 	usedFallback
@@ -312,15 +322,8 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 		<>
 			<div className='ghost-cell-header'>
 				<div className='ghost-cell-header-content'>
-					<span className='ghost-cell-icon codicon codicon-sparkle' />
-					<button
-						aria-label={infoButtonLabel}
-						className='ghost-cell-info-button codicon codicon-info'
-						title={infoButtonLabel}
-						onClick={onShowInfo}
-					/>
 					<TruncatedExplanation text={explanation || defaultExplanation} />
-					<SuggestionModeToggle mode={suggestionMode} onToggle={onToggleMode} />
+					<SuggestionModeToggle automatic={automatic} onToggle={onToggleMode} />
 				</div>
 				<div className='ghost-cell-actions'>
 					<SplitButton
@@ -354,23 +357,31 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 			<div className='ghost-cell-code-preview'>
 				<pre className='ghost-cell-code-text'>{code}</pre>
 			</div>
-			{modelName && (
-				<div className='ghost-cell-footer'>
-					{usedFallback && (
-						<span
-							className='ghost-cell-fallback-warning codicon codicon-warning'
-							title={fallbackWarningTooltip}
-						/>
-					)}
-					<button
-						className='ghost-cell-model-indicator'
-						title={changeModelTooltip}
-						onClick={onChangeModel}
-					>
-						{modelName}
-					</button>
-				</div>
-			)}
+			<div className='ghost-cell-footer'>
+				<button
+					aria-label={infoButtonLabel}
+					className='ghost-cell-info-button codicon codicon-info'
+					title={infoButtonLabel}
+					onClick={onShowInfo}
+				/>
+				{modelName && (
+					<div className='ghost-cell-model-info'>
+						{usedFallback && (
+							<span
+								className='ghost-cell-fallback-warning codicon codicon-warning'
+								title={fallbackWarningTooltip}
+							/>
+						)}
+						<button
+							className='ghost-cell-model-indicator'
+							title={changeModelTooltip}
+							onClick={onChangeModel}
+						>
+							{modelName}
+						</button>
+					</div>
+				)}
+			</div>
 		</>
 	);
 };
@@ -392,7 +403,7 @@ function renderGhostCellState(
 	onOptInNotNow: () => void,
 	onOptInDontAskAgain: () => void,
 	onGetSuggestion: () => void,
-	suggestionMode: 'push' | 'pull',
+	automatic: boolean,
 	onToggleMode: () => void,
 	modelName?: string,
 	usedFallback?: boolean
@@ -414,7 +425,7 @@ function renderGhostCellState(
 		case 'awaiting-request':
 			return (
 				<GhostCellAwaitingRequest
-					suggestionMode={suggestionMode}
+					automatic={automatic}
 					onDismiss={onDismiss}
 					onGetSuggestion={onGetSuggestion}
 					onShowInfo={onShowInfo}
@@ -429,12 +440,12 @@ function renderGhostCellState(
 			return (
 				<GhostCellContent
 					acceptActions={acceptActions}
+					automatic={automatic}
 					code={state.code}
 					contextMenuService={contextMenuService}
 					dismissActions={dismissActions}
 					explanation={state.explanation}
 					isStreaming={true}
-					suggestionMode={suggestionMode}
 					onAcceptAndRun={onAcceptAndRun}
 					onChangeModel={onChangeModel}
 					onDismiss={onDismiss}
@@ -448,13 +459,13 @@ function renderGhostCellState(
 			return (
 				<GhostCellContent
 					acceptActions={acceptActions}
+					automatic={automatic}
 					code={state.code}
 					contextMenuService={contextMenuService}
 					dismissActions={dismissActions}
 					explanation={state.explanation}
 					isStreaming={false}
 					modelName={modelName}
-					suggestionMode={suggestionMode}
 					usedFallback={usedFallback}
 					onAcceptAndRun={onAcceptAndRun}
 					onChangeModel={onChangeModel}
@@ -566,7 +577,7 @@ export const GhostCell: React.FC = () => {
 
 	// Mode toggle handler
 	const handleToggleMode = React.useCallback(() => {
-		instance.toggleSuggestionMode();
+		instance.toggleAutomaticMode();
 	}, [instance]);
 
 	// Model picker handler
@@ -574,10 +585,10 @@ export const GhostCell: React.FC = () => {
 		services.commandService.executeCommand('positron-assistant.selectGhostCellModel');
 	}, [services.commandService]);
 
-	// Get suggestion mode from state (for immediate UI feedback) or fall back to instance method
-	const suggestionMode = ghostCellState.status !== 'hidden' && ghostCellState.status !== 'opt-in-prompt' && ghostCellState.status !== 'error'
-		? ghostCellState.suggestionMode
-		: instance.getSuggestionMode();
+	// Get automatic mode from state (for immediate UI feedback) or fall back to instance method
+	const automatic = ghostCellState.status !== 'hidden' && ghostCellState.status !== 'opt-in-prompt' && ghostCellState.status !== 'error'
+		? ghostCellState.automatic
+		: instance.isAutomaticMode();
 
 	// Memoize actions for the split buttons
 	// Dropdown shows alternatives to the primary action (Accept and Run)
@@ -650,7 +661,7 @@ export const GhostCell: React.FC = () => {
 					handleOptInNotNow,
 					handleOptInDontAskAgain,
 					handleGetSuggestion,
-					suggestionMode,
+					automatic,
 					handleToggleMode,
 					ghostCellState.status === 'ready' ? ghostCellState.modelName : undefined,
 					ghostCellState.status === 'ready' ? ghostCellState.usedFallback : undefined

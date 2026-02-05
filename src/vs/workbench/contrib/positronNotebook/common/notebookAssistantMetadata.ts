@@ -24,10 +24,10 @@ export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
 export type GhostCellSuggestionsOverride = 'enabled' | 'disabled' | undefined;
 
 /**
- * Valid values for the suggestionMode per-notebook override.
- * undefined = follow global setting, 'push' = automatic, 'pull' = on-demand
+ * Valid values for the automatic per-notebook override.
+ * undefined = follow global setting, true = automatic, false = on-demand
  */
-export type SuggestionModeOverride = 'push' | 'pull' | undefined;
+export type AutomaticOverride = boolean | undefined;
 
 /**
  * Per-notebook assistant settings stored at metadata.metadata.positron.assistant
@@ -40,19 +40,19 @@ export type SuggestionModeOverride = 'push' | 'pull' | undefined;
  *     showDiff?: 'showDiff' | 'noDiff'  // Per-notebook diff view override
  *     autoFollow?: 'autoFollow' | 'noAutoFollow'  // Per-notebook auto-follow override
  *     ghostCellSuggestions?: 'enabled' | 'disabled'  // Per-notebook ghost cell suggestions override
+ *     automatic?: boolean  // Per-notebook automatic mode override
  *   }
  */
 export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
 	autoFollow?: AutoFollowOverride;
 	ghostCellSuggestions?: GhostCellSuggestionsOverride;
-	suggestionMode?: SuggestionModeOverride;
+	automatic?: AutomaticOverride;
 }
 
 const VALID_SHOW_DIFF_VALUES = new Set<string>(['showDiff', 'noDiff']);
 const VALID_AUTO_FOLLOW_VALUES = new Set<string>(['autoFollow', 'noAutoFollow']);
 const VALID_GHOST_CELL_SUGGESTIONS_VALUES = new Set<string>(['enabled', 'disabled']);
-const VALID_SUGGESTION_MODE_VALUES = new Set<string>(['push', 'pull']);
 
 /**
  * Read assistant settings from notebook metadata.
@@ -82,13 +82,13 @@ export function getAssistantSettings(metadata: NotebookDocumentMetadata | undefi
 		? rawGhostCellSuggestions as GhostCellSuggestionsOverride
 		: undefined;
 
-	// Validate suggestionMode value
-	const rawSuggestionMode = assistant?.suggestionMode;
-	const suggestionMode = typeof rawSuggestionMode === 'string' && VALID_SUGGESTION_MODE_VALUES.has(rawSuggestionMode)
-		? rawSuggestionMode as SuggestionModeOverride
+	// Validate automatic value (boolean)
+	const rawAutomatic = assistant?.automatic;
+	const automatic = typeof rawAutomatic === 'boolean'
+		? rawAutomatic as AutomaticOverride
 		: undefined;
 
-	return { showDiff, autoFollow, ghostCellSuggestions, suggestionMode };
+	return { showDiff, autoFollow, ghostCellSuggestions, automatic };
 }
 
 /**

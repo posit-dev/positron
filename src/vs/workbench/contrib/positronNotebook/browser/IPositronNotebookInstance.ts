@@ -24,10 +24,10 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 export type GhostCellState =
 	| { status: 'hidden' }
 	| { status: 'opt-in-prompt'; executedCellIndex: number }
-	| { status: 'awaiting-request'; executedCellIndex: number; suggestionMode: 'push' | 'pull' }
-	| { status: 'loading'; executedCellIndex: number; suggestionMode: 'push' | 'pull' }
-	| { status: 'streaming'; executedCellIndex: number; code: string; explanation: string; suggestionMode: 'push' | 'pull' }
-	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string; suggestionMode: 'push' | 'pull'; modelName?: string; usedFallback?: boolean }
+	| { status: 'awaiting-request'; executedCellIndex: number; automatic: boolean }
+	| { status: 'loading'; executedCellIndex: number; automatic: boolean }
+	| { status: 'streaming'; executedCellIndex: number; code: string; explanation: string; automatic: boolean }
+	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string; automatic: boolean; modelName?: string; usedFallback?: boolean }
 	| { status: 'error'; executedCellIndex: number; message: string };
 
 /**
@@ -505,7 +505,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 
 	/**
 	 * Enable ghost cell suggestions globally (opt-in).
-	 * Sets both hasOptedIn and ghostCellSuggestions to true, then triggers a suggestion.
+	 * Sets enabled to true, then triggers a suggestion.
 	 */
 	enableGhostCellSuggestions(): void;
 
@@ -528,14 +528,14 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	requestGhostCellSuggestion(): void;
 
 	/**
-	 * Get the current suggestion mode for ghost cells.
-	 * @returns 'push' for automatic suggestions, 'pull' for on-demand
+	 * Get whether automatic mode is enabled for ghost cells.
+	 * @returns true for automatic suggestions, false for on-demand
 	 */
-	getSuggestionMode(): 'push' | 'pull';
+	isAutomaticMode(): boolean;
 
 	/**
-	 * Toggle the suggestion mode between 'push' and 'pull'.
+	 * Toggle between automatic and on-demand mode.
 	 * Updates the global setting and handles state transitions if needed.
 	 */
-	toggleSuggestionMode(): void;
+	toggleAutomaticMode(): void;
 }

@@ -27,7 +27,7 @@ import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, Sel
 import { POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST, PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { GhostCellState, IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY, POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY, POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY, POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
 import { getAssistantSettings, setAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -2250,9 +2250,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return true;
 		}
 
-		// Check if user has opted in
-		const hasOptedIn = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY) ?? false;
-		if (!hasOptedIn) {
+		// Check if user has explicitly set the enabled setting using inspect()
+		// If userValue is undefined, user hasn't made a choice yet
+		const inspected = this.configurationService.inspect<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY);
+		if (inspected?.userValue === undefined) {
 			return false;
 		}
 
@@ -2262,7 +2263,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Check if we should show the opt-in prompt for this notebook.
-	 * Returns true if: user hasn't opted in, no per-notebook override, and not dismissed this open.
+	 * Returns true if: user hasn't explicitly set enabled, no per-notebook override, and not dismissed this open.
 	 */
 	private _shouldShowOptInPrompt(): boolean {
 		// Check per-notebook override first - if set, no prompt needed
@@ -2276,9 +2277,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return false;
 		}
 
-		// Check if user has already opted in
-		const hasOptedIn = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY) ?? false;
-		if (hasOptedIn) {
+		// Check if user has explicitly set the enabled setting using inspect()
+		// If userValue is defined, user has made a choice
+		const inspected = this.configurationService.inspect<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY);
+		if (inspected?.userValue !== undefined) {
 			return false;
 		}
 
@@ -2291,53 +2293,58 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Get the suggestion mode for ghost cells.
+	 * Get whether automatic mode is enabled for ghost cells.
 	 * Checks per-notebook override first, then global setting.
-	 * @returns 'push' for automatic suggestions, 'pull' for on-demand
+	 * @returns true for automatic suggestions, false for on-demand
 	 */
-	private _getSuggestionMode(): 'push' | 'pull' {
+	private _isAutomaticMode(): boolean {
 		const settings = getAssistantSettings(this._textModel.get()?.metadata);
-		if (settings.suggestionMode !== undefined) {
-			return settings.suggestionMode;
+		if (settings.automatic !== undefined) {
+			return settings.automatic;
 		}
-		return this.configurationService.getValue<string>(POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY) as 'push' | 'pull' ?? 'push';
+		return this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY) ?? true;
 	}
 
 	/**
-	 * Public getter for the suggestion mode.
-	 * @returns 'push' for automatic suggestions, 'pull' for on-demand
+	 * Public getter for automatic mode.
+	 * @returns true for automatic suggestions, false for on-demand
 	 */
-	getSuggestionMode(): 'push' | 'pull' {
-		return this._getSuggestionMode();
+	isAutomaticMode(): boolean {
+		return this._isAutomaticMode();
 	}
 
 	/**
-	 * Toggle the suggestion mode between 'push' and 'pull'.
+	 * Toggle between automatic and on-demand mode.
 	 * Updates the global setting and handles state transitions if needed.
 	 */
-	toggleSuggestionMode(): void {
-		const currentMode = this._getSuggestionMode();
-		const newMode = currentMode === 'push' ? 'pull' : 'push';
+	toggleAutomaticMode(): void {
+		const currentAutomatic = this._isAutomaticMode();
+		const newAutomatic = !currentAutomatic;
 
 		// Update the global setting (async, but we don't need to wait)
-		this.configurationService.updateValue(POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY, newMode, ConfigurationTarget.USER);
+		// Use undefined to remove when setting matches default (true)
+		this.configurationService.updateValue(
+			POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY,
+			newAutomatic ? undefined : false,
+			ConfigurationTarget.USER
+		);
 
 		// Handle state transition if ghost cell is currently visible with mode toggle
 		const currentState = this._ghostCellState.get();
 		if (currentState.status === 'awaiting-request') {
-			if (newMode === 'push') {
-				// Switching to push mode while awaiting request - trigger the suggestion
+			if (newAutomatic) {
+				// Switching to automatic mode while awaiting request - trigger the suggestion
 				this.triggerGhostCellSuggestion(currentState.executedCellIndex);
 			} else {
 				// Update state with new mode for immediate UI feedback
-				this._ghostCellState.set({ ...currentState, suggestionMode: newMode }, undefined);
+				this._ghostCellState.set({ ...currentState, automatic: newAutomatic }, undefined);
 			}
 		} else if (currentState.status === 'loading') {
-			this._ghostCellState.set({ ...currentState, suggestionMode: newMode }, undefined);
+			this._ghostCellState.set({ ...currentState, automatic: newAutomatic }, undefined);
 		} else if (currentState.status === 'streaming') {
-			this._ghostCellState.set({ ...currentState, suggestionMode: newMode }, undefined);
+			this._ghostCellState.set({ ...currentState, automatic: newAutomatic }, undefined);
 		} else if (currentState.status === 'ready') {
-			this._ghostCellState.set({ ...currentState, suggestionMode: newMode }, undefined);
+			this._ghostCellState.set({ ...currentState, automatic: newAutomatic }, undefined);
 		}
 		// For 'hidden', 'opt-in-prompt', and 'error' states, no state update needed
 	}
@@ -2382,13 +2389,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._ghostCellDebounceTimer = setTimeout(() => {
 			this._ghostCellDebounceTimer = undefined;
 
-			// Check suggestion mode: push = automatic, pull = on-demand
-			const mode = this._getSuggestionMode();
-			if (mode === 'pull') {
-				// For pull mode, show awaiting-request state instead of triggering immediately
-				this._ghostCellState.set({ status: 'awaiting-request', executedCellIndex: cellIndex, suggestionMode: mode }, undefined);
+			// Check if automatic mode is enabled
+			const automatic = this._isAutomaticMode();
+			if (!automatic) {
+				// For on-demand mode, show awaiting-request state instead of triggering immediately
+				this._ghostCellState.set({ status: 'awaiting-request', executedCellIndex: cellIndex, automatic }, undefined);
 			} else {
-				// For push mode, trigger suggestion immediately
+				// For automatic mode, trigger suggestion immediately
 				this.triggerGhostCellSuggestion(cellIndex);
 			}
 		}, delay);
@@ -2412,11 +2419,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		// Get current suggestion mode for state
-		const suggestionMode = this._getSuggestionMode();
+		// Get current automatic mode for state
+		const automatic = this._isAutomaticMode();
 
 		// Set loading state
-		this._ghostCellState.set({ status: 'loading', executedCellIndex, suggestionMode }, undefined);
+		this._ghostCellState.set({ status: 'loading', executedCellIndex, automatic }, undefined);
 
 		// Create new cancellation token
 		this._ghostCellCancellationToken = new CancellationTokenSource();
@@ -2436,7 +2443,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					executedCellIndex,
 					code: partial.code || '',
 					explanation: partial.explanation || '',
-					suggestionMode
+					automatic
 				}, undefined);
 			}
 		);
@@ -2464,7 +2471,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					code: suggestion.code,
 					explanation: suggestion.explanation,
 					language: suggestion.language,
-					suggestionMode,
+					automatic,
 					modelName: suggestion.modelName,
 					usedFallback: suggestion.usedFallback
 				}, undefined);
@@ -2594,15 +2601,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Updates the user setting to disable suggestions and dismisses the current ghost cell.
 	 */
 	disableGhostCellSuggestions(): void {
-		// Mark as opted in (user made a choice) and disable suggestions
-		this.configurationService.updateValue(
-			POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY,
-			true,
-			ConfigurationTarget.USER
-		);
+		// Setting enabled to false marks the user's explicit choice
+		// Use undefined to remove when setting matches default (false)
 		this.configurationService.updateValue(
 			POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
-			false,
+			undefined,
 			ConfigurationTarget.USER
 		);
 
@@ -2612,7 +2615,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Enable ghost cell suggestions globally (opt-in).
-	 * Sets both hasOptedIn and ghostCellSuggestions to true, then triggers a suggestion.
+	 * Sets enabled to true, then triggers a suggestion.
 	 */
 	enableGhostCellSuggestions(): void {
 		// Set session flag immediately for instant effect
@@ -2624,11 +2627,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			: this.cells.get().length - 1;
 
 		// Persist to config (fire and forget - matches disableGhostCellSuggestions pattern)
-		this.configurationService.updateValue(
-			POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY,
-			true,
-			ConfigurationTarget.USER
-		);
+		// Setting enabled to true marks the user's explicit choice
 		this.configurationService.updateValue(
 			POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
 			true,

@@ -50,12 +50,6 @@
 	min-width: 0; /* Allow shrinking */
 }
 
-.ghost-cell-icon {
-	font-size: 14px;
-	color: var(--vscode-symbolIcon-variableForeground);
-	flex-shrink: 0;
-}
-
 .ghost-cell-info-button {
 	background: transparent;
 	border: none;
@@ -76,13 +70,41 @@
 }
 
 .ghost-cell-explanation {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	min-width: 0;
+	flex: 1;
+}
+
+.ghost-cell-explanation-text {
 	color: var(--vscode-foreground);
-	cursor: default;
 	font-size: 12px;
 	opacity: 0.8;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.ghost-cell-explanation.expanded .ghost-cell-explanation-text {
+	white-space: normal;
+	overflow: visible;
+}
+
+.ghost-cell-expand-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	padding: 0;
+	font-size: 11px;
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.ghost-cell-expand-button:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
 }
 
 .ghost-cell-actions {
@@ -171,15 +193,20 @@
 	opacity: 0.85;
 }
 
-/* Footer with model indicator */
+/* Footer with info button and model indicator */
 .ghost-cell-footer {
 	display: flex;
 	align-items: center;
-	justify-content: flex-end;
-	gap: 4px;
+	justify-content: space-between;
 	padding: 4px 12px 6px;
 	border-top: 1px solid var(--vscode-widget-border);
 	background: var(--vscode-notifications-background);
+}
+
+.ghost-cell-model-info {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .ghost-cell-model-indicator {
@@ -244,7 +271,6 @@
 	display: flex;
 	font-size: 11px;
 	align-items: center;
-	margin-left: auto;
 	flex-shrink: 0;
 }
 
@@ -325,30 +351,21 @@
 	background: var(--vscode-button-hoverBackground);
 }
 
-/* Awaiting-request state (pull mode) */
+/* Awaiting-request state (pull mode) - single row layout */
 .ghost-cell-awaiting-request {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-	padding: 12px 16px;
-}
-
-.ghost-cell-awaiting-request-content {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	padding: 8px 12px;
 }
 
-.ghost-cell-awaiting-request-text {
+.ghost-cell-awaiting-text {
 	color: var(--vscode-foreground);
 	font-size: 12px;
-	opacity: 0.8;
 }
 
-.ghost-cell-awaiting-request-actions {
-	display: flex;
-	gap: 8px;
-	flex-wrap: wrap;
+.ghost-cell-spacer {
+	flex: 1;
 }
 
 .ghost-cell-get-suggestion {
