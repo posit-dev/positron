@@ -1010,7 +1010,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param content Optional content to set for the cell. Defaults to an empty string if not provided.
 	 * @throws Error if no language is set for the notebook
 	 */
-	addCell(type: CellKind, index: number, enterEditMode: boolean, content: string = ''): void {
+	addCell(type: CellKind, index: number, enterEditMode: boolean, content: string = '', language?: string): void {
 		this._assertTextModel();
 
 		if (!this.language) {
@@ -1021,6 +1021,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// Set operation type to enable automatic edit mode entry for normal inserts
 			this.setCurrentOperation(NotebookOperationType.InsertAndEdit);
 		}
+
+		const cellLanguage = language ?? (type === CellKind.Code ? this.language : 'markdown');
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -1038,7 +1040,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				cells: [
 					{
 						cellKind: type,
-						language: type === CellKind.Code ? this.language : 'markdown',
+						language: cellLanguage,
 						mime: undefined,
 						outputs: [],
 						metadata: undefined,

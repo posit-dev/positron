@@ -13,7 +13,7 @@ import { Range } from '../../../../../editor/common/core/range.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellDecorationManager } from './CellDecorationManager.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
+import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, IPositronNotebookRawCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
@@ -173,7 +173,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	isCodeCell(): this is IPositronNotebookCodeCell {
-		return this.kind === CellKind.Code;
+		return this.kind === CellKind.Code && this.model.language !== 'raw';
+	}
+
+	isRawCell(): this is IPositronNotebookRawCell {
+		return this.kind === CellKind.Code && this.model.language === 'raw';
 	}
 
 	isLastCell(): boolean {

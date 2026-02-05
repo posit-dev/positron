@@ -240,8 +240,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param index The position at which to insert the new cell
 	 * @param enterEditMode Whether to put the new cell into edit mode immediately
 	 * @param content Optional content to set for the cell. Defaults to an empty string if not provided.
+	 * @param language Optional language override. Defaults to notebook language for code cells, 'markdown' for markup cells.
 	 */
-	addCell(type: CellKind, index: number, enterEditMode: boolean, content?: string): void;
+	addCell(type: CellKind, index: number, enterEditMode: boolean, content?: string, language?: string): void;
 
 	/**
 	 * Inserts a new code cell either above or below the current selection

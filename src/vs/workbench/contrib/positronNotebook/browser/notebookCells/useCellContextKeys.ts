@@ -9,7 +9,7 @@ import React from 'react';
 // Other dependencies.
 import { autorun } from '../../../../../base/common/observable.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { CellKind, CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { bindCellContextKeys, resetCellContextKeys } from '../ContextKeysManager.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
@@ -68,10 +68,9 @@ export function useCellContextKeys(
 			const isActiveCell = cell.isActive.read(reader);
 			const cells = notebookInstance.cells.read(reader);
 
-			const cellType = cell.kind;
-			keys.isCode.set(cellType === CellKind.Code);
-			keys.isMarkdown.set(cellType === CellKind.Markup);
-			keys.isRaw.set(cellType === CellKind.Code && cell.model.language === 'raw');
+			keys.isCode.set(cell.isCodeCell());
+			keys.isMarkdown.set(cell.isMarkdownCell());
+			keys.isRaw.set(cell.isRawCell());
 			keys.isRunning.set(executionStatus === 'running');
 			keys.isPending.set(executionStatus === 'pending');
 			keys.isFirst.set(cell.index === 0);

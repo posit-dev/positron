@@ -131,9 +131,17 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	isMarkdownCell(): this is IPositronNotebookMarkdownCell;
 
 	/**
-	 * Type guard for checking if cell is a code cell
+	 * Type guard for checking if cell is a code cell.
+	 * Note: Returns false for raw cells. Use isRawCell() to check for raw cells.
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
+
+	/**
+	 * Type guard for checking if cell is a raw cell.
+	 * Raw cells are stored as code cells with language='raw' in the underlying VS Code model,
+	 * but we expose them as a distinct type in our API.
+	 */
+	isRawCell(): this is IPositronNotebookRawCell;
 
 	/**
 	 * Check if this cell is the last cell in the notebook
@@ -261,6 +269,14 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	readonly lastRunEndTime: IObservable<number | undefined>;
 }
 
+
+/**
+ * Interface for raw cells. Raw cells are stored as code cells with language='raw'
+ * in the underlying VS Code model, but we expose them as a distinct type in our API.
+ */
+export interface IPositronNotebookRawCell extends IPositronNotebookCell {
+	readonly kind: CellKind.Code;
+}
 
 
 /**

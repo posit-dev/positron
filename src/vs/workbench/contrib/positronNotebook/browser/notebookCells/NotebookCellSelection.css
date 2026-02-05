@@ -85,6 +85,18 @@
 	border-bottom-color: var(--vscode-editorWidget-border);
 }
 
+/* === Raw Cells: Editor Only (no footer or outputs) === */
+
+.positron-notebook-raw-cell .positron-notebook-editor-section {
+	border-bottom: 1px solid var(--vscode-positronNotebook-border-color);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+}
+
+.positron-notebook-raw-cell .positron-notebook-editor-container {
+	overflow: hidden;
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+}
+
 /* === Markdown Cells: Editor (when shown) === */
 
 .positron-notebook-markdown-cell .positron-notebook-editor-container:not(.editor-hidden) {
