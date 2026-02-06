@@ -27,6 +27,8 @@ import { asJson, IRequestService } from '../../request/common/request.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 // --- Start Positron ---
 import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
+// eslint-disable-next-line no-duplicate-imports
+import { mkdirSync } from 'fs';
 // --- End Positron ---
 import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } from './abstractUpdateService.js';
 
@@ -58,7 +60,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 	@memoize
 	get cachePath(): Promise<string> {
-		const result = path.join(tmpdir(), `vscode-${this.productService.quality}-${this.productService.target}-${process.arch}`);
+		// --- Start Positron ---
+		// Use Positron specific cache path
+		const result = path.join(tmpdir(), `positron-${this.productService.target}-${process.arch}`);
+		// --- End Positron ---
 		return mkdir(result, { recursive: true }).then(() => result);
 	}
 
@@ -101,9 +106,19 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			// If this fails, the update service can still check for updates,
 			// but background update downloads may not work correctly.
 			try {
+				// Verify directory exists before calling setPath to avoid race condition
+				// where the async mkdir in cachePath getter hasn't completed yet
+				if (!existsSync(cachePath)) {
+					this.logService.info(`update#initialize - cachePath '${cachePath}' does not exist, creating synchronously`);
+					mkdirSync(cachePath, { recursive: true });
+				}
 				app.setPath('appUpdate', cachePath);
 			} catch (e) {
-				this.logService.error(`update#initialize - failed to set appUpdate path to '${cachePath}':`, e);
+				const dirExists = existsSync(cachePath);
+				this.logService.error(
+					`update#initialize - failed to set appUpdate path to '${cachePath}' ` +
+					`(exists: ${dirExists}, tmpdir: ${tmpdir()}):`, e
+				);
 			}
 			// --- End Positron ---
 			try {
