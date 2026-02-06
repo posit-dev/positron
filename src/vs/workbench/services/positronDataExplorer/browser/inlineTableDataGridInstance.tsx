@@ -22,7 +22,7 @@ import { CustomContextMenuItem } from '../../../browser/positronComponents/custo
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
-import { buildTableSelectionFromClipboardData } from '../common/utils.js';
+import { buildTableSelectionFromClipboardData } from './utils.js';
 
 /**
  * Constants.

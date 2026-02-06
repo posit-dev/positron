@@ -26,7 +26,7 @@ import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/
 import { BackendState, ColumnSchema, ExportFormat, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardData, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
-import { buildTableSelectionFromClipboardData } from '../common/utils.js';
+import { buildTableSelectionFromClipboardData } from './utils.js';
 
 /**
  * Constants.
