@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { Emitter } from '../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { raceTimeout } from '../../../../base/common/async.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -302,26 +303,16 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			return existingInstance;
 		}
 
-		// If not, wait for the instance to be registered
-		return new Promise<IPositronDataExplorerInstance | undefined>((resolve) => {
-			const disposables: { dispose(): void }[] = [];
-
-			// Set up timeout
-			const timeout = setTimeout(() => {
-				disposables.forEach(d => d.dispose());
-				resolve(undefined);
-			}, timeoutMs);
-			disposables.push({ dispose: () => clearTimeout(timeout) });
-
-			// Listen for new instance registrations
-			const registration = this._onDidRegisterInstanceEmitter.event((instance) => {
-				if (instance.dataExplorerClientInstance.identifier === identifier) {
-					disposables.forEach(d => d.dispose());
-					resolve(instance);
-				}
-			});
-			disposables.push(registration);
-		});
+		// Wait for the instance to be registered, with timeout
+		return raceTimeout(
+			Event.toPromise(
+				Event.filter(
+					this._onDidRegisterInstanceEmitter.event,
+					instance => instance.dataExplorerClientInstance.identifier === identifier
+				)
+			),
+			timeoutMs
+		);
 	}
 
 	/**
