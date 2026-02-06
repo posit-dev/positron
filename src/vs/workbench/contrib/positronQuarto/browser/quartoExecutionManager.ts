@@ -215,10 +215,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		// For each range, find the Quarto cell that it corresponds to.
 		for (const range of cellRanges) {
+			const midpointLine = Math.ceil((range.startLineNumber + range.endLineNumber) / 2);
 			for (const quartoCell of quartoCells) {
 				// Consider: does not currently support partial execution (we
 				// just use guess from the range)
-				const midpointLine = (range.startLineNumber + range.endLineNumber) / 2;
 				if (midpointLine >= quartoCell.codeStartLine &&
 					midpointLine <= quartoCell.codeEndLine
 				) {
@@ -603,7 +603,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						},
 					},
 				},
-				true,  // focus
+				false, // focus
 				false, // allowIncomplete
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Continue,
