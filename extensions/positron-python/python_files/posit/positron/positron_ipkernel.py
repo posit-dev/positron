@@ -229,9 +229,12 @@ original_showwarning = warnings.showwarning
 
 
 class PositronDisplayFormatter(DisplayFormatter):
-    # Reference to the kernel for accessing data explorer service
-    # This will be set after kernel initialization
-    _kernel: "PositronIPyKernel | None" = None
+    parent: PositronShell
+
+    @property
+    def _kernel(self):
+        """Access kernel through parent shell."""
+        return self.parent.kernel if self.parent else None
 
     @traitlets.default("ipython_display_formatter")
     def _default_formatter(self):
@@ -403,8 +406,6 @@ class PositronShell(ZMQInteractiveShell):
     def init_display_formatter(self):
         self.display_formatter = PositronDisplayFormatter(parent=self)
         self.configurables.append(self.display_formatter)  # type: ignore IPython type annotation is wrong
-        # Set kernel reference for inline data explorer support
-        self.display_formatter._kernel = self.kernel
 
     def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
