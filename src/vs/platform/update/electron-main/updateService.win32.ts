@@ -96,7 +96,16 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	protected override async initialize(): Promise<void> {
 		if (this.environmentMainService.isBuilt) {
 			const cachePath = await this.cachePath;
-			app.setPath('appUpdate', cachePath);
+			// --- Start Positron ---
+			// Wrap setPath in try-catch to prevent initialization failure.
+			// If this fails, the update service can still check for updates,
+			// but background update downloads may not work correctly.
+			try {
+				app.setPath('appUpdate', cachePath);
+			} catch (e) {
+				this.logService.error(`update#initialize - failed to set appUpdate path to '${cachePath}':`, e);
+			}
+			// --- End Positron ---
 			try {
 				await unlink(path.join(cachePath, 'session-ending.flag'));
 			} catch { }
