@@ -74,7 +74,7 @@ function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
  * Renders a simplified data explorer inline in notebook cell outputs.
  */
 export function InlineDataExplorer(props: InlineDataExplorerProps) {
-	const { commId, shape, title } = props;
+	const { commId, shape, title, onFallback } = props;
 	const services = PositronReactServices.services;
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -116,7 +116,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				// When a fallback is available, use a short timeout since comms
 				// register within milliseconds during normal execution. On reload,
 				// the comm won't exist so we fall back quickly instead of waiting.
-				const timeout = props.onFallback ? 500 : 10000;
+				const timeout = onFallback ? 500 : 10000;
 				const instance = await dataExplorerService.getInstanceAsync(commId, timeout);
 
 				if (cancelled || !disposables || disposables.isDisposed) {
@@ -124,8 +124,8 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				}
 
 				if (!instance) {
-					if (props.onFallback) {
-						props.onFallback();
+					if (onFallback) {
+						onFallback();
 						return;
 					}
 					setState({
@@ -178,7 +178,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [commId, dataExplorerService]);
+	}, [commId, dataExplorerService, onFallback]);
 
 	const handleOpenInExplorer = async () => {
 		// Try to get the instance synchronously first
