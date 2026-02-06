@@ -7,12 +7,11 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React, { useState } from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { NotebookCellOutputs, ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
-import { isParsedTextOutput, parseOutputData } from '../getOutputContents.js';
+import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
@@ -24,18 +23,21 @@ import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
-import { InlineDataExplorer } from './InlineDataExplorer.js';
-import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
-import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
+import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 
 
 interface CellOutputsSectionProps {
 	outputs: NotebookCellOutputs[];
 }
 
-function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
+const CellOutputsSection = React.memo(function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
+	const isSingleDataExplorer = outputs?.length === 1 &&
+		outputs[0].parsed.type === 'dataExplorer';
+
+	const className = `positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? '' : 'no-outputs'} ${isSingleDataExplorer ? 'single-data-explorer' : ''}`;
+
 	return (
-		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? '' : 'no-outputs'}`} data-testid='cell-output'>
+		<div className={className} data-testid='cell-output'>
 			<div className='positron-notebook-code-cell-outputs-inner'>
 				{outputs?.map((output) => (
 					<CellOutput key={output.outputId} {...output} />
@@ -43,9 +45,12 @@ function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
 			</div>
 		</div>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Simple reference equality - outputs array is stable when nothing changes
+	return prevProps.outputs === nextProps.outputs;
+});
 
-export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
+export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
 	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
@@ -66,9 +71,12 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 
 		</NotebookCellWrapper>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Cell objects are stable references - only rerender if cell reference changes
+	return prevProps.cell === nextProps.cell;
+});
 
-function CellOutput(output: NotebookCellOutputs) {
+const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
 	if (output.preloadMessageResult) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
@@ -97,37 +105,9 @@ function CellOutput(output: NotebookCellOutputs) {
 				{parsed.content}
 			</div>;
 	}
-}
+}, (prevProps, nextProps) => {
+	// Reference equality on parsed is correct - new execution creates new parsed objects
+	return prevProps.outputId === nextProps.outputId &&
+		prevProps.parsed === nextProps.parsed;
+});
 
-/**
- * Wrapper component for data explorer outputs that handles fallback to HTML
- * when the data explorer comm is unavailable (e.g. after notebook reload).
- */
-function DataExplorerCellOutput({ parsed, outputs }: {
-	parsed: ParsedDataExplorerOutput;
-	outputs: IOutputItemDto[];
-}) {
-	const services = PositronReactServices.services;
-	const enabled = services.configurationService.getValue<boolean>(
-		POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY
-	) ?? true;
-
-	const [useFallback, setUseFallback] = useState(false);
-
-	if (!enabled || useFallback) {
-		const htmlOutput = outputs.find(o => o.mime === 'text/html');
-		if (htmlOutput) {
-			const htmlParsed = parseOutputData(htmlOutput);
-			if (htmlParsed.type === 'html') {
-				return renderHtml(htmlParsed.content);
-			}
-		}
-		if (!enabled) {
-			return <div className='data-explorer-disabled'>
-				{localize('dataExplorerDisabled', 'Inline data explorer is disabled. Enable it in settings to view data grids.')}
-			</div>;
-		}
-	}
-
-	return <InlineDataExplorer {...parsed} onFallback={() => setUseFallback(true)} />;
-}

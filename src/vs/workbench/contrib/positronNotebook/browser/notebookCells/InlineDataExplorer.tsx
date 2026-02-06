@@ -20,6 +20,20 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 
+// Height calculation constants (from inlineTableDataGridInstance.tsx constructor options)
+const HEADER_HEIGHT = 28;  // columnHeadersHeight
+const ROW_HEIGHT = 22;     // defaultRowHeight
+const TOOLBAR_HEIGHT = 32; // Component header with row/col counts
+const PADDING = 8;
+
+const calculateHeight = (rowCount: number, maxHeight: number): number => {
+	// Calculate natural height based on content
+	const naturalHeight = TOOLBAR_HEIGHT + HEADER_HEIGHT + (rowCount * ROW_HEIGHT) + PADDING;
+
+	// Apply max constraint (no min to allow very small tables)
+	return Math.min(naturalHeight, maxHeight);
+};
+
 /**
  * InlineDataExplorerProps interface.
  */
@@ -215,9 +229,12 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		}
 	};
 
+	// Calculate dynamic height based on row count
+	const dynamicHeight = calculateHeight(shape.rows, maxHeight);
+
 	// Render based on state
 	return (
-		<div ref={containerRef} className='inline-data-explorer-container' style={{ height: `${maxHeight}px` }}>
+		<div ref={containerRef} className='inline-data-explorer-container' style={{ height: `${dynamicHeight}px` }}>
 			<InlineDataExplorerHeader
 				shape={shape}
 				title={title}

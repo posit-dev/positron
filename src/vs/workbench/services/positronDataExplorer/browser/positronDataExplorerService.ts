@@ -283,9 +283,16 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	readonly onDidRegisterInstance = this._onDidRegisterInstanceEmitter.event;
 
 	/**
-	 * Gets an instance by identifier, waiting for it to be registered if needed.
-	 * @param identifier The instance identifier.
-	 * @param timeoutMs Maximum time to wait in milliseconds (default: 5000).
+	 * Gets a data explorer instance by identifier, waiting for it to be registered if needed.
+	 * This is necessary for inline data explorers where the React component mounts before
+	 * the Python kernel has registered the instance via comm messages.
+	 *
+	 * Note: The InlineDataExplorer component uses a smart timeout strategy:
+	 * - 500ms when fallback HTML is available (fast fail to fallback)
+	 * - 10000ms when no fallback is available (wait longer for comm)
+	 *
+	 * @param identifier The instance identifier (comm ID).
+	 * @param timeoutMs Maximum time to wait for registration (default 5000ms).
 	 * @returns A promise that resolves to the instance, or undefined if not found within timeout.
 	 */
 	async getInstanceAsync(identifier: string, timeoutMs: number = 5000): Promise<IPositronDataExplorerInstance | undefined> {
