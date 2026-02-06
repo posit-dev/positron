@@ -130,8 +130,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		'positron-proxy',
 		'positron-duckdb',
 		'positron-catalog-explorer',
-		'positron-pdf-server',
-		'pdf-viewer'
+		'positron-pdf-server'
 	];
 
 	// If the extension has npm dependencies, use the Npm package manager
