@@ -57,7 +57,6 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -474,7 +473,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IHoverService private readonly _hoverService: IHoverService,
-		@INotificationService _notificationService: INotificationService,
 	) {
 		super();
 
@@ -586,7 +584,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(this.onDidChangeContent(() => {
 			this._syncCells();
 		}));
-
 
 		this._register(autorunDelta(this.cells, ({ lastValue: oldCells, newValue: newCells }) => {
 			if (!oldCells) {

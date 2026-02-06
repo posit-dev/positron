@@ -452,5 +452,4 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Grabs focus for this notebook based on the current selection state.
 	 */
 	grabFocus(): void;
-
 }
