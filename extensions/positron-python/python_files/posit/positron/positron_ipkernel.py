@@ -46,7 +46,7 @@ from .plots import PlotsService
 from .session_mode import SessionMode
 from .third_party import is_pandas, is_polars
 from .ui import UiService
-from .utils import BackgroundJobQueue, JsonRecord, get_qualname, guid, with_logging
+from .utils import BackgroundJobQueue, JsonRecord, get_qualname, with_logging
 from .variables import VariablesService
 
 if TYPE_CHECKING:
@@ -321,18 +321,6 @@ def _get_table_shape(obj) -> tuple[int, int]:
             return (shape[0], 1)
         return (shape[0], shape[1])
     return (0, 0)
-
-
-def _get_html_fallback(obj) -> str:
-    """Get HTML representation of a table object for fallback display."""
-    if hasattr(obj, "_repr_html_"):
-        try:
-            html = obj._repr_html_()
-            if html is not None:
-                return html
-        except Exception:
-            pass
-    return f"<pre>{repr(obj)}</pre>"
 
 
 class PositronShell(ZMQInteractiveShell):

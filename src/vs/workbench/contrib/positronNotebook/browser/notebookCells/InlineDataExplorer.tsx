@@ -199,7 +199,6 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		}
 	};
 
-
 	// Check if grid instance has become stale (no data but still "connected")
 	const isGridStale = state.status === 'connected' &&
 		(state.gridInstance.columns === 0 || state.gridInstance.rows === 0);

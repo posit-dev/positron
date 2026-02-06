@@ -181,6 +181,7 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 */
 	showEditor(): Promise<ICodeEditor | undefined>;
 
+
 	/**
 	 * Select this cell
 	 * @param type Selection type.

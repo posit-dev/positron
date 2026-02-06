@@ -36,6 +36,7 @@ function getMimeTypePriority(mime: string): number | null {
 	}
 }
 
+
 /**
  * Pick the output item with the highest priority mime type from a cell output object
  * @param outputItems Array of outputs items data from a cell output object
