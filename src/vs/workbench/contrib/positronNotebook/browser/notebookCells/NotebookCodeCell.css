@@ -18,6 +18,21 @@
 			/* Dont show empty outputs at all */
 			display: none;
 		}
+
+		&.single-data-explorer .positron-notebook-code-cell-outputs-inner {
+			padding: 8px 0 0 0;
+			margin-inline: 0;
+			overflow: hidden; /* Data explorer handles its own scrolling */
+		}
+
+		&.single-data-explorer .inline-data-explorer-container {
+			margin: 0 -1px -1px -1px; /* Overlap parent borders on sides/bottom */
+			border: 1px solid var(--vscode-panel-border);
+			border-top-left-radius: var(--vscode-positronNotebook-cell-radius);
+			border-top-right-radius: var(--vscode-positronNotebook-cell-radius);
+			border-bottom-left-radius: 0;
+			border-bottom-right-radius: 0;
+		}
 	}
 
 	.positron-notebook-cell-outputs {
@@ -25,8 +40,8 @@
 	}
 
 	.positron-notebook-code-cell-outputs-inner {
-		padding-inline: 1rem;
-		padding-block: var(--_output-container-offset);
+		padding-inline: 0.5rem;
+		padding-block: 0.5rem;
 
 		/* Avoid overlap with border which is overlaid from another element so
 		the layout doesn't automatically avoid it*/
