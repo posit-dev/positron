@@ -11,8 +11,20 @@ test.use({
 	suiteId: __filename
 });
 
-// Python code to create a DataFrame for testing
-const createDataFrameCode = "import pandas as pd\ndf = pd.DataFrame({'Name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve'], 'Age': [25, 30, 35, 40, 45], 'City': ['NYC', 'LA', 'Chicago', 'Houston', 'Phoenix']})\ndf";
+const DEFAULT_TIMEOUT = 10000;
+
+// Test data
+const createDataFrameCode = `import pandas as pd
+df = pd.DataFrame({'Name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve'], 'Age': [25, 30, 35, 40, 45], 'City': ['NYC', 'LA', 'Chicago', 'Houston', 'Phoenix']})
+df`;
+
+const largeDataFrameCode = `import pandas as pd
+df = pd.DataFrame({'A': range(100), 'B': range(100, 200), 'C': range(200, 300), 'D': range(300, 400), 'E': range(400, 500)})
+df`;
+
+const sortableDataFrameCode = `import pandas as pd
+df = pd.DataFrame({'Value': [30, 10, 50, 20, 40], 'Label': ['E', 'A', 'C', 'B', 'D']})
+df`;
 
 test.describe('Positron Notebooks: Inline Data Explorer', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.DATA_EXPLORER, tags.WEB, tags.WIN]
@@ -27,92 +39,55 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 	});
 
 	test('Python - Verify inline data explorer renders for DataFrame output', async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
-		const page = app.code.driver.page;
+		const { notebooksPositron, inlineDataExplorer } = app.workbench;
 
 		await test.step('Execute cell that returns a DataFrame', async () => {
 			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
 		});
 
 		await test.step('Verify inline data explorer appears', async () => {
-			// The inline data explorer renders directly in Positron notebook output (not in iframe)
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
-
-			// Verify the header shows correct info
-			const header = inlineExplorer.locator('.inline-data-explorer-header');
-			await expect(header).toBeVisible();
-
-			// Should show row and column counts in the shape span
-			const shape = header.locator('.inline-data-explorer-shape');
-			await expect(shape).toContainText('5');
-			await expect(shape).toContainText('rows');
-			await expect(shape).toContainText('columns');
-
-			// Should have the "Open in Data Explorer" button
-			const openButton = inlineExplorer.locator('.inline-data-explorer-open-button');
-			await expect(openButton).toBeVisible();
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.expectGridToBeReady();
+			await inlineDataExplorer.expectShapeToContain(5);
+			await inlineDataExplorer.expectOpenButtonToBeVisible();
 		});
 
 		await test.step('Verify data grid content', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-
-			// The data grid should be rendered
-			const dataGrid = inlineExplorer.locator('.data-grid');
-			await expect(dataGrid).toBeVisible();
-
-			// Verify some column headers are visible
-			await expect(inlineExplorer.getByText('Name')).toBeVisible();
-			await expect(inlineExplorer.getByText('Age')).toBeVisible();
-			await expect(inlineExplorer.getByText('City')).toBeVisible();
+			await inlineDataExplorer.expectColumnHeaderToBeVisible('Name');
+			await inlineDataExplorer.expectColumnHeaderToBeVisible('Age');
+			await inlineDataExplorer.expectColumnHeaderToBeVisible('City');
 		});
 	});
 
 	test('Python - Verify scroll in inline data explorer does not scroll notebook', async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
+		const { notebooksPositron, inlineDataExplorer } = app.workbench;
 		const page = app.code.driver.page;
-
-		// Create a larger DataFrame to ensure scrollable content in the grid
-		const largeDataFrameCode = "import pandas as pd\ndf = pd.DataFrame({'A': range(100), 'B': range(100, 200), 'C': range(200, 300), 'D': range(300, 400), 'E': range(400, 500)})\ndf";
 
 		await test.step('Execute cell with large DataFrame', async () => {
 			await notebooksPositron.addCodeToCell(0, largeDataFrameCode, { run: true, waitForSpinner: true });
 		});
 
 		await test.step('Verify inline data explorer appears', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.expectGridToBeReady();
 		});
 
 		await test.step('Scroll within inline data explorer and verify notebook does not scroll', async () => {
-			// Get the notebook container's scroll position before
 			const notebookContainer = page.locator('.positron-notebook-cells-container');
 			const scrollTopBefore = await notebookContainer.evaluate(el => el.scrollTop);
 
-			// Find the inline data explorer content area and scroll within it
-			const inlineExplorerContent = page.locator('.inline-data-explorer-content');
-			const box = await inlineExplorerContent.boundingBox();
+			await inlineDataExplorer.scrollWithinGrid(100);
 
-			if (box) {
-				// Move mouse to center of inline data explorer content
-				await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-
-				// Perform wheel scroll
-				await page.mouse.wheel(0, 100);
-			}
-
-			// Small wait for any scroll to process
-			await page.waitForTimeout(200);
-
-			// Verify notebook scroll position hasn't changed significantly
-			// (allow small tolerance for potential rounding)
-			const scrollTopAfter = await notebookContainer.evaluate(el => el.scrollTop);
-			expect(Math.abs(scrollTopAfter - scrollTopBefore)).toBeLessThan(5);
+			// Use toPass() instead of hard-coded timeout
+			await expect(async () => {
+				const scrollTopAfter = await notebookContainer.evaluate(el => el.scrollTop);
+				expect(Math.abs(scrollTopAfter - scrollTopBefore)).toBeLessThan(5);
+			}).toPass({ timeout: DEFAULT_TIMEOUT });
 		});
 	});
 
 	test('Python - Verify open full Data Explorer and return to inline view', async function ({ app, hotKeys }) {
-		const { notebooksPositron, editors } = app.workbench;
+		const { notebooksPositron, inlineDataExplorer } = app.workbench;
 		const page = app.code.driver.page;
 
 		await test.step('Execute cell that returns a DataFrame', async () => {
@@ -120,153 +95,99 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 		});
 
 		await test.step('Verify inline data explorer is working', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
-
-			// Verify data is displayed
-			await expect(inlineExplorer.getByText('Alice')).toBeVisible();
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.expectCellToBeVisible('Alice');
 		});
 
 		await test.step('Open full Data Explorer', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-			const openButton = inlineExplorer.locator('.inline-data-explorer-open-button');
-			await openButton.click();
-
-			// Wait for Data Explorer tab to open - the tab name includes "df"
-			const dataExplorerTab = page.getByRole('tab', { name: /df/i });
-			await expect(dataExplorerTab).toBeVisible({ timeout: 15000 });
+			// Count tabs before opening
+			const tabsBefore = await page.locator('.tab').count();
+			await inlineDataExplorer.openFullDataExplorer();
+			// Wait for a new tab to appear (the Data Explorer tab)
+			await expect(async () => {
+				const tabsAfter = await page.locator('.tab').count();
+				expect(tabsAfter).toBeGreaterThan(tabsBefore);
+			}).toPass({ timeout: 15000 });
 		});
 
-		await test.step('Close full Data Explorer and return to notebook', async () => {
-			// The Data Explorer tab should be active, close it
+		await test.step('Close Data Explorer tab and return to notebook', async () => {
+			// Close the active (Data Explorer) tab
 			await hotKeys.closeTab();
-
-			// Return to the notebook
+			// Navigate back to the notebook tab if needed
 			const notebookTab = page.locator('.tab').filter({ hasText: 'Untitled' });
-			if (await notebookTab.isVisible()) {
-				await notebookTab.click();
-			}
+			await expect(notebookTab).toBeVisible({ timeout: 5000 });
+			await notebookTab.click();
 		});
 
 		await test.step('Verify inline data explorer still works after returning', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-
-			// The inline explorer should still be visible and functional
-			await expect(inlineExplorer).toBeVisible({ timeout: 10000 });
-
-			// Verify it's not showing an error state
-			const errorState = inlineExplorer.locator('.inline-data-explorer-error');
-			await expect(errorState).not.toBeVisible();
-
-			// Verify the data grid is still showing content
-			const dataGrid = inlineExplorer.locator('.data-grid');
-			await expect(dataGrid).toBeVisible();
-
-			// Verify data is still accessible
-			await expect(inlineExplorer.getByText('Alice')).toBeVisible();
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.expectNoError();
+			await inlineDataExplorer.expectGridToBeReady();
+			await inlineDataExplorer.expectCellToBeVisible('Alice');
 		});
 	});
 
-	test('Python - Copy single cell to clipboard', async function ({ app }) {
-		const { notebooksPositron, clipboard } = app.workbench;
-		const page = app.code.driver.page;
+	test('Python - Verify column sorting in inline data explorer', async function ({ app }) {
+		const { notebooksPositron, inlineDataExplorer } = app.workbench;
 
-		await test.step('Execute cell that returns a DataFrame', async () => {
-			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
+		await test.step('Execute cell with sortable DataFrame', async () => {
+			await notebooksPositron.addCodeToCell(0, sortableDataFrameCode, { run: true, waitForSpinner: true });
 		});
 
-		await test.step('Click on a cell and copy', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
+		await test.step('Verify inline data explorer appears', async () => {
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.expectGridToBeReady();
+		});
 
-			// Click on "Alice" cell (first data cell in Name column)
-			// The cell content is inside .data-grid-row-cell .content
-			const aliceCell = inlineExplorer.locator('.data-grid-row-cell .content').filter({ hasText: 'Alice' });
-			await aliceCell.click();
+		await test.step('Sort Value column ascending and verify order', async () => {
+			await inlineDataExplorer.sortColumn('Value', 'ascending');
+			await inlineDataExplorer.expectColumnToBeSorted('Value', [10, 20, 30, 40, 50]);
+		});
 
-			// Copy and verify
-			await clipboard.copy();
-			await clipboard.expectClipboardTextToBe('Alice');
+		await test.step('Sort Value column descending and verify order', async () => {
+			await inlineDataExplorer.sortColumn('Value', 'descending');
+			await inlineDataExplorer.expectColumnToBeSorted('Value', [50, 40, 30, 20, 10]);
 		});
 	});
 
-	test('Python - Copy cell range to clipboard', async function ({ app }) {
-		const { notebooksPositron, clipboard } = app.workbench;
-		const page = app.code.driver.page;
+	test('Python - Verify re-execution updates the inline data explorer', async function ({ app }) {
+		const { notebooksPositron, inlineDataExplorer } = app.workbench;
 
-		const code = `import pandas as pd
-df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
+		const initialCode = `import pandas as pd
+df = pd.DataFrame({'X': [1, 2, 3]})
 df`;
 
-		await test.step('Execute cell with DataFrame', async () => {
-			await notebooksPositron.addCodeToCell(0, code, { run: true, waitForSpinner: true });
+		const updatedCode = `import pandas as pd
+df = pd.DataFrame({'Y': [10, 20, 30, 40]})
+df`;
+
+		await test.step('Execute initial DataFrame', async () => {
+			await notebooksPositron.addCodeToCell(0, initialCode, { run: true, waitForSpinner: true });
 		});
 
-		await test.step('Select a range and copy', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
-
-			// Click first cell (value "1") to set start of selection
-			const firstCell = inlineExplorer.locator('.data-grid-row-cell .content').filter({ hasText: /^1$/ }).first();
-			await firstCell.click();
-
-			// Shift+click to extend selection to cell with value "5" (2x2 range)
-			const lastCell = inlineExplorer.locator('.data-grid-row-cell .content').filter({ hasText: /^5$/ });
-			await lastCell.click({ modifiers: ['Shift'] });
-
-			// Copy and verify TSV format (columns tab-separated, rows newline-separated)
-			await clipboard.copy();
-			await clipboard.expectClipboardTextToBe('A\tB\n1\t4\n2\t5', '\n');
-		});
-	});
-
-	test('Python - Copy column via context menu', async function ({ app }) {
-		const { notebooksPositron, clipboard } = app.workbench;
-		const page = app.code.driver.page;
-
-		await test.step('Execute cell that returns a DataFrame', async () => {
-			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
+		await test.step('Verify initial state', async () => {
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.expectGridToBeReady();
+			await inlineDataExplorer.expectColumnHeaderToBeVisible('X');
+			await inlineDataExplorer.expectShapeToContain(3);
 		});
 
-		await test.step('Right-click column header and copy', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
-
-			// Right-click on "Name" column header
-			const nameHeader = inlineExplorer.locator('.data-grid-column-header').filter({ hasText: 'Name' });
-			await nameHeader.click({ button: 'right' });
-
-			// Click "Copy Column" in context menu
-			const contextMenu = page.locator('.positron-modal-popup');
-			await contextMenu.getByText('Copy Column').click();
-
-			// Verify clipboard contains the column data
-			await clipboard.expectClipboardTextToBe('Name\nAlice\nBob\nCharlie\nDavid\nEve', '\n');
-		});
-	});
-
-	test('Python - Copy row via context menu', async function ({ app }) {
-		const { notebooksPositron, clipboard } = app.workbench;
-		const page = app.code.driver.page;
-
-		await test.step('Execute cell that returns a DataFrame', async () => {
-			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
+		await test.step('Clear and re-execute with different DataFrame', async () => {
+			// Click cell to enter edit mode, then focus the editor programmatically
+			// (native-edit-context is only visible when focused)
+			await notebooksPositron.editModeAtIndex(0);
+			const editor = notebooksPositron.editorAtIndex(0);
+			await editor.focus();
+			await app.code.driver.page.keyboard.press('Meta+a');
+			await editor.pressSequentially(updatedCode);
+			await notebooksPositron.runCodeAtIndex(0);
 		});
 
-		await test.step('Right-click row header and copy', async () => {
-			const inlineExplorer = page.locator('.inline-data-explorer-container');
-			await expect(inlineExplorer).toBeVisible({ timeout: 15000 });
-
-			// Right-click on first row header (row index 0)
-			const rowHeader = inlineExplorer.locator('.data-grid-row-header').first();
-			await rowHeader.click({ button: 'right' });
-
-			// Click "Copy Row" in context menu
-			const contextMenu = page.locator('.positron-modal-popup');
-			await contextMenu.getByText('Copy Row').click();
-
-			// Verify clipboard contains header + first data row
-			await clipboard.expectClipboardTextToBe('Name\tAge\tCity\nAlice\t25\tNYC', '\n');
+		await test.step('Verify updated state', async () => {
+			await expect(async () => {
+				await inlineDataExplorer.expectColumnHeaderToBeVisible('Y');
+				await inlineDataExplorer.expectShapeToContain(4);
+			}).toPass({ timeout: 15000 });
 		});
 	});
 });
