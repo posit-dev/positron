@@ -90,6 +90,20 @@
 		}
 	},
 	{
+		"c": "mystyle.css",
+		"t": "string.quoted.double.css",
+		"r": {
+			"dark_plus": "string: #CE9178",
+			"light_plus": "string: #A31515",
+			"dark_vs": "string: #CE9178",
+			"light_vs": "string: #A31515",
+			"hc_black": "string: #CE9178",
+			"dark_modern": "string: #CE9178",
+			"hc_light": "string: #0F4A85",
+			"light_modern": "string: #A31515"
+		}
+	},
+	{
 		"c": "\"",
 		"t": "string.quoted.double.css",
 		"r": {
@@ -147,6 +161,20 @@
 			"positron_dark": "string: #CE9178",
 			"positron_light": "string: #A31515",
 			"hc_light": "string: #0F4A85"
+		}
+	},
+	{
+		"c": "mystyle.css",
+		"t": "string.quoted.double.css",
+		"r": {
+			"dark_plus": "string: #CE9178",
+			"light_plus": "string: #A31515",
+			"dark_vs": "string: #CE9178",
+			"light_vs": "string: #A31515",
+			"hc_black": "string: #CE9178",
+			"dark_modern": "string: #CE9178",
+			"hc_light": "string: #0F4A85",
+			"light_modern": "string: #A31515"
 		}
 	},
 	{
@@ -217,6 +245,20 @@
 			"positron_dark": "string: #CE9178",
 			"positron_light": "string: #A31515",
 			"hc_light": "string: #0F4A85"
+		}
+	},
+	{
+		"c": "bluish.css",
+		"t": "string.quoted.double.css",
+		"r": {
+			"dark_plus": "string: #CE9178",
+			"light_plus": "string: #A31515",
+			"dark_vs": "string: #CE9178",
+			"light_vs": "string: #A31515",
+			"hc_black": "string: #CE9178",
+			"dark_modern": "string: #CE9178",
+			"hc_light": "string: #0F4A85",
+			"light_modern": "string: #A31515"
 		}
 	},
 	{
@@ -2417,6 +2459,20 @@
 			"positron_dark": "string: #CE9178",
 			"positron_light": "string: #A31515",
 			"hc_light": "string: #0F4A85"
+		}
+	},
+	{
+		"c": "<angle>",
+		"t": "string.quoted.single.css",
+		"r": {
+			"dark_plus": "string: #CE9178",
+			"light_plus": "string: #A31515",
+			"dark_vs": "string: #CE9178",
+			"light_vs": "string: #A31515",
+			"hc_black": "string: #CE9178",
+			"dark_modern": "string: #CE9178",
+			"hc_light": "string: #0F4A85",
+			"light_modern": "string: #A31515"
 		}
 	},
 	{
@@ -5220,6 +5276,20 @@
 		}
 	},
 	{
+		"c": "#B3AE94",
+		"t": "string.quoted.single.css",
+		"r": {
+			"dark_plus": "string: #CE9178",
+			"light_plus": "string: #A31515",
+			"dark_vs": "string: #CE9178",
+			"light_vs": "string: #A31515",
+			"hc_black": "string: #CE9178",
+			"dark_modern": "string: #CE9178",
+			"hc_light": "string: #0F4A85",
+			"light_modern": "string: #A31515"
+		}
+	},
+	{
 		"c": "'",
 		"t": "string.quoted.single.css",
 		"r": {
@@ -6007,6 +6077,20 @@
 			"positron_dark": "string: #CE9178",
 			"positron_light": "string: #A31515",
 			"hc_light": "string: #0F4A85"
+		}
+	},
+	{
+		"c": "codicon-",
+		"t": "meta.selector.css string.quoted.single.css",
+		"r": {
+			"dark_plus": "string: #CE9178",
+			"light_plus": "string: #A31515",
+			"dark_vs": "string: #CE9178",
+			"light_vs": "string: #A31515",
+			"hc_black": "string: #CE9178",
+			"dark_modern": "string: #CE9178",
+			"hc_light": "string: #0F4A85",
+			"light_modern": "string: #A31515"
 		}
 	},
 	{

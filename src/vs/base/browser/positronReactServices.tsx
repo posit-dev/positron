@@ -152,14 +152,4 @@ export class PositronReactServices {
 	get<T>(id: ServiceIdentifier<T>): T {
 		return this.instantiationService.invokeFunction(accessor => accessor.get(id));
 	}
-
-	/**
-	 * Get a service by its identifier, returning undefined if it doesn't exist.
-	 * Makes PositronReactServices compatible with ServicesAccessor interface.
-	 * @param id Service identifier
-	 * @returns The requested service
-	 */
-	getIfExists<T>(id: ServiceIdentifier<T>): T | undefined {
-		return this.instantiationService.invokeFunction(accessor => accessor.getIfExists(id));
-	}
 }

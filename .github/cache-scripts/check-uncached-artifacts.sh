@@ -27,7 +27,7 @@
 #
 # Option A - Add to cache (if tests need these files):
 #   • Core/build paths: Edit .github/cache-scripts/cache-paths.sh
-#   • Volatile extensions: Edit build/npm/dirs.js (volatileExtensions array)
+#   • Volatile extensions: Edit build/npm/dirs.ts (volatileExtensions array)
 #   • Stable extensions: Already cached automatically!
 #   • Verify: Run .github/cache-scripts/verify-cache-paths.sh
 #
@@ -168,7 +168,7 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
 	echo ""
 	echo "   For extension paths:"
 	echo "     → Volatile extensions (python/assistant/r):"
-	echo "       Edit build/npm/dirs.js → Add to volatileExtensions array"
+	echo "       Edit build/npm/dirs.ts → Add to volatileExtensions array"
 	echo "       Entire directory will be cached automatically"
 	echo ""
 	echo "     → Stable extensions:"

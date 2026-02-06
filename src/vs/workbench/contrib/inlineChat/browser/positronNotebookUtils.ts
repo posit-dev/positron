@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IChatWidgetLocationOptions } from '../../chat/browser/chatWidget.js';
+import { IChatWidgetLocationOptions } from '../../chat/browser/widget/chatWidget.js';
 import { ChatAgentLocation } from '../../chat/common/constants.js';
 import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 

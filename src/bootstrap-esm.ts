@@ -12,6 +12,7 @@ import { INLSConfiguration } from './vs/nls.js';
 
 // --- Start Positron ---
 // Create a synchronous require function for use in the global accessor
+// eslint-disable-next-line no-duplicate-imports
 import { createRequire } from 'node:module';
 // --- End Positron ---
 

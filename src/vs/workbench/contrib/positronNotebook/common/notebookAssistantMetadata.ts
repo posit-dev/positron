@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { NotebookDocumentMetadata } from '../../notebook/common/notebookCommon.js';
-import { hasKey } from '../../../../base/common/types.js';
 
 /**
  * Valid values for the showDiff per-notebook override.
@@ -72,7 +71,8 @@ export function setAssistantSettings(
 	// Merge updates into assistant settings
 	const newAssistant: Record<string, unknown> = { ...currentAssistant };
 
-	if (hasKey(updates, 'showDiff')) {
+	// eslint-disable-next-line local/code-no-in-operator
+	if ('showDiff' in updates) {
 		if (updates.showDiff === undefined) {
 			delete newAssistant.showDiff;
 		} else {
@@ -80,7 +80,8 @@ export function setAssistantSettings(
 		}
 	}
 
-	if (hasKey(updates, 'autoFollow')) {
+	// eslint-disable-next-line local/code-no-in-operator
+	if ('autoFollow' in updates) {
 		if (updates.autoFollow === undefined) {
 			delete newAssistant.autoFollow;
 		} else {
