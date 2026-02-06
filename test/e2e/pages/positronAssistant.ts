@@ -21,7 +21,6 @@ const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anth
 const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#amazon-bedrock-provider-button)';
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
-const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-auth-provider-button)';
 const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
@@ -49,17 +48,15 @@ const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Lan
 export type ModelProvider =
 	| 'anthropic-api'
 	| 'amazon-bedrock'
+	| 'Copilot'
 	| 'echo'
 	| 'error'
-	| 'gemini'
-	| 'copilot'
-	| 'Copilot'
 	| 'openai-api';
 
 /**
  * Authentication types for model providers.
  */
-type ProviderAuthType = 'none' | 'apiKey' | 'oauth' | 'aws';
+type ProviderAuthType = 'none' | 'apiKey' | 'aws';
 
 /**
  * Options for the loginModelProvider method.
@@ -81,10 +78,7 @@ function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 			return 'none';
 		case 'anthropic-api':
 		case 'openai-api':
-		case 'gemini':
 			return 'apiKey';
-		case 'copilot':
-			return 'oauth';
 		case 'amazon-bedrock':
 			return 'aws';
 		default:
@@ -101,8 +95,6 @@ function getProviderEnvVarName(provider: ModelProvider): string {
 			return 'ANTHROPIC_KEY';
 		case 'openai-api':
 			return 'OPENAI_KEY';
-		case 'gemini':
-			return 'GEMINI_KEY';
 		default:
 			return `${provider.toUpperCase().replace(/-/g, '_')}_KEY`;
 	}
@@ -221,17 +213,14 @@ export class Assistant {
 			case 'amazon-bedrock':
 				await this.code.driver.page.locator(AWS_BEDROCK_BUTTON).click();
 				break;
+			case 'copilot':
+				await this.code.driver.page.locator(COPILOT_BUTTON).click();
+				break;
 			case 'echo':
 				await this.code.driver.page.locator(ECHO_MODEL_BUTTON).click();
 				break;
 			case 'error':
 				await this.code.driver.page.locator(ERROR_MODEL_BUTTON).click();
-				break;
-			case 'gemini':
-				await this.code.driver.page.locator(GEMINI_BUTTON).click();
-				break;
-			case 'copilot':
-				await this.code.driver.page.locator(COPILOT_BUTTON).click();
 				break;
 			case 'openai-api':
 				await this.code.driver.page.locator(OPENAI_BUTTON).click();
@@ -305,13 +294,6 @@ export class Assistant {
 					await this.clickSignInButton();
 					break;
 				}
-
-				case 'oauth':
-					// OAuth providers - additional steps TBD
-					throw new Error(
-						`OAuth authentication for ${provider} is not yet implemented. ` +
-						`Manual sign-in or additional implementation required.`
-					);
 
 				case 'aws':
 					// AWS Bedrock - additional steps TBD

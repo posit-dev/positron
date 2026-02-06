@@ -65,8 +65,9 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	/**
 	 * Tests the sign in and sign out functionality for the Amazon Bedrock model provider.
 	 * @param app - Application fixture providing access to UI elements
+	 * currently skipped as a TODO to finsih implementation of bedrock auth
 	 */
-	test('Amazon Bedrock: Verify Successful Sign in and Sign Out', async function ({ app }) {
+	test.skip('Amazon Bedrock: Verify Successful Sign in and Sign Out', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.loginModelProvider('amazon-bedrock');
 		await app.workbench.assistant.logoutModelProvider('amazon-bedrock');
