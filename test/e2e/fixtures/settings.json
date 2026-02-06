@@ -10,7 +10,8 @@
   "positron.assistant.enabledProviders": [
     "openai-api",
     "echo",
-    "error"
+    "error",
+		"amazon-bedrock"
   ],
   "posit.workbench.showWorkbenchFlaskHint": false
 }
