@@ -1,0 +1,16 @@
+{
+	"binaries": [
+		{
+			"from": "node_modules/pdfjs-dist/legacy/**/*",
+			"to": "pdfjs-dist/legacy"
+		},
+		{
+			"from": "node_modules/pdfjs-dist/build/**/*",
+			"to": "pdfjs-dist/build"
+		},
+		{
+			"from": "node_modules/pdfjs-dist/web/**/*",
+			"to": "pdfjs-dist/web"
+		}
+	]
+}
