@@ -18,7 +18,7 @@ const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text(
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
 const SIGN_OUT_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign out")';
 const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-api-provider-button)';
-const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#bedrock-provider-button)';
+const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#amazon-bedrock-provider-button)';
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
@@ -42,6 +42,105 @@ const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
+
+/**
+ * Supported model providers for the Positron Assistant.
+ */
+export type ModelProvider =
+	| 'anthropic-api'
+	| 'amazon-bedrock'
+	| 'echo'
+	| 'error'
+	| 'gemini'
+	| 'copilot'
+	| 'Copilot'
+	| 'openai-api';
+
+/**
+ * Authentication types for model providers.
+ */
+type ProviderAuthType = 'none' | 'apiKey' | 'oauth' | 'aws';
+
+/**
+ * Options for the loginModelProvider method.
+ */
+export interface LoginModelProviderOptions {
+	/** API key for providers that support API key authentication */
+	apiKey?: string;
+	/** Timeout for verifying sign-in success (default: 15000ms) */
+	timeout?: number;
+}
+
+/**
+ * Returns the authentication type for a given model provider.
+ */
+function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
+	switch (provider.toLowerCase()) {
+		case 'echo':
+		case 'error':
+			return 'none';
+		case 'anthropic-api':
+		case 'openai-api':
+		case 'gemini':
+			return 'apiKey';
+		case 'copilot':
+			return 'oauth';
+		case 'amazon-bedrock':
+			return 'aws';
+		default:
+			throw new Error(`Unknown provider: ${provider}`);
+	}
+}
+
+/**
+ * Returns the environment variable name for a provider's API key.
+ */
+function getProviderEnvVarName(provider: ModelProvider): string {
+	switch (provider.toLowerCase()) {
+		case 'anthropic-api':
+			return 'ANTHROPIC_KEY';
+		case 'openai-api':
+			return 'OPENAI_KEY';
+		case 'gemini':
+			return 'GEMINI_KEY';
+		default:
+			return `${provider.toUpperCase().replace(/-/g, '_')}_KEY`;
+	}
+}
+
+/**
+ * Returns the API key from environment variables for a given provider.
+ */
+function getProviderEnvKey(provider: ModelProvider): string | undefined {
+	const envVarName = getProviderEnvVarName(provider);
+	return process.env[envVarName];
+}
+
+/**
+ * Returns the environment variable name that triggers auto-sign-in for a provider.
+ * When these env vars are set, Positron automatically signs into the provider on startup.
+ */
+function getProviderAutoSignInEnvVarName(provider: ModelProvider): string | undefined {
+	switch (provider.toLowerCase()) {
+		case 'anthropic-api':
+			return 'ANTHROPIC_API_KEY';
+		case 'openai-api':
+			return 'OPENAI_API_KEY';
+		default:
+			return undefined;
+	}
+}
+
+/**
+ * Returns true if the provider is auto-signed-in via environment variable.
+ * When certain env vars are set (e.g., ANTHROPIC_API_KEY), Positron automatically
+ * signs into the provider on startup, so no manual sign-in is required.
+ */
+function isProviderAutoSignedIn(provider: ModelProvider): boolean {
+	const envVarName = getProviderAutoSignInEnvVarName(provider);
+	return envVarName ? !!process.env[envVarName] : false;
+}
+
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -114,15 +213,12 @@ export class Assistant {
 		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible({ timeout: 3000 });
 	}
 
-	async selectModelProvider(provider: string) {
+	async selectModelProvider(provider: ModelProvider) {
 		switch (provider.toLowerCase()) {
 			case 'anthropic-api':
 				await this.code.driver.page.locator(ANTHROPIC_BUTTON).click();
 				break;
-			case 'aws':
-			case 'bedrock':
-			case 'aws bedrock':
-			case 'amazon bedrock':
+			case 'amazon-bedrock':
 				await this.code.driver.page.locator(AWS_BEDROCK_BUTTON).click();
 				break;
 			case 'echo':
@@ -137,12 +233,132 @@ export class Assistant {
 			case 'copilot':
 				await this.code.driver.page.locator(COPILOT_BUTTON).click();
 				break;
-			case `openai-api`:
+			case 'openai-api':
 				await this.code.driver.page.locator(OPENAI_BUTTON).click();
 				break;
 			default:
 				throw new Error(`Unsupported model provider: ${provider}`);
 		}
+	}
+
+	/**
+	 * Signs in to a model provider with the appropriate authentication method.
+	 * This method handles opening the configuration dialog, selecting the provider,
+	 * performing authentication, and closing the dialog.
+	 *
+	 * If the provider is auto-signed-in via environment variable (e.g., ANTHROPIC_API_KEY),
+	 * the sign-in steps are skipped.
+	 *
+	 * @param provider - The model provider to sign in to
+	 * @param options - Optional configuration for the login process
+	 * @param options.apiKey - API key for providers that support API key authentication.
+	 *                         If not provided, uses environment variables (ANTHROPIC_KEY, OPENAI_KEY, etc.)
+	 * @param options.timeout - Timeout for verifying sign-in success (default: 15000ms)
+	 *
+	 * @example
+	 * // Sign in to Echo provider (no credentials needed)
+	 * await assistant.loginModelProvider('echo');
+	 *
+	 * @example
+	 * // Sign in to Anthropic with environment variable
+	 * await assistant.loginModelProvider('anthropic-api');
+	 *
+	 * @example
+	 * // Sign in to OpenAI with explicit API key
+	 * await assistant.loginModelProvider('openai-api', { apiKey: 'sk-...' });
+	 */
+	async loginModelProvider(provider: ModelProvider, options: LoginModelProviderOptions = {}) {
+		const { timeout = 15000 } = options;
+
+		// Check if provider is auto-signed-in via environment variable
+		if (isProviderAutoSignedIn(provider)) {
+			// Provider is already signed in via env var, no action needed
+			return;
+		}
+
+		await test.step(`Sign in to ${provider} model provider`, async () => {
+			// Open the model configuration dialog
+			await this.clickAddModelButton();
+
+			// Select the provider
+			await this.selectModelProvider(provider);
+
+			// Handle authentication based on provider type
+			const authType = getProviderAuthType(provider);
+
+			switch (authType) {
+				case 'none':
+					// Providers like echo/error just need sign-in click
+					await this.clickSignInButton();
+					break;
+
+				case 'apiKey': {
+					// Get API key from options or environment variable
+					const apiKey = options.apiKey ?? getProviderEnvKey(provider);
+					if (!apiKey) {
+						throw new Error(
+							`No API key provided for ${provider}. ` +
+							`Set the ${getProviderEnvVarName(provider)} environment variable or pass apiKey in options.`
+						);
+					}
+					await this.enterApiKey(apiKey);
+					await this.clickSignInButton();
+					break;
+				}
+
+				case 'oauth':
+					// OAuth providers - additional steps TBD
+					throw new Error(
+						`OAuth authentication for ${provider} is not yet implemented. ` +
+						`Manual sign-in or additional implementation required.`
+					);
+
+				case 'aws':
+					// AWS Bedrock - additional steps TBD
+					// Will be gated by conditional statements later
+					await this.clickSignInButton();
+					break;
+
+				default:
+					throw new Error(`Unknown authentication type for provider: ${provider}`);
+			}
+
+			// Verify sign-in was successful
+			await this.verifySignOutButtonVisible(timeout);
+
+			// Close the configuration dialog
+			await this.clickCloseButton();
+		});
+	}
+
+	/**
+	 * Signs out from a model provider.
+	 * This method handles opening the configuration dialog, selecting the provider,
+	 * signing out, and closing the dialog.
+	 *
+	 * If the provider is auto-signed-in via environment variable (e.g., ANTHROPIC_API_KEY),
+	 * the sign-out steps are skipped since we didn't manually sign in.
+	 *
+	 * @param provider - The model provider to sign out from
+	 * @param options - Optional configuration for the logout process
+	 * @param options.timeout - Timeout for verifying sign-out success (default: 15000ms)
+	 */
+	async logoutModelProvider(provider: ModelProvider, options: { timeout?: number } = {}) {
+		const { timeout = 15000 } = options;
+
+		// Check if provider is auto-signed-in via environment variable
+		// If so, we didn't manually sign in, so no need to sign out
+		if (isProviderAutoSignedIn(provider)) {
+			return;
+		}
+
+		await test.step(`Sign out from ${provider} model provider`, async () => {
+			await this.quickaccess.runCommand('positron-assistant.configureModels');
+			await this.selectModelProvider(provider);
+			await this.clickSignOutButton();
+			await this.verifySignInButtonVisible(timeout);
+			await this.clickCloseButton();
+		});
 	}
 
 	async enterApiKey(apiKey: string) {
