@@ -5,7 +5,7 @@ We'd like to invite you to help shape the future of the Positron Notebook Editor
 </div>
 
 ## Get started
-* Check out [our documentation on using the Positron Notebook Editor](https://positron.posit.co/notebooks-alpha), including how to get started with a demo notebook.
+* Check out [our documentation on using the Positron Notebook Editor](https://positron.posit.co/positron-notebook-editor), including how to get started with a demo notebook.
 * To try out this new experience, update your settings to enable the [Positron Notebook Editor](command:positronNotebookHelpers.walkthrough.enableNotebook) editor.
 
 ## Get involved
