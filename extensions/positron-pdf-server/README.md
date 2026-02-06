@@ -1,3 +1,4 @@
+# 100
 # PDF Server Viewer
 
 View PDF files using PDF.js served via a local HTTP server.
