@@ -8,6 +8,13 @@ import { OperatingSystem } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.js';
 
+// --- Start Positron ---
+export interface IPositronAttribution {
+	licensee?: string;
+	issuer?: string;
+}
+// --- End Positron ---
+
 export interface IRemoteAgentEnvironment {
 	pid: number;
 	connectionToken: string;
@@ -29,6 +36,9 @@ export interface IRemoteAgentEnvironment {
 		home: URI;
 	};
 	isUnsupportedGlibc: boolean;
+	// --- Start Positron ---
+	positronAttribution?: IPositronAttribution;
+	// --- End Positron ---
 }
 
 export interface RemoteAgentConnectionContext {

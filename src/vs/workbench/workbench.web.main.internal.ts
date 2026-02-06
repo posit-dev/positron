@@ -74,6 +74,7 @@ import './services/browserElements/browser/webBrowserElementsService.js';
 
 // --- Start Positron ---
 import './services/ephemeralState/browser/ephemeralStateService.js';
+import './services/positronAttribution/browser/positronAttributionService.js';
 // --- End Positron ---
 
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';
@@ -178,6 +179,7 @@ import './contrib/processExplorer/browser/processExplorer.web.contribution.js';
 
 // --- Start Positron ---
 import './contrib/positronPreview/browser/positronPreview.web.contribution.js';
+import './contrib/positronAttribution/browser/positronAttribution.contribution.js';
 // --- End Positron
 
 //#endregion

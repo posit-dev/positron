@@ -42,7 +42,7 @@ import { CacheControl, serveError, serveFile, WebClientServer } from './webClien
 const require = createRequire(import.meta.url);
 
 // --- Start Positron ---
-import { validateLicenseKey } from './remoteLicenseKey.js';
+import { ILicenseValidationResult, validateLicenseKey } from './remoteLicenseKey.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
@@ -690,6 +690,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	//
 	// We don't require a connection token when used in headless (remote
 	// extension host) mode.
+	let licenseValidationResult: ILicenseValidationResult | undefined;
 	const hasWebUi = fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
 	if (hasWebUi) {
 		if (connectionToken.type !== ServerConnectionTokenType.Mandatory) {
@@ -697,8 +698,8 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 			process.exit(1);
 		}
 		const mandatoryConnectionToken = connectionToken as MandatoryServerConnectionToken;
-		const hasValidLicense = await validateLicenseKey(mandatoryConnectionToken.value, args);
-		if (!hasValidLicense) {
+		licenseValidationResult = await validateLicenseKey(mandatoryConnectionToken.value, args);
+		if (!licenseValidationResult.valid) {
 			// License warnings are logged in the validateLicenseKey function; at this point we just need to exit
 			process.exit(1);
 		}
@@ -738,7 +739,14 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	});
 
 	const disposables = new DisposableStore();
-	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables);
+	// --- Start Positron ---
+	// Pass the license attribution info (if available) to the server services
+	const positronAttribution = licenseValidationResult?.valid ? {
+		licensee: licenseValidationResult.licensee,
+		issuer: licenseValidationResult.issuer
+	} : undefined;
+	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronAttribution);
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	// Wait for bootstrap extensions to complete before continuing with server setup.
