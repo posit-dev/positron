@@ -10,7 +10,7 @@ Render interactive data grids directly in notebook cell outputs when a cell retu
 - `src/vs/.../positronDataExplorer/browser/inlineTableDataGridInstance.tsx` - Simplified DataGridInstance for inline display
 - `src/vs/.../positronNotebook/browser/NotebookCodeCell.tsx` - Renders InlineDataExplorer for dataframe outputs
 - `src/vs/.../positronNotebook/browser/getOutputContents.ts` - Parses MIME type, defines `DATA_EXPLORER_MIME_TYPE`
-- `src/vs/.../positronNotebook/browser/PositronNotebookCells/notebookOutputUtils.ts` - MIME type priority logic (has `skipDataExplorer` option)
+- `src/vs/.../positronNotebook/browser/PositronNotebookCells/notebookOutputUtils.ts` - MIME type priority logic
 - `src/vs/.../positronNotebook/common/positronNotebookConfig.ts` - Feature settings
 - `src/vs/.../positronDataExplorerService.ts` - Async instance retrieval (`getInstanceAsync`)
 - `test/e2e/tests/notebooks-positron/notebook-inline-data-explorer.test.ts` - E2E tests
@@ -58,4 +58,5 @@ Tests in `test/e2e/tests/notebooks-positron/notebook-inline-data-explorer.test.t
 
 
 ## Unresolved Bugs
-- **Notebook reload shows error instead of HTML fallback.** When reloading a notebook that had a data explorer output, the comm is no longer available so `getInstanceAsync` times out and the user sees "Data explorer instance not found. Re-run the cell to view the data." Instead, it should fall back to the HTML table output that was sent alongside the data explorer MIME type. Partial infrastructure exists: `notebookOutputUtils.ts` has a `skipDataExplorer` option in `getMimeTypePriority()` that would deprioritize the data explorer MIME type, but it's never used. A fix would wire up that option when a stale/unavailable comm is detected, so the output renderer picks the `text/html` fallback.
+
+None currently tracked.
