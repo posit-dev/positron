@@ -53,6 +53,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		// Verify assistant buttons ARE visible
 		await notebooksPositron.expectAssistantButtonsVisible(true);
 		await notebooksPositron.expectErrorAssistantButtonsVisible(true);
+		await assistant.logoutModelProvider('echo');
 	});
 });
 

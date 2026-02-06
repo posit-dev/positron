@@ -278,6 +278,14 @@ export class Assistant {
 			// Select the provider
 			await this.selectModelProvider(provider);
 
+			// Check if already signed in (Sign Out button visible)
+			const alreadySignedIn = await this.code.driver.page.locator(SIGN_OUT_BUTTON).isVisible();
+			if (alreadySignedIn) {
+				// Already signed in, just close the dialog
+				await this.clickCloseButton();
+				return;
+			}
+
 			// Handle authentication based on provider type
 			const authType = getProviderAuthType(provider);
 
