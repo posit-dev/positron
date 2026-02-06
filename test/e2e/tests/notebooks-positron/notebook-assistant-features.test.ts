@@ -49,7 +49,7 @@ test.describe('Notebook Assistant Features', {
 	});
 
 	test('Notebook AI features visible when assistant enabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron, assistant, quickaccess } = app.workbench;
+		const { notebooks, notebooksPositron, assistant } = app.workbench;
 
 		// Enable assistant features (notebook mode requires master switch)
 		await settings.set({
@@ -59,10 +59,7 @@ test.describe('Notebook Assistant Features', {
 		// Configure and enable the echo model provider to set hasChatModels context key
 		// This is required because the Fix/Explain buttons only show when a chat model is available
 		await assistant.openPositronAssistantChat();
-		await quickaccess.runCommand('positron-assistant.configureModels');
-		await assistant.selectModelProvider('echo');
-		await assistant.clickSignInButton();
-		await assistant.clickCloseButton();
+		await app.workbench.assistant.loginModelProvider('echo');
 
 		// Create a new notebook with a cell that produces an error
 		await notebooks.createNewNotebook();

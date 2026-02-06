@@ -7,7 +7,8 @@ import * as vscode from 'vscode';
 import { generateDiagnosticsContent } from './diagnostics';
 import { CopilotService } from './copilot';
 import { getStoredModels } from './config';
-import { disposeModels, log } from './extension';
+import { log } from './log.js';
+import { disposeModels } from './modelRegistration';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);

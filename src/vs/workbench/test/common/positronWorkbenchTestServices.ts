@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,6 +24,7 @@ import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModa
 import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { IPathService } from '../../services/path/common/pathService.js';
+import { IPositronAssistantConfigurationService } from '../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 
 export class TestNotebookExecutionService implements INotebookExecutionService {
 	declare readonly _serviceBrand: undefined;
@@ -283,3 +284,25 @@ export class TestPathService implements IPathService {
  * rather than directly from the test implementation.
  */
 export { TestPositronConsoleService, TestPositronConsoleInstance } from '../../services/positronConsole/test/browser/testPositronConsoleService.js';
+
+/**
+ * Test implementation of IPositronAssistantConfigurationService.
+ * By default, all providers are enabled.
+ */
+export class TestPositronAssistantConfigurationService implements IPositronAssistantConfigurationService {
+	_serviceBrand: undefined;
+
+	copilotEnabled = true;
+	onChangeCopilotEnabled = Event.None;
+	onChangeEnabledProviders = Event.None;
+
+	registerProviderMetadata(): void { }
+
+	getEnabledProviders(): string[] {
+		return [];
+	}
+
+	isProviderEnabled(): boolean {
+		return true;
+	}
+}

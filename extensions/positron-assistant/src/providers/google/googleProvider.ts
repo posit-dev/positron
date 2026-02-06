@@ -7,7 +7,8 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Google Gemini model provider implementation.
@@ -43,18 +44,14 @@ export class GoogleModelProvider extends VercelModelProvider implements positron
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'google',
-			displayName: 'Gemini Code Assist'
-		},
+		provider: PROVIDER_METADATA.google,
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
 			name: 'Gemini 2.0 Flash',
 			model: 'gemini-2.0-flash-exp',
 			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 			apiKey: undefined,
-			toolCalls: true,
-			completions: true,
+			toolCalls: true
 		},
 	};
 

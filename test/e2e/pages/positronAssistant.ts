@@ -11,8 +11,8 @@ import { Toasts } from './dialog-toasts';
 import { Modals } from './dialog-modals.js';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
-const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
-const ADD_MODEL_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
+const CONFIGURE_PROVIDERS_LINK = 'a[data-href="command:positron-assistant.configureProviders"]';
+const CONFIGURE_PROVIDERS_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -39,6 +39,7 @@ const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbar
 const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
+const MODEL_PICKER_LABEL = `${MODEL_PICKER_DROPDOWN} span.chat-model-label`;
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 
@@ -160,27 +161,26 @@ export class Assistant {
 		});
 	}
 
-	async clickAddModelLink() {
-		await this.code.driver.page.locator(CONFIGURE_MODELS_LINK).click();
+	async runConfigureProviders() {
+		await this.quickaccess.runCommand('positron-assistant.configureProviders');
+	}
+
+	async clickConfigureProvidersLink() {
+		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_LINK).click();
 	}
 
 	async clickAddModelButton() {
-		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
+		const addModelLinkIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
 		if (!addModelLinkIsVisible) {
 			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		}
-		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click({ force: true });
+		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
 	}
 
-	async verifyAddModelLinkVisible() {
-		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toBeVisible();
-		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toHaveText('Add a Language Model.');
-	}
-
-	async verifyAddModelButtonVisible() {
+	async verifyConfigureProvidersButtonVisible() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Configure Model Providers...');
+		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
+		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toHaveText('Configure Model Providers...');
 	}
 
 	async verifyInlineChatInputsVisible() {
@@ -198,6 +198,8 @@ export class Assistant {
 	}
 
 	async pickModel() {
+		// Wait until some models are loaded before clicking (label changes from "Pick Model" to an actual model name)
+		await expect(this.code.driver.page.locator(MODEL_PICKER_LABEL)).not.toHaveText('Pick Model');
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 	}
 
@@ -335,7 +337,7 @@ export class Assistant {
 		}
 
 		await test.step(`Sign out from ${provider} model provider`, async () => {
-			await this.quickaccess.runCommand('positron-assistant.configureModels');
+			await this.runConfigureProviders();
 			await this.selectModelProvider(provider);
 			await this.clickSignOutButton();
 			await this.verifySignInButtonVisible(timeout);
@@ -393,6 +395,19 @@ export class Assistant {
 			default:
 				throw new Error(`Unsupported auth method: ${type}`);
 		}
+	}
+
+	/**
+	 * Gets the provider display names in their display order from the Configure Providers modal.
+	 * The modal must already be open before calling this method.
+	 * @returns Array of provider display names in display order (e.g., "Posit AI", "Anthropic")
+	 */
+	async getProviderButtonNames(): Promise<string[]> {
+		const providerButtons = this.code.driver.page.locator('div[id$="-provider-button"]');
+		await providerButtons.first().waitFor({ state: 'visible' });
+
+		const texts = await providerButtons.allTextContents();
+		return texts.map(t => t.trim()).filter(Boolean);
 	}
 
 	async enterChatMessage(message: string, waitForResponse: boolean = true) {

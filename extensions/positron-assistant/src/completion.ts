@@ -1,27 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import * as ai from 'ai';
-import * as fs from 'fs';
-import * as path from 'path';
 
-import { ModelConfig } from './config';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { MARKDOWN_DIR } from './constants';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { createVertex } from '@ai-sdk/google-vertex';
-import { createAzure } from '@ai-sdk/azure';
-
-import { loadSetting } from '@ai-sdk/provider-utils';
-import { GoogleAuth } from 'google-auth-library';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { ModelConfig } from './configTypes.js';
 
 /**
  * Models used for autocomplete/ghost text.
@@ -152,8 +137,13 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 
 //#endregion
 //#region OpenAI Legacy API
-// (OpenAI FIM, DeepSeek, Mistral, Ollama)
+// (OpenAI FIM, Mistral)
 
+/**
+ * This is currently unused code, and this completions provider
+ * can't actually be enabled via settings. This is left here for future
+ * work on completions providers.
+ */
 class OpenAILegacyCompletion extends CompletionModel {
 	url: string;
 
@@ -161,7 +151,8 @@ class OpenAILegacyCompletion extends CompletionModel {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'openai-legacy',
-			displayName: 'OpenAI (Legacy)'
+			displayName: 'OpenAI (Legacy)',
+			settingName: 'openAILegacy'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -243,12 +234,18 @@ class OpenAILegacyCompletion extends CompletionModel {
 	}
 }
 
+/**
+ * This is currently unused code, and this completions provider
+ * can't actually be enabled via settings. This is left here for future
+ * work on completions providers.
+ */
 class MistralCompletion extends OpenAILegacyCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'mistral',
-			displayName: 'Mistral AI'
+			displayName: 'Mistral AI',
+			settingName: 'mistral'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -265,388 +262,13 @@ class MistralCompletion extends OpenAILegacyCompletion {
 	}
 }
 
-class DeepSeekCompletion extends OpenAILegacyCompletion {
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'deepseek',
-			displayName: 'DeepSeek'
-		},
-		supportedOptions: ['baseUrl', 'apiKey'],
-		defaults: {
-			name: 'DeepSeek V3',
-			model: 'deepseek-chat',
-			apiKey: '',
-			baseUrl: 'https://api.deepseek.com/beta',
-		},
-	};
-
-	constructor(_config: ModelConfig) {
-		super(_config);
-		this.url = `${this._config.baseUrl}/completions`;
-	}
-}
-
-class OllamaCompletion extends OpenAILegacyCompletion {
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'ollama',
-			displayName: 'Ollama'
-		},
-		supportedOptions: ['baseUrl'],
-		defaults: {
-			name: 'Qwen 2.5 Base (3b)',
-			model: 'qwen2.5-coder:3b-base',
-			baseUrl: 'http://localhost:11434/api',
-		},
-	};
-
-	constructor(_config: ModelConfig) {
-		super(_config);
-		this.url = `${this._config.baseUrl?.replace(/\/api$/, '')}/v1/completions`;
-	}
-
-	async getAccessToken() {
-		return '';
-	}
-}
-
-class VertexLegacyCompletion extends MistralCompletion {
-	authInstance: GoogleAuth;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'vertex-legacy',
-			displayName: 'Google Vertex (OpenAI Legacy API)'
-		},
-		supportedOptions: ['project', 'location'],
-		defaults: {
-			name: 'Codestral (Google Vertex)',
-			model: 'codestral-2501',
-			project: undefined,
-			location: undefined,
-		},
-	};
-
-	constructor(_config: ModelConfig) {
-		super(_config);
-
-		const model = this._config.model;
-
-		const project = loadSetting({
-			settingValue: this._config.project,
-			settingName: 'project',
-			environmentVariableName: 'GOOGLE_VERTEX_PROJECT',
-			description: 'Google Vertex project',
-		});
-
-		const location = loadSetting({
-			settingValue: this._config.location,
-			settingName: 'location',
-			environmentVariableName: 'GOOGLE_VERTEX_LOCATION',
-			description: 'Google Vertex location',
-		});
-
-		this.authInstance = new GoogleAuth({
-			scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-			projectId: project,
-		});
-
-		this.url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/mistralai/models/${model}:rawPredict`;
-	}
-
-	async getAccessToken() {
-		const client = await this.authInstance.getClient();
-		const accessToken = await client.getAccessToken();
-
-		if (!accessToken || !accessToken.token) {
-			const statusText = accessToken?.res?.statusText;
-			throw new Error(`Google Cloud Authentication failed: ${statusText}`);
-		}
-
-		return accessToken.token;
-	}
-}
-
-//#endregion
-//#region FIM Prompt
-// (Anthropic, OpenAI, Bedrock, OpenRouter, Gemini, Azure)
-
-abstract class FimPromptCompletion extends CompletionModel {
-	protected abstract model: ai.LanguageModel;
-
-	async provideInlineCompletionItems(
-		document: vscode.TextDocument,
-		position: vscode.Position,
-		context: vscode.InlineCompletionContext,
-		token: vscode.CancellationToken
-	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
-		// Check if the file should be excluded from AI features
-		if (!(await positron.ai.areCompletionsEnabled(document.uri))) {
-			return [];
-		}
-
-		// Delay a little before hitting the network, we might be cancelled by further keystrokes
-		await new Promise(resolve => setTimeout(resolve, 200));
-
-		if (token.isCancellationRequested) {
-			return [];
-		}
-
-		const { related, prefix, suffix } = await this.getDocumentContext(document, position);
-		const relatedText = Object.entries(related).map(([filename, text]) => {
-			return `<|file_separator|>${filename}\n${text}\n`;
-		}).join('\n');
-
-		const controller = new AbortController();
-		const signal = controller.signal;
-		token.onCancellationRequested(() => controller.abort());
-
-		const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'completion', 'fim.md'), 'utf8');
-		const { textStream } = await ai.streamText({
-			model: this.model,
-			system: system,
-			messages: [
-				{ role: 'user', content: `${relatedText}\n<|file_separator|>${document.fileName}\n<|fim_prefix|>${prefix}<|fim_suffix|>${suffix}\n<|fim_middle|>` }
-			],
-			temperature: 0.2,
-			stopSequences: ['\n\n', '<|fim_prefix|>', '<|fim_suffix|>', '<|file_separator|>'],
-			abortSignal: signal,
-		});
-
-		let text = '';
-		for await (const delta of textStream) {
-			if (token.isCancellationRequested) {
-				break;
-			}
-			text += delta;
-		}
-
-		const completion = new vscode.InlineCompletionItem(text);
-		completion.completeBracketPairs = true;
-
-		const completions = new vscode.InlineCompletionList([completion]);
-		completions.enableForwardStability = true;
-		return completions;
-	}
-}
-
-class AnthropicCompletion extends FimPromptCompletion {
-	protected model;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'anthropic-api',
-			displayName: 'Anthropic'
-		},
-		supportedOptions: ['apiKey'],
-		defaults: {
-			name: 'Claude 3.5 Sonnet',
-			model: 'claude-3-5-sonnet-latest',
-		},
-	};
-
-	constructor(protected readonly _config: ModelConfig) {
-		super(_config);
-		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
-	}
-}
-
-class OpenAICompletion extends FimPromptCompletion {
-	protected model;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'openai-api',
-			displayName: 'OpenAI'
-		},
-		supportedOptions: ['apiKey', 'baseUrl'],
-		defaults: {
-			name: 'OpenAI',
-			model: 'openai',
-			baseUrl: 'https://api.openai.com/v1',
-		},
-	};
-
-	constructor(protected readonly _config: ModelConfig) {
-		super(_config);
-		this.model = createOpenAI({
-			apiKey: this._config.apiKey,
-			baseURL: this._config.baseUrl,
-		})(this._config.model);
-	}
-}
-
-class OpenAICompatibleCompletion extends OpenAICompletion {
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'openai-compatible',
-			displayName: 'OpenAI Compatible'
-		},
-		supportedOptions: ['apiKey', 'baseUrl'],
-		defaults: {
-			name: 'OpenAI Compatible',
-			model: 'openai-compatible',
-			baseUrl: 'https://localhost/v1',
-		},
-	};
-}
-
-class OpenRouterCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModel;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'openrouter',
-			displayName: 'OpenRouter'
-		},
-		supportedOptions: ['apiKey', 'baseUrl'],
-		defaults: {
-			name: 'Claude 3.5 Sonnet',
-			model: 'anthropic/claude-3.5-sonnet',
-			baseUrl: 'https://openrouter.ai/api/v1',
-		},
-	};
-
-	constructor(protected readonly _config: ModelConfig) {
-		super(_config);
-		this.model = createOpenRouter({
-			apiKey: this._config.apiKey,
-			baseURL: this._config.baseUrl,
-		})(this._config.model);
-	}
-}
-
-class AWSCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModel;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'amazon-bedrock',
-			displayName: 'Amazon Bedrock'
-		},
-		supportedOptions: [],
-		defaults: {
-			name: 'Claude 3.5 Sonnet v2',
-			model: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-		},
-	};
-
-	constructor(_config: ModelConfig) {
-		super(_config);
-
-		// Cast to ai.LanguageModel to satisfy base class type
-		this.model = createAmazonBedrock({
-			credentialProvider: fromNodeProviderChain(),
-		})(this._config.model) as unknown as ai.LanguageModel;
-	}
-}
-
-class VertexCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModel;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'vertex',
-			displayName: 'Google Vertex'
-		},
-		supportedOptions: ['project', 'location'],
-		defaults: {
-			name: 'Gemini 1.5 Flash',
-			model: 'gemini-1.5-flash-002',
-			project: undefined,
-			location: undefined,
-		},
-	};
-
-	constructor(_config: ModelConfig) {
-		super(_config);
-		this.model = createVertex({
-			project: this._config.project,
-			location: this._config.location,
-		})(this._config.model);
-	}
-}
-
-class GoogleCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModel;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'google',
-			displayName: 'Google Generative AI'
-		},
-		supportedOptions: ['baseUrl', 'apiKey'],
-		defaults: {
-			name: 'Gemini 2.0 Flash',
-			model: 'gemini-2.0-flash-001',
-			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-			apiKey: undefined,
-		},
-	};
-
-	constructor(_config: ModelConfig) {
-		super(_config);
-		this.model = createGoogleGenerativeAI({
-			apiKey: this._config.apiKey,
-			baseURL: this._config.baseUrl,
-		})(this._config.model);
-	}
-}
-
-class AzureCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModel;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'azure',
-			displayName: 'Azure'
-		},
-		supportedOptions: ['resourceName', 'apiKey'],
-		defaults: {
-			name: 'GPT 4o',
-			model: 'gpt-4o',
-			resourceName: undefined,
-		},
-	};
-
-	constructor(_config: ModelConfig) {
-		super(_config);
-		this.model = createAzure({
-			apiKey: this._config.apiKey,
-			resourceName: this._config.resourceName
-		})(this._config.model);
-	}
-}
-
 //#endregion
 //#region Module exports
 
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
-		'anthropic-api': AnthropicCompletion,
-		'azure': AzureCompletion,
-		'amazon-bedrock': AWSCompletion,
-		'deepseek': DeepSeekCompletion,
-		'google': GoogleCompletion,
 		'mistral': MistralCompletion,
-		'ollama': OllamaCompletion,
-		'openai-api': OpenAICompletion,
-		'openai-compatible': OpenAICompatibleCompletion,
 		'openai-legacy': OpenAILegacyCompletion,
-		'openrouter': OpenRouterCompletion,
-		'vertex': VertexCompletion,
-		'vertex-legacy': VertexLegacyCompletion,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -657,19 +279,8 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 }
 
 export const completionModels = [
-	AnthropicCompletion,
-	AWSCompletion,
-	AzureCompletion,
-	DeepSeekCompletion,
 	MistralCompletion,
-	GoogleCompletion,
-	OllamaCompletion,
-	OpenAICompletion,
-	OpenAICompatibleCompletion,
 	OpenAILegacyCompletion,
-	OpenRouterCompletion,
-	VertexCompletion,
-	VertexLegacyCompletion,
 ];
 
 //#endregion
