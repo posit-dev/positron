@@ -38,6 +38,15 @@ export const quartoExecutionRunning = registerColor(
 );
 
 /**
+ * Theme color for error execution gutter marker.
+ */
+export const quartoExecutionError = registerColor(
+	'editorGutter.quartoErrorBackground',
+	{ dark: '#B52A2A', light: '#D32F2F', hcDark: '#B52A2A', hcLight: '#D32F2F' },
+	localize('quartoErrorBackground', 'Gutter color for Quarto cell execution errors')
+);
+
+/**
  * Decoration options for queued cells - first line of multi-line cell.
  */
 const queuedFirstDecorationOptions: IModelDecorationOptions = {
@@ -98,44 +107,52 @@ const queuedSingleDecorationOptions: IModelDecorationOptions = {
 const RUNNING_DELAY_VARIANTS = 10;
 
 /**
- * Decoration options for running cells.
- * Multiple variants with different CSS classes to create staggered animation delays.
- * This prevents the animation reset issue when decorations are redrawn.
+ * Creates decoration options for running cells with staggered animation delays.
+ * @param isError Whether this is for error state (red) or success state (green)
  */
-const runningDecorationOptions: IModelDecorationOptions[] = Array.from(
-	{ length: RUNNING_DELAY_VARIANTS },
-	(_, i) => ({
-		description: `quarto-running-execution-${i}`,
+function createRunningDecorationOptions(isError: boolean): IModelDecorationOptions[] {
+	const prefix = isError ? 'error-' : '';
+	const color = isError ? quartoExecutionError : quartoExecutionRunning;
+	const tooltip = isError
+		? localize('quartoErrorRunning', 'Executing with error')
+		: localize('quartoRunning', 'Currently executing');
+
+	return Array.from({ length: RUNNING_DELAY_VARIANTS }, (_, i) => ({
+		description: `quarto-${prefix}running-execution-${i}`,
 		isWholeLine: true,
-		linesDecorationsClassName: `quarto-execution-running-${i}`,
-		linesDecorationsTooltip: localize('quartoRunning', 'Currently executing'),
+		linesDecorationsClassName: `quarto-execution-${prefix}running-${i}`,
+		linesDecorationsTooltip: tooltip,
 		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
 		overviewRuler: {
-			color: themeColorFromId(quartoExecutionRunning),
+			color: themeColorFromId(color),
 			position: OverviewRulerLane.Full,
 		},
-	})
-);
+	}));
+}
 
 /**
- * Decoration options for completed cells - solid green (no animation).
+ * Creates decoration options for completed cells.
+ * @param isError Whether this is for error state (red) or success state (green)
+ * @param isFading Whether this is for the fading phase
  */
-const completedDecorationOptions: IModelDecorationOptions = {
-	description: 'quarto-completed-execution',
-	isWholeLine: true,
-	linesDecorationsClassName: 'quarto-execution-completed',
-	stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-};
+function createCompletedDecorationOptions(isError: boolean, isFading: boolean): IModelDecorationOptions {
+	const prefix = isError ? 'error-' : '';
+	const suffix = isFading ? '-fading' : '';
+	return {
+		description: `quarto-${prefix}completed-execution${suffix}`,
+		isWholeLine: true,
+		linesDecorationsClassName: `quarto-execution-${prefix}completed${suffix}`,
+		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+	};
+}
 
-/**
- * Decoration options for completed cells during fade out.
- */
-const completedFadingDecorationOptions: IModelDecorationOptions = {
-	description: 'quarto-completed-execution-fading',
-	isWholeLine: true,
-	linesDecorationsClassName: 'quarto-execution-completed-fading',
-	stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-};
+// Pre-create decoration options for both success and error states
+const runningDecorationOptions = createRunningDecorationOptions(false);
+const errorRunningDecorationOptions = createRunningDecorationOptions(true);
+const completedDecorationOptions = createCompletedDecorationOptions(false, false);
+const completedFadingDecorationOptions = createCompletedDecorationOptions(false, true);
+const errorCompletedDecorationOptions = createCompletedDecorationOptions(true, false);
+const errorCompletedFadingDecorationOptions = createCompletedDecorationOptions(true, true);
 
 /**
  * Duration in ms to show solid green after execution completes.
@@ -148,13 +165,15 @@ const COMPLETED_SOLID_DURATION = 500;
 const COMPLETED_FADE_DURATION = 300;
 
 /**
- * Tracks a completed cell's line range and current phase.
+ * Tracks a completed cell's line range, current phase, and error state.
  */
 interface CompletedCellInfo {
 	startLine: number;
 	endLine: number;
 	phase: 'solid' | 'fading';
 	timeoutId: ReturnType<typeof setTimeout>;
+	/** Whether the cell had an error during execution */
+	hadError: boolean;
 }
 
 /**
@@ -175,6 +194,9 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 
 	/** Tracks the execution range for running cells (for the completion animation) */
 	private readonly _runningCellRanges = new Map<string, { startLine: number; endLine: number }>();
+
+	/** Tracks cells that have encountered errors during execution */
+	private readonly _cellsWithErrors = new Set<string>();
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -231,8 +253,25 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 		this._decorationsCollection = this._editor.createDecorationsCollection();
 
 		// Listen for execution state changes
-		this._disposables.add(this._executionManager.onDidChangeExecutionState(() => {
+		this._disposables.add(this._executionManager.onDidChangeExecutionState((e) => {
+			// When a cell starts running, clear any previous error state
+			if (e.execution.state === CellExecutionState.Running) {
+				this._cellsWithErrors.delete(e.execution.cellId);
+			}
 			this._updateDecorations();
+		}));
+
+		// Listen for output to detect errors
+		this._disposables.add(this._executionManager.onDidReceiveOutput((e) => {
+			// Check if this is an error output
+			const hasError = e.output.items.some(item =>
+				item.mime === 'application/vnd.code.notebook.error' ||
+				item.mime === 'application/vnd.code.notebook.stderr'
+			);
+			if (hasError) {
+				this._cellsWithErrors.add(e.cellId);
+				this._updateDecorations();
+			}
 		}));
 
 		// Listen for document content changes
@@ -298,11 +337,14 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 
 				// Apply a separate decoration per line with a random animation delay variant
 				// This creates an organic "twinkle" effect where each line pulses independently
+				// Use error decorations if the cell has encountered an error
+				const hasError = this._cellsWithErrors.has(cell.id);
+				const decorationOptions = hasError ? errorRunningDecorationOptions : runningDecorationOptions;
 				for (let line = startLine; line <= endLine; line++) {
 					const variantIndex = Math.floor(Math.random() * RUNNING_DELAY_VARIANTS);
 					decorations.push({
 						range: new Range(line, 1, line, 1),
-						options: runningDecorationOptions[variantIndex],
+						options: decorationOptions[variantIndex],
 					});
 				}
 
@@ -349,17 +391,19 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 		// Detect cells that stopped running and start completion animation
 		for (const cellId of this._previouslyRunningCells) {
 			if (!currentlyRunningCells.has(cellId)) {
+				// Check if this cell had an error
+				const hadError = this._cellsWithErrors.has(cellId);
 				// Use the saved execution range (for partial cell execution) or fall back to full cell range
 				const savedRange = this._runningCellRanges.get(cellId);
 				if (savedRange) {
-					this._startCompletedAnimation(cellId, savedRange.startLine, savedRange.endLine);
+					this._startCompletedAnimation(cellId, savedRange.startLine, savedRange.endLine, hadError);
 					// Clean up the saved range
 					this._runningCellRanges.delete(cellId);
 				} else {
 					// Fall back to full cell range
 					const cell = cells.find(c => c.id === cellId);
 					if (cell) {
-						this._startCompletedAnimation(cellId, cell.startLine, cell.endLine);
+						this._startCompletedAnimation(cellId, cell.startLine, cell.endLine, hadError);
 					}
 				}
 			}
@@ -373,7 +417,12 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 
 		// Add decorations for completed cells
 		for (const [, info] of this._completedCells) {
-			const options = info.phase === 'solid' ? completedDecorationOptions : completedFadingDecorationOptions;
+			let options: IModelDecorationOptions;
+			if (info.hadError) {
+				options = info.phase === 'solid' ? errorCompletedDecorationOptions : errorCompletedFadingDecorationOptions;
+			} else {
+				options = info.phase === 'solid' ? completedDecorationOptions : completedFadingDecorationOptions;
+			}
 			for (let line = info.startLine; line <= info.endLine; line++) {
 				decorations.push({
 					range: new Range(line, 1, line, 1),
@@ -388,8 +437,12 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 	/**
 	 * Start the completion animation for a cell.
 	 * Note: Does not call _updateDecorations - caller is responsible for rendering.
+	 * @param cellId The cell ID
+	 * @param startLine Starting line of the execution range
+	 * @param endLine Ending line of the execution range
+	 * @param hadError Whether the cell had an error during execution
 	 */
-	private _startCompletedAnimation(cellId: string, startLine: number, endLine: number): void {
+	private _startCompletedAnimation(cellId: string, startLine: number, endLine: number, hadError: boolean): void {
 		// Cancel any existing animation for this cell
 		this._cancelCompletedCell(cellId);
 
@@ -402,6 +455,8 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 				info.timeoutId = setTimeout(() => {
 					// Remove the completed cell after fade completes
 					this._completedCells.delete(cellId);
+					// Clean up error state when animation completes
+					this._cellsWithErrors.delete(cellId);
 					this._updateDecorations();
 				}, COMPLETED_FADE_DURATION);
 				this._updateDecorations();
@@ -413,6 +468,7 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 			endLine,
 			phase: 'solid',
 			timeoutId,
+			hadError,
 		});
 		// Decorations will be rendered by the caller's _updateDecorations call
 	}
@@ -473,6 +529,7 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 		this._completedCells.clear();
 		this._previouslyRunningCells.clear();
 		this._runningCellRanges.clear();
+		this._cellsWithErrors.clear();
 	}
 
 	override dispose(): void {

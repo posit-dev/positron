@@ -52,6 +52,22 @@
 	animation: quarto-pulse 1.5s ease-in-out infinite;
 }
 
+/* Error running: same animation but with red color */
+.monaco-editor .quarto-execution-error-running-0,
+.monaco-editor .quarto-execution-error-running-1,
+.monaco-editor .quarto-execution-error-running-2,
+.monaco-editor .quarto-execution-error-running-3,
+.monaco-editor .quarto-execution-error-running-4,
+.monaco-editor .quarto-execution-error-running-5,
+.monaco-editor .quarto-execution-error-running-6,
+.monaco-editor .quarto-execution-error-running-7,
+.monaco-editor .quarto-execution-error-running-8,
+.monaco-editor .quarto-execution-error-running-9 {
+	border-left: 5px solid var(--vscode-editorGutter-quartoErrorBackground, #D32F2F);
+	margin-left: 10px;
+	animation: quarto-pulse 1.5s ease-in-out infinite;
+}
+
 /* Stagger animation start times across the 1.5s cycle */
 .monaco-editor .quarto-execution-running-0 { animation-delay: 0s; }
 .monaco-editor .quarto-execution-running-1 { animation-delay: -0.15s; }
@@ -63,6 +79,18 @@
 .monaco-editor .quarto-execution-running-7 { animation-delay: -1.05s; }
 .monaco-editor .quarto-execution-running-8 { animation-delay: -1.2s; }
 .monaco-editor .quarto-execution-running-9 { animation-delay: -1.35s; }
+
+/* Error running animation delays (same pattern) */
+.monaco-editor .quarto-execution-error-running-0 { animation-delay: 0s; }
+.monaco-editor .quarto-execution-error-running-1 { animation-delay: -0.15s; }
+.monaco-editor .quarto-execution-error-running-2 { animation-delay: -0.3s; }
+.monaco-editor .quarto-execution-error-running-3 { animation-delay: -0.45s; }
+.monaco-editor .quarto-execution-error-running-4 { animation-delay: -0.6s; }
+.monaco-editor .quarto-execution-error-running-5 { animation-delay: -0.75s; }
+.monaco-editor .quarto-execution-error-running-6 { animation-delay: -0.9s; }
+.monaco-editor .quarto-execution-error-running-7 { animation-delay: -1.05s; }
+.monaco-editor .quarto-execution-error-running-8 { animation-delay: -1.2s; }
+.monaco-editor .quarto-execution-error-running-9 { animation-delay: -1.35s; }
 
 @keyframes quarto-pulse {
 	0%, 100% {
@@ -87,6 +115,20 @@
 	animation: quarto-fade-out 300ms ease-out forwards;
 }
 
+/* Error completed: solid red that fades out */
+.monaco-editor .quarto-execution-error-completed {
+	border-left: 5px solid var(--vscode-editorGutter-quartoErrorBackground, #D32F2F);
+	margin-left: 10px;
+	opacity: 1;
+}
+
+/* Error completed fading: transitions from solid red to transparent */
+.monaco-editor .quarto-execution-error-completed-fading {
+	border-left: 5px solid var(--vscode-editorGutter-quartoErrorBackground, #D32F2F);
+	margin-left: 10px;
+	animation: quarto-fade-out 300ms ease-out forwards;
+}
+
 @keyframes quarto-fade-out {
 	from {
 		opacity: 1;
@@ -97,10 +139,11 @@
 }
 
 /* Overview ruler markers */
-.monaco-editor .quarto-queued-overview-ruler {
+.monaco-editor .quarto-queued-overview-ruler,
+.monaco-editor .quarto-running-overview-ruler {
 	background-color: var(--vscode-editorGutter-quartoRunningBackground, #48985D);
 }
 
-.monaco-editor .quarto-running-overview-ruler {
-	background-color: var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+.monaco-editor .quarto-error-overview-ruler {
+	background-color: var(--vscode-editorGutter-quartoErrorBackground, #D32F2F);
 }
