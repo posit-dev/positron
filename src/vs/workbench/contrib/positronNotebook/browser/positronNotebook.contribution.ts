@@ -1590,10 +1590,6 @@ registerNotebookWidget({
 
 //#endregion Notebook Header Actions
 
-//#region Ghost Cell Actions
-// Ghost cell actions are now registered in contrib/ghostCell/actions.ts
-//#endregion Ghost Cell Actions
-
 // Register actions
 registerAction2(ExecuteSelectionInConsoleAction);
 registerAction2(UpdateNotebookWorkingDirectoryAction);
