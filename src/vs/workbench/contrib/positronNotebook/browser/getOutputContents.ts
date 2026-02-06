@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { localize } from '../../../../nls.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -165,7 +166,7 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 	if (mime === 'image/png') {
 		return {
 			type: 'image',
-			dataUrl: `data:image/png;base64,${uint8ToBase64(data.buffer)}`
+			dataUrl: `data:image/png;base64,${encodeBase64(VSBuffer.wrap(data.buffer))}`
 		};
 	}
 
@@ -173,21 +174,4 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 		type: 'unknown',
 		content: localize('cellExecutionUnknownMimeType', 'Can\'t handle mime type "{0}" yet', mime)
 	};
-}
-
-
-/**
- * Convert a Uint8Array to a base64 encoded string.
- * @param u8 Uint8Array to convert to base64
- * @returns The base64 encoded string
- */
-function uint8ToBase64(u8: Uint8Array) {
-	const output = new Array(u8.length);
-
-	for (let i = 0, length = u8.length; i < length; i++) {
-		output[i] = String.fromCharCode(u8[i]);
-	}
-
-	// btoa() is deprecated but there doesn't seem to be a better way to do this
-	return btoa(output.join(''));
 }
