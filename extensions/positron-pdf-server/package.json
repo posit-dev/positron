@@ -8,10 +8,6 @@
 	"engines": {
 		"vscode": "^1.70.0"
 	},
-	"extensionKind": [
-		"ui",
-		"workspace"
-	],
 	"main": "./out/extension",
 	"categories": [
 		"Other"
