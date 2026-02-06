@@ -120,7 +120,7 @@ export async function createPythonRuntimeMetadata(
         const venvDir = path.dirname(path.dirname(interpreter.path)); // Go up from python to bin/Scripts, then to .venv
         const projectDir = path.dirname(venvDir); // Go up from .venv to project
         const projectName = path.basename(projectDir);
-        if (projectName && !projectName.startsWith('.')) {
+        if (projectName) {
             envName = projectName;
         }
     }
