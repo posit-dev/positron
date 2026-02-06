@@ -12,7 +12,6 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
@@ -66,7 +65,8 @@ export function NotebookCellWrapper({ cell, children }: {
 		/**
 		 * Focus the cell container element when this cell becomes the active cell,
 		 * except when:*/
-		const wasEditingCodeCell = prevStatus === CellSelectionStatus.Editing && cell.isCodeCell();
+		const wasEditingCodeCell = prevStatus === CellSelectionStatus.Editing &&
+			(cell.isCodeCell() || cell.isRawCell());
 		const findWidgetFocused = notebookInstance.scopedContextKeyService &&
 			CONTEXT_FIND_INPUT_FOCUSED.getValue(notebookInstance.scopedContextKeyService);
 		if (isActiveCell &&
@@ -84,7 +84,7 @@ export function NotebookCellWrapper({ cell, children }: {
 	// Manage context keys for this cell
 	const scopedContextKeyService = useCellContextKeys(cell, cellElement, environment, notebookInstance);
 
-	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
+	const cellType = cell.isRawCell() ? 'Raw' : cell.isCodeCell() ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
 
 	/**
@@ -135,7 +135,7 @@ export function NotebookCellWrapper({ cell, children }: {
 			? localize('notebookCell', '{0} cell', cellType)
 			: localize('notebookCellEditable', '{0} cell - Press Enter to edit', cellType)}
 		aria-selected={isSelected}
-		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
+		className={`positron-notebook-cell positron-notebook-${cell.isRawCell() ? 'raw' : cell.isCodeCell() ? 'code' : 'markdown'}-cell ${selectionStatus}`}
 		data-testid='notebook-cell'
 		role='article'
 		tabIndex={0}

@@ -667,6 +667,56 @@ registerAction2(class extends NotebookAction2 {
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
+			id: 'positronNotebook.cell.insertRawCellAbove',
+			title: localize2('positronNotebook.rawCell.insertAbove', "Insert Raw Cell Above"),
+			icon: ThemeIcon.fromId('arrow-up'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Insert,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Insert,
+			}]
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell) {
+			cell.insertRawCellAbove();
+		}
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.insertRawCellBelow',
+			title: localize2('positronNotebook.rawCell.insertBelow', "Insert Raw Cell Below"),
+			icon: ThemeIcon.fromId('arrow-down'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Insert,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Insert,
+			}]
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell) {
+			cell.insertRawCellBelow();
+		}
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
 			id: 'positronNotebook.cell.delete',
 			title: localize2('positronNotebook.cell.delete.description', "Delete Cell"),
 			icon: ThemeIcon.fromId('trash'),
