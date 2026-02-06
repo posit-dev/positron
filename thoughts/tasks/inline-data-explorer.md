@@ -6,11 +6,13 @@ Render interactive data grids directly in notebook cell outputs when a cell retu
 
 - `extensions/positron-python/.../positron_ipkernel.py` - Python kernel integration (detects dataframes, creates comm)
 - `src/vs/.../notebookCells/InlineDataExplorer.tsx` - Main React component for inline rendering
+- `src/vs/.../notebookCells/InlineDataExplorer.css` - Styles for inline data explorer component
 - `src/vs/.../positronDataExplorer/browser/inlineTableDataGridInstance.tsx` - Simplified DataGridInstance for inline display
 - `src/vs/.../positronNotebook/browser/NotebookCodeCell.tsx` - Renders InlineDataExplorer for dataframe outputs
-- `src/vs/.../positronNotebook/browser/getOutputContents.ts` - Parses MIME type
+- `src/vs/.../positronNotebook/browser/getOutputContents.ts` - Parses MIME type, defines `DATA_EXPLORER_MIME_TYPE`
+- `src/vs/.../positronNotebook/browser/PositronNotebookCells/notebookOutputUtils.ts` - MIME type priority logic (has `skipDataExplorer` option)
 - `src/vs/.../positronNotebook/common/positronNotebookConfig.ts` - Feature settings
-- `src/vs/.../positronDataExplorerService.ts` - Async instance retrieval
+- `src/vs/.../positronDataExplorerService.ts` - Async instance retrieval (`getInstanceAsync`)
 - `test/e2e/tests/notebooks-positron/notebook-inline-data-explorer.test.ts` - E2E tests
 
 ## Architecture
@@ -24,7 +26,12 @@ Render interactive data grids directly in notebook cell outputs when a cell retu
 
 ## Configuration
 
-Feature is behind `positron.notebooks.inlineDataExplorer.enabled` setting. See `positronNotebookConfig.ts` for all settings.
+Settings in `positronNotebookConfig.ts`:
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `positron.notebook.inlineDataExplorer.enabled` | boolean | `true` | Display DataFrames inline as interactive grids |
+| `positron.notebook.inlineDataExplorer.maxHeight` | number | `300` | Max height in px (min: 100, max: 800) |
 
 ## E2E Test Coverage
 
@@ -48,3 +55,7 @@ Tests in `test/e2e/tests/notebooks-positron/notebook-inline-data-explorer.test.t
 
 - PRD: `thoughts/shared/prds/2026-02-04-inline-data-explorer-notebooks.md`
 - Research: `thoughts/shared/research/2026-02-04-inline-data-explorer-notebooks.md`
+
+
+## Unresolved Bugs
+- **Notebook reload shows error instead of HTML fallback.** When reloading a notebook that had a data explorer output, the comm is no longer available so `getInstanceAsync` times out and the user sees "Data explorer instance not found. Re-run the cell to view the data." Instead, it should fall back to the HTML table output that was sent alongside the data explorer MIME type. Partial infrastructure exists: `notebookOutputUtils.ts` has a `skipDataExplorer` option in `getMimeTypePriority()` that would deprioritize the data explorer MIME type, but it's never used. A fix would wire up that option when a stale/unavailable comm is detected, so the output renderer picks the `text/html` fallback.
