@@ -1792,13 +1792,14 @@ export class MainThreadLanguageRuntime
 	}
 
 	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: ExtHostRange[]): Promise<void> {
+		const revivedUri = URI.revive(documentUri);
 		const cellRanges = ranges.map(r => new Range(
 			r.start.line,
 			r.start.character,
 			r.end.line,
 			r.end.character
 		));
-		return this._quartoExecutionManager.executeCellRanges(documentUri, cellRanges);
+		return this._quartoExecutionManager.executeCellRanges(revivedUri, cellRanges);
 	}
 
 	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {

@@ -1309,7 +1309,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @returns A promise that resolves when the request has been sent
 	 */
-	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: Range[]): Promise<void> {
+	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: any[]): Promise<void> {
 		return this._proxy.$executeInlineCells(extensionId, documentUri, cellRanges);
 	}
 

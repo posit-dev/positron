@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -1688,10 +1688,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Show the Popout button if there's more room and there's popout content
 		// (not just errors - plot, HTML, or text content)
-		this._popoutButton.style.display = styledHeight > 60 && this.hasPopoutContent() ? 'block' : 'none';
+		this._popoutButton.style.display = styledHeight > 80 && this.hasPopoutContent() ? 'block' : 'none';
 
 		// Show the Save button if there's even more room and there's exactly one plot
-		this._saveButton.style.display = styledHeight > 80 && this.hasSinglePlot() ? 'block' : 'none';
+		this._saveButton.style.display = styledHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);

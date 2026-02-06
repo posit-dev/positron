@@ -100,13 +100,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			executeInlineCell(documentUri, ranges): Thenable<void> {
 				const extensionId = extension.identifier.value;
-				const cellRanges = ranges.map(r => new Range(
-					r.start.line,
-					r.start.character,
-					r.end.line,
-					r.end.character
-				));
-				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, cellRanges);
+				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,

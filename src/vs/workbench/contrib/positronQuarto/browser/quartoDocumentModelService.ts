@@ -83,7 +83,7 @@ export class QuartoDocumentModelService extends Disposable implements IQuartoDoc
 	getModelForUri(uri: URI): IQuartoDocumentModel {
 		const model = this._models.get(uri.toString());
 		if (!model) {
-			throw new Error(`No Quarto document model exists for ${uri.toString}`)
+			throw new Error(`No Quarto document model exists for ${uri.toString()}`)
 		}
 		return model;
 	}
