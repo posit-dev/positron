@@ -407,6 +407,45 @@ export abstract class VercelModelProvider extends ModelProvider {
 	}
 
 	/**
+	 * Parses provider errors to extract user-friendly messages.
+	 *
+	 * Overrides the base implementation to handle Vercel AI SDK-specific errors,
+	 * particularly RetryError which wraps the actual API error when maxRetries
+	 * is exceeded.
+	 *
+	 * @param error - The error object from the provider
+	 * @returns A user-friendly error message, or undefined if not specifically handled
+	 */
+	override async parseProviderError(error: any): Promise<string | undefined> {
+		// Handle RetryError - the Vercel SDK wraps retried errors in this type
+		// when maxRetries is exceeded. Extract the lastError for processing.
+		if (ai.RetryError.isInstance(error) && error.lastError) {
+			if (ai.APICallError.isInstance(error.lastError)) {
+				const lastError = error.lastError;
+
+				// Check for rate limit error (429) with retry-after header
+				if (lastError.statusCode === 429) {
+					const retryAfter = lastError.responseHeaders?.['retry-after'];
+					if (retryAfter) {
+						return `Rate limit exceeded. Please retry after ${retryAfter} seconds.`;
+					}
+					return 'Rate limit exceeded. Please try again later.';
+				}
+
+				// Try to get the message from the parsed data on the lastError
+				const errorData = lastError.data as { error?: { message?: string } } | undefined;
+				if (errorData?.error?.message) {
+					return errorData.error.message;
+				}
+			}
+			// Delegate to base class with the unwrapped error
+			return super.parseProviderError(error.lastError);
+		}
+
+		return super.parseProviderError(error);
+	}
+
+	/**
 	 * Retrieves models from user configuration.
 	 *
 	 * Overrides the base implementation to extract version information from

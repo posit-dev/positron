@@ -34,13 +34,23 @@ export function handleNativeSdkRateLimitError(error: unknown, providerName: stri
  * Checks if an error is a rate limit error (HTTP 429) from the Vercel AI SDK
  * and throws a user-friendly error with retry-after information if available.
  *
+ * Handles both direct APICallError and RetryError (which wraps multiple attempts).
+ * When the SDK exhausts retries, it throws a RetryError containing the lastError.
+ *
  * @param error - The error to check
  * @param providerName - The name of the provider for the error message prefix
  * @returns true if the error was handled (and thrown), false otherwise
  */
 export function handleVercelSdkRateLimitError(error: unknown, providerName: string): boolean {
-	if (ai.APICallError.isInstance(error) && error.statusCode === 429) {
-		const retryAfter = error.responseHeaders?.['retry-after'];
+	// Check for RetryError first - the Vercel SDK wraps retried errors in this type
+	// when maxRetries is exceeded
+	let apiError: unknown = error;
+	if (ai.RetryError.isInstance(error) && error.lastError) {
+		apiError = error.lastError;
+	}
+
+	if (ai.APICallError.isInstance(apiError) && apiError.statusCode === 429) {
+		const retryAfter = apiError.responseHeaders?.['retry-after'];
 		if (retryAfter) {
 			throw new Error(`[${providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
 		}
