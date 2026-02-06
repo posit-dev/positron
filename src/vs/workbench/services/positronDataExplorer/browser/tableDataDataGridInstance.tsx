@@ -23,9 +23,10 @@ import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGr
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-import { BackendState, ColumnSchema, DataSelectionCellIndices, DataSelectionIndices, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { BackendState, ColumnSchema, ExportFormat, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ClipboardData, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { buildTableSelectionFromClipboardData } from '../common/utils.js';
 
 /**
  * Constants.
@@ -773,44 +774,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The clipboard data, or undefined, if it could not be copied.
 	 */
 	async copyClipboardData(clipboardData: ClipboardData): Promise<string | undefined> {
-		// Construct the data selection based on the clipboard data.
-		let dataSelection: TableSelection;
-		if (clipboardData instanceof ClipboardCell) {
-			const selection: DataSelectionSingleCell = {
-				column_index: clipboardData.columnIndex,
-				row_index: clipboardData.rowIndex,
-			};
-			dataSelection = {
-				kind: TableSelectionKind.SingleCell,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardCellIndexes) {
-			const selection: DataSelectionCellIndices = {
-				column_indices: clipboardData.columnIndexes,
-				row_indices: clipboardData.rowIndexes
-			};
-			dataSelection = {
-				kind: TableSelectionKind.CellIndices,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardColumnIndexes) {
-			const selection: DataSelectionIndices = {
-				indices: clipboardData.indexes
-			};
-			dataSelection = {
-				kind: TableSelectionKind.ColumnIndices,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardRowIndexes) {
-			const selection: DataSelectionIndices = {
-				indices: clipboardData.indexes
-			};
-			dataSelection = {
-				kind: TableSelectionKind.RowIndices,
-				selection
-			};
-		} else {
-			// This indicates a bug.
+		const dataSelection = buildTableSelectionFromClipboardData(clipboardData);
+		if (!dataSelection) {
 			return undefined;
 		}
 
