@@ -59,10 +59,7 @@ test.describe('Notebook Assistant Features', {
 		// Configure and enable the echo model provider to set hasChatModels context key
 		// This is required because the Fix/Explain buttons only show when a chat model is available
 		await assistant.openPositronAssistantChat();
-		await assistant.runConfigureProviders();
-		await assistant.selectModelProvider('echo');
-		await assistant.clickSignInButton();
-		await assistant.clickCloseButton();
+		await app.workbench.assistant.loginModelProvider('echo');
 
 		// Create a new notebook with a cell that produces an error
 		await notebooks.createNewNotebook();

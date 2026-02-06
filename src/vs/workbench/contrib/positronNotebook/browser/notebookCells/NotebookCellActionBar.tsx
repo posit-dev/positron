@@ -22,6 +22,8 @@ import { useMenuActions } from '../useMenuActions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCellActionBarLeftGroup } from '../../common/positronNotebookCommon.js';
 
+const moreCellActions = localize('moreCellActions', 'More Cell Actions');
+
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
 }
@@ -76,6 +78,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 		{/* Dropdown menu for additional actions - only render if there are menu actions */}
 		{hasSubmenuActions ? (
 			<NotebookCellMoreActionsMenu
+				ariaLabel={moreCellActions}
 				cell={cell}
 				hoverManager={instance.hoverManager}
 				instance={instance}

@@ -61,30 +61,29 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	 */
 	test('Anthropic: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelButton();
-		await app.workbench.assistant.selectModelProvider('anthropic-api');
-		await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
-		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.verifySignOutButtonVisible();
-		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.verifySignInButtonVisible();
-		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.assistant.loginModelProvider('anthropic-api');
+		await app.workbench.assistant.logoutModelProvider('anthropic-api');
 	});
 
 	/**
- * Tests the sign in and sign out functionality for the OpenAI model provider.
- * @param app - Application fixture providing access to UI elements
- */
+	 * Tests the sign in and sign out functionality for the OpenAI model provider.
+	 * @param app - Application fixture providing access to UI elements
+	 */
 	test('OpenAI: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelButton();
-		await app.workbench.assistant.selectModelProvider('openai-api');
-		await app.workbench.assistant.enterApiKey(`${process.env.OPENAI_KEY}`);
-		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.verifySignOutButtonVisible();
-		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.verifySignInButtonVisible();
-		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.assistant.loginModelProvider('openai-api');
+		await app.workbench.assistant.logoutModelProvider('openai-api');
+	});
+
+	/**
+	 * Tests the sign in and sign out functionality for the Amazon Bedrock model provider.
+	 * @param app - Application fixture providing access to UI elements
+	 * currently skipped as a TODO to finsih implementation of bedrock auth
+	 */
+	test.skip('Amazon Bedrock: Verify Successful Sign in and Sign Out', async function ({ app }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.loginModelProvider('amazon-bedrock');
+		await app.workbench.assistant.logoutModelProvider('amazon-bedrock');
 	});
 
 	/**
@@ -96,20 +95,14 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	 */
 	test('Verify Inline Chat opens', async function ({ app, openFile }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelButton();
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.assistant.loginModelProvider('echo');
 		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 		await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'data_file_path', 4);
 		const inlineChatShortcut = process.platform === 'darwin' ? 'Meta+I' : 'Control+I';
 		await app.code.driver.page.keyboard.press(inlineChatShortcut);
 		await app.code.driver.page.locator('.chat-widget > .interactive-session').isVisible();
 		await app.workbench.assistant.verifyInlineChatInputsVisible();
-		await app.workbench.assistant.runConfigureProviders();
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.assistant.logoutModelProvider('echo');
 		await app.workbench.assistant.closeInlineChat();
 	});
 
@@ -130,11 +123,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.runConfigureProviders();
-
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.assistant.loginModelProvider('echo');
 	});
 
 	test.beforeEach('How to clear chat', async function ({ app }) {
@@ -143,10 +132,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		await expect(async () => {
-			await app.workbench.assistant.runConfigureProviders();
-			await app.workbench.assistant.selectModelProvider('echo');
-			await app.workbench.assistant.clickSignOutButton();
-			await app.workbench.assistant.clickCloseButton();
+			await app.workbench.assistant.logoutModelProvider('echo');
 		}).toPass({ timeout: 30000 });
 	});
 	/**
@@ -199,18 +185,12 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant and sign in to Echo provider', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.runConfigureProviders();
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.assistant.loginModelProvider('echo');
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		await expect(async () => {
-			await app.workbench.assistant.runConfigureProviders();
-			await app.workbench.assistant.selectModelProvider('echo');
-			await app.workbench.assistant.clickSignOutButton();
-			await app.workbench.assistant.clickCloseButton();
+			await app.workbench.assistant.logoutModelProvider('echo');
 		}).toPass({ timeout: 30000 });
 	});
 
@@ -263,8 +243,9 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 
 /**
  * Test suite for the model picker default indicator with multiple providers.
- * If ANTHROPIC_KEY environment variable is set, signs in using API key.
- * Otherwise, assumes Anthropic is already signed in via another method (e.g., OAuth).
+ * Uses loginModelProvider which handles auto-sign-in detection:
+ * - If ANTHROPIC_API_KEY is set, Anthropic is auto-signed-in (no manual steps needed)
+ * - If ANTHROPIC_KEY is set, signs in manually using API key
  * @see https://github.com/posit-dev/positron/issues/11166
  * @see https://github.com/posit-dev/positron/pull/11299
  */
@@ -273,20 +254,11 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 		await app.workbench.assistant.openPositronAssistantChat();
 
 		// Sign in to Echo provider
-		await app.workbench.assistant.runConfigureProviders();
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignInButton();
+		await app.workbench.assistant.loginModelProvider('echo');
 
-		// Sign in to Anthropic if ANTHROPIC_KEY is provided
-		if (process.env.ANTHROPIC_KEY) {
-			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
-			await app.workbench.assistant.clickSignInButton();
-			await app.workbench.assistant.verifySignOutButtonVisible();
-		}
-
-		// Close the providers dialog
-		await app.workbench.assistant.clickCloseButton();
+		// Sign in to Anthropic (method handles auto-sign-in detection)
+		// If we manually signed in (not auto-signed-in), we'll reload when we update the settings below
+		await app.workbench.assistant.loginModelProvider('anthropic-api');
 
 		// Configure defaults for both Anthropic and Echo providers
 		await settings.set({
@@ -316,23 +288,14 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			'positron.assistant.models.preference.echo': ''
 		});
 
-		// Sign out of Echo provider
+		// Sign out of providers (methods handle auto-sign-in detection)
 		await expect(async () => {
-			await app.workbench.assistant.runConfigureProviders();
-			await app.workbench.assistant.selectModelProvider('echo');
-			await app.workbench.assistant.clickSignOutButton();
-			await app.workbench.assistant.clickCloseButton();
+			await app.workbench.assistant.logoutModelProvider('echo');
 		}).toPass({ timeout: 30000 });
 
-		// Only sign out of Anthropic if we signed in with API key
-		if (process.env.ANTHROPIC_KEY) {
-			await expect(async () => {
-				await app.workbench.assistant.runConfigureProviders();
-				await app.workbench.assistant.selectModelProvider('anthropic-api');
-				await app.workbench.assistant.clickSignOutButton();
-				await app.workbench.assistant.clickCloseButton();
-			}).toPass({ timeout: 30000 });
-		}
+		await expect(async () => {
+			await app.workbench.assistant.logoutModelProvider('anthropic-api');
+		}).toPass({ timeout: 30000 });
 	});
 
 	/**
@@ -390,10 +353,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 test.describe.skip('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.CRITICAL] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.runConfigureProviders();
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.assistant.loginModelProvider('echo');
 	});
 
 	test.beforeEach('Clear chat', async function ({ app, settings }) {
@@ -403,10 +363,7 @@ test.describe.skip('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSI
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
-		await app.workbench.assistant.runConfigureProviders();
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.assistant.logoutModelProvider('echo');
 	});
 
 	test('Token usage is displayed in chat response', async function ({ app }) {

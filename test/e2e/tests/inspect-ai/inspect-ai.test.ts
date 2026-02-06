@@ -96,14 +96,9 @@ test.use({
  */
 test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI] }, () => {
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
-		// Change veiwport size for web tests
+		// Change viewport size for web tests
 		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
-		// Only sign out if USE_KEY environment variable is set
-		if (process.env.USE_KEY) {
-			await app.workbench.assistant.runConfigureProviders();
-			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.clickSignOutButton();
-		}
+		await app.workbench.assistant.logoutModelProvider('anthropic-api');
 	});
 
 	/**
@@ -137,18 +132,9 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		const [pySession] = await sessions.start(['python']);
 		const [rSession] = await sessions.start(['r']);
 
-		// Sign in to the assistant
+		// Sign in to the assistant (handles auto-sign-in detection)
 		await app.workbench.assistant.openPositronAssistantChat();
-
-		// Only sign in if USE_KEY environment variable is set
-		if (process.env.USE_KEY) {
-			await app.workbench.assistant.clickAddModelButton();
-			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
-			await app.workbench.assistant.clickSignInButton();
-			await app.workbench.assistant.verifySignOutButtonVisible();
-			await app.workbench.assistant.clickCloseButton();
-		}
+		await app.workbench.assistant.loginModelProvider('anthropic-api');
 
 		await app.workbench.toasts.closeAll();
 
