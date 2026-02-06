@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -37,6 +37,8 @@ export interface PythonModuleMetadata {
 
 export interface PythonRuntimeExtraData {
     pythonPath: string;
+    /** The environment type (e.g., 'Conda', 'Venv', etc.) */
+    envType?: string;
     ipykernelBundle?: IpykernelBundle;
     externallyManaged?: boolean;
     supported?: boolean;
@@ -150,6 +152,7 @@ export async function createPythonRuntimeMetadata(
     // runtime session.
     const extraRuntimeData: PythonRuntimeExtraData = {
         pythonPath: interpreter.path,
+        envType: interpreter.envType,
         ipykernelBundle,
         supported: isVersionSupported(interpreter.version),
     };

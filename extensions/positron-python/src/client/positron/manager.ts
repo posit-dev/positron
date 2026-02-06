@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -34,6 +34,7 @@ import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpret
 import { hasFiles } from './util';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { EnvironmentType } from '../pythonEnvironments/info';
+import { getPathEnvVariableForConda } from '../pythonEnvironments/creation/provider/condaUtils';
 import { IApplicationShell } from '../common/application/types';
 import { Interpreters } from '../common/utils/localize';
 import { untildify } from '../common/helpers';
@@ -316,6 +317,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // only provided for new sessions; existing (restored) sessions already
         // have one.
         const env = await environmentVariablesProvider.getEnvironmentVariables();
+
+        // On Windows, conda environments need additional library paths (Library/bin, etc.)
+        // for DLL loading. Without these, Python could crash with STATUS_FATAL_USER_CALLBACK_EXCEPTION
+        // when importing packages with native dependencies like numpy, matplotlib, etc.
+        // See: https://github.com/posit-dev/positron/issues/9740
+        if (os.platform() === 'win32' && extraData.envType === EnvironmentType.Conda) {
+            env.PATH = getPathEnvVariableForConda(extraData.pythonPath);
+        }
+
         if (sessionMetadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
             // Workaround to use Plotly's browser renderer. Ensures the plot is
             // displayed to fill the webview.
