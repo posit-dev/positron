@@ -2511,4 +2511,75 @@ test.describe('Quarto - Inline Output', {
 		const untitledTab = page.locator('.tabs-container .tab.dirty.selected');
 		await expect(untitledTab).toBeVisible({ timeout: 5000 });
 	});
+
+	test('Bash - Verify inline output appears after running a bash code cell', async function ({ app, openFile, r }) {
+		// This test verifies that bash code cells execute via the terminal
+		// and their output appears inline in the Quarto document.
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'multiple_languages.qmd');
+
+		// Open the multi-language Quarto document
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the bash code cell (line 28)
+		// multiple_languages.qmd structure:
+		// - frontmatter (1-4)
+		// - R section (6-12)
+		// - Python section (14-21)
+		// - Bash section: heading (23), description (25), cell (27-29)
+		// - Bash cell: ```{bash} (27), echo "..." (28), ``` (29)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('28');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the bash cell - should execute via terminal and show inline output
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			// Scroll to see the bash cell's output (after line 29)
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('32');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+
+			// Check that at least one inline output is visible
+			await expect(inlineOutput.first()).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 60000 });
+
+		// Verify the bash output contains our expected text
+		// The command is: echo "Your home directory is $HOME"
+		// The output should ONLY contain the expanded result, e.g. "Your home directory is /Users/jmcphers"
+		// NOT the command itself or any shell prompt
+		const outputContent = inlineOutput.last().locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		const outputText = await outputContent.textContent();
+		expect(outputText).toBeTruthy();
+
+		// The output should contain "Your home directory is" followed by a path
+		expect(outputText).toContain('Your home directory is');
+
+		// The output should NOT contain the command source (echo)
+		// or any shell prompt characters like $ or %
+		expect(outputText).not.toContain('echo');
+		expect(outputText).not.toMatch(/^\s*\$/m); // No lines starting with $
+	});
 });

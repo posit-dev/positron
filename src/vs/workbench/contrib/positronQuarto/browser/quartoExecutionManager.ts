@@ -31,10 +31,12 @@ import {
 } from '../common/quartoExecutionTypes.js';
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
-import { DeferredPromise } from '../../../../base/common/async.js';
+import { DeferredPromise, RunOnceScheduler } from '../../../../base/common/async.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ITerminalService } from '../../terminal/browser/terminal.js';
+import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 
 // Re-export for convenience
 export { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -48,6 +50,18 @@ const QUARTO_EXEC_PREFIX = 'quarto-exec';
  * Ephemeral state key prefix for execution queue persistence.
  */
 const EXECUTION_QUEUE_KEY_PREFIX = 'positron.quarto.executionQueue';
+
+/**
+ * Shell languages that should be executed via terminal.
+ */
+const SHELL_LANGUAGES = new Set(['bash', 'sh', 'zsh', 'fish', 'shell', 'powershell', 'pwsh', 'cmd']);
+
+/**
+ * Check if a language should be executed via terminal.
+ */
+function isShellLanguage(language: string): boolean {
+	return SHELL_LANGUAGES.has(language.toLowerCase());
+}
 
 /**
  * Internal tracking for a cell's execution.
@@ -118,6 +132,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@ILogService private readonly _logService: ILogService,
 		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@ITerminalService private readonly _terminalService: ITerminalService,
 	) {
 		super();
 
@@ -342,13 +357,19 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		codeRange: Range,
 		token?: CancellationToken
 	): Promise<void> {
+		const cellLanguage = cell.language.toLowerCase();
+
+		// Check if this is a shell language - execute via terminal
+		if (isShellLanguage(cellLanguage)) {
+			return this._executeRangeViaTerminal(documentUri, cell, codeRange, token);
+		}
+
 		// Check if cell language matches the document's primary language
 		// If not, execute via console service instead of kernel
 		const textModel = await this._getTextModel(documentUri);
 		if (textModel) {
 			const quartoModel = this._documentModelService.getModel(textModel);
 			const primaryLanguage = quartoModel.primaryLanguage?.toLowerCase();
-			const cellLanguage = cell.language.toLowerCase();
 
 			if (primaryLanguage && cellLanguage !== primaryLanguage) {
 				// Non-primary language: execute via console service
@@ -628,6 +649,580 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			disposables.dispose();
 			cts.dispose();
 		}
+	}
+
+	/**
+	 * Execute a range of code via the terminal.
+	 * This is used for shell/bash cells that should be executed in a terminal.
+	 */
+	private async _executeRangeViaTerminal(
+		documentUri: URI,
+		cell: QuartoCodeCell,
+		codeRange: Range,
+		token?: CancellationToken
+	): Promise<void> {
+		this._logService.debug(
+			`[QuartoExecutionManager] Executing ${cell.language} code via terminal`
+		);
+
+		// Remove this range from the queued ranges (it's now running)
+		this._removeFromQueuedRanges(cell.id, codeRange);
+
+		// Track the running range for decorations BEFORE firing state change
+		this._runningRanges.set(cell.id, codeRange);
+
+		// Update state to running
+		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
+
+		// Clear previous outputs for this cell
+		this._outputsByCell.delete(cell.id);
+
+		// Generate execution ID
+		const executionId = `${QUARTO_EXEC_PREFIX}-terminal-${generateUuid()}`;
+
+		// Create a tracker for this execution
+		const cts = new CancellationTokenSource(token);
+		const deferred = new DeferredPromise<void>();
+		const disposables = new DisposableStore();
+
+		const tracker: ExecutionTracker = {
+			execution: {
+				cellId: cell.id,
+				state: CellExecutionState.Running,
+				executionId,
+				startTime: Date.now(),
+				documentUri,
+			},
+			cts,
+			deferred,
+			outputSize: 0,
+			outputCount: 0,
+			disposables,
+		};
+
+		this._executionTrackers.set(cell.id, tracker);
+
+		let exitCode: number | undefined;
+
+		try {
+			// Get just the code in the specified range
+			const code = await this._getCodeInRange(documentUri, codeRange);
+			if (!code) {
+				throw new Error('Could not get code in range');
+			}
+
+			// Get or create terminal
+			const terminal = await this._terminalService.getActiveOrCreateInstance();
+
+			// Ensure xterm is available
+			const xterm = await terminal.xtermReadyPromise;
+			if (!xterm) {
+				throw new Error('Xterm is not available');
+			}
+
+			// Check for command detection capability (shell integration)
+			const commandDetection = terminal.capabilities?.get(TerminalCapability.CommandDetection);
+
+			// Register start marker before executing
+			const startMarker = xterm.raw.registerMarker();
+			disposables.add({ dispose: () => startMarker?.dispose() });
+
+			if (commandDetection) {
+				// Rich execution: use shell integration
+				exitCode = await this._executeTerminalWithShellIntegration(
+					terminal, commandDetection, code, tracker, documentUri, xterm, startMarker, disposables
+				);
+			} else {
+				// Fallback: use idle detection without shell integration
+				exitCode = await this._executeTerminalWithoutShellIntegration(
+					terminal, code, tracker, documentUri, xterm, startMarker, disposables
+				);
+			}
+
+			// Set final state based on exit code
+			if (exitCode !== undefined && exitCode !== 0) {
+				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			} else {
+				this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+			}
+		} catch (error) {
+			if (cts.token.isCancellationRequested) {
+				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
+			} else {
+				this._logService.error(
+					`[QuartoExecutionManager] Terminal execution failed for cell ${cell.id}:`,
+					error
+				);
+				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			}
+		} finally {
+			// Clean up
+			this._runningRanges.delete(cell.id);
+			this._executionTrackers.delete(cell.id);
+			disposables.dispose();
+			cts.dispose();
+		}
+	}
+
+	/**
+	 * Execute command in terminal with shell integration (rich mode).
+	 * Uses command detection to know when the command finishes and get output.
+	 */
+	private async _executeTerminalWithShellIntegration(
+		terminal: import('../../terminal/browser/terminal.js').ITerminalInstance,
+		commandDetection: ICommandDetectionCapability,
+		code: string,
+		tracker: ExecutionTracker,
+		documentUri: URI,
+		xterm: import('../../terminal/browser/xterm/xtermTerminal.js').XtermTerminal,
+		startMarker: import('@xterm/xterm').IMarker | undefined,
+		disposables: DisposableStore
+	): Promise<number | undefined> {
+		const { cts } = tracker;
+
+		// Set up promise to wait for command completion
+		const commandFinishedPromise = new DeferredPromise<import('../../../../platform/terminal/common/capabilities/capabilities.js').ITerminalCommand | undefined>();
+
+		disposables.add(commandDetection.onCommandFinished(command => {
+			this._logService.debug(`[QuartoExecutionManager] Terminal command finished`);
+			commandFinishedPromise.complete(command);
+		}));
+
+		// Track idle on prompt as a fallback
+		const idlePromise = this._trackIdleOnPrompt(terminal, 1000, disposables);
+
+		// Execute the command
+		this._logService.debug(`[QuartoExecutionManager] Executing terminal command: ${code.substring(0, 50)}...`);
+		await terminal.runCommand(code, true);
+
+		// Wait for either command finish or idle
+		const result = await Promise.race([
+			commandFinishedPromise.p.then(cmd => ({ type: 'finished' as const, command: cmd })),
+			idlePromise.then(() => ({ type: 'idle' as const, command: undefined })),
+			new Promise<{ type: 'cancelled'; command: undefined }>((_, reject) => {
+				const listener = cts.token.onCancellationRequested(() => {
+					reject(new Error('Execution cancelled'));
+				});
+				disposables.add(listener);
+			}),
+			new Promise<{ type: 'disposed'; command: undefined }>((resolve) => {
+				disposables.add(terminal.onDisposed(() => {
+					resolve({ type: 'disposed', command: undefined });
+				}));
+			}),
+		]);
+
+		if (result.type === 'disposed') {
+			throw new Error('Terminal was closed');
+		}
+
+		// Get output
+		let output: string | undefined;
+		let exitCode: number | undefined;
+
+		if (result.type === 'finished' && result.command) {
+			// Get output from command detection - this is the cleanest source
+			output = result.command.getOutput();
+			exitCode = result.command.exitCode;
+
+			if (output !== undefined) {
+				this._logService.debug(`[QuartoExecutionManager] Got output via shell integration getOutput(), exit code: ${exitCode}`);
+			} else {
+				// getOutput() returned undefined - try using the command's markers directly
+				// This happens when executedMarker or endMarker is on the same line or missing
+				const cmd = result.command;
+				if (cmd.executedMarker && cmd.endMarker) {
+					// Use executedMarker (where output starts) to endMarker (where it ends)
+					try {
+						const outputStartLine = cmd.executedMarker.line;
+						const outputEndLine = cmd.endMarker.line;
+						this._logService.debug(`[QuartoExecutionManager] Using command markers: executed=${outputStartLine}, end=${outputEndLine}`);
+
+						if (outputStartLine < outputEndLine) {
+							// Get content from executed line (skip it, output starts on next line) to end
+							const lines: string[] = [];
+							for (let i = outputStartLine + 1; i < outputEndLine; i++) {
+								const line = xterm.raw.buffer.active.getLine(i);
+								if (line) {
+									lines.push(line.translateToString(true));
+								}
+							}
+							output = lines.join('\n');
+							this._logService.debug(`[QuartoExecutionManager] Got output via command markers`);
+						}
+					} catch (e) {
+						this._logService.warn(`[QuartoExecutionManager] Failed to get output via command markers:`, e);
+					}
+				}
+			}
+		}
+
+		// Final fallback to our own marker-based capture
+		// This is less precise as it captures everything from our start marker
+		if (output === undefined && startMarker) {
+			const endMarker = xterm.raw.registerMarker();
+			disposables.add({ dispose: () => endMarker?.dispose() });
+			try {
+				output = xterm.getContentsAsText(startMarker, endMarker);
+				this._logService.debug(`[QuartoExecutionManager] Got output via our own markers (fallback)`);
+				// In fallback mode, we need to clean the output since it includes command + prompt
+				if (output) {
+					output = this._cleanTerminalOutput(output, code);
+				}
+			} catch (e) {
+				this._logService.warn(`[QuartoExecutionManager] Failed to get output via markers:`, e);
+			}
+		}
+
+		// Emit output
+		if (output !== undefined && output.trim().length > 0) {
+			this._emitTerminalOutput(tracker, documentUri, output, exitCode);
+		}
+
+		return exitCode;
+	}
+
+	/**
+	 * Execute command in terminal without shell integration (fallback mode).
+	 * Uses idle detection and markers to capture output.
+	 */
+	private async _executeTerminalWithoutShellIntegration(
+		terminal: import('../../terminal/browser/terminal.js').ITerminalInstance,
+		code: string,
+		tracker: ExecutionTracker,
+		documentUri: URI,
+		xterm: import('../../terminal/browser/xterm/xtermTerminal.js').XtermTerminal,
+		startMarker: import('@xterm/xterm').IMarker | undefined,
+		disposables: DisposableStore
+	): Promise<number | undefined> {
+		const { cts } = tracker;
+
+		// Wait for terminal to be idle before executing
+		await this._waitForTerminalIdle(terminal.onData, 500);
+
+		// Execute the command
+		this._logService.debug(`[QuartoExecutionManager] Executing terminal command (no shell integration): ${code.substring(0, 50)}...`);
+		await terminal.sendText(code, true);
+
+		// Wait for idle with prompt heuristics
+		const idleResult = await Promise.race([
+			this._waitForTerminalIdleWithPromptHeuristics(terminal.onData, terminal, 1000, 10000),
+			new Promise<{ detected: boolean }>((_, reject) => {
+				const listener = cts.token.onCancellationRequested(() => {
+					reject(new Error('Execution cancelled'));
+				});
+				disposables.add(listener);
+			}),
+		]);
+
+		this._logService.debug(`[QuartoExecutionManager] Idle detection result: ${idleResult.detected}`);
+
+		// Get output via markers
+		let output: string | undefined;
+		if (startMarker) {
+			const endMarker = xterm.raw.registerMarker();
+			disposables.add({ dispose: () => endMarker?.dispose() });
+			try {
+				output = xterm.getContentsAsText(startMarker, endMarker);
+				this._logService.debug(`[QuartoExecutionManager] Got output via markers (no shell integration)`);
+				// Clean the output since marker-based capture includes command + prompt
+				if (output) {
+					output = this._cleanTerminalOutput(output, code);
+				}
+			} catch (e) {
+				this._logService.warn(`[QuartoExecutionManager] Failed to get output via markers:`, e);
+			}
+		}
+
+		// Emit output (no exit code available without shell integration)
+		if (output !== undefined && output.trim().length > 0) {
+			this._emitTerminalOutput(tracker, documentUri, output, undefined);
+		}
+
+		return undefined; // No exit code without shell integration
+	}
+
+	/**
+	 * Emit terminal output as inline output.
+	 * Uses stdout for success, error format for non-zero exit codes.
+	 * Output should already be cleaned before calling this method.
+	 */
+	private _emitTerminalOutput(
+		tracker: ExecutionTracker,
+		documentUri: URI,
+		output: string,
+		exitCode: number | undefined
+	): void {
+		// Skip if no meaningful output
+		if (!output || output.trim().length === 0) {
+			return;
+		}
+
+		// Determine output type based on exit code
+		const isError = exitCode !== undefined && exitCode !== 0;
+		const mime = isError
+			? 'application/vnd.code.notebook.error'
+			: 'application/vnd.code.notebook.stdout';
+
+		if (isError) {
+			// Format as error with exit code information
+			this._addOutput(tracker, documentUri, [{
+				mime,
+				data: JSON.stringify({
+					name: 'ShellError',
+					message: `Command exited with code ${exitCode}`,
+					stack: output,
+				}),
+			}]);
+		} else {
+			// Format as stdout (preserves ANSI codes)
+			this._addOutput(tracker, documentUri, [{
+				mime,
+				data: output,
+			}]);
+		}
+	}
+
+	/**
+	 * Clean terminal output by removing the echoed command and shell prompts.
+	 * Terminal output typically contains:
+	 * 1. The command as it was typed/sent (echoed by terminal)
+	 * 2. The actual command output
+	 * 3. The shell prompt after execution
+	 *
+	 * Terminal output may not have clean newlines - content can be separated
+	 * by carriage returns, prompts may appear inline, etc.
+	 */
+	private _cleanTerminalOutput(output: string, commandText?: string): string {
+		// First, strip ANSI codes for analysis
+		let cleanOutput = this._stripAnsiCodes(output);
+
+		// Normalize line endings and split on common prompt patterns
+		// This handles cases where terminal output doesn't have clean newlines
+		cleanOutput = cleanOutput.replace(/\r\n?/g, '\n');
+
+		const promptPatterns = [
+			// allow-any-unicode-next-line
+			/(\u276f\s+)/g,      // Starship prompt ❯
+			/(\$\s+)/g,          // Bash prompt $
+			/(>\s+)/g,           // Generic prompt >
+		];
+
+		// If the output seems to be all on one line with prompts embedded,
+		// split it up by inserting newlines before prompts
+		for (const pattern of promptPatterns) {
+			cleanOutput = cleanOutput.replace(pattern, '\n$1');
+		}
+
+		// Now split into lines
+		const lines = cleanOutput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+		if (lines.length === 0) {
+			return '';
+		}
+
+		// Find lines to keep - exclude command echo and prompts
+		const outputLines: string[] = [];
+		const commandToMatch = commandText ? commandText.trim() : '';
+
+		for (const line of lines) {
+			// Skip lines that contain the command we executed
+			if (commandToMatch && line.includes(commandToMatch)) {
+				continue;
+			}
+
+			// Skip lines that look like prompts (path + prompt character)
+			if (this._looksLikePromptLine(line)) {
+				continue;
+			}
+
+			// Skip lines that are just the command without prompt
+			// (in case the command was echoed separately)
+			if (commandToMatch) {
+				const normalizedLine = line.toLowerCase();
+				const normalizedCommand = commandToMatch.toLowerCase();
+				if (normalizedLine === normalizedCommand ||
+					normalizedLine.endsWith(normalizedCommand)) {
+					continue;
+				}
+			}
+
+			outputLines.push(line);
+		}
+
+		return outputLines.join('\n');
+	}
+
+	/**
+	 * Check if a line looks like a shell prompt line.
+	 * Prompt lines typically contain a path and end with a prompt character.
+	 */
+	private _looksLikePromptLine(line: string): boolean {
+		// Lines ending with common prompt characters
+		if (/[\$#%>\u276f]\s*$/.test(line)) {
+			return true;
+		}
+
+		// Lines that look like paths with branch info (common in starship/powerline)
+		// e.g., "/path/to/repo feature/branch*"
+		if (/^[\/~].*\s+\S+\*?\s*$/.test(line) && !line.includes('=')) {
+			return true;
+		}
+
+		// Lines starting with prompt characters
+		if (/^[\$#%>\u276f]\s/.test(line)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Strip ANSI escape codes from a string.
+	 */
+	private _stripAnsiCodes(text: string): string {
+
+		return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+			.replace(/\x1b\][^\x07]*\x07/g, '') // OSC sequences
+			.replace(/\x1b[PX^_][^\x1b]*\x1b\\/g, '') // DCS/SOS/PM/APC sequences
+			.replace(/[\x00-\x09\x0b-\x1f]/g, ''); // Other control characters except \n
+	}
+
+	/**
+	 * Wait for terminal data stream to idle.
+	 */
+	private async _waitForTerminalIdle(onData: Event<unknown>, idleDurationMs: number): Promise<void> {
+		const store = new DisposableStore();
+		const deferred = new DeferredPromise<void>();
+		const scheduler = store.add(new RunOnceScheduler(() => deferred.complete(), idleDurationMs));
+		store.add(onData(() => scheduler.schedule()));
+		scheduler.schedule();
+		return deferred.p.finally(() => store.dispose());
+	}
+
+	/**
+	 * Wait for terminal idle with prompt detection heuristics.
+	 */
+	private async _waitForTerminalIdleWithPromptHeuristics(
+		onData: Event<unknown>,
+		terminal: import('../../terminal/browser/terminal.js').ITerminalInstance,
+		idlePollIntervalMs: number,
+		extendedTimeoutMs: number
+	): Promise<{ detected: boolean }> {
+		await this._waitForTerminalIdle(onData, idlePollIntervalMs);
+
+		const xterm = await terminal.xtermReadyPromise;
+		if (!xterm) {
+			return { detected: false };
+		}
+
+		const startTime = Date.now();
+
+		while (Date.now() - startTime < extendedTimeoutMs) {
+			try {
+				const buffer = xterm.raw.buffer.active;
+				const line = buffer.getLine(buffer.baseY + buffer.cursorY);
+				if (line) {
+					const content = line.translateToString(true);
+					if (this._detectsCommonPromptPattern(content)) {
+						return { detected: true };
+					}
+				}
+			} catch {
+				// Continue polling
+			}
+			await this._waitForTerminalIdle(onData, Math.min(idlePollIntervalMs, extendedTimeoutMs - (Date.now() - startTime)));
+		}
+
+		return { detected: false };
+	}
+
+	/**
+	 * Detect common shell prompt patterns.
+	 */
+	private _detectsCommonPromptPattern(cursorLine: string): boolean {
+		if (cursorLine.trim().length === 0) {
+			return false;
+		}
+
+		// PowerShell prompt: PS C:\>
+		if (/PS\s+[A-Z]:\\.*>\s*$/.test(cursorLine)) {
+			return true;
+		}
+
+		// Command Prompt: C:\path>
+		if (/^[A-Z]:\\.*>\s*$/.test(cursorLine)) {
+			return true;
+		}
+
+		// Bash-style prompts ending with $
+		if (/\$\s*$/.test(cursorLine)) {
+			return true;
+		}
+
+		// Root prompts ending with #
+		if (/#\s*$/.test(cursorLine)) {
+			return true;
+		}
+
+		// Starship prompt character
+		if (/\u276f\s*$/.test(cursorLine)) {
+			return true;
+		}
+
+		// Generic prompts ending with > or %
+		if (/[>%]\s*$/.test(cursorLine)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Track terminal for idle on prompt using shell integration sequences.
+	 */
+	private async _trackIdleOnPrompt(
+		terminal: import('../../terminal/browser/terminal.js').ITerminalInstance,
+		idleDurationMs: number,
+		store: DisposableStore
+	): Promise<void> {
+		const idleOnPrompt = new DeferredPromise<void>();
+		const onData = terminal.onData;
+		const scheduler = store.add(new RunOnceScheduler(() => {
+			idleOnPrompt.complete();
+		}, idleDurationMs));
+
+		const enum TerminalState {
+			Initial,
+			Prompt,
+			Executing,
+			PromptAfterExecuting,
+		}
+		let state: TerminalState = TerminalState.Initial;
+
+		store.add(onData(e => {
+			// Look for shell integration sequences: 133;A (prompt), 133;C/D (executed)
+			const matches = e.matchAll(/(?:\x1b\]|\x9d)[16]33;(?<type>[ACD])(?:;.*)?(?:\x1b\\|\x07|\x9c)/g);
+			for (const match of matches) {
+				if (match.groups?.type === 'A') {
+					if (state === TerminalState.Initial) {
+						state = TerminalState.Prompt;
+					} else if (state === TerminalState.Executing) {
+						state = TerminalState.PromptAfterExecuting;
+					}
+				} else if (match.groups?.type === 'C' || match.groups?.type === 'D') {
+					state = TerminalState.Executing;
+				}
+			}
+			// Schedule completion when we see prompt after executing
+			if (state === TerminalState.PromptAfterExecuting) {
+				scheduler.schedule();
+			} else {
+				scheduler.cancel();
+			}
+		}));
+
+		return idleOnPrompt.p;
 	}
 
 	/**

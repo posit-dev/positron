@@ -23,6 +23,7 @@ import { IWorkspaceContextService } from '../../../../../platform/workspace/comm
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ITerminalService } from '../../../terminal/browser/terminal.js';
 
 const TestLanguageRuntimeMetadata: ILanguageRuntimeMetadata = {
 	base64EncodedIconSvg: '',
@@ -77,6 +78,7 @@ suite('QuartoExecutionManager', () => {
 		const mockWorkspaceContextService = new MockWorkspaceContextService();
 		const mockConsoleService = new MockPositronConsoleService();
 		const mockRuntimeSessionService = new MockRuntimeSessionService();
+		const mockTerminalService = new MockTerminalService();
 
 		// Create execution manager
 		executionManager = new QuartoExecutionManager(
@@ -88,6 +90,7 @@ suite('QuartoExecutionManager', () => {
 			logService,
 			mockConsoleService as unknown as IPositronConsoleService,
 			mockRuntimeSessionService as unknown as IRuntimeSessionService,
+			mockTerminalService as unknown as ITerminalService,
 		);
 		disposables.add(executionManager);
 	});
@@ -415,6 +418,7 @@ suite('QuartoExecutionManager', () => {
 				logService,
 				new MockPositronConsoleService() as unknown as IPositronConsoleService,
 				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
+				new MockTerminalService() as unknown as ITerminalService,
 			);
 			disposables.add(executionManagerWithMock);
 
@@ -656,6 +660,12 @@ class MockPositronConsoleService {
 
 class MockRuntimeSessionService {
 	getSession(_sessionId: string): ILanguageRuntimeSession | undefined {
+		return undefined;
+	}
+}
+
+class MockTerminalService {
+	async getActiveOrCreateInstance() {
 		return undefined;
 	}
 }
