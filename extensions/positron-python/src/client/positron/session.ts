@@ -2,7 +2,7 @@
 /* eslint-disable no-else-return */
 /* eslint-disable class-methods-use-this */
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -334,6 +334,46 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         } else {
             throw new Error(`Cannot set working directory to ${dir}; kernel not started`);
         }
+    }
+
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        if (this._kernel) {
+            try {
+                return await this._kernel?.callMethod('getPackagesInstalled');
+            } catch (err) {
+                this._kernel?.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
+                throw err;
+            }
+        }
+
+        throw new Error(`Cannot get packages: kernel not started`);
+    }
+
+    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+        const response = await fetch('https://pypi.org/simple/', {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as {
+            projects: { name: string }[];
+        };
+
+        return json.projects
+            .map((x) => x.name)
+            .filter((x) => x.includes(query))
+            .map((x) => ({
+                id: x,
+                name: x,
+                displayName: x,
+                version: '0',
+            }));
+    }
+
+    async searchPackageVersions(name: string): Promise<string[]> {
+        const response = await fetch(`https://pypi.org/simple/${name}/`, {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as { versions: string[] };
+        return json.versions;
     }
 
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
