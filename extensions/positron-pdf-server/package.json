@@ -24,7 +24,7 @@
 			{
 				"viewType": "positronPdfServer.previewEditor",
 				"displayName": "PDF Server Preview",
-				"priority": "option",
+				"priority": "default",
 				"selector": [
 					{
 						"filenamePattern": "*.pdf"
