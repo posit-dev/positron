@@ -165,6 +165,12 @@ export class Assistant {
 	}
 
 	async clickAddModelButton() {
+		// Ensure chat panel is open first
+		const chatPanelIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
+		if (!chatPanelIsVisible) {
+			await this.openPositronAssistantChat();
+		}
+
 		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
 		if (!addModelLinkIsVisible) {
 			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();

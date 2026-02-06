@@ -22,7 +22,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 
 		// Create a new notebook with a cell that produces an error
 		await notebooksPositron.createNewNotebook();
-		await notebooksPositron.kernel.select('Python');
+		await notebooksPositron.kernel.select('R');
 
 		// Add a code cell with intentional error
 		await notebooksPositron.addCodeToCell(0, 'invalid_function()', { run: true });
@@ -43,7 +43,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 
 		// Create a new notebook with a cell that produces an error
 		await notebooksPositron.createNewNotebook();
-		await notebooksPositron.kernel.select('Python');
+		await notebooksPositron.kernel.select('R');
 
 		// Add a code cell with intentional error
 		await notebooksPositron.addCodeToCell(0, 'invalid_function()', { run: true });
@@ -60,11 +60,11 @@ test.describe('Notebook Assistant: Interaction Flow', {
 }, () => {
 
 	test.beforeAll(async function ({ assistant }) {
-		await assistant.signInToProvider('echo');
+		await assistant.loginModelProvider('echo');
 	});
 
 	test.afterAll(async function ({ assistant }) {
-		await assistant.signOutFromProvider('echo');
+		await assistant.logoutModelProvider('echo');
 	});
 
 	test('Fix error button opens chat and sends error context', async function ({ app }) {
@@ -72,14 +72,14 @@ test.describe('Notebook Assistant: Interaction Flow', {
 
 		// Create notebook
 		await notebooksPositron.createNewNotebook();
-		await notebooksPositron.kernel.select('Python');
+		await notebooksPositron.kernel.select('R');
 
 		// Add a valid cell first
-		await notebooksPositron.addCodeToCell(0, 'x = 10', { run: true });
+		await notebooksPositron.addCodeToCell(0, 'x <- 10', { run: true });
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 
 		// Add a cell with an error and run it
-		await notebooksPositron.addCodeToCell(1, 'result = x + undefined_var', { run: true });
+		await notebooksPositron.addCodeToCell(1, 'result <- x + undefined_var', { run: true });
 		await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
 		await notebooksPositron.expectNotebookErrorVisible();
 
@@ -97,7 +97,7 @@ test.describe('Notebook Assistant: Interaction Flow', {
 
 		// Create notebook
 		await notebooksPositron.createNewNotebook();
-		await notebooksPositron.kernel.select('Python');
+		await notebooksPositron.kernel.select('R');
 
 		// Add a cell with an error and run it
 		await notebooksPositron.addCodeToCell(0, 'undefined_function()', { run: true });
