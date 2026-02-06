@@ -1,4 +1,4 @@
-# End-to-End Testing Context
+# E2E Testing
 
 For comprehensive e2e test guidance, use the `positron-e2e-tests` skill which provides:
 - Test file structure and templates
