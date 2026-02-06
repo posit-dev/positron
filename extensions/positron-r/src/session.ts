@@ -17,6 +17,7 @@ import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
+import { RPackageManager } from './packages';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -101,6 +102,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	/** Cache of installed packages and associated version info */
 	private _packageCache: Map<string, RPackageInstallation> = new Map();
+
+	/** Package manager for this session */
+	private _packageManager?: RPackageManager;
 
 	/** Disposables. Disposed of after main resources (LSP, kernel, etc) */
 	private _disposables: vscode.Disposable[] = [];
@@ -314,6 +318,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 					this.onConsoleWidthChange(newWidth);
 				});
 		}
+
+		// Initialize the package manager
+		this._packageManager = new RPackageManager(this);
 
 		return await this._kernel.start();
 	}
@@ -659,6 +666,80 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 
 		return attached;
+	}
+
+	// =========================================================================
+	// Package management methods (LanguageRuntimeSession interface)
+	// =========================================================================
+
+	/**
+	 * Get list of installed packages.
+	 */
+	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		return this._packageManager.getPackages();
+	}
+
+	/**
+	 * Install the list of packages.
+	 */
+	async installPackages(packages: string[]): Promise<void> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		await this._packageManager.installPackages(packages);
+	}
+
+	/**
+	 * Update the list of packages. Package names can optionally include version if split using an '@'.
+	 */
+	async updatePackages(packages: string[]): Promise<void> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		await this._packageManager.updatePackages(packages);
+	}
+
+	/**
+	 * Update all installed packages.
+	 */
+	async updateAllPackages(): Promise<void> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		await this._packageManager.updateAllPackages();
+	}
+
+	/**
+	 * Uninstall the list of packages.
+	 */
+	async uninstallPackages(packages: string[]): Promise<void> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		await this._packageManager.uninstallPackages(packages);
+	}
+
+	/**
+	 * Search a repository for packages matching the query.
+	 */
+	async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		return this._packageManager.searchPackages(query);
+	}
+
+	/**
+	 * Search a repository for available versions of a package.
+	 */
+	async searchPackageVersions(name: string): Promise<string[]> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		return this._packageManager.searchPackageVersions(name);
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
