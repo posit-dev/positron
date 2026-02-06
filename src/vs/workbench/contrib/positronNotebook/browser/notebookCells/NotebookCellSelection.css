@@ -65,23 +65,23 @@
 
 /* === Special Case: Code Cells with No Outputs === */
 
-.positron-notebook-code-cell:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
+.positron-notebook-code-cell:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section {
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	border-bottom: 1px solid var(--vscode-positronNotebook-border-color);
 }
 
 /* Make bottom border of code cell footer transparent when there are no outputs to avoid double border while maintaining static height */
-.positron-notebook-code-cell:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-code-cell-footer {
+.positron-notebook-code-cell:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-code-cell-footer {
 	border-bottom-color: transparent;
 }
 
 /* Update the border color for code cells with no outputs based on the selection state */
-.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section,
-.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
+.positron-notebook-cell.selected:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section,
+.positron-notebook-cell.editing:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section {
 	border-bottom-color: var(--vscode-focusBorder);
 }
 
-.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section {
 	border-bottom-color: var(--vscode-editorWidget-border);
 }
 
