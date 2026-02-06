@@ -55,6 +55,11 @@ export class PositronNotebooks extends Notebooks {
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
 
+	// Assistant buttons (shown on error cells when assistant is enabled)
+	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
+	private fixErrorButton = this.code.driver.page.getByRole('button', { name: /Ask assistant to fix/i });
+	private explainErrorButton = this.code.driver.page.getByRole('button', { name: /Ask assistant to explain/i });
+
 	// Search Widget
 	private searchWidget = this.code.driver.page.locator('.positron-find-widget');
 	private findInput = this.searchWidget.getByRole('textbox', { name: 'Find' });
@@ -515,6 +520,36 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Click the "Ask assistant to fix" button on an error cell.
+	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
+	 */
+	async clickFixErrorButton(): Promise<void> {
+		await test.step('Click Fix error button', async () => {
+			await this.fixErrorButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click the "Ask assistant to explain" button on an error cell.
+	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
+	 */
+	async clickExplainErrorButton(): Promise<void> {
+		await test.step('Click Explain error button', async () => {
+			await this.explainErrorButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click the "Ask Assistant" button in the editor action bar.
+	 * Requires: assistant enabled and a model signed in.
+	 */
+	async clickAskAssistantButton(): Promise<void> {
+		await test.step('Click Ask Assistant button', async () => {
+			await this.askAssistantButton.click();
+		});
+	}
+
+	/**
 	 * Action: Search Notebook.
 	 * @param searchText - The text to search for.
 	 * @param options - Options to control behavior:
@@ -588,6 +623,46 @@ export class PositronNotebooks extends Notebooks {
 	// #endregion
 
 	// #region VERIFICATIONS
+
+	/**
+	 * Verify: Assistant buttons visibility.
+	 * @param visible - Whether the buttons should be visible (true) or hidden (false).
+	 */
+	async expectAssistantButtonsVisible(visible: boolean = true): Promise<void> {
+		await test.step(`Expect assistant buttons to be ${visible ? 'visible' : 'hidden'}`, async () => {
+			if (visible) {
+				await expect(this.askAssistantButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				await expect(this.askAssistantButton).not.toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
+
+	/**
+	 * Verify: Fix/Explain error buttons visibility.
+	 * @param visible - Whether the buttons should be visible (true) or hidden (false).
+	 */
+	async expectErrorAssistantButtonsVisible(visible: boolean = true): Promise<void> {
+		await test.step(`Expect Fix/Explain error buttons to be ${visible ? 'visible' : 'hidden'}`, async () => {
+			if (visible) {
+				await expect(this.fixErrorButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+				await expect(this.explainErrorButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				await expect(this.fixErrorButton).not.toBeVisible({ timeout: DEFAULT_TIMEOUT });
+				await expect(this.explainErrorButton).not.toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
+
+	/**
+	 * Verify: A notebook error is visible in any cell.
+	 * @param timeout - The maximum time to wait for visibility (default: 10000ms)
+	 */
+	async expectNotebookErrorVisible(timeout: number = 10000): Promise<void> {
+		await test.step('Expect notebook error to be visible', async () => {
+			await this.code.driver.page.waitForSelector('.notebook-error', { timeout });
+		});
+	}
 
 	/**
 	 * Verify: search count matches expected count.

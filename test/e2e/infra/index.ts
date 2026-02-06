@@ -47,6 +47,7 @@ export * from '../pages/references';
 export * from '../pages/scm';
 export * from '../pages/sessions';
 export * from '../pages/hotKeys';
+export * from '../pages/positronAssistant';
 
 // utils
 export * from '../pages/utils/aws';

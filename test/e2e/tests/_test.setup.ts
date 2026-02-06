@@ -11,7 +11,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 
 // Local imports
-import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage } from '../infra';
+import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage, Assistant } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import {
 	FileOperationsFixture, SettingsFixture, MetricsFixture,
@@ -140,6 +140,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
+
+	assistant: [
+		async ({ app }, use) => {
+			await use(app.workbench.assistant);
+		},
+		{ scope: 'test' }
+	],
 
 	sessions: [
 		async ({ app }, use) => {
@@ -377,6 +384,7 @@ export interface TestFixtures {
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
 	sessions: Sessions;
+	assistant: Assistant;
 	r: void;
 	python: void;
 	packages: PackageManager;
