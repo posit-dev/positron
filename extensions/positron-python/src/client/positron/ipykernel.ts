@@ -81,8 +81,19 @@ export async function getIpykernelBundle(
     // Get fresh interpreter information if implementation or architecture is not available.
     // This is important because cached interpreter metadata may have stale architecture info
     // (e.g., from before platform.machine() detection was added to interpreterInfo.py).
+    //
+    // On ARM64 systems (macOS/Windows), always fetch fresh architecture because x64 Python
+    // can run via emulation (Rosetta/Windows ARM64 emulation), so cached architecture from
+    // os.arch() may be wrong. On x64 systems, no mismatch is possible so trust the cache.
     let { implementation, architecture } = interpreter;
-    if (implementation === undefined || architecture === undefined || architecture === Architecture.Unknown) {
+    const systemArch = os.arch();
+    const architectureMismatchPossible = systemArch === 'arm64';
+    if (
+        implementation === undefined ||
+        architecture === undefined ||
+        architecture === Architecture.Unknown ||
+        architectureMismatchPossible
+    ) {
         const pythonExecutionService = await pythonExecutionFactory.create({ pythonPath: interpreter.path });
         const interpreterInfo = await pythonExecutionService.getInterpreterInformation();
         if (interpreterInfo) {
