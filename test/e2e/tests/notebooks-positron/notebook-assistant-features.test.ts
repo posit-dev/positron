@@ -20,7 +20,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		// Disable assistant features
 		await settings.set({ 'positron.assistant.enable': false });
 
-		// Create a new notebook with a cell that produces an error
+		// Create a new notebook
 		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.kernel.select('R');
 
@@ -39,7 +39,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 
 		// Enable assistant and sign in to echo provider
 		await settings.set({ 'positron.assistant.enable': true });
-		await assistant.signInToProvider('echo');
+		await assistant.loginModelProvider('echo');
 
 		// Create a new notebook with a cell that produces an error
 		await notebooksPositron.createNewNotebook();
@@ -49,6 +49,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		await notebooksPositron.addCodeToCell(0, 'invalid_function()', { run: true });
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 		await notebooksPositron.expectNotebookErrorVisible();
+
 		// Verify assistant buttons ARE visible
 		await notebooksPositron.expectAssistantButtonsVisible(true);
 		await notebooksPositron.expectErrorAssistantButtonsVisible(true);

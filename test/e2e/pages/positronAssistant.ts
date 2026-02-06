@@ -376,44 +376,6 @@ export class Assistant {
 		await this.code.driver.page.locator(SIGN_OUT_BUTTON).click();
 	}
 
-	/**
-	 * Signs in to a model provider. Opens the configure models dialog,
-	 * selects the provider, optionally enters an API key, and signs in.
-	 * @param provider The provider to sign in to (e.g., 'echo', 'anthropic-api')
-	 * @param apiKey Optional API key for providers that require one
-	 */
-	async signInToProvider(provider: string, apiKey?: string) {
-		await test.step(`Sign in to ${provider} provider`, async () => {
-			await this.openPositronAssistantChat();
-			await this.quickaccess.runCommand('positron-assistant.configureModels');
-			await this.selectModelProvider(provider);
-
-			if (apiKey) {
-				await this.enterApiKey(apiKey);
-			}
-
-			await this.clickSignInButton();
-			await this.verifySignOutButtonVisible();
-			await this.clickCloseButton();
-		});
-	}
-
-	/**
-	 * Signs out from a model provider. Opens the configure models dialog,
-	 * selects the provider, and signs out.
-	 * @param provider The provider to sign out from (e.g., 'echo', 'anthropic-api')
-	 */
-	async signOutFromProvider(provider: string) {
-		await test.step(`Sign out from ${provider} provider`, async () => {
-			await expect(async () => {
-				await this.quickaccess.runCommand('positron-assistant.configureModels');
-				await this.selectModelProvider(provider);
-				await this.clickSignOutButton();
-				await this.clickCloseButton();
-			}).toPass({ timeout: 30000 });
-		});
-	}
-
 	async verifySignOutButtonVisible(timeout: number = 15000) {
 		await expect(this.code.driver.page.locator(SIGN_OUT_BUTTON)).toBeVisible({ timeout });
 		await expect(this.code.driver.page.locator(SIGN_OUT_BUTTON)).toHaveText('Sign out', { timeout });
