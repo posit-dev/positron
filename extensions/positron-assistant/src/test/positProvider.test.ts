@@ -31,10 +31,10 @@ suite('PositModelProvider', () => {
 		const mockConfig = {
 			get: (key: string, defaultValue?: any) => {
 				const configValues: Record<string, any> = {
-					'authHost': 'https://auth.test.posit.cloud',
+					'authHost': 'https://auth.test.localhost',
 					'scope': 'openid profile email',
 					'clientId': 'test-client-id',
-					'baseUrl': 'https://api.test.posit.cloud',
+					'baseUrl': 'https://api.test.localhost',
 					'useAnthropicSdk': true // Native SDK by default
 				};
 				return configValues[key] ?? defaultValue;
@@ -88,7 +88,7 @@ suite('PositModelProvider', () => {
 
 	suite('Rate limit error handling (Vercel SDK path)', () => {
 		test('throws error with retry-after when rate limited with header', () => {
-			const rateLimitError = createVercelRateLimitError('30', 'https://api.posit.cloud/anthropic/v1/messages');
+			const rateLimitError = createVercelRateLimitError('30', 'https://api.localhost/anthropic/v1/messages');
 
 			assert.throws(
 				() => (model as any).handleStreamError(rateLimitError),
@@ -100,7 +100,7 @@ suite('PositModelProvider', () => {
 		});
 
 		test('throws error without retry-after when rate limited without header', () => {
-			const rateLimitError = createVercelRateLimitError(undefined, 'https://api.posit.cloud/anthropic/v1/messages');
+			const rateLimitError = createVercelRateLimitError(undefined, 'https://api.localhost/anthropic/v1/messages');
 
 			assert.throws(
 				() => (model as any).handleStreamError(rateLimitError),
