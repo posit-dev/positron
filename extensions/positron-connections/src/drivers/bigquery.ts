@@ -30,7 +30,7 @@ class PythonBigQueryDriverBase implements positron.ConnectionsDriver {
 			positron.RuntimeErrorBehavior.Continue
 		);
 		if (!exec) {
-			throw new Error('Failed to execute code');
+			throw new Error(vscode.l10n.t('Failed to execute code'));
 		}
 		return;
 	}
@@ -78,16 +78,22 @@ export class PythonBigQueryDefaultCredentialsDriver extends PythonBigQueryDriver
 		]
 	};
 
-	generateCode(inputs: positron.ConnectionsInput[]) {
+	generateCode(inputs: positron.ConnectionsInput[]): string | { code: string; errorMessage: string } {
 		const project = inputs.find(input => input.id === 'project')?.value ?? '';
 
-		return `from google.cloud import bigquery
+		const code = `from google.cloud import bigquery
 
 # To configure credentials locally, run: gcloud auth application-default login
 # See: https://cloud.google.com/docs/authentication/provide-credentials-adc
 conn = bigquery.Client(project=${JSON.stringify(project)})
 %connection_show conn
 `;
+
+		if (project === '') {
+			return { code, errorMessage: vscode.l10n.t('Project ID is required') };
+		}
+
+		return code;
 	}
 }
 
@@ -129,16 +135,25 @@ export class PythonBigQueryServiceAccountDriver extends PythonBigQueryDriverBase
 		]
 	};
 
-	generateCode(inputs: positron.ConnectionsInput[]) {
+	generateCode(inputs: positron.ConnectionsInput[]): string | { code: string; errorMessage: string } {
 		const project = inputs.find(input => input.id === 'project')?.value ?? '';
 		const keyfilePath = inputs.find(input => input.id === 'keyfile_path')?.value ?? '';
 
-		return `from google.cloud import bigquery
+		const code = `from google.cloud import bigquery
 from google.oauth2 import service_account
 
 credentials = service_account.Credentials.from_service_account_file(${JSON.stringify(keyfilePath)})
 conn = bigquery.Client(credentials=credentials, project=${JSON.stringify(project)})
 %connection_show conn
 `;
+
+		if (project === '') {
+			return { code, errorMessage: vscode.l10n.t('Project ID is required') };
+		}
+
+		if (keyfilePath === '') {
+			return { code, errorMessage: vscode.l10n.t('Service account keyfile path is required') };
+		}
+		return code;
 	}
 }
