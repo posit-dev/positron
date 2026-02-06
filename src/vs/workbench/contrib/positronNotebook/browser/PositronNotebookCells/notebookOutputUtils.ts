@@ -7,25 +7,13 @@ import { NotebookCellOutputItem } from './IPositronNotebookCell.js';
 import { isDataExplorerMimeType } from '../getOutputContents.js';
 
 /**
- * Options for getting MIME type priority
- */
-interface MimeTypePriorityOptions {
-	/** Skip the inline data explorer MIME type (treat as unknown) */
-	skipDataExplorer?: boolean;
-}
-
-/**
  * Get the priority of a mime type for sorting purposes
  * @param mime The mime type to get the priority of
- * @param options Optional settings for MIME type handling
  * @returns A number representing the priority of the mime type. Lower numbers are higher priority.
  */
-function getMimeTypePriority(mime: string, options?: MimeTypePriorityOptions): number | null {
-	// Positron inline data explorer has highest priority (if not skipped)
+function getMimeTypePriority(mime: string): number | null {
+	// Positron inline data explorer has highest priority
 	if (isDataExplorerMimeType(mime)) {
-		if (options?.skipDataExplorer) {
-			return null; // Treat as unknown, will fall back to HTML
-		}
 		return 0;
 	}
 
@@ -48,34 +36,13 @@ function getMimeTypePriority(mime: string, options?: MimeTypePriorityOptions): n
 	}
 }
 
-
-/**
- * Options for picking preferred output
- */
-export interface PickPreferredOutputOptions {
-	/**
-	 * Skip the inline data explorer MIME type (will fall back to HTML).
-	 * TODO: Wire up for notebook-reload fallback -- when a notebook is reloaded, the data
-	 * explorer comm is unavailable, so we need to skip the data explorer MIME type and fall
-	 * back to HTML table rendering. See thoughts/tasks/inline-data-explorer.md "Unresolved Bugs".
-	 */
-	skipDataExplorer?: boolean;
-	/**
-	 * Function to log warnings.
-	 * TODO: Wire up to a proper logging service for diagnosing output selection issues
-	 * during notebook-reload fallback. See thoughts/tasks/inline-data-explorer.md "Unresolved Bugs".
-	 */
-	logWarning?: (msg: string) => void;
-}
-
 /**
  * Pick the output item with the highest priority mime type from a cell output object
  * @param outputItems Array of outputs items data from a cell output object
- * @param options Options for output selection
  * @returns The output item with the highest priority mime type. If there's a tie, the first one is
  * returned. If there's an unknown mime type we defer to ones we do know about.
  */
-export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], options?: PickPreferredOutputOptions): NotebookCellOutputItem | undefined {
+export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): NotebookCellOutputItem | undefined {
 
 	if (outputItems.length === 0) {
 		return undefined;
@@ -85,9 +52,7 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], o
 	let preferredOutput = outputItems[0];
 
 	for (const item of outputItems) {
-		const priority = getMimeTypePriority(item.mime, {
-			skipDataExplorer: options?.skipDataExplorer
-		});
+		const priority = getMimeTypePriority(item.mime);
 
 		// If we don't know how to render any of the mime types, we'll return the first one and hope
 		// for the best!
@@ -99,12 +64,6 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], o
 			preferredOutput = item;
 			highestPriority = priority;
 		}
-	}
-
-	if (highestPriority === null) {
-		options?.logWarning?.('Could not determine preferred output for notebook cell with mime types' +
-			outputItems.map(item => item.mime).join(', ')
-		);
 	}
 
 	return preferredOutput;
