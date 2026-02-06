@@ -21,12 +21,6 @@ export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('posi
  */
 export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false, localize('positronNotebookCellEditorFocused', "Whether a code editor within a Positron notebook cell is focused"));
 
-/**
- * Context key that is set when a ghost cell is in awaiting-request state (pull mode).
- * Used to enable the keyboard shortcut for requesting suggestions.
- */
-export const POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST = new RawContextKey<boolean>('positronNotebookGhostCellAwaitingRequest', false, localize('positronNotebookGhostCellAwaitingRequest', "Whether a ghost cell is awaiting a suggestion request (pull mode)"));
-
 // Cell state context keys
 export const POSITRON_NOTEBOOK_CELL_IS_CODE = new RawContextKey<boolean>('positronNotebookCellIsCode', false);
 export const POSITRON_NOTEBOOK_CELL_IS_MARKDOWN = new RawContextKey<boolean>('positronNotebookCellIsMarkdown', false);

@@ -12,10 +12,10 @@ import React from 'react';
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
-import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
-import { GhostCellState } from '../IPositronNotebookInstance.js';
+import { GhostCellState } from '../contrib/ghostCell/controller.js';
+import { useGhostCellController } from '../contrib/ghostCell/useGhostCellController.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -504,10 +504,10 @@ function getAnnouncement(state: GhostCellState): string {
  * Appears after successful cell execution with a brief delay.
  */
 export const GhostCell: React.FC = () => {
-	const instance = useNotebookInstance();
+	const controller = useGhostCellController();
 	const services = usePositronReactServicesContext();
 	const { contextMenuService, workbenchLayoutService } = services;
-	const ghostCellState = useObservedValue(instance.ghostCellState);
+	const ghostCellState = useObservedValue(controller.ghostCellState);
 	const [announcement, setAnnouncement] = React.useState('');
 	const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -525,28 +525,28 @@ export const GhostCell: React.FC = () => {
 	}, [ghostCellState]);
 
 	const handleAccept = React.useCallback(() => {
-		instance.acceptGhostCellSuggestion(false);
-	}, [instance]);
+		controller.acceptGhostCellSuggestion(false);
+	}, [controller]);
 
 	const handleAcceptAndRun = React.useCallback(() => {
-		instance.acceptGhostCellSuggestion(true);
-	}, [instance]);
+		controller.acceptGhostCellSuggestion(true);
+	}, [controller]);
 
 	const handleDismiss = React.useCallback(() => {
-		instance.dismissGhostCell(false);
-	}, [instance]);
+		controller.dismissGhostCell(false);
+	}, [controller]);
 
 	const handleDisableForNotebook = React.useCallback(() => {
-		instance.dismissGhostCell(true);
-	}, [instance]);
+		controller.dismissGhostCell(true);
+	}, [controller]);
 
 	const handleDisableGlobally = React.useCallback(() => {
-		instance.disableGhostCellSuggestions();
-	}, [instance]);
+		controller.disableGhostCellSuggestions();
+	}, [controller]);
 
 	const handleRegenerate = React.useCallback(() => {
-		instance.regenerateGhostCellSuggestion();
-	}, [instance]);
+		controller.regenerateGhostCellSuggestion();
+	}, [controller]);
 
 	const handleShowInfo = React.useCallback(() => {
 		const renderer = new PositronModalReactRenderer({
@@ -559,36 +559,36 @@ export const GhostCell: React.FC = () => {
 
 	// Opt-in prompt handlers
 	const handleOptInEnable = React.useCallback(() => {
-		instance.enableGhostCellSuggestions();
-	}, [instance]);
+		controller.enableGhostCellSuggestions();
+	}, [controller]);
 
 	const handleOptInNotNow = React.useCallback(() => {
-		instance.dismissOptInPrompt();
-	}, [instance]);
+		controller.dismissOptInPrompt();
+	}, [controller]);
 
 	const handleOptInDontAskAgain = React.useCallback(() => {
-		instance.disableGhostCellSuggestions();
-	}, [instance]);
+		controller.disableGhostCellSuggestions();
+	}, [controller]);
 
 	// Pull mode handler - request suggestion on demand
 	const handleGetSuggestion = React.useCallback(() => {
-		instance.requestGhostCellSuggestion();
-	}, [instance]);
+		controller.requestGhostCellSuggestion();
+	}, [controller]);
 
 	// Mode toggle handler
 	const handleToggleMode = React.useCallback(() => {
-		instance.toggleAutomaticMode();
-	}, [instance]);
+		controller.toggleAutomaticMode();
+	}, [controller]);
 
 	// Model picker handler
 	const handleChangeModel = React.useCallback(() => {
 		services.commandService.executeCommand('positron-assistant.selectGhostCellModel');
 	}, [services.commandService]);
 
-	// Get automatic mode from state (for immediate UI feedback) or fall back to instance method
+	// Get automatic mode from state (for immediate UI feedback) or fall back to controller method
 	const automatic = ghostCellState.status !== 'hidden' && ghostCellState.status !== 'opt-in-prompt' && ghostCellState.status !== 'error'
 		? ghostCellState.automatic
-		: instance.isAutomaticMode();
+		: controller.isAutomaticMode();
 
 	// Memoize actions for the split buttons
 	// Dropdown shows alternatives to the primary action (Accept and Run)
