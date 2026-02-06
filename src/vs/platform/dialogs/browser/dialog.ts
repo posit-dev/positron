@@ -12,6 +12,7 @@ import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 import { ResultKind } from '../../keybinding/common/keybindingResolver.js';
 import { ILayoutService } from '../../layout/browser/layoutService.js';
 import { IProductService } from '../../product/common/productService.js';
+import { IPositronAttribution } from '../../remote/common/remoteAgentEnvironment.js';
 import { defaultButtonStyles, defaultCheckboxStyles, defaultInputBoxStyles, defaultDialogStyles } from '../../theme/browser/defaultStyles.js';
 
 const defaultDialogAllowableCommands = [
@@ -44,17 +45,7 @@ export function createWorkbenchDialogOptions(options: Partial<IDialogOptions>, k
 }
 
 // --- Start Positron ---
-/**
- * Attribution info for the About dialog.
- */
-export interface IAboutDialogAttribution {
-	licensee?: string;
-	issuer?: string;
-}
-// --- End Positron ---
-
-// --- Start Positron ---
-export function createBrowserAboutDialogDetails(productService: IProductService, attribution?: IAboutDialogAttribution): { title: string; details: string; detailsToCopy: string } {
+export function createBrowserAboutDialogDetails(productService: IProductService, attribution?: IPositronAttribution): { title: string; details: string; detailsToCopy: string } {
 	// --- End Positron ---
 	const detailString = (useAgo: boolean): string => {
 		// --- Start Positron ---
