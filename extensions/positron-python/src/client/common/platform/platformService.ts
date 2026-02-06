@@ -70,6 +70,10 @@ export class PlatformService implements IPlatformService {
 
     // eslint-disable-next-line class-methods-use-this
     public get is64bit(): boolean {
-        return getArchitecture() === Architecture.x64;
+        // --- Start Positron ---
+        // return getArchitecture() === Architecture.x64;
+        const arch = getArchitecture();
+        return arch === Architecture.x64 || arch === Architecture.arm64;
+        // --- End Positron ---
     }
 }
