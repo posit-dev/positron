@@ -53,7 +53,7 @@ export const DataExplorerCellOutput = React.memo(function DataExplorerCellOutput
 		if (!enabled) {
 			return <div className='data-explorer-disabled'>
 				{localize('dataExplorerDisabled', 'Inline data explorer is disabled. ')}
-				<a href="" onClick={(e) => { e.preventDefault(); handleOpenSettings(); }}>
+				<a href='#' onClick={(e) => { e.preventDefault(); handleOpenSettings(); }}>
 					{localize('enableInSettings', 'Enable in settings')}
 				</a>
 				{localize('toViewDataGrids', ' to view data grids.')}
