@@ -53,9 +53,18 @@ function getMimeTypePriority(mime: string, options?: MimeTypePriorityOptions): n
  * Options for picking preferred output
  */
 export interface PickPreferredOutputOptions {
-	/** Skip the inline data explorer MIME type (will fall back to HTML) */
+	/**
+	 * Skip the inline data explorer MIME type (will fall back to HTML).
+	 * TODO: Wire up for notebook-reload fallback -- when a notebook is reloaded, the data
+	 * explorer comm is unavailable, so we need to skip the data explorer MIME type and fall
+	 * back to HTML table rendering. See thoughts/tasks/inline-data-explorer.md "Unresolved Bugs".
+	 */
 	skipDataExplorer?: boolean;
-	/** Function to log warnings */
+	/**
+	 * Function to log warnings.
+	 * TODO: Wire up to a proper logging service for diagnosing output selection issues
+	 * during notebook-reload fallback. See thoughts/tasks/inline-data-explorer.md "Unresolved Bugs".
+	 */
 	logWarning?: (msg: string) => void;
 }
 
