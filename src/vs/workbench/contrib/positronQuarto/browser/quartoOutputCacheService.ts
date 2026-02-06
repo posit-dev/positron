@@ -314,6 +314,19 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 		// Get or create cell cache entry
 		let cellEntry = entry.cells.get(cellId);
 		if (!cellEntry) {
+			// Before creating a new entry, check for existing entry with same content hash
+			// but different cell ID. This happens when a cell moves (e.g., new cell inserted
+			// above it), which changes the cell's index and thus its ID, but the content
+			// hash remains the same. We need to remove the old entry to prevent duplicate
+			// outputs when the cache is reloaded.
+			for (const [existingCellId, existingEntry] of entry.cells) {
+				if (existingEntry.contentHash === contentHash && existingCellId !== cellId) {
+					this._logService.debug('[QuartoOutputCacheService] Cell moved from', existingCellId, 'to', cellId, '- removing old cache entry');
+					entry.cells.delete(existingCellId);
+					break;
+				}
+			}
+
 			cellEntry = {
 				cellId,
 				contentHash,
