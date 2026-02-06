@@ -19,18 +19,6 @@ import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
- * Represents the state of a ghost cell suggestion.
- */
-export type GhostCellState =
-	| { status: 'hidden' }
-	| { status: 'opt-in-prompt'; executedCellIndex: number }
-	| { status: 'awaiting-request'; executedCellIndex: number; automatic: boolean }
-	| { status: 'loading'; executedCellIndex: number; automatic: boolean }
-	| { status: 'streaming'; executedCellIndex: number; code: string; explanation: string; automatic: boolean }
-	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string; automatic: boolean; modelName?: string; usedFallback?: boolean }
-	| { status: 'error'; executedCellIndex: number; message: string };
-
-/**
  * Represents a deletion sentinel - a temporary placeholder shown where cells were deleted.
  * Sentinels display a red fade animation and provide a restore button.
  */
@@ -465,77 +453,4 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 */
 	grabFocus(): void;
 
-	// ===== Ghost Cell Suggestions =====
-
-	/**
-	 * Observable state of the ghost cell suggestion.
-	 * The ghost cell appears after successful cell execution with AI-generated suggestions.
-	 */
-	readonly ghostCellState: IObservable<GhostCellState>;
-
-	/**
-	 * Trigger generation of a ghost cell suggestion after cell execution.
-	 * @param executedCellIndex The index of the cell that was just executed
-	 * @param skipConfigCheck If true, skip the extension-side config check (used when workbench has already verified)
-	 */
-	triggerGhostCellSuggestion(executedCellIndex: number, skipConfigCheck?: boolean): void;
-
-	/**
-	 * Accept the current ghost cell suggestion by inserting it as a new cell.
-	 * @param execute If true, also executes the newly inserted cell
-	 */
-	acceptGhostCellSuggestion(execute?: boolean): void;
-
-	/**
-	 * Dismiss the current ghost cell suggestion.
-	 * @param disableForNotebook If true, also disables ghost cell suggestions for this notebook
-	 */
-	dismissGhostCell(disableForNotebook?: boolean): void;
-
-	/**
-	 * Regenerate the ghost cell suggestion with a new request.
-	 */
-	regenerateGhostCellSuggestion(): void;
-
-	/**
-	 * Disable ghost cell suggestions globally.
-	 * Updates the user setting to disable suggestions and dismisses the current ghost cell.
-	 */
-	disableGhostCellSuggestions(): void;
-
-	/**
-	 * Enable ghost cell suggestions globally (opt-in).
-	 * Sets enabled to true, then triggers a suggestion.
-	 */
-	enableGhostCellSuggestions(): void;
-
-	/**
-	 * Enable ghost cell suggestions for this notebook by clearing the per-notebook disable setting.
-	 * This clears the 'disabled' metadata from the notebook and triggers a suggestion if globally enabled.
-	 */
-	enableGhostCellSuggestionsForNotebook(): void;
-
-	/**
-	 * Dismiss the opt-in prompt for this notebook open only.
-	 * The prompt will appear again the next time the notebook is opened.
-	 */
-	dismissOptInPrompt(): void;
-
-	/**
-	 * Request a ghost cell suggestion when in pull mode.
-	 * Only triggers if the current state is 'awaiting-request'.
-	 */
-	requestGhostCellSuggestion(): void;
-
-	/**
-	 * Get whether automatic mode is enabled for ghost cells.
-	 * @returns true for automatic suggestions, false for on-demand
-	 */
-	isAutomaticMode(): boolean;
-
-	/**
-	 * Toggle between automatic and on-demand mode.
-	 * Updates the global setting and handles state transitions if needed.
-	 */
-	toggleAutomaticMode(): void;
 }
