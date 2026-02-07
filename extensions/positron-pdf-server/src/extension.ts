@@ -15,8 +15,9 @@ export function activate(context: vscode.ExtensionContext) {
 		// Log activation start. This can help diagnose issues where the extension fails to activate.
 		console.log('Activating positron-pdf-server extension');
 
-		// Initialize the PDF HTTP server singleton.
+		// Initialize the PDF HTTP server singleton with the extension path.
 		const httpServer = PdfHttpServer.getInstance();
+		httpServer.initialize(context.extensionPath);
 
 		// Create the PDF server provider for the custom editor.
 		const pdfServerProvider = new PdfServerProvider(context, httpServer);
