@@ -241,9 +241,9 @@ export class PdfHttpServer {
 	<div id="viewerContainer"></div>
 
 	<script type="module">
-		import * as pdfjsLib from '/pdfjs/legacy/build/pdf.mjs';
+		import * as pdfjsLib from '/pdfjs/build/pdf.mjs';
 
-		pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/legacy/build/pdf.worker.mjs';
+		pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/build/pdf.worker.mjs';
 
 		const params = new URLSearchParams(window.location.search);
 		const pdfUrl = params.get('file');
