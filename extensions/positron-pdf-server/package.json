@@ -34,6 +34,7 @@
 		]
 	},
 	"scripts": {
+		"postinstall": "bash scripts/download-pdfjs.sh",
 		"compile": "gulp compile-extension:positron-pdf-server",
 		"watch": "gulp watch-extension:positron-pdf-server",
 		"vscode:prepublish": "npm run build-ext",
