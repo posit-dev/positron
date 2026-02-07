@@ -40,7 +40,6 @@ import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
-import { Range } from '../extHostTypes.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
