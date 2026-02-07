@@ -50,6 +50,9 @@ const rustOutputDir = `${arkDirectory}/crates/amalthea/src/comm`;
 /// The directory to write the generated Python files to
 const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/posit/positron`;
 
+/// The directory to write the generated Julia files to
+const juliaOutputDir = `${__dirname}/../../extensions/positron-julia/julia/Positron/src`;
+
 const year = new Date().getFullYear();
 
 interface CommMetadata {
@@ -106,6 +109,34 @@ const PythonTypeMap: Record<string, string> = {
 	'array-end': ']',
 	'object': 'Dict',
 };
+
+// Maps from JSON schema types to Julia types
+const JuliaTypeMap: Record<string, string> = {
+	'boolean': 'Bool',
+	'integer': 'Int64',
+	'number': 'Float64',
+	'string': 'String',
+	'null': 'Nothing',
+	'array-begin': 'Vector{',
+	'array-end': '}',
+	'object': 'Dict{String, Any}',
+};
+
+// Julia reserved words that need escaping when used as field names
+const JuliaReservedWords = new Set([
+	'begin', 'end', 'function', 'module', 'type', 'struct', 'mutable',
+	'if', 'else', 'elseif', 'for', 'while', 'do', 'try', 'catch', 'finally',
+	'return', 'break', 'continue', 'macro', 'quote', 'let', 'local', 'global',
+	'const', 'import', 'using', 'export', 'abstract', 'primitive', 'where',
+	'in', 'isa', 'true', 'false', 'nothing', 'baremodule'
+]);
+
+/**
+ * Escape Julia reserved words by appending an underscore
+ */
+function escapeJuliaFieldName(name: string): string {
+	return JuliaReservedWords.has(name) ? `${name}_` : name;
+}
 
 function isOptional(contentDescriptor: any) {
 	// TODO: To be fully compliant with the OpenRPC spec, we should default content descriptors
@@ -1197,6 +1228,487 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 }
 
 /**
+ * Helper to extract type references from a schema (for dependency tracking)
+ */
+function extractTypeRefs(schema: any): string[] {
+	const refs: string[] = [];
+	if (!schema) { return refs; }
+
+	if (schema.$ref) {
+		const refParts = schema.$ref.split('/');
+		refs.push(snakeCaseToSentenceCase(refParts[refParts.length - 1]));
+	}
+	if (schema.items) {
+		refs.push(...extractTypeRefs(schema.items));
+	}
+	if (schema.properties) {
+		for (const prop of Object.values(schema.properties) as any[]) {
+			refs.push(...extractTypeRefs(prop));
+		}
+	}
+	if (schema.oneOf) {
+		for (const opt of schema.oneOf) {
+			refs.push(...extractTypeRefs(opt));
+		}
+	}
+	return refs;
+}
+
+/**
+ * Topologically sort types so dependencies come first
+ */
+function topologicalSort(types: Map<string, { deps: string[]; data: any }>): string[] {
+	const result: string[] = [];
+	const visited = new Set<string>();
+	const visiting = new Set<string>();
+
+	function visit(name: string) {
+		if (visited.has(name)) { return; }
+		if (visiting.has(name)) { return; } // Circular dependency, skip
+		visiting.add(name);
+
+		const typeInfo = types.get(name);
+		if (typeInfo) {
+			for (const dep of typeInfo.deps) {
+				if (types.has(dep)) {
+					visit(dep);
+				}
+			}
+		}
+
+		visiting.delete(name);
+		visited.add(name);
+		result.push(name);
+	}
+
+	for (const name of types.keys()) {
+		visit(name);
+	}
+
+	return result;
+}
+
+/**
+ * Process schema fields and create types for objects, enums, and one-ofs in Julia.
+ */
+function* createJuliaValueTypes(source: any, contracts: any[]): Generator<string> {
+	// Create enums for all enum types
+	yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+		let enumName: string;
+		if (context.length === 1) {
+			// Shared enum at the components.schemas level
+			enumName = snakeCaseToSentenceCase(context[0]);
+			yield `"""\n`;
+			yield formatComment(``, `Possible values for ${enumName}`);
+			yield `"""\n`;
+			yield `@enum ${enumName} begin\n`;
+		} else {
+			// Enum field within another interface
+			enumName = snakeCaseToSentenceCase(context[1]) + snakeCaseToSentenceCase(context[0]);
+			yield `"""\n`;
+			yield formatComment(``,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) +
+				` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield `"""\n`;
+			yield `@enum ${enumName} begin\n`;
+		}
+		// Use full enum name as prefix to avoid collisions
+		const enumPrefix = enumName;
+		for (let i = 0; i < values.length; i++) {
+			const value = values[i];
+			yield `\t${enumPrefix}_${snakeCaseToSentenceCase(value)}\n`;
+		}
+		yield `end\n\n`;
+
+		// Create the string mapping
+		yield `const ${enumName.toUpperCase()}_MAP = Dict(\n`;
+		for (let i = 0; i < values.length; i++) {
+			const value = values[i];
+			yield `\t${enumName}_${snakeCaseToSentenceCase(value)} => "${value}"`;
+			if (i < values.length - 1) {
+				yield ',';
+			}
+			yield '\n';
+		}
+		yield `)\n\n`;
+
+		yield `const STRING_TO_${enumName.toUpperCase()} = Dict(v => k for (k, v) in ${enumName.toUpperCase()}_MAP)\n\n`;
+
+		// StructTypes definitions for enum
+		yield `StructTypes.StructType(::Type{${enumName}}) = StructTypes.StringType()\n`;
+		yield `StructTypes.construct(::Type{${enumName}}, s::String) = STRING_TO_${enumName.toUpperCase()}[s]\n`;
+		yield `Base.string(x::${enumName}) = ${enumName.toUpperCase()}_MAP[x]\n\n`;
+	});
+
+	// Collect all types (objects and unions) with their dependencies for topological sorting
+	type TypeInfo = {
+		deps: string[];
+		context: string[];
+		obj: any;
+		kind: 'struct' | 'alias' | 'union';
+	};
+	const allTypes = new Map<string, TypeInfo>();
+
+	// Collect object types
+	for (const _ of objectVisitor([], source, function* (
+		context: Array<string>,
+		o: Record<string, any>) {
+
+		let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+		name = snakeCaseToSentenceCase(name);
+
+		const props = o.properties ? Object.keys(o.properties) : [];
+		const isAlias = (!props || !props.length) && o.additionalProperties === true;
+
+		// Extract dependencies from properties
+		const deps: string[] = [];
+		if (o.properties) {
+			for (const [propName, propSchema] of Object.entries(o.properties) as [string, any][]) {
+				deps.push(...extractTypeRefs(propSchema));
+				// If property has inline oneOf, a union type will be generated from the property name
+				if (propSchema.oneOf) {
+					deps.push(snakeCaseToSentenceCase(propName));
+				}
+			}
+		}
+
+		allTypes.set(name, {
+			deps,
+			context: [...context],
+			obj: o,
+			kind: isAlias ? 'alias' : 'struct'
+		});
+	})) { /* consume generator */ }
+
+	// Collect union types (oneOf)
+	for (const _ of oneOfVisitor([], source, function* (
+		context: Array<string>,
+		o: Record<string, any>) {
+
+		let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+		name = snakeCaseToSentenceCase(name);
+
+		// Extract dependencies from oneOf options
+		const deps: string[] = [];
+		if (o.oneOf) {
+			for (const option of o.oneOf) {
+				if (option.$ref) {
+					const refParts = option.$ref.split('/');
+					deps.push(snakeCaseToSentenceCase(refParts[refParts.length - 1]));
+				} else if (option.name) {
+					deps.push(snakeCaseToSentenceCase(option.name));
+				}
+			}
+		}
+
+		allTypes.set(name, {
+			deps,
+			context: [...context],
+			obj: o,
+			kind: 'union'
+		});
+	})) { /* consume generator */ }
+
+	// Topologically sort all types together
+	const sortedNames = topologicalSort(allTypes as any);
+
+	// Emit types in sorted order
+	for (const name of sortedNames) {
+		const typeInfo = allTypes.get(name);
+		if (!typeInfo) { continue; }
+
+		const { context, obj: o, kind } = typeInfo;
+
+		if (kind === 'alias') {
+			// Empty object specs map to `Any`
+			yield `# ${name} is represented as Any (Dict{String, Any})\n`;
+			yield `const ${name} = Dict{String, Any}\n\n`;
+		} else if (kind === 'union') {
+			// Union type alias
+			if (o.description) {
+				yield `# ${o.description}\n`;
+			} else if (context.length === 1) {
+				yield `# ${snakeCaseToSentenceCase(context[0])}\n`;
+			} else {
+				yield `# ${snakeCaseToSentenceCase(context[0])} in ${snakeCaseToSentenceCase(context[1])}\n`;
+			}
+
+			yield `const ${name} = Union{`;
+			for (let i = 0; i < o.oneOf.length; i++) {
+				const option = o.oneOf[i];
+				if (option.name === undefined) {
+					throw new Error(`No name in option: ${JSON.stringify(option)}`);
+				}
+				yield deriveType(contracts, JuliaTypeMap, [option.name, ...context], option);
+				if (i < o.oneOf.length - 1) {
+					yield ', ';
+				}
+			}
+			yield '}\n\n';
+		} else {
+			// Struct type
+			const props = o.properties ? Object.keys(o.properties) : [];
+
+			// Docstring
+			if (o.description) {
+				yield '"""\n';
+				yield formatComment('', o.description);
+				yield '"""\n';
+			} else if (context.length >= 2) {
+				yield '"""\n';
+				yield formatComment('', snakeCaseToSentenceCase(context[0]) + ' in ' +
+					snakeCaseToSentenceCase(context[1]));
+				yield '"""\n';
+			} else {
+				yield '"""\n';
+				yield formatComment('', name);
+				yield '"""\n';
+			}
+
+			yield `struct ${name}\n`;
+
+			// Fields - track escaped field names for StructTypes.names mapping
+			const escapedFields: Array<{ juliaName: string; jsonName: string }> = [];
+			for (const prop of props) {
+				const schema = o.properties[prop];
+				const juliaFieldName = escapeJuliaFieldName(prop);
+				if (juliaFieldName !== prop) {
+					escapedFields.push({ juliaName: juliaFieldName, jsonName: prop });
+				}
+				yield `\t${juliaFieldName}::`;
+				if (!o.required || !o.required.includes(prop)) {
+					yield 'Union{';
+					yield deriveType(contracts, JuliaTypeMap, [prop, ...context], schema);
+					yield ', Nothing}';
+				} else {
+					yield deriveType(contracts, JuliaTypeMap, [prop, ...context], schema);
+				}
+				yield '\n';
+			}
+			yield `end\n\n`;
+
+			// StructTypes definition
+			yield `StructTypes.StructType(::Type{${name}}) = StructTypes.Struct()\n`;
+			// Add field name mapping if any fields were escaped
+			if (escapedFields.length > 0) {
+				const mappings = escapedFields.map(f => `(:${f.juliaName}, :${f.jsonName})`).join(', ');
+				yield `StructTypes.names(::Type{${name}}) = (${mappings},)\n`;
+			}
+			yield '\n';
+		}
+	}
+}
+
+/**
+ * Create a Julia comm for a given OpenRPC contract.
+ *
+ * @param name The name of the comm
+ * @param frontend The OpenRPC contract for the frontend
+ * @param backend The OpenRPC contract for the backend
+ *
+ * @returns A generator that yields the Julia code for the comm
+ */
+function* createJuliaComm(name: string, frontend: any, backend: any): Generator<string> {
+	yield `# ---------------------------------------------------------------------------------------------
+# Copyright (C) 2024-${year} Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+# ---------------------------------------------------------------------------------------------
+
+#
+# AUTO-GENERATED from ${name}.json; do not edit.
+#
+
+`;
+
+	const contracts = [backend, frontend].filter(element => element !== undefined);
+
+	// Add imports for external references
+	const externalReferences = collectExternalReferences(contracts, name);
+	if (externalReferences.length) {
+		yield `# External references\n`;
+		for (const { fileName, refs } of externalReferences) {
+			if (refs.length) {
+				yield `# From ${fileName}_comm.jl: ${refs.join(', ')}\n`;
+			}
+		}
+		yield `\n`;
+	}
+
+	// Generate value types
+	for (const source of contracts) {
+		yield* createJuliaValueTypes(source, contracts);
+	}
+
+	// Create request types for backend methods
+	// Prefix with comm name to avoid conflicts (e.g., VariablesUpdateParams, PlotsUpdateParams)
+	const commPrefix = snakeCaseToSentenceCase(name);
+
+	if (backend) {
+		for (const method of backend.methods) {
+			const params: Array<MethodParam> = method.params;
+
+			if (params.length > 0) {
+				yield `"""\n`;
+				if (method.description) {
+					yield formatComment('', method.description);
+				} else {
+					yield formatComment('', `Parameters for ${method.name}`);
+				}
+				yield `"""\n`;
+				const structName = `${commPrefix}${snakeCaseToSentenceCase(method.name)}Params`;
+				yield `struct ${structName}\n`;
+
+				const escapedFields: Array<{ juliaName: string; jsonName: string }> = [];
+				for (const param of params) {
+					const juliaFieldName = escapeJuliaFieldName(param.name);
+					if (juliaFieldName !== param.name) {
+						escapedFields.push({ juliaName: juliaFieldName, jsonName: param.name });
+					}
+					yield `\t${juliaFieldName}::`;
+					if (isOptional(param)) {
+						yield 'Union{';
+					}
+					if (param.schema.enum) {
+						yield snakeCaseToSentenceCase(method.name) + snakeCaseToSentenceCase(param.name);
+					} else {
+						yield deriveType(contracts, JuliaTypeMap, [param.name], param.schema);
+					}
+					if (isOptional(param)) {
+						yield ', Nothing}';
+					}
+					yield '\n';
+				}
+				yield `end\n\n`;
+				yield `StructTypes.StructType(::Type{${structName}}) = StructTypes.Struct()\n`;
+				if (escapedFields.length > 0) {
+					const mappings = escapedFields.map(f => `(:${f.juliaName}, :${f.jsonName})`).join(', ');
+					yield `StructTypes.names(::Type{${structName}}) = (${mappings},)\n`;
+				}
+				yield '\n';
+			}
+		}
+	}
+
+	// Create event parameter types for frontend methods
+	// Use same comm prefix for consistency
+	if (frontend) {
+		for (const method of frontend.methods) {
+			// Skip requests (methods with results)
+			if (method.result) {
+				continue;
+			}
+
+			if (method.params.length > 0) {
+				yield `"""\n`;
+				if (method.summary) {
+					yield formatComment('', `Event: ${method.summary}`);
+				} else {
+					yield formatComment('', `Parameters for ${method.name} event`);
+				}
+				yield `"""\n`;
+				const structName = `${commPrefix}${snakeCaseToSentenceCase(method.name)}Params`;
+				yield `struct ${structName}\n`;
+
+				const escapedFields: Array<{ juliaName: string; jsonName: string }> = [];
+				for (const param of method.params) {
+					const juliaFieldName = escapeJuliaFieldName(param.name);
+					if (juliaFieldName !== param.name) {
+						escapedFields.push({ juliaName: juliaFieldName, jsonName: param.name });
+					}
+					yield `\t${juliaFieldName}::`;
+					if (isOptional(param)) {
+						yield 'Union{';
+					}
+					if (param.schema.enum) {
+						yield snakeCaseToSentenceCase(method.name) + snakeCaseToSentenceCase(param.name);
+					} else {
+						yield deriveType(contracts, JuliaTypeMap, [param.name], param.schema);
+					}
+					if (isOptional(param)) {
+						yield ', Nothing}';
+					}
+					yield '\n';
+				}
+				yield `end\n\n`;
+				yield `StructTypes.StructType(::Type{${structName}}) = StructTypes.Struct()\n`;
+				if (escapedFields.length > 0) {
+					const mappings = escapedFields.map(f => `(:${f.juliaName}, :${f.jsonName})`).join(', ');
+					yield `StructTypes.names(::Type{${structName}}) = (${mappings},)\n`;
+				}
+				yield '\n';
+			}
+		}
+	}
+
+	// Create the parse function for backend requests
+	if (backend) {
+		yield `"""\n`;
+		yield `Parse a backend request for the ${snakeCaseToSentenceCase(name)} comm.\n`;
+		yield `"""\n`;
+		yield `function parse_${name}_request(data::Dict)\n`;
+		yield `\tmethod = get(data, "method", nothing)\n`;
+		yield `\tparams = get(data, "params", Dict())\n`;
+		yield `\n`;
+
+		let first = true;
+		for (const method of backend.methods) {
+			if (first) {
+				yield `\tif method == "${method.name}"\n`;
+				first = false;
+			} else {
+				yield `\telseif method == "${method.name}"\n`;
+			}
+
+			if (method.params.length > 0) {
+				yield `\t\treturn ${commPrefix}${snakeCaseToSentenceCase(method.name)}Params(\n`;
+				for (let i = 0; i < method.params.length; i++) {
+					const param = method.params[i];
+					const defaultValue = getJuliaDefaultValue(param);
+					yield `\t\t\tget(params, "${param.name}", ${defaultValue})`;
+					if (i < method.params.length - 1) {
+						yield ',';
+					}
+					yield '\n';
+				}
+				yield `\t\t)\n`;
+			} else {
+				yield `\t\treturn nothing\n`;
+			}
+		}
+		yield `\telse\n`;
+		yield `\t\terror("Unknown ${name} method: $method")\n`;
+		yield `\tend\n`;
+		yield `end\n`;
+	}
+}
+
+/**
+ * Get Julia default value for a parameter.
+ */
+function getJuliaDefaultValue(param: MethodParam): string {
+	if (isOptional(param)) {
+		return 'nothing';
+	}
+	const schema = param.schema as any;
+	if (schema.type === 'string') {
+		return '""';
+	} else if (schema.type === 'integer') {
+		return '0';
+	} else if (schema.type === 'number') {
+		return '0.0';
+	} else if (schema.type === 'boolean') {
+		return 'false';
+	} else if (schema.type === 'array') {
+		return '[]';
+	} else if (schema.type === 'object' || schema.$ref) {
+		return 'Dict()';
+	}
+	return 'nothing';
+}
+
+/**
  * Generates a Typescript interface for a given object schema.
  *
  * @param contract The OpenRPC contracts that the schema is part of
@@ -1742,6 +2254,28 @@ async function createCommInterface() {
 
 				// Use ruff to format the Python file
 				execSync(`python3 -m ruff format ${pythonOutputFile}`, { stdio: 'ignore' });
+
+				// Create the Julia output file (only if Julia is available)
+				if (juliaAvailable && existsSync(juliaOutputDir)) {
+					const juliaOutputFile = path.join(juliaOutputDir, `${name}_comm.jl`);
+					let julia = '';
+					for await (const chunk of createJuliaComm(name, frontend, backend)) {
+						julia += chunk;
+					}
+
+					// Write the output file
+					console.log(`Writing to ${juliaOutputFile}`);
+					writeFileSync(juliaOutputFile, julia, { encoding: 'utf-8' });
+
+					// Format with JuliaFormatter if available
+					if (juliaFormatterAvailable) {
+						try {
+							execSync(`julia -e 'using JuliaFormatter; format_file("${juliaOutputFile}")'`, { stdio: 'ignore' });
+						} catch (e) {
+							console.warn(`Warning: Failed to format ${juliaOutputFile}`);
+						}
+					}
+				}
 			}
 		} catch (e: any) {
 			if (e.message) {
@@ -1771,6 +2305,27 @@ try {
 	console.error('The Python module "ruff" must be installed to run this script; it is ' +
 		'required to properly format the Python output.');
 	process.exit(1);
+}
+
+// Check if Julia is installed (optional - Julia generation is conditional)
+// Requires 'julia' to be in PATH
+let juliaAvailable = false;
+let juliaFormatterAvailable = false;
+
+try {
+	execSync('julia --version', { stdio: 'ignore' });
+	juliaAvailable = true;
+	// Check if JuliaFormatter is installed
+	try {
+		execSync('julia -e "using JuliaFormatter"', { stdio: 'ignore', timeout: 30000 });
+		juliaFormatterAvailable = true;
+	} catch (e) {
+		console.log('Note: JuliaFormatter not installed. Julia code will be generated but not formatted.');
+		console.log("      To enable formatting, run: julia -e 'using Pkg; Pkg.add(\"JuliaFormatter\")'");
+	}
+} catch (e) {
+	console.log('Note: Julia not found in PATH. Skipping Julia code generation.');
+	console.log('      To enable Julia generation, install Julia and ensure it is in your PATH.');
 }
 
 createCommInterface();
