@@ -4,7 +4,6 @@
 	"description": "View PDF files using PDF.js served via local HTTP server",
 	"version": "1.0.0",
 	"publisher": "positron",
-	"license": "MIT",
 	"engines": {
 		"vscode": "^1.70.0"
 	},
@@ -34,7 +33,7 @@
 		]
 	},
 	"scripts": {
-		"postinstall": "bash scripts/download-pdfjs.sh",
+		"postinstall": "ts-node scripts/download-pdfjs.ts",
 		"compile": "gulp compile-extension:positron-pdf-server",
 		"watch": "gulp watch-extension:positron-pdf-server",
 		"vscode:prepublish": "npm run build-ext",
@@ -46,7 +45,8 @@
 	},
 	"devDependencies": {
 		"@types/express": "^4.17.17",
-		"@types/node": "22.x"
+		"@types/node": "22.x",
+		"ts-node": "^10.9.1"
 	},
 	"repository": {
 		"type": "git",
