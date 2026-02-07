@@ -431,6 +431,7 @@ export class PositronNotebooks extends Notebooks {
 			await editor.pressSequentially(code, { delay });
 
 			if (run) {
+				await this.code.driver.page.waitForTimeout(1000); // Give the editor a moment to register the new content before running
 				await this.runCellButtonAtIndex(cellIndex).click();
 
 				if (waitForSpinner) {

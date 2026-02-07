@@ -22,6 +22,9 @@ export interface ActionContext {
 	cleanup: {
 		discardAllChanges: () => Promise<void>;
 	};
+	settings: {
+		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+	};
 }
 
 /**

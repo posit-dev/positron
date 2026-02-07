@@ -116,7 +116,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 	/**
 	 * Load dataset and process each question for all models
 	 */
-	test('Process Dataset Questions', async function ({ app, sessions, hotKeys, cleanup }) {
+	test('Process Dataset Questions', async function ({ app, sessions, hotKeys, cleanup, settings }) {
 		test.setTimeout(15 * 60 * 1000); // 15 minutes (more time for multiple models)
 		// Load dataset from file
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
@@ -129,6 +129,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		console.log(`Will process ${baseTests.length} questions for ${models.length} model(s): ${models.join(', ')}`);
 
 		// Start a Python Session
+		// TO DO: we should avoid start sessions here because notebook tests do not use them, and starting sessions can add time and potential flakiness. Instead, we should start sessions in the individual test actions if needed.
 		const [pySession] = await sessions.start(['python']);
 		const [rSession] = await sessions.start(['r']);
 
@@ -136,6 +137,8 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.loginModelProvider('anthropic-api');
 
+		// Wait for chat to be fully ready (ensures models are loaded)
+		await app.workbench.assistant.waitForSendButtonVisible();
 		await app.workbench.toasts.closeAll();
 
 		// Build the action context with access to test infrastructure
@@ -152,6 +155,9 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			},
 			cleanup: {
 				discardAllChanges: () => cleanup.discardAllChanges(),
+			},
+			settings: {
+				set: (s: Record<string, unknown>, options?) => settings.set(s, options),
 			},
 		};
 
