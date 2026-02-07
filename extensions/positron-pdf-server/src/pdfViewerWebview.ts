@@ -19,6 +19,24 @@ function getNonce(): string {
 }
 
 /**
+ * Get the PDF.js theme value based on VS Code's color theme.
+ */
+function getPdfJsTheme(): number {
+	// Get the active color theme from VS Code.
+	const activeColorTheme = vscode.window.activeColorTheme;
+
+	// Map the active color theme to PDF.js theme values: 0 = auto, 1 = light, 2 = dark.
+	if (activeColorTheme.kind === vscode.ColorThemeKind.Light || activeColorTheme.kind === vscode.ColorThemeKind.HighContrastLight) {
+		return 1; // Light mode
+	} else if (activeColorTheme.kind === vscode.ColorThemeKind.Dark || activeColorTheme.kind === vscode.ColorThemeKind.HighContrast) {
+		return 2; // Dark mode
+	}
+
+	// Default to auto if for some reason we can't determine the theme.
+	return 0; // Auto (fallback)
+}
+
+/**
  * Create the webview HTML for the PDF viewer.
  */
 export async function createWebviewHtml(
@@ -26,7 +44,10 @@ export async function createWebviewHtml(
 	httpServer: PdfHttpServer,
 	pdfId: string
 ): Promise<string> {
+	// Generate a nonce for CSP.
 	const nonce = getNonce();
+
+	// Get the CSP source for the webview and the server URL.
 	const cspSource = webview.cspSource;
 	let serverUrl = await httpServer.getExternalUrl();
 
@@ -35,8 +56,9 @@ export async function createWebviewHtml(
 		serverUrl = serverUrl.slice(0, -1);
 	}
 
-	console.log(`PDF Server URL: ${serverUrl}`);
-	console.log(`PDF ID: ${pdfId}`);
+	// Log the URLs for debugging.
+	// console.log(`PDF Server URL: ${serverUrl}`);
+	// console.log(`PDF ID: ${pdfId}`);
 
 	// Build CSP allowing localhost iframes with full PDF.js viewer resources.
 	const csp = [
@@ -50,11 +72,15 @@ export async function createWebviewHtml(
 		`connect-src ${serverUrl} http://localhost:* http://127.0.0.1:*`
 	].join('; ');
 
-	// Build viewer URL - use the legacy PDF.js viewer.
+	// Build viewer URL - use custom wrapper that sets theme preference.
 	const pdfUrl = `${serverUrl}/pdf/${pdfId}`;
-	const viewerUrl = `${serverUrl}/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}`;
-	console.log(`Viewer URL: ${viewerUrl}`);
+	const theme = getPdfJsTheme();
+	const viewerUrl = `${serverUrl}/viewer?file=${encodeURIComponent(pdfUrl)}&theme=${theme}`;
 
+	// Log the final viewer URL for debugging.
+	// console.log(`Viewer URL: ${viewerUrl}`);
+
+	// Return the complete HTML for the webview, including the CSP and the iframe pointing to the viewer URL.
 	return `<!DOCTYPE html>
 <html>
 <head>
