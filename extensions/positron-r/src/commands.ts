@@ -193,12 +193,18 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			sourceCurrentFile(true, resource);
 		}),
 
-		// Commands used to load R data files
+		// Commands used to load R data files.
+		// RData loads immediately since the user has explicitly chosen to load.
+		// RDS opens the custom editor so the user can review/edit the variable name.
 		vscode.commands.registerCommand('r.loadRDataFile', async (resource?: vscode.Uri) => {
-			loadRDataFile(resource);
+			if (resource) {
+				await loadRDataFile(resource);
+			}
 		}),
 		vscode.commands.registerCommand('r.loadRdsFile', async (resource?: vscode.Uri) => {
-			loadRdsFile(resource);
+			if (resource) {
+				await vscode.commands.executeCommand('vscode.openWith', resource, 'positron-r.rdsLoader');
+			}
 		}),
 		vscode.commands.registerCommand('r.loadRDataFileWithPicker', async () => {
 			loadRDataFileWithPicker();
@@ -391,10 +397,10 @@ async function loadRDataFileWithPicker() {
 	const ext = path.extname(selectedFile.fsPath).toLowerCase();
 
 	if (ext === '.rds') {
-		loadRdsFile(selectedFile);
+		await vscode.commands.executeCommand('vscode.openWith', selectedFile, 'positron-r.rdsLoader');
 	} else {
-		// .RData, .Rdata, .rdata, .rda
-		loadRDataFile(selectedFile);
+		// .RData, .Rdata, .rdata, .rda -- load immediately
+		await loadRDataFile(selectedFile);
 	}
 }
 
@@ -512,81 +518,23 @@ export async function getFilePathForLoad(resource?: vscode.Uri): Promise<string 
 }
 
 /**
- * Loads an R workspace file (.RData, .rda) into the R session.
+ * Loads an R workspace file (.RData, .rda) into the R session immediately.
+ * Used by the right-click context menu and file picker commands, where the
+ * user has explicitly chosen to load.
  *
- * @param resource Optional URI from context menu click
- * @param showErrors Whether to show error messages (default true)
+ * @param resource URI of the file to load
  */
-export async function loadRDataFile(resource?: vscode.Uri, showErrors = true): Promise<void> {
-	if (!resource) {
-		// No resource, so nothing to do
-		return;
-	}
-	const filePath = await getFilePathForLoad(resource);
-	if (filePath) {
-		const command = `load(${filePath})`; // filePath is already quoted
-		await positron.runtime.executeCode('r', command, true); // focus=true to show result
-	} else if (showErrors) {
-		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: File not found or invalid path {0}', JSON.stringify(resource)));
-	}
-}
-
-/**
- * Loads an RDS file into the R session with a specified variable name.
- *
- * @param resource The URI of the RDS file to load
- * @param varName The variable name to assign the loaded object to
- */
-export async function loadRdsFileWithVarName(resource: vscode.Uri, varName: string): Promise<void> {
-	const filePath = await getFilePathForLoad(resource);
-	if (!filePath) {
-		throw new Error(vscode.l10n.t('File not found or invalid path {0}', JSON.stringify(resource)));
-	}
-	const command = `${varName} <- readRDS(${filePath})`; // filePath is already quoted
-	await positron.runtime.executeCode('r', command, true);
-}
-
-/**
- * Loads an RDS file into the R session, prompting for variable name.
- * @param resource Optional URI from context menu click
- */
-async function loadRdsFile(resource?: vscode.Uri) {
-	if (!resource) {
-		// No resource, so nothing to do
-		return;
-	}
+async function loadRDataFile(resource: vscode.Uri): Promise<void> {
 	try {
 		const filePath = await getFilePathForLoad(resource);
 		if (!filePath) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Failed to load RDS file: File not found or invalid path {0}', JSON.stringify(resource)));
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: File not found or invalid path {0}', JSON.stringify(resource)));
 			return;
 		}
-
-		// Extract suggested variable name from filename (without extension)
-		const suggestedName = path.basename(filePath, path.extname(filePath))
-			.replace(/[^a-zA-Z0-9_.]/g, '_'); // Sanitize for R variable name
-
-		const varName = await vscode.window.showInputBox({
-			prompt: vscode.l10n.t('Enter the variable name for the loaded object'),
-			placeHolder: vscode.l10n.t('Variable name'),
-			value: suggestedName,
-			validateInput: (value) => {
-				if (!value || value.trim().length === 0) {
-					return vscode.l10n.t('Variable name cannot be empty');
-				}
-				// Basic R variable name validation
-				if (!/^[a-zA-Z._][a-zA-Z0-9._]*$/.test(value)) {
-					return vscode.l10n.t('Invalid R variable name');
-				}
-				return undefined; // Valid
-			}
-		});
-
-		if (varName) {
-			await loadRdsFileWithVarName(resource, varName);
-		}
+		const command = `load(${filePath})`; // filePath is already quoted
+		await positron.runtime.executeCode('r', command, true);
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
-		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load RDS file: {0}', message));
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: {0}', message));
 	}
 }

@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { runtimeManager } from './extension.js';
-import { loadRDataFile, loadRdsFileWithVarName } from './commands.js';
+import { getFilePathForLoad } from './commands.js';
 
 /**
  * Result of checking R runtime availability.
@@ -301,6 +301,160 @@ function getErrorStyles(): string {
 }
 
 /**
+ * Returns CSS styles for the Load button.
+ */
+function getButtonStyles(): string {
+	return `
+		.load-button {
+			padding: 8px 20px;
+			margin-top: 16px;
+			border: none;
+			border-radius: 2px;
+			font-size: 14px;
+			font-family: var(--vscode-font-family);
+			cursor: pointer;
+			background-color: var(--vscode-button-background);
+			color: var(--vscode-button-foreground);
+		}
+		.load-button:hover {
+			background-color: var(--vscode-button-hoverBackground);
+		}
+		.load-button:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 2px;
+		}`;
+}
+
+/**
+ * Returns CSS styles for the variable name input field and validation error.
+ */
+function getInputStyles(): string {
+	return `
+		.var-input {
+			padding: 6px 8px;
+			margin-top: 8px;
+			border: 1px solid var(--vscode-input-border);
+			border-radius: 2px;
+			font-size: 14px;
+			font-family: var(--vscode-editor-font-family, monospace);
+			background-color: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			width: 250px;
+			box-sizing: border-box;
+		}
+		.var-input:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+		.var-input.invalid {
+			border-color: var(--vscode-inputValidation-errorBorder);
+		}
+		.validation-error {
+			color: var(--vscode-inputValidation-errorBorder);
+			font-size: 12px;
+			margin-top: 4px;
+			min-height: 16px;
+		}`;
+}
+
+/**
+ * Generates HTML for the confirmation UI shown before loading.
+ *
+ * For RData/rda files (workspace): shows file name and a Load button.
+ * For RDS files (object): shows file name, an editable variable name input, and a Load button.
+ */
+function getConfirmHtml(fileName: string, type: RFileType, varName?: string): string {
+	const isWorkspace = type === 'workspace';
+	const heading = isWorkspace ? 'Load R Workspace' : 'Load R Object';
+	const description = isWorkspace
+		? `Load all objects from <code>${escapeHtml(fileName)}</code> into your R session?`
+		: `Load <code>${escapeHtml(fileName)}</code> into your R session as:`;
+
+	const inputHtml = isWorkspace ? '' : `
+			<input
+				type="text"
+				id="varNameInput"
+				class="var-input"
+				value="${escapeHtml(varName!)}"
+				spellcheck="false"
+				autocomplete="off"
+			/>
+			<div id="validationError" class="validation-error"></div>`;
+
+	const styles = getBaseStyles() + getButtonStyles() + (isWorkspace ? '' : getInputStyles());
+
+	const script = isWorkspace
+		? `<script>
+			(function() {
+				const vscode = acquireVsCodeApi();
+				document.getElementById('loadButton').addEventListener('click', function() {
+					vscode.postMessage({ type: 'load' });
+				});
+			})();
+		</script>`
+		: `<script>
+			(function() {
+				const vscode = acquireVsCodeApi();
+				const input = document.getElementById('varNameInput');
+				const errorDiv = document.getElementById('validationError');
+				const button = document.getElementById('loadButton');
+				const validPattern = /^[a-zA-Z._][a-zA-Z0-9._]*$/;
+
+				function validate() {
+					const value = input.value.trim();
+					if (!value) {
+						errorDiv.textContent = 'Variable name cannot be empty';
+						input.classList.add('invalid');
+						return false;
+					}
+					if (!validPattern.test(value)) {
+						errorDiv.textContent = 'Invalid R variable name';
+						input.classList.add('invalid');
+						return false;
+					}
+					errorDiv.textContent = '';
+					input.classList.remove('invalid');
+					return true;
+				}
+
+				input.addEventListener('input', validate);
+
+				button.addEventListener('click', function() {
+					if (validate()) {
+						vscode.postMessage({ type: 'load', varName: input.value.trim() });
+					}
+				});
+
+				input.addEventListener('keydown', function(e) {
+					if (e.key === 'Enter') {
+						if (validate()) {
+							vscode.postMessage({ type: 'load', varName: input.value.trim() });
+						}
+					}
+				});
+			})();
+		</script>`;
+
+	return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>${heading}</title>
+	<style>${styles}</style>
+</head>
+<body>
+	<div class="container">
+		<h2>${heading}</h2>
+		<p>${description}</p>${inputHtml}
+		<button id="loadButton" class="load-button">Load</button>
+	</div>
+	${script}
+</body>
+</html>`;
+}
+
+/**
  * Generates HTML for the loading state.
  */
 function getLoadingHtml(fileName: string, type: RFileType, varName?: string): string {
@@ -383,6 +537,35 @@ function getErrorHtml(fileName: string, type: RFileType, error: unknown, varName
 }
 
 /**
+ * Loads an R workspace file (.RData, .rda) into the R session.
+ *
+ * @param resource URI of the file to load
+ */
+async function loadRDataFile(resource: vscode.Uri): Promise<void> {
+	const filePath = await getFilePathForLoad(resource);
+	if (!filePath) {
+		throw new Error(`File not found or invalid path ${JSON.stringify(resource)}`);
+	}
+	const command = `load(${filePath})`; // filePath is already quoted
+	await positron.runtime.executeCode('r', command, true);
+}
+
+/**
+ * Loads an RDS file into the R session with a specified variable name.
+ *
+ * @param resource URI of the RDS file to load
+ * @param varName The variable name to assign the loaded object to
+ */
+async function loadRdsFileWithVarName(resource: vscode.Uri, varName: string): Promise<void> {
+	const filePath = await getFilePathForLoad(resource);
+	if (!filePath) {
+		throw new Error(`File not found or invalid path ${JSON.stringify(resource)}`);
+	}
+	const command = `${varName} <- readRDS(${filePath})`; // filePath is already quoted
+	await positron.runtime.executeCode('r', command, true);
+}
+
+/**
  * Custom editor provider for .RData/.rda files that loads the R workspace
  * instead of opening for text editing.
  */
@@ -420,39 +603,50 @@ export class RDataEditorProvider implements vscode.CustomReadonlyEditorProvider 
 		const filePath = document.uri.fsPath.replace(/\\/g, '/');
 		const fileName = path.basename(filePath);
 
-		// Wait for R runtime to be available
-		const rAvailable = await waitForRRuntime(
-			webviewPanel,
-			fileName,
-			(html) => { webviewPanel.webview.html = html; },
-			token
-		);
+		webviewPanel.webview.options = { enableScripts: true };
 
-		if (!rAvailable) {
-			// Either cancelled or no R found
-			if (!token.isCancellationRequested) {
-				webviewPanel.webview.html = getNoRFoundHtml(fileName);
+		// Show confirmation UI and wait for user to click Load
+		webviewPanel.webview.html = getConfirmHtml(fileName, 'workspace');
+
+		webviewPanel.webview.onDidReceiveMessage(async (message) => {
+			if (message.type !== 'load') {
+				return;
 			}
-			return;
-		}
 
-		// Show loading message in webview
-		webviewPanel.webview.html = getLoadingHtml(fileName, 'workspace');
+			// Wait for R runtime to be available
+			const rAvailable = await waitForRRuntime(
+				webviewPanel,
+				fileName,
+				(html) => { webviewPanel.webview.html = html; },
+				token
+			);
 
-		// Execute the load command
-		try {
-			await loadRDataFile(document.uri, false);
+			if (!rAvailable) {
+				// Either cancelled or no R found
+				if (!token.isCancellationRequested) {
+					webviewPanel.webview.html = getNoRFoundHtml(fileName);
+				}
+				return;
+			}
 
-			// Update webview to show success and close after a short delay
-			webviewPanel.webview.html = getSuccessHtml(fileName, 'workspace');
+			// Show loading message in webview
+			webviewPanel.webview.html = getLoadingHtml(fileName, 'workspace');
 
-			// Close the editor tab after a brief delay to show success
-			setTimeout(() => {
-				webviewPanel.dispose();
-			}, 1500);
-		} catch (error) {
-			webviewPanel.webview.html = getErrorHtml(fileName, 'workspace', error);
-		}
+			// Execute the load command
+			try {
+				await loadRDataFile(document.uri);
+
+				// Update webview to show success and close after a short delay
+				webviewPanel.webview.html = getSuccessHtml(fileName, 'workspace');
+
+				// Close the editor tab after a brief delay to show success
+				setTimeout(() => {
+					webviewPanel.dispose();
+				}, 1500);
+			} catch (error) {
+				webviewPanel.webview.html = getErrorHtml(fileName, 'workspace', error);
+			}
+		});
 	}
 }
 
@@ -495,41 +689,54 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 		const fileName = path.basename(filePath);
 
 		// Generate a variable name from the filename (without extension)
-		const varName = this.generateVariableName(filePath);
+		const defaultVarName = this.generateVariableName(filePath);
 
-		// Wait for R runtime to be available
-		const rAvailable = await waitForRRuntime(
-			webviewPanel,
-			fileName,
-			(html) => { webviewPanel.webview.html = html; },
-			token
-		);
+		webviewPanel.webview.options = { enableScripts: true };
 
-		if (!rAvailable) {
-			// Either cancelled or no R found
-			if (!token.isCancellationRequested) {
-				webviewPanel.webview.html = getNoRFoundHtml(fileName);
+		// Show confirmation UI and wait for user to click Load
+		webviewPanel.webview.html = getConfirmHtml(fileName, 'object', defaultVarName);
+
+		webviewPanel.webview.onDidReceiveMessage(async (message) => {
+			if (message.type !== 'load') {
+				return;
 			}
-			return;
-		}
 
-		// Show loading message in webview
-		webviewPanel.webview.html = getLoadingHtml(fileName, 'object', varName);
+			const varName: string = message.varName || defaultVarName;
 
-		// Execute the readRDS command
-		try {
-			await loadRdsFileWithVarName(document.uri, varName);
+			// Wait for R runtime to be available
+			const rAvailable = await waitForRRuntime(
+				webviewPanel,
+				fileName,
+				(html) => { webviewPanel.webview.html = html; },
+				token
+			);
 
-			// Update webview to show success and close after a short delay
-			webviewPanel.webview.html = getSuccessHtml(fileName, 'object', varName);
+			if (!rAvailable) {
+				// Either cancelled or no R found
+				if (!token.isCancellationRequested) {
+					webviewPanel.webview.html = getNoRFoundHtml(fileName);
+				}
+				return;
+			}
 
-			// Close the editor tab after a brief delay to show success
-			setTimeout(() => {
-				webviewPanel.dispose();
-			}, 1500);
-		} catch (error) {
-			webviewPanel.webview.html = getErrorHtml(fileName, 'object', error, varName);
-		}
+			// Show loading message in webview
+			webviewPanel.webview.html = getLoadingHtml(fileName, 'object', varName);
+
+			// Execute the readRDS command
+			try {
+				await loadRdsFileWithVarName(document.uri, varName);
+
+				// Update webview to show success and close after a short delay
+				webviewPanel.webview.html = getSuccessHtml(fileName, 'object', varName);
+
+				// Close the editor tab after a brief delay to show success
+				setTimeout(() => {
+					webviewPanel.dispose();
+				}, 1500);
+			} catch (error) {
+				webviewPanel.webview.html = getErrorHtml(fileName, 'object', error, varName);
+			}
+		});
 	}
 
 	/**
