@@ -163,7 +163,8 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
     const extensionsWithNpmDeps = [
         'positron-proxy',
         'positron-duckdb',
-        'positron-catalog-explorer'
+        'positron-catalog-explorer',
+        'positron-pdf-server'
     ];
     // If the extension has npm dependencies, use the Npm package manager
     // dependency strategy.
