@@ -22,11 +22,8 @@ export const actions: SampleActions = {
 		await ctx.settings.set({ 'positron.notebook.enabled': true }, { reload: 'web' });
 		const { notebooksPositron } = ctx.app.workbench;
 
-		// Create a new notebook (includes expectToBeVisible for stability)
+		// Create a new notebook and select R kernel
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.expectCellCountToBe(1);
-
-		// Select R kernel and wait for it to be ready
 		await notebooksPositron.kernel.select('R');
 
 		// Create 21 cells (indices 0-20) so it's a "large" notebook

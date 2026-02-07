@@ -20,7 +20,6 @@ import { SampleActions } from './types';
 export const actions: SampleActions = {
 	setup: async (ctx) => {
 		await ctx.settings.set({ 'positron.notebook.enabled': true }, { reload: 'web' });
-
 		const { notebooksPositron } = ctx.app.workbench;
 
 		// Create a new notebook and select R kernel
