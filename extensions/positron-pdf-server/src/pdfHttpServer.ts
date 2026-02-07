@@ -19,13 +19,13 @@ export class PdfHttpServer {
 	private readonly pdfs = new Map<string, string>(); // pdfId -> fsPath
 	private serverPort: number = 0;
 	private startupPromise: Promise<void> | undefined;
+	private extensionPath: string | undefined;
 
 	/**
 	 * Private constructor for singleton pattern.
 	 */
 	private constructor() {
 		this.app = express();
-		this.setupRoutes();
 	}
 
 	/**
@@ -39,12 +39,27 @@ export class PdfHttpServer {
 	}
 
 	/**
+	 * Initialize the server with the extension path.
+	 * Must be called before using the server.
+	 */
+	public initialize(extensionPath: string): void {
+		if (!this.extensionPath) {
+			this.extensionPath = extensionPath;
+			this.setupRoutes();
+		}
+	}
+
+	/**
 	 * Setup Express routes.
 	 */
 	private setupRoutes(): void {
+		if (!this.extensionPath) {
+			throw new Error('Server not initialized. Call initialize() with extension path first.');
+		}
+
 		// Serve PDF.js distribution files statically (includes web/viewer.html, build/, etc.).
 		this.app.use('/pdfjs', express.static(
-			path.join(__dirname, '../pdfjs-dist')
+			path.join(this.extensionPath, 'pdfjs-dist')
 		));
 
 		// Serve individual PDFs with unique IDs.
