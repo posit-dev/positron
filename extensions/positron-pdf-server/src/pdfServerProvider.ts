@@ -49,8 +49,21 @@ export class PdfServerProvider implements vscode.CustomReadonlyEditorProvider {
 			pdfId
 		);
 
+		// Listen for theme changes and reload the viewer.
+		const themeChangeListener = vscode.window.onDidChangeActiveColorTheme(async () => {
+			webviewPanel.webview.html = await createWebviewHtml(
+				webviewPanel.webview,
+				this.httpServer,
+				pdfId
+			);
+		});
+
 		// Cleanup on disposal.
 		webviewPanel.onDidDispose(() => {
+			// Dispose theme listener.
+			themeChangeListener.dispose();
+
+			// Unregister PDF from server.
 			this.httpServer.unregisterPdf(pdfId);
 		});
 	}
