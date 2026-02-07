@@ -95,11 +95,10 @@ function extractAndCleanup() {
 	// On Windows, use PowerShell's Expand-Archive; on Unix, use unzip.
 	try {
 		if (process.platform === 'win32') {
-			execSync(`powershell -Command "Expand-Archive -Path '${tempZip}' -DestinationPath '${targetDir}' -Force"`, {
+			execSync(`powershell -Command "$ProgressPreference = 'SilentlyContinue'; Expand-Archive -Path '${tempZip}' -DestinationPath '${targetDir}' -Force"`, {
 				stdio: 'inherit'
 			});
 		} else {
-			// Ensure target directory exists
 			if (!fs.existsSync(targetDir)) {
 				fs.mkdirSync(targetDir, { recursive: true });
 			}
@@ -107,7 +106,6 @@ function extractAndCleanup() {
 				stdio: 'inherit'
 			});
 		}
-
 		// Remove the temporary zip file.
 		fs.unlinkSync(tempZip);
 
