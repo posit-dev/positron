@@ -70,6 +70,8 @@ async function downloadFile(): Promise<void> {
 
 		https.get(url, (response) => {
 			if (response.statusCode === 302 || response.statusCode === 301) {
+				// Consume the redirect response body to prevent 30-second timeout.
+				response.resume();
 				// Follow redirect
 				https.get(response.headers.location!, handleResponse).on('error', (err) => {
 					fs.unlinkSync(tempZip);
@@ -85,14 +87,9 @@ async function downloadFile(): Promise<void> {
 	});
 }
 
-// Download and then extract
-downloadFile()
-	.then(() => extractAndCleanup())
-	.catch((err) => {
-		console.error('Error downloading PDF.js viewer:', err);
-		process.exit(1);
-	});
-
+/**
+ * Extracts the downloaded zip file and cleans up the temporary file. Uses platform-specific commands:
+ */
 function extractAndCleanup() {
 	// Extract the zip file using platform-specific commands.
 	// On Windows, use PowerShell's Expand-Archive; on Unix, use unzip.
@@ -124,3 +121,11 @@ function extractAndCleanup() {
 		throw error;
 	}
 }
+
+// Download and then extract
+downloadFile()
+	.then(() => extractAndCleanup())
+	.catch((err) => {
+		console.error('Error downloading PDF.js viewer:', err);
+		process.exit(1);
+	});
