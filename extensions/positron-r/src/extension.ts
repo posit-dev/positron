@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,6 +17,7 @@ import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
+import { setupArkJupyterKernel } from './kernel';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -35,6 +36,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const rRuntimeManager = new RRuntimeManager(context);
 	positron.runtime.registerLanguageRuntimeManager('r', rRuntimeManager);
+
+	// Set up ark as a Jupyter kernel so external tools like Quarto can find it
+	setupArkJupyterKernel(context);
 
 	// Set contexts.
 	setContexts(context);

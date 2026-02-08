@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -276,4 +276,73 @@ export function sniffWindowsBinaryArchitecture(binaryPath?: string): WindowsKern
 		LOGGER.debug(`Unable to determine Windows R architecture from ${binaryPath}: ${error}`);
 		return undefined;
 	}
+}
+
+/**
+ * Sets up ark as a discoverable Jupyter kernel so that external tools like
+ * Quarto can find it via `jupyter kernelspec list`.
+ *
+ * This creates a kernel.json file in the extension's global storage and sets
+ * JUPYTER_PATH to point to it. This is done at extension activation time so
+ * that ark is available even before an R session is started.
+ *
+ * @param context The extension context
+ */
+export function setupArkJupyterKernel(context: vscode.ExtensionContext): void {
+	const arkPath = getArkKernelPath();
+	if (!arkPath) {
+		LOGGER.debug('Could not find ark kernel path; skipping Jupyter kernel setup');
+		return;
+	}
+
+	// Create kernel.json content (without R_HOME - ark will discover R on its own)
+	const kernelSpec = {
+		argv: [
+			arkPath,
+			'--connection_file',
+			'{connection_file}',
+			'--session-mode',
+			'notebook'
+		],
+		display_name: 'Ark R Kernel',
+		language: 'R',
+		env: {
+			RUST_LOG: 'error'
+		}
+	};
+
+	// Write to globalStorage/jupyter/kernels/ark/kernel.json
+	const jupyterDir = path.join(context.globalStorageUri.fsPath, 'jupyter');
+	const kernelDir = path.join(jupyterDir, 'kernels', 'ark');
+	const kernelJsonPath = path.join(kernelDir, 'kernel.json');
+	const kernelSpecJson = JSON.stringify(kernelSpec, null, 2);
+
+	try {
+		// Only write if the content has changed to avoid unnecessary disk writes
+		const existing = fs.existsSync(kernelJsonPath)
+			? fs.readFileSync(kernelJsonPath, 'utf8')
+			: null;
+
+		if (existing !== kernelSpecJson) {
+			fs.mkdirSync(kernelDir, { recursive: true });
+			fs.writeFileSync(kernelJsonPath, kernelSpecJson);
+			LOGGER.debug(`Wrote ark kernel spec to ${kernelDir}`);
+		}
+	} catch (err) {
+		LOGGER.error(`Failed to write ark kernel spec: ${err}`);
+		return;
+	}
+
+	// Prepend to JUPYTER_PATH so Quarto/Jupyter can find ark.
+	// Using prepend (not replace) preserves any existing user JUPYTER_PATH entries.
+	// The delete clears any stale mutation from previous activations; prepend still
+	// applies to the user's original environment variable.
+	const collection = context.environmentVariableCollection;
+	const pathSeparator = os.platform() === 'win32' ? ';' : ':';
+	collection.delete('JUPYTER_PATH');
+	collection.prepend('JUPYTER_PATH', jupyterDir + pathSeparator, {
+		applyAtProcessCreation: true,
+		applyAtShellIntegration: true
+	});
+	LOGGER.debug(`Prepended ${jupyterDir} to JUPYTER_PATH`);
 }
