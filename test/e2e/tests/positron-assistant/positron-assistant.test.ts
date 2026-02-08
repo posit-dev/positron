@@ -76,9 +76,10 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	/**
 	 * Tests the sign in and sign out functionality for the Posit AI model provider.
 	 * This test uses OAuth device code flow with Posit's auth server and requires:
-	 * - POSIT_USERNAME: Posit account username
+	 * - POSIT_EMAIL: Posit account email
 	 * - POSIT_PASSWORD: Posit account password
-	 * - POSIT_OTP (optional): TOTP code for 2FA
+	 * - POSIT_AUTH_HOST: Posit auth server URL (e.g., https://login.posit.cloud)
+	 *
 	 * @param app - Application fixture providing access to UI elements
 	 */
 	test('Posit AI: Verify Successful OAuth Sign in and Sign Out', async function ({ app }) {
