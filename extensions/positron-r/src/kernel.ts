@@ -333,14 +333,19 @@ export function setupArkJupyterKernel(context: vscode.ExtensionContext): void {
 		return;
 	}
 
-	// Prepend to JUPYTER_PATH so Quarto/Jupyter can find ark.
-	// Using prepend (not replace) preserves any existing user JUPYTER_PATH entries.
-	// The delete clears any stale mutation from previous activations; prepend still
-	// applies to the user's original environment variable.
+	// Set JUPYTER_PATH so Quarto/Jupyter can find ark.
+	// Using replace (not prepend) to avoid duplication issues with persisted
+	// environment variable collections across restarts. We manually preserve
+	// the user's original JUPYTER_PATH by reading from process.env (the extension
+	// host's environment, before any collection mutations are applied).
 	const collection = context.environmentVariableCollection;
 	const pathSeparator = os.platform() === 'win32' ? ';' : ':';
-	collection.delete('JUPYTER_PATH');
-	collection.prepend('JUPYTER_PATH', jupyterDir + pathSeparator, {
+	const originalJupyterPath = process.env.JUPYTER_PATH;
+	const newJupyterPath = originalJupyterPath
+		? `${jupyterDir}${pathSeparator}${originalJupyterPath}`
+		: jupyterDir;
+	collection.clear();
+	collection.replace('JUPYTER_PATH', newJupyterPath, {
 		applyAtProcessCreation: true,
 		applyAtShellIntegration: true
 	});
