@@ -60,6 +60,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void>;
 	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void>;
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
+	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown>;

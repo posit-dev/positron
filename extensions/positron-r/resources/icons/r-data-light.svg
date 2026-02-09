@@ -1,0 +1,45 @@
+<svg
+  width="128"
+  height="128"
+  viewBox="0 0 100 120"
+  xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Mask to cut out the R -->
+  <mask id="cutout">
+    <rect x="0" y="0" width="100" height="120" fill="white"/>
+    <text
+      x="50"
+      y="85"
+      text-anchor="middle"
+      font-size="42"
+      font-family="sans-serif"
+      font-weight="bold"
+      fill="black">
+      R
+    </text>
+  </mask>
+
+  <!-- Body + bottom -->
+  <g mask="url(#cutout)">
+    <rect
+      x="16"
+      y="28"
+      width="68"
+      height="66"
+      fill="#3564A8"/>
+    <ellipse
+      cx="50"
+      cy="94"
+      rx="34"
+      ry="12"
+      fill="#3564A8"/>
+  </g>
+
+  <!-- Top of cylinder (drawn last so it is fully visible) -->
+  <ellipse
+    cx="50"
+    cy="28"
+    rx="34"
+    ry="12"
+    fill="#5B8CCB"/>
+</svg>
