@@ -22,6 +22,7 @@ import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { useCellOutputContextMenu } from './useCellOutputContextMenu.js';
 
 
 interface CellOutputsSectionProps {
@@ -31,6 +32,7 @@ interface CellOutputsSectionProps {
 
 function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const { showCellOutputContextMenu } = useCellOutputContextMenu(cell);
 
 	const handleShowHiddenOutput = () => {
 		cell.expandOutput();
@@ -45,10 +47,24 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 		cell.container?.focus();
 	};
 
+	const handleContextMenu = (event: React.MouseEvent) => {
+		// Only show context menu if there are outputs
+		if (outputs.length === 0) {
+			return;
+		}
+
+		event.preventDefault();
+		showCellOutputContextMenu({ x: event.clientX, y: event.clientY });
+	};
+
 	return (
 		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'}`}>
 			<CellOutputLeftActionMenu cell={cell} />
-			<div className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs' data-testid='cell-output'>
+			<div
+				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
+				data-testid='cell-output'
+				onContextMenu={handleContextMenu}
+			>
 				<div className='positron-notebook-code-cell-outputs-inner'>
 					{isCollapsed
 						? (<Button
