@@ -2213,47 +2213,72 @@ declare module 'positron' {
 	}
 
 	/**
-	 * Utilities for pasting files as paths.
+	 * Utilities for formatting file paths for use in code.
 	 */
 	namespace paths {
 		/**
-		 * Options for extracting clipboard file paths
+		 * Specifies the base directory for making a relative path.
+		 * Can be an abstract reference (which will be made concrete at runtime)
+		 * or a literal URI.
+		 *
+		 * - 'workspace': The workspace folder
+		 * - 'session': Working directory of a session
+		 * - 'home': User's home directory
+		 * - vscode.Uri: A literal URI provided by the caller
 		 */
-		export interface ExtractClipboardFilePathsOptions {
+		export type RelativeBase = 'workspace' | 'session' | 'home' | vscode.Uri;
+
+		/**
+		 * Options for formatting file paths for use in code.
+		 */
+		export interface FormatPathForCodeOptions {
 			/**
-			 * Whether to prefer relative paths when workspace context is available.
-			 * Defaults to true.
+			 * Specifies base directories for relative path calculation, tried in order.
+			 * The path will be made relative to the first base that contains the file.
+			 * If omitted or empty, the path won't be relative-ized.
+			 *
+			 * Examples:
+			 * - ['workspace', 'home']: Try workspace-relative, fall back to home-relative
+			 * - ['session', 'home']: Try session-working-directory-relative, fall back to home-relative
+			 * - [vscode.Uri.file('/custom/base'), 'home']: Try custom base, fall back to home-relative
 			 */
-			preferRelative?: boolean;
+			relativeTo?: RelativeBase | RelativeBase[];
 
 			/**
-			 * Custom base URI for relative path calculation.
-			 * If not provided and preferRelative is true, uses the first workspace folder.
+			 * Optional session ID when using 'session' in relativeTo.
 			 */
-			baseUri?: vscode.Uri;
+			sessionId?: string;
 
 			/**
-			 * User home directory URI for home-relative path calculation.
+			 * User's home directory URI. Required for 'home' and to expand ~ in 'session'.
 			 */
 			homeUri?: vscode.Uri;
 		}
 
 		/**
-		 * Extract file paths from clipboard.
-		 * Detects files copied from file manager and returns their paths for use in scripts.
-		 * Windows: Replaces `\` with `/`.
-		 * Surrounds paths with double quotes (and escapes any internal double quotes).
-		 * Optionally returns relative paths (e.g. to workspace or user's home directory).
-		 * Try to use core utilities (versus DIY path hacking).
+		 * Format a file path for use in code.
+		 * - Replaces `\` with `/` because Windows.
+		 * - Surrounds path with double quotes and escapes any internal double quotes.
+		 * - Optionally returns a relative path (e.g. to workspace or user's home directory).
+		 *
+		 * @param filePath The file path to format
+		 * @param options Options for path formatting
+		 * @returns A Thenable that resolves to a quoted, forward-slash path ready for use in code,
+		 *  e.g., "C:/path/file.txt", "relative/path.txt", or "~/relative/path.txt"
+		 */
+		export function formatPathForCode(
+			filePath: string,
+			options?: FormatPathForCodeOptions
+		): Thenable<string>;
 
-		 * @param dataTransfer The clipboard data transfer object
-		 * @param options Options for path conversion
-		 * @returns A Thenable that resolves to an array of quoted, forward-slash,
-		 *  possibly relative file paths, or null if no files detected
+		/**
+		 * Extract file paths from clipboard data.
+		 * Detects files copied from a file manager and returns paths formatted for use in code,
+		 * or null if no files detected.
 		 */
 		export function extractClipboardFilePaths(
 			dataTransfer: vscode.DataTransfer,
-			options?: ExtractClipboardFilePathsOptions
+			options?: FormatPathForCodeOptions
 		): Thenable<string[] | null>;
 	}
 

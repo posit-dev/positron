@@ -37,7 +37,7 @@ import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
-import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
+import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
 
@@ -269,17 +269,78 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		/**
+		 * Resolves abstract base references to actual URIs for the path formatter.
+		 *
+		 * - 'workspace': Resolves to the first workspace folder
+		 * - 'session': Resolves to the working directory of the foreground session,
+		 *    or a specific session if sessionId is provided. Note that this is
+		 *  likely to require knowledge of homeUri, because working directory
+		 *  reported by the runtime probably uses the `~` shorthand
+		 *  (would be nice to fix this!).
+		 * - 'home': Requires homeUri to be provided by the caller
+		 * - vscode.Uri: Used as-is
+		 */
+		async function resolveRelativeBases(
+			relativeTo: positron.paths.RelativeBase | positron.paths.RelativeBase[] | undefined,
+			sessionId: string | undefined,
+			homeUri: vscode.Uri | undefined
+		): Promise<ResolvedBase[]> {
+			if (!relativeTo) {
+				return [];
+			}
+
+			const bases: ResolvedBase[] = [];
+			const items = Array.isArray(relativeTo) ? relativeTo : [relativeTo];
+
+			for (const item of items) {
+				if (typeof item === 'string') {
+					if (item === 'workspace') {
+						const workspaceFolders = extHostWorkspace.getWorkspaceFolders();
+						if (workspaceFolders && workspaceFolders.length > 0) {
+							bases.push({ uri: URI.from(workspaceFolders[0].uri) });
+						}
+					} else if (item === 'session') {
+						let workingDir = await extHostLanguageRuntime.getSessionWorkingDirectory(sessionId);
+						if (workingDir) {
+							// Expand ~ to actual home directory path
+							if (workingDir.startsWith('~/') && homeUri) {
+								workingDir = homeUri.fsPath + workingDir.slice(1);
+							}
+							bases.push({ uri: URI.file(workingDir) });
+						}
+					} else if (item === 'home') {
+						if (homeUri) {
+							bases.push({ uri: URI.from(homeUri), prefix: '~/' });
+						}
+					}
+				} else {
+					// It's a vscode.Uri - convert to internal URI
+					bases.push({ uri: URI.from(item) });
+				}
+			}
+
+			return bases;
+		}
+
 		const paths: typeof positron.paths = {
+			/**
+			 * Format a file path for use in code.
+			 */
+			async formatPathForCode(
+				filePath: string,
+				options?: positron.paths.FormatPathForCodeOptions
+			): Promise<string> {
+				const resolved = await resolveRelativeBases(options?.relativeTo, options?.sessionId, options?.homeUri);
+				return formatPathForCode(filePath, resolved);
+			},
+
 			/**
 			 * Extract file paths from files on the clipboard.
 			 */
 			async extractClipboardFilePaths(
 				dataTransfer: vscode.DataTransfer,
-				options?: {
-					preferRelative?: boolean;
-					baseUri?: vscode.Uri;
-					homeUri?: vscode.Uri;
-				}
+				options?: positron.paths.FormatPathForCodeOptions
 			): Promise<string[] | null> {
 				// Get URI list data from VS Code DataTransfer
 				const uriListItem = dataTransfer.get('text/uri-list');
@@ -293,25 +354,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 						return null;
 					}
 
-					// Provide workspace fallback if no baseUri specified
-					let resolvedOptions = options;
-					if (options?.preferRelative && !options.baseUri) {
-						const workspaceFolders = extHostWorkspace.getWorkspaceFolders();
-						if (workspaceFolders && workspaceFolders.length > 0) {
-							resolvedOptions = {
-								...options,
-								baseUri: workspaceFolders[0].uri
-							};
-						}
-					}
-
-					const convertOptions = resolvedOptions ? {
-						...resolvedOptions,
-						baseUri: resolvedOptions.baseUri ? URI.from(resolvedOptions.baseUri) : undefined,
-						homeUri: resolvedOptions.homeUri ? URI.from(resolvedOptions.homeUri) : undefined
-					} : undefined;
-
-					return convertClipboardFiles(uriListData, convertOptions);
+					// Default to workspace-relative for clipboard paths
+					const relativeTo = options?.relativeTo ?? ['workspace', 'home'];
+					const resolved = await resolveRelativeBases(relativeTo, options?.sessionId, options?.homeUri);
+					return convertClipboardFiles(uriListData, resolved);
 				} catch {
 					return null;
 				}
