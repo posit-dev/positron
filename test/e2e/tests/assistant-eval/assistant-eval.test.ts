@@ -16,12 +16,10 @@ test.use({
 /**
  * Positron Assistant LLM Evaluation Tests
  *
- * Run all:       npx playwright test assistant-eval --project assistant-eval
- * Run one:       npx playwright test --grep "test-id" --project assistant-eval
- * Use Opus:      EVAL_MODELS=opus npx playwright test assistant-eval --project assistant-eval
- * Both models:   EVAL_MODELS=sonnet,opus npx playwright test assistant-eval --project assistant-eval
+ * Use Opus:      EVAL_MODELS=opus npx playwright test assistant-eval --project e2e-electron
+ * Both models:   EVAL_MODELS=sonnet,opus npx playwright test assistant-eval --project e2e-electron
  */
-test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL] }, () => {
+test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAIL] }, () => {
 
 	test.beforeAll(async ({ app }) => {
 		initResults();

@@ -169,8 +169,13 @@ interface CatalogTestCase {
  * Generates a markdown catalog of all test cases.
  * Call in afterAll to keep the catalog up to date.
  * Only writes if content has changed (ignores timestamp line).
+ * Skipped in CI environments.
  */
 export function generateCatalog(testCases: CatalogTestCase[]): void {
+	if (process.env.CI) {
+		return;
+	}
+
 	const catalogPath = join(__dirname, '..', 'EVAL_CATALOG.md');
 
 	// Sort by ID for deterministic order
