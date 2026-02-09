@@ -10,6 +10,7 @@ Positron is a next-generation data science IDE built on VS Code with first-class
 2. Start missing daemons in the background if needed: `npm run build-start`
 3. Complete your task while the daemons compile in the background (30-60 seconds initial startup)
 4. Check errors from the latest TypeScript compilation cycle. **ALWAYS use this to check TypeScript compilation status**: `npm run build-check`
+5. If `build-check` shows stale results for a file (e.g., errors you've already fixed), `touch <file>` to recompile it
 
 Edge cases:
 
@@ -35,9 +36,10 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 ## Testing
 
 - Ensure build daemons are running before testing
+- Core tests (for core IDE unit/integration testing): `./scripts/test.sh --grep <pattern> --run <file>`
+- Core tests with glob: `./scripts/test.sh --runGlob '<glob>' --reporter min` (e.g., `'**/positronQuarto/**/*.test.js'`)
 - Extension tests (preferred for extension development): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 - E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --reporter list --grep '<pattern>'`
-- Core tests (for core IDE unit/integration testing): `./scripts/test.sh --grep <pattern> --run <file>`
 
 ## Directory Structure
 
@@ -50,3 +52,7 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 ## General
 
 - Use the `gh` CLI for GitHub interactions
+
+## Searching this Repository
+
+**DO NOT use `grep` - it WILL hang. ALWAYS use your builtin Search tool.**
