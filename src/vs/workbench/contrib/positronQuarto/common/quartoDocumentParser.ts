@@ -12,16 +12,17 @@ import { parseFrontmatter } from './quartoConstants.js';
 export const FRONTMATTER_REGEX = /^---\r?\n(?<content>[\s\S]*?)\r?\n---/;
 
 /** Matches the opening fence of a code block: ```{language options} */
-export const CODE_START_REGEX = /^(?<fence>`{3,})\{(?<language>\w+)(?<options>[^}]*)\}\s*$/;
+export const CODE_START_REGEX = /^```\{(?<language>\w+)(?<options>[^}]*)\}\s*$/;
 
 /** Matches the opening fence of a raw block: ```{=format} */
-export const RAW_START_REGEX = /^(?<fence>`{3,})\{=(?<format>\w+)\}\s*$/;
+export const RAW_START_REGEX = /^```\{=(?<format>\w+)\}\s*$/;
+
+/** Matches a closing code fence. */
+export const CODE_END_REGEX = /^```\s*$/;
 
 // --- Types ---
 
-/**
- * Currently parsed node types. Add more as needed.
- */
+/** Currently parsed node types. Add more as needed. */
 export const enum QuartoNodeType {
 	CodeBlock = 'CodeBlock',
 	RawBlock = 'RawBlock',
@@ -122,20 +123,12 @@ export function extractLabel(options: string): string | undefined {
 	return undefined;
 }
 
-/**
- * Check if a line is a closing fence that matches the opening fence length.
- */
-function isClosingFence(line: string, openingLength: number): boolean {
-	const match = line.match(/^(?<fence>`{3,})\s*$/)?.groups;
-	return match !== undefined && match.fence.length >= openingLength;
-}
 
 // --- Parser internals ---
 
 /** Mutable state tracked while a code block is open. */
 interface OpenCodeBlock {
 	type: QuartoNodeType.CodeBlock;
-	fenceLength: number;
 	language: string;
 	options: string;
 	startLine: number;
@@ -144,36 +137,16 @@ interface OpenCodeBlock {
 /** Mutable state tracked while a raw block is open. */
 interface OpenRawBlock {
 	type: QuartoNodeType.RawBlock;
-	fenceLength: number;
 	format: string;
 	startLine: number;
 }
 
 type OpenBlock = OpenCodeBlock | OpenRawBlock;
 
-/**
- * Extract the content between the opening and closing fence lines.
- */
-function extractContent(open: OpenBlock, endLine: number, hasFence: boolean, lines: readonly string[]): string {
-	const contentStart = open.startLine + 1;
-	const contentEnd = hasFence ? endLine - 1 : endLine;
-	if (contentEnd < contentStart) {
-		return '';
-	}
-	return lines.slice(contentStart - 1, contentEnd).join('\n');
-}
-
 // --- Parser ---
 
 /**
- * Parse a QMD document into blocks and frontmatter.
- *
- * Recognizes:
- * - Quarto code blocks: ```{language options}
- * - Raw blocks: ```{=format}
- *
- * Plain code fences (``` or ```lang without braces) are treated as
- * markdown content, not blocks.
+ * Parse a QMD document.
  */
 export function parseQuartoDocument(content: string, logService?: ILogService): QuartoDocument {
 	if (!content) {
@@ -199,7 +172,10 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 			logService?.warn('Failed to parse Quarto frontmatter', e);
 		}
 
-		const location: QuartoSourceLocation = { begin: { line: 1 }, end: { line: frontmatterLineCount } };
+		const location: QuartoSourceLocation = {
+			begin: { line: 1 },
+			end: { line: frontmatterLineCount },
+		};
 		frontmatter = { rawContent, jupyterKernel, location };
 		lineIndex = frontmatterLineCount;
 	}
@@ -216,7 +192,6 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 			if (codeBlock) {
 				current = {
 					type: QuartoNodeType.CodeBlock,
-					fenceLength: codeBlock.fence.length,
 					language: codeBlock.language.toLowerCase(),
 					options: codeBlock.options.trim(),
 					startLine: lineNum,
@@ -228,32 +203,34 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 			if (rawBlock) {
 				current = {
 					type: QuartoNodeType.RawBlock,
-					fenceLength: rawBlock.fence.length,
 					format: rawBlock.format.toLowerCase(),
 					startLine: lineNum,
 				};
 			}
-		} else if (isClosingFence(line, current.fenceLength)) {
-			const content = extractContent(current, lineNum, true, lines);
-			const location: QuartoSourceLocation = { begin: { line: current.startLine }, end: { line: lineNum } };
+		} else if (CODE_END_REGEX.test(line)) {
+			const content = lines.slice(current.startLine, lineNum - 1).join('\n');
+			const location: QuartoSourceLocation = {
+				begin: { line: current.startLine },
+				end: { line: lineNum },
+			};
 			if (current.type === QuartoNodeType.CodeBlock) {
-				blocks.push({ type: QuartoNodeType.CodeBlock, location, content, language: current.language, label: extractLabel(current.options), options: current.options });
+				blocks.push({
+					type: QuartoNodeType.CodeBlock,
+					location,
+					content,
+					language: current.language,
+					label: extractLabel(current.options),
+					options: current.options,
+				});
 			} else {
-				blocks.push({ type: QuartoNodeType.RawBlock, location, content, format: current.format });
+				blocks.push({
+					type: QuartoNodeType.RawBlock,
+					location,
+					content,
+					format: current.format,
+				});
 			}
 			current = null;
-		}
-	}
-
-	// Handle unclosed block at end of document
-	if (current) {
-		const endLine = lines.length;
-		const content = extractContent(current, endLine, false, lines);
-		const location: QuartoSourceLocation = { begin: { line: current.startLine }, end: { line: endLine } };
-		if (current.type === QuartoNodeType.CodeBlock) {
-			blocks.push({ type: QuartoNodeType.CodeBlock, location, content, language: current.language, label: extractLabel(current.options), options: current.options });
-		} else {
-			blocks.push({ type: QuartoNodeType.RawBlock, location, content, format: current.format });
 		}
 	}
 

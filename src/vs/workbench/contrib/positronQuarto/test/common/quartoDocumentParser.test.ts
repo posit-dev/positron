@@ -180,27 +180,6 @@ suite('parseQuartoDocument', () => {
 		});
 	});
 
-	// --- Fence matching ---
-
-	suite('Fence matching', () => {
-		test('closing fence must be >= opening length', () => {
-			// The inner ``` should NOT close the outer ```` fence
-			const content = '````{python}\nsome code\n```\nmore code\n````\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks.length, 1);
-			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.strictEqual(block.content, 'some code\n```\nmore code');
-		});
-
-		test('closing fence can be longer than opening', () => {
-			const content = '```{python}\nx = 1\n`````\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks.length, 1);
-			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.strictEqual(block.content, 'x = 1');
-		});
-	});
-
 	// --- Raw blocks ---
 
 	suite('Raw blocks', () => {
@@ -223,13 +202,6 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(block.format, 'latex');
 		});
 
-		test('raw block with long fence is parsed correctly', () => {
-			const content = '````{=html}\n<b>bold</b>\n````\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks.length, 1);
-			const block = result.blocks[0] as QuartoRawBlock;
-			assert.strictEqual(block.content, '<b>bold</b>');
-		});
 	});
 
 	// --- Mixed blocks ---
@@ -317,21 +289,16 @@ suite('parseQuartoDocument', () => {
 	// --- Unclosed fences ---
 
 	suite('Unclosed fences', () => {
-		test('unclosed code block consumes remaining lines', () => {
+		test('unclosed code block is ignored', () => {
 			const content = '```{python}\nx = 1\ny = 2';
 			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks.length, 1);
-			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.strictEqual(block.location.end.line, 3);
-			assert.strictEqual(block.content, 'x = 1\ny = 2');
+			assert.strictEqual(result.blocks.length, 0);
 		});
 
-		test('unclosed raw block consumes remaining lines', () => {
+		test('unclosed raw block is ignored', () => {
 			const content = '```{=html}\n<b>bold</b>';
 			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks.length, 1);
-			const block = result.blocks[0] as QuartoRawBlock;
-			assert.strictEqual(block.type, QuartoNodeType.RawBlock);
+			assert.strictEqual(result.blocks.length, 0);
 		});
 	});
 });

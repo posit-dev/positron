@@ -7,7 +7,7 @@ import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { parseQmdToNotebookCells } from '../../common/quartoNotebookParser.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { isFrontmatterCell, QuartoCellMetadata } from '../../../positronQuarto/common/quartoConstants.js';
+import { isFrontmatterCell } from '../../../positronQuarto/common/quartoConstants.js';
 
 suite('QMD to NotebookData Converter', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -200,14 +200,6 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(cells[2].cellKind, CellKind.Code);
 	});
 
-	test('should preserve long backtick fences', () => {
-		const cells = parseQmdToNotebookCells('````{python}\nprint("```")\n````');
-
-		assert.strictEqual(cells.length, 1);
-		assert.strictEqual(cells[0].cellKind, CellKind.Code);
-		assert.strictEqual(cells[0].source, 'print("```")');
-		assert.strictEqual((cells[0].metadata?.quarto as QuartoCellMetadata)?.fenceLength, 4);
-	});
 });
 
 suite('Deserialize with cell markers', () => {

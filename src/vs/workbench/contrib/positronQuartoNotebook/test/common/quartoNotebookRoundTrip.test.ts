@@ -173,12 +173,4 @@ suite('Round-trip serialization', () => {
 		assert.strictEqual(roundTripped[0].source, '   Indented text');
 	});
 
-	test('should round-trip long backtick fence', () => {
-		const original = '````{python}\nprint("```")\n````\n';
-		const cells = parseQmdToNotebookCells(original);
-		const serialized = serializeNotebookCells(cells);
-
-		assert.strictEqual(serialized, original);
-		assert.strictEqual((cells[0].metadata as any)?.quarto?.fenceLength, 4);
-	});
 });
