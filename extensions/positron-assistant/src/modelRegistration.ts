@@ -98,13 +98,6 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			modelConfig.apiKey = apiKey;
 		}
 
-		if (!modelConfig) {
-			vscode.window.showErrorMessage(
-				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The model configuration could not be found.')
-			);
-			throw new Error(vscode.l10n.t('Failed to register model configuration. The model configuration could not be found.'));
-		}
-
 		const enabledProviders = await positron.ai.getEnabledProviders();
 		const enabled = enabledProviders.length === 0 || enabledProviders.includes(modelConfig.provider);
 		if (!enabled) {
