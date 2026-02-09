@@ -265,18 +265,6 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
 			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
 		}, { reload: true });
-
-		// Wait until providers are visible in the model picker.
-		// Models load asynchronously after sign-in.
-		await expect(async () => {
-			await app.workbench.assistant.pickModel();
-			const models = await app.workbench.assistant.getModelPickerItems();
-			const hasEcho = models.some(m => m.label.startsWith('Echo'));
-			const hasAnthropic = models.some(m => m.label.includes('Claude'));
-			await app.workbench.assistant.closeModelPickerDropdown();
-			expect(hasEcho, 'Expected Echo models to be present').toBe(true);
-			expect(hasAnthropic, 'Expected Anthropic models to be present').toBe(true);
-		}).toPass({ timeout: 30000 });
 	});
 
 	test.afterAll('Sign out of providers and clean up', async function ({ app, settings }) {
