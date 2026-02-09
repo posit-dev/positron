@@ -89,7 +89,6 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(block.location.begin.line, 1);
 			assert.strictEqual(block.location.end.line, 3);
 			assert.strictEqual(block.content, 'x = 1');
-			assert.strictEqual(block.index, 0);
 		});
 
 		test('parses multiple code blocks', () => {
@@ -100,12 +99,10 @@ suite('parseQuartoDocument', () => {
 			const block0 = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block0.type, QuartoNodeType.CodeBlock);
 			assert.strictEqual(block0.language, 'python');
-			assert.strictEqual(block0.index, 0);
 
 			const block1 = result.blocks[1] as QuartoCodeBlock;
 			assert.strictEqual(block1.type, QuartoNodeType.CodeBlock);
 			assert.strictEqual(block1.language, 'r');
-			assert.strictEqual(block1.index, 1);
 		});
 
 		test('language is lowercased', () => {
@@ -228,14 +225,6 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(block.contentHash.length, 16);
 		});
 
-		test('block index increments across code and raw blocks', () => {
-			const content = '```{python}\nx = 1\n```\n\n```{=html}\n<b>bold</b>\n```\n\n```{r}\ny <- 2\n```\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks.length, 3);
-			assert.strictEqual(result.blocks[0].index, 0);
-			assert.strictEqual(result.blocks[1].index, 1);
-			assert.strictEqual(result.blocks[2].index, 2);
-		});
 	});
 
 	// --- Fence length ---

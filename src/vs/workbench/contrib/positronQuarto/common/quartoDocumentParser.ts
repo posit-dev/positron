@@ -50,10 +50,6 @@ export interface QuartoNode {
 	/** SHA-1 hash of node content (first 16 chars). */
 	readonly contentHash: string;
 
-	// TODO: Remove index and have callers assign based on position in their own array
-	/** 0-based node index in document (across all node types). */
-	readonly index: number;
-
 	/** Number of backticks in the fence (only tracked when > 3). */
 	// TODO: Can caller also deal with this?
 	readonly fenceLength?: number;
@@ -242,7 +238,7 @@ export function parseQuartoDocument(content: string): QuartoDocument {
 			? open.fenceLength : undefined;
 
 		const location: QuartoSourceLocation = { begin: { line: open.startLine }, end: { line: endLine } };
-		const base = { location, contentHash, index: blockIndex, fenceLength: storedFenceLength };
+		const base = { location, contentHash, fenceLength: storedFenceLength };
 
 		if (open.type === QuartoNodeType.CodeBlock) {
 			const label = extractLabel(open.options);
