@@ -4,10 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILogService } from '../../../../platform/log/common/log.js';
-import {
-	parseFrontmatter,
-	DEFAULT_FENCE_LENGTH,
-} from './quartoConstants.js';
+import { parseFrontmatter } from './quartoConstants.js';
 
 // --- Regular expressions for parsing Quarto documents ---
 
@@ -52,10 +49,6 @@ export interface QuartoNode {
 
 	/** Source location in the document. */
 	readonly location: QuartoSourceLocation;
-
-	/** Number of backticks in the fence (only tracked when > 3). */
-	// TODO: Can caller also deal with this?
-	readonly fenceLength?: number;
 }
 
 /** Executable code block */
@@ -159,42 +152,15 @@ interface OpenRawBlock {
 type OpenBlock = OpenCodeBlock | OpenRawBlock;
 
 /**
- * Close an open block, extracting its content from the document lines.
+ * Extract the content between the opening and closing fence lines.
  */
-function closeBlock(open: OpenCodeBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoCodeBlock;
-function closeBlock(open: OpenRawBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoRawBlock;
-function closeBlock(open: OpenBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoCodeBlock | QuartoRawBlock;
-function closeBlock(open: OpenBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoCodeBlock | QuartoRawBlock {
+function extractContent(open: OpenBlock, endLine: number, hasFence: boolean, lines: readonly string[]): string {
 	const contentStart = open.startLine + 1;
 	const contentEnd = hasFence ? endLine - 1 : endLine;
-
-	let content = '';
-	if (contentEnd >= contentStart) {
-		content = lines.slice(contentStart - 1, contentEnd).join('\n');
+	if (contentEnd < contentStart) {
+		return '';
 	}
-	const storedFenceLength = open.fenceLength > DEFAULT_FENCE_LENGTH
-		? open.fenceLength : undefined;
-
-	const location: QuartoSourceLocation = { begin: { line: open.startLine }, end: { line: endLine } };
-	const base = { location, fenceLength: storedFenceLength };
-
-	if (open.type === QuartoNodeType.CodeBlock) {
-		return {
-			...base,
-			type: QuartoNodeType.CodeBlock,
-			content,
-			language: open.language,
-			label: extractLabel(open.options),
-			options: open.options,
-		};
-	} else {
-		return {
-			...base,
-			type: QuartoNodeType.RawBlock,
-			content,
-			format: open.format,
-		};
-	}
+	return lines.slice(contentStart - 1, contentEnd).join('\n');
 }
 
 // --- Parser ---
@@ -268,14 +234,27 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 				};
 			}
 		} else if (isClosingFence(line, current.fenceLength)) {
-			blocks.push(closeBlock(current, lineNum, true, lines));
+			const content = extractContent(current, lineNum, true, lines);
+			const location: QuartoSourceLocation = { begin: { line: current.startLine }, end: { line: lineNum } };
+			if (current.type === QuartoNodeType.CodeBlock) {
+				blocks.push({ type: QuartoNodeType.CodeBlock, location, content, language: current.language, label: extractLabel(current.options), options: current.options });
+			} else {
+				blocks.push({ type: QuartoNodeType.RawBlock, location, content, format: current.format });
+			}
 			current = null;
 		}
 	}
 
 	// Handle unclosed block at end of document
 	if (current) {
-		blocks.push(closeBlock(current, lines.length, false, lines));
+		const endLine = lines.length;
+		const content = extractContent(current, endLine, false, lines);
+		const location: QuartoSourceLocation = { begin: { line: current.startLine }, end: { line: endLine } };
+		if (current.type === QuartoNodeType.CodeBlock) {
+			blocks.push({ type: QuartoNodeType.CodeBlock, location, content, language: current.language, label: extractLabel(current.options), options: current.options });
+		} else {
+			blocks.push({ type: QuartoNodeType.RawBlock, location, content, format: current.format });
+		}
 	}
 
 	return { blocks, frontmatter, lines };

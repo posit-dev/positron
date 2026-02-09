@@ -59,35 +59,35 @@ export function parseQmdToNotebookCells(content: string): ICellDto2[] {
 			processGapRegion(lines, gapStart, blockStartIndex, cells);
 		}
 
+		// Compute fence length from the opening line for round-trip metadata
+		const fenceLength = lines[blockStartIndex].match(/^`+/)![0].length;
+		const metadata: Record<string, unknown> = {};
+		if (fenceLength > DEFAULT_FENCE_LENGTH) {
+			metadata.quarto = { fenceLength };
+		}
+		const cellMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
+
 		// Convert block to code cell
 		if (block.type === QuartoNodeType.CodeBlock) {
 			const codeBlock = block as QuartoCodeBlock;
 			const vscodeLang = QUARTO_TO_VSCODE_LANGUAGE[codeBlock.language] || codeBlock.language;
-			const metadata: Record<string, unknown> = {};
-			if (block.fenceLength) {
-				metadata.quarto = { fenceLength: block.fenceLength };
-			}
 			cells.push({
 				source: codeBlock.content,
 				language: vscodeLang,
 				cellKind: CellKind.Code,
 				mime: undefined,
 				outputs: [],
-				metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+				metadata: cellMetadata,
 			});
 		} else {
 			const rawBlock = block as QuartoRawBlock;
-			const metadata: Record<string, unknown> = {};
-			if (block.fenceLength) {
-				metadata.quarto = { fenceLength: block.fenceLength };
-			}
 			cells.push({
 				source: rawBlock.content,
 				language: rawBlock.format,
 				cellKind: CellKind.Code,
 				mime: undefined,
 				outputs: [],
-				metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+				metadata: cellMetadata,
 			});
 		}
 

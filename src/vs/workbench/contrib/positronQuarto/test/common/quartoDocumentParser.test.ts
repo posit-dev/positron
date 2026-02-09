@@ -180,27 +180,9 @@ suite('parseQuartoDocument', () => {
 		});
 	});
 
-	// --- Fence length ---
+	// --- Fence matching ---
 
-	suite('Fence length', () => {
-		test('default fence length (3) is not stored', () => {
-			const content = '```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks[0].fenceLength, undefined);
-		});
-
-		test('long fence length (4) is stored', () => {
-			const content = '````{python}\nx = 1\n````\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks[0].fenceLength, 4);
-		});
-
-		test('long fence length (5) is stored', () => {
-			const content = '`````{python}\nx = 1\n`````\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks[0].fenceLength, 5);
-		});
-
+	suite('Fence matching', () => {
 		test('closing fence must be >= opening length', () => {
 			// The inner ``` should NOT close the outer ```` fence
 			const content = '````{python}\nsome code\n```\nmore code\n````\n';
@@ -241,10 +223,12 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(block.format, 'latex');
 		});
 
-		test('raw block with long fence length', () => {
+		test('raw block with long fence is parsed correctly', () => {
 			const content = '````{=html}\n<b>bold</b>\n````\n';
 			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.blocks[0].fenceLength, 4);
+			assert.strictEqual(result.blocks.length, 1);
+			const block = result.blocks[0] as QuartoRawBlock;
+			assert.strictEqual(block.content, '<b>bold</b>');
 		});
 	});
 
