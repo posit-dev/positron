@@ -95,9 +95,8 @@ export interface QuartoFrontmatter {
 	/** Extracted Jupyter kernel name, if present. */
 	readonly jupyterKernel?: string;
 
-	/** 1-based line number where frontmatter ends (the closing ---). */
-	// TODO: Replace with location?
-	readonly endLine: number;
+	/** Source location spanning the frontmatter block. */
+	readonly location: QuartoSourceLocation;
 }
 
 /**
@@ -203,7 +202,8 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 			logService?.warn('Failed to parse Quarto frontmatter', e);
 		}
 
-		frontmatter = { rawContent, jupyterKernel, endLine: frontmatterLineCount };
+		const location: QuartoSourceLocation = { begin: { line: 1 }, end: { line: frontmatterLineCount } };
+		frontmatter = { rawContent, jupyterKernel, location };
 		lineIndex = frontmatterLineCount;
 	}
 

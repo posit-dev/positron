@@ -61,11 +61,11 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(result.primaryLanguage, 'r');
 		});
 
-		test('endLine is correct', () => {
+		test('location is correct', () => {
 			const content = '---\ntitle: Test\n---\n\n```{python}\nx = 1\n```\n';
 			const result = parseQuartoDocument(content);
 			assert.ok(result.frontmatter);
-			assert.strictEqual(result.frontmatter.endLine, 3);
+			assert.deepStrictEqual(result.frontmatter.location, { begin: { line: 1 }, end: { line: 3 } });
 		});
 
 		test('frontmatter with no jupyter key has no kernel', () => {

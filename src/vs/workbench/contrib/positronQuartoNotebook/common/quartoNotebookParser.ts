@@ -42,7 +42,7 @@ export function parseQmdToNotebookCells(content: string): ICellDto2[] {
 			outputs: [],
 			metadata: { quarto: { type: 'frontmatter' } },
 		});
-		gapStart = frontmatter.endLine; // endLine is the count of lines, which equals the 0-based index of the first line after
+		gapStart = frontmatter.location.end.line; // end.line is the 1-based last line, which equals the 0-based index of the first line after
 		// Skip blank lines after frontmatter
 		while (gapStart < lines.length && lines[gapStart].trim() === '') {
 			gapStart++;
