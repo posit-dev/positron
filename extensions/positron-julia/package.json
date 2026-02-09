@@ -1,0 +1,174 @@
+{
+	"name": "positron-julia",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "0.0.1",
+	"publisher": "positron",
+	"private": true,
+	"engines": {
+		"vscode": "^1.65.0"
+	},
+	"categories": [
+		"Programming Languages",
+		"Data Science"
+	],
+	"main": "./out/extension.js",
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": "limited",
+			"description": "%julia.capabilities.untrustedWorkspaces.description%"
+		}
+	},
+	"icon": "icon.png",
+	"activationEvents": [
+		"onLanguageRuntime:julia",
+		"onLanguage:julia",
+		"onCommand:julia.createNewFile",
+		"onCommand:julia.selectInterpreter",
+		"onCommand:julia.sourceCurrentFile"
+	],
+	"extensionDependencies": [
+		"positron.positron-supervisor"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "julia.createNewFile",
+				"category": "Julia",
+				"title": "%julia.command.createNewFile.title%",
+				"shortTitle": "%julia.menu.createNewFile.title%"
+			},
+			{
+				"command": "julia.selectInterpreter",
+				"category": "Julia",
+				"title": "%julia.command.selectInterpreter.title%"
+			},
+			{
+				"command": "julia.sourceCurrentFile",
+				"category": "Julia",
+				"title": "%julia.command.sourceCurrentFile.title%",
+				"icon": "$(play)"
+			}
+		],
+		"configuration": [
+			{
+				"title": "Julia",
+				"properties": {
+					"positron.julia.interpreters.include": {
+						"scope": "machine-overridable",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"markdownDescription": "%julia.configuration.interpreters.include.markdownDescription%"
+					},
+					"positron.julia.interpreters.exclude": {
+						"scope": "machine-overridable",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"markdownDescription": "%julia.configuration.interpreters.exclude.markdownDescription%"
+					},
+					"positron.julia.kernel.logLevel": {
+						"scope": "window",
+						"type": "string",
+						"enum": [
+							"trace",
+							"debug",
+							"info",
+							"warn",
+							"error"
+						],
+						"default": "warn",
+						"markdownDescription": "%julia.configuration.kernel.logLevel.markdownDescription%"
+					},
+					"positron.julia.languageServer.enabled": {
+						"scope": "window",
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%julia.configuration.languageServer.enabled.markdownDescription%"
+					},
+					"julia.lint.run": {
+						"scope": "window",
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Run the linter on active files."
+					},
+					"julia.lint.missingrefs": {
+						"scope": "window",
+						"type": "string",
+						"enum": [
+							"none",
+							"symbols",
+							"all"
+						],
+						"default": "none",
+						"markdownDescription": "Report missing references. `none` disables the check, `symbols` only reports undefined symbols, `all` reports all missing references."
+					},
+					"julia.lint.disabledDirs": {
+						"scope": "window",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [
+							"docs",
+							"test"
+						],
+						"markdownDescription": "Directories where linting is disabled."
+					}
+				}
+			}
+		],
+		"menus": {
+			"file/newFile": [
+				{
+					"command": "julia.createNewFile",
+					"group": "file",
+					"when": "!virtualWorkspace"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "julia.sourceCurrentFile",
+					"when": "editorLangId == julia"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "julia.sourceCurrentFile",
+				"key": "ctrl+shift+s",
+				"mac": "cmd+shift+s",
+				"when": "editorLangId == julia"
+			}
+		]
+	},
+	"languageRuntimes": [
+		{
+			"languageId": "julia"
+		}
+	],
+	"scripts": {
+		"compile": "gulp compile-extension:positron-julia",
+		"watch": "gulp watch-extension:positron-julia",
+		"vscode:prepublish": "npm run compile",
+		"test": "node ./out/test/index.js"
+	},
+	"dependencies": {
+		"semver": "^7.6.3",
+		"vscode-languageclient": "^9.0.1"
+	},
+	"devDependencies": {
+		"@types/semver": "^7.5.8",
+		"@anthropic-ai/claude-code-agent-tools": "file:../../src/vscode-dts",
+		"@types/mocha": "^9.1.1",
+		"@types/node": "^20.11.24",
+		"@types/vscode": "^1.94.0",
+		"glob": "^7.2.0",
+		"mocha": "^9.2.1"
+	}
+}
