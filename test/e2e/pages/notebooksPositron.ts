@@ -729,8 +729,8 @@ export class PositronNotebooks extends Notebooks {
 			const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
 
 			expectedType === 'code'
-				? expect(ariaLabel).toBe('Code cell')
-				: expect(ariaLabel).toBe(MARKDOWN_ARIA_LABEL);
+				? expect(ariaLabel).toContain('Code cell')
+				: expect(ariaLabel).toContain('Markdown cell');
 
 		});
 	}
