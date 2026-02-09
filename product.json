@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.46",
+			"version": "1.6.47",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "a5d808dc2964b389e433d57bbd97ba6d88aac9389468ab1f73a0adf01331ec3f",
+			"sha256": "6ec213bab8e7e4e63e2ff0518aa96223d1621b37ce613b296feeaee39e309edc",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -120,7 +120,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.34.0",
+			"version": "2026.36.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -198,8 +198,8 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.50.1",
-			"sha256sum": "9ade789c0ed5ec3fd6813397243d1dc12d86221f935220451dbbde9b43feebef",
+			"version": "0.51.0",
+			"sha256sum": "c1527a3c75a11defffb9837ab6949a35704cd2928387cc349e375a135e05fe7c",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -229,7 +229,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.28.0",
+			"version": "1.30.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",

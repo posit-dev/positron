@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
-import { processMessages, toAIMessage } from '../../utils';
+import { CacheBreakpointProvider, processMessages, toAIMessage } from '../../utils';
 import { getProviderTimeoutMs } from '../../config';
 import { TokenUsage } from '../../tokens';
 import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
@@ -140,6 +140,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		providerOptions?: {
 			toolResultExperimentalContent?: boolean;
 			bedrockCacheBreakpoint?: boolean;
+			anthropicCacheBreakpoint?: boolean;
 		}
 	): Promise<void> {
 		const aiModel = this.aiProvider(model.id);
@@ -163,13 +164,19 @@ export abstract class VercelModelProvider extends ModelProvider {
 		}
 
 		// Extract provider-specific options
-		const { bedrockCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
+		const { bedrockCacheBreakpoint = false, anthropicCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
+
+		// Determine which cache breakpoint provider to use (if any)
+		const cacheBreakpointProvider: CacheBreakpointProvider | undefined =
+			bedrockCacheBreakpoint ? 'bedrock' :
+				anthropicCacheBreakpoint ? 'anthropic' :
+					undefined;
 
 		// Convert all messages to the Vercel AI format
 		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
 			this.usesChatCompletions,
-			bedrockCacheBreakpoint
+			cacheBreakpointProvider
 		);
 
 		// Set up tools if provided
@@ -358,6 +365,15 @@ export abstract class VercelModelProvider extends ModelProvider {
 			}
 
 			this.logger.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
+		}
+
+		// Handle Anthropic-specific usage (cache tokens are directly on metadata.anthropic, not nested under usage)
+		if (metadata && metadata.anthropic) {
+			const anthropicMeta = metadata.anthropic as Record<string, any>;
+			tokens.inputTokens += anthropicMeta.cacheCreationInputTokens || anthropicMeta.usage?.cache_creation_input_tokens || 0;
+			tokens.cachedTokens += anthropicMeta.cacheReadInputTokens || anthropicMeta.usage?.cache_read_input_tokens || 0;
+
+			this.logger.debug(`[${model.name}]: Anthropic usage: ${JSON.stringify(anthropicMeta, null, 2)}`);
 		}
 
 		if (requestId) {

@@ -66,7 +66,11 @@ suite('PlatformService', () => {
         // eslint-disable-next-line global-require
         const arch = require('arch');
 
-        const hostReports64Bit = arch() === 'x64';
+        // Both x64 and arm64 are 64-bit architectures
+        // --- Start Positron ---
+        // const hostReports64Bit = arch() === 'x64';
+        const hostReports64Bit = arch() === 'x64' || arch() === 'arm64';
+        // --- End Positron ---
         const svc = new PlatformService();
         const result = svc.is64bit;
 

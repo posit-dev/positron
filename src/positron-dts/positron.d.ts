@@ -1095,6 +1095,13 @@ declare module 'positron' {
 		LSP = 'lsp',
 	}
 
+	export interface LanguageRuntimePackage {
+		id: string;
+		name: string;
+		displayName: string;
+		version: string;
+	}
+
 	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
@@ -1297,6 +1304,41 @@ declare module 'positron' {
 		 * Show profiler log if supported.
 		 */
 		showProfile?(): Thenable<void>;
+
+		/**
+		 * Get list of installed packages.
+		 */
+		getPackages?(): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Install the list of packages.
+		 */
+		installPackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Update the list of packages. Package names can optionally include version if split using an '@'.
+		 */
+		updatePackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Update all installed packages.
+		 */
+		updateAllPackages?(): Thenable<void>;
+
+		/**
+		 * Uninstall the list of packages.
+		 */
+		uninstallPackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Search a repository for packages matching the query.
+		 */
+		searchPackages?(query: string): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Search a repository for available versions of a package.
+		 */
+		searchPackageVersions?(name: string): Thenable<string[]>;
 	}
 
 

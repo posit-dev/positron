@@ -16,6 +16,7 @@ import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
+import { NotebookRawCell } from './notebookCells/NotebookRawCell.js';
 import { DeletionSentinel } from './notebookCells/DeletionSentinel.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
@@ -198,6 +199,10 @@ function useFontStyles(): React.CSSProperties {
 function NotebookCell({ cell }: {
 	cell: PositronNotebookCellGeneral;
 }) {
+
+	if (cell.isRawCell()) {
+		return <NotebookRawCell cell={cell} />;
+	}
 
 	if (cell.isCodeCell()) {
 		return <NotebookCodeCell cell={cell} />;
