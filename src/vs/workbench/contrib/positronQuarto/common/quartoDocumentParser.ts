@@ -114,7 +114,7 @@ export interface QuartoDocument {
  * Extracts the block label from chunk options.
  * The label is the first option if it doesn't contain '='.
  */
-function extractLabel(options: string): string | undefined {
+export function extractLabel(options: string): string | undefined {
 	if (!options) {
 		return undefined;
 	}
@@ -132,6 +132,27 @@ function isClosingFence(line: string, openingLength: number): boolean {
 	const match = line.match(/^(`{3,})\s*$/);
 	return match !== null && match[1].length >= openingLength;
 }
+
+// --- Parser internals ---
+
+/** Mutable state tracked while a code block is open. */
+interface OpenCodeBlock {
+	type: QuartoNodeType.CodeBlock;
+	fenceLength: number;
+	language: string;
+	options: string;
+	startLine: number;
+}
+
+/** Mutable state tracked while a raw block is open. */
+interface OpenRawBlock {
+	type: QuartoNodeType.RawBlock;
+	fenceLength: number;
+	format: string;
+	startLine: number;
+}
+
+type OpenBlock = OpenCodeBlock | OpenRawBlock;
 
 // --- Parser ---
 
@@ -178,24 +199,6 @@ export function parseQuartoDocument(content: string): QuartoDocument {
 	}
 
 	// Step 2: Scan for code blocks and raw blocks.
-	// Mutable state tracked while a block is open.
-	interface OpenCodeBlock {
-		type: QuartoNodeType.CodeBlock;
-		fenceLength: number;
-		language: string;
-		options: string;
-		startLine: number;
-	}
-
-	interface OpenRawBlock {
-		type: QuartoNodeType.RawBlock;
-		fenceLength: number;
-		format: string;
-		startLine: number;
-	}
-
-	type OpenBlock = OpenCodeBlock | OpenRawBlock;
-
 	function finalizeBlock(open: OpenBlock, endLine: number, hasFence: boolean): void {
 		const contentStart = open.startLine + 1;
 		const contentEnd = hasFence ? endLine - 1 : endLine;

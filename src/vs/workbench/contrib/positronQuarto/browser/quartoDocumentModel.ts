@@ -11,6 +11,7 @@ import { StringSHA1 } from '../../../../base/common/hash.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent } from '../common/quartoTypes.js';
 import { FRONTMATTER_REGEX, kernelToLanguageId, parseFrontmatter } from '../common/quartoConstants.js';
+import { extractLabel } from '../common/quartoDocumentParser.js';
 
 // Code block regexes used only by the document model (simpler version without fence length tracking)
 const CHUNK_START_REGEX = /^```\{(\w+)([^}]*)\}\s*$/;
@@ -40,21 +41,6 @@ function generateCellId(
 	return `${index}-${hashPrefix}-${labelPart}`;
 }
 
-
-/**
- * Extracts the cell label from chunk options.
- * The label is the first option if it doesn't contain '='.
- */
-function extractLabel(options: string): string | undefined {
-	if (!options) {
-		return undefined;
-	}
-	const firstOption = options.split(',')[0].trim();
-	if (firstOption && !firstOption.includes('=')) {
-		return firstOption;
-	}
-	return undefined;
-}
 
 /**
  * Represents the parsed state of a Quarto document.
