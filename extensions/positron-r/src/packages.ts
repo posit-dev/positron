@@ -143,13 +143,22 @@ export class RPackageManager {
 		const hasPak = await this._ensurePakChecked();
 		const pkgList = packages.map(p => `"${this._escapeString(p)}"`).join(', ');
 
-		let code: string;
+		let remove: string;
 		if (hasPak) {
-			code = `pak::pkg_remove(c(${pkgList}))`;
+			remove = `pak::pkg_remove(c(${pkgList}))`;
 		} else {
-			code = `remove.packages(c(${pkgList}))`;
+			remove = `remove.packages(c(${pkgList}))`;
 		}
 
+		// Try to unload removed packages from the session (best effort)
+		const code = [
+			'local({',
+			remove,
+			`for (pkg in c(${pkgList})) {`,
+			'try(unloadNamespace(pkg), silent = TRUE)',
+			'}',
+			'})'
+		].join('\n');
 		await this._executeAndWait(code);
 	}
 
@@ -344,10 +353,13 @@ export class RPackageManager {
 	 * Check if pak is available without prompting to install.
 	 */
 	private async _ensurePakChecked(): Promise<boolean> {
-		if (this._pakAvailable === null) {
-			this._pakAvailable = await this._detectPak();
-		}
-		return this._pakAvailable;
+		// TODO: It might be nice to cache this result, but pak can be installed/uninstalled during
+		// a session so we need to be careful about staleness. For now we'll just check every time.
+		// if (this._pakAvailable === null) {
+		// 	this._pakAvailable = await this._detectPak();
+		// }
+		// return this._pakAvailable;
+		return this._detectPak();
 	}
 
 	/**
