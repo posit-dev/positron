@@ -16,22 +16,30 @@ export interface PythonEnvironmentProviderInfo {
 }
 
 /**
+ * Returns the default environment name for a given provider.
+ * @param envProviderName The name of the Python environment provider.
+ * @returns The default environment name.
+ */
+export const getDefaultEnvName = (envProviderName: string | undefined): string => {
+	return envProviderName === PythonEnvironmentProvider.Conda ? '.conda' : '.venv';
+};
+
+/**
  * Constructs the location for the new Python environment based on the parent folder, project name,
  * and environment type.
  * @param parentFolder The parent folder for the new environment.
  * @param projectName The name of the project.
  * @param envProviderName The name of the Python environment provider.
+ * @param customEnvName Optional custom environment name to use instead of the default.
  * @returns Array of strings representing the path to the new environment.
  */
 export const locationForNewEnv = (
 	parentFolder: string,
 	projectName: string,
 	envProviderName: string | undefined,
+	customEnvName?: string,
 ) => {
-	const envDir =
-		envProviderName === PythonEnvironmentProvider.Conda
-			? '.conda'
-			: '.venv';
+	const envDir = customEnvName || getDefaultEnvName(envProviderName);
 	return [parentFolder, projectName, envDir];
 };
 
