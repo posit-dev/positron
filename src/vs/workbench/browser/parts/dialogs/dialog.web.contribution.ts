@@ -20,7 +20,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { createBrowserAboutDialogDetails } from '../../../../platform/dialogs/browser/dialog.js';
 import { IMarkdownRendererService } from '../../../../platform/markdown/browser/markdownRenderer.js';
 // --- Start Positron ---
-import { IPositronAttributionService } from '../../../services/positronAttribution/common/positronAttribution.js';
+import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
 // --- End Positron ---
 
 export class DialogHandlerContribution extends Disposable implements IWorkbenchContribution {
@@ -43,7 +43,7 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 		@IOpenerService openerService: IOpenerService,
 		@IMarkdownRendererService markdownRendererService: IMarkdownRendererService,
 		// --- Start Positron ---
-		@IPositronAttributionService private positronAttributionService: IPositronAttributionService,
+		@IRemoteAgentService private remoteAgentService: IRemoteAgentService,
 		// --- End Positron ---
 	) {
 		super();
@@ -78,7 +78,8 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 				} else {
 					// --- Start Positron ---
 					// Fetch attribution info for the About dialog
-					const attribution = await this.positronAttributionService.getAttribution();
+					const environment = await this.remoteAgentService.getEnvironment();
+					const attribution = environment?.positronAttribution;
 					const aboutDialogDetails = createBrowserAboutDialogDetails(this.productService, attribution);
 					// --- End Positron ---
 					await this.impl.value.about(aboutDialogDetails.title, aboutDialogDetails.details, aboutDialogDetails.detailsToCopy);

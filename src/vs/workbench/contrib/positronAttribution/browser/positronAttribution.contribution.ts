@@ -9,7 +9,7 @@ import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWo
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { IStatusbarService, StatusbarAlignment } from '../../../services/statusbar/browser/statusbar.js';
-import { IPositronAttributionService } from '../../../services/positronAttribution/common/positronAttribution.js';
+import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
 
 /**
  * Status bar entry ID for the license attribution display.
@@ -25,14 +25,15 @@ class PositronAttributionStatusBarContribution extends Disposable implements IWo
 
 	constructor(
 		@IStatusbarService private readonly _statusbarService: IStatusbarService,
-		@IPositronAttributionService private readonly _attributionService: IPositronAttributionService
+		@IRemoteAgentService private readonly _remoteAgentService: IRemoteAgentService
 	) {
 		super();
 		this._updateStatusBar().catch(err => console.error('Failed to update attribution status bar:', err));
 	}
 
 	private async _updateStatusBar(): Promise<void> {
-		const attribution = await this._attributionService.getAttribution();
+		const environment = await this._remoteAgentService.getEnvironment();
+		const attribution = environment?.positronAttribution;
 
 		if (!attribution?.licensee) {
 			// No license attribution - don't show anything
