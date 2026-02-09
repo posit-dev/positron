@@ -1,7 +1,7 @@
 {
 	"name": "positron-pdf-server",
-	"displayName": "PDF Server Viewer",
-	"description": "View PDF files using PDF.js served via local HTTP server",
+	"displayName": "%displayName%",
+	"description": "%description%",
 	"version": "1.0.0",
 	"publisher": "positron",
 	"engines": {
