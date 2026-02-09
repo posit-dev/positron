@@ -3,14 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ILogService } from '../../../../platform/log/common/log.js';
 import {
-	FRONTMATTER_REGEX,
-	CHUNK_START_REGEX,
-	RAW_BLOCK_START_REGEX,
 	parseFrontmatter,
 	kernelToLanguageId,
 	DEFAULT_FENCE_LENGTH,
 } from './quartoConstants.js';
+
+// --- Regular expressions for parsing Quarto documents ---
+
+/** Matches YAML frontmatter block at the start of a document */
+export const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
+
+/** Matches the opening fence of a code block: ```{language options} */
+export const CHUNK_START_REGEX = /^(`{3,})\{(\w+)([^}]*)\}\s*$/;
+
+/** Matches the opening fence of a raw block: ```{=format} */
+export const RAW_BLOCK_START_REGEX = /^(`{3,})\{=(\w+)\}\s*$/;
 
 // --- Types ---
 
@@ -166,7 +175,7 @@ type OpenBlock = OpenCodeBlock | OpenRawBlock;
  * Plain code fences (``` or ```lang without braces) are treated as
  * markdown content, not blocks.
  */
-export function parseQuartoDocument(content: string): QuartoDocument {
+export function parseQuartoDocument(content: string, logService?: ILogService): QuartoDocument {
 	if (!content) {
 		return { blocks: [], lines: [] };
 	}
@@ -190,8 +199,8 @@ export function parseQuartoDocument(content: string): QuartoDocument {
 			if (jupyterKernel) {
 				primaryLanguage = kernelToLanguageId(jupyterKernel);
 			}
-		} catch {
-			// Ignore frontmatter parse errors
+		} catch (e) {
+			logService?.warn('Failed to parse Quarto frontmatter', e);
 		}
 
 		frontmatter = { rawContent, jupyterKernel, endLine: frontmatterLineCount };

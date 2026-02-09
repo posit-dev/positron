@@ -10,8 +10,8 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { StringSHA1 } from '../../../../base/common/hash.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent } from '../common/quartoTypes.js';
-import { FRONTMATTER_REGEX, kernelToLanguageId, parseFrontmatter } from '../common/quartoConstants.js';
-import { extractLabel } from '../common/quartoDocumentParser.js';
+import { kernelToLanguageId, parseFrontmatter } from '../common/quartoConstants.js';
+import { extractLabel, FRONTMATTER_REGEX } from '../common/quartoDocumentParser.js';
 
 // Code block regexes used only by the document model (simpler version without fence length tracking)
 const CHUNK_START_REGEX = /^```\{(\w+)([^}]*)\}\s*$/;

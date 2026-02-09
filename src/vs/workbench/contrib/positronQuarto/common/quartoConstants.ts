@@ -3,19 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// --- Regular expressions for parsing Quarto documents ---
-
-/** Matches YAML frontmatter block at the start of a document */
-export const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
-
-/** Matches the opening fence of a code block: ```{language options} */
-export const CHUNK_START_REGEX = /^(`{3,})\{(\w+)([^}]*)\}\s*$/;
-
-/** Matches the opening fence of a raw block: ```{=format} */
-export const RAW_BLOCK_START_REGEX = /^(`{3,})\{=(\w+)\}\s*$/;
-
-/** Matches a closing code fence (3+ backticks) */
-export const CHUNK_END_REGEX = /^`{3,}\s*$/;
+// --- Regular expressions ---
 
 /** Matches a plain (non-Quarto) code fence: ``` or ```language (no braces) */
 export const PLAIN_FENCE_START_REGEX = /^(`{3,})(\w*)\s*$/;
