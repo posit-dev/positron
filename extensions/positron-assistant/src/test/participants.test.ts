@@ -86,8 +86,8 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	}
 	thinkingProgress(thinkingDelta: vscode.ThinkingDelta): void {
 	}
-	externalEdit<T>(target: vscode.Uri | vscode.Uri[], callback: () => Thenable<T>): Thenable<T> {
-		return callback();
+	externalEdit(_target: vscode.Uri | vscode.Uri[], callback: () => Thenable<unknown>): Thenable<string> {
+		return callback() as Thenable<string>;
 	}
 }
 
@@ -312,10 +312,12 @@ ${attachmentsText}
 
 	test('should include editor information', async () => {
 		const document = await vscode.workspace.openTextDocument(fileReferenceUri);
+		await vscode.window.showTextDocument(document);
+		const editor = vscode.window.activeTextEditor;
 		const selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(1, 0));
 		// TODO: Not sure what wholeRange is supposed to be. We don't currently use it.
 		const wholeRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(1, 0));
-		const editorData = new vscode.ChatRequestEditorData(document, selection, wholeRange);
+		const editorData = new vscode.ChatRequestEditorData(editor, document, selection, wholeRange);
 		const request = makeChatRequest({ model, references: [], location2: editorData });
 		const context: vscode.ChatContext = { history: [] };
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
@@ -445,9 +447,11 @@ suite('PositronAssistantPromptRenderer', () => {
 
 	test('Render prompt for Editor', async () => {
 		const document = await vscode.workspace.openTextDocument();
+		await vscode.window.showTextDocument(document);
+		const editor = vscode.window.activeTextEditor;
 		const selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 0));
 		const wholeRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0));
-		const editorData = new vscode.ChatRequestEditorData(document, selection, wholeRange);
+		const editorData = new vscode.ChatRequestEditorData(editor, document, selection, wholeRange);
 		const request = makeChatRequest({ model, references: [], location2: editorData });
 
 		const sessions = [];
@@ -461,9 +465,11 @@ suite('PositronAssistantPromptRenderer', () => {
 
 	test('Render prompt with non-empty selection and streaming edits', async () => {
 		const document = await vscode.workspace.openTextDocument();
+		await vscode.window.showTextDocument(document);
+		const editor = vscode.window.activeTextEditor;
 		const selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 10));
 		const wholeRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 10));
-		const editorData = new vscode.ChatRequestEditorData(document, selection, wholeRange);
+		const editorData = new vscode.ChatRequestEditorData(editor, document, selection, wholeRange);
 		const request = makeChatRequest({ model, references: [], location2: editorData });
 
 		const sessions = [];

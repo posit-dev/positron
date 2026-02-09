@@ -55,7 +55,7 @@ import { IChatEntitlementService } from '../../../services/chat/common/chatEntit
 import { APPLICATION_SCOPES, IWorkbenchConfigurationService } from '../../../services/configuration/common/configuration.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { IOpenSettingsOptions, IPreferencesService, ISearchResult, ISetting, ISettingsEditorModel, ISettingsEditorOptions, ISettingsGroup, SettingMatchType, SettingValueType, validateSettingsEditorOptions } from '../../../services/preferences/common/preferences.js';
+import { ALWAYS_SHOW_ADVANCED_SETTINGS_SETTING, IOpenSettingsOptions, IPreferencesService, ISearchResult, ISetting, ISettingsEditorModel, ISettingsEditorOptions, ISettingsGroup, SettingMatchType, SettingValueType, validateSettingsEditorOptions } from '../../../services/preferences/common/preferences.js';
 import { SettingsEditor2Input } from '../../../services/preferences/common/preferencesEditorInput.js';
 import { nullRange, Settings2EditorModel } from '../../../services/preferences/common/preferencesModels.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
@@ -207,7 +207,7 @@ export class SettingsEditor2 extends EditorPane {
 
 	private settingFastUpdateDelayer: Delayer<void>;
 	private settingSlowUpdateDelayer: Delayer<void>;
-	private pendingSettingUpdate: { key: string; value: any; languageFilter: string | undefined } | null = null;
+	private pendingSettingUpdate: { key: string; value: unknown; languageFilter: string | undefined } | null = null;
 
 	private readonly viewState: ISettingsEditorViewState;
 	private readonly _searchResultModel = this._register(new MutableDisposable<SearchResultModel>());
@@ -302,6 +302,9 @@ export class SettingsEditor2 extends EditorPane {
 				|| e.affectedKeys.has(WorkbenchSettingsEditorSettings.EnableNaturalLanguageSearch)) {
 				this.updateAiSearchToggleVisibility();
 			}
+			if (e.affectsConfiguration(ALWAYS_SHOW_ADVANCED_SETTINGS_SETTING)) {
+				this.onConfigUpdate(undefined, true, true);
+			}
 			if (e.source !== ConfigurationTarget.DEFAULT) {
 				this.onConfigUpdate(e.affectedKeys);
 			}
@@ -355,6 +358,9 @@ export class SettingsEditor2 extends EditorPane {
 	}
 
 	private canShowAdvancedSettings(): boolean {
+		if (this.configurationService.getValue<boolean>(ALWAYS_SHOW_ADVANCED_SETTINGS_SETTING) ?? false) {
+			return true;
+		}
 		return this.viewState.tagFilters?.has(ADVANCED_SETTING_TAG) ?? false;
 	}
 
@@ -363,7 +369,8 @@ export class SettingsEditor2 extends EditorPane {
 	 * Returns true if:
 	 * - The setting is not tagged as advanced, OR
 	 * - The setting matches an ID filter (@id:settingKey), OR
-	 * - The setting key appears in the search query
+	 * - The setting key appears in the search query, OR
+	 * - The @hasPolicy filter is active (policy settings should always be shown when filtering by policy)
 	 */
 	private shouldShowSetting(setting: ISetting): boolean {
 		if (!setting.tags?.includes(ADVANCED_SETTING_TAG)) {
@@ -373,6 +380,9 @@ export class SettingsEditor2 extends EditorPane {
 			return true;
 		}
 		if (this.viewState.query?.toLowerCase().includes(setting.key.toLowerCase())) {
+			return true;
+		}
+		if (this.viewState.tagFilters?.has(POLICY_SETTING_TAG)) {
 			return true;
 		}
 		return false;
@@ -743,7 +753,7 @@ export class SettingsEditor2 extends EditorPane {
 						return `@${EXTENSION_SETTING_TAG}${extensionId} `;
 					}).sort();
 					return installedExtensionsTags.filter(extFilter => !query.includes(extFilter));
-				} else if (queryParts[queryParts.length - 1].startsWith('@')) {
+				} else if (query === '' || queryParts[queryParts.length - 1].startsWith('@')) {
 					return SettingsEditor2.SUGGESTIONS.filter(tag => !query.includes(tag)).map(tag => tag.endsWith(':') ? tag : tag + ' ');
 				}
 				return [];
@@ -1183,7 +1193,7 @@ export class SettingsEditor2 extends EditorPane {
 		}));
 	}
 
-	private onDidChangeSetting(key: string, value: any, type: SettingValueType | SettingValueType[], manualReset: boolean, scope: ConfigurationScope | undefined): void {
+	private onDidChangeSetting(key: string, value: unknown, type: SettingValueType | SettingValueType[], manualReset: boolean, scope: ConfigurationScope | undefined): void {
 		const parsedQuery = parseQuery(this.searchWidget.getValue());
 		const languageFilter = parsedQuery.languageFilter;
 		if (manualReset || (this.pendingSettingUpdate && this.pendingSettingUpdate.key !== key)) {
@@ -1251,7 +1261,7 @@ export class SettingsEditor2 extends EditorPane {
 	}
 
 	private getAncestors(element: SettingsTreeElement): SettingsTreeElement[] {
-		const ancestors: any[] = [];
+		const ancestors: SettingsTreeElement[] = [];
 
 		while (element.parent) {
 			if (element.parent.id !== 'root') {
@@ -1264,7 +1274,7 @@ export class SettingsEditor2 extends EditorPane {
 		return ancestors.reverse();
 	}
 
-	private updateChangedSetting(key: string, value: any, manualReset: boolean, languageFilter: string | undefined, scope: ConfigurationScope | undefined): Promise<void> {
+	private updateChangedSetting(key: string, value: unknown, manualReset: boolean, languageFilter: string | undefined, scope: ConfigurationScope | undefined): Promise<void> {
 		// ConfigurationService displays the error if this fails.
 		// Force a render afterwards because onDidConfigurationUpdate doesn't fire if the update doesn't result in an effective setting value change.
 		const settingsTarget = this.settingsTargetsWidget.settingsTarget;
@@ -1419,7 +1429,7 @@ export class SettingsEditor2 extends EditorPane {
 		this.settingsOrderByTocIndex = this.createSettingsOrderByTocIndex(resolvedSettingsRoot);
 	}
 
-	private async onConfigUpdate(keys?: ReadonlySet<string>, forceRefresh = false, schemaChange = false): Promise<void> {
+	private async onConfigUpdate(keys?: ReadonlySet<string>, forceRefresh = false, triggerSearch = false): Promise<void> {
 		if (keys && this.settingsTreeModel) {
 			return this.updateElementsByKey(keys);
 		}
@@ -1552,9 +1562,7 @@ export class SettingsEditor2 extends EditorPane {
 
 		resolvedSettingsRoot.children!.push(await createTocTreeForExtensionSettings(this.extensionService, extensionSettingsGroups, filter));
 
-		const commonlyUsedDataToUse = getCommonlyUsedData(toggleData);
-		const commonlyUsed = resolveSettingsTree(commonlyUsedDataToUse, groups, undefined, this.logService);
-		resolvedSettingsRoot.children!.unshift(commonlyUsed.tree);
+		resolvedSettingsRoot.children!.unshift(getCommonlyUsedData(groups, toggleData?.commonlyUsed));
 
 		if (toggleData && setAdditionalGroups) {
 			// Add the additional groups to the model to help with searching.
@@ -1577,7 +1585,7 @@ export class SettingsEditor2 extends EditorPane {
 		if (this.settingsTreeModel.value) {
 			this.refreshModels(resolvedSettingsRoot);
 
-			if (schemaChange && this.searchResultModel) {
+			if (triggerSearch && this.searchResultModel) {
 				// If an extension's settings were just loaded and a search is active, retrigger the search so it shows up
 				return await this.onSearchInputChanged(false);
 			}

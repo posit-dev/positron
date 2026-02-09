@@ -954,9 +954,8 @@ export class Assistant {
 	 * @returns The file path of the found chat export file, or null if not found
 	 */
 	async findChatExportFile(exportFolder?: string): Promise<string | null> {
-		const fs = require('fs').promises;
-		const path = require('path');
-
+		const fs = await import('fs/promises');
+		const path = await import('path');
 		// Use provided folder or current working directory
 		const searchPath = exportFolder || process.cwd();
 
@@ -990,8 +989,7 @@ export class Assistant {
 	 * @returns The concatenated response text from all chat responses
 	 */
 	async parseChatResponseFromFile(filePath: string): Promise<string> {
-		const fs = require('fs').promises;
-
+		const fs = await import('fs/promises');
 		try {
 			const fileContent = await fs.readFile(filePath, 'utf-8');
 			const chatData = JSON.parse(fileContent);
@@ -1034,9 +1032,8 @@ export class Assistant {
 	 * @param filePath Path to the chat export JSON file to rename
 	 */
 	async renameChatExportFile(filePath: string): Promise<void> {
-		const fs = require('fs').promises;
-		const path = require('path');
-
+		const fs = await import('fs/promises');
+		const path = await import('path');
 		try {
 			const dir = path.dirname(filePath);
 			const filename = path.basename(filePath);

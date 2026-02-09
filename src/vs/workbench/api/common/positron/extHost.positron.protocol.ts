@@ -15,7 +15,7 @@ import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntim
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
+import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -171,7 +171,7 @@ export interface MainThreadAiFeaturesShape {
 	$unregisterChatAgent(id: string): void;
 	$getCurrentPlotUri(): Promise<string | undefined>;
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
-	$responseProgress(sessionId: string, dto: IChatProgressDto): void;
+	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;
 	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void>;
 	$getSupportedProviders(): Thenable<string[]>;
 	$getChatExport(): Thenable<object | undefined>;

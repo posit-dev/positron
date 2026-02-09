@@ -6,8 +6,7 @@
 
 	<!-- Start PWB: serve same origin -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-jtUlUI+BDLjZXzyX2Lol2kI5w2HN8TOdCTBw42FPjGM=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
-	<!-- End PWB: serve same origin -->
+		content="default-src 'none'; script-src 'sha256-X1zQvQpFh8bFSLkKoLUOK283Zj1CdgZo5Yx6GBb29Ec=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -1071,7 +1070,7 @@
 				}
 				newFrame.setAttribute('sandbox', Array.from(sandboxRules).join(' '));
 
-				const allowRules = ['cross-origin-isolated;', 'autoplay;'];
+				const allowRules = ['cross-origin-isolated;', 'autoplay;', 'local-network-access;'];
 				if (!isFirefox && options.allowScripts) {
 					allowRules.push('clipboard-read;', 'clipboard-write;');
 				}

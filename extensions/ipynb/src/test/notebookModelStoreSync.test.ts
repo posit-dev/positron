@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { CancellationTokenSource, Disposable, EventEmitter, ExtensionContext, NotebookCellKind, NotebookDocumentChangeEvent, NotebookDocumentWillSaveEvent, NotebookEdit, NotebookRange, TextDocumentSaveReason, workspace, type CancellationToken, type NotebookCell, type NotebookDocument, type WorkspaceEdit, type WorkspaceEditMetadata } from 'vscode';
+import { CancellationTokenSource, Disposable, EventEmitter, ExtensionContext, NotebookCellKind, NotebookDocumentChangeEvent, NotebookDocumentWillSaveEvent, NotebookEdit, NotebookRange, TextDocument, TextDocumentSaveReason, workspace, type CancellationToken, type NotebookCell, type NotebookDocument, type WorkspaceEdit, type WorkspaceEditMetadata } from 'vscode';
 import { activate } from '../notebookModelStoreSync';
 
 suite(`Notebook Model Store Sync`, () => {
@@ -36,9 +36,8 @@ suite(`Notebook Model Store Sync`, () => {
 		disposables.push(onDidChangeNotebookDocument);
 		onWillSaveNotebookDocument = new AsyncEmitter<NotebookDocumentWillSaveEvent>();
 
-		sinon.stub(NotebookEdit, 'updateCellMetadata').callsFake((index, metadata) => {
-			// eslint-disable-next-line local/code-no-any-casts
-			const edit = (NotebookEdit.updateCellMetadata as any).wrappedMethod.call(NotebookEdit, index, metadata);
+		const stub = sinon.stub(NotebookEdit, 'updateCellMetadata').callsFake((index, metadata) => {
+			const edit = stub.wrappedMethod.call(NotebookEdit, index, metadata);
 			cellMetadataUpdates.push(edit);
 			return edit;
 		}
@@ -76,8 +75,7 @@ suite(`Notebook Model Store Sync`, () => {
 	test('Adding cell for non Jupyter Notebook will not result in any updates', async () => {
 		sinon.stub(notebook, 'notebookType').get(() => 'some-other-type');
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
-			document: {} as any,
+			document: {} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -107,8 +105,7 @@ suite(`Notebook Model Store Sync`, () => {
 	test('Adding cell to nbformat 4.2 notebook will result in adding empty metadata', async () => {
 		sinon.stub(notebook, 'metadata').get(() => ({ nbformat: 4, nbformat_minor: 2 }));
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
-			document: {} as any,
+			document: {} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -140,8 +137,7 @@ suite(`Notebook Model Store Sync`, () => {
 	test('Added cell will have a cell id if nbformat is 4.5', async () => {
 		sinon.stub(notebook, 'metadata').get(() => ({ nbformat: 4, nbformat_minor: 5 }));
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
-			document: {} as any,
+			document: {} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -176,8 +172,7 @@ suite(`Notebook Model Store Sync`, () => {
 	test('Do not add cell id if one already exists', async () => {
 		sinon.stub(notebook, 'metadata').get(() => ({ nbformat: 4, nbformat_minor: 5 }));
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
-			document: {} as any,
+			document: {} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -214,8 +209,7 @@ suite(`Notebook Model Store Sync`, () => {
 	test('Do not perform any updates if cell id and metadata exists', async () => {
 		sinon.stub(notebook, 'metadata').get(() => ({ nbformat: 4, nbformat_minor: 5 }));
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
-			document: {} as any,
+			document: {} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -253,10 +247,9 @@ suite(`Notebook Model Store Sync`, () => {
 			}
 		}));
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
 			document: {
 				languageId: 'javascript'
-			} as any,
+			} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -277,10 +270,9 @@ suite(`Notebook Model Store Sync`, () => {
 			cellChanges: [
 				{
 					cell,
-					// eslint-disable-next-line local/code-no-any-casts
 					document: {
 						languageId: 'javascript'
-					} as any,
+					} as unknown as TextDocument,
 					metadata: undefined,
 					outputs: undefined,
 					executionSummary: undefined
@@ -306,10 +298,9 @@ suite(`Notebook Model Store Sync`, () => {
 			}
 		}));
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
 			document: {
 				languageId: 'javascript'
-			} as any,
+			} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -351,10 +342,9 @@ suite(`Notebook Model Store Sync`, () => {
 			}
 		}));
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
 			document: {
 				languageId: 'javascript'
-			} as any,
+			} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -376,10 +366,9 @@ suite(`Notebook Model Store Sync`, () => {
 			cellChanges: [
 				{
 					cell,
-					// eslint-disable-next-line local/code-no-any-casts
 					document: {
 						languageId: 'javascript'
-					} as any,
+					} as unknown as TextDocument,
 					metadata: undefined,
 					outputs: undefined,
 					executionSummary: undefined
@@ -405,10 +394,9 @@ suite(`Notebook Model Store Sync`, () => {
 			}
 		}));
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
 			document: {
 				languageId: 'powershell'
-			} as any,
+			} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
@@ -430,10 +418,9 @@ suite(`Notebook Model Store Sync`, () => {
 			cellChanges: [
 				{
 					cell,
-					// eslint-disable-next-line local/code-no-any-casts
 					document: {
 						languageId: 'powershell'
-					} as any,
+					} as unknown as TextDocument,
 					metadata: undefined,
 					outputs: undefined,
 					executionSummary: undefined
@@ -465,8 +452,7 @@ suite(`Notebook Model Store Sync`, () => {
 		});
 
 		const cell: NotebookCell = {
-			// eslint-disable-next-line local/code-no-any-casts
-			document: {} as any,
+			document: {} as unknown as TextDocument,
 			executionSummary: {},
 			index: 0,
 			kind: NotebookCellKind.Code,
