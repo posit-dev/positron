@@ -24,6 +24,11 @@ import { IAction } from '../../../../../../base/common/actions.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { SegmentedToggle } from '../../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
 
+/** Prevents Space key from scrolling the page when activating native buttons. */
+const preventSpaceScroll = (e: React.KeyboardEvent) => {
+	if (e.key === ' ') { e.preventDefault(); }
+};
+
 // Localized strings.
 const loadingText = localize('ghostCell.loading', 'Generating suggestion...');
 const acceptLabel = localize('ghostCell.accept', 'Accept');
@@ -112,6 +117,7 @@ const TruncatedExplanation: React.FC<TruncatedExplanationProps> = ({ text }) => 
 				<button
 					className='ghost-cell-expand-button'
 					onClick={handleToggle}
+					onKeyDown={preventSpaceScroll}
 				>
 					{isExpanded ? showLessLabel : showMoreLabel}
 				</button>
@@ -245,6 +251,7 @@ const GhostCellAwaitingRequest: React.FC<GhostCellAwaitingRequestProps> = ({
 			className='ghost-cell-info-button codicon codicon-info'
 			title={infoButtonLabel}
 			onClick={onShowInfo}
+			onKeyDown={preventSpaceScroll}
 		/>
 	</div>
 );
@@ -313,38 +320,35 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 	return (
 		<>
 			<div className='ghost-cell-header'>
-				<div className='ghost-cell-header-content'>
-					<TruncatedExplanation text={explanation || defaultExplanation} />
-					<SuggestionModeToggle automatic={automatic} onToggle={onToggleMode} />
-				</div>
-				<div className='ghost-cell-actions'>
-					<SplitButton
-						ariaLabel={acceptAndRunLabel}
-						className='ghost-cell-accept'
-						contextMenuService={contextMenuService}
-						disabled={isStreaming}
-						dropdownActions={acceptActions}
-						dropdownTooltip={acceptDropdownTooltip}
-						label={acceptAndRunLabel}
-						onMainAction={onAcceptAndRun}
-					/>
-					<SplitButton
-						ariaLabel={dismissLabel}
-						className='ghost-cell-dismiss'
-						contextMenuService={contextMenuService}
-						dropdownActions={dismissActions}
-						dropdownTooltip={dismissDropdownTooltip}
-						label={dismissLabel}
-						onMainAction={onDismiss}
-					/>
-					<button
-						aria-label={regenerateLabel}
-						className='ghost-cell-regenerate codicon codicon-refresh'
-						disabled={isStreaming}
-						title={regenerateLabel}
-						onClick={onRegenerate}
-					/>
-				</div>
+				<TruncatedExplanation text={explanation || defaultExplanation} />
+				<SuggestionModeToggle automatic={automatic} onToggle={onToggleMode} />
+				<SplitButton
+					ariaLabel={acceptAndRunLabel}
+					className='ghost-cell-accept'
+					contextMenuService={contextMenuService}
+					disabled={isStreaming}
+					dropdownActions={acceptActions}
+					dropdownTooltip={acceptDropdownTooltip}
+					label={acceptAndRunLabel}
+					onMainAction={onAcceptAndRun}
+				/>
+				<SplitButton
+					ariaLabel={dismissLabel}
+					className='ghost-cell-dismiss'
+					contextMenuService={contextMenuService}
+					dropdownActions={dismissActions}
+					dropdownTooltip={dismissDropdownTooltip}
+					label={dismissLabel}
+					onMainAction={onDismiss}
+				/>
+				<button
+					aria-label={regenerateLabel}
+					className='ghost-cell-regenerate codicon codicon-refresh'
+					disabled={isStreaming}
+					title={regenerateLabel}
+					onClick={onRegenerate}
+					onKeyDown={preventSpaceScroll}
+				/>
 			</div>
 			<div className='ghost-cell-code-preview'>
 				<pre className='ghost-cell-code-text'>{code}</pre>
@@ -355,6 +359,7 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 					className='ghost-cell-info-button codicon codicon-info'
 					title={infoButtonLabel}
 					onClick={onShowInfo}
+					onKeyDown={preventSpaceScroll}
 				/>
 				{modelName && (
 					<div className='ghost-cell-model-info'>
@@ -368,6 +373,7 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 							className='ghost-cell-model-indicator'
 							title={changeModelTooltip}
 							onClick={onChangeModel}
+							onKeyDown={preventSpaceScroll}
 						>
 							{modelName}
 						</button>
