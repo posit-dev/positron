@@ -44,6 +44,7 @@ const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
 	'**/remote-ssh/**',
+	'**/assistant-eval/**',
 ];
 
 export default defineConfig<ExtendedTestOptions>({
@@ -95,6 +96,12 @@ export default defineConfig<ExtendedTestOptions>({
 	projects: [
 		{
 			name: 'e2e-electron',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**',
+				'**/remote-ssh/**',
+				// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+			],
 			use: {
 				artifactDir: 'e2e-electron'
 			},
