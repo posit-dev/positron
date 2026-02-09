@@ -7,7 +7,7 @@
 import './consoleInstance.css';
 
 // React.
-import React, { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
+import { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
 import { getActiveWindow } from '../../../../../base/browser/dom.js';

@@ -6,9 +6,6 @@
 // CSS.
 import './NotebookRawCell.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
