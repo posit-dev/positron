@@ -23,7 +23,7 @@ interface NotebookCellMoreActionsMenuProps {
 	hoverManager?: IHoverManager;
 	instance: IPositronNotebookInstance;
 	isMenuOpen: boolean;
-	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
+	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][];
 	setIsMenuOpen: (isOpen: boolean) => void;
 }
 
