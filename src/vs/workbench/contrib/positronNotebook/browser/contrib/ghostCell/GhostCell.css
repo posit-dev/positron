@@ -30,23 +30,14 @@
 	border-color: var(--vscode-focusBorder);
 }
 
-/* Header section with explanation and actions */
+/* Header section with explanation, mode toggle, and actions */
 .ghost-cell-header {
 	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
+	align-items: center;
 	padding: 6px 12px;
 	background: var(--vscode-notifications-background);
 	border-bottom: 1px solid var(--vscode-widget-border);
-	gap: 12px;
-}
-
-.ghost-cell-header-content {
-	display: flex;
-	align-items: flex-start;
 	gap: 8px;
-	flex: 1;
-	min-width: 0; /* Allow shrinking */
 }
 
 .ghost-cell-info-button {
@@ -66,6 +57,17 @@
 
 .ghost-cell-info-button:hover {
 	color: var(--vscode-foreground);
+}
+
+.ghost-cell-info-button:focus {
+	outline: none;
+}
+
+.ghost-cell-info-button:focus-visible {
+	color: var(--vscode-foreground);
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+	border-radius: 2px;
 }
 
 .ghost-cell-explanation {
@@ -106,43 +108,38 @@
 	text-decoration: underline;
 }
 
-.ghost-cell-actions {
-	display: flex;
-	gap: 8px;
-	flex-shrink: 0;
-	padding-top: 1px;
-}
-
 /* Accept split button - primary action styling */
-.ghost-cell-actions .ghost-cell-accept {
+.ghost-cell-header .ghost-cell-accept {
 	border-color: var(--vscode-button-secondaryBackground);
+	flex-shrink: 0;
 }
 
-.ghost-cell-actions .ghost-cell-accept .split-button-main {
+.ghost-cell-header .ghost-cell-accept .split-button-main {
 	background: var(--vscode-button-secondaryBackground);
 	color: var(--vscode-button-secondaryForeground);
 }
 
-.ghost-cell-actions .ghost-cell-accept .split-button-main:hover {
+.ghost-cell-header .ghost-cell-accept .split-button-main:hover {
 	background: var(--vscode-button-secondaryHoverBackground);
 }
 
-.ghost-cell-actions .ghost-cell-accept .split-button-dropdown {
+.ghost-cell-header .ghost-cell-accept .split-button-dropdown {
 	border-left-color: var(--vscode-positronActionBar-selectBorder);
 	color: var(--vscode-button-secondaryForeground);
 	background: var(--vscode-button-secondaryBackground);
 }
 
-.ghost-cell-actions .ghost-cell-accept .split-button-dropdown:hover {
+.ghost-cell-header .ghost-cell-accept .split-button-dropdown:hover {
 	background: var(--vscode-button-secondaryHoverBackground);
 }
 
 /* Dismiss split button - secondary action styling */
-.ghost-cell-actions .ghost-cell-dismiss {
+.ghost-cell-header .ghost-cell-dismiss {
 	opacity: 0.8;
+	flex-shrink: 0;
 }
 
-.ghost-cell-actions .ghost-cell-dismiss:hover {
+.ghost-cell-header .ghost-cell-dismiss:hover {
 	opacity: 1;
 }
 
