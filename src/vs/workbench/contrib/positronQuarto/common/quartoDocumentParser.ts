@@ -6,7 +6,6 @@
 import { ILogService } from '../../../../platform/log/common/log.js';
 import {
 	parseFrontmatter,
-	kernelToLanguageId,
 	DEFAULT_FENCE_LENGTH,
 } from './quartoConstants.js';
 
@@ -109,9 +108,6 @@ export interface QuartoDocument {
 	/** Frontmatter, if present. */
 	readonly frontmatter?: QuartoFrontmatter;
 
-	/** Primary language (from frontmatter kernel or first code block). */
-	readonly primaryLanguage?: string;
-
 	/** The document split into lines (for extracting content by line range). */
 	readonly lines: readonly string[];
 }
@@ -182,7 +178,6 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 	const lines = content.split(/\r?\n/);
 	const blocks: (QuartoCodeBlock | QuartoRawBlock)[] = [];
 	let frontmatter: QuartoFrontmatter | undefined;
-	let primaryLanguage: string | undefined;
 	let lineIndex = 0;
 
 	// Step 1: Extract frontmatter
@@ -195,9 +190,6 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 		try {
 			const parsed = parseFrontmatter(frontmatterMatch[1]);
 			jupyterKernel = parsed.jupyterKernel;
-			if (jupyterKernel) {
-				primaryLanguage = kernelToLanguageId(jupyterKernel);
-			}
 		} catch (e) {
 			logService?.warn('Failed to parse Quarto frontmatter', e);
 		}
@@ -280,13 +272,5 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 		finalizeBlock(current, lines.length, false);
 	}
 
-	// Step 3: Determine primary language from first code block if not from frontmatter
-	if (!primaryLanguage) {
-		const firstCode = blocks.find((b): b is QuartoCodeBlock => b.type === QuartoNodeType.CodeBlock);
-		if (firstCode) {
-			primaryLanguage = firstCode.language;
-		}
-	}
-
-	return { blocks, frontmatter, primaryLanguage, lines };
+	return { blocks, frontmatter, lines };
 }

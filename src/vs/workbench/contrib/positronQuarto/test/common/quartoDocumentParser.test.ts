@@ -18,7 +18,6 @@ suite('parseQuartoDocument', () => {
 			const result = parseQuartoDocument('');
 			assert.strictEqual(result.blocks.length, 0);
 			assert.strictEqual(result.frontmatter, undefined);
-			assert.strictEqual(result.primaryLanguage, undefined);
 		});
 
 		test('markdown-only document returns no blocks', () => {
@@ -50,7 +49,6 @@ suite('parseQuartoDocument', () => {
 			const result = parseQuartoDocument(content);
 			assert.ok(result.frontmatter);
 			assert.strictEqual(result.frontmatter.jupyterKernel, 'python3');
-			assert.strictEqual(result.primaryLanguage, 'python');
 		});
 
 		test('extracts complex jupyter kernel', () => {
@@ -58,7 +56,6 @@ suite('parseQuartoDocument', () => {
 			const result = parseQuartoDocument(content);
 			assert.ok(result.frontmatter);
 			assert.strictEqual(result.frontmatter.jupyterKernel, 'ir');
-			assert.strictEqual(result.primaryLanguage, 'r');
 		});
 
 		test('location is correct', () => {
@@ -310,34 +307,6 @@ suite('parseQuartoDocument', () => {
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.language, 'python');
 			assert.strictEqual(block.location.begin.line, 5);
-		});
-	});
-
-	// --- Primary language ---
-
-	suite('Primary language', () => {
-		test('from frontmatter kernel', () => {
-			const content = '---\njupyter: python3\n---\n\n```{r}\ny <- 1\n```\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.primaryLanguage, 'python');
-		});
-
-		test('from first code block when no frontmatter kernel', () => {
-			const content = '```{r}\ny <- 1\n```\n\n```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.primaryLanguage, 'r');
-		});
-
-		test('from first code block, not raw block', () => {
-			const content = '```{=html}\n<b>bold</b>\n```\n\n```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.primaryLanguage, 'python');
-		});
-
-		test('undefined when no code blocks and no kernel', () => {
-			const content = '# Just markdown\n\n```{=html}\n<b>bold</b>\n```\n';
-			const result = parseQuartoDocument(content);
-			assert.strictEqual(result.primaryLanguage, undefined);
 		});
 	});
 
