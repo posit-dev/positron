@@ -25,7 +25,7 @@ export interface IGetExtensionHostExitInfoArguments {
 }
 
 // --- Start Positron ---
-export interface IPositronAttributionDTO {
+export interface IPositronLicenseeInfoDTO {
 	licensee?: string;
 	issuer?: string;
 }
@@ -53,7 +53,7 @@ export interface IRemoteAgentEnvironmentDTO {
 	};
 	isUnsupportedGlibc: boolean;
 	// --- Start Positron ---
-	positronAttribution?: IPositronAttributionDTO;
+	positronLicenseeInfo?: IPositronLicenseeInfoDTO;
 	// --- End Positron ---
 }
 
@@ -86,7 +86,7 @@ export class RemoteExtensionEnvironmentChannelClient {
 			profiles: revive(data.profiles),
 			isUnsupportedGlibc: data.isUnsupportedGlibc,
 			// --- Start Positron ---
-			positronAttribution: data.positronAttribution
+			positronLicenseeInfo: data.positronLicenseeInfo
 			// --- End Positron ---
 		};
 	}

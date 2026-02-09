@@ -11,6 +11,18 @@ import { validateWithManager } from './licenseManager.js';
 import { FileAccess } from '../../base/common/network.js';
 
 /**
+ * The result of validating a license.
+ */
+export interface ILicenseValidationResult {
+	/** Whether the license is valid. */
+	valid: boolean;
+	/** The licensee name, if validation was successful. */
+	licensee?: string;
+	/** The issuer name, if validation was successful. */
+	issuer?: string;
+}
+
+/**
  * This file validates Positron license keys. Positron requires a license key to
  * be provided in order to run in a hosted or managed environment.
  *
@@ -20,20 +32,6 @@ import { FileAccess } from '../../base/common/network.js';
  *
  * The signature is verified using an embedded public key.
  */
-
-/**
- * The result of validating a license key.
- */
-export interface ILicenseValidationResult {
-	/** Whether the license is valid. */
-	valid: boolean;
-
-	/** The licensee name, if validation was successful. */
-	licensee?: string;
-
-	/** The issuer name, if validation was successful. */
-	issuer?: string;
-}
 
 /**
  * The JSON data structure representing a license key.
@@ -157,10 +155,8 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 			return validateLicense(connectionToken, contents);
 		} else if (trimmedContents.startsWith('-----BEGIN RSTUDIO LICENSE-----')) {
 			// This is an RSA license file, let the license manager handle it.
-			// Note: RSA license files do not support attribution info.
 			const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
-			const isValid = await validateWithManager(installPath, licenseFile);
-			return { valid: isValid };
+			return validateWithManager(installPath, licenseFile);
 		} else {
 			// Unknown license format
 			console.error('Unrecognized license file format. Expected JSON license key or RSA license file.');

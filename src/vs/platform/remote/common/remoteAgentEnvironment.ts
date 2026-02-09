@@ -9,7 +9,7 @@ import { URI } from '../../../base/common/uri.js';
 import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.js';
 
 // --- Start Positron ---
-export interface IPositronAttribution {
+export interface IPositronLicenseeInfo {
 	licensee?: string;
 	issuer?: string;
 }
@@ -37,7 +37,7 @@ export interface IRemoteAgentEnvironment {
 	};
 	isUnsupportedGlibc: boolean;
 	// --- Start Positron ---
-	positronAttribution?: IPositronAttribution;
+	positronLicenseeInfo?: IPositronLicenseeInfo;
 	// --- End Positron ---
 }
 

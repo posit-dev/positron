@@ -101,13 +101,13 @@ import { McpGalleryManifestIPCService } from '../../platform/mcp/common/mcpGalle
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
 import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
-import { IPositronAttribution } from '../../platform/remote/common/remoteAgentEnvironment.js';
+import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentEnvironment.js';
 // --- End Positron ---
 
 const eventPrefix = 'monacoworkbench';
 
 // --- Start Positron ---
-export async function setupServerServices(connectionToken: ServerConnectionToken, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, disposables: DisposableStore, positronAttribution?: IPositronAttribution) {
+export async function setupServerServices(connectionToken: ServerConnectionToken, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, disposables: DisposableStore, positronLicenseeInfo?: IPositronLicenseeInfo) {
 	// --- End Positron ---
 	const services = new ServiceCollection();
 	const socketServer = new SocketServer<RemoteAgentConnectionContext>();
@@ -268,7 +268,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		const extensionGalleryService = accessor.get(IExtensionGalleryService);
 		const languagePackService = accessor.get(ILanguagePackService);
 		// --- Start Positron ---
-		const remoteExtensionEnvironmentChannel = new RemoteAgentEnvironmentChannel(connectionToken, environmentService, userDataProfilesService, extensionHostStatusService, positronAttribution);
+		const remoteExtensionEnvironmentChannel = new RemoteAgentEnvironmentChannel(connectionToken, environmentService, userDataProfilesService, extensionHostStatusService, positronLicenseeInfo);
 		// --- End Positron ---
 		socketServer.registerChannel('remoteextensionsenvironment', remoteExtensionEnvironmentChannel);
 

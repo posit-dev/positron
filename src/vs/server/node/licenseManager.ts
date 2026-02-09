@@ -8,6 +8,7 @@ import * as os from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as path from '../../base/common/path.js';
+import type { ILicenseValidationResult } from './remoteLicenseKey.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -20,6 +21,7 @@ interface LicenseVerifyOutput {
 	'days-left': number;
 	'license-scope': string;
 	'license-engine': string;
+	'licensee'?: string;
 }
 
 /**
@@ -60,10 +62,10 @@ class LicenseManager {
 	 * Validates a license file using the license-manager binary.
 	 *
 	 * @param licenseFilePath The path to the license file
-	 * @returns A promise that resolves to true if the license is valid
+	 * @returns A promise that resolves to the license validation result
 	 * @throws Error if the license file is invalid, expired, or cannot be read
 	 */
-	async verifyLicenseFile(licenseFilePath: string): Promise<boolean> {
+	async verifyLicenseFile(licenseFilePath: string): Promise<ILicenseValidationResult> {
 		if (!fs.existsSync(licenseFilePath)) {
 			throw new Error(`License file not found: ${licenseFilePath}`);
 		}
@@ -94,11 +96,14 @@ class LicenseManager {
 			// License is valid
 			const daysLeftMsg = daysLeft !== undefined ? `Days left: ${daysLeft}` : 'Days left: unknown';
 			console.log(`Successfully validated Positron license (Status: ${output.status}, ${daysLeftMsg})`);
+
+			return {
+				valid: true,
+				licensee: output.licensee
+			};
 		} else {
 			throw new Error('Failed to parse license verification output.');
 		}
-
-		return true;
 	}
 }
 
@@ -108,12 +113,12 @@ class LicenseManager {
  *
  * @param installPath The root installation path of Positron
  * @param licenseFilePath The path to the license file
- * @returns A promise that resolves if the license is valid
+ * @returns A promise that resolves to the license validation result
  */
 export async function validateWithManager(
 	installPath: string,
 	licenseFilePath: string,
-): Promise<boolean> {
+): Promise<ILicenseValidationResult> {
 	const licenseManagerPath = findLicenseManagerPath(installPath);
 	const licenseManager = new LicenseManager(licenseManagerPath);
 

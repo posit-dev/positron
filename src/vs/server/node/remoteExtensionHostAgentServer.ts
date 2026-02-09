@@ -42,8 +42,7 @@ import { CacheControl, serveError, serveFile, WebClientServer } from './webClien
 const require = createRequire(import.meta.url);
 
 // --- Start Positron ---
-import { ILicenseValidationResult, validateLicenseKey } from './remoteLicenseKey.js';
-
+import { validateLicenseKey, ILicenseValidationResult } from './remoteLicenseKey.js';
 // eslint-disable-next-line no-duplicate-imports
 import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
 import { PositronBootstrapExtensionsInitializer } from '../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
@@ -740,12 +739,12 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 
 	const disposables = new DisposableStore();
 	// --- Start Positron ---
-	// Pass the license attribution info (if available) to the server services
-	const positronAttribution = licenseValidationResult?.valid ? {
+	// Pass the licensee info (if available) to the server services
+	const positronLicenseeInfo = licenseValidationResult?.valid ? {
 		licensee: licenseValidationResult.licensee,
 		issuer: licenseValidationResult.issuer
 	} : undefined;
-	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronAttribution);
+	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo);
 	// --- End Positron ---
 
 	// --- Start Positron ---

@@ -12,7 +12,7 @@ import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 import { ResultKind } from '../../keybinding/common/keybindingResolver.js';
 import { ILayoutService } from '../../layout/browser/layoutService.js';
 import { IProductService } from '../../product/common/productService.js';
-import { IPositronAttribution } from '../../remote/common/remoteAgentEnvironment.js';
+import { IPositronLicenseeInfo } from '../../remote/common/remoteAgentEnvironment.js';
 import { defaultButtonStyles, defaultCheckboxStyles, defaultInputBoxStyles, defaultDialogStyles } from '../../theme/browser/defaultStyles.js';
 
 const defaultDialogAllowableCommands = [
@@ -45,7 +45,7 @@ export function createWorkbenchDialogOptions(options: Partial<IDialogOptions>, k
 }
 
 // --- Start Positron ---
-export function createBrowserAboutDialogDetails(productService: IProductService, attribution?: IPositronAttribution): { title: string; details: string; detailsToCopy: string } {
+export function createBrowserAboutDialogDetails(productService: IProductService, licenseeInfo?: IPositronLicenseeInfo): { title: string; details: string; detailsToCopy: string } {
 	// --- End Positron ---
 	const detailString = (useAgo: boolean): string => {
 		// --- Start Positron ---
@@ -61,8 +61,8 @@ export function createBrowserAboutDialogDetails(productService: IProductService,
 			navigator.userAgent
 		);
 		// --- Start Positron ---
-		if (attribution?.licensee) {
-			detail += '\n' + localize('aboutLicensee', "Licensed to: {0}", attribution.licensee);
+		if (licenseeInfo?.licensee) {
+			detail += '\n' + localize('aboutLicensee', "Licensed to: {0}", licenseeInfo.licensee);
 		}
 		return detail;
 		// --- End Positron ---

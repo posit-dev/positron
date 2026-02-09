@@ -77,10 +77,10 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 					result = await this.impl.value.prompt(args.prompt);
 				} else {
 					// --- Start Positron ---
-					// Fetch attribution info for the About dialog
+					// Fetch licensee info for the About dialog
 					const environment = await this.remoteAgentService.getEnvironment();
-					const attribution = environment?.positronAttribution;
-					const aboutDialogDetails = createBrowserAboutDialogDetails(this.productService, attribution);
+					const licenseeInfo = environment?.positronLicenseeInfo;
+					const aboutDialogDetails = createBrowserAboutDialogDetails(this.productService, licenseeInfo);
 					// --- End Positron ---
 					await this.impl.value.about(aboutDialogDetails.title, aboutDialogDetails.details, aboutDialogDetails.detailsToCopy);
 				}

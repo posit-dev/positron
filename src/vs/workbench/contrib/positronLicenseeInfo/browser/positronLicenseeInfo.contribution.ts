@@ -12,49 +12,49 @@ import { IStatusbarService, StatusbarAlignment } from '../../../services/statusb
 import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
 
 /**
- * Status bar entry ID for the license attribution display.
+ * Status bar entry ID for the licensee info display.
  */
-const POSITRON_ATTRIBUTION_STATUS_ID = 'status.positronAttribution';
+const POSITRON_LICENSEE_INFO_STATUS_ID = 'status.positronLicenseeInfo';
 
 /**
- * Workbench contribution that displays license attribution in the status bar.
+ * Workbench contribution that displays licensee info in the status bar.
  */
-class PositronAttributionStatusBarContribution extends Disposable implements IWorkbenchContribution {
+class PositronLicenseeInfoStatusBarContribution extends Disposable implements IWorkbenchContribution {
 
-	static readonly ID = 'workbench.contrib.positronAttributionStatusBar';
+	static readonly ID = 'workbench.contrib.positronLicenseeInfoStatusBar';
 
 	constructor(
 		@IStatusbarService private readonly _statusbarService: IStatusbarService,
 		@IRemoteAgentService private readonly _remoteAgentService: IRemoteAgentService
 	) {
 		super();
-		this._updateStatusBar().catch(err => console.error('Failed to update attribution status bar:', err));
+		this._updateStatusBar().catch(err => console.error('Failed to update licensee info status bar:', err));
 	}
 
 	private async _updateStatusBar(): Promise<void> {
 		const environment = await this._remoteAgentService.getEnvironment();
-		const attribution = environment?.positronAttribution;
+		const licenseeInfo = environment?.positronLicenseeInfo;
 
-		if (!attribution?.licensee) {
-			// No license attribution - don't show anything
+		if (!licenseeInfo?.licensee) {
+			// No licensee info - don't show anything
 			return;
 		}
 
 		// Build tooltip text
-		let tooltip = localize('positronAttribution.tooltip.licensee', "Licensed to: {0}", attribution.licensee);
-		if (attribution.issuer) {
-			tooltip += '\n' + localize('positronAttribution.tooltip.issuer', "Issued by: {0}", attribution.issuer);
+		let tooltip = localize('positronLicenseeInfo.tooltip.licensee', "Licensed to: {0}", licenseeInfo.licensee);
+		if (licenseeInfo.issuer) {
+			tooltip += '\n' + localize('positronLicenseeInfo.tooltip.issuer', "Issued by: {0}", licenseeInfo.issuer);
 		}
 
 		// Create status bar entry and track for disposal
 		this._register(this._statusbarService.addEntry(
 			{
-				name: localize('positronAttribution.name', "License Attribution"),
-				text: localize('positronAttribution.text', "Licensed to: {0}", attribution.licensee),
+				name: localize('positronLicenseeInfo.name', "License Info"),
+				text: localize('positronLicenseeInfo.text', "Licensed to: {0}", licenseeInfo.licensee),
 				tooltip,
 				ariaLabel: tooltip
 			},
-			POSITRON_ATTRIBUTION_STATUS_ID,
+			POSITRON_LICENSEE_INFO_STATUS_ID,
 			StatusbarAlignment.RIGHT,
 			-1 // Low priority - show at the far right
 		));
@@ -63,4 +63,4 @@ class PositronAttributionStatusBarContribution extends Disposable implements IWo
 
 // Register the contribution
 const workbenchRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
-workbenchRegistry.registerWorkbenchContribution(PositronAttributionStatusBarContribution, LifecyclePhase.Restored);
+workbenchRegistry.registerWorkbenchContribution(PositronLicenseeInfoStatusBarContribution, LifecyclePhase.Restored);
