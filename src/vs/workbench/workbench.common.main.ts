@@ -478,6 +478,7 @@ import './contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution.js'
 import './contrib/positronNewProject/browser/positronNewProject.contribution.js';
 import './contrib/positronKeybindings/browser/positronKeybindings.contribution.js';
 import './contrib/positronQuarto/browser/positronQuarto.contribution.js';
+import './contrib/positronQuartoNotebook/browser/quartoNotebookContribution.js';
 
 // Workbench services
 import './services/languageRuntime/common/languageRuntime.js';
