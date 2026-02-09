@@ -158,6 +158,42 @@ interface OpenRawBlock {
 
 type OpenBlock = OpenCodeBlock | OpenRawBlock;
 
+/**
+ * Close an open block, extracting its content from the document lines.
+ */
+function closeBlock(open: OpenBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoCodeBlock | QuartoRawBlock {
+	const contentStart = open.startLine + 1;
+	const contentEnd = hasFence ? endLine - 1 : endLine;
+
+	let content = '';
+	if (contentEnd >= contentStart) {
+		content = lines.slice(contentStart - 1, contentEnd).join('\n');
+	}
+	const storedFenceLength = open.fenceLength > DEFAULT_FENCE_LENGTH
+		? open.fenceLength : undefined;
+
+	const location: QuartoSourceLocation = { begin: { line: open.startLine }, end: { line: endLine } };
+	const base = { location, fenceLength: storedFenceLength };
+
+	if (open.type === QuartoNodeType.CodeBlock) {
+		return {
+			...base,
+			type: QuartoNodeType.CodeBlock,
+			content,
+			language: open.language,
+			label: extractLabel(open.options),
+			options: open.options,
+		};
+	} else {
+		return {
+			...base,
+			type: QuartoNodeType.RawBlock,
+			content,
+			format: open.format,
+		};
+	}
+}
+
 // --- Parser ---
 
 /**
@@ -200,39 +236,6 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 	}
 
 	// Step 2: Scan for code blocks and raw blocks.
-	function finalizeBlock(open: OpenBlock, endLine: number, hasFence: boolean): void {
-		const contentStart = open.startLine + 1;
-		const contentEnd = hasFence ? endLine - 1 : endLine;
-
-		let text = '';
-		if (contentEnd >= contentStart) {
-			text = lines.slice(contentStart - 1, contentEnd).join('\n');
-		}
-		const storedFenceLength = open.fenceLength > DEFAULT_FENCE_LENGTH
-			? open.fenceLength : undefined;
-
-		const location: QuartoSourceLocation = { begin: { line: open.startLine }, end: { line: endLine } };
-		const base = { location, fenceLength: storedFenceLength };
-
-		if (open.type === QuartoNodeType.CodeBlock) {
-			blocks.push({
-				...base,
-				type: QuartoNodeType.CodeBlock,
-				content: text,
-				language: open.language,
-				label: extractLabel(open.options),
-				options: open.options,
-			});
-		} else {
-			blocks.push({
-				...base,
-				type: QuartoNodeType.RawBlock,
-				content: text,
-				format: open.format,
-			});
-		}
-	}
-
 	let current: OpenBlock | null = null;
 
 	for (let i = lineIndex; i < lines.length; i++) {
@@ -262,14 +265,14 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 				};
 			}
 		} else if (isClosingFence(line, current.fenceLength)) {
-			finalizeBlock(current, lineNum, true);
+			blocks.push(closeBlock(current, lineNum, true, lines));
 			current = null;
 		}
 	}
 
 	// Handle unclosed block at end of document
 	if (current) {
-		finalizeBlock(current, lines.length, false);
+		blocks.push(closeBlock(current, lines.length, false, lines));
 	}
 
 	return { blocks, frontmatter, lines };
