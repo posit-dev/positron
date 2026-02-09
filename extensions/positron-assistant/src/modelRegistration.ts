@@ -108,9 +108,6 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 		const enabledProviders = await positron.ai.getEnabledProviders();
 		const enabled = enabledProviders.length === 0 || enabledProviders.includes(modelConfig.provider);
 		if (!enabled) {
-			vscode.window.showErrorMessage(
-				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The provider is disabled.')
-			);
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
