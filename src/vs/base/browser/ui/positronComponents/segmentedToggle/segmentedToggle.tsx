@@ -44,7 +44,9 @@ export const SegmentedToggle: React.FC<SegmentedToggleProps> = ({
 			aria-label={ariaLabel}
 			className={positronClassNames('toggle-container', { 'disabled': disabled })}
 			disabled={disabled}
+			role='switch'
 			onClick={onToggle}
+			onKeyDown={e => { if (e.key === ' ') { e.preventDefault(); } }}
 		>
 			<div className={positronClassNames('toggle-button', 'left', { 'highlighted': leftActive })}>
 				{leftLabel}

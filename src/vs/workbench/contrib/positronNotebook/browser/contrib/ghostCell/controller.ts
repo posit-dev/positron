@@ -58,10 +58,12 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 
 	// Private properties
 	private _ghostCellDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+	private _errorDismissTimer: ReturnType<typeof setTimeout> | undefined;
 	private _ghostCellCancellationToken: CancellationTokenSource | undefined;
 	private _ghostCellAwaitingRequestContextKey: IContextKey<boolean> | undefined;
 	private _optInDismissedThisOpen: boolean = false;
 	private _enabledThisSession: boolean = false;
+	private _lastKnownCellCount: number = 0;
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
@@ -92,6 +94,30 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			this._ghostCellAwaitingRequestContextKey.set(state.status === 'awaiting-request');
 		}));
 
+		// Clean up timers on dispose
+		this._register({
+			dispose: () => {
+				if (this._errorDismissTimer) {
+					clearTimeout(this._errorDismissTimer);
+					this._errorDismissTimer = undefined;
+				}
+			}
+		});
+
+		// Dismiss ghost cell when the user adds a new cell.
+		// Safe with acceptGhostCellSuggestion because it sets state to 'hidden'
+		// before calling addCell, so this autorun sees 'hidden' and skips.
+		this._lastKnownCellCount = this._notebook.cells.get().length;
+		this._register(autorun(reader => {
+			const cells = this._notebook.cells.read(reader);
+			const prevCount = this._lastKnownCellCount;
+			this._lastKnownCellCount = cells.length;
+
+			if (cells.length > prevCount && this._ghostCellState.read(undefined).status !== 'hidden') {
+				this.dismissGhostCell();
+			}
+		}));
+
 		// Listen for cell execution completion to trigger ghost cell suggestions
 		this._register(this._notebookExecutionStateService.onDidChangeExecution((event) => {
 			// Only handle cell execution events for this notebook
@@ -99,17 +125,11 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 				return;
 			}
 
-			// Type narrowing for cell execution events
-			const cellEvent = event;
-			if (cellEvent.type !== NotebookExecutionType.cell) {
-				return;
-			}
-
 			// When execution completes (changed is undefined), trigger ghost cell suggestion
-			if (cellEvent.changed === undefined) {
+			if (event.changed === undefined) {
 				// Find the cell index by handle
 				const cells = this._notebook.cells.get();
-				const cellIndex = cells.findIndex(c => c.handle === cellEvent.cellHandle);
+				const cellIndex = cells.findIndex(c => c.handle === event.cellHandle);
 				if (cellIndex !== -1) {
 					const cell = cells[cellIndex];
 					// Only trigger for code cells that executed successfully
@@ -267,7 +287,8 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			}, undefined);
 
 			// Auto-dismiss error after 5 seconds
-			setTimeout(() => {
+			this._errorDismissTimer = setTimeout(() => {
+				this._errorDismissTimer = undefined;
 				const currentState = this._ghostCellState.get();
 				if (currentState.status === 'error') {
 					this._ghostCellState.set({ status: 'hidden' }, undefined);
@@ -308,10 +329,14 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	 * @param disableForNotebook If true, also disables ghost cell suggestions for this notebook
 	 */
 	dismissGhostCell(disableForNotebook?: boolean): void {
-		// Cancel any pending request
+		// Cancel any pending timers
 		if (this._ghostCellDebounceTimer) {
 			clearTimeout(this._ghostCellDebounceTimer);
 			this._ghostCellDebounceTimer = undefined;
+		}
+		if (this._errorDismissTimer) {
+			clearTimeout(this._errorDismissTimer);
+			this._errorDismissTimer = undefined;
 		}
 
 		if (this._ghostCellCancellationToken) {
@@ -538,10 +563,14 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	 * @param cellIndex The index of the cell that was just executed
 	 */
 	private _scheduleGhostCellSuggestion(cellIndex: number): void {
-		// Cancel any pending debounce timer
+		// Cancel any pending timers
 		if (this._ghostCellDebounceTimer) {
 			clearTimeout(this._ghostCellDebounceTimer);
 			this._ghostCellDebounceTimer = undefined;
+		}
+		if (this._errorDismissTimer) {
+			clearTimeout(this._errorDismissTimer);
+			this._errorDismissTimer = undefined;
 		}
 
 		// Cancel any in-flight request
