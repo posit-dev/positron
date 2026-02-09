@@ -315,15 +315,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		return {
 			metadata: {
-				// Attach the model ID as metadata so that we can use the same model in the followup provider.
 				modelId: request.model.id,
-				// Include token usage if available
 				tokenUsage: tokenUsage,
-				// Include the tools available for this request
 				availableTools: tools.length > 0 ? tools.map(t => t.name) : undefined,
-				// Include the context message if available
 				positronContext: contextInfo ? { prompts: contextInfo.prompts, attachedDataTypes: contextInfo.attachedDataTypes } : undefined,
-				// Include the system prompt used for this request
 				systemPrompt,
 			},
 		};
