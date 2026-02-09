@@ -31,7 +31,7 @@ export interface QuartoSourceLocation {
 }
 
 /** Base node */
-export interface QuartoNode {
+interface QuartoNode {
 	/** Node type discriminator. */
 	readonly type: QuartoNodeType;
 
@@ -67,6 +67,9 @@ export interface QuartoRawBlock extends QuartoNode {
 	readonly format: string;
 }
 
+/** Union type for all Quarto blocks. */
+export type QuartoBlock = QuartoCodeBlock | QuartoRawBlock;
+
 /** Document frontmatter metadata */
 export interface QuartoFrontmatter {
 	/** Raw frontmatter text including --- delimiters. */
@@ -82,7 +85,7 @@ export interface QuartoFrontmatter {
 /** Parsed QMD document. */
 export interface QuartoDocument {
 	/** All parsed blocks, ordered by position. */
-	readonly blocks: readonly QuartoNode[];
+	readonly blocks: readonly QuartoBlock[];
 
 	/** Frontmatter, if present. */
 	readonly frontmatter?: QuartoFrontmatter;

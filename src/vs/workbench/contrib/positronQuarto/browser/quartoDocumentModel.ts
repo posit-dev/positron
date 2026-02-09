@@ -9,13 +9,9 @@ import { URI } from '../../../../base/common/uri.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { StringSHA1 } from '../../../../base/common/hash.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent } from '../common/quartoTypes.js';
-import { kernelToLanguageId, parseFrontmatter } from '../common/quartoConstants.js';
-import { extractLabel, FRONTMATTER_REGEX } from '../common/quartoDocumentParser.js';
-
-// Code block regexes used only by the document model (simpler version without fence length tracking)
-const CHUNK_START_REGEX = /^```\{(\w+)([^}]*)\}\s*$/;
-const CHUNK_END_REGEX = /^```\s*$/;
+import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent, QuartoNodeType } from '../common/quartoTypes.js';
+import { kernelToLanguageId } from '../common/quartoConstants.js';
+import { parseQuartoDocument } from '../common/quartoDocumentParser.js';
 
 /**
  * Computes a SHA-1 hash of the content, truncated to 16 characters.
@@ -49,22 +45,6 @@ interface ParsedDocument {
 	cells: QuartoCodeCell[];
 	primaryLanguage: string | undefined;
 	jupyterKernel: string | undefined;
-}
-
-/**
- * Mutable builder type for constructing QuartoCodeCell objects.
- */
-interface MutableQuartoCodeCell {
-	id: string;
-	language: string;
-	label?: string;
-	startLine: number;
-	endLine: number;
-	codeStartLine: number;
-	codeEndLine: number;
-	options: string;
-	contentHash: string;
-	index: number;
 }
 
 /**
@@ -239,77 +219,40 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	}
 
 	private _parse(content: string): ParsedDocument {
-		const lines = content.split(/\r?\n/);
+		const doc = parseQuartoDocument(content, this._logService);
+
+		// Convert code blocks to cells
 		const cells: QuartoCodeCell[] = [];
-		let primaryLanguage: string | undefined;
-		let jupyterKernel: string | undefined;
-
-		// Parse frontmatter
-		const frontmatterMatch = content.match(FRONTMATTER_REGEX);
-		if (frontmatterMatch) {
-			try {
-				const parsed = parseFrontmatter(frontmatterMatch[1]);
-				jupyterKernel = parsed.jupyterKernel;
-				if (jupyterKernel) {
-					primaryLanguage = kernelToLanguageId(jupyterKernel);
-				}
-			} catch (e) {
-				this._logService.warn('Failed to parse Quarto frontmatter', e);
-			}
-		}
-
-		// Parse code cells
-		let currentCell: Partial<MutableQuartoCodeCell> | null = null;
 		let cellIndex = 0;
 
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			const lineNum = i + 1; // 1-based line numbers
-
-			if (!currentCell) {
-				const startMatch = line.match(CHUNK_START_REGEX);
-				if (startMatch) {
-					currentCell = {
-						language: startMatch[1].toLowerCase(),
-						options: startMatch[2].trim(),
-						startLine: lineNum,
-						codeStartLine: lineNum + 1,
-						index: cellIndex,
-					};
-				}
-			} else if (CHUNK_END_REGEX.test(line)) {
-				currentCell.endLine = lineNum;
-				currentCell.codeEndLine = lineNum - 1;
-				currentCell.label = extractLabel(currentCell.options!);
-
-				// Handle empty cells (where codeEndLine < codeStartLine)
-				let codeContent = '';
-				if (currentCell.codeEndLine! >= currentCell.codeStartLine!) {
-					const codeLines = lines.slice(
-						currentCell.codeStartLine! - 1,
-						currentCell.codeEndLine
-					);
-					codeContent = codeLines.join('\n');
-				}
-				currentCell.contentHash = computeContentHash(codeContent);
-
-				// Generate stable ID
-				currentCell.id = generateCellId(
-					currentCell.index!,
-					currentCell.contentHash,
-					currentCell.label
-				);
-
-				cells.push(currentCell as QuartoCodeCell);
-				currentCell = null;
-				cellIndex++;
+		for (const block of doc.blocks) {
+			if (block.type !== QuartoNodeType.CodeBlock) {
+				continue;
 			}
+			const startLine = block.location.begin.line;
+			const endLine = block.location.end.line;
+			const contentHash = computeContentHash(block.content);
+
+			cells.push({
+				id: generateCellId(cellIndex, contentHash, block.label),
+				language: block.language,
+				label: block.label,
+				startLine,
+				endLine,
+				codeStartLine: startLine + 1,
+				codeEndLine: endLine - 1,
+				options: block.options,
+				contentHash,
+				index: cellIndex,
+			});
+			cellIndex++;
 		}
 
-		// Set primary language from first code cell if not from frontmatter
-		if (!primaryLanguage && cells.length > 0) {
-			primaryLanguage = cells[0].language;
-		}
+		// Determine primary language from frontmatter or first cell
+		const jupyterKernel = doc.frontmatter?.jupyterKernel;
+		const primaryLanguage = jupyterKernel ?
+			kernelToLanguageId(jupyterKernel) :
+			cells.at(0)?.language;
 
 		return { cells, primaryLanguage, jupyterKernel };
 	}

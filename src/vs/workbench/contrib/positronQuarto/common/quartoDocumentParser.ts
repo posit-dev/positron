@@ -16,7 +16,7 @@ import {
 
 // Re-export types so existing consumers don't break
 export { QuartoNodeType, QuartoCodeBlock, QuartoRawBlock, QuartoFrontmatter, QuartoDocument };
-export type { QuartoSourcePosition, QuartoSourceLocation, QuartoNode } from './quartoTypes.js';
+export type { QuartoSourcePosition, QuartoSourceLocation } from './quartoTypes.js';
 
 // --- Regular expressions for parsing Quarto documents ---
 
