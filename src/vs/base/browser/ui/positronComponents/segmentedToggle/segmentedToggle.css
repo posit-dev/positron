@@ -56,6 +56,10 @@
 	border: 1px solid var(--vscode-positronActionBar-toggleButtonHighlightedBorder, var(--vscode-contrastBorder, transparent));
 }
 
+.segmented-toggle .toggle-container .toggle-button.highlighted:hover {
+	background-color: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
+}
+
 .segmented-toggle .toggle-container .toggle-button.left {
 	grid-column: left / right;
 }
