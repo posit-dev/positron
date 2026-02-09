@@ -39,6 +39,19 @@ export type GhostCellState =
 	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string; automatic: boolean; modelName?: string; usedFallback?: boolean }
 	| { status: 'error'; executedCellIndex: number; message: string };
 
+/** Shape returned by the ghost cell suggestion command. */
+interface GhostCellSuggestionResult {
+	code: string;
+	explanation: string;
+	language: string;
+	modelName?: string;
+	usedFallback?: boolean;
+}
+
+function isGhostCellSuggestionResult(value: unknown): value is GhostCellSuggestionResult {
+	return typeof value === 'object' && value !== null && typeof (value as GhostCellSuggestionResult).code === 'string';
+}
+
 // ===== Context Keys =====
 
 export const POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST = new RawContextKey<boolean>(
@@ -256,17 +269,16 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 				return;
 			}
 
-			if (result && typeof result === 'object' && 'code' in result) {
-				const suggestion = result as { code: string; explanation: string; language: string; modelName?: string; usedFallback?: boolean };
+			if (isGhostCellSuggestionResult(result)) {
 				this._ghostCellState.set({
 					status: 'ready',
 					executedCellIndex,
-					code: suggestion.code,
-					explanation: suggestion.explanation,
-					language: suggestion.language,
+					code: result.code,
+					explanation: result.explanation,
+					language: result.language,
 					automatic,
-					modelName: suggestion.modelName,
-					usedFallback: suggestion.usedFallback
+					modelName: result.modelName,
+					usedFallback: result.usedFallback
 				}, undefined);
 			} else {
 				// No suggestion generated, hide ghost cell
@@ -420,7 +432,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 		this._enabledThisSession = true;
 
 		const state = this._ghostCellState.get();
-		const executedCellIndex = state.status !== 'hidden' && 'executedCellIndex' in state
+		const executedCellIndex = state.status !== 'hidden'
 			? state.executedCellIndex
 			: this._notebook.cells.get().length - 1;
 
@@ -454,7 +466,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 
 			// Get the last executed cell index for triggering suggestion
 			const state = this._ghostCellState.get();
-			const executedCellIndex = state.status !== 'hidden' && 'executedCellIndex' in state
+			const executedCellIndex = state.status !== 'hidden'
 				? state.executedCellIndex
 				: this._notebook.cells.get().length - 1;
 
