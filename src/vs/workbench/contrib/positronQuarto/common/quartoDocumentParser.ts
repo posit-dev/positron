@@ -161,6 +161,9 @@ type OpenBlock = OpenCodeBlock | OpenRawBlock;
 /**
  * Close an open block, extracting its content from the document lines.
  */
+function closeBlock(open: OpenCodeBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoCodeBlock;
+function closeBlock(open: OpenRawBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoRawBlock;
+function closeBlock(open: OpenBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoCodeBlock | QuartoRawBlock;
 function closeBlock(open: OpenBlock, endLine: number, hasFence: boolean, lines: readonly string[]): QuartoCodeBlock | QuartoRawBlock {
 	const contentStart = open.startLine + 1;
 	const contentEnd = hasFence ? endLine - 1 : endLine;
