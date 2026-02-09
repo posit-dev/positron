@@ -15,10 +15,10 @@ import {
 export const FRONTMATTER_REGEX = /^---\r?\n(?<content>[\s\S]*?)\r?\n---/;
 
 /** Matches the opening fence of a code block: ```{language options} */
-export const CHUNK_START_REGEX = /^(?<fence>`{3,})\{(?<language>\w+)(?<options>[^}]*)\}\s*$/;
+export const CODE_START_REGEX = /^(?<fence>`{3,})\{(?<language>\w+)(?<options>[^}]*)\}\s*$/;
 
 /** Matches the opening fence of a raw block: ```{=format} */
-export const RAW_BLOCK_START_REGEX = /^(?<fence>`{3,})\{=(?<format>\w+)\}\s*$/;
+export const RAW_START_REGEX = /^(?<fence>`{3,})\{=(?<format>\w+)\}\s*$/;
 
 // --- Types ---
 
@@ -240,24 +240,24 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 		const lineNum = i + 1; // 1-based
 
 		if (!current) {
-			const chunkMatch = line.match(CHUNK_START_REGEX)?.groups;
-			if (chunkMatch) {
+			const codeBlock = line.match(CODE_START_REGEX)?.groups;
+			if (codeBlock) {
 				current = {
 					type: QuartoNodeType.CodeBlock,
-					fenceLength: chunkMatch.fence.length,
-					language: chunkMatch.language.toLowerCase(),
-					options: chunkMatch.options.trim(),
+					fenceLength: codeBlock.fence.length,
+					language: codeBlock.language.toLowerCase(),
+					options: codeBlock.options.trim(),
 					startLine: lineNum,
 				};
 				continue;
 			}
 
-			const rawMatch = line.match(RAW_BLOCK_START_REGEX)?.groups;
-			if (rawMatch) {
+			const rawBlock = line.match(RAW_START_REGEX)?.groups;
+			if (rawBlock) {
 				current = {
 					type: QuartoNodeType.RawBlock,
-					fenceLength: rawMatch.fence.length,
-					format: rawMatch.format.toLowerCase(),
+					fenceLength: rawBlock.fence.length,
+					format: rawBlock.format.toLowerCase(),
 					startLine: lineNum,
 				};
 			}
