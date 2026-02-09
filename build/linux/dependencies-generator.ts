@@ -2,22 +2,19 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-
-'use strict';
-
 import { spawnSync } from 'child_process';
 import path from 'path';
-import { getChromiumSysroot, getVSCodeSysroot } from './debian/install-sysroot';
-import { generatePackageDeps as generatePackageDepsDebian } from './debian/calculate-deps';
-import { generatePackageDeps as generatePackageDepsRpm } from './rpm/calculate-deps';
-import { referenceGeneratedDepsByArch as debianGeneratedDeps } from './debian/dep-lists';
-import { referenceGeneratedDepsByArch as rpmGeneratedDeps } from './rpm/dep-lists';
-import { DebianArchString, isDebianArchString } from './debian/types';
-import { isRpmArchString, RpmArchString } from './rpm/types';
+import { getChromiumSysroot, getVSCodeSysroot } from './debian/install-sysroot.ts';
+import { generatePackageDeps as generatePackageDepsDebian } from './debian/calculate-deps.ts';
+import { generatePackageDeps as generatePackageDepsRpm } from './rpm/calculate-deps.ts';
+import { referenceGeneratedDepsByArch as debianGeneratedDeps } from './debian/dep-lists.ts';
+import { referenceGeneratedDepsByArch as rpmGeneratedDeps } from './rpm/dep-lists.ts';
+import { type DebianArchString, isDebianArchString } from './debian/types.ts';
+import { isRpmArchString, type RpmArchString } from './rpm/types.ts';
 // --- Start Positron ---
 // The product JSON is only required to get the tunnelApplicationName (below),
 // which we don't need.
-// import product = require('../../product.json');
+// import product from '../../product.json' with { type: 'json' };
 // --- End Positron --
 
 // A flag that can easily be toggled.
@@ -33,7 +30,7 @@ import { isRpmArchString, RpmArchString } from './rpm/types';
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
 // --- End Positron --
 
-// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/138.0.7204.251:chrome/installer/linux/BUILD.gn;l=64-80
+// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/142.0.7444.235:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.
 const bundledDeps = [

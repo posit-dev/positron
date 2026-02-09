@@ -102,6 +102,7 @@ export interface NewFolderConfiguration {
 	readonly createPyprojectToml: boolean | undefined;
 	readonly pythonEnvProviderId: string | undefined;
 	readonly pythonEnvProviderName: string | undefined;
+	readonly pythonEnvName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
 	readonly condaPythonVersion: string | undefined;
 	readonly uvPythonVersion: string | undefined;

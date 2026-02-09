@@ -58,10 +58,7 @@
 	display: flex;
 	flex-direction: row;
 	align-items: center;
-}
-
-.create-connection-footer > .default {
-	margin-left: auto;
+	justify-content: space-between;
 }
 
 .create-connection-inputs {
@@ -113,3 +110,40 @@
 	flex: 1;
 	min-width: 0;
 }
+
+/* Error state for code editor */
+.create-connection-code-editor {
+	position: relative;
+}
+
+.connection-error-message {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	padding: 4px 8px;
+	font-size: 12px;
+	background-color: var(--vscode-inputValidation-errorBackground);
+	border-top: 1px solid var(--vscode-inputValidation-errorBorder);
+	color: var(--vscode-inputValidation-errorForeground);
+	transform-origin: bottom;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	transform: scaleY(0);
+	opacity: 0;
+	transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+.create-connection-code-editor.has-error .connection-error-message {
+	transform: scaleY(1);
+	opacity: 1;
+}
+
+.connection-error-message > .codicon.codicon-error {
+	color: var(--vscode-inputValidation-errorBorder);
+}
+
