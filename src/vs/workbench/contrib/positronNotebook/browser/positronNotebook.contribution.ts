@@ -35,12 +35,13 @@ import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../s
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { isEqual } from '../../../../base/common/resources.js';
+import { extname, isEqual } from '../../../../base/common/resources.js';
 import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { QUARTO_NOTEBOOK_VIEW_TYPE } from '../../positronQuarto/common/quartoConstants.js';
 import { getActiveCell, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -129,9 +130,10 @@ class PositronNotebookContribution extends Disposable {
 				canSupportResource: (resource: URI) => {
 					// Support untitled notebooks and any file system that has a provider
 					// This handles: file://, vscode-remote://, vscode-userdata://, etc.
-					return resource.scheme === Schemas.untitled ||
-						resource.scheme === Schemas.vscodeNotebookCell ||
-						this.fileService.hasProvider(resource);
+					return extname(resource) === '.ipynb' &&
+						(resource.scheme === Schemas.untitled ||
+							resource.scheme === Schemas.vscodeNotebookCell ||
+							this.fileService.hasProvider(resource));
 				}
 			},
 			{
@@ -204,7 +206,8 @@ class PositronNotebookContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					return resource.scheme === Schemas.vscodeNotebookCell;
+					return extname(resource) === '.ipynb' &&
+						resource.scheme === Schemas.vscodeNotebookCell;
 				}
 			},
 			{
@@ -223,6 +226,92 @@ class PositronNotebookContribution extends Disposable {
 						...editorInput.options,
 						cellOptions: editorInput,
 						// Override text editor view state - it's not valid for notebook editors
+						viewState: undefined,
+					};
+					return { editor: notebookEditorInput, options: notebookEditorOptions };
+				}
+			},
+		));
+
+		// Register for .qmd files (Quarto notebooks)
+		const quartoEditorInfo: RegisteredEditorInfo = {
+			id: POSITRON_NOTEBOOK_EDITOR_ID,
+			label: localize('positronQuartoNotebook', "Positron Quarto Notebook"),
+			detail: localize('positronQuartoNotebook.detail', "Quarto Notebook Editor"),
+			priority: getPriority(),
+		};
+		const quartoCellEditorInfo: RegisteredEditorInfo = {
+			...quartoEditorInfo,
+			priority: getCellPriority(),
+		};
+
+		this._register(this.editorResolverService.registerEditor(
+			'*.qmd',
+			quartoEditorInfo,
+			{
+				singlePerResource: true,
+				canSupportResource: (resource: URI) => {
+					return extname(resource) === '.qmd' &&
+						(resource.scheme === Schemas.untitled ||
+							resource.scheme === Schemas.vscodeNotebookCell ||
+							this.fileService.hasProvider(resource));
+				}
+			},
+			{
+				createEditorInput: ({ resource, options }) => {
+					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						resource,
+						undefined,
+						{},
+						QUARTO_NOTEBOOK_VIEW_TYPE,
+					);
+					return { editor: notebookEditorInput, options };
+				},
+				createDiffEditorInput: ({ original, modified, label, description }) => {
+					if (!modified.resource || !original.resource) {
+						throw new Error('Cannot create notebook diff editor without resources');
+					}
+					const diffInput = NotebookDiffEditorInput.create(
+						this.instantiationService,
+						modified.resource,
+						label,
+						description,
+						original.resource,
+						QUARTO_NOTEBOOK_VIEW_TYPE,
+					);
+					return { editor: diffInput };
+				}
+			},
+		));
+
+		// Register for cells in .qmd files
+		this._register(this.editorResolverService.registerEditor(
+			`${Schemas.vscodeNotebookCell}:/**/*.qmd`,
+			quartoCellEditorInfo,
+			{
+				singlePerResource: true,
+				canSupportResource: (resource: URI) => {
+					return extname(resource) === '.qmd' &&
+						resource.scheme === Schemas.vscodeNotebookCell;
+				}
+			},
+			{
+				createEditorInput: (editorInput) => {
+					const parsed = CellUri.parse(editorInput.resource);
+					if (!parsed) {
+						throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
+					}
+					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						parsed.notebook,
+						undefined,
+						{},
+						QUARTO_NOTEBOOK_VIEW_TYPE,
+					);
+					const notebookEditorOptions: INotebookEditorOptions = {
+						...editorInput.options,
+						cellOptions: editorInput,
 						viewState: undefined,
 					};
 					return { editor: notebookEditorInput, options: notebookEditorOptions };
@@ -257,8 +346,9 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
-		// Always handle .ipynb files
-		if (!workingCopy.resource.path.endsWith('.ipynb')) {
+		// Handle .ipynb and .qmd files
+		const path = workingCopy.resource.path;
+		if (!path.endsWith('.ipynb') && !path.endsWith('.qmd')) {
 			return false;
 		}
 
@@ -283,6 +373,7 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
+		const viewType = this.getViewType(workingCopy) ?? 'jupyter-notebook';
 		return PositronNotebookEditorInput.getOrCreate(
 			this.instantiationService,
 			workingCopy.resource,
@@ -291,7 +382,8 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 				// Mark as dirty since we're restoring from a backup
 				startDirty: true,
 				_workingCopy: workingCopy
-			}
+			},
+			viewType,
 		);
 	}
 
