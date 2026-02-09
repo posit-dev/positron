@@ -292,44 +292,46 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	 */
 	test('Verify default model indicators and ordering for multiple providers', async function ({ app }) {
 		await expect(async () => {
-			await app.workbench.assistant.pickModel();
+			try {
+				await app.workbench.assistant.pickModel();
 
-			// Get all models from the picker
-			const models = await app.workbench.assistant.getModelPickerItems();
+				// Get all models from the picker
+				const models = await app.workbench.assistant.getModelPickerItems();
 
-			// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
-			const anthropicDefault = models.find(m => m.label === 'Claude Haiku 4.5 (default)');
-			expect(anthropicDefault, 'Expected Claude Haiku 4.5 to have "(default)" indicator').toBeDefined();
-			expect(anthropicDefault?.isDefault).toBe(true);
+				// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
+				const anthropicDefault = models.find(m => m.label === 'Claude Haiku 4.5 (default)');
+				expect(anthropicDefault, 'Expected Claude Haiku 4.5 to have "(default)" indicator').toBeDefined();
+				expect(anthropicDefault?.isDefault).toBe(true);
 
-			// Verify other Anthropic models do NOT have "(default)"
-			const anthropicNonDefault = models.find(m => m.label === 'Claude Sonnet 4' && !m.isDefault);
-			expect(anthropicNonDefault, 'Expected Claude Sonnet 4 to exist without "(default)" indicator').toBeDefined();
+				// Verify other Anthropic models do NOT have "(default)"
+				const anthropicNonDefault = models.find(m => m.label === 'Claude Sonnet 4' && !m.isDefault);
+				expect(anthropicNonDefault, 'Expected Claude Sonnet 4 to exist without "(default)" indicator').toBeDefined();
 
-			// Verify Echo default - Echo Language Model v2 should have "(default)"
-			const echoDefault = models.find(m => m.label === 'Echo Language Model v2 (default)');
-			expect(echoDefault, 'Expected Echo Language Model v2 to have "(default)" indicator').toBeDefined();
-			expect(echoDefault?.isDefault).toBe(true);
+				// Verify Echo default - Echo Language Model v2 should have "(default)"
+				const echoDefault = models.find(m => m.label === 'Echo Language Model v2 (default)');
+				expect(echoDefault, 'Expected Echo Language Model v2 to have "(default)" indicator').toBeDefined();
+				expect(echoDefault?.isDefault).toBe(true);
 
-			// Verify other Echo model does NOT have "(default)"
-			const echoNonDefault = models.find(m => m.label === 'Echo' && !m.isDefault);
-			expect(echoNonDefault, 'Expected Echo to exist without "(default)" indicator').toBeDefined();
+				// Verify other Echo model does NOT have "(default)"
+				const echoNonDefault = models.find(m => m.label === 'Echo' && !m.isDefault);
+				expect(echoNonDefault, 'Expected Echo to exist without "(default)" indicator').toBeDefined();
 
-			// Verify default models appear first in their respective vendor groups
-			// Check Anthropic vendor group - Haiku should be first
-			const anthropicModels = await app.workbench.assistant.getModelPickerItemsForVendor('Anthropic');
-			expect(anthropicModels.length).toBeGreaterThanOrEqual(2);
-			expect(anthropicModels[0].label).toBe('Claude Haiku 4.5 (default)');
-			expect(anthropicModels[0].isDefault).toBe(true);
+				// Verify default models appear first in their respective vendor groups
+				// Check Anthropic vendor group - Haiku should be first
+				const anthropicModels = await app.workbench.assistant.getModelPickerItemsForVendor('Anthropic');
+				expect(anthropicModels.length).toBeGreaterThanOrEqual(2);
+				expect(anthropicModels[0].label).toBe('Claude Haiku 4.5 (default)');
+				expect(anthropicModels[0].isDefault).toBe(true);
 
-			// Check Echo vendor group - v2 should be first
-			const echoModels = await app.workbench.assistant.getModelPickerItemsForVendor('Echo');
-			expect(echoModels.length).toBeGreaterThanOrEqual(2);
-			expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
-			expect(echoModels[0].isDefault).toBe(true);
-
-			// Close the dropdown (allows fresh open on retry)
-			await app.workbench.assistant.closeModelPickerDropdown();
+				// Check Echo vendor group - v2 should be first
+				const echoModels = await app.workbench.assistant.getModelPickerItemsForVendor('Echo');
+				expect(echoModels.length).toBeGreaterThanOrEqual(2);
+				expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
+				expect(echoModels[0].isDefault).toBe(true);
+			} finally {
+				// Always close dropdown to ensure clean state for retry
+				await app.workbench.assistant.closeModelPickerDropdown().catch(() => { });
+			}
 		}).toPass({ timeout: 30000 });
 	});
 });
