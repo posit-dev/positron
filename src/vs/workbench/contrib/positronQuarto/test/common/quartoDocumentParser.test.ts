@@ -63,7 +63,7 @@ suite('parseQuartoDocument', () => {
 			const content = '---\ntitle: Test\n---\n\n```{python}\nx = 1\n```\n';
 			const result = parseQuartoDocument(content);
 			assert.ok(result.frontmatter);
-			assert.deepStrictEqual(result.frontmatter.location, { begin: { line: 1 }, end: { line: 3 } });
+			assert.deepStrictEqual(result.frontmatter.location, { begin: { line: 0 }, end: { line: 2 } });
 		});
 
 		test('frontmatter with no jupyter key has no kernel', () => {
@@ -84,8 +84,8 @@ suite('parseQuartoDocument', () => {
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.type, QuartoNodeType.CodeBlock);
 			assert.strictEqual(block.language, 'python');
-			assert.strictEqual(block.location.begin.line, 1);
-			assert.strictEqual(block.location.end.line, 3);
+			assert.strictEqual(block.location.begin.line, 0);
+			assert.strictEqual(block.location.end.line, 2);
 			assert.strictEqual(block.content, 'x = 1');
 		});
 
@@ -115,8 +115,8 @@ suite('parseQuartoDocument', () => {
 			const result = parseQuartoDocument(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.strictEqual(block.location.begin.line, 3);
-			assert.strictEqual(block.location.end.line, 7);
+			assert.strictEqual(block.location.begin.line, 2);
+			assert.strictEqual(block.location.end.line, 6);
 			assert.strictEqual(block.content, 'line1\nline2\nline3');
 		});
 
@@ -125,8 +125,8 @@ suite('parseQuartoDocument', () => {
 			const result = parseQuartoDocument(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.strictEqual(block.location.begin.line, 1);
-			assert.strictEqual(block.location.end.line, 2);
+			assert.strictEqual(block.location.begin.line, 0);
+			assert.strictEqual(block.location.end.line, 1);
 			assert.strictEqual(block.content, '');
 		});
 
@@ -135,8 +135,8 @@ suite('parseQuartoDocument', () => {
 			const result = parseQuartoDocument(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.strictEqual(block.location.begin.line, 5);
-			assert.strictEqual(block.location.end.line, 7);
+			assert.strictEqual(block.location.begin.line, 4);
+			assert.strictEqual(block.location.end.line, 6);
 		});
 	});
 
@@ -191,8 +191,8 @@ suite('parseQuartoDocument', () => {
 			const block = result.blocks[0] as QuartoRawBlock;
 			assert.strictEqual(block.type, QuartoNodeType.RawBlock);
 			assert.strictEqual(block.format, 'html');
-			assert.strictEqual(block.location.begin.line, 1);
-			assert.strictEqual(block.location.end.line, 3);
+			assert.strictEqual(block.location.begin.line, 0);
+			assert.strictEqual(block.location.end.line, 2);
 			assert.strictEqual(block.content, '<b>bold</b>');
 		});
 
@@ -263,7 +263,7 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.language, 'python');
-			assert.strictEqual(block.location.begin.line, 5);
+			assert.strictEqual(block.location.begin.line, 4);
 		});
 	});
 

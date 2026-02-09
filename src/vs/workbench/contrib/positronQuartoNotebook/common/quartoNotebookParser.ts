@@ -42,8 +42,8 @@ export function parseQmdToNotebookCells(content: string): ICellDto2[] {
 			outputs: [],
 			metadata: { quarto: { type: 'frontmatter' } },
 		});
-		// end.line is the 1-based last line, which equals the 0-based index of the first line after
-		gapStart = frontmatter.location.end.line;
+		// end.line is 0-based last line, so first line after frontmatter is end.line + 1
+		gapStart = frontmatter.location.end.line + 1;
 		// Skip blank lines after frontmatter
 		while (gapStart < lines.length && lines[gapStart].trim() === '') {
 			gapStart++;
@@ -52,8 +52,8 @@ export function parseQmdToNotebookCells(content: string): ICellDto2[] {
 
 	// Step 2: Walk blocks in order, processing gap regions between them
 	for (const block of blocks) {
-		const blockStartIndex = block.location.begin.line - 1; // Convert 1-based to 0-based
-		const blockEndIndex = block.location.end.line - 1;
+		const blockStartIndex = block.location.begin.line;
+		const blockEndIndex = block.location.end.line;
 
 		// Process gap region before this block
 		if (gapStart < blockStartIndex) {

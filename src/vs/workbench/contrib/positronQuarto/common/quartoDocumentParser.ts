@@ -95,8 +95,8 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 		}
 
 		const location: QuartoSourceLocation = {
-			begin: { line: 1 },
-			end: { line: frontmatterLineCount },
+			begin: { line: 0 },
+			end: { line: frontmatterLineCount - 1 },
 		};
 		frontmatter = { rawContent, jupyterKernel, location };
 		lineIndex = frontmatterLineCount;
@@ -107,7 +107,7 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 
 	for (let i = lineIndex; i < lines.length; i++) {
 		const line = lines[i];
-		const lineNum = i + 1; // 1-based
+		const lineNum = i; // 0-based line index
 
 		if (!current) {
 			const codeBlock = line.match(CODE_START_REGEX)?.groups;
@@ -130,7 +130,7 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 				};
 			}
 		} else if (CODE_END_REGEX.test(line)) {
-			const content = lines.slice(current.startLine, lineNum - 1).join('\n');
+			const content = lines.slice(current.startLine + 1, lineNum).join('\n');
 			const location: QuartoSourceLocation = {
 				begin: { line: current.startLine },
 				end: { line: lineNum },

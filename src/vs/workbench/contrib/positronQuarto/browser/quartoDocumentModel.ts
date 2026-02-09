@@ -229,8 +229,8 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 			if (block.type !== QuartoNodeType.CodeBlock) {
 				continue;
 			}
-			const startLine = block.location.begin.line;
-			const endLine = block.location.end.line;
+			const startLine = block.location.begin.line + 1;	// Convert 0-based to 1-based
+			const endLine = block.location.end.line + 1;		// Convert 0-based to 1-based
 			const contentHash = computeContentHash(block.content);
 
 			cells.push({

@@ -17,7 +17,7 @@ export const enum QuartoNodeType {
 
 /** Source position within a file */
 export interface QuartoSourcePosition {
-	/** Line number (1-indexed) */
+	/** Line number (0-indexed). */
 	line: number;
 }
 
