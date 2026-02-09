@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import path from 'path';
 import * as os from 'os';
 import * as child_process from 'child_process';
+import { createRequire } from 'module';
 import { dirs } from './dirs.ts';
 import gulp from 'gulp';
 import mergeJson from 'gulp-merge-json';
@@ -262,9 +263,13 @@ async function runBatch(tasks: Array<{ dir: string, opts: any }>, concurrency: n
  * is run in the `remote/reh-web` directory.
  */
 function generateRehWebPackageJson() {
-	// Note: this is a local require because this dependency is only available once the `build`
-	// directory has `npm install` executed in it (see for loop below -- `npm install` will be
-	// executed for `build` a while before `remote/reh-web` due to the array order of `dirs`).
+	// Note: these are dynamic imports because these dependencies are only available once the
+	// `build` directory has `npm install` executed in it (see for loop below -- `npm install`
+	// will be executed for `build` a while before `remote/reh-web` due to the array order of
+	// `dirs`).
+	const require = createRequire(import.meta.url);
+	const gulp = require('gulp');
+	const mergeJson = require('gulp-merge-json');
 
 	const remoteDir = path.join(import.meta.dirname, '..', '..', 'remote');
 	const packageJsonDirPath = path.join(remoteDir, 'reh-web');
