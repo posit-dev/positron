@@ -6,6 +6,9 @@
 // CSS.
 import './NotebookCellActionBar.css';
 
+// React.
+import { useState } from 'react';
+
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -31,7 +34,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	const contextKeyService = useCellScopedContextKeyService();
 
 	// State
-	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const isActiveCell = useObservedValue(cell.isActive);
 	const leftMenu = useMenu(MenuId.PositronNotebookCellActionBarLeft, contextKeyService);
 	const submenu = useMenu(MenuId.PositronNotebookCellActionBarSubmenu, contextKeyService);

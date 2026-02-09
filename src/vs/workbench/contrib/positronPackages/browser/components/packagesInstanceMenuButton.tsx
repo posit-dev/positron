@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 // Other dependencies.
 import { IAction } from '../../../../../base/common/actions.js';
