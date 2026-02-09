@@ -129,7 +129,6 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		console.log(`Will process ${baseTests.length} questions for ${models.length} model(s): ${models.join(', ')}`);
 
 		// Start a Python Session
-		// TO DO: we should avoid start sessions here because notebook tests do not use them, and starting sessions can add time and potential flakiness. Instead, we should start sessions in the individual test actions if needed.
 		const [pySession] = await sessions.start(['python']);
 		const [rSession] = await sessions.start(['r']);
 

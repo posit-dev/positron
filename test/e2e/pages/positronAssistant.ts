@@ -306,6 +306,7 @@ export class Assistant {
 			}
 
 			// Verify sign-in was successful
+			// await this.waitForSendButtonVisible();
 			await this.verifySignOutButtonVisible(timeout);
 
 			// Close the configuration dialog
