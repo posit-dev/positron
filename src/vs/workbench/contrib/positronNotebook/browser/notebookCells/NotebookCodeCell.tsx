@@ -60,7 +60,8 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	return (
 		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'}`}>
 			<CellOutputLeftActionMenu cell={cell} />
-			<div
+			<section
+				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
 				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
 				data-testid='cell-output'
 				onContextMenu={handleContextMenu}
@@ -82,7 +83,7 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 						</>
 						)}
 				</div>
-			</div>
+			</section>
 		</div>
 	);
 }
