@@ -10,19 +10,19 @@ import './GhostCell.css';
 import React from 'react';
 
 // Other dependencies.
-import * as DOM from '../../../../../base/browser/dom.js';
-import { localize } from '../../../../../nls.js';
-import { useObservedValue } from '../useObservedValue.js';
-import { SplitButton } from '../utilityComponents/SplitButton.js';
-import { GhostCellState } from '../contrib/ghostCell/controller.js';
-import { useGhostCellController } from '../contrib/ghostCell/useGhostCellController.js';
-import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import * as DOM from '../../../../../../base/browser/dom.js';
+import { localize } from '../../../../../../nls.js';
+import { useObservedValue } from '../../useObservedValue.js';
+import { SplitButton } from '../../utilityComponents/SplitButton.js';
+import { GhostCellState } from './controller.js';
+import { useGhostCellController } from './useGhostCellController.js';
+import { ScreenReaderOnly } from '../../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
-import { IAction } from '../../../../../base/common/actions.js';
-import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { SegmentedToggle } from '../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
+import { IAction } from '../../../../../../base/common/actions.js';
+import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
+import { SegmentedToggle } from '../../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
 
 // Localized strings.
 const loadingText = localize('ghostCell.loading', 'Generating suggestion...');

@@ -10,9 +10,9 @@ import './GhostCellInfoModalDialog.css';
 import React from 'react';
 
 // Other dependencies.
-import { localize } from '../../../../../nls.js';
-import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { OKModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
+import { localize } from '../../../../../../nls.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { OKModalDialog } from '../../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 
 // Localized strings.
 const dialogTitle = localize('ghostCellInfo.title', 'About Ghost Cell Suggestions');

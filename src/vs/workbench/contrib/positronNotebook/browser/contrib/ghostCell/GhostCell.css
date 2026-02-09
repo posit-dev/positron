@@ -21,7 +21,7 @@
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	opacity: 0.7;
 	overflow: hidden;
-	transition: opacity 0.1s ease, border-color 0.1s ease;
+
 }
 
 .ghost-cell-container:hover,
@@ -33,7 +33,7 @@
 /* Header section with explanation and actions */
 .ghost-cell-header {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: space-between;
 	padding: 6px 12px;
 	background: var(--vscode-notifications-background);
@@ -43,7 +43,7 @@
 
 .ghost-cell-header-content {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 8px;
 	flex: 1;
 	min-width: 0; /* Allow shrinking */
@@ -110,6 +110,7 @@
 	display: flex;
 	gap: 8px;
 	flex-shrink: 0;
+	padding-top: 1px;
 }
 
 /* Accept split button - primary action styling */
@@ -127,7 +128,7 @@
 }
 
 .ghost-cell-actions .ghost-cell-accept .split-button-dropdown {
-	border-left-color: var(--vscode-button-secondaryForeground);
+	border-left-color: var(--vscode-positronActionBar-selectBorder);
 	color: var(--vscode-button-secondaryForeground);
 	background: var(--vscode-button-secondaryBackground);
 }
@@ -143,7 +144,6 @@
 
 .ghost-cell-actions .ghost-cell-dismiss:hover {
 	opacity: 1;
-	border-color: var(--vscode-focusBorder);
 }
 
 .ghost-cell-regenerate {
@@ -217,7 +217,7 @@
 }
 
 .ghost-cell-model-indicator {
-	font-size: 10px;
+	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
 	opacity: 0.7;
 	background: transparent;
