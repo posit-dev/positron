@@ -272,12 +272,10 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			await app.workbench.assistant.pickModel();
 			const models = await app.workbench.assistant.getModelPickerItems();
 			const hasEcho = models.some(m => m.label.startsWith('Echo'));
+			const hasAnthropic = models.some(m => m.label.includes('Claude'));
 			await app.workbench.assistant.closeModelPickerDropdown();
 			expect(hasEcho, 'Expected Echo models to be present').toBe(true);
-			if (process.env.ANTHROPIC_KEY) {
-				const hasAnthropic = models.some(m => m.label.includes('Claude'));
-				expect(hasAnthropic, 'Expected Anthropic models to be present').toBe(true);
-			}
+			expect(hasAnthropic, 'Expected Anthropic models to be present').toBe(true);
 		}).toPass({ timeout: 30000 });
 	});
 
