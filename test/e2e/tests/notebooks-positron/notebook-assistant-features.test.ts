@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
@@ -11,7 +12,7 @@ test.use({
 });
 
 test.describe('Notebook Assistant: Feature Toggle', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT]
+	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WEB, tags.WIN]
 }, () => {
 
 	test('Notebook AI features hidden when assistant disabled', async function ({ app, settings }) {
@@ -58,7 +59,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 });
 
 test.describe('Notebook Assistant: Interaction Flow', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT]
+	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WEB, tags.WIN]
 }, () => {
 
 	test.beforeAll(async function ({ assistant }) {
@@ -92,6 +93,10 @@ test.describe('Notebook Assistant: Interaction Flow', {
 		// Verify the chat panel is visible and received a response
 		await assistant.expectChatPanelVisible();
 		await assistant.expectChatResponseVisible();
+
+		// Verify the error context was sent
+		const responseText = await assistant.getChatResponseText(app.workspacePathOrFolder);
+		expect(responseText).toContain('undefined_var');
 	});
 
 	test('Explain error button opens chat and sends error context', async function ({ app }) {
@@ -113,5 +118,9 @@ test.describe('Notebook Assistant: Interaction Flow', {
 		// Verify the chat panel is visible and received a response
 		await assistant.expectChatPanelVisible();
 		await assistant.expectChatResponseVisible();
+
+		// Verify the error context was sent
+		const responseText = await assistant.getChatResponseText(app.workspacePathOrFolder);
+		expect(responseText).toContain('undefined_function');
 	});
 });

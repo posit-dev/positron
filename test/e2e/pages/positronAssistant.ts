@@ -693,7 +693,7 @@ export class Assistant {
 	async getChatResponseText(exportFolder?: string) {
 		// Export the chat to a file first
 		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
-		await this.toasts.waitForAppear();
+		await this.toasts.waitForAppear('Chat log exported to:');
 		await this.toasts.closeAll();
 
 		// Find and parse the chat export file
