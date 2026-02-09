@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { StringSHA1 } from '../../../../base/common/hash.js';
 import {
 	FRONTMATTER_REGEX,
 	CHUNK_START_REGEX,
@@ -54,10 +53,6 @@ export interface QuartoNode {
 /** Executable code block */
 export interface QuartoCodeBlock extends QuartoNode {
 	readonly type: QuartoNodeType.CodeBlock;
-
-	/** Stable ID: "{index}-{hashPrefix}-{label|unlabeled}" */
-	// TODO: Consider lifting ID to caller
-	readonly id: string;
 
 	/** Content of the code block. */
 	readonly content: string;
@@ -116,25 +111,6 @@ export interface QuartoDocument {
 // --- Helpers ---
 
 /**
- * Computes a SHA-1 hash of the content, truncated to 16 characters.
- */
-function computeContentHash(content: string): string {
-	const sha = new StringSHA1();
-	sha.update(content);
-	return sha.digest().substring(0, 16);
-}
-
-/**
- * Generates a stable block ID from index, content hash, and label.
- * Format: "{index}-{hashPrefix}-{label|unlabeled}"
- */
-function generateBlockId(index: number, contentHash: string, label: string | undefined): string {
-	const hashPrefix = contentHash.substring(0, 8);
-	const labelPart = label || 'unlabeled';
-	return `${index}-${hashPrefix}-${labelPart}`;
-}
-
-/**
  * Extracts the block label from chunk options.
  * The label is the first option if it doesn't contain '='.
  */
@@ -179,7 +155,6 @@ export function parseQuartoDocument(content: string): QuartoDocument {
 	let frontmatter: QuartoFrontmatter | undefined;
 	let primaryLanguage: string | undefined;
 	let lineIndex = 0;
-	let blockIndex = 0;
 
 	// Step 1: Extract frontmatter
 	const frontmatterMatch = content.match(FRONTMATTER_REGEX);
@@ -236,15 +211,12 @@ export function parseQuartoDocument(content: string): QuartoDocument {
 		const base = { location, fenceLength: storedFenceLength };
 
 		if (open.type === QuartoNodeType.CodeBlock) {
-			const label = extractLabel(open.options);
-			const contentHash = computeContentHash(text);
 			blocks.push({
 				...base,
 				type: QuartoNodeType.CodeBlock,
-				id: generateBlockId(blockIndex, contentHash, label),
 				content: text,
 				language: open.language,
-				label,
+				label: extractLabel(open.options),
 				options: open.options,
 			});
 		} else {
@@ -255,8 +227,6 @@ export function parseQuartoDocument(content: string): QuartoDocument {
 				format: open.format,
 			});
 		}
-
-		blockIndex++;
 	}
 
 	let current: OpenBlock | null = null;

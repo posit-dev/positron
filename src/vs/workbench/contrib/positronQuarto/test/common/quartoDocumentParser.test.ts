@@ -183,47 +183,6 @@ suite('parseQuartoDocument', () => {
 		});
 	});
 
-	// --- Block IDs ---
-
-	suite('Block IDs', () => {
-		test('generates block ID with label', () => {
-			const content = '```{python setup}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
-			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.ok(block.id.startsWith('0-'));
-			assert.ok(block.id.endsWith('-setup'));
-		});
-
-		test('generates block ID with "unlabeled" when no label', () => {
-			const content = '```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
-			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.ok(block.id.startsWith('0-'));
-			assert.ok(block.id.endsWith('-unlabeled'));
-		});
-
-		test('same content produces same block ID hash prefix', () => {
-			const content = '```{python}\nx = 1\n```\n\n```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
-			const block0 = result.blocks[0] as QuartoCodeBlock;
-			const block1 = result.blocks[1] as QuartoCodeBlock;
-			// Same content should produce same hash prefix in ID (chars between first and second dash)
-			const hash0 = block0.id.split('-')[1];
-			const hash1 = block1.id.split('-')[1];
-			assert.strictEqual(hash0, hash1);
-		});
-
-		test('different content produces different block ID hash prefix', () => {
-			const content = '```{python}\nx = 1\n```\n\n```{python}\ny = 2\n```\n';
-			const result = parseQuartoDocument(content);
-			const block0 = result.blocks[0] as QuartoCodeBlock;
-			const block1 = result.blocks[1] as QuartoCodeBlock;
-			const hash0 = block0.id.split('-')[1];
-			const hash1 = block1.id.split('-')[1];
-			assert.notStrictEqual(hash0, hash1);
-		});
-	});
-
 	// --- Fence length ---
 
 	suite('Fence length', () => {
