@@ -68,20 +68,19 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 			>
 				<div className='positron-notebook-code-cell-outputs-inner'>
 					{isCollapsed
-						? (<Button
+						? <Button
 							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
 							className='show-hidden-output-button'
 							onPressed={handleShowHiddenOutput}
 						>
 							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
 						</Button>
-						)
-						: (<>
+						: <>
 							{outputs?.map((output) => (
 								<CellOutput key={output.outputId} {...output} />
 							))}
 						</>
-						)}
+					}
 				</div>
 			</section>
 		</div>
