@@ -106,7 +106,9 @@ export function finalizeResults(): string | null {
 		// Clean up temp directory
 		rmSync(RESULTS_DIR, { recursive: true, force: true });
 
-		console.log(`\n📊 Evaluation log written to:\n${logPath}\n`);
+		if (!process.env.CI) {
+			console.log(`\n📊 Evaluation log written to:\n${logPath}\n`);
+		}
 		return logPath;
 	} catch (error) {
 		console.warn('Failed to write evaluation log:\n', error);

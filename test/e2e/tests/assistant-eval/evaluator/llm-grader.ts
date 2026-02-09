@@ -21,19 +21,22 @@ interface EvaluateParams {
 
 	/** Criteria to evaluate against */
 	criteria: EvaluationCriteria;
+
+	/** Optional API key for the grader (falls back to ANTHROPIC_API_KEY env var) */
+	apiKey?: string;
 }
 
 /**
  * Evaluates an LLM response against specified criteria using Claude Haiku.
  */
 export async function evaluateWithLLM(params: EvaluateParams): Promise<EvaluationResult> {
-	const { response, criteria } = params;
+	const { response, criteria, apiKey } = params;
 
 	// Build the evaluation prompt
 	const prompt = buildEvaluationPrompt(response, criteria);
 
 	// Call Claude Haiku for evaluation
-	const client = new Anthropic();
+	const client = new Anthropic(apiKey ? { apiKey } : undefined);
 
 	const message = await client.messages.create({
 		model: GRADER_MODEL,

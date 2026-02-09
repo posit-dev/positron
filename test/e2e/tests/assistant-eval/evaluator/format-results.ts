@@ -48,39 +48,40 @@ function parseToolsCalled(response: string): string[] {
 }
 
 /**
- * Prints formatted test results to the console.
+ * Formats test results as markdown for Playwright report attachment.
  *
  * @param params - The test result parameters
+ * @returns Formatted markdown string
  */
-export function printTestResults(params: PrintResultsParams): void {
+export function formatResultsMarkdown(params: PrintResultsParams): string {
 	const { testId, description, model, grade, explanation, response } = params;
 	const toolsCalled = parseToolsCalled(response);
+	const resultSymbol = grade === 'I' ? '❌' : '✅';
 
-	const divider = '─'.repeat(50);
-	const resultSymbol = grade === 'I' ? '✗' : '✓';
+	const lines: string[] = [
+		`# ${testId}`,
+		'',
+		`**Result:** ${GRADE_LABELS[grade]} ${resultSymbol}`,
+		`**Model:** ${model}`,
+		'',
+		'## Description',
+		description,
+		'',
+		'## Tools Called',
+		toolsCalled.length > 0
+			? toolsCalled.map(t => `- ${t}`).join('\n')
+			: '_none_',
+		'',
+		'## Evaluation',
+		explanation,
+		'',
+		'## Response',
+		'```',
+		response.length > 2000
+			? response.substring(0, 2000) + '\n... [truncated]'
+			: response,
+		'```',
+	];
 
-	console.log(`\n${divider}`);
-	console.log(testId.toUpperCase());
-	console.log(`result : ${GRADE_LABELS[grade]} ${resultSymbol}`);
-	console.log(`model  : ${model}`);
-	console.log(`${divider}\n`);
-
-	console.log(`DESCRIPTION\n${description}\n`);
-
-	console.log(`TOOLS CALLED`);
-	if (toolsCalled.length > 0) {
-		toolsCalled.forEach(tool => console.log(`• ${tool}`));
-	} else {
-		console.log(`none`);
-	}
-	console.log('');
-
-	console.log(`EVALUATION\n${explanation}\n`);
-
-	// Strip "Tools called:" from response for display (already shown above)
-	const responseWithoutTools = response.replace(/\n*Tools [Cc]alled:.*$/s, '').trim();
-	const truncatedResponse = responseWithoutTools.length > 600
-		? responseWithoutTools.substring(0, 600) + '... [truncated]'
-		: responseWithoutTools;
-	console.log(`RESPONSE\n${truncatedResponse}\n`);
+	return lines.join('\n');
 }

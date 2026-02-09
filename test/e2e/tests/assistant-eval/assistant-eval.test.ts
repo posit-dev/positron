@@ -6,7 +6,7 @@
 import { test, tags, expect } from '../_test.setup';
 import { testCases } from './test-cases';
 import { evaluateWithLLM } from './evaluator/llm-grader';
-import { printTestResults, GRADE_LABELS } from './evaluator/format-results';
+import { GRADE_LABELS, formatResultsMarkdown } from './evaluator/format-results';
 import { getModelKeys, getModelConfig, initResults, saveResult, finalizeResults, generateCatalog } from './evaluator/eval-results';
 
 test.use({
@@ -54,16 +54,21 @@ test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAI
 						const evaluation = await evaluateWithLLM({
 							response,
 							criteria: testCase.evaluationCriteria,
+							apiKey: process.env.ANTHROPIC_KEY,
 						});
 
-						// Print results
-						printTestResults({
+						// Attach results to Playwright report
+						const resultsMarkdown = formatResultsMarkdown({
 							testId: testCase.id,
 							description: testCase.description,
 							model: modelConfig.displayName,
 							grade: evaluation.grade,
 							explanation: evaluation.explanation,
 							response,
+						});
+						await test.info().attach('evaluation-result.md', {
+							body: resultsMarkdown,
+							contentType: 'text/markdown',
 						});
 
 						// Save for eval log
