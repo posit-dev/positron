@@ -9,8 +9,6 @@ import * as os from 'os';
 import * as child_process from 'child_process';
 import { createRequire } from 'module';
 import { dirs } from './dirs.ts';
-import gulp from 'gulp';
-import mergeJson from 'gulp-merge-json';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const root = path.dirname(path.dirname(import.meta.dirname));
