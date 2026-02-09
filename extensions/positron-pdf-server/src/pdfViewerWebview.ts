@@ -56,10 +56,6 @@ export async function createWebviewHtml(
 		serverUrl = serverUrl.slice(0, -1);
 	}
 
-	// Log the URLs for debugging.
-	// console.log(`PDF Server URL: ${serverUrl}`);
-	// console.log(`PDF ID: ${pdfId}`);
-
 	// Build CSP allowing localhost iframes with full PDF.js viewer resources.
 	const csp = [
 		`default-src 'none'`,
@@ -76,9 +72,6 @@ export async function createWebviewHtml(
 	const pdfUrl = `${serverUrl}/pdf/${pdfId}`;
 	const theme = getPdfJsTheme();
 	const viewerUrl = `${serverUrl}/viewer?file=${encodeURIComponent(pdfUrl)}&theme=${theme}`;
-
-	// Log the final viewer URL for debugging.
-	// console.log(`Viewer URL: ${viewerUrl}`);
 
 	// Return the complete HTML for the webview, including the CSP and the iframe pointing to the viewer URL.
 	return `<!DOCTYPE html>

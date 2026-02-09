@@ -12,9 +12,6 @@ import { PdfServerProvider } from './pdfServerProvider';
  */
 export function activate(context: vscode.ExtensionContext) {
 	try {
-		// Log activation start. This can help diagnose issues where the extension fails to activate.
-		// console.log('Activating positron-pdf-server extension');
-
 		// Initialize the PDF HTTP server singleton with the extension path.
 		const httpServer = PdfHttpServer.getInstance();
 		httpServer.initialize(context.extensionPath);
@@ -35,9 +32,6 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			)
 		);
-
-		// Log successful activation.
-		// console.log('positron-pdf-server extension activated');
 	} catch (error) {
 		// Log the error and show a user-friendly message if activation fails.
 		console.error('Failed to activate positron-pdf-server extension:', error);
@@ -50,9 +44,6 @@ export function activate(context: vscode.ExtensionContext) {
  * Deactivate the extension.
  */
 export function deactivate() {
-	// Log deactivation. This can help diagnose issues where the extension fails to clean up resources.
-	// console.log('Deactivating positron-pdf-server extension');
-
 	// Dispose of the PDF HTTP server.
 	PdfHttpServer.dispose();
 }

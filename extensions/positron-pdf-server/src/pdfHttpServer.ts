@@ -134,7 +134,6 @@ export class PdfHttpServer {
 						return;
 					}
 					this.serverPort = address.port;
-					// console.log(`PDF server started on port ${this.serverPort}`);
 					resolve();
 				});
 
@@ -169,15 +168,9 @@ export class PdfHttpServer {
 		// Construct the local URL and convert it to an external URL that works in remote environments.
 		const localUrl = `http://localhost:${this.serverPort}`;
 
-		// Log the local URL for debugging. In remote environments, this will be transformed to an external URL.
-		// console.log(`Local URL: ${localUrl}`);
-
 		// Parse the local URL and convert it to an external URL using VS Code's API. This handles remote development scenarios.
 		const uri = vscode.Uri.parse(localUrl);
 		const externalUri = await vscode.env.asExternalUri(uri);
-
-		// Log the external URL for debugging. In local environments, this will be the same as the local URL. In remote environments, it will be different.
-		// console.log(`External URL: ${externalUri.toString()}`);
 
 		// Return the external URL as a string for use in the webview. The webview will use this URL to access the server, and it will work correctly in both local and remote environments.
 		return externalUri.toString();
@@ -191,9 +184,6 @@ export class PdfHttpServer {
 		const pdfId = crypto.randomUUID();
 		this.pdfs.set(pdfId, pdfUri.fsPath);
 
-		// Log the registration for debugging.
-		// console.log(`Registered PDF ${pdfId}: ${pdfUri.fsPath}`);
-
 		// Return the PDF ID to be used in the viewer URL. The webview will use this ID to request the PDF from the server.
 		return pdfId;
 	}
@@ -203,10 +193,7 @@ export class PdfHttpServer {
 	 */
 	public unregisterPdf(pdfId: string): void {
 		// Remove the PDF from the map.
-		if (this.pdfs.delete(pdfId)) {
-			// Log the unregistration for debugging.
-			// console.log(`Unregistered PDF ${pdfId}`);
-		}
+		this.pdfs.delete(pdfId);
 	}
 
 	/**
@@ -217,7 +204,6 @@ export class PdfHttpServer {
 		if (PdfHttpServer.instance) {
 			if (PdfHttpServer.instance.server) {
 				PdfHttpServer.instance.server.close();
-				console.log('PDF server stopped');
 			}
 			PdfHttpServer.instance = undefined;
 		}
