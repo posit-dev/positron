@@ -45,7 +45,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 
 	const editorOptions: IEditorOptions = {
 		readOnly: true,
-		cursorBlinking: 'solid' as const
+		cursorBlinking: 'solid'
 	};
 
 	useEffect(() => {
