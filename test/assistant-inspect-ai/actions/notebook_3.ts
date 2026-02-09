@@ -26,12 +26,14 @@ export const actions: SampleActions = {
 		await notebooksPositron.kernel.select('R');
 
 		// Add a valid cell first to establish context
-		await notebooksPositron.addCodeToCell(0, 'x <- 10', { run: true });
+		await notebooksPositron.addCodeToCell(0, 'x <- 10');
+		await notebooksPositron.runCodeAtIndex(0);
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 
 		// Add a cell with an intentional error (single line to avoid auto-indent issues)
 		const errorCode = `result <- x + undefined_variable`;
-		await notebooksPositron.addCodeToCell(1, errorCode, { run: true });
+		await notebooksPositron.addCodeToCell(1, errorCode);
+		await notebooksPositron.runCodeAtIndex(1);
 		await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
 	},
 

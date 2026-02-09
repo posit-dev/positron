@@ -27,7 +27,8 @@ export const actions: SampleActions = {
 
 		// Add a cell that creates a data frame with specific data
 		const code = `df <- data.frame(month = c('January', 'February', 'March'), revenue = c(45000, 52000, 48500), units_sold = c(150, 175, 162)); df`;
-		await notebooksPositron.addCodeToCell(0, code, { run: true });
+		await notebooksPositron.addCodeToCell(0, code);
+		await notebooksPositron.runCodeAtIndex(0);
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 	},
 

@@ -27,13 +27,15 @@ export const actions: SampleActions = {
 
 		// Add a cell with code and run it to establish variable x
 		const code = `x <- 10`;
-		await notebooksPositron.addCodeToCell(0, code, { run: true });
+		await notebooksPositron.addCodeToCell(0, code);
+		await notebooksPositron.runCodeAtIndex(0);
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 
 		// Add a second cell that uses x - run it once so it exists with content
 		// We'll ask the assistant to run it (even if already run, runNotebookCells should still be called)
 		const code2 = `result <- x + 5; print(result)`;
-		await notebooksPositron.addCodeToCell(1, code2, { run: true });
+		await notebooksPositron.addCodeToCell(1, code2);
+		await notebooksPositron.runCodeAtIndex(1);
 		await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
 	},
 

@@ -28,7 +28,8 @@ export const actions: SampleActions = {
 		// Create 21 cells (indices 0-20) so it's a "large" notebook
 		for (let i = 0; i < 21; i++) {
 			const code = `x <- ${i}; result_${i} <- x * 10; result_${i}`;
-			await notebooksPositron.addCodeToCell(i, code, { run: true });
+			await notebooksPositron.addCodeToCell(i, code);
+			await notebooksPositron.runCodeAtIndex(i);
 			await notebooksPositron.expectExecutionOrder([{ index: i, order: i + 1 }]);
 		}
 

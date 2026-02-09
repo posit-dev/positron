@@ -436,12 +436,7 @@ export class PositronNotebooks extends Notebooks {
 			await editor.pressSequentially(code, { delay });
 
 			if (run) {
-				// Retry clicking run button until the cell executes
-				await expect(async () => {
-					await this.runCellButtonAtIndex(cellIndex).click();
-					const badge = this.executionOrderBadgeAtIndex(cellIndex);
-					await expect(badge).not.toHaveText('-');
-				}, 'Run cell').toPass({ timeout: 10000, intervals: [500] });
+				await this.runCellButtonAtIndex(cellIndex).click();
 
 				if (waitForSpinner) {
 					const spinner = this.spinnerAtIndex(cellIndex);
