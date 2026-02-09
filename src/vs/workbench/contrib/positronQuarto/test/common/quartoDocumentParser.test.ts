@@ -5,7 +5,8 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { parseQuartoDocument, QuartoCodeBlock, QuartoNodeType, QuartoRawBlock } from '../../common/quartoDocumentParser.js';
+import { parseQuartoDocument } from '../../common/quartoDocumentParser.js';
+import { QuartoCodeBlock, QuartoNodeType, QuartoRawBlock } from '../../common/quartoTypes.js';
 
 suite('parseQuartoDocument', () => {
 

@@ -9,7 +9,8 @@ import {
 	QUARTO_TO_VSCODE_LANGUAGE,
 	DEFAULT_FENCE_LENGTH,
 } from '../../positronQuarto/common/quartoConstants.js';
-import { parseQuartoDocument, QuartoNodeType, QuartoCodeBlock, QuartoRawBlock } from '../../positronQuarto/common/quartoDocumentParser.js';
+import { parseQuartoDocument } from '../../positronQuarto/common/quartoDocumentParser.js';
+import { QuartoCodeBlock, QuartoNodeType, QuartoRawBlock } from '../../positronQuarto/common/quartoTypes.js';
 import { CellKind, ICellDto2 } from '../../notebook/common/notebookCommon.js';
 
 /**

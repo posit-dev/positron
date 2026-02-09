@@ -14,10 +14,6 @@ import {
 	QuartoDocument,
 } from './quartoTypes.js';
 
-// Re-export types so existing consumers don't break
-export { QuartoNodeType, QuartoCodeBlock, QuartoRawBlock, QuartoFrontmatter, QuartoDocument };
-export type { QuartoSourcePosition, QuartoSourceLocation } from './quartoTypes.js';
-
 // --- Regular expressions for parsing Quarto documents ---
 
 /** Matches YAML frontmatter block at the start of a document */
