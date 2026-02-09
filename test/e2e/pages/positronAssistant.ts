@@ -16,7 +16,7 @@ const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_PROVIDERS_LINK = 'a[data-href="command:positron-assistant.configureProviders"]';
-const CONFIGURE_PROVIDERS_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
+const CONFIGURE_PROVIDERS_BUTTON = 'div.action-widget a.action-label:has-text("Configure Model Providers...")';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -229,7 +229,7 @@ export class Assistant {
 		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_LINK).click();
 	}
 
-	async clickAddModelButton() {
+	async clickConfigureProvidersButton() {
 		// Ensure chat panel is open first
 		const chatPanelIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
 		if (!chatPanelIsVisible) {
@@ -246,7 +246,6 @@ export class Assistant {
 	async verifyConfigureProvidersButtonVisible() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
-		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toHaveText('Configure Model Providers...');
 	}
 
 	async verifyInlineChatInputsVisible() {
@@ -338,7 +337,7 @@ export class Assistant {
 
 		await test.step(`Sign in to ${provider} model provider`, async () => {
 			// Open the model configuration dialog
-			await this.clickAddModelButton();
+			await this.clickConfigureProvidersButton();
 
 			// Select the provider
 			await this.selectModelProvider(provider);

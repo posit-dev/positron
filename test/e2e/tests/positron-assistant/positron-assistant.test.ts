@@ -34,7 +34,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	 */
 	test('Verify Posit AI is first provider in modal', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.clickConfigureProvidersButton();
 		const providerNames = await app.workbench.assistant.getProviderButtonNames();
 		expect(providerNames[0]).toBe('Posit AI');
 		await app.workbench.assistant.clickCloseButton();
@@ -47,7 +47,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	 */
 	test('Anthropic: Verify Bad API key results in error', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.clickConfigureProvidersButton();
 		await app.workbench.assistant.selectModelProvider('anthropic-api');
 		await app.workbench.assistant.enterApiKey('1234');
 		await app.workbench.assistant.clickSignInButton();
@@ -123,7 +123,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 
 	test('Verify Authentication Type When Switching Providers', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.clickConfigureProvidersButton();
 		await app.workbench.assistant.selectModelProvider('Copilot');
 		await app.workbench.assistant.verifyAuthMethod('oauth');
 		await app.workbench.assistant.selectModelProvider('anthropic-api');
