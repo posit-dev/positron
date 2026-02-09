@@ -18,8 +18,12 @@ import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
 import { setupArkJupyterKernel } from './kernel';
+import { RDataEditorProvider, RdsEditorProvider } from './rdata-editor.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
+
+// Export the runtime manager so other modules can access discovery state
+export let runtimeManager: RRuntimeManager;
 
 export function activate(context: vscode.ExtensionContext) {
 	const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
@@ -34,8 +38,8 @@ export function activate(context: vscode.ExtensionContext) {
 	// which is needed to properly restore the LSP after extension host restarts.
 	RSessionManager.initialize(context);
 
-	const rRuntimeManager = new RRuntimeManager(context);
-	positron.runtime.registerLanguageRuntimeManager('r', rRuntimeManager);
+	runtimeManager = new RRuntimeManager(context);
+	positron.runtime.registerLanguageRuntimeManager('r', runtimeManager);
 
 	// Set up ark as a Jupyter kernel so external tools like Quarto can find it
 	setupArkJupyterKernel(context);
@@ -44,7 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 	setContexts(context);
 
 	// Register commands.
-	registerCommands(context, rRuntimeManager);
+	registerCommands(context, runtimeManager);
 
 	// Register LLM tools.
 	registerRLanguageModelTools(context);
@@ -54,6 +58,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register file associations.
 	registerFileAssociations();
+
+	// Register custom editors for R data files.
+	context.subscriptions.push(RDataEditorProvider.register(context));
+	context.subscriptions.push(RdsEditorProvider.register(context));
 
 	// Register R file paste and drop provider.
 	registerRFilePasteAndDropProvider(context);
