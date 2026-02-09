@@ -23,8 +23,7 @@ const jupyterLanguageToMonacoLanguageMapping = new Map([
 export function getPreferredLanguage(metadata?: nbformat.INotebookMetadata) {
 	const jupyterLanguage =
 		metadata?.language_info?.name ||
-		// eslint-disable-next-line local/code-no-any-casts
-		(metadata?.kernelspec as any)?.language;
+		(metadata?.kernelspec as unknown as { language: string })?.language;
 
 	// --- Start Positron ---
 	// When a notebook is saved, an empty notebook is first created with a single cell, and then
@@ -161,7 +160,7 @@ function convertJupyterOutputToBuffer(mime: string, value: unknown): NotebookCel
 	}
 }
 
-function getNotebookCellMetadata(cell: nbformat.IBaseCell): {
+function getNotebookCellMetadata(cell: nbformat.ICell): {
 	[key: string]: any;
 } {
 	// We put this only for VSC to display in diff view.
@@ -179,7 +178,7 @@ function getNotebookCellMetadata(cell: nbformat.IBaseCell): {
 		cellMetadata['metadata'] = JSON.parse(JSON.stringify(cell['metadata']));
 	}
 
-	if ('id' in cell && typeof cell.id === 'string') {
+	if (typeof cell.id === 'string') {
 		cellMetadata.id = cell.id;
 	}
 
@@ -301,8 +300,7 @@ export function jupyterCellOutputToCellOutput(output: nbformat.IOutput): Noteboo
 	if (fn) {
 		result = fn(output);
 	} else {
-		// eslint-disable-next-line local/code-no-any-casts
-		result = translateDisplayDataOutput(output as any);
+		result = translateDisplayDataOutput(output as unknown as nbformat.IDisplayData | nbformat.IDisplayUpdate | nbformat.IExecuteResult);
 	}
 	return result;
 }
@@ -334,7 +332,7 @@ function createNotebookCellDataFromCodeCell(cell: nbformat.ICodeCell, cellLangua
 		? { executionOrder: cell.execution_count as number }
 		: {};
 
-	const vscodeCustomMetadata = cell.metadata['vscode'] as { [key: string]: any } | undefined;
+	const vscodeCustomMetadata = cell.metadata?.['vscode'] as { [key: string]: any } | undefined;
 	const cellLanguageId = vscodeCustomMetadata && vscodeCustomMetadata.languageId && typeof vscodeCustomMetadata.languageId === 'string' ? vscodeCustomMetadata.languageId : cellLanguage;
 	const cellData = new NotebookCellData(NotebookCellKind.Code, source, cellLanguageId);
 

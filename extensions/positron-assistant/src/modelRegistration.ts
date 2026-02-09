@@ -107,7 +107,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 		await registerModelWithAPI(modelConfig, context);
 	} catch (e) {
 		vscode.window.showErrorMessage(
-			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
+			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', e.message)
 		);
 		throw e;
 	}

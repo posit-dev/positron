@@ -45,7 +45,6 @@ function parse(): ServerParsedArgs {
 }
 
 function createDirs(args: ServerParsedArgs): string {
-
 	const REMOTE_DATA_FOLDER = args['server-data-dir'] || args['user-data-dir'] || process.env['VSCODE_AGENT_FOLDER'] || join(os.homedir(), product.serverDataFolderName || '.vscode-remote');
 	const USER_DATA_PATH = args['user-data-dir'] || join(REMOTE_DATA_FOLDER, 'data');
 	const APP_SETTINGS_HOME = join(USER_DATA_PATH, 'User');
@@ -61,7 +60,7 @@ function createDirs(args: ServerParsedArgs): string {
 	[REMOTE_DATA_FOLDER, args['extensions-dir'], USER_DATA_PATH, APP_SETTINGS_HOME, MACHINE_SETTINGS_HOME, GLOBAL_STORAGE_HOME, LOCAL_HISTORY_HOME].forEach(f => {
 		try {
 			if (!fs.existsSync(f)) {
-				fs.mkdirSync(f, { mode: 0o700 });
+				fs.mkdirSync(f, { mode: 0o700, recursive: true });
 			}
 		} catch (err) { console.error(err); }
 	});

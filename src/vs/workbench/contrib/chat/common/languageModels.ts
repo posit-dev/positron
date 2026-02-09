@@ -23,7 +23,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { ChatEntitlement, IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ExtensionsRegistry } from '../../../services/extensions/common/extensionsRegistry.js';
-import { ChatContextKeys } from './chatContextKeys.js';
+import { ChatContextKeys } from './actions/chatContextKeys.js';
 // --- Start Positron ---
 import { IPositronAssistantConfigurationService } from '../../positronAssistant/common/interfaces/positronAssistantService.js';
 // --- End Positron ---
@@ -55,6 +55,7 @@ export interface IChatMessageThinkingPart {
 	type: 'thinking';
 	value: string | string[];
 	id?: string;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	metadata?: { readonly [key: string]: any };
 }
 
@@ -134,6 +135,7 @@ export interface IChatResponseToolUsePart {
 	type: 'tool_use';
 	name: string;
 	toolCallId: string;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	parameters: any;
 }
 
@@ -141,6 +143,7 @@ export interface IChatResponseThinkingPart {
 	type: 'thinking';
 	value: string | string[];
 	id?: string;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	metadata?: { readonly [key: string]: any };
 }
 
@@ -222,18 +225,21 @@ export namespace ILanguageModelChatMetadata {
 
 export interface ILanguageModelChatResponse {
 	stream: AsyncIterable<IChatResponsePart | IChatResponsePart[]>;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	result: Promise<any>;
 }
 
 export interface ILanguageModelChatProvider {
 	readonly onDidChange: Event<void>;
 	provideLanguageModelChatInfo(options: { silent: boolean }, token: CancellationToken): Promise<ILanguageModelChatMetadataAndIdentifier[]>;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	sendChatRequest(modelId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
 	provideTokenCount(modelId: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
 }
 
 export interface ILanguageModelChat {
 	metadata: ILanguageModelChatMetadata;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	sendChatRequest(messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
 	provideTokenCount(message: string | IChatMessage, token: CancellationToken): Promise<number>;
 }
@@ -246,6 +252,23 @@ export interface ILanguageModelChatSelector {
 	readonly family?: string;
 	readonly tokens?: number;
 	readonly extension?: ExtensionIdentifier;
+}
+
+
+export function isILanguageModelChatSelector(value: unknown): value is ILanguageModelChatSelector {
+	if (typeof value !== 'object' || value === null) {
+		return false;
+	}
+	const obj = value as Record<string, unknown>;
+	return (
+		(obj.name === undefined || typeof obj.name === 'string') &&
+		(obj.id === undefined || typeof obj.id === 'string') &&
+		(obj.vendor === undefined || typeof obj.vendor === 'string') &&
+		(obj.version === undefined || typeof obj.version === 'string') &&
+		(obj.family === undefined || typeof obj.family === 'string') &&
+		(obj.tokens === undefined || typeof obj.tokens === 'number') &&
+		(obj.extension === undefined || typeof obj.extension === 'object')
+	);
 }
 
 export const ILanguageModelsService = createDecorator<ILanguageModelsService>('ILanguageModelsService');
@@ -305,6 +328,7 @@ export interface ILanguageModelsService {
 	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable;
 	// --- End Positron ---
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	sendChatRequest(modelId: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
 
 	computeTokenLength(modelId: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
@@ -900,6 +924,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 		});
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	async sendChatRequest(modelId: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse> {
 		const provider = this._providers.get(this._modelCache.get(modelId)?.vendor || '');
 		if (!provider) {

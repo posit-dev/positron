@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { spawn } from 'child_process';
-import * as fs from 'fs';
+import { existsSync, unlinkSync } from 'fs';
+import { mkdir, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
+import { app } from 'electron';
 import { timeout } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { memoize } from '../../../base/common/decorators.js';
@@ -25,6 +27,8 @@ import { asJson, IRequestService } from '../../request/common/request.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 // --- Start Positron ---
 import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
+// eslint-disable-next-line no-duplicate-imports
+import { mkdirSync } from 'fs';
 // --- End Positron ---
 import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } from './abstractUpdateService.js';
 
@@ -42,7 +46,7 @@ interface IAvailableUpdate {
 let _updateType: UpdateType | undefined = undefined;
 function getUpdateType(): UpdateType {
 	if (typeof _updateType === 'undefined') {
-		_updateType = fs.existsSync(path.join(path.dirname(process.execPath), 'unins000.exe'))
+		_updateType = existsSync(path.join(path.dirname(process.execPath), 'unins000.exe'))
 			? UpdateType.Setup
 			: UpdateType.Archive;
 	}
@@ -56,8 +60,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 	@memoize
 	get cachePath(): Promise<string> {
-		const result = path.join(tmpdir(), `vscode-${this.productService.quality}-${this.productService.target}-${process.arch}`);
-		return fs.promises.mkdir(result, { recursive: true }).then(() => result);
+		// --- Start Positron ---
+		// Use Positron specific cache path
+		const result = path.join(tmpdir(), `positron-${this.productService.target}-${process.arch}`);
+		// --- End Positron ---
+		return mkdir(result, { recursive: true }).then(() => result);
 	}
 
 	constructor(
@@ -92,6 +99,33 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 
 	protected override async initialize(): Promise<void> {
+		if (this.environmentMainService.isBuilt) {
+			const cachePath = await this.cachePath;
+			// --- Start Positron ---
+			// Wrap setPath in try-catch to prevent initialization failure.
+			// If this fails, the update service can still check for updates,
+			// but background update downloads may not work correctly.
+			try {
+				// Verify directory exists before calling setPath to avoid race condition
+				// where the async mkdir in cachePath getter hasn't completed yet
+				if (!existsSync(cachePath)) {
+					this.logService.info(`update#initialize - cachePath '${cachePath}' does not exist, creating synchronously`);
+					mkdirSync(cachePath, { recursive: true });
+				}
+				app.setPath('appUpdate', cachePath);
+			} catch (e) {
+				const dirExists = existsSync(cachePath);
+				this.logService.error(
+					`update#initialize - failed to set appUpdate path to '${cachePath}' ` +
+					`(exists: ${dirExists}, tmpdir: ${tmpdir()}):`, e
+				);
+			}
+			// --- End Positron ---
+			try {
+				await unlink(path.join(cachePath, 'session-ending.flag'));
+			} catch { }
+		}
+
 		if (this.productService.target === 'user' && await this.nativeHostMainService.isAdmin(undefined)) {
 			this.setState(State.Disabled(DisablementReason.RunningAsAdmin));
 			this.logService.info('update#ctor - updates are disabled due to running as Admin in user setup');
@@ -100,6 +134,54 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		await super.initialize();
 	}
+
+	// --- Start Positron ---
+	// 1.107.0 - Disabled pending further investigation into adapting this code for Positron.
+	/*
+	protected override async postInitialize(): Promise<void> {
+		if (this.productService.quality !== 'insider') {
+			return;
+		}
+		// Check for pending update from previous session
+		// This can happen if the app is quit right after the update has been
+		// downloaded and before the update has been applied.
+		const exePath = app.getPath('exe');
+		const exeDir = path.dirname(exePath);
+		const updatingVersionPath = path.join(exeDir, 'updating_version');
+		if (await pfs.Promises.exists(updatingVersionPath)) {
+			try {
+				const updatingVersion = (await readFile(updatingVersionPath, 'utf8')).trim();
+				this.logService.info(`update#doCheckForUpdates - application was updating to version ${updatingVersion}`);
+				const updatePackagePath = await this.getUpdatePackagePath(updatingVersion);
+				if (await pfs.Promises.exists(updatePackagePath)) {
+					await this._applySpecificUpdate(updatePackagePath);
+					this.logService.info(`update#doCheckForUpdates - successfully applied update to version ${updatingVersion}`);
+				}
+			} catch (e) {
+				this.logService.error(`update#doCheckForUpdates - could not read ${updatingVersionPath}`, e);
+			} finally {
+				// updatingVersionPath will be deleted by inno setup.
+			}
+		} else {
+			const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
+			// GC for background updates in system setup happens via inno_setup since it requires
+			// elevated permissions.
+			if (fastUpdatesEnabled && this.productService.target === 'user' && this.productService.commit) {
+				const versionedResourcesFolder = this.productService.commit.substring(0, 10);
+				const innoUpdater = path.join(exeDir, versionedResourcesFolder, 'tools', 'inno_updater.exe');
+				await new Promise<void>(resolve => {
+					const child = spawn(innoUpdater, ['--gc', exePath, versionedResourcesFolder], {
+						stdio: ['ignore', 'ignore', 'ignore'],
+						windowsHide: true,
+						timeout: 2 * 60 * 1000
+					});
+					child.once('exit', () => resolve());
+				});
+			}
+		}
+	}
+	*/
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
@@ -235,7 +317,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		const promises = versions.filter(filter).map(async one => {
 			try {
-				await fs.promises.unlink(path.join(cachePath, one));
+				await unlink(path.join(cachePath, one));
 			} catch (err) {
 				// ignore
 			}
@@ -257,11 +339,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.setState(State.Updating(update));
 
 		const cachePath = await this.cachePath;
+		const sessionEndFlagPath = path.join(cachePath, 'session-ending.flag');
 
 		this.availableUpdate.updateFilePath = path.join(cachePath, `CodeSetup-${this.productService.quality}-${update.version}.flag`);
 
 		await pfs.Promises.writeFile(this.availableUpdate.updateFilePath, 'flag');
-		const child = spawn(this.availableUpdate.packagePath, ['/verysilent', '/log', `/update="${this.availableUpdate.updateFilePath}"`, '/nocloseapplications', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
+		const child = spawn(this.availableUpdate.packagePath, ['/verysilent', '/log', `/update="${this.availableUpdate.updateFilePath}"`, `/sessionend="${sessionEndFlagPath}"`, '/nocloseapplications', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
 			detached: true,
 			stdio: ['ignore', 'ignore', 'ignore'],
 			windowsVerbatimArguments: true
@@ -288,7 +371,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.logService.trace('update#quitAndInstall(): running raw#quitAndInstall()');
 
 		if (this.availableUpdate.updateFilePath) {
-			fs.unlinkSync(this.availableUpdate.updateFilePath);
+			unlinkSync(this.availableUpdate.updateFilePath);
 		} else {
 			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
 				detached: true,

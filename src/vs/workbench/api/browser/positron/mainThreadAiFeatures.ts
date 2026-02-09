@@ -7,10 +7,10 @@ import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js'
 import { revive } from '../../../../base/common/marshalling.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { ChatViewId } from '../../../contrib/chat/browser/chat.js';
-import { ChatViewPane } from '../../../contrib/chat/browser/chatViewPane.js';
-import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
-import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/chatModel.js';
-import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
+import { ChatViewPane } from '../../../contrib/chat/browser/widgetHosts/viewPane/chatViewPane.js';
+import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/participants/chatAgents.js';
+import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/model/chatModel.js';
+import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
@@ -81,9 +81,9 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	/**
 	 * Respond to a request from the extension host to send a progress part to the chat response.
 	 */
-	$responseProgress(sessionId: string, content: IChatProgressDto): void {
+	$responseProgress(sessionResource: URI, content: IChatProgressDto): void {
 		const progress = revive(content) as IChatProgress;
-		const model = this._chatService.getSessionByLegacyId(sessionId) as ChatModel;
+		const model = this._chatService.getSession(sessionResource) as ChatModel;
 		if (!model) {
 			throw new Error('Chat session not found.');
 		}

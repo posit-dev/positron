@@ -293,7 +293,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(
-				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', [msg])
+				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', msg)
 			);
 		}
 	} else {
@@ -316,7 +316,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						} catch (e) {
 							vscode.window.showErrorMessage(
 								vscode.l10n.t(
-									'Positron Assistant: Failed to enable assistant. {0}', [e]));
+									'Positron Assistant: Failed to enable assistant. {0}', e.message));
 						}
 					}
 				}

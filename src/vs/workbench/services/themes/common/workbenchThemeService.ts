@@ -479,6 +479,9 @@ export interface ITokenColorizationSetting {
 	foreground?: string;
 	background?: string;
 	fontStyle?: string; /* [italic|bold|underline|strikethrough] */
+	fontFamily?: string;
+	fontSize?: string;
+	lineHeight?: number;
 }
 
 export interface ISemanticTokenColorizationSetting {
