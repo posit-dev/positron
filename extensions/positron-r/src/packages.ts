@@ -21,8 +21,8 @@ export class RPackageManager {
 	/** Whether the user has declined to install pak (session-scoped) */
 	private _pakDeclined: boolean = false;
 
-	/** Cached CRAN package index (session-scoped) */
-	private _cranIndexCache: positron.LanguageRuntimePackage[] | null = null;
+	/** Cached repo package index (session-scoped) */
+	private _repoIndexCache: positron.LanguageRuntimePackage[] | null = null;
 
 	constructor(private readonly _session: RSession) { }
 
@@ -75,7 +75,6 @@ export class RPackageManager {
 	 */
 	async installPackages(packages: string[]): Promise<void> {
 		const hasPak = await this._ensurePak();
-		const repo = this._getCranRepository();
 
 		let code: string;
 		if (hasPak) {
@@ -86,7 +85,7 @@ export class RPackageManager {
 			// base R: strip version suffix if present (not supported)
 			const pkgNames = packages.map(p => p.split('@')[0]);
 			const pkgList = pkgNames.map(p => `"${this._escapeString(p)}"`).join(', ');
-			code = `install.packages(c(${pkgList}), repos = "${repo}")`;
+			code = `install.packages(c(${pkgList}))`;
 		}
 
 		await this._executeAndWait(code);
@@ -98,7 +97,6 @@ export class RPackageManager {
 	 */
 	async updatePackages(packages: string[]): Promise<void> {
 		const hasPak = await this._ensurePak();
-		const repo = this._getCranRepository();
 
 		let code: string;
 		if (hasPak) {
@@ -109,7 +107,7 @@ export class RPackageManager {
 			// base R: strip version suffix if present (not supported)
 			const pkgNames = packages.map(p => p.split('@')[0]);
 			const pkgList = pkgNames.map(p => `"${this._escapeString(p)}"`).join(', ');
-			code = `install.packages(c(${pkgList}), repos = "${repo}")`;
+			code = `install.packages(c(${pkgList}))`;
 		}
 
 		await this._executeAndWait(code);
@@ -120,7 +118,6 @@ export class RPackageManager {
 	 */
 	async updateAllPackages(): Promise<void> {
 		const hasPak = await this._ensurePak();
-		const repo = this._getCranRepository();
 
 		let code: string;
 		if (hasPak) {
@@ -128,12 +125,12 @@ export class RPackageManager {
 				'local({',
 				'old_opt <- options(pak.no_extra_messages = TRUE)',
 				'on.exit(options(old_opt), add = TRUE)',
-				`outdated <- old.packages(repos = "${repo}")[, "Package"]`,
+				`outdated <- old.packages()[, "Package"]`,
 				'if (length(outdated) > 0) pak::pkg_install(outdated, ask = FALSE)',
 				'})'
 			].join('\n');
 		} else {
-			code = `update.packages(repos = "${repo}", ask = FALSE)`;
+			code = `update.packages(ask = FALSE)`;
 		}
 
 		await this._executeAndWait(code);
@@ -157,7 +154,7 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Search CRAN for packages matching the query.
+	 * Search repo for packages matching the query.
 	 */
 	async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
 		const hasPak = await this._ensurePakChecked();
@@ -184,11 +181,11 @@ export class RPackageManager {
 			return JSON.parse(result);
 		} else {
 			// Base R: cache available.packages() and filter locally
-			if (!this._cranIndexCache) {
-				await this._refreshCranIndex();
+			if (!this._repoIndexCache) {
+				await this._refreshRepoIndex();
 			}
 			const lowerQuery = query.toLowerCase();
-			return this._cranIndexCache!.filter(pkg =>
+			return this._repoIndexCache!.filter(pkg =>
 				pkg.name.toLowerCase().includes(lowerQuery)
 			);
 		}
@@ -196,17 +193,18 @@ export class RPackageManager {
 
 	/**
 	 * Get available versions of a specific package.
-	 * Returns the current CRAN version.
+	 * Returns the current version from configured repos.
+	 *
+	 * TODO: Add support for historical versions from repo archive.
 	 */
 	async searchPackageVersions(name: string): Promise<string[]> {
-		const repo = this._getCranRepository();
 		const escapedName = this._escapeString(name);
 
+		// Use R's configured repos (respects user settings and pak configuration)
 		const code = [
 			'local({',
 			`pkg <- "${escapedName}"`,
-			`repo <- "${repo}"`,
-			'ap <- available.packages(repos = repo)',
+			'ap <- available.packages()',
 			'current <- if (pkg %in% rownames(ap)) ap[pkg, "Version"] else character(0)',
 			'cat(jsonlite::toJSON(current))',
 			'})'
@@ -381,22 +379,12 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Get the configured CRAN repository URL.
+	 * Refresh the cached repo package index (used for base R fallback only).
 	 */
-	private _getCranRepository(): string {
-		const config = vscode.workspace.getConfiguration('positron.r');
-		return config.get<string>('packageRepository', 'https://cloud.r-project.org');
-	}
-
-	/**
-	 * Refresh the cached CRAN package index (used for base R fallback only).
-	 */
-	private async _refreshCranIndex(): Promise<void> {
-		const repo = this._getCranRepository();
-
+	private async _refreshRepoIndex(): Promise<void> {
 		const code = [
 			'local({',
-			`ap <- available.packages(repos = "${repo}")`,
+			`ap <- available.packages()`,
 			'cat(jsonlite::toJSON(data.frame(',
 			'id = ap[, "Package"],',
 			'name = ap[, "Package"],',
@@ -407,7 +395,7 @@ export class RPackageManager {
 		].join('\n');
 
 		const result = await this._executeAndCapture(code);
-		this._cranIndexCache = JSON.parse(result);
+		this._repoIndexCache = JSON.parse(result);
 	}
 
 	/**
