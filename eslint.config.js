@@ -2274,6 +2274,7 @@ export default tseslint.config(
 						'@vscode/*',
 						'@parcel/*',
 						'@playwright/*',
+						'@anthropic-ai/*',
 						'*' // node modules
 					]
 				},

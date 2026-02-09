@@ -43,7 +43,6 @@ const projectName = process.env.PW_PROJECT_NAME || 'default';
 const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
-	'**/inspect-ai/**',
 	'**/remote-ssh/**',
 ];
 
@@ -165,22 +164,10 @@ export default defineConfig<ExtendedTestOptions>({
 			grepInvert: /@:web-only|@:interpreter/
 		},
 		{
-			name: 'inspect-ai',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/remote-ssh/**'
-			],
-			use: {
-				artifactDir: 'inspect-ai',
-			},
-			grep: /@:inspect-ai/
-		},
-		{
 			name: 'e2e-workbench',
 			testIgnore: [
 				'example.test.ts',
-				'**/inspect-ai/**',
+				'**/assistant-eval/**',
 				'**/remote-ssh/**'
 			],
 			use: {
@@ -196,7 +183,7 @@ export default defineConfig<ExtendedTestOptions>({
 			name: 'e2e-remote-ssh',
 			testIgnore: [
 				'example.test.ts',
-				'**/inspect-ai/**',
+				'**/assistant-eval/**',
 				'**/workbench/**',
 			],
 			use: {
