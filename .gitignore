@@ -46,8 +46,4 @@ pwb-version
 vsix-cache/
 product.json.backup
 *.lic
-
-# Inspect AI eval response datasets (generated test output)
-test/assistant-inspect-ai/response-dataset-*.json
-
 # --- End Positron ---

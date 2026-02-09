@@ -165,6 +165,12 @@ export class Assistant {
 	}
 
 	async clickAddModelButton() {
+		// Ensure chat panel is open first
+		const chatPanelIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
+		if (!chatPanelIsVisible) {
+			await this.openPositronAssistantChat();
+		}
+
 		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
 		if (!addModelLinkIsVisible) {
 			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
@@ -271,6 +277,14 @@ export class Assistant {
 
 			// Select the provider
 			await this.selectModelProvider(provider);
+
+			// Check if already signed in (Sign Out button visible)
+			const alreadySignedIn = await this.code.driver.page.locator(SIGN_OUT_BUTTON).isVisible();
+			if (alreadySignedIn) {
+				// Already signed in, just close the dialog
+				await this.clickCloseButton();
+				return;
+			}
 
 			// Handle authentication based on provider type
 			const authType = getProviderAuthType(provider);
@@ -421,13 +435,33 @@ export class Assistant {
 	}
 
 	/**
-	 * Expects the chat response to be complete (loading state is hidden).
+	 * Asserts that the chat response is complete (not loading).
 	 * Unlike waitForResponseComplete, this does not wait for loading to become visible first,
-	 * making it suitable for use when the response may already be in progress.
-	 * @param timeout The maximum time to wait for the response to complete (default: 120000ms)
+	 * making it suitable for asserting state when the response may already be complete.
+	 * @param timeout The maximum time to wait for the assertion (default: 10000ms)
 	 */
-	async expectResponseComplete(timeout: number = 120000) {
-		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden', timeout });
+	async expectResponseComplete(timeout: number = 10000) {
+		await expect(this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading')).not.toBeVisible({ timeout });
+	}
+
+	/**
+	 * Verifies the chat panel is visible.
+	 * @param timeout The maximum time to wait for visibility (default: 10000ms)
+	 */
+	async expectChatPanelVisible(timeout: number = 10000) {
+		await test.step('Verify chat panel is visible', async () => {
+			await expect(this.code.driver.page.locator(CHAT_PANEL)).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Verifies a chat response is visible.
+	 * @param timeout The maximum time to wait for visibility (default: 10000ms)
+	 */
+	async expectChatResponseVisible(timeout: number = 10000) {
+		await test.step('Verify chat response is visible', async () => {
+			await expect(this.code.driver.page.locator('.interactive-response')).toBeVisible({ timeout });
+		});
 	}
 
 	async clickChatCodeRunButton(codeblock: string) {
@@ -691,7 +725,7 @@ export class Assistant {
 	async getChatResponseText(exportFolder?: string) {
 		// Export the chat to a file first
 		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
-		await this.toasts.waitForAppear();
+		await this.toasts.waitForAppear('Chat log exported to:');
 		await this.toasts.closeAll();
 
 		// Find and parse the chat export file
