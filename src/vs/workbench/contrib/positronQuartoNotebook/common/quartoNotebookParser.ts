@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
-	PLAIN_FENCE_START_REGEX,
 	CELL_MARKER_REGEX,
 	QUARTO_TO_VSCODE_LANGUAGE,
 	DEFAULT_FENCE_LENGTH,
@@ -43,7 +42,8 @@ export function parseQmdToNotebookCells(content: string): ICellDto2[] {
 			outputs: [],
 			metadata: { quarto: { type: 'frontmatter' } },
 		});
-		gapStart = frontmatter.location.end.line; // end.line is the 1-based last line, which equals the 0-based index of the first line after
+		// end.line is the 1-based last line, which equals the 0-based index of the first line after
+		gapStart = frontmatter.location.end.line;
 		// Skip blank lines after frontmatter
 		while (gapStart < lines.length && lines[gapStart].trim() === '') {
 			gapStart++;
@@ -110,77 +110,12 @@ export function parseQmdToNotebookCells(content: string): ICellDto2[] {
 
 /**
  * Process a "gap" region between AST blocks (or at the start/end of the document).
- * Handles plain fences, markdown content, and cell boundary markers.
+ * Plain fences (```lang without braces) are non-executable and stay as markdown.
+ * Only handles markdown content and <!-- cell --> boundary markers.
  */
 function processGapRegion(lines: readonly string[], start: number, end: number, cells: ICellDto2[]): void {
-	let pendingMarkdown: string[] = [];
-	let i = start;
-
-	while (i < end) {
-		const line = lines[i];
-
-		// Check for plain code fence: ``` or ```language (no braces)
-		const plainMatch = line.match(PLAIN_FENCE_START_REGEX);
-		if (plainMatch) {
-			// Flush pending markdown before the plain fence
-			flushMarkdown(pendingMarkdown, cells);
-			pendingMarkdown = [];
-
-			const fenceLength = plainMatch[1].length;
-			const language = plainMatch[2]?.toLowerCase() || 'text';
-			const codeLines: string[] = [];
-			i++;
-
-			// Collect lines until closing fence
-			while (i < end) {
-				const codeLine = lines[i];
-				if (isClosingFence(codeLine, fenceLength)) {
-					break;
-				}
-				codeLines.push(codeLine);
-				i++;
-			}
-
-			const metadata: Record<string, unknown> = {};
-			if (fenceLength > DEFAULT_FENCE_LENGTH) {
-				metadata.quarto = { fenceLength };
-			}
-
-			cells.push({
-				source: codeLines.join('\n'),
-				language: language,
-				cellKind: CellKind.Code,
-				mime: undefined,
-				outputs: [],
-				metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-			});
-
-			i++; // Skip past closing fence
-			// Skip blank lines after code block
-			while (i < end && lines[i].trim() === '') {
-				i++;
-			}
-			continue;
-		}
-
-		// Regular line: accumulate as markdown
-		pendingMarkdown.push(line);
-		i++;
-	}
-
-	// Flush remaining markdown
-	flushMarkdown(pendingMarkdown, cells);
-}
-
-/**
- * Check if a line is a closing fence that matches the opening fence length.
- */
-function isClosingFence(line: string, openingLength: number): boolean {
-	const match = line.match(/^(`{3,})\s*$/);
-	if (!match) {
-		return false;
-	}
-	return match[1].length >= openingLength;
+	const markdownLines = lines.slice(start, end);
+	flushMarkdown(Array.from(markdownLines), cells);
 }
 
 /**

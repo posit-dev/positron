@@ -37,10 +37,11 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(cells[0].language, 'latex');
 	});
 
-	test('should use "text" for CodeBlock without language', () => {
+	test('should treat bare fence as markdown (non-executable)', () => {
 		const cells = parseQmdToNotebookCells('```\nsome code\n```');
 
-		assert.strictEqual(cells[0].language, 'text');
+		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
+		assert.strictEqual(cells[0].language, 'markdown');
 	});
 
 	test('should map ojs to javascript', () => {

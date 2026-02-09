@@ -161,6 +161,17 @@ suite('Round-trip serialization', () => {
 		assert.strictEqual(roundTripped[0].source, '# Title\n\n\n\nParagraph with extra newlines above.');
 	});
 
+	test('should preserve plain fences (no braces) on round-trip', () => {
+		// A plain fence like ```python (no braces) is non-executable documentation.
+		// It must NOT become ```{python} (executable Quarto block) after round-trip.
+		const original = '# Example\n\n```python\nprint("hello")\n```\n';
+		const cells = parseQmdToNotebookCells(original);
+		const serialized = serializeNotebookCells(cells);
+
+		assert.strictEqual(serialized, original,
+			'Plain fence ```python should not become executable ```{python} after round-trip');
+	});
+
 	test('should preserve leading whitespace in markdown content', () => {
 		const cells: ICellDto2[] = [
 			markdownCell('   Indented text'),
