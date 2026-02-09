@@ -64,7 +64,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	};
 
 	return (
-		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'} ${isSingleDataExplorer ? 'single-data-explorer' : ''}`}>
+		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'} ${isSingleDataExplorer && !isCollapsed ? 'single-data-explorer' : ''}`}>
 			<CellOutputLeftActionMenu cell={cell} />
 			<section
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
