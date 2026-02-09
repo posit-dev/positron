@@ -12,13 +12,13 @@ import {
 // --- Regular expressions for parsing Quarto documents ---
 
 /** Matches YAML frontmatter block at the start of a document */
-export const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
+export const FRONTMATTER_REGEX = /^---\r?\n(?<content>[\s\S]*?)\r?\n---/;
 
 /** Matches the opening fence of a code block: ```{language options} */
-export const CHUNK_START_REGEX = /^(`{3,})\{(\w+)([^}]*)\}\s*$/;
+export const CHUNK_START_REGEX = /^(?<fence>`{3,})\{(?<language>\w+)(?<options>[^}]*)\}\s*$/;
 
 /** Matches the opening fence of a raw block: ```{=format} */
-export const RAW_BLOCK_START_REGEX = /^(`{3,})\{=(\w+)\}\s*$/;
+export const RAW_BLOCK_START_REGEX = /^(?<fence>`{3,})\{=(?<format>\w+)\}\s*$/;
 
 // --- Types ---
 
@@ -133,8 +133,8 @@ export function extractLabel(options: string): string | undefined {
  * Check if a line is a closing fence that matches the opening fence length.
  */
 function isClosingFence(line: string, openingLength: number): boolean {
-	const match = line.match(/^(`{3,})\s*$/);
-	return match !== null && match[1].length >= openingLength;
+	const match = line.match(/^(?<fence>`{3,})\s*$/)?.groups;
+	return match !== undefined && match.fence.length >= openingLength;
 }
 
 // --- Parser internals ---
@@ -182,13 +182,13 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 
 	// Step 1: Extract frontmatter
 	const frontmatterMatch = content.match(FRONTMATTER_REGEX);
-	if (frontmatterMatch) {
+	if (frontmatterMatch?.groups) {
 		const rawContent = frontmatterMatch[0];
 		const frontmatterLineCount = rawContent.split(/\r?\n/).length;
 		let jupyterKernel: string | undefined;
 
 		try {
-			const parsed = parseFrontmatter(frontmatterMatch[1]);
+			const parsed = parseFrontmatter(frontmatterMatch.groups.content);
 			jupyterKernel = parsed.jupyterKernel;
 		} catch (e) {
 			logService?.warn('Failed to parse Quarto frontmatter', e);
@@ -240,24 +240,24 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 		const lineNum = i + 1; // 1-based
 
 		if (!current) {
-			const chunkMatch = line.match(CHUNK_START_REGEX);
+			const chunkMatch = line.match(CHUNK_START_REGEX)?.groups;
 			if (chunkMatch) {
 				current = {
 					type: QuartoNodeType.CodeBlock,
-					fenceLength: chunkMatch[1].length,
-					language: chunkMatch[2].toLowerCase(),
-					options: chunkMatch[3].trim(),
+					fenceLength: chunkMatch.fence.length,
+					language: chunkMatch.language.toLowerCase(),
+					options: chunkMatch.options.trim(),
 					startLine: lineNum,
 				};
 				continue;
 			}
 
-			const rawMatch = line.match(RAW_BLOCK_START_REGEX);
+			const rawMatch = line.match(RAW_BLOCK_START_REGEX)?.groups;
 			if (rawMatch) {
 				current = {
 					type: QuartoNodeType.RawBlock,
-					fenceLength: rawMatch[1].length,
-					format: rawMatch[2].toLowerCase(),
+					fenceLength: rawMatch.fence.length,
+					format: rawMatch.format.toLowerCase(),
 					startLine: lineNum,
 				};
 			}
