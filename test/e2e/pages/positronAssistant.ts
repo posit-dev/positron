@@ -665,10 +665,14 @@ export class Assistant {
 	}
 
 	/**
-	 * Closes the model picker dropdown by pressing Escape.
+	 * Closes the model picker dropdown by pressing Escape if it is open.
 	 */
 	async closeModelPickerDropdown() {
-		await this.code.driver.page.keyboard.press('Escape');
+		const dropdownItem = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first();
+		if (await dropdownItem.isVisible()) {
+			await this.code.driver.page.keyboard.press('Escape');
+			await expect(dropdownItem).not.toBeVisible();
+		}
 	}
 
 	async getChatResponseText(exportFolder?: string) {
