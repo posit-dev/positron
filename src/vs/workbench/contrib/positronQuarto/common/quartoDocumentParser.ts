@@ -46,10 +46,6 @@ export interface QuartoNode {
 	/** Source location in the document. */
 	readonly location: QuartoSourceLocation;
 
-	// TODO: Remove contentHash and have callers calculate from content
-	/** SHA-1 hash of node content (first 16 chars). */
-	readonly contentHash: string;
-
 	/** Number of backticks in the fence (only tracked when > 3). */
 	// TODO: Can caller also deal with this?
 	readonly fenceLength?: number;
@@ -233,15 +229,15 @@ export function parseQuartoDocument(content: string): QuartoDocument {
 		if (contentEnd >= contentStart) {
 			text = lines.slice(contentStart - 1, contentEnd).join('\n');
 		}
-		const contentHash = computeContentHash(text);
 		const storedFenceLength = open.fenceLength > DEFAULT_FENCE_LENGTH
 			? open.fenceLength : undefined;
 
 		const location: QuartoSourceLocation = { begin: { line: open.startLine }, end: { line: endLine } };
-		const base = { location, contentHash, fenceLength: storedFenceLength };
+		const base = { location, fenceLength: storedFenceLength };
 
 		if (open.type === QuartoNodeType.CodeBlock) {
 			const label = extractLabel(open.options);
+			const contentHash = computeContentHash(text);
 			blocks.push({
 				...base,
 				type: QuartoNodeType.CodeBlock,

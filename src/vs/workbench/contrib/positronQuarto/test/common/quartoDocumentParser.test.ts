@@ -183,9 +183,9 @@ suite('parseQuartoDocument', () => {
 		});
 	});
 
-	// --- Block IDs and content hashing ---
+	// --- Block IDs ---
 
-	suite('Block IDs and content hashing', () => {
+	suite('Block IDs', () => {
 		test('generates block ID with label', () => {
 			const content = '```{python setup}\nx = 1\n```\n';
 			const result = parseQuartoDocument(content);
@@ -202,29 +202,26 @@ suite('parseQuartoDocument', () => {
 			assert.ok(block.id.endsWith('-unlabeled'));
 		});
 
-		test('same content produces same content hash', () => {
-			const content = '```{python}\nx = 1\n```\n\n```{r}\nx = 1\n```\n';
+		test('same content produces same block ID hash prefix', () => {
+			const content = '```{python}\nx = 1\n```\n\n```{python}\nx = 1\n```\n';
 			const result = parseQuartoDocument(content);
 			const block0 = result.blocks[0] as QuartoCodeBlock;
 			const block1 = result.blocks[1] as QuartoCodeBlock;
-			assert.strictEqual(block0.contentHash, block1.contentHash);
+			// Same content should produce same hash prefix in ID (chars between first and second dash)
+			const hash0 = block0.id.split('-')[1];
+			const hash1 = block1.id.split('-')[1];
+			assert.strictEqual(hash0, hash1);
 		});
 
-		test('different content produces different content hash', () => {
+		test('different content produces different block ID hash prefix', () => {
 			const content = '```{python}\nx = 1\n```\n\n```{python}\ny = 2\n```\n';
 			const result = parseQuartoDocument(content);
 			const block0 = result.blocks[0] as QuartoCodeBlock;
 			const block1 = result.blocks[1] as QuartoCodeBlock;
-			assert.notStrictEqual(block0.contentHash, block1.contentHash);
+			const hash0 = block0.id.split('-')[1];
+			const hash1 = block1.id.split('-')[1];
+			assert.notStrictEqual(hash0, hash1);
 		});
-
-		test('content hash is 16 characters', () => {
-			const content = '```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
-			const block = result.blocks[0] as QuartoCodeBlock;
-			assert.strictEqual(block.contentHash.length, 16);
-		});
-
 	});
 
 	// --- Fence length ---
@@ -286,13 +283,6 @@ suite('parseQuartoDocument', () => {
 			const result = parseQuartoDocument(content);
 			const block = result.blocks[0] as QuartoRawBlock;
 			assert.strictEqual(block.format, 'latex');
-		});
-
-		test('raw block has content hash', () => {
-			const content = '```{=html}\n<b>bold</b>\n```\n';
-			const result = parseQuartoDocument(content);
-			const block = result.blocks[0] as QuartoRawBlock;
-			assert.strictEqual(block.contentHash.length, 16);
 		});
 
 		test('raw block with long fence length', () => {
