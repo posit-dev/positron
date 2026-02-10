@@ -156,7 +156,7 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 		} else if (trimmedContents.startsWith('-----BEGIN RSTUDIO LICENSE-----')) {
 			// This is an RSA license file, let the license manager handle it.
 			const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
-			return validateWithManager(installPath, licenseFile);
+			return await validateWithManager(installPath, licenseFile);
 		} else {
 			// Unknown license format
 			console.error('Unrecognized license file format. Expected JSON license key or RSA license file.');

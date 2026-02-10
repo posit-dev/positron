@@ -54,7 +54,7 @@ export interface IRemoteAgentEnvironmentDTO {
 	};
 	isUnsupportedGlibc: boolean;
 	reconnectionGraceTime?: number;
-  // --- Start Positron ---
+	// --- Start Positron ---
 	positronLicenseeInfo?: IPositronLicenseeInfoDTO;
 	// --- End Positron ---
 }
@@ -91,7 +91,7 @@ export class RemoteExtensionEnvironmentChannelClient {
 			profiles: revive(data.profiles),
 			isUnsupportedGlibc: data.isUnsupportedGlibc,
 			reconnectionGraceTime,
-      // --- Start Positron ---
+			// --- Start Positron ---
 			positronLicenseeInfo: data.positronLicenseeInfo
 			// --- End Positron ---
 		};
