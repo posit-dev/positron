@@ -23,7 +23,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
-import { QUARTO_NOTEBOOK_VIEW_TYPE } from '../../positronQuarto/common/quartoConstants.js';
+import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { NotebookProviderInfo } from '../../notebook/common/notebookProvider.js';
 
 /**
@@ -253,7 +253,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		const pathCandidate = await this._suggestName(provider, suggestedName);
 
 		// Ask the user where to save the file with proper filters
-		const isQuarto = this.viewType === QUARTO_NOTEBOOK_VIEW_TYPE;
+		const isQuarto = this.viewType === QMD_VIEW_TYPE;
 		const fileFilter = isQuarto
 			? { name: localize('positron.notebook.fileType.qmd', 'Quarto Document'), extensions: ['qmd'] }
 			: { name: localize('positron.notebook.fileType', 'Jupyter Notebook'), extensions: ['ipynb'] };

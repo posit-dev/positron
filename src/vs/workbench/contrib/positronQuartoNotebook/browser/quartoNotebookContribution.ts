@@ -18,7 +18,7 @@ import { INotebookFileMatchNoModel } from '../../search/common/searchNotebookHel
 import { RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { parseQmdToNotebookCells } from '../common/quartoNotebookParser.js';
 import { serializeNotebookCells } from '../common/quartoNotebookSerializer.js';
-import { QUARTO_NOTEBOOK_VIEW_TYPE } from '../../positronQuarto/common/quartoConstants.js';
+import { QMD_VIEW_TYPE } from '../common/quartoNotebookConstants.js';
 
 /**
  * Internal notebook serializer for Quarto (.qmd) files.
@@ -113,7 +113,7 @@ class QuartoNotebookContribution extends Disposable implements IWorkbenchContrib
 
 		// Register the notebook type (file pattern association)
 		this._register(this.notebookService.registerContributedNotebookType(
-			QUARTO_NOTEBOOK_VIEW_TYPE,
+			QMD_VIEW_TYPE,
 			{
 				extension: new ExtensionIdentifier('positron.quarto-notebook'),
 				displayName: 'Quarto Notebook',
@@ -125,7 +125,7 @@ class QuartoNotebookContribution extends Disposable implements IWorkbenchContrib
 
 		// Register the serializer
 		this._register(this.notebookService.registerNotebookSerializer(
-			QUARTO_NOTEBOOK_VIEW_TYPE,
+			QMD_VIEW_TYPE,
 			{ id: new ExtensionIdentifier('positron.quarto-notebook'), location: undefined },
 			new QuartoNotebookSerializer(this.notebookService, this.fileService),
 		));

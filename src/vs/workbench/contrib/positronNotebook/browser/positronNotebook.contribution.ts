@@ -41,7 +41,7 @@ import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
-import { QUARTO_NOTEBOOK_VIEW_TYPE } from '../../positronQuarto/common/quartoConstants.js';
+import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { getActiveCell, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -264,7 +264,7 @@ class PositronNotebookContribution extends Disposable {
 						resource,
 						undefined,
 						{},
-						QUARTO_NOTEBOOK_VIEW_TYPE,
+						QMD_VIEW_TYPE,
 					);
 					return { editor: notebookEditorInput, options };
 				},
@@ -278,7 +278,7 @@ class PositronNotebookContribution extends Disposable {
 						label,
 						description,
 						original.resource,
-						QUARTO_NOTEBOOK_VIEW_TYPE,
+						QMD_VIEW_TYPE,
 					);
 					return { editor: diffInput };
 				}
@@ -307,7 +307,7 @@ class PositronNotebookContribution extends Disposable {
 						parsed.notebook,
 						undefined,
 						{},
-						QUARTO_NOTEBOOK_VIEW_TYPE,
+						QMD_VIEW_TYPE,
 					);
 					const notebookEditorOptions: INotebookEditorOptions = {
 						...editorInput.options,
