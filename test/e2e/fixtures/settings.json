@@ -18,5 +18,6 @@
 		"amazon-bedrock",
 		"posit-ai"
   ],
-  "posit.workbench.showWorkbenchFlaskHint": false
+  "posit.workbench.showWorkbenchFlaskHint": false,
+	"editor.accessibilitySupport": "off"
 }
