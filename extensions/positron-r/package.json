@@ -22,7 +22,9 @@
   },
   "icon": "icon.png",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onLanguage:rdata",
+    "onLanguage:rds"
   ],
   "contributes": {
     "commands": [
@@ -145,6 +147,21 @@
         "command": "r.interpreters.settingsInfo",
         "category": "R",
         "title": "%r.command.interpreters.settingsInfo.title%"
+      },
+      {
+        "command": "r.loadRDataFile",
+        "category": "R",
+        "title": "%r.command.loadRDataFile.title%"
+      },
+      {
+        "command": "r.loadRdsFile",
+        "category": "R",
+        "title": "%r.command.loadRdsFile.title%"
+      },
+      {
+        "command": "r.loadRDataFileWithPicker",
+        "category": "R",
+        "title": "%r.command.loadRDataFileWithPicker.title%"
       }
     ],
     "configuration": [
@@ -451,6 +468,38 @@
           ".Rd"
         ],
         "configuration": "./language-configuration/r-docs-language-configuration.json"
+      },
+      {
+        "id": "rdata",
+        "aliases": [
+          "R Data",
+          "RData"
+        ],
+        "extensions": [
+          ".RData",
+          ".Rdata",
+          ".rdata",
+          ".rda"
+        ],
+        "icon": {
+          "light": "./resources/icons/r-data-light.svg",
+          "dark": "./resources/icons/r-data-dark.svg"
+        }
+      },
+      {
+        "id": "rds",
+        "aliases": [
+          "R Data Single",
+          "RDS"
+        ],
+        "extensions": [
+          ".rds",
+          ".RDS"
+        ],
+        "icon": {
+          "light": "./resources/icons/r-data-light.svg",
+          "dark": "./resources/icons/r-data-dark.svg"
+        }
       }
     ],
     "grammars": [
@@ -542,6 +591,18 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "r.loadRDataFile",
+          "group": "R",
+          "when": "resourceExtname == '.RData' || resourceExtname == '.Rdata' || resourceExtname == '.rdata' || resourceExtname == '.rda'"
+        },
+        {
+          "command": "r.loadRdsFile",
+          "group": "R",
+          "when": "resourceExtname == '.rds' || resourceExtname == '.RDS'"
+        }
+      ],
       "commandPalette": [
         {
           "category": "R",
@@ -618,6 +679,20 @@
           "category": "R",
           "command": "r.packageCheck",
           "when": "isRPackage"
+        },
+        {
+          "category": "R",
+          "command": "r.loadRDataFile",
+          "when": "resourceExtname == '.RData' || resourceExtname == '.Rdata' || resourceExtname == '.rdata' || resourceExtname == '.rda'"
+        },
+        {
+          "category": "R",
+          "command": "r.loadRdsFile",
+          "when": "resourceExtname == '.rds' || resourceExtname == '.RDS'"
+        },
+        {
+          "category": "R",
+          "command": "r.loadRDataFileWithPicker"
         }
       ],
       "file/newFile": [
@@ -720,6 +795,40 @@
         "supportsUiLaunch": false,
         "sendBreakpointsOnAllSaves": true,
         "verifyBreakpointsInDirtyDocuments": true
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "positron-r.rdataLoader",
+        "displayName": "%r.customEditor.rdataLoader.displayName%",
+        "priority": "default",
+        "selector": [
+          {
+            "filenamePattern": "*.RData"
+          },
+          {
+            "filenamePattern": "*.Rdata"
+          },
+          {
+            "filenamePattern": "*.rdata"
+          },
+          {
+            "filenamePattern": "*.rda"
+          }
+        ]
+      },
+      {
+        "viewType": "positron-r.rdsLoader",
+        "displayName": "%r.customEditor.rdsLoader.displayName%",
+        "priority": "default",
+        "selector": [
+          {
+            "filenamePattern": "*.rds"
+          },
+          {
+            "filenamePattern": "*.RDS"
+          }
+        ]
       }
     ],
     "notebookRenderer": [

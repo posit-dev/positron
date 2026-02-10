@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -246,6 +246,15 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** Updates the session's name */
 	updateSessionName(sessionName: string): void;
+
+	getPackages?: () => Promise<ILanguageRuntimePackage[]>;
+	installPackages?: (packages: string[]) => Promise<void>;
+	uninstallPackages?: (packages: string[]) => Promise<void>;
+	updatePackages?: (packages: string[]) => Promise<void>;
+	updateAllPackages?: () => Promise<void>;
+
+	searchPackages?(query: string): Promise<ILanguageRuntimePackage[]>;
+	searchPackageVersions?(name: string): Promise<string[]>;
 }
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
@@ -254,6 +263,13 @@ export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata
 
 export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession {
 	metadata: INotebookRuntimeSessionMetadata;
+}
+
+export interface ILanguageRuntimePackage {
+	id: string;
+	name: string;
+	displayName: string;
+	version: string;
 }
 
 /**

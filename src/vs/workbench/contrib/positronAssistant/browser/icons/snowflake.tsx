@@ -1,9 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
 import type { SVGProps } from 'react';
 
 export const Snowflake = (props: SVGProps<SVGSVGElement>) => (

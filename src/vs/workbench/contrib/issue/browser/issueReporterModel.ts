@@ -7,13 +7,21 @@ import { mainWindow } from '../../../../base/browser/window.js';
 import { isRemoteDiagnosticError, SystemInfo } from '../../../../platform/diagnostics/common/diagnostics.js';
 import { ISettingSearchResult, IssueReporterExtensionData, IssueType } from '../common/issue.js';
 
+interface VersionInfo {
+	vscodeVersion: string;
+	// --- Start Positron ---
+	positronVersion: string;
+	// --- End Positron ---
+	os: string;
+}
+
 export interface IssueReporterData {
 	issueType: IssueType;
 	issueDescription?: string;
 	issueTitle?: string;
 	extensionData?: string;
 
-	versionInfo?: any;
+	versionInfo?: VersionInfo;
 	systemInfo?: SystemInfo;
 	systemInfoWeb?: string;
 	processInfo?: string;

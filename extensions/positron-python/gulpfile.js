@@ -32,9 +32,35 @@ const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined
 
 // --- Start Positron ---
 const pythonCommand = locatePython();
-const arch = os.arch();
-if (arch !== 'x64' && arch !== 'arm64') {
-    throw new Error(`Unsupported architecture: ${arch}`);
+const systemArch = os.arch();
+const platform = os.platform();
+
+// Determine which architectures to bundle:
+// - macOS: Bundle both x64 and arm64 since macOS can run x64 Python via Rosetta
+//   Note: We'd prefer universal2 but not all packages (e.g., psutil) publish universal2 wheels
+// - Windows: Bundle both x64 and arm64 since Windows ARM64 can run x64 Python via emulation
+// - Linux: Bundle only the current architecture (per-build)
+const archsToBundle = platform === 'darwin' ? ['x64', 'arm64'] : platform === 'win32' ? ['x64', 'arm64'] : [systemArch];
+
+if (!archsToBundle.every((a) => a === 'x64' || a === 'arm64' || a === 'universal2')) {
+    throw new Error(`Unsupported architecture: ${systemArch}`);
+}
+
+/**
+ * Get the pip platform tag for a given architecture.
+ * Only used for macOS and Windows where we do cross-architecture bundling.
+ * Linux uses pip's auto-detection instead.
+ */
+function getPlatformTag(arch) {
+    if (platform === 'darwin') {
+        // Use architecture-specific tags for macOS since not all packages publish universal2 wheels
+        // (e.g., psutil only has separate x86_64 and arm64 wheels)
+        return arch === 'arm64' ? 'macosx_11_0_arm64' : 'macosx_10_9_x86_64';
+    }
+    if (platform === 'win32') {
+        return arch === 'arm64' ? 'win_arm64' : 'win_amd64';
+    }
+    throw new Error(`Unsupported platform for cross-architecture bundling: ${platform}`);
 }
 // --- End Positron ---
 
@@ -289,7 +315,7 @@ async function bundleIPykernel() {
     const pythonVersions = ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14'];
     const minimumPythonVersion = '3.9';
 
-    // Pure Python 3 requirements.
+    // Pure Python 3 requirements (same for all architectures).
     await pipInstall([
         '--target',
         './python_files/lib/ipykernel/py3',
@@ -303,39 +329,141 @@ async function bundleIPykernel() {
         './python_files/ipykernel_requirements/py3-requirements.txt',
     ]);
 
-    // CPython 3 requirements (specific to platform and architecture).
-    await pipInstall([
-        '--target',
-        `./python_files/lib/ipykernel/${arch}/cp3`,
-        '--implementation',
-        'cp',
-        '--python-version',
-        minimumPythonVersion,
-        '--abi',
-        'abi3',
-        '-r',
-        `./python_files/ipykernel_requirements/cp3-requirements.txt`,
-    ]);
+    // On macOS, different packages have different wheel availability:
+    // - cp3-requirements (psutil, tornado): Only have arch-specific abi3 wheels (no universal2)
+    // - cpx-requirements (pyzmq): Only have universal2 wheels (no arch-specific)
+    // So we use different platform tags for each.
+    if (platform === 'darwin') {
+        // CPython 3 (abi3) requirements - packages like psutil only have arch-specific wheels.
+        // Must install separately for each architecture.
+        for (const arch of archsToBundle) {
+            fancyLog(`Bundling cp3 requirements for macOS architecture: ${ansiColors.cyan(arch)}`);
 
-    // Remove tornado test folder immediately after installing CPython 3 requirements
-    await removeTornadoTestFolder();
+            await pipInstall([
+                '--target',
+                `./python_files/lib/ipykernel/${arch}/cp3`,
+                '--implementation',
+                'cp',
+                '--python-version',
+                minimumPythonVersion,
+                '--abi',
+                'abi3',
+                '--platform',
+                getPlatformTag(arch),
+                '-r',
+                './python_files/ipykernel_requirements/cp3-requirements.txt',
+            ]);
 
-    // CPython 3.x requirements (specific to platform, architecture, and Python version).
-    for (const pythonVersion of pythonVersions) {
-        const shortVersion = pythonVersion.replace('.', '');
-        const abi = `cp${shortVersion}`;
+            // Remove tornado test folder
+            await removeTornadoTestFolder(arch);
+        }
+
+        // CPython 3.x (cpXX) requirements - packages like pyzmq only have universal2 wheels.
+        // Install once per Python version into a shared 'universal2' directory.
+        fancyLog(`Bundling cpx requirements for macOS: ${ansiColors.cyan('universal2')}`);
+        for (const pythonVersion of pythonVersions) {
+            const shortVersion = pythonVersion.replace('.', '');
+            const abi = `cp${shortVersion}`;
+            await pipInstall([
+                '--target',
+                `./python_files/lib/ipykernel/universal2/${abi}`,
+                '--implementation',
+                'cp',
+                '--python-version',
+                pythonVersion,
+                '--abi',
+                abi,
+                '--platform',
+                'macosx_10_15_universal2',
+                '-r',
+                './python_files/ipykernel_requirements/cpx-requirements.txt',
+            ]);
+        }
+    } else if (platform === 'win32') {
+        // Windows: Bundle both x64 and arm64 since Windows ARM64 can run x64 Python via emulation.
+        // Must specify --platform for cross-architecture installation.
+        for (const arch of archsToBundle) {
+            fancyLog(`Bundling ipykernel for Windows architecture: ${ansiColors.cyan(arch)}`);
+
+            // CPython 3 requirements (specific to platform and architecture).
+            await pipInstall([
+                '--target',
+                `./python_files/lib/ipykernel/${arch}/cp3`,
+                '--implementation',
+                'cp',
+                '--python-version',
+                minimumPythonVersion,
+                '--abi',
+                'abi3',
+                '--platform',
+                getPlatformTag(arch),
+                '-r',
+                './python_files/ipykernel_requirements/cp3-requirements.txt',
+            ]);
+
+            // Remove tornado test folder immediately after installing CPython 3 requirements
+            await removeTornadoTestFolder(arch);
+
+            // CPython 3.x requirements (specific to platform, architecture, and Python version).
+            for (const pythonVersion of pythonVersions) {
+                const shortVersion = pythonVersion.replace('.', '');
+                const abi = `cp${shortVersion}`;
+                await pipInstall([
+                    '--target',
+                    `./python_files/lib/ipykernel/${arch}/${abi}`,
+                    '--implementation',
+                    'cp',
+                    '--python-version',
+                    pythonVersion,
+                    '--abi',
+                    abi,
+                    '--platform',
+                    getPlatformTag(arch),
+                    '-r',
+                    './python_files/ipykernel_requirements/cpx-requirements.txt',
+                ]);
+            }
+        }
+    } else {
+        // Linux: Bundle only for the current architecture. No --platform flag needed;
+        // pip will auto-detect the correct platform for the running system.
+        const arch = systemArch;
+        fancyLog(`Bundling ipykernel for Linux architecture: ${ansiColors.cyan(arch)}`);
+
+        // CPython 3 requirements (specific to architecture).
         await pipInstall([
             '--target',
-            `./python_files/lib/ipykernel/${arch}/${abi}`,
+            `./python_files/lib/ipykernel/${arch}/cp3`,
             '--implementation',
             'cp',
             '--python-version',
-            pythonVersion,
+            minimumPythonVersion,
             '--abi',
-            abi,
+            'abi3',
             '-r',
-            './python_files/ipykernel_requirements/cpx-requirements.txt',
+            './python_files/ipykernel_requirements/cp3-requirements.txt',
         ]);
+
+        // Remove tornado test folder immediately after installing CPython 3 requirements
+        await removeTornadoTestFolder(arch);
+
+        // CPython 3.x requirements (specific to architecture and Python version).
+        for (const pythonVersion of pythonVersions) {
+            const shortVersion = pythonVersion.replace('.', '');
+            const abi = `cp${shortVersion}`;
+            await pipInstall([
+                '--target',
+                `./python_files/lib/ipykernel/${arch}/${abi}`,
+                '--implementation',
+                'cp',
+                '--python-version',
+                pythonVersion,
+                '--abi',
+                abi,
+                '-r',
+                './python_files/ipykernel_requirements/cpx-requirements.txt',
+            ]);
+        }
     }
 }
 
@@ -403,9 +531,10 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
 }
 
 /**
- * Removes the tornado test directory for the current architecture
+ * Removes the tornado test directory for the specified architecture
+ * @param {string} arch - The architecture (e.g., 'x64', 'arm64')
  */
-async function removeTornadoTestFolder() {
+async function removeTornadoTestFolder(arch) {
     const tornadoTestPath = path.join(__dirname, `python_files/lib/ipykernel/${arch}/cp3/tornado/test`);
     try {
         if (await fsExtra.pathExists(tornadoTestPath)) {

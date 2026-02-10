@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,9 +19,17 @@ import { getEnvironmentModulesApi } from './provider-module.js';
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	private readonly onDidDiscoverRuntimeEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMetadata>();
+	private readonly _onDidCompleteDiscoveryEmitter = new vscode.EventEmitter<void>();
+
+	/** Whether R runtime discovery has completed */
+	private _discoveryComplete = false;
+
+	/** The number of R runtimes discovered */
+	private _discoveredRuntimeCount = 0;
 
 	constructor(private readonly _context: vscode.ExtensionContext) {
 		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
+		this.onDidCompleteDiscovery = this._onDidCompleteDiscoveryEmitter.event;
 	}
 
 	/**
@@ -29,8 +37,37 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 */
 	onDidDiscoverRuntime: vscode.Event<positron.LanguageRuntimeMetadata>;
 
-	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-		return rRuntimeDiscoverer();
+	/**
+	 * An event that fires when R runtime discovery has completed.
+	 */
+	onDidCompleteDiscovery: vscode.Event<void>;
+
+	/**
+	 * Whether R runtime discovery has completed.
+	 */
+	get isDiscoveryComplete(): boolean {
+		return this._discoveryComplete;
+	}
+
+	/**
+	 * The number of R runtimes discovered.
+	 */
+	get discoveredRuntimeCount(): number {
+		return this._discoveredRuntimeCount;
+	}
+
+	async *discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+		// Wrap the discoverer to track completion
+		const discoverer = rRuntimeDiscoverer();
+		try {
+			for await (const runtime of discoverer) {
+				this._discoveredRuntimeCount++;
+				yield runtime;
+			}
+		} finally {
+			this._discoveryComplete = true;
+			this._onDidCompleteDiscoveryEmitter.fire();
+		}
 	}
 
 	registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
