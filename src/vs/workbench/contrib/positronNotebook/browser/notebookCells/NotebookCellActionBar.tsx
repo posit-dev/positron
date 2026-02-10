@@ -7,7 +7,7 @@
 import './NotebookCellActionBar.css';
 
 // React.
-import React from 'react';
+import { useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -22,6 +22,8 @@ import { useMenuActions } from '../useMenuActions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCellActionBarLeftGroup } from '../../common/positronNotebookCommon.js';
 
+const moreCellActions = localize('moreCellActions', 'More Cell Actions');
+
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
 }
@@ -32,7 +34,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	const contextKeyService = useCellScopedContextKeyService();
 
 	// State
-	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const isActiveCell = useObservedValue(cell.isActive);
 	const leftMenu = useMenu(MenuId.PositronNotebookCellActionBarLeft, contextKeyService);
 	const submenu = useMenu(MenuId.PositronNotebookCellActionBarSubmenu, contextKeyService);
@@ -76,6 +78,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 		{/* Dropdown menu for additional actions - only render if there are menu actions */}
 		{hasSubmenuActions ? (
 			<NotebookCellMoreActionsMenu
+				ariaLabel={moreCellActions}
 				cell={cell}
 				hoverManager={instance.hoverManager}
 				instance={instance}

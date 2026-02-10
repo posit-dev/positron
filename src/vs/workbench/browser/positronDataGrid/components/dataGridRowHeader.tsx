@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './dataGridRowHeader.css';
 
 // React.
-import React, { MouseEvent, useRef } from 'react';
+import { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';

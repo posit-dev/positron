@@ -6,7 +6,7 @@
   "publisher": "positron",
   "private": true,
   "engines": {
-    "vscode": "^1.104.0"
+    "vscode": "^1.108.0"
   },
   "categories": [
     "Other"
@@ -301,14 +301,6 @@
               "type": "number",
               "minimum": 512
             }
-          },
-          "positron.assistant.followups.enable": {
-            "type": "boolean",
-            "default": false,
-            "tags": [
-              "experimental"
-            ],
-            "description": "%configuration.followups.enable.description%"
           },
           "positron.assistant.consoleActions.enable": {
             "type": "boolean",

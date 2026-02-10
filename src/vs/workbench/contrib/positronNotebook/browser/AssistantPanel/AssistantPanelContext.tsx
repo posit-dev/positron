@@ -3,9 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { INotebookCellDTO, INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';

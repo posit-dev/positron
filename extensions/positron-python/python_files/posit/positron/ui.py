@@ -4,6 +4,7 @@
 #
 
 import contextlib
+import importlib.metadata
 import inspect
 import logging
 import os
@@ -14,6 +15,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 from urllib.parse import unquote, urlparse
 
 from comm.base_comm import BaseComm
+from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
 from .positron_comm import CommMessage, PositronComm
@@ -112,10 +114,27 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
         torch.set_printoptions(linewidth=width)
 
 
+# Get all installed packages
+def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
+    packages_dict = {}
+    for dist in importlib.metadata.distributions():
+        canonical = canonicalize_name(dist.name)
+        # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
+        if canonical not in packages_dict:
+            packages_dict[canonical] = {
+                "id": f"{canonical}-{dist.version}",
+                "name": dist.name,
+                "displayName": canonical,
+                "version": dist.version,
+            }
+    return sorted(packages_dict.values(), key=lambda p: p["displayName"])
+
+
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
+    "getPackagesInstalled": _get_packages_installed,
 }
 
 

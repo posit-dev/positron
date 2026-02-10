@@ -14,7 +14,7 @@ import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 import { IListAccessibilityProvider } from '../../../base/browser/ui/list/listWidget.js';
 
 export interface IActionWidgetDropdownAction extends IAction {
-	category?: { label: string; order: number };
+	category?: { label: string; order: number; showHeader?: boolean };
 	icon?: ThemeIcon;
 	description?: string;
 }
@@ -40,6 +40,9 @@ export interface IActionWidgetDropdownOptions extends IBaseDropdownOptions {
  * The benefits of this include non native features such as headers, descriptions, icons, and button bar
  */
 export class ActionWidgetDropdown extends BaseDropdown {
+
+	private enabled: boolean = true;
+
 	constructor(
 		container: HTMLElement,
 		private readonly _options: IActionWidgetDropdownOptions,
@@ -50,6 +53,10 @@ export class ActionWidgetDropdown extends BaseDropdown {
 	}
 
 	override show(): void {
+		if (!this.enabled) {
+			return;
+		}
+
 		let actionBarActions = this._options.actionBarActions ?? this._options.actionBarActionProvider?.getActions() ?? [];
 		const actions = this._options.actions ?? this._options.actionProvider?.getActions() ?? [];
 		const actionWidgetItems: IActionListItem<IActionWidgetDropdownAction>[] = [];
@@ -79,9 +86,18 @@ export class ActionWidgetDropdown extends BaseDropdown {
 			// The entire body of this loop has been replaced to support
 			// separator categories with icons
 			const [categoryLabel, categoryActions] = sortedCategories[i];
-
 			// Check if this category represents separator items (disabled actions with special category prefix)
 			const isSeparatorCategory = categoryLabel.startsWith('__separator_');
+			const showHeader = categoryActions[0]?.category?.showHeader ?? false;
+			if (showHeader && categoryLabel) {
+				actionWidgetItems.push({
+					kind: ActionListItemKind.Header,
+					label: categoryLabel,
+					canPreview: false,
+					disabled: false,
+					hideIcon: false,
+				});
+			}
 
 			if (isSeparatorCategory && categoryActions.length > 0) {
 				// Render as a separator with the action's label and icon
@@ -104,7 +120,7 @@ export class ActionWidgetDropdown extends BaseDropdown {
 						kind: ActionListItemKind.Action,
 						canPreview: false,
 						group: { title: '', icon: action.icon ?? ThemeIcon.fromId(action.checked ? Codicon.check.id : Codicon.blank.id) },
-						disabled: false,
+						disabled: !action.enabled,
 						hideIcon: false,
 						label: action.label,
 						keybinding: this._options.showItemKeybindings ?
@@ -181,5 +197,9 @@ export class ActionWidgetDropdown extends BaseDropdown {
 			actionBarActions,
 			accessibilityProvider
 		);
+	}
+
+	setEnabled(enabled: boolean): void {
+		this.enabled = enabled;
 	}
 }

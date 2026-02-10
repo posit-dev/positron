@@ -1,15 +1,18 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-code-cell-contents {
+	--_output-container-offset: 0.5rem;
+
 	.positron-notebook-editor-section {
 		position: relative;
 	}
 
-	.positron-notebook-cell-outputs {
-		overflow: hidden;
+	/* Wrapper for outputs section - provides positioning context for the left action menu */
+	.positron-notebook-outputs-section {
+		position: relative;
 
 		&.no-outputs {
 			/* Dont show empty outputs at all */
@@ -17,9 +20,13 @@
 		}
 	}
 
+	.positron-notebook-cell-outputs {
+		overflow: hidden;
+	}
+
 	.positron-notebook-code-cell-outputs-inner {
 		padding-inline: 1rem;
-		padding-block: 0.5rem;
+		padding-block: var(--_output-container-offset);
 
 		/* Avoid overlap with border which is overlaid from another element so
 		the layout doesn't automatically avoid it*/
@@ -47,6 +54,25 @@
 				padding-left: 5px;
 				padding-right: 5px;
 			}
+		}
+
+		/* Button to show hidden outputs styled as a link */
+		.show-hidden-output-button {
+			font-size: 12px;
+			color: var(--vscode-textLink-foreground);
+			background: none;
+			border: none;
+			padding: 0;
+		}
+
+		.show-hidden-output-button:hover {
+			text-decoration: underline;
+		}
+
+		/* override the global .monaco-workbench button focus outline style */
+		.show-hidden-output-button:focus,
+		.show-hidden-output-button:focus-visible {
+			outline-offset: 2px !important;
 		}
 	}
 }
