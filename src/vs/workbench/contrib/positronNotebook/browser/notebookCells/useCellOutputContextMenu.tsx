@@ -31,7 +31,7 @@ export function useCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 	const instance = useNotebookInstance();
 	const contextKeyService = useCellScopedContextKeyService();
 	const { contextMenuService } = usePositronReactServicesContext();
-	const actionRunnerRef = useRef<ActionRunner>();
+	const actionRunnerRef = useRef<ActionRunner>(null);
 
 	/**
 	 * Create and setup the action runner which allows us to run code
