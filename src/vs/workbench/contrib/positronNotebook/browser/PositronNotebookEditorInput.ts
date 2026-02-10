@@ -17,7 +17,7 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ExtUri, joinPath, isEqual } from '../../../../base/common/resources.js';
-import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { FileFilter, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
@@ -25,6 +25,7 @@ import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { NotebookProviderInfo } from '../../notebook/common/notebookProvider.js';
+import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 
 /**
  * Options for Positron notebook editor input, including backup support.
@@ -76,7 +77,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * `EditorInputWithPreferredResource` for more info.
 	 * @param options Options for the notebook editor input.
 	 */
-	static getOrCreate(instantiationService: IInstantiationService, resource: URI, preferredResource: URI | undefined, options: PositronNotebookEditorInputOptions = {}, viewType: string = 'jupyter-notebook') {
+	static getOrCreate(instantiationService: IInstantiationService, resource: URI, preferredResource: URI | undefined, viewType: string, options: PositronNotebookEditorInputOptions = {}) {
 
 		// In the vscode-notebooks there is some caching work done here for looking for editors that
 		// exist etc. We may need that eventually but not now.
@@ -99,7 +100,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	constructor(
 		readonly resource: URI,
 		public readonly options: PositronNotebookEditorInputOptions = {},
-		public readonly viewType: string = 'jupyter-notebook',
+		public readonly viewType: string,
 		// Borrow notebook resolver service from vscode notebook renderer.
 		@INotebookEditorModelResolverService private readonly _notebookModelResolverService: INotebookEditorModelResolverService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
@@ -253,14 +254,18 @@ export class PositronNotebookEditorInput extends EditorInput {
 		const pathCandidate = await this._suggestName(provider, suggestedName);
 
 		// Ask the user where to save the file with proper filters
-		const isQuarto = this.viewType === QMD_VIEW_TYPE;
-		const fileFilter = isQuarto
-			? { name: localize('positron.notebook.fileType.qmd', 'Quarto Document'), extensions: ['qmd'] }
-			: { name: localize('positron.notebook.fileType', 'Jupyter Notebook'), extensions: ['ipynb'] };
+		let filters: FileFilter[];
+		if (this.viewType === QMD_VIEW_TYPE) {
+			filters = [{ name: localize('positron.notebook.fileType.qmd', 'Quarto Document'), extensions: ['qmd'] }];
+		} else if (this.viewType === IPYNB_VIEW_TYPE) {
+			filters = [{ name: localize('positron.notebook.fileType', 'Jupyter Notebook'), extensions: ['ipynb'] }];
+		} else {
+			filters = [];
+		}
 		const target = await this._fileDialogService.showSaveDialog({
 			title: localize('positron.notebook.saveAs', "Save Notebook As"),
 			defaultUri: pathCandidate,
-			filters: [fileFilter],
+			filters,
 			availableFileSystems: options?.availableFileSystems
 		});
 		if (!target) {

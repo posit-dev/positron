@@ -39,7 +39,7 @@ import { extname, isEqual } from '../../../../base/common/resources.js';
 import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
+import { INotebookEditorOptions, IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { getActiveCell, SelectionState } from './selectionMachine.js';
@@ -147,6 +147,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
+						IPYNB_VIEW_TYPE,
 					);
 					return { editor: notebookEditorInput, options };
 				},
@@ -155,6 +156,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
+						IPYNB_VIEW_TYPE,
 					);
 					return { editor: notebookEditorInput, options };
 				},
@@ -220,6 +222,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						parsed.notebook,
 						undefined,
+						IPYNB_VIEW_TYPE,
 					);
 					// Create notebook editor options from base text editor options
 					const notebookEditorOptions: INotebookEditorOptions = {
@@ -263,7 +266,6 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
-						{},
 						QMD_VIEW_TYPE,
 					);
 					return { editor: notebookEditorInput, options };
@@ -306,8 +308,8 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						parsed.notebook,
 						undefined,
-						{},
 						QMD_VIEW_TYPE,
+						{},
 					);
 					const notebookEditorOptions: INotebookEditorOptions = {
 						...editorInput.options,
@@ -373,17 +375,17 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
-		const viewType = this.getViewType(workingCopy) ?? 'jupyter-notebook';
+		const viewType = this.getViewType(workingCopy) ?? IPYNB_VIEW_TYPE;
 		return PositronNotebookEditorInput.getOrCreate(
 			this.instantiationService,
 			workingCopy.resource,
 			undefined,
+			viewType,
 			{
 				// Mark as dirty since we're restoring from a backup
 				startDirty: true,
 				_workingCopy: workingCopy
 			},
-			viewType,
 		);
 	}
 
@@ -442,7 +444,7 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 			return undefined;
 		}
 
-		const input = PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, options);
+		const input = PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, IPYNB_VIEW_TYPE, options);
 		return input;
 	}
 }
