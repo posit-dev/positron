@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
+import * as React from 'react';
 
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
@@ -74,4 +74,4 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 		}
 	}
 	return getIcon();
-}
+};
