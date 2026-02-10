@@ -3,14 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import {
-	CELL_MARKER_REGEX,
-	QUARTO_TO_VSCODE_LANGUAGE,
-	DEFAULT_FENCE_LENGTH,
-} from '../../positronQuarto/common/quartoConstants.js';
-import { parseQuartoDocument } from '../../positronQuarto/common/quartoDocumentParser.js';
+import { DEFAULT_FENCE_LENGTH, QUARTO_TO_VSCODE_LANGUAGE } from './quartoNotebookSerializer.js';
+import { parseQuarto } from '../../positronQuarto/common/quartoParser.js';
 import { QuartoCodeBlock, QuartoNodeType, QuartoRawBlock } from '../../positronQuarto/common/quartoTypes.js';
 import { CellKind, ICellDto2 } from '../../notebook/common/notebookCommon.js';
+
+/** Regex to match cell boundary markers with surrounding whitespace */
+const CELL_MARKER_REGEX = /\s*<!-- cell -->\s*/;
 
 /**
  * Parse QMD text content into notebook cells.
@@ -25,7 +24,7 @@ export function parseQmdToNotebookCells(content: string): ICellDto2[] {
 		return [];
 	}
 
-	const doc = parseQuartoDocument(content);
+	const doc = parseQuarto(content);
 	const { blocks, frontmatter, lines } = doc;
 	const cells: ICellDto2[] = [];
 

@@ -7,7 +7,7 @@ import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { parseQmdToNotebookCells } from '../../common/quartoNotebookParser.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { isFrontmatterCell } from '../../../positronQuarto/common/quartoConstants.js';
+import { isFrontmatterCell } from '../../common/quartoNotebookSerializer.js';
 
 suite('QMD to NotebookData Converter', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -254,4 +254,7 @@ suite('Deserialize with cell markers', () => {
 		assert.strictEqual(cells[0].source, '# Content');
 		assert.strictEqual(cells[1].source, '');
 	});
-});
+});/** Regex to match cell boundary markers with surrounding whitespace */
+
+export const CELL_MARKER_REGEX = /\s*<!-- cell -->\s*/;
+

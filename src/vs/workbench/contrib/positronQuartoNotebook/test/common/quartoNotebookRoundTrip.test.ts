@@ -6,9 +6,8 @@
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { parseQmdToNotebookCells } from '../../common/quartoNotebookParser.js';
-import { serializeNotebookCells } from '../../common/quartoNotebookSerializer.js';
+import { serializeNotebookCells, isFrontmatterCell } from '../../common/quartoNotebookSerializer.js';
 import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js';
-import { isFrontmatterCell } from '../../../positronQuarto/common/quartoConstants.js';
 
 suite('Round-trip serialization', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
