@@ -21,9 +21,6 @@ export class RPackageManager {
 	/** Whether the user has declined to install pak (session-scoped) */
 	private _pakDeclined: boolean = false;
 
-	/** Cached repo package index (session-scoped) */
-	private _repoIndexCache: positron.LanguageRuntimePackage[] | null = null;
-
 	constructor(private readonly _session: RSession) { }
 
 	/**
@@ -206,14 +203,26 @@ export class RPackageManager {
 			}
 			return JSON.parse(result);
 		} else {
-			// Base R: cache available.packages() and filter locally
-			if (!this._repoIndexCache) {
-				await this._refreshRepoIndex();
+			// Base R: query available.packages() directly (R handles caching)
+			const sanitizedQuery = query.replace(/["\\]/g, '');
+			const code = [
+				'local({',
+				`query <- tolower("${sanitizedQuery}")`,
+				'ap <- available.packages()',
+				'matches <- ap[grepl(query, tolower(ap[, "Package"]), fixed = TRUE), , drop = FALSE]',
+				'cat(jsonlite::toJSON(data.frame(',
+				'id = matches[, "Package"],',
+				'name = matches[, "Package"],',
+				'displayName = matches[, "Package"],',
+				'version = "0"',
+				'), auto_unbox = TRUE))',
+				'})'
+			].join('\n');
+			const result = await this._executeAndCapture(code);
+			if (!result || result.trim() === '') {
+				return [];
 			}
-			const lowerQuery = query.toLowerCase();
-			return this._repoIndexCache!.filter(pkg =>
-				pkg.name.toLowerCase().includes(lowerQuery)
-			);
+			return JSON.parse(result);
 		}
 	}
 
@@ -405,26 +414,6 @@ export class RPackageManager {
 			this._pakDeclined = true;
 			return false;
 		}
-	}
-
-	/**
-	 * Refresh the cached repo package index (used for base R fallback only).
-	 */
-	private async _refreshRepoIndex(): Promise<void> {
-		const code = [
-			'local({',
-			`ap <- available.packages()`,
-			'cat(jsonlite::toJSON(data.frame(',
-			'id = ap[, "Package"],',
-			'name = ap[, "Package"],',
-			'displayName = ap[, "Package"],',
-			'version = "0"',
-			'), auto_unbox = TRUE))',
-			'})'
-		].join('\n');
-
-		const result = await this._executeAndCapture(code);
-		this._repoIndexCache = JSON.parse(result);
 	}
 
 	/**
