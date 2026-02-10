@@ -6,7 +6,7 @@
 import { test, tags, expect } from '../_test.setup';
 import { testCases } from './test-cases';
 import { evaluateWithLLM } from './evaluator/llm-grader';
-import { GRADE_LABELS, formatResultsMarkdown } from './evaluator/format-results';
+import { formatResultsMarkdown } from './evaluator/format-results';
 import { getModelKeys, getModelConfig, initResults, saveResult, finalizeResults, generateCatalog } from './evaluator/eval-results';
 
 test.use({
@@ -34,10 +34,10 @@ test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAI
 		const modelConfig = getModelConfig(modelKey);
 
 		test.describe(`${modelKey}`, () => {
-			test.beforeAll(async ({ app }) => {
-				// Sonnet is selected by default after login, skip if first
+			test.beforeAll(async ({ assistant }) => {
+				// Skip model selection if first model AND it's sonnet (the default after login)
 				if (index > 0 || modelKey !== 'sonnet') {
-					await app.workbench.assistant.selectChatModel(modelConfig.pickerName);
+					await assistant.selectChatModel(modelConfig.pickerName);
 				}
 			});
 
@@ -81,11 +81,12 @@ test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAI
 							explanation: evaluation.explanation,
 						});
 
+						// TEMPORARY: Skipping assertion, planning to leverage Insights Dashboard.
 						// Assert: Incomplete = test failure
-						expect(
-							evaluation.grade,
-							`Test failed with grade: ${GRADE_LABELS[evaluation.grade]}\n\n${evaluation.explanation}`
-						).not.toBe('I');
+						// expect(
+						// 	evaluation.grade,
+						// 	`Test failed with grade: ${GRADE_LABELS[evaluation.grade]}\n\n${evaluation.explanation}`
+						// ).not.toBe('I');
 					}
 				);
 			});
