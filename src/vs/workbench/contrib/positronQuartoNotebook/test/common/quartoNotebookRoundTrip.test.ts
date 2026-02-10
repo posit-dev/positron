@@ -125,7 +125,7 @@ suite('Round-trip serialization', () => {
 		const { cells: roundTripped } = qmdToNotebook(serialized);
 
 		assert.strictEqual(roundTripped.length, 3);
-		assert.ok(isFrontmatterCell(roundTripped[0].metadata));
+		assert.ok(isFrontmatterCell(roundTripped[0]));
 		assert.ok(roundTripped[0].source.includes('title: Test Document'));
 		assert.ok(roundTripped[0].source.includes('author: Test Author'));
 		assert.strictEqual(roundTripped[1].cellKind, CellKind.Markup);
@@ -148,7 +148,7 @@ suite('Round-trip serialization', () => {
 		const original = '# Just content\n\n```{python}\nx = 1\n```\n';
 		const { cells } = qmdToNotebook(original);
 
-		assert.ok(!isFrontmatterCell(cells[0].metadata));
+		assert.ok(!isFrontmatterCell(cells[0]));
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
 	});
 

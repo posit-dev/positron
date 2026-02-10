@@ -19,6 +19,10 @@ suite('NotebookData to QMD Serializer', () => {
 		return { cellKind: CellKind.Markup, source: content, language: 'markdown', mime: undefined, outputs: [] };
 	}
 
+	function frontmatterCell(content: string): ICellDto2 {
+		return codeCell(content, 'raw', { quarto: { type: 'frontmatter' } });
+	}
+
 	function notebook(cells: ICellDto2[]) {
 		return { cells, metadata: {} };
 	}
@@ -124,16 +128,7 @@ suite('NotebookData to QMD Serializer', () => {
 	});
 
 	test('should serialize frontmatter cell', () => {
-		const frontmatterCell: ICellDto2 = {
-			cellKind: CellKind.Code,
-			source: '---\ntitle: Test Document\nauthor: Test Author\n---',
-			language: 'yaml',
-			mime: undefined,
-			outputs: [],
-			metadata: { quarto: { type: 'frontmatter' } },
-		};
-
-		const result = notebookToQmd(notebook([frontmatterCell, markdownCell('# Content')]));
+		const result = notebookToQmd(notebook([frontmatterCell('---\ntitle: Test Document\nauthor: Test Author\n---'), markdownCell('# Content')]));
 
 		assert.ok(result.startsWith('---\n'));
 		assert.ok(result.includes('title: Test Document'));
@@ -141,19 +136,9 @@ suite('NotebookData to QMD Serializer', () => {
 	});
 
 	test('should not emit empty frontmatter cell', () => {
-		const frontmatterCell: ICellDto2 = {
-			cellKind: CellKind.Code,
-			source: '',
-			language: 'yaml',
-			mime: undefined,
-			outputs: [],
-			metadata: { quarto: { type: 'frontmatter' } },
-		};
+		const result = notebookToQmd(notebook([frontmatterCell(''), markdownCell('# Content')]));
 
-		const result = notebookToQmd(notebook([frontmatterCell, markdownCell('# Content')]));
-
-		assert.ok(!result.startsWith('---'));
-		assert.ok(result.startsWith('# Content'));
+		assert.strictEqual(result, '\n\n# Content\n');
 	});
 
 	test('should preserve empty markdown cells', () => {

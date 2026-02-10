@@ -50,7 +50,7 @@ suite('QMD to NotebookData Converter', () => {
 		// First cell should be frontmatter
 		assert.strictEqual(cells[0].cellKind, CellKind.Code);
 		assert.strictEqual(cells[0].language, 'raw');
-		assert.ok(isFrontmatterCell(cells[0].metadata));
+		assert.ok(isFrontmatterCell(cells[0]));
 		assert.ok(cells[0].source.includes('title: Test'));
 		assert.ok(cells[0].source.includes('author: User'));
 		// Should include --- delimiters
@@ -63,7 +63,7 @@ suite('QMD to NotebookData Converter', () => {
 
 		// First cell is frontmatter, second is markdown
 		assert.strictEqual(cells.length, 2);
-		assert.ok(isFrontmatterCell(cells[0].metadata));
+		assert.ok(isFrontmatterCell(cells[0]));
 		assert.strictEqual(cells[1].cellKind, CellKind.Markup);
 		assert.strictEqual(cells[1].source, '# Heading\n\nParagraph text.');
 	});
@@ -100,7 +100,7 @@ suite('QMD to NotebookData Converter', () => {
 		const { cells } = qmdToNotebook('---\ntitle: Pokémon\n---\n\nThis');
 
 		assert.strictEqual(cells.length, 2);
-		assert.ok(isFrontmatterCell(cells[0].metadata));
+		assert.ok(isFrontmatterCell(cells[0]));
 		assert.ok(cells[0].source.includes('Pokémon'));
 		assert.strictEqual(cells[1].cellKind, CellKind.Markup);
 		assert.strictEqual(cells[1].source, 'This');
@@ -149,7 +149,7 @@ suite('QMD to NotebookData Converter', () => {
 	test('should handle document with only metadata', () => {
 		const { cells } = qmdToNotebook('---\ntitle: Test\n---\n\n# Heading');
 
-		assert.ok(isFrontmatterCell(cells[0].metadata));
+		assert.ok(isFrontmatterCell(cells[0]));
 		assert.ok(cells[0].source.includes('title: Test'));
 	});
 
@@ -273,7 +273,7 @@ suite('Gap cursor advancing', () => {
 		const { cells } = qmdToNotebook('---\ntitle: Test\n---\n\n\n\n# Content');
 
 		assert.strictEqual(cells.length, 2);
-		assert.ok(isFrontmatterCell(cells[0].metadata));
+		assert.ok(isFrontmatterCell(cells[0]));
 		assert.strictEqual(cells[1].cellKind, CellKind.Markup);
 		assert.strictEqual(cells[1].source, '# Content');
 	});

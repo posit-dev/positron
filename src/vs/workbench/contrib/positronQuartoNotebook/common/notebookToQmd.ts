@@ -6,9 +6,6 @@
 import { CellKind, ICellDto2, NotebookData } from '../../notebook/common/notebookCommon.js';
 import { CellMetadataWithQuarto } from './quartoNotebookTypes.js';
 
-/** Default number of backticks in a code fence */
-const DEFAULT_FENCE_LENGTH = 3;
-
 /** HTML comment used to mark cell boundaries between consecutive markdown cells */
 const CELL_BOUNDARY_MARKER = '<!-- cell -->';
 
@@ -17,15 +14,15 @@ const CELL_BOUNDARY_MARKER = '<!-- cell -->';
  */
 export function notebookToQmd(notebook: NotebookData): string {
 	const { cells } = notebook;
+	if (cells.length === 0) {
+		return '';
+	}
+
 	const parts: string[] = [];
 	let startIndex = 0;
 
-	// Handle frontmatter
-	if (cells.length > 0 && isFrontmatterCell(cells[0].metadata)) {
-		const content = cells[0].source.trim();
-		if (content) {
-			parts.push(content);
-		}
+	if (isFrontmatterCell(cells[0])) {
+		parts.push(cells[0].source);
 		startIndex = 1;
 	}
 
@@ -41,7 +38,7 @@ export function notebookToQmd(notebook: NotebookData): string {
 			parts.push(cell.source);
 			prevWasMarkdown = true;
 		} else {
-			parts.push(serializeCodeCell(cell));
+			parts.push(codeCellToQmd(cell));
 			prevWasMarkdown = false;
 		}
 	}
@@ -49,17 +46,13 @@ export function notebookToQmd(notebook: NotebookData): string {
 	return parts.join('\n\n') + '\n';
 }
 
-/**
- * Serialize a single code cell to a fenced code block.
- */
-function serializeCodeCell(cell: ICellDto2): string {
-	const code = cell.source;
-	const language = cell.language;
+/** Serialize a code cell. */
+function codeCellToQmd(cell: ICellDto2): string {
+	const { source, language } = cell;
 	const fenceInfo = language ? `{${language}}` : '';
-	const fenceLength = getFenceLength(cell.metadata) ?? DEFAULT_FENCE_LENGTH;
-	const fence = '`'.repeat(fenceLength);
-
-	return fence + fenceInfo + '\n' + code + '\n' + fence;
+	return `\`\`\`${fenceInfo}
+${source}
+\`\`\``;
 }
 
 /** Type guard for cells with Quarto metadata */
@@ -68,11 +61,6 @@ function hasQuartoMetadata(meta: Record<string, unknown> | undefined): meta is C
 }
 
 /** Check if cell metadata indicates a YAML frontmatter cell */
-export function isFrontmatterCell(meta: Record<string, unknown> | undefined): boolean {
-	return hasQuartoMetadata(meta) && meta.quarto.type === 'frontmatter';
-}
-
-/** Get the code fence length for a cell, if specified in metadata */
-function getFenceLength(meta: Record<string, unknown> | undefined): number | undefined {
-	return hasQuartoMetadata(meta) ? meta.quarto.fenceLength : undefined;
+export function isFrontmatterCell({ metadata }: ICellDto2): boolean {
+	return hasQuartoMetadata(metadata) && metadata.quarto.type === 'frontmatter';
 }
