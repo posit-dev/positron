@@ -9,9 +9,7 @@ import { CellMetadataWithQuarto } from './quartoNotebookTypes.js';
 /** HTML comment used to mark cell boundaries between consecutive markdown cells */
 const CELL_BOUNDARY_MARKER = '<!-- cell -->';
 
-/**
- * Serialize notebook cells back to QMD text.
- */
+/** Serialize notebook cells QMD text. */
 export function notebookToQmd(notebook: NotebookData): string {
 	const { cells } = notebook;
 	if (cells.length === 0) {
