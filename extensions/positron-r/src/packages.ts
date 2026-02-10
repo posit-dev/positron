@@ -15,9 +15,6 @@ import { RSession } from './session';
  * primary backend with base R fallback.
  */
 export class RPackageManager {
-	/** Whether pak is available in the R session */
-	private _pakAvailable: boolean | null = null;
-
 	/** Whether the user has declined to install pak (session-scoped) */
 	private _pakDeclined: boolean = false;
 
@@ -354,7 +351,7 @@ export class RPackageManager {
 	 * Detect if pak is available in the R session.
 	 */
 	private async _detectPak(): Promise<boolean> {
-		const pak = await this._session.packageVersion("pak", null, true);
+		const pak = await this._session.packageVersion('pak', null, true);
 		return pak?.compatible;
 	}
 
@@ -383,11 +380,8 @@ export class RPackageManager {
 	 * Returns true if pak is available after this call.
 	 */
 	private async _ensurePak(): Promise<boolean> {
-		if (this._pakAvailable === null) {
-			this._pakAvailable = await this._detectPak();
-		}
-
-		if (this._pakAvailable) {
+		const hasPak = await this._detectPak();
+		if (hasPak) {
 			return true;
 		}
 
@@ -398,8 +392,7 @@ export class RPackageManager {
 		const install = await this._promptInstallPak();
 		if (install) {
 			await this._executeAndWait('install.packages("pak")');
-			this._pakAvailable = await this._detectPak();
-			return this._pakAvailable;
+			return await this._detectPak();
 		} else {
 			this._pakDeclined = true;
 			return false;
