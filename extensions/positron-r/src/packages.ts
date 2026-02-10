@@ -354,13 +354,8 @@ export class RPackageManager {
 	 * Detect if pak is available in the R session.
 	 */
 	private async _detectPak(): Promise<boolean> {
-		const code = `cat(requireNamespace("pak", quietly = TRUE))`;
-		try {
-			const result = await this._executeAndCapture(code);
-			return result.trim() === 'TRUE';
-		} catch {
-			return false;
-		}
+		const pak = await this._session.packageVersion("pak", null, true);
+		return pak?.compatible;
 	}
 
 	/**
@@ -380,12 +375,6 @@ export class RPackageManager {
 	 * Check if pak is available without prompting to install.
 	 */
 	private async _ensurePakChecked(): Promise<boolean> {
-		// TODO: It might be nice to cache this result, but pak can be installed/uninstalled during
-		// a session so we need to be careful about staleness. For now we'll just check every time.
-		// if (this._pakAvailable === null) {
-		// 	this._pakAvailable = await this._detectPak();
-		// }
-		// return this._pakAvailable;
 		return this._detectPak();
 	}
 
