@@ -80,6 +80,11 @@ export const debuggersExtPoint = extensionsRegistry.ExtensionsRegistry.registerE
 					type: 'boolean',
 					default: false
 				},
+				supportsFrameSelection: {
+					description: nls.localize('positron.extension.contributes.debuggers.supportsFrameSelection', "Whether this debugger wants to be notified when the user selects a stack frame. When true, a sentinel evaluate request is sent to the DAP server on frame selection. Defaults to false."),
+					type: 'boolean',
+					default: false
+				},
 				// --- End Positron ---
 				configurationSnippets: {
 					description: nls.localize('vscode.extension.contributes.debuggers.configurationSnippets', "Snippets for adding new configurations in \'launch.json\'."),
