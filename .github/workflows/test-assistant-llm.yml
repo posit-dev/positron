@@ -25,11 +25,9 @@ jobs:  # to input into inspect-ai-test job below
       grep: ""
       project: "inspect-ai"
       display_name: "electron (ubuntu)"
-      currents_tags: "merge,electron/ubuntu"
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      report_currents: false
       skip_extension_test: true
       workers: 1
     secrets: inherit
@@ -42,9 +40,7 @@ jobs:  # to input into inspect-ai-test job below
     #   grep: ""
     #   project: "inpsect-ai"
     #   display_name: "electron (windows)"
-    #   currents_tags: "merge,electron/windows"
     #   upload_logs: false
-    #   report_currents: false
     #   skip_extension_test: true
     # secrets: inherit
 

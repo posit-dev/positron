@@ -5,23 +5,11 @@
 
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
-import { currentsReporter, CurrentsFixtures, CurrentsWorkerFixtures } from '@currents/playwright';
 import * as fs from 'fs';
-
-// Merge Currents Fixtures into CustomTestOptions
-type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorkerFixtures;
 
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
-const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
-	? [currentsReporter({
-		ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
-		recordKey: process.env.CURRENTS_RECORD_KEY || '',
-		projectId: 'ZOs5z2',
-		disableTitleTags: true,
-	})]
-	: [];
 // Custom reporter is enabled by default.
 // Disable with: ENABLE_CUSTOM_REPORTER=false (or "false", 0, "0", no, "no")
 // YAML booleans are converted to strings by GitHub Actions, so both work.
@@ -47,7 +35,7 @@ const baseIgnore = [
 	'**/remote-ssh/**',
 ];
 
-export default defineConfig<ExtendedTestOptions>({
+export default defineConfig<CustomTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
@@ -73,7 +61,6 @@ export default defineConfig<ExtendedTestOptions>({
 	reporter: process.env.CI
 		? [
 			...githubSummaryReport,
-			...currentsReporters,
 			...customReporter,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
@@ -90,7 +77,6 @@ export default defineConfig<ExtendedTestOptions>({
 		trace: 'off', // we are manually handling tracing in _test.setup.ts
 		actionTimeout: 15000,
 		navigationTimeout: 15000,
-		currentsFixturesEnabled: !!process.env.CI,
 	},
 
 	projects: [
