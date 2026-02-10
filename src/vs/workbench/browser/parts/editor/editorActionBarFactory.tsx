@@ -337,7 +337,7 @@ export class EditorActionBarFactory extends Disposable {
 		}
 
 		// Action bar elements.
-		const actionBarElements: JSX.Element[] = [];
+		const actionBarElements: React.JSX.Element[] = [];
 
 		/**
 		 * Processes an action.
@@ -351,15 +351,15 @@ export class EditorActionBarFactory extends Disposable {
 			if (action instanceof MenuItemAction) {
 				// Handle the menu item action.
 				if (!action.positronActionBarOptions || isPositronActionBarButtonOptions(action.positronActionBarOptions)) {
-					actionBarElements.push(<ActionBarActionButton action={action} />);
+					actionBarElements.push(<ActionBarActionButton key={action.id} action={action} />);
 				} else if (isPositronActionBarCheckboxOptions(action.positronActionBarOptions)) {
-					actionBarElements.push(<ActionBarActionCheckbox action={action} />);
+					actionBarElements.push(<ActionBarActionCheckbox key={action.id} action={action} />);
 				} else if (isPositronActionBarToggleOptions(action.positronActionBarOptions)) {
-					actionBarElements.push(<ActionBarActionToggle action={action} />);
+					actionBarElements.push(<ActionBarActionToggle key={action.id} action={action} />);
 				} else {
 					// This indicates unknown positronActionBarOptions and is a bug.
 					console.warn(`EditorActionBarFactory: Unknown positronActionBarOptions for action ${action.id}. Using ActionBarActionButton as fallback.`);
-					actionBarElements.push(<ActionBarActionButton action={action} />);
+					actionBarElements.push(<ActionBarActionButton key={action.id} action={action} />);
 				}
 			} else {
 				secondaryActions.push(action);
@@ -382,6 +382,7 @@ export class EditorActionBarFactory extends Disposable {
 			if (!submenuItemAction.item.isSplitButton) {
 				actionBarElements.push(
 					<ActionBarMenuButton
+						key={submenuItemAction.id}
 						actions={() => submenuActions}
 						align='left'
 						ariaLabel={submenuItemAction.label ?? submenuItemAction.tooltip}
@@ -400,6 +401,7 @@ export class EditorActionBarFactory extends Disposable {
 				if (firstAction instanceof MenuItemAction) {
 					actionBarElements.push(
 						<ActionBarMenuButton
+							key={submenuItemAction.id}
 							actions={() => submenuActions}
 							align='left'
 							ariaLabel={firstAction.label ?? firstAction.tooltip}
@@ -436,7 +438,7 @@ export class EditorActionBarFactory extends Disposable {
 
 			// Process separators.
 			if (action instanceof Separator) {
-				actionBarElements.push(<ActionBarSeparator />);
+				actionBarElements.push(<ActionBarSeparator key={`separator-${actionBarElements.length}`} />);
 				continue;
 			}
 
@@ -481,6 +483,7 @@ export class EditorActionBarFactory extends Disposable {
 		if (secondaryActions.length) {
 			actionBarElements.push(
 				<ActionBarMenuButton
+					key='more-actions'
 					actions={() => secondaryActions}
 					align='left'
 					ariaLabel={positronMoreActionsAriaLabel}

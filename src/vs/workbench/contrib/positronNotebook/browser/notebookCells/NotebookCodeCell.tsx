@@ -6,9 +6,6 @@
 // CSS.
 import './NotebookCodeCell.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';

@@ -762,7 +762,7 @@ export class TunnelPanel extends ViewPane {
 	private protocolChangableContextKey: IContextKey<boolean>;
 	private isEditing: boolean = false;
 	// TODO: Should this be removed?
-	//@ts-expect-error
+	// @ts-expect-error
 	private titleActions: IAction[] = [];
 	private lastFocus: number[] = [];
 
