@@ -27,6 +27,7 @@ import { collectDiagnostics } from './diagnostics.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
 import { resetAssistantState } from './reset.js';
 import { verifyProvidersInCustomModels } from './modelDefinitions.js';
+import { registerPositAuthProvider } from './providers/posit/positProvider.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -393,6 +394,8 @@ async function toggleInlineCompletions() {
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
+	// Register Posit AI authentication provider
+	registerPositAuthProvider(context);
 
 	// Register Copilot service
 	registerCopilotService(context);
