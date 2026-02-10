@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 
 // Other dependencies.
 import { showCustomContextMenu } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
@@ -23,7 +23,7 @@ interface NotebookCellMoreActionsMenuProps {
 	hoverManager?: IHoverManager;
 	instance: IPositronNotebookInstance;
 	isMenuOpen: boolean;
-	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
+	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][];
 	setIsMenuOpen: (isOpen: boolean) => void;
 }
 

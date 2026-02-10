@@ -522,6 +522,7 @@
 
 			addModule('he');
 			addModule('react');
+			addModule('react/jsx-runtime');
 			addModule('react-dom');
 			addModule('react-dom/client');
 			addModule('react-window');

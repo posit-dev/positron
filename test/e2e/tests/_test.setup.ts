@@ -28,18 +28,8 @@ let appFixtureFailed = false;
 let appFixtureScreenshot: Buffer | undefined;
 let renamedLogsPath = 'not-set';
 
-// Currents fixtures
-import {
-	CurrentsFixtures,
-	CurrentsWorkerFixtures,
-	fixtures as currentsFixtures
-	// eslint-disable-next-line local/code-import-patterns
-} from '@currents/playwright';
-
 // Test fixtures
-export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
-	...currentsFixtures.baseFixtures,
-	...currentsFixtures.actionFixtures,
+export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
 
 	envVars: [async ({ }, use, workerInfo) => {

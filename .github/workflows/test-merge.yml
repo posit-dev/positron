@@ -21,7 +21,6 @@ jobs:
       grep: ""
       project: "e2e-electron"
       display_name: "electron"
-      currents_tags: "merge,electron/ubuntu"
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
@@ -41,7 +40,6 @@ jobs:
       grep: ""
       project: "e2e-windows"
       display_name: "windows"
-      currents_tags: "merge,electron/windows"
       allow_soft_fail: true
       upload_logs: false
       shards: 3
@@ -56,7 +54,6 @@ jobs:
       grep: ""
       display_name: "chromium"
       project: "e2e-chromium"
-      currents_tags: "merge,chromium/ubuntu"
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true
