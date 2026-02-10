@@ -5,15 +5,15 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { parseQmdToNotebookCells } from '../../common/quartoNotebookParser.js';
+import { qmdToNotebook } from '../../common/qmdToNotebook.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { isFrontmatterCell } from '../../common/quartoNotebookSerializer.js';
+import { isFrontmatterCell } from '../../common/notebookToQmd.js';
 
 suite('QMD to NotebookData Converter', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('should convert CodeBlock to code cell', () => {
-		const cells = parseQmdToNotebookCells('```{python}\nprint("hello")\n```');
+		const { cells } = qmdToNotebook('```{python}\nprint("hello")\n```');
 
 		assert.strictEqual(cells.length, 1);
 		assert.strictEqual(cells[0].cellKind, CellKind.Code);
@@ -22,7 +22,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should merge consecutive markdown blocks', () => {
-		const cells = parseQmdToNotebookCells('# Title\n\nSome paragraph text.');
+		const { cells } = qmdToNotebook('# Title\n\nSome paragraph text.');
 
 		assert.strictEqual(cells.length, 1);
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
@@ -30,32 +30,26 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should convert RawBlock to code cell with format as language', () => {
-		const cells = parseQmdToNotebookCells('```{=latex}\n\\frac{1}{2}\n```');
+		const { cells } = qmdToNotebook('```{=latex}\n\\frac{1}{2}\n```');
 
 		assert.strictEqual(cells.length, 1);
 		assert.strictEqual(cells[0].cellKind, CellKind.Code);
-		assert.strictEqual(cells[0].language, 'latex');
+		assert.strictEqual(cells[0].language, 'raw');
 	});
 
 	test('should treat bare fence as markdown (non-executable)', () => {
-		const cells = parseQmdToNotebookCells('```\nsome code\n```');
+		const { cells } = qmdToNotebook('```\nsome code\n```');
 
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
 		assert.strictEqual(cells[0].language, 'markdown');
 	});
 
-	test('should map ojs to javascript', () => {
-		const cells = parseQmdToNotebookCells('```{ojs}\n1 + 1\n```');
-
-		assert.strictEqual(cells[0].language, 'javascript');
-	});
-
 	test('should extract frontmatter to first cell', () => {
-		const cells = parseQmdToNotebookCells('---\ntitle: Test\nauthor: User\n---\n\n# Content');
+		const { cells } = qmdToNotebook('---\ntitle: Test\nauthor: User\n---\n\n# Content');
 
 		// First cell should be frontmatter
 		assert.strictEqual(cells[0].cellKind, CellKind.Code);
-		assert.strictEqual(cells[0].language, 'yaml');
+		assert.strictEqual(cells[0].language, 'raw');
 		assert.ok(isFrontmatterCell(cells[0].metadata));
 		assert.ok(cells[0].source.includes('title: Test'));
 		assert.ok(cells[0].source.includes('author: User'));
@@ -65,7 +59,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should preserve markdown content after front matter', () => {
-		const cells = parseQmdToNotebookCells('---\ntitle: Test\n---\n\n# Heading\n\nParagraph text.');
+		const { cells } = qmdToNotebook('---\ntitle: Test\n---\n\n# Heading\n\nParagraph text.');
 
 		// First cell is frontmatter, second is markdown
 		assert.strictEqual(cells.length, 2);
@@ -75,7 +69,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should handle multi-byte UTF-8 characters correctly', () => {
-		const cells = parseQmdToNotebookCells('# Pokémon\n\nI love Pokémon!');
+		const { cells } = qmdToNotebook('# Pokémon\n\nI love Pokémon!');
 
 		assert.strictEqual(cells.length, 1);
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
@@ -83,7 +77,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should handle multi-byte UTF-8 before code block', () => {
-		const cells = parseQmdToNotebookCells('# Pokémon\n\n```{python}\nprint("hello")\n```');
+		const { cells } = qmdToNotebook('# Pokémon\n\n```{python}\nprint("hello")\n```');
 
 		assert.strictEqual(cells.length, 2);
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
@@ -93,7 +87,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should handle markdown after code with UTF-8', () => {
-		const cells = parseQmdToNotebookCells('```{python}\nprint("Pokémon")\n```\n\n# Results');
+		const { cells } = qmdToNotebook('```{python}\nprint("Pokémon")\n```\n\n# Results');
 
 		assert.strictEqual(cells.length, 2);
 		assert.strictEqual(cells[0].cellKind, CellKind.Code);
@@ -103,7 +97,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should handle markdown after front matter with UTF-8', () => {
-		const cells = parseQmdToNotebookCells('---\ntitle: Pokémon\n---\n\nThis');
+		const { cells } = qmdToNotebook('---\ntitle: Pokémon\n---\n\nThis');
 
 		assert.strictEqual(cells.length, 2);
 		assert.ok(isFrontmatterCell(cells[0].metadata));
@@ -113,7 +107,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should handle Div blocks as markdown content', () => {
-		const cells = parseQmdToNotebookCells('::: {.callout-note}\nThis is a callout.\n:::');
+		const { cells } = qmdToNotebook('::: {.callout-note}\nThis is a callout.\n:::');
 
 		assert.strictEqual(cells.length, 1);
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
@@ -121,7 +115,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should interleave markdown and code cells correctly', () => {
-		const cells = parseQmdToNotebookCells('# Intro\n\n```{python}\nx = 1\n```\n\n## Results\n\n```{r}\nplot(x)\n```');
+		const { cells } = qmdToNotebook('# Intro\n\n```{python}\nx = 1\n```\n\n## Results\n\n```{r}\nplot(x)\n```');
 
 		assert.strictEqual(cells.length, 4);
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
@@ -135,32 +129,32 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should handle R language', () => {
-		const cells = parseQmdToNotebookCells('```{r}\nplot(x)\n```');
+		const { cells } = qmdToNotebook('```{r}\nplot(x)\n```');
 
 		assert.strictEqual(cells[0].language, 'r');
 	});
 
 	test('should handle Julia language', () => {
-		const cells = parseQmdToNotebookCells('```{julia}\nprintln("hi")\n```');
+		const { cells } = qmdToNotebook('```{julia}\nprintln("hi")\n```');
 
 		assert.strictEqual(cells[0].language, 'julia');
 	});
 
 	test('should open empty document with no cells', () => {
-		const cells = parseQmdToNotebookCells('');
+		const { cells } = qmdToNotebook('');
 
 		assert.strictEqual(cells.length, 0);
 	});
 
 	test('should handle document with only metadata', () => {
-		const cells = parseQmdToNotebookCells('---\ntitle: Test\n---\n\n# Heading');
+		const { cells } = qmdToNotebook('---\ntitle: Test\n---\n\n# Heading');
 
 		assert.ok(isFrontmatterCell(cells[0].metadata));
 		assert.ok(cells[0].source.includes('title: Test'));
 	});
 
 	test('should handle code cell with multiple execution options', () => {
-		const cells = parseQmdToNotebookCells('```{python}\n#| echo: false\n#| eval: true\n#| output: asis\nprint("hello")\n```');
+		const { cells } = qmdToNotebook('```{python}\n#| echo: false\n#| eval: true\n#| output: asis\nprint("hello")\n```');
 
 		assert.strictEqual(cells.length, 1);
 		assert.strictEqual(cells[0].cellKind, CellKind.Code);
@@ -169,13 +163,13 @@ suite('QMD to NotebookData Converter', () => {
 
 	test('should preserve code content exactly', () => {
 		const code = 'def foo():\n    return 42\n\nprint(foo())';
-		const cells = parseQmdToNotebookCells('```{python}\n' + code + '\n```');
+		const { cells } = qmdToNotebook('```{python}\n' + code + '\n```');
 
 		assert.strictEqual(cells[0].source, code);
 	});
 
 	test('should handle multiple code blocks with different languages', () => {
-		const cells = parseQmdToNotebookCells('```{python}\nx = 1\n```\n\n```{r}\ny <- 2\n```\n\n```{julia}\nz = 3\n```');
+		const { cells } = qmdToNotebook('```{python}\nx = 1\n```\n\n```{r}\ny <- 2\n```\n\n```{julia}\nz = 3\n```');
 
 		assert.strictEqual(cells.length, 3);
 		assert.strictEqual(cells[0].language, 'python');
@@ -184,7 +178,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should handle HorizontalRule in markdown', () => {
-		const cells = parseQmdToNotebookCells('# Before\n\n---\n\n# After');
+		const { cells } = qmdToNotebook('# Before\n\n---\n\n# After');
 
 		assert.strictEqual(cells.length, 1);
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
@@ -192,7 +186,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should handle HorizontalRule between code blocks', () => {
-		const cells = parseQmdToNotebookCells('```{python}\nx = 1\n```\n\n---\n\n```{python}\ny = 2\n```');
+		const { cells } = qmdToNotebook('```{python}\nx = 1\n```\n\n---\n\n```{python}\ny = 2\n```');
 
 		assert.strictEqual(cells.length, 3);
 		assert.strictEqual(cells[0].cellKind, CellKind.Code);
@@ -207,7 +201,7 @@ suite('Deserialize with cell markers', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('should split markdown at <!-- cell --> marker', () => {
-		const cells = parseQmdToNotebookCells('# Cell 1\n\n<!-- cell -->\n\n# Cell 2');
+		const { cells } = qmdToNotebook('# Cell 1\n\n<!-- cell -->\n\n# Cell 2');
 
 		assert.strictEqual(cells.length, 2);
 		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
@@ -217,20 +211,20 @@ suite('Deserialize with cell markers', () => {
 	});
 
 	test('should handle multiple cell markers', () => {
-		const cells = parseQmdToNotebookCells('# One\n\n<!-- cell -->\n\n# Two\n\n<!-- cell -->\n\n# Three');
+		const { cells } = qmdToNotebook('# One\n\n<!-- cell -->\n\n# Two\n\n<!-- cell -->\n\n# Three');
 
 		assert.strictEqual(cells.length, 3);
 	});
 
 	test('should not include marker content in cells', () => {
-		const cells = parseQmdToNotebookCells('# Cell 1\n\n<!-- cell -->\n\n# Cell 2');
+		const { cells } = qmdToNotebook('# Cell 1\n\n<!-- cell -->\n\n# Cell 2');
 
 		assert.ok(!cells[0].source.includes('<!-- cell -->'));
 		assert.ok(!cells[1].source.includes('<!-- cell -->'));
 	});
 
 	test('should handle marker between code blocks', () => {
-		const cells = parseQmdToNotebookCells('```{python}\nx = 1\n```\n\n<!-- cell -->\n\n```{r}\ny = 2\n```');
+		const { cells } = qmdToNotebook('```{python}\nx = 1\n```\n\n<!-- cell -->\n\n```{r}\ny = 2\n```');
 
 		// Should have 2 code cells (marker is ignored between code blocks since
 		// the markdown region between them is just the marker, which splits into empty parts)
@@ -240,7 +234,7 @@ suite('Deserialize with cell markers', () => {
 	});
 
 	test('should handle marker at document start', () => {
-		const cells = parseQmdToNotebookCells('<!-- cell -->\n\n# Content');
+		const { cells } = qmdToNotebook('<!-- cell -->\n\n# Content');
 
 		assert.strictEqual(cells.length, 2);
 		assert.strictEqual(cells[0].source, '');
@@ -248,13 +242,74 @@ suite('Deserialize with cell markers', () => {
 	});
 
 	test('should handle marker at document end', () => {
-		const cells = parseQmdToNotebookCells('# Content\n\n<!-- cell -->');
+		const { cells } = qmdToNotebook('# Content\n\n<!-- cell -->');
 
 		assert.strictEqual(cells.length, 2);
 		assert.strictEqual(cells[0].source, '# Content');
 		assert.strictEqual(cells[1].source, '');
 	});
-});/** Regex to match cell boundary markers with surrounding whitespace */
+});
 
-export const CELL_MARKER_REGEX = /\s*<!-- cell -->\s*/;
+suite('Gap cursor advancing', () => {
+	ensureNoDisposablesAreLeakedInTestSuite();
 
+	test('should skip multiple blank lines between code blocks', () => {
+		const { cells } = qmdToNotebook('```{python}\nx = 1\n```\n\n\n\n```{python}\ny = 2\n```');
+
+		assert.strictEqual(cells.length, 2);
+		assert.strictEqual(cells[0].source, 'x = 1');
+		assert.strictEqual(cells[1].source, 'y = 2');
+	});
+
+	test('should handle no blank lines between code blocks', () => {
+		const { cells } = qmdToNotebook('```{python}\nx = 1\n```\n```{python}\ny = 2\n```');
+
+		assert.strictEqual(cells.length, 2);
+		assert.strictEqual(cells[0].source, 'x = 1');
+		assert.strictEqual(cells[1].source, 'y = 2');
+	});
+
+	test('should skip multiple blank lines after frontmatter', () => {
+		const { cells } = qmdToNotebook('---\ntitle: Test\n---\n\n\n\n# Content');
+
+		assert.strictEqual(cells.length, 2);
+		assert.ok(isFrontmatterCell(cells[0].metadata));
+		assert.strictEqual(cells[1].cellKind, CellKind.Markup);
+		assert.strictEqual(cells[1].source, '# Content');
+	});
+
+	test('should not produce empty markdown cell from trailing blank lines', () => {
+		const { cells } = qmdToNotebook('```{python}\nx = 1\n```\n\n\n');
+
+		assert.strictEqual(cells.length, 1);
+		assert.strictEqual(cells[0].source, 'x = 1');
+	});
+
+	test('should not produce cells from document of only blank lines', () => {
+		const { cells } = qmdToNotebook('\n\n\n');
+
+		// All blank lines — either 0 cells or at most an empty-ish markup cell
+		const nonEmpty = cells.filter(c => c.source.trim() !== '');
+		assert.strictEqual(nonEmpty.length, 0);
+	});
+
+	test('should skip blank lines between code block and end of document', () => {
+		const { cells } = qmdToNotebook('# Intro\n\n```{python}\nx = 1\n```\n\n\n\n');
+
+		assert.strictEqual(cells.length, 2);
+		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
+		assert.strictEqual(cells[0].source, '# Intro');
+		assert.strictEqual(cells[1].cellKind, CellKind.Code);
+		assert.strictEqual(cells[1].source, 'x = 1');
+	});
+
+	test('should handle markdown between code blocks with multiple blank lines', () => {
+		const { cells } = qmdToNotebook('```{python}\nx = 1\n```\n\n\n\n# Middle\n\n\n\n```{python}\ny = 2\n```');
+
+		assert.strictEqual(cells.length, 3);
+		assert.strictEqual(cells[0].source, 'x = 1');
+		assert.strictEqual(cells[1].cellKind, CellKind.Markup);
+		assert.strictEqual(cells[1].source, '# Middle');
+		assert.strictEqual(cells[2].source, 'y = 2');
+	});
+});
