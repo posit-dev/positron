@@ -367,12 +367,13 @@ export class RPackageManager {
 	 * Prompt the user to install pak.
 	 */
 	private async _promptInstallPak(): Promise<boolean> {
+		const install = vscode.l10n.t('Install pak');
 		const result = await vscode.window.showInformationMessage(
 			vscode.l10n.t('The pak package provides faster and more reliable package operations. Would you like to install it?'),
-			vscode.l10n.t('Install pak'),
+			install,
 			vscode.l10n.t('Not now')
 		);
-		return result === vscode.l10n.t('Install pak');
+		return result === install;
 	}
 
 	/**
