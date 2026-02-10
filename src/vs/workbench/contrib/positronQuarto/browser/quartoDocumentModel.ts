@@ -10,8 +10,7 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { StringSHA1 } from '../../../../base/common/hash.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent, QuartoNodeType } from '../common/quartoTypes.js';
-import { kernelToLanguageId } from '../common/quartoConstants.js';
-import { parseQuartoDocument } from '../common/quartoDocumentParser.js';
+import { kernelToLanguageId, parseQuarto } from '../common/quartoParser.js';
 
 /**
  * Computes a SHA-1 hash of the content, truncated to 16 characters.
@@ -219,7 +218,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	}
 
 	private _parse(content: string): ParsedDocument {
-		const doc = parseQuartoDocument(content, this._logService);
+		const doc = parseQuarto(content, this._logService);
 
 		// Convert code blocks to cells
 		const cells: QuartoCodeCell[] = [];

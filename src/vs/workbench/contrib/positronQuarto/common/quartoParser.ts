@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { parseFrontmatter } from './quartoConstants.js';
 import {
 	QuartoNodeType,
 	QuartoSourceLocation,
@@ -17,16 +16,16 @@ import {
 // --- Regular expressions for parsing Quarto documents ---
 
 /** Matches YAML frontmatter block at the start of a document */
-export const FRONTMATTER_REGEX = /^---\r?\n(?<content>[\s\S]*?)\r?\n---/;
+const FRONTMATTER_REGEX = /^---\r?\n(?<content>[\s\S]*?)\r?\n---/;
 
 /** Matches the opening fence of a code block: ```{language options} */
-export const CODE_START_REGEX = /^```\{(?<language>\w+)(?<options>[^}]*)\}\s*$/;
+const CODE_START_REGEX = /^```\{(?<language>\w+)(?<options>[^}]*)\}\s*$/;
 
 /** Matches the opening fence of a raw block: ```{=format} */
-export const RAW_START_REGEX = /^```\{=(?<format>\w+)\}\s*$/;
+const RAW_START_REGEX = /^```\{=(?<format>\w+)\}\s*$/;
 
 /** Matches a closing code fence. */
-export const CODE_END_REGEX = /^```\s*$/;
+const CODE_END_REGEX = /^```\s*$/;
 
 // --- Helpers ---
 
@@ -34,7 +33,7 @@ export const CODE_END_REGEX = /^```\s*$/;
  * Extracts the block label from chunk options.
  * The label is the first option if it doesn't contain '='.
  */
-export function extractLabel(options: string): string | undefined {
+function extractLabel(options: string): string | undefined {
 	if (!options) {
 		return undefined;
 	}
@@ -44,6 +43,61 @@ export function extractLabel(options: string): string | undefined {
 	}
 	return undefined;
 }
+
+/**
+ * Simple YAML frontmatter parser.
+ * Extracts jupyter kernel specification from frontmatter.
+ */
+function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string; } {
+	const result: { jupyterKernel?: string; } = {};
+
+	// Look for jupyter: kernel_name or jupyter:\n  kernelspec:\n    name: kernel_name
+	const lines = frontmatterContent.split(/\r?\n/);
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+
+		// Check for simple form: jupyter: python3
+		const simpleMatch = line.match(/^jupyter:\s*(\S+)\s*$/);
+		if (simpleMatch) {
+			result.jupyterKernel = simpleMatch[1];
+			break;
+		}
+
+		// Check for complex form: jupyter:
+		if (/^jupyter:\s*$/.test(line)) {
+			// Look for kernelspec in subsequent lines
+			for (let j = i + 1; j < lines.length; j++) {
+				const subLine = lines[j];
+				// If we hit a non-indented line, stop searching
+				if (subLine.match(/^\S/)) {
+					break;
+				}
+				// Look for kernelspec:
+				if (/^\s+kernelspec:\s*$/.test(subLine)) {
+					// Look for name in subsequent lines
+					for (let k = j + 1; k < lines.length; k++) {
+						const kernelLine = lines[k];
+						// If we hit a line with less indentation, stop
+						if (kernelLine.match(/^\s{0,3}\S/)) {
+							break;
+						}
+						const nameMatch = kernelLine.match(/^\s+name:\s*(\S+)/);
+						if (nameMatch) {
+							result.jupyterKernel = nameMatch[1];
+							break;
+						}
+					}
+					break;
+				}
+			}
+			break;
+		}
+	}
+
+	return result;
+}
+
 
 
 // --- Parser internals ---
@@ -70,7 +124,7 @@ type OpenBlock = OpenCodeBlock | OpenRawBlock;
 /**
  * Parse a QMD document.
  */
-export function parseQuartoDocument(content: string, logService?: ILogService): QuartoDocument {
+export function parseQuarto(content: string, logService?: ILogService): QuartoDocument {
 	if (!content) {
 		return { blocks: [], lines: [] };
 	}
@@ -157,4 +211,22 @@ export function parseQuartoDocument(content: string, logService?: ILogService): 
 	}
 
 	return { blocks, frontmatter, lines };
+}// --- Shared helpers ---
+/**
+ * Maps common Jupyter kernel names to language identifiers.
+ */
+
+export function kernelToLanguageId(kernelName: string): string | undefined {
+	const kernelLower = kernelName.toLowerCase();
+	if (kernelLower.includes('python')) {
+		return 'python';
+	}
+	if (kernelLower.includes('ir') || kernelLower === 'r') {
+		return 'r';
+	}
+	if (kernelLower.includes('julia')) {
+		return 'julia';
+	}
+	return undefined;
 }
+

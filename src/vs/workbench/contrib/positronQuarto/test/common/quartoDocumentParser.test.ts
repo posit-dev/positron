@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { parseQuartoDocument } from '../../common/quartoDocumentParser.js';
+import { parseQuarto } from '../../common/quartoParser.js';
 import { QuartoCodeBlock, QuartoNodeType, QuartoRawBlock } from '../../common/quartoTypes.js';
 
 suite('parseQuartoDocument', () => {
@@ -16,19 +16,19 @@ suite('parseQuartoDocument', () => {
 
 	suite('Empty and minimal documents', () => {
 		test('empty string returns no blocks', () => {
-			const result = parseQuartoDocument('');
+			const result = parseQuarto('');
 			assert.strictEqual(result.blocks.length, 0);
 			assert.strictEqual(result.frontmatter, undefined);
 		});
 
 		test('markdown-only document returns no blocks', () => {
-			const result = parseQuartoDocument('# Hello\n\nSome text here.\n');
+			const result = parseQuarto('# Hello\n\nSome text here.\n');
 			assert.strictEqual(result.blocks.length, 0);
 			assert.strictEqual(result.frontmatter, undefined);
 		});
 
 		test('frontmatter-only document returns no blocks', () => {
-			const result = parseQuartoDocument('---\ntitle: Test\n---\n');
+			const result = parseQuarto('---\ntitle: Test\n---\n');
 			assert.strictEqual(result.blocks.length, 0);
 			assert.ok(result.frontmatter);
 			assert.strictEqual(result.frontmatter.rawContent, '---\ntitle: Test\n---');
@@ -40,35 +40,35 @@ suite('parseQuartoDocument', () => {
 	suite('Frontmatter', () => {
 		test('extracts raw frontmatter content including delimiters', () => {
 			const content = '---\ntitle: Test\nauthor: Someone\n---\n\nBody text.';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.ok(result.frontmatter);
 			assert.strictEqual(result.frontmatter.rawContent, '---\ntitle: Test\nauthor: Someone\n---');
 		});
 
 		test('extracts simple jupyter kernel', () => {
 			const content = '---\njupyter: python3\n---\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.ok(result.frontmatter);
 			assert.strictEqual(result.frontmatter.jupyterKernel, 'python3');
 		});
 
 		test('extracts complex jupyter kernel', () => {
 			const content = '---\njupyter:\n  kernelspec:\n    name: ir\n---\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.ok(result.frontmatter);
 			assert.strictEqual(result.frontmatter.jupyterKernel, 'ir');
 		});
 
 		test('location is correct', () => {
 			const content = '---\ntitle: Test\n---\n\n```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.ok(result.frontmatter);
 			assert.deepStrictEqual(result.frontmatter.location, { begin: { line: 0 }, end: { line: 2 } });
 		});
 
 		test('frontmatter with no jupyter key has no kernel', () => {
 			const content = '---\ntitle: Test\nformat: html\n---\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.ok(result.frontmatter);
 			assert.strictEqual(result.frontmatter.jupyterKernel, undefined);
 		});
@@ -79,7 +79,7 @@ suite('parseQuartoDocument', () => {
 	suite('Code blocks', () => {
 		test('parses a single code block', () => {
 			const content = '```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.type, QuartoNodeType.CodeBlock);
@@ -91,7 +91,7 @@ suite('parseQuartoDocument', () => {
 
 		test('parses multiple code blocks', () => {
 			const content = '```{python}\nx = 1\n```\n\n```{r}\ny <- 2\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 2);
 
 			const block0 = result.blocks[0] as QuartoCodeBlock;
@@ -105,14 +105,14 @@ suite('parseQuartoDocument', () => {
 
 		test('language is lowercased', () => {
 			const content = '```{Python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.language, 'python');
 		});
 
 		test('multiline code block has correct line numbers', () => {
 			const content = 'Some text\n\n```{python}\nline1\nline2\nline3\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.location.begin.line, 2);
@@ -122,7 +122,7 @@ suite('parseQuartoDocument', () => {
 
 		test('empty code block has empty content', () => {
 			const content = '```{python}\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.location.begin.line, 0);
@@ -132,7 +132,7 @@ suite('parseQuartoDocument', () => {
 
 		test('code block after frontmatter has correct line numbers', () => {
 			const content = '---\ntitle: Test\n---\n\n```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.location.begin.line, 4);
@@ -145,14 +145,14 @@ suite('parseQuartoDocument', () => {
 	suite('Options and labels', () => {
 		test('extracts options string', () => {
 			const content = '```{python echo=FALSE, eval=TRUE}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.options, 'echo=FALSE, eval=TRUE');
 		});
 
 		test('extracts label from first option without =', () => {
 			const content = '```{python setup}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.label, 'setup');
 			assert.strictEqual(block.options, 'setup');
@@ -160,21 +160,21 @@ suite('parseQuartoDocument', () => {
 
 		test('label with comma-separated options', () => {
 			const content = '```{python my-label, echo=FALSE}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.label, 'my-label');
 		});
 
 		test('no label when first option contains =', () => {
 			const content = '```{python echo=FALSE}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.label, undefined);
 		});
 
 		test('empty options when none provided', () => {
 			const content = '```{python}\nx = 1\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.options, '');
 			assert.strictEqual(block.label, undefined);
@@ -186,7 +186,7 @@ suite('parseQuartoDocument', () => {
 	suite('Raw blocks', () => {
 		test('parses a raw block', () => {
 			const content = '```{=html}\n<b>bold</b>\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoRawBlock;
 			assert.strictEqual(block.type, QuartoNodeType.RawBlock);
@@ -198,7 +198,7 @@ suite('parseQuartoDocument', () => {
 
 		test('raw block format is lowercased', () => {
 			const content = '```{=LaTeX}\n\\textbf{bold}\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			const block = result.blocks[0] as QuartoRawBlock;
 			assert.strictEqual(block.format, 'latex');
 		});
@@ -225,7 +225,7 @@ suite('parseQuartoDocument', () => {
 				'```',
 			].join('\n');
 
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 3);
 			assert.strictEqual(result.blocks[0].type, QuartoNodeType.CodeBlock);
 			assert.strictEqual(result.blocks[1].type, QuartoNodeType.RawBlock);
@@ -238,13 +238,13 @@ suite('parseQuartoDocument', () => {
 	suite('Plain fences', () => {
 		test('plain fence is not parsed as a block', () => {
 			const content = '```\nsome code\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 0);
 		});
 
 		test('plain fence with language is not parsed as a block', () => {
 			const content = '```python\nsome code\n```\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 0);
 		});
 
@@ -259,7 +259,7 @@ suite('parseQuartoDocument', () => {
 				'```',
 			].join('\n');
 
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 1);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.language, 'python');
@@ -272,7 +272,7 @@ suite('parseQuartoDocument', () => {
 	suite('Lines array', () => {
 		test('returns split lines', () => {
 			const content = 'line1\nline2\nline3';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.lines.length, 3);
 			assert.strictEqual(result.lines[0], 'line1');
 			assert.strictEqual(result.lines[1], 'line2');
@@ -281,7 +281,7 @@ suite('parseQuartoDocument', () => {
 
 		test('content at line ranges matches block content', () => {
 			const content = '# Title\n\n```{python}\nfoo\nbar\n```\n\nEnd.\n';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			const block = result.blocks[0] as QuartoCodeBlock;
 			assert.strictEqual(block.content, 'foo\nbar');
 		});
@@ -292,13 +292,13 @@ suite('parseQuartoDocument', () => {
 	suite('Unclosed fences', () => {
 		test('unclosed code block is ignored', () => {
 			const content = '```{python}\nx = 1\ny = 2';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 0);
 		});
 
 		test('unclosed raw block is ignored', () => {
 			const content = '```{=html}\n<b>bold</b>';
-			const result = parseQuartoDocument(content);
+			const result = parseQuarto(content);
 			assert.strictEqual(result.blocks.length, 0);
 		});
 	});
