@@ -7,7 +7,7 @@
 import './CellOutputLeftActionMenu.css';
 
 // React.
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -41,8 +41,8 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 	const { contextMenuService } = usePositronReactServicesContext();
 
 	const buttonRef = useRef<HTMLButtonElement>(null);
-	const actionRunnerRef = useRef<ActionRunner>();
-	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+	const actionRunnerRef = useRef<ActionRunner>(null);
+	const [isMenuOpen, setIsMenuOpen] = useState(false);
 
 	// Check if there are outputs to determine if we should render the menu
 	const outputs = useObservedValue(cell.outputs);

@@ -6,9 +6,6 @@
 // CSS.
 import './CellLeftActionMenu.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { useObservedValue } from '../useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
