@@ -28,6 +28,12 @@ test.describe('Positron Notebooks: QMD Files', {
 		const { notebooksPositron, editors } = app.workbench;
 		const page = app.code.driver.page;
 
+		// Wait for the Quarto notebook serializer to be registered.
+		// The QuartoNotebookContribution registers at WorkbenchPhase.AfterRestored,
+		// which runs asynchronously in idle cycles. Without this wait, the file
+		// may open before the serializer is ready, causing an editor error.
+		await page.waitForTimeout(2000);
+
 		// Open the .qmd file (skip waitForFocus since notebook editors don't
 		// have a focusable Monaco text editor)
 		await openFile('workspaces/quarto_basic/quarto_basic.qmd', false);
