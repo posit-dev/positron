@@ -9,6 +9,9 @@ export enum Architecture {
     Unknown = 1,
     x86 = 2,
     x64 = 3,
+    // --- Start Positron ---
+    arm64 = 4,
+    // --- End Positron ---
 }
 export enum OSType {
     Unknown = 'Unknown',
@@ -33,6 +36,9 @@ export function getOSType(platform: string = process.platform): OSType {
 const architectures: Record<string, Architecture> = {
     x86: Architecture.x86, // 32-bit
     x64: Architecture.x64, // 64-bit
+    // --- Start Positron ---
+    arm64: Architecture.arm64, // ARM 64-bit
+    // --- End Positron ---
     '': Architecture.Unknown,
 };
 

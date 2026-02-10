@@ -669,9 +669,15 @@ export class EditorResolverService extends Disposable implements IEditorResolver
 		const currentDefaultAndActiveLabel = localize('promptOpenWith.currentDefaultAndActive', "Active and Default");
 		// Default order = setting -> highest priority -> text
 		let defaultViewType = defaultSetting;
-		if (!defaultViewType && registeredEditors.length > 2 && registeredEditors[1]?.editorInfo.priority !== RegisteredEditorPriority.option) {
+		// --- Start Positron ---
+		// Changed registeredEditors.length > 2 to registeredEditors.length >=
+		// 2, so that custom editors are correctly shown as the default when
+		// there are exactly two registered editors (e.g., text editor and a
+		// custom editor).
+		if (!defaultViewType && registeredEditors.length >= 2 && registeredEditors[1]?.editorInfo.priority !== RegisteredEditorPriority.option) {
 			defaultViewType = registeredEditors[1]?.editorInfo.id;
 		}
+		// --- End Positron ---
 		if (!defaultViewType) {
 			defaultViewType = DEFAULT_EDITOR_ASSOCIATION.id;
 		}

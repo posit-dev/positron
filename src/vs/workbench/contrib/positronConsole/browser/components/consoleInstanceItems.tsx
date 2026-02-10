@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,7 @@ import './consoleInstanceItems.css';
 
 // React.
 import { flushSync } from 'react-dom';
-import React, { Component } from 'react';
+import { Component } from 'react';
 
 // Other dependencies.
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';

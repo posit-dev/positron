@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './variableGroup.css';
 
 // React.
-import React, { CSSProperties, MouseEvent } from 'react';
+import { CSSProperties, MouseEvent } from 'react';
 
 // Other dependencies.
 import * as nls from '../../../../../nls.js';

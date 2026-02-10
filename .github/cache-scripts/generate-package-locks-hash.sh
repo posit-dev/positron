@@ -24,7 +24,7 @@
 # from extension dependencies.
 #
 # SINGLE SOURCE OF TRUTH:
-# Directory list: build/npm/dirs.js (dirs array)
+# Directory list: build/npm/dirs.ts (dirs array)
 # This script reads from that file - never hardcode directory list here!
 #
 # USAGE:
@@ -38,15 +38,15 @@
 set -euo pipefail
 
 # ============================================================================
-# SECTION 1: Generate Hash from dirs.js
+# SECTION 1: Generate Hash from dirs.ts
 # ============================================================================
-# Use Node.js to read dirs.js and hash all core package-lock.json files.
-# Why Node.js? dirs.js is a JS module, easier to read with require().
+# Use Node.js to read dirs.ts and hash all core package-lock.json files.
+# Why Node.js? dirs.ts is a TS module, easier to read with require().
 
 echo "Generating package-locks hash for npm-core cache..."
 
 HASH=$(node -e "
-const { dirs } = require('./build/npm/dirs.js');
+const { dirs } = require('./build/npm/dirs.ts');
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
@@ -59,7 +59,7 @@ const coreDirs = dirs.filter(d =>
   !d.startsWith('.vscode/')
 );
 
-console.error('Core directories from dirs.js: ' + coreDirs.length);
+console.error('Core directories from dirs.ts: ' + coreDirs.length);
 
 // ----------------------------------------------------------------------------
 // Step 2: Map to package-lock.json paths

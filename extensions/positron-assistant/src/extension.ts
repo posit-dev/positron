@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
+import { expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, logStoredModels, ModelConfig, showConfigurationDialog, StoredModelConfig } from './config';
 import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
@@ -118,14 +118,14 @@ export const log = new BufferedLogOutputChannel(
 	vscode.window.createOutputChannel('Assistant', { log: true })
 );
 
-export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext) {
 	try {
 		const modelConfig: ModelConfig = {
 			...config,
 			apiKey: undefined // will be filled in below if needed
 		};
 
-		const apiKey = await storage.get(`apiKey-${modelConfig.id}`);
+		const apiKey = await context.secrets.get(`apiKey-${modelConfig.id}`);
 		if (apiKey) {
 			modelConfig.apiKey = apiKey;
 		}
@@ -146,16 +146,16 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		await registerModelWithAPI(modelConfig, context, storage);
+		await registerModelWithAPI(modelConfig, context);
 	} catch (e) {
 		vscode.window.showErrorMessage(
-			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
+			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', e.message)
 		);
 		throw e;
 	}
 }
 
-export async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModels(context: vscode.ExtensionContext) {
 	// Dispose of existing models
 	disposeModels();
 
@@ -165,7 +165,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		// Refresh the set of enabled providers
 		const enabledProviders = await getEnabledProviders();
 
-		modelConfigs = await getModelConfigurations(context, storage);
+		modelConfigs = await getModelConfigurations(context);
 		modelConfigs = modelConfigs.filter(config => {
 			const enabled = enabledProviders.length === 0 ||
 				enabledProviders.includes(config.provider);
@@ -196,7 +196,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	const registeredModels: ModelConfig[] = [];
 	for (const config of modelConfigs) {
 		try {
-			await registerModelWithAPI(config, context, storage);
+			await registerModelWithAPI(config, context);
 			registeredModels.push(config);
 			if (autoModelConfigs.includes(config)) {
 				// In addition, track auto-configured models separately
@@ -237,13 +237,13 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-export async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, instance?: positron.ai.LanguageModelChatProvider<vscode.LanguageModelChatInformation>) {
+export async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, instance?: positron.ai.LanguageModelChatProvider<vscode.LanguageModelChatInformation>) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
 		// const models = availableModels.get(modelConfig.provider);
 		// const modelsCopy = models ? [...models] : [];
 
-		const languageModel = instance ?? newLanguageModelChatProvider(modelConfig, context, storage);
+		const languageModel = instance ?? newLanguageModelChatProvider(modelConfig, context);
 
 		try {
 			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
@@ -271,10 +271,10 @@ export async function registerModelWithAPI(modelConfig: ModelConfig, context: vs
 	}
 }
 
-function registerConfigureModelsCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
+function registerConfigureModelsCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.configureModels', async () => {
-			await showConfigurationDialog(context, storage);
+			await showConfigurationDialog(context);
 		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
 			logStoredModels(context);
@@ -394,12 +394,6 @@ async function toggleInlineCompletions() {
 
 function registerAssistant(context: vscode.ExtensionContext) {
 
-	// Initialize secret storage. In web mode, we currently need to use global
-	// secret storage since encrypted storage is not available.
-	const storage = vscode.env.uiKind === vscode.UIKind.Web ?
-		new GlobalSecretStorage(context) :
-		new EncryptedSecretStorage(context);
-
 	// Register Copilot service
 	registerCopilotService(context);
 
@@ -407,13 +401,13 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	const participantService = registerParticipants(context);
 
 	// Register configured language models
-	registerModels(context, storage);
+	registerModels(context);
 
 	// Track opened files for completion context
 	registerHistoryTracking(context);
 
 	// Commands
-	registerConfigureModelsCommand(context, storage);
+	registerConfigureModelsCommand(context);
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
 	registerExportChatCommands(context);
@@ -478,11 +472,58 @@ export function getRequestTokenUsage(requestId: string): { tokens: TokenUsage; p
 	return requestTokenUsage.get(requestId);
 }
 
+/**
+ * One-time migration to move API keys from global state to encrypted storage.
+ *
+ * Previously, API keys were stored in global state in web mode.  This migration
+ * moves those keys to encrypted storage and removes them from global state.
+ */
+async function migrateApiKeysToEncryptedStorage(context: vscode.ExtensionContext): Promise<void> {
+	const storedModels = getStoredModels(context);
+
+	// Start with known keys from Posit AI
+	const keysToMigrate: string[] = [
+		'positron.assistant.positai.access_token',
+		'positron.assistant.positai.refresh_token',
+		'positron.assistant.positai.token_expiry',
+	];
+
+	// Add keys for all stored models
+	for (const model of storedModels) {
+		const globalStateKey = `apiKey-${model.id}`;
+		keysToMigrate.push(globalStateKey);
+	}
+
+	// Migrate all keys that exist in global state to encrypted storage
+	for (const key of keysToMigrate) {
+		const apiKey = context.globalState.get<string>(key);
+
+		if (apiKey) {
+			log.info(`Migrating ${key} to encrypted storage`);
+			try {
+				// Save to encrypted storage
+				await context.secrets.store(key, apiKey);
+				// Remove from global state
+				await context.globalState.update(key, undefined);
+			} catch (error) {
+				log.error(`Failed to migrate API ${key}:`, error);
+			}
+		}
+	}
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
 	tokenTracker = new TokenTracker(context);
+
+	// Migrate API keys from global state to encrypted storage. This is a
+	// one-time migration of keys that were stored in global state in versions
+	// of Positron 2026.01 and prior.
+	//
+	// This migration can be removed in a future version.
+	await migrateApiKeysToEncryptedStorage(context);
 
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
@@ -503,7 +544,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(
-				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', [msg])
+				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', msg)
 			);
 		}
 	} else {
@@ -526,7 +567,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						} catch (e) {
 							vscode.window.showErrorMessage(
 								vscode.l10n.t(
-									'Positron Assistant: Failed to enable assistant. {0}', [e]));
+									'Positron Assistant: Failed to enable assistant. {0}', e.message));
 						}
 					}
 				}

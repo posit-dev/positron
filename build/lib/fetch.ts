@@ -12,7 +12,7 @@ import through2 from 'through2';
 import { Stream } from 'stream';
 
 // --- Start Positron ---
-import { PromiseHandles } from './util';
+import { PromiseHandles } from './util.ts';
 // --- End Positron ---
 
 export interface IFetchOptions {
@@ -167,8 +167,17 @@ export function fetchGithub(repo: string, options: IGitHubAssetOptions): Stream 
 
 /// A promise that fetches a URL from `fetchUrl` and returns a Vinyl file
 class FetchPromise extends PromiseHandles<VinylFile> {
-	constructor(readonly url: string, readonly options: IFetchOptions, readonly retries = 10, readonly retryDelay = 1000) {
+	readonly url: string;
+	readonly options: IFetchOptions;
+	readonly retries: number;
+	readonly retryDelay: number;
+
+	constructor(url: string, options: IFetchOptions, retries = 10, retryDelay = 1000) {
 		super();
+		this.url = url;
+		this.options = options;
+		this.retries = retries;
+		this.retryDelay = retryDelay;
 	}
 }
 

@@ -7,10 +7,17 @@
   "files.simpleDialog.enable": true,
   "positron.importSettings.enable": false,
   "positron.assistant.enable": true,
+	"positron.assistant.positai.authHost": "https://login.staging.posit.cloud",
+  "positron.assistant.positai.scope": "prism",
+  "positron.assistant.positai.clientId": "databot-staging",
+  "positron.assistant.positai.baseUrl": "https://gateway.staging.posit.ai",
   "positron.assistant.enabledProviders": [
     "openai-api",
     "echo",
-    "error"
+    "error",
+		"amazon-bedrock",
+		"posit-ai"
   ],
-  "posit.workbench.showWorkbenchFlaskHint": false
+  "posit.workbench.showWorkbenchFlaskHint": false,
+	"editor.accessibilitySupport": "off"
 }

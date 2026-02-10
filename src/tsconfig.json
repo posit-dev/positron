@@ -2,7 +2,7 @@
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"esModuleInterop": true,
-		"jsx": "react",
+		"jsx": "react-jsx",
 		"removeComments": false,
 		"preserveConstEnums": true,
 		"sourceMap": false,

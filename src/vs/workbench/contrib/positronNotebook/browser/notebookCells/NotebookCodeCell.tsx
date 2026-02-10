@@ -1,13 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
 import './NotebookCodeCell.css';
-
-// React.
-import React from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -20,22 +17,55 @@ import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
+import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 
 interface CellOutputsSectionProps {
+	cell: PositronNotebookCodeCell;
 	outputs: NotebookCellOutputs[];
 }
 
-function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
+function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
+	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+
+	const handleShowHiddenOutput = () => {
+		cell.expandOutput();
+		/**
+		 * When this handler is fired via a keyboard event (ex: Enter),
+		 * the focus remains on the button that triggered this event.
+		 * However, since expanding the output causes this button
+		 * to be removed from the DOM, focus is lost. To maintain
+		 * focus so keyboard nav/shortcuts still work, we refocus
+		 * the cell container after expanding the output.
+		 */
+		cell.container?.focus();
+	};
+
 	return (
-		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? '' : 'no-outputs'}`} data-testid='cell-output'>
-			<div className='positron-notebook-code-cell-outputs-inner'>
-				{outputs?.map((output) => (
-					<CellOutput key={output.outputId} {...output} />
-				))}
+		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'}`}>
+			<CellOutputLeftActionMenu cell={cell} />
+			<div className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs' data-testid='cell-output'>
+				<div className='positron-notebook-code-cell-outputs-inner'>
+					{isCollapsed
+						? (<Button
+							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
+							className='show-hidden-output-button'
+							onPressed={handleShowHiddenOutput}
+						>
+							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
+						</Button>
+						)
+						: (<>
+							{outputs?.map((output) => (
+								<CellOutput key={output.outputId} {...output} />
+							))}
+						</>
+						)}
+				</div>
 			</div>
 		</div>
 	);
@@ -57,7 +87,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 					</div>
 					<CodeCellStatusFooter cell={cell} hasError={hasError} />
 				</div>
-				<CellOutputsSection outputs={outputContents} />
+				<CellOutputsSection cell={cell} outputs={outputContents} />
 			</div>
 
 		</NotebookCellWrapper>
