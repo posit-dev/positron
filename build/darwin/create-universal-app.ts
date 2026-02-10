@@ -60,6 +60,8 @@ const stashPatterns = [
 	'**/@vscode/node-addon-api/**',
 	'**/@parcel/node-addon-api/**',
 	'**/@parcel/**/watcher.node',
+	// Exclusions from @napi-rs/canvas
+	'**/node_modules/@napi-rs/canvas-darwin-arm64/skia.darwin-arm64.node',
 	// Exclusions from positron-assistant
 	'**/resources/copilot/**',  // Copilot language server binary
 ];
@@ -227,8 +229,10 @@ async function origMain(
 		force: true,
 		mergeASARs: true,
 		// --- Start Positron ---
-		// Add **/node_modules/fsevents/fsevents.node to the list of x64-only files
-		x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/fsevents/fsevents.node}',
+		// Add to the list of x64-only files
+		// **/node_modules/fsevents/fsevents.node
+		// **/node_modules/@napi-rs/canvas-darwin-x64/skia.darwin-x64.node
+		x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/fsevents/fsevents.node,**/node_modules/@napi-rs/canvas-darwin-x64/skia.darwin-x64.node}',
 		// --- End Positron ---
 		filesToSkipComparison: (file: string) => {
 			for (const expected of filesToSkip) {

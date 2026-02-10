@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 // Other dependencies.
 import { IAction } from '../../../../../base/common/actions.js';
@@ -69,7 +69,7 @@ export const PackagesInstanceMenuButton = () => {
 				run: () => {
 					// Set the active packages session to the one the user selected.
 					const session = instance.session;
-					services.positronPackagesService.setActivePositronPackagesSession(session)
+					services.positronPackagesService.setActivePositronPackagesSession(session);
 
 					// If this is a console session, set it as the foreground
 					// session, too, so that the rest of the UI can pick it up.
