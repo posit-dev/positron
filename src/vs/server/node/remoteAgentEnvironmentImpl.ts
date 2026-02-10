@@ -36,7 +36,7 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 		private readonly _userDataProfilesService: IUserDataProfilesService,
 		private readonly _extensionHostStatusService: IExtensionHostStatusService,
 		private readonly _logService: ILogService,
-     // --- Start Positron ---
+		// --- Start Positron ---
 		private readonly _positronLicenseeInfo?: IPositronLicenseeInfo,
 		// --- End Positron ---
 	) {
@@ -135,7 +135,7 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 				all: [...this._userDataProfilesService.profiles].map(profile => ({ ...profile }))
 			},
 			isUnsupportedGlibc,
-			reconnectionGraceTime: this._environmentService.reconnectionGraceTime
+			reconnectionGraceTime: this._environmentService.reconnectionGraceTime,
 			// --- Start Positron ---
 			positronLicenseeInfo: this._positronLicenseeInfo
 			// --- End Positron ---
