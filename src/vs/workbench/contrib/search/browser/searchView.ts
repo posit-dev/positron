@@ -13,7 +13,7 @@ import { Delayer, RunOnceScheduler, Throttler } from '../../../../base/common/as
 import * as errors from '../../../../base/common/errors.js';
 import { Event } from '../../../../base/common/event.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
-import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import * as strings from '../../../../base/common/strings.js';
 import { URI } from '../../../../base/common/uri.js';
 import * as network from '../../../../base/common/network.js';
@@ -173,6 +173,7 @@ export class SearchView extends ViewPane {
 	private resultsElement!: HTMLElement;
 
 	private currentSelectedFileMatch: ISearchTreeFileMatch | undefined;
+	private readonly currentEditorCursorListener = this._register(new MutableDisposable());
 
 	private delayedRefresh: Delayer<void>;
 	private changedWhileHidden: boolean;
@@ -1049,6 +1050,15 @@ export class SearchView extends ViewPane {
 			this.searchResultHeaderFocused.reset();
 			this.isEditableItem.reset();
 		}));
+
+		// Setup cursor position monitoring to clear selected match when cursor moves
+		this._register(this.editorService.onDidActiveEditorChange(() => {
+			const editor = getCodeEditor(this.editorService.activeTextEditorControl);
+			this.currentEditorCursorListener.value = editor?.onDidChangeCursorPosition(() => {
+				this.currentSelectedFileMatch?.setSelectedMatch(null);
+				this.currentSelectedFileMatch = undefined;
+			});
+		}));
 	}
 
 	private onContextMenu(e: ITreeContextMenuEvent<RenderableMatch | null>): void {
@@ -1732,6 +1742,20 @@ export class SearchView extends ViewPane {
 		}
 	}
 
+	private appendSearchWithAIButton(messageEl: HTMLElement) {
+		const searchWithAIButtonTooltip = appendKeyBindingLabel(
+			nls.localize('triggerAISearch.tooltip', "Search with AI."),
+			this.keybindingService.lookupKeybinding(Constants.SearchCommandIds.SearchWithAIActionId)
+		);
+		const searchWithAIButtonText = nls.localize('searchWithAIButtonTooltip', "Search with AI");
+		const searchWithAIButton = this.messageDisposables.add(new SearchLinkButton(
+			searchWithAIButtonText,
+			() => {
+				this.commandService.executeCommand(Constants.SearchCommandIds.SearchWithAIActionId);
+			}, this.hoverService, searchWithAIButtonTooltip));
+		dom.append(messageEl, searchWithAIButton.element);
+	}
+
 	private async onSearchComplete(
 		progressComplete: () => void,
 		excludePatternText?: string,
@@ -1767,29 +1791,6 @@ export class SearchView extends ViewPane {
 		}
 
 
-		if (this.shouldShowAIResults() && !allResults) {
-			const messageEl = this.clearMessage();
-			const noResultsMessage = nls.localize('noResultsFallback', "No results found. ");
-			dom.append(messageEl, noResultsMessage);
-
-
-			const searchWithAIButtonTooltip = appendKeyBindingLabel(
-				nls.localize('triggerAISearch.tooltip', "Search with AI."),
-				this.keybindingService.lookupKeybinding(Constants.SearchCommandIds.SearchWithAIActionId)
-			);
-			const searchWithAIButtonText = nls.localize('searchWithAIButtonTooltip', "Search with AI.");
-			const searchWithAIButton = this.messageDisposables.add(new SearchLinkButton(
-				searchWithAIButtonText,
-				() => {
-					this.commandService.executeCommand(Constants.SearchCommandIds.SearchWithAIActionId);
-				}, this.hoverService, searchWithAIButtonTooltip));
-			dom.append(messageEl, searchWithAIButton.element);
-
-			if (!aiResults) {
-				return;
-			}
-		}
-
 		if (!allResults) {
 			const hasExcludes = !!excludePatternText;
 			const hasIncludes = !!includePatternText;
@@ -1805,7 +1806,7 @@ export class SearchView extends ViewPane {
 				} else if (hasExcludes) {
 					message = nls.localize('noOpenEditorResultsExcludes', "No results found in open editors excluding '{0}' - ", excludePatternText);
 				} else {
-					message = nls.localize('noOpenEditorResultsFound', "No results found in open editors. Review your settings for configured exclusions and check your gitignore files - ");
+					message = nls.localize('noOpenEditorResultsFound', "No results found in open editors. Review your configured exclusions and check your gitignore files - ");
 				}
 			} else {
 				if (hasIncludes && hasExcludes) {
@@ -1815,7 +1816,7 @@ export class SearchView extends ViewPane {
 				} else if (hasExcludes) {
 					message = nls.localize('noResultsExcludes', "No results found excluding '{0}' - ", excludePatternText);
 				} else {
-					message = nls.localize('noResultsFound', "No results found. Review your settings for configured exclusions and check your gitignore files - ");
+					message = nls.localize('noResultsFound', "No results found. Review your configured exclusions and check your gitignore files - ");
 				}
 			}
 
@@ -1824,6 +1825,11 @@ export class SearchView extends ViewPane {
 
 			const messageEl = this.clearMessage();
 			dom.append(messageEl, message);
+
+			if (this.shouldShowAIResults()) {
+				this.appendSearchWithAIButton(messageEl);
+				dom.append(messageEl, $('span', undefined, ' - '));
+			}
 
 			if (!completed) {
 				const searchAgainButton = this.messageDisposables.add(new SearchLinkButton(
@@ -1836,13 +1842,6 @@ export class SearchView extends ViewPane {
 			} else {
 				const openSettingsButton = this.messageDisposables.add(new SearchLinkButton(nls.localize('openSettings.message', "Open Settings"), this.onOpenSettings.bind(this), this.hoverService));
 				dom.append(messageEl, openSettingsButton.element);
-			}
-
-			if (completed) {
-				dom.append(messageEl, $('span', undefined, ' - '));
-
-				const learnMoreButton = this.messageDisposables.add(new SearchLinkButton(nls.localize('openSettings.learnMore', "Learn More"), this.onLearnMore.bind(this), this.hoverService));
-				dom.append(messageEl, learnMoreButton.element);
 			}
 
 			if (this.contextService.getWorkbenchState() === WorkbenchState.EMPTY) {
@@ -1998,10 +1997,6 @@ export class SearchView extends ViewPane {
 			this.preferencesService.openUserSettings(options);
 	}
 
-	private onLearnMore(): void {
-		this.openerService.open(URI.parse('https://go.microsoft.com/fwlink/?linkid=853977'));
-	}
-
 	private onSearchAgain(): void {
 		this.inputPatternExcludes.setValue('');
 		this.inputPatternIncludes.setValue('');
@@ -2058,6 +2053,11 @@ export class SearchView extends ViewPane {
 				() => this.instantiationService.invokeFunction(createEditorFromSearchResult, this.searchResult, this.searchIncludePattern.getValue(), this.searchExcludePattern.getValue(), this.searchIncludePattern.onlySearchInOpenEditors()), this.hoverService,
 				openInEditorTooltip));
 			dom.append(messageEl, openInEditorButton.element);
+
+			if (this.shouldShowAIResults()) {
+				dom.append(messageEl, ' - ');
+				this.appendSearchWithAIButton(messageEl);
+			}
 
 			this.reLayout();
 		} else if (!msgWasHidden) {

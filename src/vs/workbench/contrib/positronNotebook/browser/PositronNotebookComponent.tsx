@@ -79,7 +79,7 @@ export function PositronNotebookComponent() {
 	}, [notebookCells.length]);
 
 	// Observe scroll events and fire to notebook instance, also track scroll position
-	useScrollObserver(containerRef, React.useCallback(() => {
+	useScrollObserver(containerRef as React.RefObject<HTMLElement>, React.useCallback(() => {
 		notebookInstance.fireScrollEvent();
 		setIsScrolled((containerRef.current?.scrollTop ?? 0) > 0);
 	}, [notebookInstance]));

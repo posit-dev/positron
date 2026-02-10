@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -30,12 +30,14 @@ async function createUvVenv(
     version: string,
     progress: CreateEnvironmentProgress,
     token?: CancellationToken,
+    envName?: string,
 ): Promise<string | undefined> {
     progress.report({
         message: CreateEnv.Venv.creating,
     });
     const command = 'uv';
-    const argv = ['venv', '--no-project', '--seed', '-p', version];
+    const targetDir = envName ?? '.venv';
+    const argv = ['venv', targetDir, '--no-project', '--seed', '-p', version];
 
     const deferred = createDeferred<string | undefined>();
     traceLog('Running uv venv creation script: ', [command, ...argv]);
@@ -46,8 +48,9 @@ async function createUvVenv(
     });
 
     const venvPath = `${workspace.uri.fsPath}${
-        os.platform() === 'win32' ? '\\.venv\\Scripts\\python.exe' : '/.venv/bin/python'
+        os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
     }`;
+
     out.subscribe(
         (value) => {
             const output = value.out.split(/\r?\n/g).join(os.EOL);
@@ -200,7 +203,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                     throw new Error('Failed to create uv environment. Python version is undefined.');
                 }
 
-                envPath = await createUvVenv(workspace, version, progress, token);
+                envPath = await createUvVenv(workspace, version, progress, token, options?.envName);
                 if (envPath) {
                     return { path: envPath, workspaceFolder: workspace };
                 }

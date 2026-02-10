@@ -40,6 +40,7 @@ export interface NewFolderFlowState {
 	createPyprojectToml: boolean | undefined;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
 	pythonEnvProviderId: string | undefined;
+	pythonEnvName: string | undefined;
 	condaPythonVersion: string | undefined;
 	uvPythonVersion: string | undefined;
 	readonly pythonEnvProviderName: string | undefined;
@@ -82,6 +83,7 @@ export class NewFolderFlowStateManager
 	// Python-specific state.
 	private _pythonEnvSetupType: EnvironmentSetupType | undefined;
 	private _pythonEnvProviderId: string | undefined;
+	private _pythonEnvName: string | undefined;
 	private _installIpykernel: boolean | undefined;
 	private _createPyprojectToml: boolean | undefined;
 	private _minimumPythonVersion: string | undefined;
@@ -368,6 +370,23 @@ export class NewFolderFlowStateManager
 	}
 
 	/**
+	 * Gets the Python environment name.
+	 * @returns The Python environment name.
+	 */
+	get pythonEnvName(): string | undefined {
+		return this._pythonEnvName;
+	}
+
+	/**
+	 * Sets the Python environment name.
+	 * @param value The Python environment name.
+	 */
+	set pythonEnvName(value: string | undefined) {
+		this._pythonEnvName = value;
+		this._onUpdateFolderPathEmitter.fire();
+	}
+
+	/**
 	 * Gets the installIpykernel flag.
 	 * @returns The installIpykernel flag.
 	 */
@@ -592,6 +611,7 @@ export class NewFolderFlowStateManager
 			openInNewWindow: this._openInNewWindow,
 			pythonEnvSetupType: this._pythonEnvSetupType,
 			pythonEnvProviderId: this._pythonEnvProviderId,
+			pythonEnvName: this._pythonEnvName,
 			pythonEnvProviderName: this._getEnvProviderName(),
 			installIpykernel: this._installIpykernel,
 			createPyprojectToml: this._createPyprojectToml,
@@ -1032,6 +1052,7 @@ export class NewFolderFlowStateManager
 		const cleanPython = () => {
 			this._pythonEnvSetupType = undefined;
 			this._pythonEnvProviderId = undefined;
+			this._pythonEnvName = undefined;
 			this._installIpykernel = undefined;
 			this._minimumPythonVersion = undefined;
 			this._condaPythonVersion = undefined;
