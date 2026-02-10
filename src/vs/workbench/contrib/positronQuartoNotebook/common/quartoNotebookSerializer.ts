@@ -1,110 +1,90 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
-import { CellKind, ICellDto2 } from '../../notebook/common/notebookCommon.js';
-
-/**
- * Serialize notebook cells back to QMD text.
- */
-export function serializeNotebookCells(cells: ICellDto2[]): string {
-	const parts: string[] = [];
-	let startIndex = 0;
-
-	// Handle frontmatter
-	if (cells.length > 0 && isFrontmatterCell(cells[0].metadata)) {
-		const content = cells[0].source.trim();
-		if (content) {
-			parts.push(content);
-		}
-		startIndex = 1;
-	}
-
-	let prevWasMarkdown = false;
-
-	for (let i = startIndex; i < cells.length; i++) {
-		const cell = cells[i];
-
-		if (cell.cellKind === CellKind.Markup) {
-			if (prevWasMarkdown) {
-				parts.push(CELL_BOUNDARY_MARKER);
-			}
-			parts.push(cell.source);
-			prevWasMarkdown = true;
-		} else {
-			parts.push(serializeCodeCell(cell));
-			prevWasMarkdown = false;
-		}
-	}
-
-	return parts.join('\n\n') + '\n';
-}
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IFileService, IWriteFileOptions, IFileStatWithMetadata } from '../../../../platform/files/common/files.js';
+import { ITextQuery } from '../../../services/search/common/search.js';
+import { TransientOptions, NotebookData } from '../../notebook/common/notebookCommon.js';
+import { INotebookSerializer, INotebookService } from '../../notebook/common/notebookService.js';
+import { NotebookPriorityInfo } from '../../search/common/search.js';
+import { INotebookFileMatchNoModel } from '../../search/common/searchNotebookHelpers.js';
+import { qmdToNotebook } from './qmdToNotebook.js';
+import { notebookToQmd } from './notebookToQmd.js';
 
 /**
- * Serialize a single code cell to a fenced code block.
+ * Notebook serializer for Quarto (.qmd) files.
  */
-function serializeCodeCell(cell: ICellDto2): string {
-	const code = cell.source;
-	const language = cell.language;
-	const quartoLang = VSCODE_TO_QUARTO_LANGUAGE[language] || language;
-	const fenceInfo = quartoLang ? `{${quartoLang}}` : '';
-	const fenceLength = getFenceLength(cell.metadata) ?? DEFAULT_FENCE_LENGTH;
-	const fence = '`'.repeat(fenceLength);
+export class QuartoNotebookSerializer implements INotebookSerializer {
+	readonly options: TransientOptions = {
+		transientOutputs: true,
+		transientCellMetadata: {
+			breakpointMargin: true,
+			id: true,
+		},
+		transientDocumentMetadata: {},
+		cellContentMetadata: {},
+	};
 
-	return fence + fenceInfo + '\n' + code + '\n' + fence;
+	constructor(
+		@IFileService private readonly _fileService: IFileService,
+		@INotebookService private readonly _notebookService: INotebookService
+	) { }
+
+	async dataToNotebook(data: VSBuffer): Promise<NotebookData> {
+		const content = data.toString();
+		return qmdToNotebook(content);
+	}
+
+	async notebookToData(data: NotebookData): Promise<VSBuffer> {
+		const qmd = notebookToQmd(data);
+		return VSBuffer.fromString(qmd);
+	}
+
+	async save(uri: URI, versionId: number, options: IWriteFileOptions, token: CancellationToken): Promise<IFileStatWithMetadata> {
+		// Get the notebook text model to access its current data
+		const model = this._notebookService.getNotebookTextModel(uri);
+		if (!model) {
+			throw new Error(`No notebook model found for ${uri.toString()}`);
+		}
+
+		// Build NotebookData from the model
+		const data: NotebookData = {
+			cells: model.cells.map(cell => ({
+				source: cell.getValue(),
+				language: cell.language,
+				cellKind: cell.cellKind,
+				mime: cell.mime,
+				outputs: cell.outputs.map(o => ({
+					outputId: o.outputId,
+					outputs: o.outputs.map(item => ({
+						mime: item.mime,
+						data: item.data,
+					})),
+				})),
+				metadata: cell.metadata,
+			})),
+			metadata: model.metadata,
+		};
+
+		// Serialize to QMD
+		const buffer = await this.notebookToData(data);
+
+		// Write to file system
+		await this._fileService.writeFile(uri, buffer, options);
+
+		// Return file stats
+		const stat = await this._fileService.resolve(uri);
+		return stat as IFileStatWithMetadata;
+	}
+
+	async searchInNotebooks(
+		_textQuery: ITextQuery,
+		_token: CancellationToken,
+		_allPriorityInfo: Map<string, NotebookPriorityInfo[]>
+	): Promise<{ results: INotebookFileMatchNoModel<URI>[]; limitHit: boolean }> {
+		return { results: [], limitHit: false };
+	}
 }
-
-/** Type guard for cells with Quarto metadata */
-function hasQuartoMetadata(meta: Record<string, unknown> | undefined): meta is CellMetadataWithQuarto {
-	return meta !== null && typeof meta === 'object' && 'quarto' in meta;
-}
-
-/** Check if cell metadata indicates a YAML frontmatter cell */
-export function isFrontmatterCell(meta: Record<string, unknown> | undefined): boolean {
-	return hasQuartoMetadata(meta) && meta.quarto.type === 'frontmatter';
-}
-
-/** Get the code fence length for a cell, if specified in metadata */
-function getFenceLength(meta: Record<string, unknown> | undefined): number | undefined {
-	return hasQuartoMetadata(meta) ? meta.quarto.fenceLength : undefined;
-}
-
-// --- Cell metadata types ---
-
-/** Cell metadata with Quarto-specific properties */
-export interface CellMetadataWithQuarto {
-	quarto: QuartoCellMetadata;
-	[key: string]: unknown;
-}
-
-/** Quarto-specific cell metadata stored on NotebookCellData */
-export interface QuartoCellMetadata {
-	/** Cell type discriminator */
-	type?: 'frontmatter';
-	/** Code fence length (only stored when > 3) */
-	fenceLength?: number;
-}
-
-// --- Defaults ---
-
-/** Default number of backticks in a code fence */
-export const DEFAULT_FENCE_LENGTH = 3;
-
-// --- Language mappings ---
-
-/** Map Quarto language identifiers to VS Code language IDs */
-export const QUARTO_TO_VSCODE_LANGUAGE: Record<string, string> = {
-	'ojs': 'javascript',
-};
-
-/** Map VS Code language IDs to Quarto language identifiers */
-export const VSCODE_TO_QUARTO_LANGUAGE: Record<string, string> = Object.fromEntries(
-	Object.entries(QUARTO_TO_VSCODE_LANGUAGE).map(([k, v]) => [v, k])
-);
-
-// --- Cell boundary markers ---
-
-/** HTML comment used to mark cell boundaries between consecutive markdown cells */
-export const CELL_BOUNDARY_MARKER = '<!-- cell -->';
-
