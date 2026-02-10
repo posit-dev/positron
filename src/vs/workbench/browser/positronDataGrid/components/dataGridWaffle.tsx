@@ -7,7 +7,7 @@
 import './dataGridWaffle.css';
 
 // React.
-import { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
+import { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { DataGridRow } from './dataGridRow.js';
