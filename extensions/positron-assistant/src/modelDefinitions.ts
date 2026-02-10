@@ -52,26 +52,6 @@ export async function verifyProvidersInCustomModels() {
  * is provided and dynamic model querying is not available or fails.
  */
 const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
-	['posit-ai', [
-		{
-			name: 'Claude Sonnet 4.5',
-			identifier: 'claude-sonnet-4-5',
-			maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-		},
-		{
-			name: 'Claude Opus 4.1',
-			identifier: 'claude-opus-4-1',
-			maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-		},
-		{
-			name: 'Claude Haiku 4.5',
-			identifier: 'claude-haiku-4-5',
-			maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-		},
-	]],
 	['google', [
 		{
 			name: 'Gemini 2.5 Flash',

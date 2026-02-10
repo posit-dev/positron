@@ -9,10 +9,12 @@ import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { deleteConfiguration, ModelConfig } from '../../config';
-import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
+import { DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABILITIES } from '../../constants';
 import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
 import { VercelModelProvider } from '../base/vercelModelProvider.js';
+import { getAllModelDefinitions } from '../../modelDefinitions.js';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
@@ -502,5 +504,45 @@ export class PositModelProvider extends VercelModelProvider {
 	 */
 	protected override retrieveModelsFromConfig() {
 		return super.retrieveModelsFromConfig();
+	}
+
+	protected override async retrieveModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		try {
+			const params = PositModelProvider.getOAuthParameters();
+			const modelListing: vscode.LanguageModelChatInformation[] = [];
+			const knownPositModels = getAllModelDefinitions(this.providerId);
+
+			log.trace(`[${this.providerName}] Fetching models from Posit API...`);
+
+			const response = await this.authFetch(`${params.baseUrl}/models`);
+
+			if (!response.ok) {
+				throw new Error(`API returned ${response.status}`);
+			}
+
+			const data = await response.json() as { chat: Array<{ display_name: string; id: string; max_context_length?: number }> };
+			data.chat.forEach(model => {
+				const knownModel = knownPositModels?.find(m => model.id.startsWith(m.identifier));
+
+				modelListing.push(
+					createModelInfo({
+						id: model.id,
+						name: model.display_name,
+						family: this.providerId,
+						version: '',
+						provider: this.providerId,
+						providerName: this.providerName,
+						capabilities: DEFAULT_MODEL_CAPABILITIES,
+						defaultMaxInput: knownModel?.maxInputTokens || model.max_context_length,
+						defaultMaxOutput: knownModel?.maxOutputTokens
+					})
+				);
+			});
+
+			return markDefaultModel(modelListing, this.providerId, DEFAULT_POSITAI_MODEL_MATCH);
+		} catch (error) {
+			log.warn(`[${this.providerName}] Failed to fetch models from Posit API: ${error}`);
+			return undefined;
+		}
 	}
 }
