@@ -34,7 +34,6 @@ import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpret
 import { hasFiles } from './util';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { EnvironmentType } from '../pythonEnvironments/info';
-import { getPathEnvVariableForConda } from '../pythonEnvironments/creation/provider/condaUtils';
 import { IApplicationShell } from '../common/application/types';
 import { Interpreters } from '../common/utils/localize';
 import { untildify } from '../common/helpers';
@@ -323,7 +322,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // when importing packages with native dependencies like numpy, matplotlib, etc.
         // See: https://github.com/posit-dev/positron/issues/9740
         if (os.platform() === 'win32' && extraData.envType === EnvironmentType.Conda) {
-            env.PATH = getPathEnvVariableForConda(extraData.pythonPath);
+            const root = path.dirname(extraData.pythonPath);
+            const condaPaths = [
+                path.join(root, 'Library', 'bin'),
+                path.join(root, 'Library', 'mingw-w64', 'bin'),
+                path.join(root, 'Library', 'usr', 'bin'),
+                path.join(root, 'bin'),
+                path.join(root, 'Scripts'),
+            ].join(path.delimiter);
+            env.PATH = condaPaths + path.delimiter + (env.PATH || '');
         }
 
         if (sessionMetadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
