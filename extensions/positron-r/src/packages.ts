@@ -74,17 +74,22 @@ export class RPackageManager {
 	 * Install one or more packages.
 	 */
 	async installPackages(packages: string[]): Promise<void> {
+		// Validate package names (strip @version suffix for validation)
+		for (const pkg of packages) {
+			this._validatePackageName(pkg.split('@')[0]);
+		}
+
 		const hasPak = await this._ensurePak();
 
 		let code: string;
 		if (hasPak) {
 			// pak supports "pkg@version" syntax directly
-			const pkgList = packages.map(p => `"${this._escapeString(p)}"`).join(', ');
+			const pkgList = packages.map(p => `"${p}"`).join(', ');
 			code = `pak::pkg_install(c(${pkgList}), ask = FALSE)`;
 		} else {
 			// base R: strip version suffix if present (not supported)
 			const pkgNames = packages.map(p => p.split('@')[0]);
-			const pkgList = pkgNames.map(p => `"${this._escapeString(p)}"`).join(', ');
+			const pkgList = pkgNames.map(p => `"${p}"`).join(', ');
 			code = `install.packages(c(${pkgList}))`;
 		}
 
@@ -96,17 +101,22 @@ export class RPackageManager {
 	 * Package names can optionally include version using '@' syntax (e.g., "dplyr@1.1.0").
 	 */
 	async updatePackages(packages: string[]): Promise<void> {
+		// Validate package names (strip @version suffix for validation)
+		for (const pkg of packages) {
+			this._validatePackageName(pkg.split('@')[0]);
+		}
+
 		const hasPak = await this._ensurePak();
 
 		let code: string;
 		if (hasPak) {
 			// pak supports "pkg@version" syntax directly
-			const pkgList = packages.map(p => `"${this._escapeString(p)}"`).join(', ');
+			const pkgList = packages.map(p => `"${p}"`).join(', ');
 			code = `pak::pkg_install(c(${pkgList}), ask = FALSE)`;
 		} else {
 			// base R: strip version suffix if present (not supported)
 			const pkgNames = packages.map(p => p.split('@')[0]);
-			const pkgList = pkgNames.map(p => `"${this._escapeString(p)}"`).join(', ');
+			const pkgList = pkgNames.map(p => `"${p}"`).join(', ');
 			code = `install.packages(c(${pkgList}))`;
 		}
 
@@ -140,8 +150,13 @@ export class RPackageManager {
 	 * Uninstall one or more packages.
 	 */
 	async uninstallPackages(packages: string[]): Promise<void> {
+		// Validate package names
+		for (const pkg of packages) {
+			this._validatePackageName(pkg);
+		}
+
 		const hasPak = await this._ensurePakChecked();
-		const pkgList = packages.map(p => `"${this._escapeString(p)}"`).join(', ');
+		const pkgList = packages.map(p => `"${p}"`).join(', ');
 
 		let remove: string;
 		if (hasPak) {
@@ -170,11 +185,13 @@ export class RPackageManager {
 
 		if (hasPak) {
 			// Use pak's search directly - it's fast and returns relevant results
+			// Sanitize query: remove quotes and backslashes that could break R string
+			const sanitizedQuery = query.replace(/["\\]/g, '');
 			const code = [
 				'local({',
 				'old_opt <- options(pak.no_extra_messages = TRUE)',
 				'on.exit(options(old_opt), add = TRUE)',
-				`pkgs <- pak::pkg_search("${this._escapeString(query)}", size = 100)`,
+				`pkgs <- pak::pkg_search("${sanitizedQuery}", size = 100)`,
 				'cat(jsonlite::toJSON(data.frame(',
 				'id = pkgs$package,',
 				'name = pkgs$package,',
@@ -207,12 +224,12 @@ export class RPackageManager {
 	 * TODO: Add support for historical versions from repo archive.
 	 */
 	async searchPackageVersions(name: string): Promise<string[]> {
-		const escapedName = this._escapeString(name);
+		this._validatePackageName(name);
 
 		// Use R's configured repos (respects user settings and pak configuration)
 		const code = [
 			'local({',
-			`pkg <- "${escapedName}"`,
+			`pkg <- "${name}"`,
 			'ap <- available.packages()',
 			'current <- if (pkg %in% rownames(ap)) ap[pkg, "Version"] else character(0)',
 			'cat(jsonlite::toJSON(current))',
@@ -411,9 +428,17 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Escape a string for use in R code.
+	 * Validate an R package name according to CRAN requirements:
+	 * - Can only consist of letters, numbers, and periods
+	 * - Must start with a letter
+	 * - Cannot end with a period
+	 *
+	 * Throws an error if the name is invalid.
 	 */
-	private _escapeString(str: string): string {
-		return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+	private _validatePackageName(name: string): void {
+		// Pattern: starts with letter, contains only letters/numbers/periods, doesn't end with period
+		if (!/^[a-zA-Z]([a-zA-Z0-9.]*[a-zA-Z0-9])?$/.test(name)) {
+			throw new Error(`Invalid R package name: "${name}". Package names must start with a letter, contain only letters, numbers, and periods, and cannot end with a period.`);
+		}
 	}
 }
