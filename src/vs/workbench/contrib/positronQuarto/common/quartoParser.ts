@@ -13,8 +13,6 @@ import {
 	QuartoDocument,
 } from './quartoTypes.js';
 
-// --- Regular expressions for parsing Quarto documents ---
-
 /** Matches YAML frontmatter block at the start of a document */
 const FRONTMATTER_REGEX = /^---\r?\n(?<content>[\s\S]*?)\r?\n---/;
 
@@ -26,8 +24,6 @@ const RAW_START_REGEX = /^```\{=(?<format>\w+)\}\s*$/;
 
 /** Matches a closing code fence. */
 const CODE_END_REGEX = /^```\s*$/;
-
-// --- Helpers ---
 
 /**
  * Extracts the block label from chunk options.
@@ -98,10 +94,6 @@ function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string 
 	return result;
 }
 
-
-
-// --- Parser internals ---
-
 /** Mutable state tracked while a code block is open. */
 interface OpenCodeBlock {
 	type: QuartoNodeType.CodeBlock;
@@ -119,11 +111,7 @@ interface OpenRawBlock {
 
 type OpenBlock = OpenCodeBlock | OpenRawBlock;
 
-// --- Parser ---
-
-/**
- * Parse a QMD document.
- */
+/** Parse QMD content. */
 export function parseQuarto(content: string, logService?: ILogService): QuartoDocument {
 	if (!content) {
 		return { blocks: [], lines: [] };
@@ -211,11 +199,9 @@ export function parseQuarto(content: string, logService?: ILogService): QuartoDo
 	}
 
 	return { blocks, frontmatter, lines };
-}// --- Shared helpers ---
-/**
- * Maps common Jupyter kernel names to language identifiers.
- */
+}
 
+/** Maps common Jupyter kernel names to language identifiers. */
 export function kernelToLanguageId(kernelName: string): string | undefined {
 	const kernelLower = kernelName.toLowerCase();
 	if (kernelLower.includes('python')) {
@@ -229,4 +215,3 @@ export function kernelToLanguageId(kernelName: string): string | undefined {
 	}
 	return undefined;
 }
-
