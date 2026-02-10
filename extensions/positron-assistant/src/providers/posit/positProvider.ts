@@ -57,10 +57,10 @@ export class PositModelProvider extends VercelModelProvider {
 	};
 
 	private static getOAuthParameters() {
-		const authHost: string = vscode.workspace.getConfiguration('positron.assistant.positai').get('authHost', '');
-		const scope: string = vscode.workspace.getConfiguration('positron.assistant.positai').get('scope', '');
-		const clientId: string = vscode.workspace.getConfiguration('positron.assistant.positai').get('clientId', '');
-		const baseUrl: string = vscode.workspace.getConfiguration('positron.assistant.positai').get('baseUrl', '');
+		const authHost: string = vscode.workspace.getConfiguration('positron.assistant.positai').get('authHost', 'https://login.posit.cloud');
+		const scope: string = vscode.workspace.getConfiguration('positron.assistant.positai').get('scope', 'prism');
+		const clientId: string = vscode.workspace.getConfiguration('positron.assistant.positai').get('clientId', 'positron');
+		const baseUrl: string = vscode.workspace.getConfiguration('positron.assistant.positai').get('baseUrl', 'https://gateway.posit.ai');
 
 		if (!authHost || !scope || !clientId || !baseUrl) {
 			throw new Error('OAuth parameters are not configured.');
