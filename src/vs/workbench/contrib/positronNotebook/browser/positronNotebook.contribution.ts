@@ -77,6 +77,28 @@ enum PositronNotebookCellActionGroup {
 }
 
 /**
+ * Infer the notebook view type from a resource's file extension.
+ * Used as a fallback when viewType is not explicitly available.
+ */
+function inferViewTypeFromExtension(resource: URI): string {
+	if (extname(resource) === '.qmd') {
+		return QMD_VIEW_TYPE;
+	}
+	return IPYNB_VIEW_TYPE;
+}
+
+/**
+ * Configuration for registering a notebook editor with the editor resolver service.
+ */
+interface NotebookEditorRegistration {
+	extension: string;
+	globPattern: string;
+	viewType: string;
+	editorInfo: RegisteredEditorInfo;
+	cellEditorInfo: RegisteredEditorInfo;
+}
+
+/**
  * PositronNotebookContribution class.
  */
 class PositronNotebookContribution extends Disposable {
@@ -104,33 +126,68 @@ class PositronNotebookContribution extends Disposable {
 			? RegisteredEditorPriority.exclusive
 			: RegisteredEditorPriority.option;
 
-		const notebookEditorInfo: RegisteredEditorInfo = {
+		const ipynbEditorInfo: RegisteredEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
 			detail: localize('positronNotebook.detail', "Native .ipynb Support (Alpha)"),
 			priority: getPriority(),
 		};
-		const notebookCellEditorInfo: RegisteredEditorInfo =
-			{ ...notebookEditorInfo, priority: getCellPriority() };
+		const ipynbCellEditorInfo: RegisteredEditorInfo = {
+			...ipynbEditorInfo,
+			priority: getCellPriority(),
+		};
+
+		const quartoEditorInfo: RegisteredEditorInfo = {
+			id: POSITRON_NOTEBOOK_EDITOR_ID,
+			label: localize('positronQuartoNotebook', "Positron Quarto Notebook"),
+			detail: localize('positronQuartoNotebook.detail', "Quarto Notebook Editor"),
+			priority: getPriority(),
+		};
+		const quartoCellEditorInfo: RegisteredEditorInfo = {
+			...quartoEditorInfo,
+			priority: getCellPriority(),
+		};
 
 		// Listen for configuration changes to update priorities dynamically
+		const allEditorInfos = [ipynbEditorInfo, quartoEditorInfo];
+		const allCellEditorInfos = [ipynbCellEditorInfo, quartoCellEditorInfo];
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
-				notebookEditorInfo.priority = getPriority();
-				notebookCellEditorInfo.priority = getCellPriority();
+				for (const info of allEditorInfos) {
+					info.priority = getPriority();
+				}
+				for (const info of allCellEditorInfos) {
+					info.priority = getCellPriority();
+				}
 			}
 		}));
 
-		// Register for .ipynb files
+		this.registerNotebookEditor({
+			extension: '.ipynb',
+			globPattern: '*.ipynb',
+			viewType: IPYNB_VIEW_TYPE,
+			editorInfo: ipynbEditorInfo,
+			cellEditorInfo: ipynbCellEditorInfo,
+		});
+
+		this.registerNotebookEditor({
+			extension: '.qmd',
+			globPattern: '*.qmd',
+			viewType: QMD_VIEW_TYPE,
+			editorInfo: quartoEditorInfo,
+			cellEditorInfo: quartoCellEditorInfo,
+		});
+	}
+
+	private registerNotebookEditor(config: NotebookEditorRegistration): void {
+		// Register file editor
 		this._register(this.editorResolverService.registerEditor(
-			'*.ipynb',
-			notebookEditorInfo,
+			config.globPattern,
+			config.editorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// Support untitled notebooks and any file system that has a provider
-					// This handles: file://, vscode-remote://, vscode-userdata://, etc.
-					return extname(resource) === '.ipynb' &&
+					return extname(resource) === config.extension &&
 						(resource.scheme === Schemas.untitled ||
 							resource.scheme === Schemas.vscodeNotebookCell ||
 							this.fileService.hasProvider(resource));
@@ -138,8 +195,6 @@ class PositronNotebookContribution extends Disposable {
 			},
 			{
 				createUntitledEditorInput: async ({ resource, options }) => {
-					// We should handle undefined resource as in notebookEditorServiceImpl.ts,
-					// but resource seems to always be defined so we throw for now to simplify
 					if (!resource) {
 						throw new Error(`Cannot create untitled Positron notebook editor without a resource`);
 					}
@@ -147,7 +202,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
-						IPYNB_VIEW_TYPE,
+						config.viewType,
 					);
 					return { editor: notebookEditorInput, options };
 				},
@@ -156,24 +211,19 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
-						IPYNB_VIEW_TYPE,
+						config.viewType,
 					);
 					return { editor: notebookEditorInput, options };
 				},
-				// Positron notebook editor doesn't support diff views, so delegate to VSCode's notebook diff editor
-				createDiffEditorInput: ({ original, modified, label, description }, group) => {
+				createDiffEditorInput: ({ original, modified, label, description }) => {
 					if (!modified.resource || !original.resource) {
 						throw new Error('Cannot create notebook diff editor without resources');
 					}
 
-					// Determine the notebook view type for the resource
-					// First try to get it from an existing model
 					let viewType = this.notebookService.getNotebookTextModel(modified.resource)?.viewType;
 
-					// If no model exists, find matching contributed notebook types
 					if (!viewType) {
 						const providers = this.notebookService.getContributedNotebookTypes(modified.resource);
-						// Use exclusive or default provider, or fall back to first available
 						viewType = providers.find(p => p.priority === 'exclusive')?.id
 							|| providers.find(p => p.priority === 'default')?.id
 							|| providers[0]?.id;
@@ -196,19 +246,14 @@ class PositronNotebookContribution extends Disposable {
 			},
 		));
 
-		// Register for cells in .ipynb files
+		// Register cell editor
 		this._register(this.editorResolverService.registerEditor(
-			`${Schemas.vscodeNotebookCell}:/**/*.ipynb`,
-			// The cell handler is specifically for opening and focusing a cell by URI
-			// e.g. vscode.window.showTextDocument(cell.document).
-			// The editor resolver service expects a single handler with 'exclusive' priority.
-			// This one is only registered if Positron notebooks are enabled.
-			// This does not seem to be an issue for file schemes (registered above).
-			notebookCellEditorInfo,
+			`${Schemas.vscodeNotebookCell}:/**/*${config.extension}`,
+			config.cellEditorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					return extname(resource) === '.ipynb' &&
+					return extname(resource) === config.extension &&
 						resource.scheme === Schemas.vscodeNotebookCell;
 				}
 			},
@@ -222,94 +267,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						parsed.notebook,
 						undefined,
-						IPYNB_VIEW_TYPE,
-					);
-					// Create notebook editor options from base text editor options
-					const notebookEditorOptions: INotebookEditorOptions = {
-						...editorInput.options,
-						cellOptions: editorInput,
-						// Override text editor view state - it's not valid for notebook editors
-						viewState: undefined,
-					};
-					return { editor: notebookEditorInput, options: notebookEditorOptions };
-				}
-			},
-		));
-
-		// Register for .qmd files (Quarto notebooks)
-		const quartoEditorInfo: RegisteredEditorInfo = {
-			id: POSITRON_NOTEBOOK_EDITOR_ID,
-			label: localize('positronQuartoNotebook', "Positron Quarto Notebook"),
-			detail: localize('positronQuartoNotebook.detail', "Quarto Notebook Editor"),
-			priority: getPriority(),
-		};
-		const quartoCellEditorInfo: RegisteredEditorInfo = {
-			...quartoEditorInfo,
-			priority: getCellPriority(),
-		};
-
-		this._register(this.editorResolverService.registerEditor(
-			'*.qmd',
-			quartoEditorInfo,
-			{
-				singlePerResource: true,
-				canSupportResource: (resource: URI) => {
-					return extname(resource) === '.qmd' &&
-						(resource.scheme === Schemas.untitled ||
-							resource.scheme === Schemas.vscodeNotebookCell ||
-							this.fileService.hasProvider(resource));
-				}
-			},
-			{
-				createEditorInput: ({ resource, options }) => {
-					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
-						this.instantiationService,
-						resource,
-						undefined,
-						QMD_VIEW_TYPE,
-					);
-					return { editor: notebookEditorInput, options };
-				},
-				createDiffEditorInput: ({ original, modified, label, description }) => {
-					if (!modified.resource || !original.resource) {
-						throw new Error('Cannot create notebook diff editor without resources');
-					}
-					const diffInput = NotebookDiffEditorInput.create(
-						this.instantiationService,
-						modified.resource,
-						label,
-						description,
-						original.resource,
-						QMD_VIEW_TYPE,
-					);
-					return { editor: diffInput };
-				}
-			},
-		));
-
-		// Register for cells in .qmd files
-		this._register(this.editorResolverService.registerEditor(
-			`${Schemas.vscodeNotebookCell}:/**/*.qmd`,
-			quartoCellEditorInfo,
-			{
-				singlePerResource: true,
-				canSupportResource: (resource: URI) => {
-					return extname(resource) === '.qmd' &&
-						resource.scheme === Schemas.vscodeNotebookCell;
-				}
-			},
-			{
-				createEditorInput: (editorInput) => {
-					const parsed = CellUri.parse(editorInput.resource);
-					if (!parsed) {
-						throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
-					}
-					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
-						this.instantiationService,
-						parsed.notebook,
-						undefined,
-						QMD_VIEW_TYPE,
-						{},
+						config.viewType,
 					);
 					const notebookEditorOptions: INotebookEditorOptions = {
 						...editorInput.options,
@@ -375,7 +333,7 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
-		const viewType = this.getViewType(workingCopy) ?? IPYNB_VIEW_TYPE;
+		const viewType = this.getViewType(workingCopy) ?? inferViewTypeFromExtension(workingCopy.resource);
 		return PositronNotebookEditorInput.getOrCreate(
 			this.instantiationService,
 			workingCopy.resource,
@@ -421,7 +379,7 @@ registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNo
 
 
 
-type SerializedPositronNotebookEditorData = { resource: URI; options?: PositronNotebookEditorInputOptions };
+type SerializedPositronNotebookEditorData = { resource: URI; viewType?: string; options?: PositronNotebookEditorInputOptions };
 class PositronNotebookEditorSerializer implements IEditorSerializer {
 	canSerialize(): boolean {
 		return true;
@@ -430,6 +388,7 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 		assertType(input instanceof PositronNotebookEditorInput);
 		const data: SerializedPositronNotebookEditorData = {
 			resource: input.resource,
+			viewType: input.viewType,
 			options: input.options
 		};
 		return JSON.stringify(data);
@@ -444,8 +403,10 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 			return undefined;
 		}
 
-		const input = PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, IPYNB_VIEW_TYPE, options);
-		return input;
+		// Use persisted viewType, falling back to extension-based inference
+		// for backwards compatibility with existing serialized data
+		const viewType = data.viewType ?? inferViewTypeFromExtension(resource);
+		return PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, viewType, options);
 	}
 }
 
