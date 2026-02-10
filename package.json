@@ -95,7 +95,7 @@
     "@aws-sdk/client-bedrock": "^3.974.0",
     "@microsoft/1ds-core-js": "^3.2.13",
     "@microsoft/1ds-post-js": "^3.2.13",
-    "@midleman/playwright-reporter": "^0.39.2",
+    "@midleman/playwright-reporter": "^0.39.3",
     "@types/react": "19.2.9",
     "@types/react-dom": "19.2.3",
     "@types/semver": "^7.5.8",
