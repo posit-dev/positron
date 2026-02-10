@@ -19,7 +19,7 @@ import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
 
-const POSIT_AUTH_PROVIDER_ID = 'positron-posit-ai';
+const POSIT_AUTH_PROVIDER_ID = 'posit-ai';
 
 /**
  * Posit AI model provider implementation using native Anthropic SDK with OAuth authentication.
