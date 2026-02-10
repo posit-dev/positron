@@ -109,8 +109,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	});
 
 	test('Verify Authentication Type When Switching Providers', async function ({ app }) {
-		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
 		await app.workbench.assistant.selectModelProvider('Copilot');
 		await app.workbench.assistant.verifyAuthMethod('oauth');
 		await app.workbench.assistant.selectModelProvider('anthropic-api');

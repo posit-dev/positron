@@ -30,6 +30,7 @@ import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { Commands, EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
+import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
 import { hasFiles } from './util';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
@@ -174,6 +175,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 userInterpreterSettings.globalValue;
         }
 
+        // if user has startup set to manual, isImmediate should be false even if we find a recommended interpreter
+        // Check both the general interpreters setting and the Python-specific override
+        const generalStartupBehavior = getConfiguration('interpreters').get<string>('startupBehavior');
+        const pythonStartupBehavior = getConfiguration('interpreters', { languageId: 'python' }).get<string>(
+            'startupBehavior',
+        );
+        if (generalStartupBehavior === 'manual' || pythonStartupBehavior === 'manual') {
+            isImmediate = false;
+        }
         return { path: interpreterPath, isImmediate };
     }
 
