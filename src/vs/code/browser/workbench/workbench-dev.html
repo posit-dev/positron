@@ -51,9 +51,8 @@
 		const importMap = { imports: {} };
 		// --- Start Positron ---
 		const addModule = (packageName) => {
-			const packageNamePath = packageName.split('/');
-			const module = `esm-package-dependencies/${packageNamePath[packageNamePath.length - 1]}.js`;
-			const url = new URL(module, globalThis._VSCODE_FILE_ROOT).href
+			const module = `esm-package-dependencies/${packageName}.js`;
+			const url = new URL(module, globalThis._VSCODE_FILE_ROOT).href;
 
 			importMap.imports[packageName] = url;
 		};

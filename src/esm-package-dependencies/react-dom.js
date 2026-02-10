@@ -1,6 +1,1 @@
-/* eslint-disable */
-import "./react@19.2.4/es2022/react.mjs";
-import "./scheduler@0.27.0/es2022/scheduler.mjs";
-export * from "./react-dom@19.2.4/es2022/client.mjs";
-export * from "./react-dom@19.2.4/es2022/react-dom.mjs";
-export { default } from "./react-dom@19.2.4/es2022/client.mjs";
+import{a}from"./chunk-XVE2LKUA.js";import"./chunk-LFXSHBBX.js";import"./chunk-EK7ODJWE.js";var _mod=a();export default _mod;export var {__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,createPortal,flushSync,preconnect,prefetchDNS,preinit,preinitModule,preload,preloadModule,requestFormReset,unstable_batchedUpdates,useFormState,useFormStatus,version}=_mod;

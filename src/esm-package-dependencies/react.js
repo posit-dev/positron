@@ -1,3 +1,1 @@
-/* eslint-disable */
-export * from "./react@19.2.4/es2022/react.mjs";
-export { default } from "./react@19.2.4/es2022/react.mjs";
+import{a}from"./chunk-LFXSHBBX.js";import"./chunk-EK7ODJWE.js";var _mod=a();export default _mod;export var {Activity,Children,Component,Fragment,Profiler,PureComponent,StrictMode,Suspense,__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,__COMPILER_RUNTIME,act,cache,cacheSignal,captureOwnerStack,cloneElement,createContext,createElement,createRef,forwardRef,isValidElement,lazy,memo,startTransition,unstable_useCacheRefresh,use,useActionState,useCallback,useContext,useDebugValue,useDeferredValue,useEffect,useEffectEvent,useId,useImperativeHandle,useInsertionEffect,useLayoutEffect,useMemo,useOptimistic,useReducer,useRef,useState,useSyncExternalStore,useTransition,version}=_mod;

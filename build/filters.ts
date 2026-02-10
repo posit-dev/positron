@@ -39,6 +39,7 @@ export const all = Object.freeze<string[]>([
 
 	// Excluded since it comes from an external source with its own hygiene
 	'!src/esm-package-dependencies/**/*',
+	'!src/esm-package-dependencies-old/**/*',
 
 	// Excluded since it's third-party PDF.js distribution
 	'!extensions/positron-pdf-server/pdfjs-dist/**/*',

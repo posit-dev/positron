@@ -514,8 +514,7 @@
 
 			const importMap: { imports: Record<string, string> } = { imports: {} };
 			const addModule = (packageName: string) => {
-				const packageNamePath = packageName.split('/');
-				const module = `esm-package-dependencies/${packageNamePath[packageNamePath.length - 1]}.js`;
+				const module = `esm-package-dependencies/${packageName}.js`;
 				const url = new URL(module, baseUrl).href;
 				importMap.imports[packageName] = url;
 			};

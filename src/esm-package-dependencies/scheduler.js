@@ -1,3 +1,1 @@
-/* eslint-disable */
-export * from "./scheduler@0.27.0/es2022/scheduler.mjs";
-export { default } from "./scheduler@0.27.0/es2022/scheduler.mjs";
+import{a}from"./chunk-MF6WCRAL.js";import"./chunk-EK7ODJWE.js";var _mod=a();export default _mod;export var {unstable_now,unstable_IdlePriority,unstable_ImmediatePriority,unstable_LowPriority,unstable_NormalPriority,unstable_Profiling,unstable_UserBlockingPriority,unstable_cancelCallback,unstable_forceFrameRate,unstable_getCurrentPriorityLevel,unstable_next,unstable_requestPaint,unstable_runWithPriority,unstable_scheduleCallback,unstable_shouldYield,unstable_wrapCallback}=_mod;
