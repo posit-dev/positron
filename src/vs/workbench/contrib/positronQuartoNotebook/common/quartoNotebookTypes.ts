@@ -13,6 +13,4 @@ export interface CellMetadataWithQuarto {
 export interface QuartoCellMetadata {
 	/** Cell type discriminator */
 	type?: 'frontmatter';
-	/** Code fence length (only stored when > 3) */
-	fenceLength?: number;
 }
