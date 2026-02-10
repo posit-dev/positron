@@ -48,8 +48,8 @@ function extractLabel(options: string): string | undefined {
  * Simple YAML frontmatter parser.
  * Extracts jupyter kernel specification from frontmatter.
  */
-function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string; } {
-	const result: { jupyterKernel?: string; } = {};
+function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string } {
+	const result: { jupyterKernel?: string } = {};
 
 	// Look for jupyter: kernel_name or jupyter:\n  kernelspec:\n    name: kernel_name
 	const lines = frontmatterContent.split(/\r?\n/);
