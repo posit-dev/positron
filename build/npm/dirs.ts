@@ -164,7 +164,7 @@ if (POSITRON_EXTENSIONS_FILTER) {
 		// SAFETY: Partial cache hits via restore-keys return cache-hit = 'false', which
 		// sets POSITRON_EXTENSIONS_FILTER = '' (empty), causing full reinstall of all
 		// directories including extensions/. No stale dependencies can occur.
-		const extensionsNodeModulesPath = path.join(__dirname, '../../extensions/node_modules');
+		const extensionsNodeModulesPath = path.join(import.meta.dirname, '../../extensions/node_modules');
 		const extensionsNodeModulesExists = existsSync(extensionsNodeModulesPath);
 
 		if (extensionsNodeModulesExists) {
