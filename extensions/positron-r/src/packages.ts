@@ -321,7 +321,7 @@ export class RPackageManager {
 	private async _executeAndWait(code: string): Promise<void> {
 		const id = randomUUID();
 
-		const promise = new Promise<void>((resolve) => {
+		const promise = new Promise<void>((resolve, reject) => {
 			const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
 				if (msg.parent_id !== id) {
 					return;
@@ -333,6 +333,12 @@ export class RPackageManager {
 						resolve();
 						disp.dispose();
 					}
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.Error) {
+					const errorMsg = msg as positron.LanguageRuntimeError;
+					reject(new Error(errorMsg.message));
+					disp.dispose();
 				}
 			});
 		});
