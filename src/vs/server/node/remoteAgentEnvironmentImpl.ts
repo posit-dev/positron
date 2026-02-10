@@ -21,6 +21,7 @@ import { ServerConnectionToken, ServerConnectionTokenType } from './serverConnec
 import { IExtensionHostStatusService } from './extensionHostStatusService.js';
 import { IUserDataProfilesService } from '../../platform/userDataProfile/common/userDataProfile.js';
 import { joinPath } from '../../base/common/resources.js';
+import { ILogService } from '../../platform/log/common/log.js';
 // --- Start Positron ---
 import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentEnvironment.js';
 // --- End Positron ---
@@ -34,7 +35,8 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 		private readonly _environmentService: IServerEnvironmentService,
 		private readonly _userDataProfilesService: IUserDataProfilesService,
 		private readonly _extensionHostStatusService: IExtensionHostStatusService,
-		// --- Start Positron ---
+		private readonly _logService: ILogService,
+     // --- Start Positron ---
 		private readonly _positronLicenseeInfo?: IPositronLicenseeInfo,
 		// --- End Positron ---
 	) {
@@ -111,6 +113,7 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 			const minorVersion = glibcVersion ? parseInt(glibcVersion.split('.')[1]) : 28;
 			isUnsupportedGlibc = (minorVersion <= 27) || !!process.env['VSCODE_SERVER_CUSTOM_GLIBC_LINKER'];
 		}
+		this._logService.trace(`[reconnection-grace-time] Server sending grace time to client: ${this._environmentService.reconnectionGraceTime}ms (${Math.floor(this._environmentService.reconnectionGraceTime / 1000)}s)`);
 		return {
 			pid: process.pid,
 			connectionToken: (this._connectionToken.type !== ServerConnectionTokenType.None ? this._connectionToken.value : ''),
@@ -132,6 +135,7 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 				all: [...this._userDataProfilesService.profiles].map(profile => ({ ...profile }))
 			},
 			isUnsupportedGlibc,
+			reconnectionGraceTime: this._environmentService.reconnectionGraceTime
 			// --- Start Positron ---
 			positronLicenseeInfo: this._positronLicenseeInfo
 			// --- End Positron ---

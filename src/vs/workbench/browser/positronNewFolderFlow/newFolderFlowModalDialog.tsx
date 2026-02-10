@@ -1,10 +1,7 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
-// React.
-import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
@@ -92,6 +89,7 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 						createPyprojectToml: result.createPyprojectToml,
 						pythonEnvProviderId: result.pythonEnvProviderId,
 						pythonEnvProviderName: result.pythonEnvProviderName,
+						pythonEnvName: result.pythonEnvName,
 						installIpykernel: result.installIpykernel,
 						condaPythonVersion: result.condaPythonVersion,
 						uvPythonVersion: result.uvPythonVersion,
@@ -152,7 +150,7 @@ const NewFolderFlowModalDialog = (props: NewFolderFlowModalDialogProps) => {
 	// Render.
 	return (
 		<PositronModalDialog
-			height={520}
+			height={580}
 			renderer={props.renderer} title={(() => localize('positron.newFolderFromTemplate', "New Folder From Template"))()}
 			width={700}
 			onCancel={cancelHandler}

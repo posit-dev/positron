@@ -13,7 +13,7 @@ import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { IWorkspaceContextService, UNKNOWN_EMPTY_WINDOW_WORKSPACE, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILifecycleService, LifecyclePhase, StartupKind } from '../../../services/lifecycle/common/lifecycle.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, } from '../../../../base/common/lifecycle.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
@@ -51,10 +51,8 @@ export class StartupPageEditorResolverContribution extends Disposable implements
 		@IEditorResolverService editorResolverService: IEditorResolverService
 	) {
 		super();
-		const disposables = new DisposableStore();
-		this._register(disposables);
 
-		editorResolverService.registerEditor(
+		this._register(editorResolverService.registerEditor(
 			`${GettingStartedInput.RESOURCE.scheme}:/**`,
 			{
 				id: GettingStartedInput.ID,
@@ -62,13 +60,13 @@ export class StartupPageEditorResolverContribution extends Disposable implements
 				priority: RegisteredEditorPriority.builtin,
 			},
 			{
-				singlePerResource: false,
+				singlePerResource: true,
 				canSupportResource: uri => uri.scheme === GettingStartedInput.RESOURCE.scheme,
 			},
 			{
-				createEditorInput: ({ resource, options }) => {
+				createEditorInput: ({ options }) => {
 					return {
-						editor: disposables.add(this.instantiationService.createInstance(GettingStartedInput, options as GettingStartedEditorOptions)),
+						editor: this.instantiationService.createInstance(GettingStartedInput, options as GettingStartedEditorOptions),
 						options: {
 							...options,
 							pinned: false
@@ -76,7 +74,7 @@ export class StartupPageEditorResolverContribution extends Disposable implements
 					};
 				}
 			}
-		);
+		));
 	}
 }
 

@@ -7,7 +7,7 @@
 import './CodeCellStatusFooter.css';
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';

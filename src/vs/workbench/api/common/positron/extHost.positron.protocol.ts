@@ -11,11 +11,11 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
+import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -60,6 +60,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void>;
 	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void>;
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
+	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown>;
@@ -100,6 +101,13 @@ export interface ExtHostLanguageRuntimeShape {
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
 	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void;
+	$getPackages(handle: number): Promise<LanguageRuntimePackage[]>;
+	$installPackages(handle: number, packages: string[]): Promise<void>;
+	$uninstallPackages(handle: number, packages: string[]): Promise<void>;
+	$updatePackages(handle: number, packages: string[]): Promise<void>;
+	$updateAllPackages(handle: number): Promise<void>;
+	$searchPackages(handle: number, query: string): Promise<LanguageRuntimePackage[]>;
+	$searchPackageVersions(handle: number, name: string): Promise<string[]>;
 }
 
 // This is the interface that the main process exposes to the extension host
@@ -146,7 +154,7 @@ export interface MainThreadConnectionsShape {
 }
 
 export interface ExtHostConnectionsShape {
-	$driverGenerateCode(driverId: string, inputs: Input[]): Promise<string>;
+	$driverGenerateCode(driverId: string, inputs: Input[]): Promise<string | { code: string; errorMessage: string }>;
 	$driverConnect(driverId: string, code: string): Promise<void>;
 	$driverCheckDependencies(driverId: string): Promise<boolean>;
 	$driverInstallDependencies(driverId: string): Promise<boolean>;
@@ -163,7 +171,7 @@ export interface MainThreadAiFeaturesShape {
 	$unregisterChatAgent(id: string): void;
 	$getCurrentPlotUri(): Promise<string | undefined>;
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
-	$responseProgress(sessionId: string, dto: IChatProgressDto): void;
+	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;
 	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void>;
 	$getSupportedProviders(): Thenable<string[]>;
 	$getChatExport(): Thenable<object | undefined>;

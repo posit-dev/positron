@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,8 +17,12 @@ import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
+import { RDataEditorProvider, RdsEditorProvider } from './rdata-editor.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
+
+// Export the runtime manager so other modules can access discovery state
+export let runtimeManager: RRuntimeManager;
 
 export function activate(context: vscode.ExtensionContext) {
 	const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
@@ -33,14 +37,14 @@ export function activate(context: vscode.ExtensionContext) {
 	// which is needed to properly restore the LSP after extension host restarts.
 	RSessionManager.initialize(context);
 
-	const rRuntimeManager = new RRuntimeManager(context);
-	positron.runtime.registerLanguageRuntimeManager('r', rRuntimeManager);
+	runtimeManager = new RRuntimeManager(context);
+	positron.runtime.registerLanguageRuntimeManager('r', runtimeManager);
 
 	// Set contexts.
 	setContexts(context);
 
 	// Register commands.
-	registerCommands(context, rRuntimeManager);
+	registerCommands(context, runtimeManager);
 
 	// Register LLM tools.
 	registerRLanguageModelTools(context);
@@ -50,6 +54,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register file associations.
 	registerFileAssociations();
+
+	// Register custom editors for R data files.
+	context.subscriptions.push(RDataEditorProvider.register(context));
+	context.subscriptions.push(RdsEditorProvider.register(context));
 
 	// Register R file paste and drop provider.
 	registerRFilePasteAndDropProvider(context);

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './createConnectionState.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
@@ -21,6 +21,10 @@ import { DropDownListBox } from '../../../../../browser/positronComponents/dropD
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
+import { IEditorOptions } from '../../../../../../editor/common/config/editorOptions.js';
 
 interface CreateConnectionProps {
 	readonly renderer: PositronModalReactRenderer;
@@ -37,18 +41,27 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
 	const [inputs, setInputs] = useState<Array<Input>>(metadata.inputs);
-	const [code, setCode] = useState<string | undefined>(undefined);
+	const [codeState, setCodeState] = useState<{ code: string; errorMessage?: string } | undefined>(undefined);
+
+	const editorOptions: IEditorOptions = {
+		readOnly: true,
+		cursorBlinking: 'solid'
+	};
 
 	useEffect(() => {
 		// Debounce the code generation to avoid unnecessary re-renders
 		const timeoutId = setTimeout(async () => {
 			if (generateCode) {
-				const code = await generateCode(inputs);
-				setCode(code);
+				const result = await generateCode(inputs);
+				if (typeof result === 'string') {
+					setCodeState({ code: result });
+				} else {
+					setCodeState(result);
+				}
 			}
 		}, 200);
 		return () => clearTimeout(timeoutId);
-	}, [inputs, generateCode, setCode]);
+	}, [inputs, generateCode, setCodeState]);
 
 	const onConnectHandler = async () => {
 		// Acquire code before disposing of the renderer
@@ -118,23 +131,24 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</h1>
 		</div>
 
-		<Form inputs={metadata.inputs} onInputsChange={setInputs}></Form>
+		<Form inputs={inputs} onInputsChange={setInputs}></Form>
 
 		<div className='create-connection-code-title'>
 			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
 		</div>
 
-		<div className='create-connection-code-editor'>
+		<div className={positronClassNames('create-connection-code-editor', { 'has-error': !!codeState?.errorMessage })}>
 			<SimpleCodeEditor
 				ref={editorRef}
-				code={code}
-				editorOptions={{
-					readOnly: true,
-					cursorBlinking: 'solid'
-				}}
+				code={codeState?.code || ''}
+				editorOptions={editorOptions}
 				language={languageId}
 			>
 			</SimpleCodeEditor>
+			<div className='connection-error-message'>
+				<Icon icon={Codicon.error} />
+				{codeState?.errorMessage}
+			</div>
 		</div>
 
 		<div className='create-connection-buttons'>
@@ -160,7 +174,8 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.back', 'Back'))()}
 			</PositronButton>
 			<PositronButton
-				className='button action-bar-button default'
+				className={`button action-bar-button`}
+				disabled={!codeState || !!codeState.errorMessage}
 				onPressed={onConnectHandler}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}
@@ -185,12 +200,9 @@ const Form = (props: PropsWithChildren<{ inputs: Input[], onInputsChange: (input
 			inputs.map((input) => {
 				return <FormElement key={input.id} input={input} onChange={(value) => {
 					onInputsChange(
-						inputs.map((i) => {
-							if (i.id === input.id) {
-								i.value = value;
-							}
-							return i;
-						})
+						inputs.map((i) =>
+							i.id === input.id ? { ...i, value } : i
+						)
 					);
 				}}></FormElement>;
 			})

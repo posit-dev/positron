@@ -57,7 +57,7 @@ import { kProxyRegex } from './pwbConstants.js';
 
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
 
-declare module vsda {
+declare namespace vsda {
 	// the signer is a native module that for historical reasons uses a lower case class name
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	export class signer {
@@ -78,6 +78,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	private readonly _allReconnectionTokens: Set<string>;
 	private readonly _webClientServer: WebClientServer | null;
 	private readonly _webEndpointOriginChecker: WebEndpointOriginChecker;
+	private readonly _reconnectionGraceTime: number;
 
 	private readonly _serverBasePath: string | undefined;
 	private readonly _serverProductPath: string;
@@ -113,6 +114,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				: null
 		);
 		this._logService.info(`Extension host agent started.`);
+		this._reconnectionGraceTime = this._environmentService.reconnectionGraceTime;
 
 		this._waitThenShutdown(true);
 	}
@@ -458,7 +460,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				}
 
 				protocol.sendControl(VSBuffer.fromString(JSON.stringify({ type: 'ok' })));
-				const con = new ManagementConnection(this._logService, reconnectionToken, remoteAddress, protocol);
+				const con = new ManagementConnection(this._logService, reconnectionToken, remoteAddress, protocol, this._reconnectionGraceTime);
 				this._socketServer.acceptConnection(con.protocol, con.onClose);
 				this._managementConnections[reconnectionToken] = con;
 				this._allReconnectionTokens.add(reconnectionToken);

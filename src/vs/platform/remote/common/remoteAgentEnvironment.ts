@@ -36,7 +36,8 @@ export interface IRemoteAgentEnvironment {
 		home: URI;
 	};
 	isUnsupportedGlibc: boolean;
-	// --- Start Positron ---
+	reconnectionGraceTime?: number;
+  // --- Start Positron ---
 	positronLicenseeInfo?: IPositronLicenseeInfo;
 	// --- End Positron ---
 }
