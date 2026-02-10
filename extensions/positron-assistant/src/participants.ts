@@ -69,12 +69,6 @@ export class ParticipantService implements vscode.Disposable {
 			participant.requestHandler.bind(participant),
 		);
 		vscodeParticipant.iconPath = participant.iconPath;
-
-		// Only register followup provider if enabled
-		const followupsEnabled = vscode.workspace.getConfiguration('positron.assistant.followups').get('enable', true);
-		if (followupsEnabled) {
-			vscodeParticipant.followupProvider = participant.followupProvider;
-		}
 	}
 
 	getRequestData(chatRequestId: string): ChatRequestData | undefined {
@@ -164,44 +158,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	readonly _pauseStateEventEmitter = new vscode.EventEmitter<vscode.ChatParticipantPauseStateEvent>();
 	onDidChangePauseState: vscode.Event<vscode.ChatParticipantPauseStateEvent> = this._pauseStateEventEmitter.event;
-
-	readonly followupProvider: vscode.ChatFollowupProvider = {
-		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
-			// Check if followups are enabled
-			const followupsEnabled = vscode.workspace.getConfiguration('positron.assistant.followups').get('enable', true);
-			if (!followupsEnabled) {
-				return [];
-			}
-
-			const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'followups.md'), 'utf8');
-			const messages = [
-				new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
-				...toLanguageModelChatMessage(context.history),
-				vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.')
-			];
-
-			const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
-			if (models.length === 0) {
-				throw new Error(vscode.l10n.t('Selected model not available.'));
-			}
-
-			const response = await models[0].sendRequest(messages, {}, token);
-
-			let json = '';
-			for await (const fragment of response.text) {
-				json += fragment;
-				if (token.isCancellationRequested) {
-					break;
-				}
-			}
-
-			try {
-				return (JSON.parse(json) as 'string'[]).map((p) => ({ prompt: p }));
-			} catch (e) {
-				return [];
-			}
-		}
-	};
 
 	async requestHandler(
 		request: vscode.ChatRequest,
@@ -313,7 +269,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			tool => toolAvailability.get(tool.name as PositronAssistantToolName) === true
 		);
 
-		log.debug(`[tools] Available tools for participant ${this.id}:\n${tools.length > 0 ? tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n') : 'No tools available'}`);
+		log.debug(`[tools] ${tools.length} Available tools for participant ${this.id}:\n${tools.length > 0 ? tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n') : 'No tools available'}`);
 
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
@@ -359,15 +315,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		return {
 			metadata: {
-				// Attach the model ID as metadata so that we can use the same model in the followup provider.
 				modelId: request.model.id,
-				// Include token usage if available
 				tokenUsage: tokenUsage,
-				// Include the tools available for this request
 				availableTools: tools.length > 0 ? tools.map(t => t.name) : undefined,
-				// Include the context message if available
 				positronContext: contextInfo ? { prompts: contextInfo.prompts, attachedDataTypes: contextInfo.attachedDataTypes } : undefined,
-				// Include the system prompt used for this request
 				systemPrompt,
 			},
 		};

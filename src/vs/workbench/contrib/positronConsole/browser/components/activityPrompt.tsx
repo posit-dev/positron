@@ -7,7 +7,7 @@
 import './activityPrompt.css';
 
 // React.
-import React, { KeyboardEvent, useCallback, useEffect, useRef } from 'react';
+import { KeyboardEvent, useCallback, useEffect, useRef } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../../base/common/event.js';

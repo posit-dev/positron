@@ -102,7 +102,7 @@ suite('AnthropicModelProvider', () => {
 		};
 
 		// Create an instance of the AnthropicModelProvider
-		model = new AnthropicModelProvider(config, undefined, undefined, mockClient as unknown as Anthropic);
+		model = new AnthropicModelProvider(config, undefined, mockClient as unknown as Anthropic);
 
 		// Create mock model info for provideLanguageModelChatResponse
 		mockModelInfo = {

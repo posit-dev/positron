@@ -6,7 +6,7 @@
   "publisher": "positron",
   "private": true,
   "engines": {
-    "vscode": "^1.104.0"
+    "vscode": "^1.108.0"
   },
   "categories": [
     "Other"
@@ -232,8 +232,11 @@
           },
           "positron.assistant.useAnthropicSdk": {
             "type": "boolean",
-            "default": true,
-            "description": "%configuration.useAnthropicSdk.description%"
+            "default": false,
+            "description": "%configuration.useAnthropicSdk.description%",
+			"tags": [
+			  "advanced"
+			]
           },
           "positron.assistant.streamingEdits.enable": {
             "type": "boolean",
@@ -298,14 +301,6 @@
               "type": "number",
               "minimum": 512
             }
-          },
-          "positron.assistant.followups.enable": {
-            "type": "boolean",
-            "default": false,
-            "tags": [
-              "experimental"
-            ],
-            "description": "%configuration.followups.enable.description%"
           },
           "positron.assistant.consoleActions.enable": {
             "type": "boolean",

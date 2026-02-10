@@ -16,7 +16,7 @@ runs:
         cache: 'npm'
 
     - name: Install Node dependencies
-      run: npm ci --prefer-offline
+      run: npm ci --prefix build --prefer-offline &&npm ci --prefer-offline
       shell: bash
 
     - name: Run `gulp prePublishNonBundle`

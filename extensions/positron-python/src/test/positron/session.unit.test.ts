@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-expressions */
 /* eslint-disable @typescript-eslint/no-empty-function */
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,6 +22,9 @@ import {
     IPythonSettings,
     ProductInstallStatus,
 } from '../../client/common/types';
+import { IPythonExecutionFactory, IPythonExecutionService } from '../../client/common/process/types';
+import { InterpreterInformation } from '../../client/pythonEnvironments/info';
+import { Architecture } from '../../client/common/utils/platform';
 import { IEnvironmentVariablesProvider, IEnvironmentVariablesService } from '../../client/common/variables/types';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
@@ -46,6 +49,7 @@ suite('Python Runtime Session', () => {
     let serviceContainer: IServiceContainer;
     let kernelSpec: JupyterKernelSpec;
     let kernel: JupyterLanguageRuntimeSession;
+    let pathExistsStub: sinon.SinonStub;
 
     setup(() => {
         disposables = [];
@@ -62,6 +66,8 @@ suite('Python Runtime Session', () => {
             id: 'pythonEnvironmentId',
             path: '/path/to/python',
             version: mock<PythonVersion>({ major: 3, minor: 9 }),
+            architecture: Architecture.x64,
+            implementation: 'cpython',
         });
 
         const interpreterService = mock<IInterpreterService>({
@@ -77,9 +83,29 @@ suite('Python Runtime Session', () => {
 
         const outputChannel = mock<ILanguageServerOutputChannel>({});
 
+        // Mock workspace configuration for getIpykernelBundle
+        const workspaceConfiguration = mock<vscode.WorkspaceConfiguration>({
+            get: (section: string) => (section === 'useBundledIpykernel' ? true : undefined),
+        });
         const workspaceService = mock<IWorkspaceService>({
             workspaceFolders: undefined,
             getWorkspaceFolder: () => undefined,
+            getConfiguration: () => workspaceConfiguration,
+        });
+
+        // Mock python execution service for fresh interpreter info fetches
+        const pythonExecutionService = mock<IPythonExecutionService>({
+            getInterpreterInformation: () =>
+                Promise.resolve(
+                    mock<InterpreterInformation>({
+                        implementation: 'cpython',
+                        version: interpreter.version,
+                        architecture: Architecture.x64,
+                    }),
+                ),
+        });
+        const pythonExecutionFactory = mock<IPythonExecutionFactory>({
+            create: () => Promise.resolve(pythonExecutionService),
         });
 
         const pythonSettings = mock<IPythonSettings>({
@@ -120,6 +146,8 @@ suite('Python Runtime Session', () => {
                         return outputChannel as T;
                     case IWorkspaceService:
                         return workspaceService as T;
+                    case IPythonExecutionFactory:
+                        return pythonExecutionFactory as T;
                     default:
                         return undefined as T;
                 }
@@ -161,6 +189,9 @@ suite('Python Runtime Session', () => {
             get: () => undefined,
         });
         vscode.workspace.getConfiguration = () => nullConfig;
+
+        // Stub fs.pathExists so getIpykernelBundle returns valid bundle paths
+        pathExistsStub = sinon.stub(fs, 'pathExists').resolves(true);
     });
 
     function createSession(
@@ -203,29 +234,25 @@ suite('Python Runtime Session', () => {
     });
 
     test('Start: bundle ipykernel if enabled', async () => {
-        // Start a console session with ipykernel bundle paths.
-        const paths = ['path1', 'path2', 'path3'];
-        const ipykernelBundle: IpykernelBundle = { paths };
-        const session = createSession(positron.LanguageRuntimeSessionMode.Console, ipykernelBundle);
+        // Start a console session - getIpykernelBundle is called fresh to compute bundle paths
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
         await session.start();
 
         // Should not try to use ipykernel from the environment.
         sinon.assert.notCalled(installerSpy.isProductVersionCompatible);
 
-        // Ipykernel bundles should be added to the PYTHONPATH.
+        // Ipykernel bundles should be added to the PYTHONPATH (3 paths: cpx, cp3, py3).
         sinon.assert.callCount(envVarsServiceSpy.appendPythonPath, 3);
-        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[0], [kernelSpec.env, paths[0]]);
-        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[1], [kernelSpec.env, paths[1]]);
-        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[2], [kernelSpec.env, paths[2]]);
     });
 
     test('Start: dont bundle ipykernel if disabled', async () => {
-        // Start a console session with ipykernel bunding disabled.
-        const ipykernelBundle: IpykernelBundle = { disabledReason: 'disabled' };
-        const session = createSession(positron.LanguageRuntimeSessionMode.Console, ipykernelBundle);
+        // Change pathExists stub to return false so getIpykernelBundle returns disabled
+        pathExistsStub.resolves(false);
+
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
         await session.start();
 
-        // PYTHONPATH should be unchanged.
+        // PYTHONPATH should be unchanged since bundle paths don't exist.
         sinon.assert.notCalled(envVarsServiceSpy.appendPythonPath);
 
         // Should try to use ipykernel from the environment.
@@ -233,13 +260,10 @@ suite('Python Runtime Session', () => {
     });
 
     test('Execute: dont uninstall bundled packages', async () => {
-        // Mock ipykernelBundle to include fake paths and simulate fs functionality.
-        const _ipykernelBundle: IpykernelBundle = {
-            paths: ['/path/to/ipykernel'],
-        };
+        // Stub fs.readdirSync to return 'ipykernel' for any path - getIpykernelBundle computes actual paths
         sinon.stub(fs, 'readdirSync').returns(['ipykernel']);
 
-        const session = createSession(positron.LanguageRuntimeSessionMode.Console, _ipykernelBundle);
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
         await session.start();
 
         // Spy on the kernel execute method.

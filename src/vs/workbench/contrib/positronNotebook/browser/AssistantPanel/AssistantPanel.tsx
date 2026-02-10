@@ -7,7 +7,7 @@
 import './AssistantPanel.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -27,7 +27,7 @@ import { IPreferencesService } from '../../../../services/preferences/common/pre
 import { CancelablePromise } from '../../../../../base/common/async.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/chatEditingService.js';
+import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../common/positronNotebookConfig.js';
 import { CellEditType } from '../../../notebook/common/notebookCommon.js';

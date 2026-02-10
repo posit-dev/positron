@@ -338,7 +338,7 @@ def is_local_html_file(url: str) -> bool:
         parsed_url = urlparse(unquote(url))
 
         # Check if it's a file scheme
-        if parsed_url.scheme not in ("file",):
+        if parsed_url.scheme != "file":
             return False
 
         # On Windows, the file path might be in netloc. This is the case for Bokeh HTML file URLs.

@@ -16,6 +16,7 @@ import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
+import { NotebookRawCell } from './notebookCells/NotebookRawCell.js';
 import { DeletionSentinel } from './notebookCells/DeletionSentinel.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
@@ -78,7 +79,7 @@ export function PositronNotebookComponent() {
 	}, [notebookCells.length]);
 
 	// Observe scroll events and fire to notebook instance, also track scroll position
-	useScrollObserver(containerRef, React.useCallback(() => {
+	useScrollObserver(containerRef as React.RefObject<HTMLElement>, React.useCallback(() => {
 		notebookInstance.fireScrollEvent();
 		setIsScrolled((containerRef.current?.scrollTop ?? 0) > 0);
 	}, [notebookInstance]));
@@ -198,6 +199,10 @@ function useFontStyles(): React.CSSProperties {
 function NotebookCell({ cell }: {
 	cell: PositronNotebookCellGeneral;
 }) {
+
+	if (cell.isRawCell()) {
+		return <NotebookRawCell cell={cell} />;
+	}
 
 	if (cell.isCodeCell()) {
 		return <NotebookCodeCell cell={cell} />;

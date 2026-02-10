@@ -104,14 +104,39 @@ def extract_accuracy(result_data: Dict[str, Any]) -> Optional[float]:
 		return None
 
 
+def extract_response_model(result_data: Dict[str, Any]) -> str:
+	"""Extract the model that generated the responses being evaluated."""
+	try:
+		# First try to get from task metadata
+		eval_info = result_data.get('eval', {})
+		metadata = eval_info.get('metadata', {})
+		if metadata.get('response_model'):
+			return metadata['response_model']
+
+		# Fall back to parsing task display name (e.g., "json_model_graded_eval (Claude Sonnet 4)")
+		task_name = eval_info.get('task_display_name', '')
+		if '(' in task_name and ')' in task_name:
+			start = task_name.index('(') + 1
+			end = task_name.index(')')
+			return task_name[start:end]
+
+		return 'Unknown Model'
+	except Exception:
+		return 'Unknown Model'
+
+
 def print_summary(result_data: Dict[str, Any], sample_summaries: List[Dict[str, Any]],
-	grade_counts: Dict[str, int], accuracy: Optional[float]):
+	grade_counts: Dict[str, int], accuracy: Optional[float], response_model: str):
 	"""Print a comprehensive summary of the evaluation results."""
 
 	# Header
 	print("=" * 60)
 	print("INSPECT AI EVALUATION SUMMARY")
 	print("=" * 60)
+
+	# Model being evaluated (prominent display)
+	print(f"Model Evaluated: {response_model}")
+	print("-" * 60)
 
 	# Basic info
 	eval_info = result_data.get('eval', {})
@@ -192,22 +217,25 @@ def main():
 	# Extract accuracy
 	accuracy = extract_accuracy(result_data)
 
+	# Extract the model that generated the responses
+	response_model = extract_response_model(result_data)
+
 	if not args.quiet:
-		print_summary(result_data, sample_summaries, grade_counts, accuracy)
+		print_summary(result_data, sample_summaries, grade_counts, accuracy, response_model)
 
 	# Determine pass/fail
 	if accuracy is None:
-		print("ERROR: Could not extract accuracy metric from results")
+		print(f"ERROR: Could not extract accuracy metric from results for {response_model}")
 		sys.exit(2)
 
 	passed = accuracy >= args.threshold
 
 	print("=" * 60)
 	if passed:
-		print(f"PASS: Accuracy {accuracy:.3f} >= threshold {args.threshold}")
+		print(f"PASS [{response_model}]: Accuracy {accuracy:.3f} >= threshold {args.threshold}")
 		sys.exit(0)
 	else:
-		print(f"FAIL: Accuracy {accuracy:.3f} < threshold {args.threshold}")
+		print(f"FAIL [{response_model}]: Accuracy {accuracy:.3f} < threshold {args.threshold}")
 		sys.exit(1)
 
 

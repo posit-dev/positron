@@ -83,9 +83,8 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 	//--- Start Positron ---
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
-		// Get the system architecture preference for macOS updates.
-		const systemArchitecture = this.configurationService.getValue<string>('update.systemArchitecture');
-		const platform = 'mac/' + (systemArchitecture === 'auto' ? arch() : systemArchitecture);
+		// Always use automatic architecture detection
+		const platform = 'mac/' + arch();
 		const url = createUpdateURL(platform, channel, this.productService) + '/releases.json';
 		try {
 			electron.autoUpdater.setFeedURL({ url: url });

@@ -9,9 +9,9 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ResourceLabels } from '../../../browser/labels.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IChatRequestVariableEntry } from '../common/chatVariableEntries.js';
+import { IChatRequestVariableEntry } from '../common/attachments/chatVariableEntries.js';
 import { ILanguageModelChatMetadataAndIdentifier } from '../common/languageModels.js';
-import { AbstractChatAttachmentWidget } from './chatAttachmentWidgets.js';
+import { AbstractChatAttachmentWidget } from './attachments/chatAttachmentWidgets.js';
 
 /**
  * Helper function to get the icon for a runtime session.

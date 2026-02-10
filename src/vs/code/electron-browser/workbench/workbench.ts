@@ -273,7 +273,7 @@
 
 	//#region Window Helpers
 
-	async function load<M, T extends ISandboxConfiguration>(esModule: string, options: ILoadOptions<T>): Promise<ILoadResult<M, T>> {
+	async function load<M, T extends ISandboxConfiguration>(options: ILoadOptions<T>): Promise<ILoadResult<M, T>> {
 
 		// Window Configuration from Preload Script
 		const configuration = await resolveWindowConfiguration<T>();
@@ -299,8 +299,14 @@
 
 		// ESM Import
 		try {
-			const result = await import(new URL(`${esModule}.js`, baseUrl).href);
+			let workbenchUrl: string;
+			if (!!safeProcess.env['VSCODE_DEV'] && globalThis._VSCODE_USE_RELATIVE_IMPORTS) {
+				workbenchUrl = '../../../workbench/workbench.desktop.main.js'; // for dev purposes only
+			} else {
+				workbenchUrl = new URL(`vs/workbench/workbench.desktop.main.js`, baseUrl).href;
+			}
 
+			const result = await import(workbenchUrl);
 			if (developerDeveloperKeybindingsDisposable && removeDeveloperKeybindingsAfterLoad) {
 				developerDeveloperKeybindingsDisposable();
 			}
@@ -454,6 +460,10 @@
 		// DEV: a blob URL that loads the CSS via a dynamic @import-rule.
 		// DEV ---------------------------------------------------------------------------------------
 
+		if (globalThis._VSCODE_DISABLE_CSS_IMPORT_MAP) {
+			return; // disabled in certain development setups
+		}
+
 		if (Array.isArray(configuration.cssModules) && configuration.cssModules.length > 0) {
 			performance.mark('code/willAddCssLoader');
 
@@ -512,6 +522,7 @@
 
 			addModule('he');
 			addModule('react');
+			addModule('react/jsx-runtime');
 			addModule('react-dom');
 			addModule('react-dom/client');
 			addModule('react-window');
@@ -547,7 +558,7 @@
 
 	//#endregion
 
-	const { result, configuration } = await load<IDesktopMain, INativeWindowConfiguration>('vs/workbench/workbench.desktop.main',
+	const { result, configuration } = await load<IDesktopMain, INativeWindowConfiguration>(
 		{
 			configureDeveloperSettings: function (windowConfig) {
 				return {

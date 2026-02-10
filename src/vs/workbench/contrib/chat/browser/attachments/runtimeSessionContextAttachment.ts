@@ -12,7 +12,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { ResourceLabels } from '../../../../browser/labels.js';
-import { ChatRuntimeSessionContext } from '../contrib/chatRuntimeSessionContext.js';
+import { ChatRuntimeSessionContext } from '../widget/input/editor/chatRuntimeSessionContext.js';
 
 /**
  * Widget to display the implicit runtime session context attachment in the chat
