@@ -334,6 +334,7 @@ export function setupArkJupyterKernel(context: vscode.ExtensionContext): void {
 	}
 
 	// Set JUPYTER_PATH so Quarto/Jupyter can find ark.
+	// https://docs.jupyter.org/en/stable/use/jupyter-directories.html#envvar-JUPYTER_PATH
 	// Using replace (not prepend) to avoid duplication issues with persisted
 	// environment variable collections across restarts. We manually preserve
 	// the user's original JUPYTER_PATH by reading from process.env (the extension
