@@ -33,6 +33,7 @@ interface DndContextProps {
 	onDragEnd?: (event: DragEndEvent) => void;
 	onDragCancel?: (event: DragCancelEvent) => void;
 	activationDistance?: number; // Pixels to move before drag activates (default: 10)
+	disabled?: boolean; // When true, startDrag is a no-op (used for read-only notebooks)
 	// Keyboard support
 	keyboardCoordinateGetter?: KeyboardCoordinateGetter;
 	// Auto-scroll support
@@ -56,6 +57,7 @@ export function DndContext({
 	onDragEnd,
 	onDragCancel,
 	activationDistance = 10,
+	disabled = false,
 	keyboardCoordinateGetter,
 	autoScroll,
 	scrollContainerRef,
@@ -180,9 +182,12 @@ export function DndContext({
 	}, [state.initialDroppableRects, state.initialScrollOffset, scrollContainerRef]);
 
 	const startDrag = React.useCallback((id: string, position: { x: number; y: number }, initialRect: DOMRect | null, source: 'pointer' | 'keyboard' = 'pointer') => {
+		if (disabled) {
+			return; // Don't start drags when DndContext is disabled (e.g. read-only notebooks)
+		}
 		// Store pending drag - actual drag starts after activation distance
 		setPendingDrag({ id, startPosition: position, initialRect, source });
-	}, []);
+	}, [disabled]);
 
 	// Shared drag activation logic used by both keyboard and pointer paths.
 	// Captures initial rects/scroll, fires onDragStart, resolves activeIds, and sets state.

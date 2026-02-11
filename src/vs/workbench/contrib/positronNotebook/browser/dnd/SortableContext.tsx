@@ -148,7 +148,7 @@ export function SortableContext({
 
 	if (disabled) {
 		return (
-			<DndContext items={items}>
+			<DndContext disabled items={items}>
 				{children}
 			</DndContext>
 		);
