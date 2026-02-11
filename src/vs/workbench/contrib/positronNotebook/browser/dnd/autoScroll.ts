@@ -139,4 +139,11 @@ export class AutoScrollController {
 	setScrollContainerRef(ref: React.RefObject<HTMLElement> | null) {
 		this.scrollContainerRef = ref;
 	}
+
+	/**
+	 * Update the auto-scroll configuration (threshold and speed).
+	 */
+	setConfig(config: Partial<AutoScrollConfig>) {
+		this.config = { ...this.config, ...config };
+	}
 }

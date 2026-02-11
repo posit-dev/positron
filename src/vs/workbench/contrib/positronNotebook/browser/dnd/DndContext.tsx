@@ -50,10 +50,10 @@ interface PendingDrag {
 	source: 'pointer' | 'keyboard';
 }
 
-const IDLE_STATE: DragState = {
-	status: 'idle',
+const IDLE_STATE: DragState = Object.freeze({
+	status: 'idle' as const,
 	activeId: null,
-	activeIds: [],
+	activeIds: [] as string[],
 	overId: null,
 	insertionIndex: null,
 	initialPosition: null,
@@ -61,7 +61,7 @@ const IDLE_STATE: DragState = {
 	initialRect: null,
 	initialDroppableRects: null,
 	initialScrollOffset: null,
-};
+});
 
 export function DndContext({
 	children,
@@ -149,7 +149,14 @@ export function DndContext({
 			});
 		} else {
 			autoScrollRef.current.setScrollContainerRef(scrollContainerRef ?? null);
+			autoScrollRef.current.setConfig({
+				threshold: autoScroll?.threshold,
+				speed: autoScroll?.speed,
+			});
 		}
+		return () => {
+			autoScrollRef.current?.stop();
+		};
 	}, [scrollContainerRef, autoScroll?.enabled, autoScroll?.threshold, autoScroll?.speed]);
 
 	const registerDroppable = React.useCallback((id: string, node: HTMLElement) => {
@@ -378,6 +385,10 @@ export function DndContext({
 				return;
 			}
 
+			// Claim the drag immediately so a concurrent handler (e.g. Escape)
+			// that reads stateRef in the same event-loop turn sees idle and bails out.
+			stateRef.current = IDLE_STATE;
+
 			// Fire callback synchronously before state transition
 			onDragEndRef.current?.({
 				active: { id: prev.activeId! },
@@ -409,6 +420,9 @@ export function DndContext({
 					return;
 				}
 
+				// Claim the drag immediately to prevent double-callback with concurrent handlers
+				stateRef.current = IDLE_STATE;
+
 				// Fire callback synchronously before state transition
 				onDragCancelRef.current?.({ active: { id: prev.activeId! } });
 
@@ -430,6 +444,9 @@ export function DndContext({
 				if (prev.status !== 'dragging') {
 					return;
 				}
+
+				// Claim the drag immediately to prevent double-callback with concurrent handlers
+				stateRef.current = IDLE_STATE;
 
 				// Fire callback synchronously before state transition
 				onDragEndRef.current?.({
