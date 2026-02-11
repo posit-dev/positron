@@ -78,7 +78,6 @@ enum PositronNotebookCellActionGroup {
 
 /**
  * Infer the notebook view type from a resource's file extension.
- * Used as a fallback when viewType is not explicitly available.
  */
 function inferViewTypeFromExtension(resource: URI): string {
 	if (extname(resource) === '.qmd') {
@@ -179,15 +178,15 @@ class PositronNotebookContribution extends Disposable {
 		});
 	}
 
-	private registerNotebookEditor(config: NotebookEditorRegistration): void {
+	private registerNotebookEditor(info: NotebookEditorRegistration): void {
 		// Register file editor
 		this._register(this.editorResolverService.registerEditor(
-			config.globPattern,
-			config.editorInfo,
+			info.globPattern,
+			info.editorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					return extname(resource) === config.extension &&
+					return extname(resource) === info.extension &&
 						(resource.scheme === Schemas.untitled ||
 							resource.scheme === Schemas.vscodeNotebookCell ||
 							this.fileService.hasProvider(resource));
@@ -195,6 +194,8 @@ class PositronNotebookContribution extends Disposable {
 			},
 			{
 				createUntitledEditorInput: async ({ resource, options }) => {
+					// We should handle undefined resource as in notebookEditorServiceImpl.ts,
+					// but resource seems to always be defined so we throw for now to simplify
 					if (!resource) {
 						throw new Error(`Cannot create untitled Positron notebook editor without a resource`);
 					}
@@ -202,7 +203,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
-						config.viewType,
+						info.viewType,
 					);
 					return { editor: notebookEditorInput, options };
 				},
@@ -211,19 +212,24 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
-						config.viewType,
+						info.viewType,
 					);
 					return { editor: notebookEditorInput, options };
 				},
-				createDiffEditorInput: ({ original, modified, label, description }) => {
+				// Positron notebook editor doesn't support diff views, so delegate to VSCode's notebook diff editor
+				createDiffEditorInput: ({ original, modified, label, description }, group) => {
 					if (!modified.resource || !original.resource) {
 						throw new Error('Cannot create notebook diff editor without resources');
 					}
 
+					// Determine the notebook view type for the resource
+					// First try to get it from an existing model
 					let viewType = this.notebookService.getNotebookTextModel(modified.resource)?.viewType;
 
+					// If no model exists, find matching contributed notebook types
 					if (!viewType) {
 						const providers = this.notebookService.getContributedNotebookTypes(modified.resource);
+						// Use exclusive or default provider, or fall back to first available
 						viewType = providers.find(p => p.priority === 'exclusive')?.id
 							|| providers.find(p => p.priority === 'default')?.id
 							|| providers[0]?.id;
@@ -248,12 +254,17 @@ class PositronNotebookContribution extends Disposable {
 
 		// Register cell editor
 		this._register(this.editorResolverService.registerEditor(
-			`${Schemas.vscodeNotebookCell}:/**/*${config.extension}`,
-			config.cellEditorInfo,
+			`${Schemas.vscodeNotebookCell}:/**/*${info.extension}`,
+			// The cell handler is specifically for opening and focusing a cell by URI
+			// e.g. vscode.window.showTextDocument(cell.document).
+			// The editor resolver service expects a single handler with 'exclusive' priority.
+			// This one is only registered if Positron notebooks are enabled.
+			// This does not seem to be an issue for file schemes (registered above).
+			info.cellEditorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					return extname(resource) === config.extension &&
+					return extname(resource) === info.extension &&
 						resource.scheme === Schemas.vscodeNotebookCell;
 				}
 			},
@@ -267,11 +278,13 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						parsed.notebook,
 						undefined,
-						config.viewType,
+						info.viewType,
 					);
+					// Create notebook editor options from base text editor options
 					const notebookEditorOptions: INotebookEditorOptions = {
 						...editorInput.options,
 						cellOptions: editorInput,
+						// Override text editor view state - it's not valid for notebook editors
 						viewState: undefined,
 					};
 					return { editor: notebookEditorInput, options: notebookEditorOptions };
