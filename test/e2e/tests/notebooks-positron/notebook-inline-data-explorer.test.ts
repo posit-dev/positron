@@ -87,7 +87,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 	});
 
 	test('Python - Verify open full Data Explorer and return to inline view', async function ({ app, hotKeys }) {
-		const { notebooksPositron, inlineDataExplorer } = app.workbench;
+		const { notebooksPositron, inlineDataExplorer, dataExplorer } = app.workbench;
 		const page = app.code.driver.page;
 
 		await test.step('Execute cell that returns a DataFrame', async () => {
@@ -108,6 +108,11 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 				const tabsAfter = await page.locator('.tab').count();
 				expect(tabsAfter).toBeGreaterThan(tabsBefore);
 			}).toPass({ timeout: 15000 });
+		});
+
+		await test.step('Verify full Data Explorer renders', async () => {
+			await dataExplorer.waitForIdle();
+			await dataExplorer.expectStatusBarToHaveText('5 x 3');
 		});
 
 		await test.step('Close Data Explorer tab and return to notebook', async () => {
