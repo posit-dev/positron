@@ -82,10 +82,11 @@ test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAI
 							explanation: evaluation.explanation,
 						});
 
-						// Intentionally skipping assertion, will leverage Insights Dashboard.
-						if (evaluation.grade === 'I') {
-							console.log(`⚠️  Grade: Incomplete - see trace report for details`);
-						}
+						// Intentionally skipping assertion to leverage Insights Dashboard.
+						// expect(
+						// 	evaluation.grade,
+						// 	`Test failed with grade: ${GRADE_LABELS[evaluation.grade]}\n\n${evaluation.explanation}`
+						// ).not.toBe('I');
 					}
 				);
 			});

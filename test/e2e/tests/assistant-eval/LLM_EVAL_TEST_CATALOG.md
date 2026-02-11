@@ -1,9 +1,9 @@
 # Positron: LLM Eval Test Catalog
 
-> 4 test cases · Auto-generated on 2026-02-11T19:08:59.123Z
+> 4 test cases · Auto-generated on 2026-02-11T19:21:05.547Z
 
 <details>
-<summary><strong>python-edit-file</strong> · Edit: Ensure editFile tool is called when editing files in Edit mode</summary>
+<summary><strong>python-edit-file</strong> · Edit: Ensure editFile tool is called when editing files</summary>
 
 ### Prompt
 
@@ -27,7 +27,7 @@ Add a method to return today's date.
 </details>
 
 <details>
-<summary><strong>python-no-execution-hallucination</strong> · Edit: Ensure LLM does not hallucinate execution results in Edit mode</summary>
+<summary><strong>python-no-execution-hallucination</strong> · Edit: Ensure LLM does not hallucinate execution results</summary>
 
 ### Prompt
 
@@ -56,7 +56,7 @@ Extract the animal's primary color from their physical characteristics.
 </details>
 
 <details>
-<summary><strong>python-table-summary</strong> · Ask: Ensure getTableSummary tool is called when summarizing data in Ask mode</summary>
+<summary><strong>python-table-summary</strong> · Ask: Ensure getTableSummary tool is called when summarizing data</summary>
 
 ### Prompt
 

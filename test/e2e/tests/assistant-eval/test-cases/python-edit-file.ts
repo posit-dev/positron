@@ -18,7 +18,7 @@ const mode = 'Edit';
 
 export const pythonEditFile: EvalTestCase = {
 	id: 'python-edit-file',
-	description: 'Ensure editFile tool is called when editing files in Edit mode',
+	description: 'Ensure editFile tool is called when editing files',
 	prompt,
 	mode,
 

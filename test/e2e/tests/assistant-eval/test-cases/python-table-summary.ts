@@ -18,7 +18,7 @@ const mode = 'Ask';
 
 export const pythonTableSummary: EvalTestCase = {
 	id: 'python-table-summary',
-	description: 'Ensure getTableSummary tool is called when summarizing data in Ask mode',
+	description: 'Ensure getTableSummary tool is called when summarizing data',
 	prompt,
 	mode,
 
