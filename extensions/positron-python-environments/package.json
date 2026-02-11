@@ -36,7 +36,7 @@
     "bugs": {
         "url": "https://github.com/posit-dev/positron/issues"
     },
-    "main": "./dist/extension.js",
+    "main": "./out/extension.js",
     "l10n": "./l10n",
     "icon": "icon.png",
     "contributes": {

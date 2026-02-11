@@ -28,7 +28,10 @@ export async function getNativePythonToolsPath(): Promise<string> {
         throw new Error('Python extension not found');
     }
 
-    return path.join(python.extensionPath, 'python-env-tools', 'bin', isWindows() ? 'pet.exe' : 'pet');
+    // --- Start Positron ---
+    // return path.join(python.extensionPath, 'python-env-tools', 'bin', isWindows() ? 'pet.exe' : 'pet');
+    return path.join(python.extensionPath, 'python-env-tools', isWindows() ? 'pet.exe' : 'pet');
+    // --- End Positron ---
 }
 
 export interface NativeEnvInfo {
