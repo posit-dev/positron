@@ -225,7 +225,7 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 		lines.push('');
 
 		// Prompt
-		lines.push('#### Prompt');
+		lines.push('### Prompt');
 		lines.push('');
 		lines.push('```');
 		lines.push(tc.prompt);
@@ -233,33 +233,33 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 		lines.push('');
 
 		// Criteria
-		lines.push('#### Criteria');
+		lines.push('### Criteria');
 		lines.push('');
 
 		// Essential
-		lines.push('**Essential**');
+		lines.push('#### Essential');
 		lines.push('');
 		for (const c of tc.evaluationCriteria.essential) {
-			lines.push(`- ✓ ${c}`);
+			lines.push(`- [ ] ${c}`);
 		}
 		lines.push('');
 
 		// Additional
 		if (tc.evaluationCriteria.additional?.length) {
-			lines.push('**Additional**');
+			lines.push('#### Additional');
 			lines.push('');
 			for (const c of tc.evaluationCriteria.additional) {
-				lines.push(`- · ${c}`);
+				lines.push(`- [ ] ${c}`);
 			}
 			lines.push('');
 		}
 
 		// Fail if
 		if (tc.evaluationCriteria.failIf?.length) {
-			lines.push('**Fail if**');
+			lines.push('#### Fail if');
 			lines.push('');
 			for (const c of tc.evaluationCriteria.failIf) {
-				lines.push(`- ✗ ${c}`);
+				lines.push(`- [ ] ${c}`);
 			}
 			lines.push('');
 		}
