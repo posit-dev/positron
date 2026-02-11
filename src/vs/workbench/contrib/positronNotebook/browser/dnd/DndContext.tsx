@@ -587,7 +587,7 @@ export function DndContext({
 			window.removeEventListener('pointerup', handlePointerUp);
 			window.removeEventListener('keydown', handleKeyDown);
 		};
-	}, [state.status, pendingDrag, activationDistance, getItems]);
+	}, [state.status, pendingDrag, activationDistance, getItems, multiDragContext, scrollContainerRef]);
 
 	// Handle scroll events during drag - recalculate collision detection
 	// since cell positions change relative to viewport during scroll
