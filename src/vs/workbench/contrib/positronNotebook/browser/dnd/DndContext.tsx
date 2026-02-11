@@ -110,8 +110,13 @@ export function DndContext({
 	const itemsPropRef = React.useRef(itemsProp);
 	itemsPropRef.current = itemsProp;
 
-	// Get multi-drag context for accessing activeIds at drag start time
+	// Get multi-drag context for accessing activeIds at drag start time.
+	// Store getActiveIds in a ref so activateDrag and the effect don't depend
+	// on multiDragContext identity (which changes on every selection/state change),
+	// preventing unnecessary event listener teardown during drag.
 	const multiDragContext = useOptionalMultiDragContext();
+	const multiDragGetActiveIdsRef = React.useRef(multiDragContext?.getActiveIds);
+	multiDragGetActiveIdsRef.current = multiDragContext?.getActiveIds;
 
 	// Get items array - use provided prop or fall back to droppables Map keys
 	const getItems = React.useCallback((): string[] => {
@@ -230,7 +235,7 @@ export function DndContext({
 
 		// Now get activeIds from multi-drag context (ref was updated by startMultiDrag)
 		// Fall back to single activeId if no multi-drag context
-		const activeIds = multiDragContext?.getActiveIds() ?? [id];
+		const activeIds = multiDragGetActiveIdsRef.current?.() ?? [id];
 
 		// Announce drag start for screen readers
 		const items = getItems();
@@ -249,7 +254,7 @@ export function DndContext({
 			initialDroppableRects,
 			initialScrollOffset,
 		});
-	}, [scrollContainerRef, multiDragContext, getItems]);
+	}, [scrollContainerRef, getItems]);
 
 	// Global pointer event handlers - attached immediately when pending or dragging
 	React.useEffect(() => {
@@ -540,7 +545,7 @@ export function DndContext({
 			window.removeEventListener('pointerup', handlePointerUp);
 			window.removeEventListener('keydown', handleKeyDown);
 		};
-	}, [state.status, pendingDrag, activationDistance, activateDrag, getItems, multiDragContext, scrollContainerRef]);
+	}, [state.status, pendingDrag, activationDistance, activateDrag, getItems, scrollContainerRef]);
 
 	// Handle scroll events during drag - recalculate collision detection
 	// since cell positions change relative to viewport during scroll
