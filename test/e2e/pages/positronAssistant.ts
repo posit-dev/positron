@@ -49,7 +49,8 @@ const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat ac
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item a.action-label[aria-label*="(Ctrl+Alt+.)"] .codicon.codicon-chevron-down';
+// Use :is() to match either Ctrl (Linux/Windows) or ⌘ (macOS) in the keybinding
+const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item a.action-label:is([aria-label*="Ctrl+Alt+."], [aria-label*="⌥⌘."]) .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 
