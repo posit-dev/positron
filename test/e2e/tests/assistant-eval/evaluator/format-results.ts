@@ -300,11 +300,12 @@ function formatEvaluationHtml(explanation: string): string {
 	}).join('');
 
 	const summaryHtml = parsed.explanation
-		? `<p style="margin-top: 12px;"><strong>Summary:</strong> ${escapeHtml(parsed.explanation)}</p>`
+		? `<p style="margin-bottom: 12px; color: #374151;">${escapeHtml(parsed.explanation)}</p>`
 		: '';
 
 	return `
-		<table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
+		${summaryHtml}
+		<table style="width: 100%; border-collapse: collapse;">
 			<thead>
 				<tr style="background: #f3f4f6;">
 					<th style="padding: 8px; text-align: center; border-bottom: 2px solid #e5e7eb; width: 50px;">Pass</th>
@@ -316,6 +317,5 @@ function formatEvaluationHtml(explanation: string): string {
 				${criteriaRows}
 			</tbody>
 		</table>
-		${summaryHtml}
 	`;
 }
