@@ -216,18 +216,18 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 	for (const tc of testCases) {
 		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '';
 		const anchorId = tc.id.toLowerCase().replace(/[^a-z0-9]/g, '-');
+		const tagsSuffix = tags ? ` | ${tags}` : '';
 
-		// Collapsible section with summary and anchor id
-		lines.push(`<details id="${anchorId}">`);
+		// Anchor for navigation + collapsible section
+		lines.push(`<a id="${anchorId}"></a>`);
+		lines.push(`<details>`);
 		lines.push(`<summary><strong>${tc.id}</strong> — ${tc.description}</summary>`);
 		lines.push('');
-		lines.push(`**Mode:** ${tc.mode}${tags ? ` | **Tags:** ${tags}` : ''}`);
-		lines.push('');
 
-		// Prompt
-		lines.push('### Prompt');
+		// Prompt with mode badge
+		lines.push(`### Prompt \`${tc.mode}\`${tagsSuffix}`);
 		lines.push('');
-		lines.push('```');
+		lines.push('```text');
 		lines.push(tc.prompt);
 		lines.push('```');
 		lines.push('');
@@ -240,7 +240,7 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 		lines.push('#### Essential');
 		lines.push('');
 		for (const c of tc.evaluationCriteria.essential) {
-			lines.push(`- [ ] ${c}`);
+			lines.push(`- ${c}`);
 		}
 		lines.push('');
 
@@ -249,7 +249,7 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 			lines.push('#### Additional');
 			lines.push('');
 			for (const c of tc.evaluationCriteria.additional) {
-				lines.push(`- [ ] ${c}`);
+				lines.push(`- ${c}`);
 			}
 			lines.push('');
 		}
@@ -259,7 +259,7 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 			lines.push('#### Fail if');
 			lines.push('');
 			for (const c of tc.evaluationCriteria.failIf) {
-				lines.push(`- [ ] ${c}`);
+				lines.push(`- ${c}`);
 			}
 			lines.push('');
 		}
