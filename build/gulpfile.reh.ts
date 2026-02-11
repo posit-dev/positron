@@ -562,8 +562,6 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 					// reh-web-server uses positronServerWithWebResources (no rsLoginCheck.js)
 					// reh-web uses serverWithWebResources (includes rsLoginCheck.js for PWB)
 					resources: type === 'reh' ? serverResources : (type === 'reh-web-server' ? positronServerWithWebResources : serverWithWebResources),
-					// --- End Positron ---
-					// --- Start Positron ---
 					fileContentMapper: createVSCodeWebFileContentMapper((type === 'reh-web' || type === 'reh-web-server') ? '.build/web/extensions' : '.build/extensions', (type === 'reh-web' || type === 'reh-web-server') ? tweakProductForServerWeb(product) : product)
 					// --- End Positron ---
 				}
