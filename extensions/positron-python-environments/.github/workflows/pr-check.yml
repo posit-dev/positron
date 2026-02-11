@@ -1,0 +1,75 @@
+name: PR/CI Check
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+      - release*
+
+env:
+  NODE_VERSION: '22.21.1'
+
+jobs:
+  build-vsix:
+    name: Create VSIX
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build VSIX
+        uses: ./.github/actions/build-vsix
+        with:
+          node_version: ${{ env.NODE_VERSION }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Linter
+        run: npm run lint
+
+  ts-unit-tests:
+    name: TypeScript Unit Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Compile Tests
+        run: npm run pretest
+
+      - name: Localization
+        run: npx @vscode/l10n-dev@latest export ./src
+
+      - name: Run Tests
+        run: npm run unittest

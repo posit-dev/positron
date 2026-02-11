@@ -1,0 +1,54 @@
+// See https://go.microsoft.com/fwlink/?LinkId=733558
+// for the documentation about the tasks.json format
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "npm",
+            "script": "watch",
+            "problemMatcher": "$ts-webpack-watch",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "group": "watchers"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "type": "npm",
+            "script": "watch-tests",
+            "problemMatcher": "$tsc-watch",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "group": "watchers"
+            }
+        },
+        {
+            "label": "tasks: build",
+            "dependsOn": ["npm: watch", "npm: watch-tests"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "never",
+                "group": "watchers"
+            }
+        },
+        {
+            "type": "npm",
+            "script": "unittest",
+            "dependsOn": ["tasks: watch-tests"],
+            "problemMatcher": "$tsc",
+            "presentation": {
+                "reveal": "never",
+                "group": "test"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            }
+        }
+    ]
+}

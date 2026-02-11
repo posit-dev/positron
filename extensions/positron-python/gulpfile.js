@@ -139,9 +139,9 @@ async function addExtensionPackDependencies() {
     packageJson.extensionPack = [
         // --- Start Positron ---
         //'ms-python.vscode-pylance',
-        'ms-python.debugpy',
-        // 'ms-python.vscode-python-envs',
         // --- End Positron ---
+        'ms-python.debugpy',
+        'ms-python.vscode-python-envs',
     ].concat(packageJson.extensionPack ? packageJson.extensionPack : []);
     // Remove potential duplicates.
     packageJson.extensionPack = packageJson.extensionPack.filter(

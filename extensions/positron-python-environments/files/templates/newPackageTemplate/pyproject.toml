@@ -1,0 +1,21 @@
+[project]
+name = "package_name"
+version = "1.0.0"
+description = "" #TODO: Add a short description of your package
+authors = [{name = "Your Name", email = "your@email.com"}] #TODO: Add your name and email
+requires-python = ">=3.9"
+dynamic = ["optional-dependencies"]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+optional-dependencies = {dev = {file = ["dev-requirements.txt"]}} # add packages for development in the dev-requirements.txt file
+
+[project.scripts]
+# TODO: add your CLI entry points here
+
+
+
+

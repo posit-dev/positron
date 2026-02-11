@@ -1,0 +1,685 @@
+{
+    "name": "vscode-python-envs",
+    "displayName": "Python Environments",
+    "description": "Python Environment Manager for Positron",
+    "version": "2026.99.0-dev",
+    "publisher": "ms-python",
+    "preview": true,
+    "engines": {
+        "vscode": "^1.106.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "enabledApiProposals": [
+        "terminalShellEnv",
+        "terminalDataWriteEvent"
+    ],
+    "capabilities": {
+        "untrustedWorkspaces": {
+            "supported": false,
+            "description": "This extension doesn't support untrusted workspaces."
+        },
+        "virtualWorkspaces": {
+            "supported": false,
+            "description": "This extension doesn't support virtual workspaces."
+        }
+    },
+    "activationEvents": [
+        "onLanguage:python"
+    ],
+    "homepage": "https://github.com/posit-dev/positron",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/posit-dev/positron.git"
+    },
+    "bugs": {
+        "url": "https://github.com/posit-dev/positron/issues"
+    },
+    "main": "./dist/extension.js",
+    "l10n": "./l10n",
+    "icon": "icon.png",
+    "contributes": {
+        "configuration": {
+            "properties": {
+                "python-envs.defaultEnvManager": {
+                    "type": "string",
+                    "description": "%python-envs.defaultEnvManager.description%",
+                    "default": "ms-python.python:venv",
+                    "scope": "window"
+                },
+                "python-envs.defaultPackageManager": {
+                    "type": "string",
+                    "description": "%python-envs.defaultPackageManager.description%",
+                    "default": "ms-python.python:pip",
+                    "scope": "window"
+                },
+                "python-envs.pythonProjects": {
+                    "type": "array",
+                    "default": [],
+                    "description": "%python-envs.pythonProjects.description%",
+                    "scope": "resource",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "%python-envs.pythonProjects.path.description%"
+                            },
+                            "envManager": {
+                                "type": "string",
+                                "description": "%python-envs.pythonProjects.envManager.description%",
+                                "default": "ms-python.python:venv"
+                            },
+                            "packageManager": {
+                                "type": "string",
+                                "description": "%python-envs.pythonProjects.packageManager.description%",
+                                "default": "ms-python.python:pip"
+                            }
+                        }
+                    }
+                },
+                "python-envs.terminal.showActivateButton": {
+                    "type": "boolean",
+                    "description": "%python-envs.terminal.showActivateButton.description%",
+                    "default": false,
+                    "scope": "machine",
+                    "tags": [
+                        "onExP",
+                        "preview"
+                    ]
+                },
+                "python-envs.terminal.autoActivationType": {
+                    "type": "string",
+                    "markdownDescription": "%python-envs.terminal.autoActivationType.description%",
+                    "default": "command",
+                    "enum": [
+                        "command",
+                        "shellStartup",
+                        "off"
+                    ],
+                    "markdownEnumDescriptions": [
+                        "%python-envs.terminal.autoActivationType.command%",
+                        "%python-envs.terminal.autoActivationType.shellStartup%",
+                        "%python-envs.terminal.autoActivationType.off%"
+                    ],
+                    "scope": "machine"
+                },
+                "python.terminal.useEnvFile": {
+                    "type": "boolean",
+                    "description": "%python-envs.terminal.useEnvFile.description%",
+                    "default": false,
+                    "scope": "resource"
+                },
+                "python-env.globalSearchPaths": {
+                    "type": "array",
+                    "description": "%python-env.globalSearchPaths.description%",
+                    "default": [],
+                    "scope": "machine",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "python-env.workspaceSearchPaths": {
+                    "type": "array",
+                    "description": "%python-env.workspaceSearchPaths.description%",
+                    "default": [],
+                    "scope": "resource",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "python-envs.alwaysUseUv": {
+                    "type": "boolean",
+                    "description": "%python-envs.alwaysUseUv.description%",
+                    "default": true,
+                    "scope": "machine"
+                }
+            }
+        },
+        "commands": [
+            {
+                "command": "python-envs.setEnvManager",
+                "title": "%python-envs.setEnvManager.title%",
+                "category": "Python",
+                "icon": "$(gear)",
+                "when": "config.python.useEnvironmentsExtension != false"
+            },
+            {
+                "command": "python-envs.setPkgManager",
+                "title": "%python-envs.setPkgManager.title%",
+                "category": "Python",
+                "icon": "$(package)"
+            },
+            {
+                "command": "python-envs.addPythonProject",
+                "title": "%python-envs.addPythonProject.title%",
+                "category": "Python",
+                "icon": "$(new-folder)"
+            },
+            {
+                "command": "python-envs.addPythonProjectGivenResource",
+                "title": "%python-envs.addPythonProjectGivenResource.title%",
+                "category": "Python",
+                "icon": "$(new-folder)"
+            },
+            {
+                "command": "python-envs.removePythonProject",
+                "title": "%python-envs.removePythonProject.title%",
+                "category": "Python",
+                "icon": "$(remove)"
+            },
+            {
+                "command": "python-envs.create",
+                "title": "%python-envs.create.title%",
+                "category": "Python",
+                "icon": "$(add)"
+            },
+            {
+                "command": "python-envs.createAny",
+                "title": "%python-envs.createAny.title%",
+                "category": "Python",
+                "icon": "$(add)"
+            },
+            {
+                "command": "python-envs.set",
+                "title": "%python-envs.set.title%",
+                "category": "Python",
+                "icon": "$(check)"
+            },
+            {
+                "command": "python-envs.setEnv",
+                "title": "%python-envs.setEnv.title%",
+                "category": "Python",
+                "icon": "$(check)"
+            },
+            {
+                "command": "python-envs.setEnvSelected",
+                "title": "%python-envs.setEnvSelected.title%",
+                "category": "Python",
+                "icon": "$(pass-filled)"
+            },
+            {
+                "command": "python-envs.remove",
+                "title": "%python-envs.remove.title%",
+                "category": "Python",
+                "icon": "$(remove)"
+            },
+            {
+                "command": "python-envs.refreshAllManagers",
+                "title": "%python-envs.refreshAllManagers.title%",
+                "shortTitle": "Refresh All",
+                "category": "Python",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "python-envs.refreshPackages",
+                "title": "%python-envs.refreshPackages.title%",
+                "category": "Python",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "python-envs.packages",
+                "title": "%python-envs.packages.title%",
+                "category": "Python",
+                "icon": "$(package)"
+            },
+            {
+                "command": "python-envs.clearCache",
+                "title": "%python-envs.clearCache.title%",
+                "category": "Python",
+                "icon": "$(trash)"
+            },
+            {
+                "command": "python-envs.runInTerminal",
+                "title": "%python-envs.runInTerminal.title%",
+                "category": "Python Envs",
+                "icon": "$(play)"
+            },
+            {
+                "command": "python-envs.createTerminal",
+                "title": "%python-envs.createTerminal.title%",
+                "category": "Python Envs",
+                "icon": "$(terminal)"
+            },
+            {
+                "command": "python-envs.createNewProjectFromTemplate",
+                "title": "%python-envs.createNewProjectFromTemplate.title%",
+                "category": "Python Envs",
+                "icon": "$(play)"
+            },
+            {
+                "command": "python-envs.runAsTask",
+                "title": "%python-envs.runAsTask.title%",
+                "category": "Python Envs",
+                "icon": "$(play)"
+            },
+            {
+                "command": "python-envs.terminal.activate",
+                "title": "%python-envs.terminal.activate.title%",
+                "category": "Python Envs",
+                "icon": "$(python)"
+            },
+            {
+                "command": "python-envs.terminal.deactivate",
+                "title": "%python-envs.terminal.deactivate.title%",
+                "category": "Python Envs",
+                "icon": "$(circle-slash)"
+            },
+            {
+                "command": "python-envs.uninstallPackage",
+                "title": "%python-envs.uninstallPackage.title%",
+                "category": "Python Envs",
+                "icon": "$(trash)"
+            },
+            {
+                "command": "python-envs.copyEnvPath",
+                "title": "%python-envs.copyEnvPath.title%",
+                "category": "Python Envs",
+                "icon": "$(copy)"
+            },
+            {
+                "command": "python-envs.copyEnvPathCopied",
+                "title": "%python-envs.copyEnvPathCopied.title%",
+                "category": "Python Envs",
+                "icon": "$(clippy)"
+            },
+            {
+                "command": "python-envs.copyProjectPath",
+                "title": "%python-envs.copyProjectPath.title%",
+                "category": "Python Envs",
+                "icon": "$(copy)"
+            },
+            {
+                "command": "python-envs.copyProjectPathCopied",
+                "title": "%python-envs.copyProjectPathCopied.title%",
+                "category": "Python Envs",
+                "icon": "$(clippy)"
+            },
+            {
+                "command": "python-envs.terminal.revertStartupScriptChanges",
+                "title": "%python-envs.terminal.revertStartupScriptChanges.title%",
+                "category": "Python Envs",
+                "icon": "$(discard)"
+            },
+            {
+                "command": "python-envs.reportIssue",
+                "title": "%python-envs.reportIssue.title%",
+                "category": "Python Environments"
+            },
+            {
+                "command": "python-envs.revealProjectInExplorer",
+                "title": "%python-envs.revealProjectInExplorer.title%",
+                "category": "Python Envs",
+                "icon": "$(folder-opened)"
+            },
+            {
+                "command": "python-envs.runPetInTerminal",
+                "title": "%python-envs.runPetInTerminal.title%",
+                "category": "Python",
+                "icon": "$(terminal)",
+                "when": "config.python.useEnvironmentsExtension != false"
+            }
+        ],
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "python-envs.refreshAllManagers",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.refreshPackages",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.create",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.setEnv",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.setEnvSelected",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.remove",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.addPythonProject",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.addPythonProjectGivenResource",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.setEnvManager",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                },
+                {
+                    "command": "python-envs.packages",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                },
+                {
+                    "command": "python-envs.set",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                },
+                {
+                    "command": "python-envs.setPkgManager",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                },
+                {
+                    "command": "python-envs.removePythonProject",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.createTerminal",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.runInTerminal",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.runAsTask",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                },
+                {
+                    "command": "python-envs.terminal.activate",
+                    "when": "pythonTerminalActivation"
+                },
+                {
+                    "command": "python-envs.terminal.deactivate",
+                    "when": "pythonTerminalActivation"
+                },
+                {
+                    "command": "python-envs.uninstallPackage",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.copyEnvPath",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.copyEnvPathCopied",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.copyProjectPath",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.copyProjectPathCopied",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.createAny",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.revealProjectInExplorer",
+                    "when": "false"
+                },
+                {
+                    "command": "python-envs.createNewProjectFromTemplate",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                },
+                {
+                    "command": "python-envs.terminal.revertStartupScriptChanges",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                },
+                {
+                    "command": "python-envs.reportIssue",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "python-envs.create",
+                    "group": "inline",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvManager.*;create;.*/"
+                },
+                {
+                    "command": "python-envs.remove",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvironment.*;remove;.*/"
+                },
+                {
+                    "command": "python-envs.setEnv",
+                    "group": "inline",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvironment.*/ && viewItem =~ /^((?!selected).)*$/"
+                },
+                {
+                    "command": "python-envs.setEnvSelected",
+                    "group": "inline",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvironment.*/ && viewItem =~ /.*selected.*/"
+                },
+                {
+                    "command": "python-envs.createTerminal",
+                    "group": "inline",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvironment.*;activatable;.*/"
+                },
+                {
+                    "command": "python-envs.refreshPackages",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvironment.*/"
+                },
+                {
+                    "command": "python-envs.packages",
+                    "group": "inline",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvironment.*/"
+                },
+                {
+                    "command": "python-envs.copyEnvPath",
+                    "group": "inline",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvironment.*/ && viewItem =~ /^((?!copied).)*$/"
+                },
+                {
+                    "command": "python-envs.copyEnvPathCopied",
+                    "group": "inline",
+                    "when": "view == env-managers && viewItem =~ /.*pythonEnvironment.*/ && viewItem =~ /.*copied.*/"
+                },
+                {
+                    "command": "python-envs.uninstallPackage",
+                    "group": "inline",
+                    "when": "view == env-managers && viewItem == python-package"
+                },
+                {
+                    "command": "python-envs.copyEnvPath",
+                    "group": "inline",
+                    "when": "view == python-projects && viewItem =~ /python-env/ && viewItem =~ /^((?!copied).)*$/"
+                },
+                {
+                    "command": "python-envs.copyEnvPathCopied",
+                    "group": "inline",
+                    "when": "view == python-projects && viewItem =~ /python-env/ && viewItem =~ /.*copied.*/"
+                },
+                {
+                    "command": "python-envs.remove",
+                    "when": "view == python-projects && viewItem == python-env"
+                },
+                {
+                    "command": "python-envs.removePythonProject",
+                    "when": "view == python-projects && viewItem == python-workspace-removable"
+                },
+                {
+                    "command": "python-envs.set",
+                    "group": "inline",
+                    "when": "view == python-projects && viewItem =~ /.*python-workspace.*/"
+                },
+                {
+                    "command": "python-envs.createTerminal",
+                    "group": "inline",
+                    "when": "view == python-projects && viewItem =~ /.*python-workspace.*/"
+                },
+                {
+                    "command": "python-envs.copyProjectPath",
+                    "group": "inline",
+                    "when": "view == python-projects && viewItem =~ /.*python-workspace.*/ && viewItem =~ /^((?!copied).)*$/"
+                },
+                {
+                    "command": "python-envs.copyProjectPathCopied",
+                    "group": "inline",
+                    "when": "view == python-projects && viewItem =~ /.*python-workspace.*/ && viewItem =~ /.*copied.*/"
+                },
+                {
+                    "command": "python-envs.revealProjectInExplorer",
+                    "when": "view == python-projects && viewItem =~ /.*python-workspace.*/"
+                },
+                {
+                    "command": "python-envs.uninstallPackage",
+                    "group": "inline",
+                    "when": "view == python-projects && viewItem == python-package"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "python-envs.addPythonProject",
+                    "group": "navigation",
+                    "when": "view == python-projects"
+                },
+                {
+                    "command": "python-envs.createAny",
+                    "group": "navigation",
+                    "when": "view == env-managers"
+                },
+                {
+                    "command": "python-envs.refreshAllManagers",
+                    "group": "navigation",
+                    "when": "view == env-managers"
+                },
+                {
+                    "command": "python-envs.terminal.activate",
+                    "group": "navigation",
+                    "when": "view == terminal && config.python-envs.terminal.showActivateButton && pythonTerminalActivation && !pythonTerminalActivated"
+                },
+                {
+                    "command": "python-envs.terminal.deactivate",
+                    "group": "navigation",
+                    "when": "view == terminal && config.python-envs.terminal.showActivateButton && pythonTerminalActivation && pythonTerminalActivated"
+                }
+            ],
+            "explorer/context": [
+                {
+                    "command": "python-envs.addPythonProjectGivenResource",
+                    "group": "inline",
+                    "when": "explorerViewletVisible && explorerResourceIsFolder"
+                },
+                {
+                    "command": "python-envs.addPythonProjectGivenResource",
+                    "group": "inline",
+                    "when": "explorerViewletVisible && resourceExtname == .py"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "python-envs.terminal.activate",
+                    "group": "navigation",
+                    "when": "resourceScheme == vscode-terminal && config.python-envs.terminal.showActivateButton && pythonTerminalActivation && !pythonTerminalActivated"
+                },
+                {
+                    "command": "python-envs.terminal.deactivate",
+                    "group": "navigation",
+                    "when": "resourceScheme == vscode-terminal && config.python-envs.terminal.showActivateButton && pythonTerminalActivation && pythonTerminalActivated"
+                }
+            ],
+            "editor/title/run": [
+                {
+                    "command": "python-envs.runAsTask",
+                    "group": "Python",
+                    "when": "editorLangId == python"
+                }
+            ],
+            "terminal/title/context": [
+                {
+                    "command": "python-envs.terminal.activate",
+                    "when": "pythonTerminalActivation && !pythonTerminalActivated"
+                },
+                {
+                    "command": "python-envs.terminal.deactivate",
+                    "when": "pythonTerminalActivation && pythonTerminalActivated"
+                }
+            ]
+        },
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "python",
+                    "title": "Python",
+                    "icon": "files/logo.svg",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                }
+            ]
+        },
+        "views": {
+            "python": [
+                {
+                    "id": "python-projects",
+                    "name": "Python Projects",
+                    "icon": "files/logo.svg",
+                    "contextualTitle": "Python Projects",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                },
+                {
+                    "id": "env-managers",
+                    "name": "Environment Managers",
+                    "icon": "files/logo.svg",
+                    "contextualTitle": "Environment Managers",
+                    "when": "config.python.useEnvironmentsExtension != false"
+                }
+            ]
+        },
+        "taskDefinitions": [
+            {
+                "type": "python"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run package",
+        "compile": "webpack",
+        "watch": "webpack --watch",
+        "package": "webpack --mode production --devtool source-map --config ./webpack.config.js",
+        "compile-tests": "tsc -p . --outDir out",
+        "watch-tests": "tsc -p . -w --outDir out",
+        "pretest": "npm run compile-tests && npm run compile",
+        "lint": "eslint --config=eslint.config.mjs src",
+        "unittest": "mocha --config=./build/.mocha.unittests.json",
+        "vsce-package": "vsce package -o ms-python-envs-insiders.vsix"
+    },
+    "devDependencies": {
+        "@types/fs-extra": "^11.0.4",
+        "@types/glob": "^8.1.0",
+        "@types/mocha": "^10.0.1",
+        "@types/node": "^22.15.1",
+        "@types/sinon": "^17.0.3",
+        "@types/stack-trace": "0.0.29",
+        "@types/vscode": "^1.99.0",
+        "@types/which": "^3.0.4",
+        "@typescript-eslint/eslint-plugin": "^8.16.0",
+        "@typescript-eslint/parser": "^8.16.0",
+        "@vscode/test-electron": "^2.3.2",
+        "@vscode/vsce": "^2.24.0",
+        "eslint": "^9.15.0",
+        "glob": "^8.1.0",
+        "mocha": "^10.8.2",
+        "sinon": "^19.0.2",
+        "ts-loader": "^9.4.3",
+        "ts-mockito": "^2.6.1",
+        "typemoq": "^2.1.0",
+        "typescript": "^5.1.3",
+        "webpack": "^5.85.0",
+        "webpack-cli": "^5.1.1"
+    },
+    "dependencies": {
+        "@iarna/toml": "^2.2.5",
+        "@vscode/extension-telemetry": "^0.9.7",
+        "@vscode/test-cli": "^0.0.10",
+        "dotenv": "^16.4.5",
+        "fs-extra": "^11.2.0",
+        "stack-trace": "0.0.10",
+        "vscode-jsonrpc": "^9.0.0-next.5",
+        "which": "^4.0.0"
+    }
+}

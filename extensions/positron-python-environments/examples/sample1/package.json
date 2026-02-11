@@ -1,0 +1,40 @@
+{
+    "name": "sample1",
+    "displayName": "Sample1",
+    "description": "A sample environment manager",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.95.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [],
+    "main": "./dist/extension.js",
+    "contributes": {},
+    "scripts": {
+        "vscode:prepublish": "npm run package",
+        "compile": "webpack",
+        "watch": "webpack --watch",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "compile-tests": "tsc -p . --outDir out",
+        "watch-tests": "tsc -p . -w --outDir out",
+        "pretest": "npm run compile-tests && npm run compile && npm run lint",
+        "lint": "eslint src",
+        "test": "vscode-test"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.95.0",
+        "@types/mocha": "^10.0.7",
+        "@types/node": "20.x",
+        "@typescript-eslint/eslint-plugin": "^8.3.0",
+        "@typescript-eslint/parser": "^8.3.0",
+        "eslint": "^9.9.1",
+        "typescript": "^5.5.4",
+        "ts-loader": "^9.5.1",
+        "webpack": "^5.94.0",
+        "webpack-cli": "^5.1.4",
+        "@vscode/test-cli": "^0.0.10",
+        "@vscode/test-electron": "^2.4.1"
+    }
+}

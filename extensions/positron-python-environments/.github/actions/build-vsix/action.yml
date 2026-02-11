@@ -1,0 +1,32 @@
+name: 'Build VSIX'
+description: "Build the extension's VSIX"
+
+inputs:
+  node_version:
+    description: 'Version of Node to install'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node_version }}
+        cache: 'npm'
+
+    - name: Run npm ci
+      run: npm ci --prefer-offline
+      shell: bash
+
+    - name: Build VSIX
+      run: npx vsce package --out ms-python-envs-insiders.vsix --pre-release
+      shell: bash
+
+    - name: Upload VSIX
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsix
+        path: ms-python-envs-insiders.vsix
+        if-no-files-found: error
+        retention-days: 7

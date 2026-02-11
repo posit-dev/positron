@@ -5,9 +5,12 @@
 		},
 		{
 			"path": "./extensions/positron-python"
+		},
+		{
+			"path": "./extensions/positron-python-environments"
 		}
 	],
 	"settings": {
 		"search.followSymlinks": false
-    }
+	}
 }

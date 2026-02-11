@@ -1,0 +1,11 @@
+Package    Version
+---------- -------
+altgraph   0.17.2
+future     0.18.2
+macholib   1.15.2
+pip        21.2.4
+setuptools 58.0.4
+six        1.15.0
+wheel      0.37.0
+WARNING: You are using pip version 21.2.4; however, version 25.2 is available.
+You should consider upgrading via the '/Library/Developer/CommandLineTools/usr/bin/python3 -m pip install --upgrade pip' command.

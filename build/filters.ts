@@ -36,6 +36,7 @@ export const all = Object.freeze<string[]>([
 	// Excluded since it comes from an external source with its own hygiene
 	// rules
 	'!extensions/positron-python/**/*',
+	'!extensions/positron-python-environments/**/*',
 
 	// Excluded since it comes from an external source with its own hygiene
 	'!src/esm-package-dependencies/**/*',

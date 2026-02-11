@@ -38,6 +38,7 @@ export let dirs = [
 	'extensions/positron-runtime-debugger',
 	'extensions/positron-supervisor',
 	'extensions/positron-python',
+	'extensions/positron-python-environments',
 	'extensions/positron-proxy',
 	'extensions/positron-viewer',
 	'extensions/positron-zed',

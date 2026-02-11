@@ -1,0 +1,11 @@
+{
+    "packages": [
+        { "name": "altgraph", "version": "0.17.2" },
+        { "name": "future", "version": "0.18.2" },
+        { "name": "macholib", "version": "1.15.2" },
+        { "name": "pip", "version": "21.2.4" },
+        { "name": "setuptools", "version": "58.0.4" },
+        { "name": "six", "version": "1.15.0" },
+        { "name": "wheel", "version": "0.37.0" }
+    ]
+}
