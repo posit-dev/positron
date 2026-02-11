@@ -1997,6 +1997,7 @@ export default tseslint.config(
 						'test/e2e/**',
 						'@vscode/*',
 						'@playwright/*',
+						'@anthropic-ai/*', // For LLM evaluation tests
 						'*' // node modules
 					]
 				},

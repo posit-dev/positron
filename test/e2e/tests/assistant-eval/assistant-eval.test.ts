@@ -6,7 +6,7 @@
 import { test, tags, expect } from '../_test.setup';
 import { testCases } from './test-cases';
 import { evaluateWithLLM } from './evaluator/llm-grader';
-import { formatResultsMarkdown } from './evaluator/format-results';
+import { formatResultsHtml } from './evaluator/format-results';
 import { getModelKeys, getModelConfig, initResults, saveResult, finalizeResults, generateCatalog } from './evaluator/eval-results';
 
 test.use({
@@ -58,17 +58,18 @@ test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAI
 						});
 
 						// Attach results to Playwright report
-						const resultsMarkdown = formatResultsMarkdown({
+						const resultsHtml = formatResultsHtml({
 							testId: testCase.id,
 							description: testCase.description,
 							model: modelConfig.displayName,
 							grade: evaluation.grade,
 							explanation: evaluation.explanation,
+							question: testCase.prompt,
 							response,
 						});
-						await test.info().attach('evaluation-result.md', {
-							body: resultsMarkdown,
-							contentType: 'text/markdown',
+						await test.info().attach('evaluation-result.html', {
+							body: resultsHtml,
+							contentType: 'text/html',
 						});
 
 						// Save for eval log
@@ -81,12 +82,10 @@ test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAI
 							explanation: evaluation.explanation,
 						});
 
-						// TEMPORARY: Skipping assertion, planning to leverage Insights Dashboard.
-						// Assert: Incomplete = test failure
-						// expect(
-						// 	evaluation.grade,
-						// 	`Test failed with grade: ${GRADE_LABELS[evaluation.grade]}\n\n${evaluation.explanation}`
-						// ).not.toBe('I');
+						// Intentionally skipping assertion, will leverage Insights Dashboard.
+						if (evaluation.grade === 'I') {
+							console.log(`⚠️  Grade: Incomplete - see trace report for details`);
+						}
 					}
 				);
 			});

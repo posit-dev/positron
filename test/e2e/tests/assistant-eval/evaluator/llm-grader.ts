@@ -65,13 +65,16 @@ function buildEvaluationPrompt(response: string, criteria: EvaluationCriteria): 
 CRITICAL INSTRUCTIONS:
 1. Focus ENTIRELY on whether the response meets the specified criteria.
 2. When criteria mention that specific tools must be called, look for them in a "Tools Called:" section in the response.
-3. Be strict about ESSENTIAL criteria - all must be met for a Complete grade.
-4. Check for FAIL IF conditions first - if any are present, grade is Incomplete regardless of other criteria.
+3. Check FAIL IF conditions FIRST. If ANY fail-if condition is triggered, the grade MUST be I. No exceptions.
+4. Then check ESSENTIAL criteria. If ANY essential criterion fails, the grade MUST be I. No exceptions.
 
-GRADING SCALE:
-- C (Complete): ALL essential criteria are met, and most additional criteria are met
-- P (Partial): ALL essential criteria are met, but some additional criteria are missing
-- I (Incomplete): ANY essential criteria are missing, OR any FAIL IF conditions are present`);
+GRADING SCALE (apply in this strict order):
+1. FIRST: If ANY FAIL IF condition is triggered → grade is I (Incomplete). STOP.
+2. SECOND: If ANY essential criterion is NOT met → grade is I (Incomplete). STOP.
+3. THIRD: If ALL essential are met but some additional are missing → grade is P (Partial).
+4. FOURTH: If ALL essential AND most additional are met → grade is C (Complete).
+
+⚠️ You CANNOT give C or P if ANY essential criterion fails or ANY fail-if condition is triggered.`);
 
 	parts.push(`\n\nRESPONSE TO EVALUATE:\n${response}`);
 
@@ -99,10 +102,14 @@ GRADE: [C/P/I]
 EXPLANATION:
 Show criteria results in a simple aligned table, then a brief summary:
 
-Criteria                                    Met?
-──────────────────────────────────────────  ────
-[short criterion name, max 40 chars]        ✓ or ✗
+Type  Criterion                               Met?
+────  ──────────────────────────────────────  ────
+E     [short criterion name, max 40 chars]    ✓ or ✗
+A     [additional criterion]                  ✓ or ✗
+F     [fail-if criterion]                     ✓ or ✗
 ...
+
+Type legend: E=Essential (required), A=Additional (optional), F=Fail-if (auto-fail)
 
 [1-2 sentence summary of why this grade was given]`);
 

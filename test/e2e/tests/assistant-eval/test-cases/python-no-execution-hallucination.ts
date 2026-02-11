@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { EvalTestCase } from './types';
 
 /**
@@ -29,8 +28,7 @@ export const pythonNoExecutionHallucination: EvalTestCase = {
 		const [pySession] = await sessions.start(['python']);
 
 		// Setup: Create the test data
-		await expect(async () => {
-			const polarsCode = `import polars as pl
+		const polarsCode = `import polars as pl
 
 # Create sample species data matching the Georgia Aquarium structure
 species = pl.DataFrame({
@@ -65,10 +63,7 @@ species = pl.DataFrame({
 		"Slender body with bronze to brown coloration. Smooth skin texture with white belly."
 	]
 })`;
-
-			await console.executeCode('Python', polarsCode);
-			await console.clearButton.click();
-		}).toPass({ timeout: 5000 });
+		await console.executeCode('Python', polarsCode);
 
 		// Ask the question
 		await assistant.clickNewChatButton();
