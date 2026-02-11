@@ -116,50 +116,27 @@ class PositronNotebookContribution extends Disposable {
 	}
 
 	private registerEditor(): void {
-		// Determine notebook/cell editor priority based on whether Positron notebooks are enabled
-		const getPriority = () => usingPositronNotebooks(this.configurationService)
-			? RegisteredEditorPriority.default
-			: RegisteredEditorPriority.option;
-
-		const getCellPriority = () => usingPositronNotebooks(this.configurationService)
-			? RegisteredEditorPriority.exclusive
-			: RegisteredEditorPriority.option;
-
 		const ipynbEditorInfo: RegisteredEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
 			detail: localize('positronNotebook.detail', "Native .ipynb Support (Alpha)"),
-			priority: getPriority(),
+			priority: this.getPriority(),
 		};
 		const ipynbCellEditorInfo: RegisteredEditorInfo = {
 			...ipynbEditorInfo,
-			priority: getCellPriority(),
+			priority: this.getCellPriority(),
 		};
 
 		const quartoEditorInfo: RegisteredEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronQuartoNotebook', "Positron Quarto Notebook"),
 			detail: localize('positronQuartoNotebook.detail', "Quarto Notebook Editor"),
-			priority: getPriority(),
+			priority: this.getPriority(),
 		};
 		const quartoCellEditorInfo: RegisteredEditorInfo = {
 			...quartoEditorInfo,
-			priority: getCellPriority(),
+			priority: this.getCellPriority(),
 		};
-
-		// Listen for configuration changes to update priorities dynamically
-		const allEditorInfos = [ipynbEditorInfo, quartoEditorInfo];
-		const allCellEditorInfos = [ipynbCellEditorInfo, quartoCellEditorInfo];
-		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
-				for (const info of allEditorInfos) {
-					info.priority = getPriority();
-				}
-				for (const info of allCellEditorInfos) {
-					info.priority = getCellPriority();
-				}
-			}
-		}));
 
 		this.registerNotebookEditor({
 			extension: '.ipynb',
@@ -178,7 +155,27 @@ class PositronNotebookContribution extends Disposable {
 		});
 	}
 
+	private getPriority(): RegisteredEditorPriority {
+		return usingPositronNotebooks(this.configurationService)
+			? RegisteredEditorPriority.default
+			: RegisteredEditorPriority.option;
+	}
+
+	private getCellPriority(): RegisteredEditorPriority {
+		return usingPositronNotebooks(this.configurationService)
+			? RegisteredEditorPriority.exclusive
+			: RegisteredEditorPriority.option;
+	}
+
 	private registerNotebookEditor(info: NotebookEditorRegistration): void {
+		// Listen for configuration changes to update priorities dynamically
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
+				info.editorInfo.priority = this.getPriority();
+				info.cellEditorInfo.priority = this.getCellPriority();
+			}
+		}));
+
 		// Register file editor
 		this._register(this.editorResolverService.registerEditor(
 			info.globPattern,
