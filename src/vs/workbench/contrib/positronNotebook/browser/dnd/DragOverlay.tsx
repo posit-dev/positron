@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { useDndContext } from './DndContext.js';
 
@@ -245,19 +244,18 @@ interface DragOverlayProps {
 export function DragOverlay({ items = [] }: DragOverlayProps) {
 	const { state, getDroppableRects, getDroppableIds } = useDndContext();
 
-	// Get droppable rects and IDs for debug visualization
+	// Only render debug overlay when dragging and debug mode is enabled
+	if (!DND_DEBUG || state.status !== 'dragging') {
+		return null;
+	}
+
+	// Expensive DOM reads - only performed when debug mode is active
 	const droppableRects = getDroppableRects();
 	const droppableIds = getDroppableIds();
 
-	// Calculate snap position for debug (always null now since snapping is disabled)
-	const snapPosition = state.status === 'dragging' && state.activeId && state.initialRect && state.currentPosition
+	const snapPosition = state.activeId && state.initialRect && state.currentPosition
 		? calculateSnapPosition(state.activeId, state.overId, items, droppableRects, state.initialRect, state.currentPosition.y)
 		: null;
-
-	// Only render debug overlay when dragging and debug mode is enabled
-	if (state.status !== 'dragging') {
-		return null;
-	}
 
 	return (
 		<DebugOverlay
