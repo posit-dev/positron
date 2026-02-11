@@ -1329,6 +1329,9 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Set import options for file-based data sources
     SetDatasetImportOptions = "set_dataset_import_options"
 
+    # Open a full data explorer for the same data
+    OpenDataExplorer = "open_data_explorer"
+
     # Get the state
     GetState = "get_state"
 
@@ -1745,6 +1748,24 @@ class SetDatasetImportOptionsRequest(BaseModel):
     )
 
 
+class OpenDataExplorerRequest(BaseModel):
+    """
+    Creates a new, independent data explorer comm for the same underlying
+    data. The new comm has its own state (filters, sorts). Used when
+    promoting an inline notebook data explorer to a full data explorer
+    panel.
+    """
+
+    method: Literal[DataExplorerBackendRequest.OpenDataExplorer] = Field(
+        description="The JSON-RPC method name (open_data_explorer)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class GetStateRequest(BaseModel):
     """
     Request the current backend state (table metadata, explorer state, and
@@ -1777,6 +1798,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         SetSortColumnsRequest,
         GetColumnProfilesRequest,
         SetDatasetImportOptionsRequest,
+        OpenDataExplorerRequest,
         GetStateRequest,
     ] = Field(..., discriminator="method")
 

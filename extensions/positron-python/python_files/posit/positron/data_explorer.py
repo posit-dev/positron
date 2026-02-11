@@ -54,6 +54,7 @@ from .data_explorer_comm import (
     ConvertToCodeFeatures,
     ConvertToCodeParams,
     DataExplorerBackendMessageContent,
+    DataExplorerBackendRequest,
     DataExplorerFrontendEvent,
     DataSelectionCellIndices,
     DataSelectionCellRange,
@@ -3144,6 +3145,13 @@ class DataExplorerService:
         comm = self.comms[comm_id]
         table = self.table_views[comm_id]
 
+        # open_data_explorer is a service-level operation (creates a new comm),
+        # not a table-view operation, so handle it before the generic dispatch.
+        if request.method == DataExplorerBackendRequest.OpenDataExplorer:
+            self._open_data_explorer(comm_id)
+            comm.send_result(None)
+            return
+
         # GetState is the only method that doesn't have params
         result = getattr(table, request.method.value)(getattr(request, "params", None))
 
@@ -3159,6 +3167,16 @@ class DataExplorerService:
                 assert isinstance(result, dict)
 
         comm.send_result(result)
+
+    def _open_data_explorer(self, source_comm_id: str) -> None:
+        """Open a new, independent data explorer for the same underlying data."""
+        table_view = self.table_views[source_comm_id]
+        self.register_table(
+            table_view.table,
+            table_view.state.name,
+            variable_path=None,
+            inline_only=False,
+        )
 
 
 def _get_column_profiles(table_view, schema, query_types, format_options):
