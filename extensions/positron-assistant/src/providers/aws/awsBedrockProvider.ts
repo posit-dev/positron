@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as ai from 'ai';
 import { createAmazonBedrock, AmazonBedrockProvider } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import {
@@ -223,18 +224,32 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
 	override async parseProviderError(error: any) {
-		// First try the base class error parsing
-		const aiSdkError = await super.parseProviderError(error);
-		if (aiSdkError) {
-			return aiSdkError;
-		}
-
 		if (!(error instanceof Error)) {
 			return undefined;
 		}
 
-		const name = error.name;
-		const message = error.message;
+		let name = error.name;
+		let message = error.message;
+
+		// Handle AI_APICallError which wraps AWS errors in responseBody
+		if (ai.APICallError.isInstance(error) && error.responseBody) {
+			try {
+				const parsedBody = JSON.parse(error.responseBody);
+				message = parsedBody.Message || parsedBody.message || message;
+
+				// Extract error type from response headers
+				if (error.responseHeaders?.['x-amzn-errortype']) {
+					const errorType = error.responseHeaders['x-amzn-errortype'];
+					// Extract the error name (e.g., "AccessDeniedException" from "AccessDeniedException:http://...")
+					const errorNameMatch = errorType.match(/^([^:]+)/);
+					if (errorNameMatch) {
+						name = errorNameMatch[1];
+					}
+				}
+			} catch (e) {
+				// If we can't parse the response body, fall back to the original error
+			}
+		}
 
 		if (!message) {
 			return await super.parseProviderError(error);
@@ -248,6 +263,41 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 		// Determine if we're in a connection test to adjust error handling (e.g., avoid duplicate prompts)
 		const isConnectionTest = this._resolvingConnection;
+
+		// Handle IAM authorization errors
+		if (name === 'AccessDeniedException' || name === 'UnauthorizedException' ||
+			message.includes('is not authorized to perform')) {
+
+			// Extract the specific action that was denied (e.g., bedrock:ListFoundationModels)
+			const actionMatch = message.match(/perform:\s*([^\s]+)/);
+			const deniedAction = actionMatch ? actionMatch[1] : 'bedrock actions';
+
+			// Extract the user/role ARN if present
+			const arnMatch = message.match(/User:\s*([^\s]+)/);
+			const userArn = arnMatch ? arnMatch[1] : 'current user';
+
+			// Create a command link for opening settings
+			const settingsArg = encodeURIComponent(JSON.stringify(['positron.assistant.providerVariables.bedrock']));
+
+			const errorMessage = vscode.l10n.t(
+				'AWS IAM authorization failed for profile \'{0}\' in region \'{1}\'.\n\n' +
+				'**User:** {2}  \n' +
+				'**Denied action:** {3}\n\n' +
+				'Your AWS IAM role or user does not have the required Bedrock permissions. To use Amazon Bedrock, your IAM policy must include:\n\n' +
+				'- bedrock:ListFoundationModels\n' +
+				'- bedrock:ListInferenceProfiles\n' +
+				'- bedrock:InvokeModel\n' +
+				'- bedrock:InvokeModelWithResponseStream\n\n' +
+				'You can [configure the AWS profile](command:workbench.action.openSettings?{4}) in Settings > Positron > Assistant > Provider Variables > Bedrock, or contact your AWS administrator to grant these permissions.',
+				profile,
+				region,
+				userArn,
+				deniedAction,
+				settingsArg
+			);
+
+			return errorMessage;
+		}
 
 		// Handle AWS SSO credential errors
 		if (name === 'CredentialsProviderError') {
@@ -293,7 +343,10 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 				// Create a command link for opening settings
 				const settingsArg = encodeURIComponent(JSON.stringify(['positron.assistant.providerVariables.bedrock']));
 				const errorMessage = vscode.l10n.t(
-					'AWS credentials are invalid or missing for profile \'{0}\' in region \'{1}\'. \n\nYou can [configure the AWS profile and region](command:workbench.action.openSettings?{2}), or set up credentials by running \'aws configure --profile {0}\' or \'aws sso login --profile {0}\' in the terminal.',
+					'AWS credentials are invalid or missing for profile \'{0}\' in region \'{1}\'.\n\n' +
+					'You can [configure the AWS profile and region](command:workbench.action.openSettings?{2}) in Settings > Positron > Assistant > Provider Variables > Bedrock, or set up credentials by running one of these commands in the terminal:\n\n' +
+					'- `aws configure --profile {0}`\n' +
+					'- `aws sso login --profile {0}`',
 					profile,
 					region,
 					settingsArg

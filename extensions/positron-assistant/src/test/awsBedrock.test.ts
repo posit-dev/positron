@@ -156,5 +156,71 @@ suite('AWSModelProvider', () => {
 				assert.ok(err, 'Expected error to be thrown by base class');
 			}
 		});
+
+		test('handles IAM AccessDeniedException with required permissions guidance', async () => {
+			const error = new Error(
+				'User: arn:aws:sts:::assumed-role/EC2_SSM_Role/session is not authorized to perform: bedrock:ListFoundationModels because no identity-based policy allows the bedrock:ListFoundationModels action'
+			);
+			error.name = 'AccessDeniedException';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('IAM authorization failed'), 'Expected IAM authorization failure message');
+			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
+			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
+			assert.ok(result.includes('EC2_SSM_Role'), 'Expected user/role ARN in error message');
+			assert.ok(result.includes('bedrock:ListFoundationModels'), 'Expected denied action in error message');
+			assert.ok(result.includes('bedrock:ListInferenceProfiles'), 'Expected required permissions list');
+			assert.ok(result.includes('bedrock:InvokeModel'), 'Expected required permissions list');
+			assert.ok(result.includes('bedrock:InvokeModelWithResponseStream'), 'Expected required streaming permissions list');
+			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
+		});
+
+		test('handles IAM errors without specific action match', async () => {
+			const error = new Error('Access denied to Bedrock');
+			error.name = 'UnauthorizedException';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('IAM authorization failed'), 'Expected IAM authorization failure message');
+			assert.ok(result.includes('bedrock actions'), 'Expected fallback action description');
+			assert.ok(result.includes('current user'), 'Expected fallback user description');
+		});
+
+		test('handles errors with "is not authorized to perform" phrase', async () => {
+			const error = new Error('You are not authorized to perform: bedrock:InvokeModel');
+			error.name = 'SomeOtherError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('IAM authorization failed'), 'Expected IAM authorization failure message');
+			assert.ok(result.includes('bedrock:InvokeModel'), 'Expected extracted action');
+		});
+
+		test('handles AI_APICallError with AccessDeniedException in responseBody', async () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			const error = {
+				name: 'AI_APICallError',
+				message: 'API call failed',
+				statusCode: 403,
+				responseHeaders: {
+					'x-amzn-errortype': 'AccessDeniedException:http://internal.amazon.com/coral/com.amazon.coral.service/'
+				},
+				responseBody: JSON.stringify({
+					Message: 'User: arn:aws:sts::123456789012:assumed-role/TestRole/session is not authorized to perform: bedrock:InvokeModelWithResponseStream on resource: arn:aws:bedrock:::foundation-model/test-model because no identity-based policy allows the bedrock:InvokeModelWithResponseStream action'
+				})
+			} as any;
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('IAM authorization failed'), 'Expected IAM authorization failure message');
+			assert.ok(result.includes('TestRole'), 'Expected user/role ARN in error message');
+			assert.ok(result.includes('bedrock:InvokeModelWithResponseStream'), 'Expected denied action in error message');
+			assert.ok(result.includes('bedrock:InvokeModel'), 'Expected required permissions list');
+		});
 	});
 });
