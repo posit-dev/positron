@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Notebook Assistant: Feature Toggle', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT]
+	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WIN]
 }, () => {
 
 	test('Notebook AI features hidden when assistant disabled', async function ({ app, settings }) {
