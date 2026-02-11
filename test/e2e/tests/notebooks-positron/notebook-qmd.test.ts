@@ -6,6 +6,8 @@
 import { tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
+const QUARTO_BASIC_PATH = 'workspaces/quarto_basic/quarto_basic.qmd';
+
 test.use({
 	suiteId: __filename
 });
@@ -21,11 +23,14 @@ test.describe('Positron Notebooks: .qmd Support', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.QUARTO]
 }, () => {
 
-	test('Can open a .qmd file in the Positron notebook editor', async function ({ app }) {
+	test('Can open a .qmd file', async function ({ app }) {
+		// Single test that .qmd files parse correctly into a notebook
+		// Extensive checks are handled in unit tests in the positronQuartoNotebook contribution
+
 		const { notebooksPositron } = app.workbench;
 
 		// Open the .qmd file
-		await notebooksPositron.openNotebook('workspaces/quarto_basic/quarto_basic.qmd');
+		await notebooksPositron.openNotebook(QUARTO_BASIC_PATH);
 
 		// Check parsed cells
 		await notebooksPositron.expectCellCountToBe(4);
@@ -73,18 +78,29 @@ test.describe('Positron Notebooks: .qmd Support', {
 		]);
 	});
 
-	test.skip('Can edit and save a .qmd file in the Positron notebook editor', async function ({ app }) {
+	test('Can edit and save a .qmd file', async function ({ app, hotKeys }) {
+		// Single test that .qmd files can be edited and saved in the notebook editor
+		// Extensive checks are handled in unit tests in the positronQuartoNotebook contribution
+
 		const { notebooksPositron } = app.workbench;
 
-		// Open the .qmd file
-		await notebooksPositron.openNotebook('workspaces/quarto_basic/quarto_basic.qmd');
+		const content = ['---', 'title: new title', '---'];
 
-		// Verify cells were parsed from the .qmd content
+		// Open the .qmd file
+		await notebooksPositron.openNotebook(QUARTO_BASIC_PATH);
 		await notebooksPositron.expectCellCountToBe(4);
 
-		await notebooksPositron.editModeAtIndex(3);
-		const editor = notebooksPositron.editorAtIndex(3);
-		await editor.focus();
-		editor.press('End');
+		// Edit the frontmatter cell and save
+		await notebooksPositron.editModeAtIndex(0);
+		const editor = notebooksPositron.editorAtIndex(0);
+		await hotKeys.selectAll();
+		await editor.pressSequentially(content.join('\n'));
+		await hotKeys.save();
+		await hotKeys.closeTab();
+
+		// Open it again and check that our edits were saved and parsed correctly
+		await notebooksPositron.openNotebook(QUARTO_BASIC_PATH);
+		await notebooksPositron.expectCellCountToBe(4);
+		await notebooksPositron.expectCellContentAtIndexToBe(0, content);
 	});
 });
