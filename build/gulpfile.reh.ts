@@ -67,9 +67,7 @@ const BUILD_TARGETS = [
 	{ platform: 'linux', arch: 'alpine' },
 ];
 
-// --- Start Positron ---
-// Base server resources without PWB-specific files (for reh-web-server builds)
-const positronServerResourceIncludes = [
+const serverResourceIncludes = [
 	// NLS
 	'out-build/nls.messages.json',
 	'out-build/nls.keys.json',
@@ -92,18 +90,14 @@ const positronServerResourceIncludes = [
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-login.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration.fish',
 ];
-// --- End Positron ---
 
 // --- Start PWB ---
 // Web resources including PWB-specific files (for reh-web builds)
 const webResourceIncludes = [
-	...positronServerResourceIncludes,
+	...serverResourceIncludes,
 	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
 ];
 // --- End PWB ---
-
-// Legacy alias for compatibility
-const serverResourceIncludes = webResourceIncludes;
 
 const serverResourceExcludes = [
 	'!out-build/vs/**/{electron-browser,electron-main,electron-utility}/**',
@@ -118,7 +112,7 @@ const serverResources = [
 ];
 
 const serverWithWebResourceIncludes = [
-	...serverResourceIncludes,
+	...webResourceIncludes,
 	'out-build/vs/code/browser/workbench/*.html',
 	...vscodeWebResourceIncludes
 ];
@@ -136,7 +130,7 @@ const serverWithWebResources = [
 // --- Start Positron ---
 // Server with web resources for reh-web-server (without PWB-specific rsLoginCheck.js)
 const positronServerWithWebResourceIncludes = [
-	...positronServerResourceIncludes,
+	...serverResourceIncludes,
 	'out-build/vs/code/browser/workbench/*.html',
 	...vscodeWebResourceIncludes
 ];
