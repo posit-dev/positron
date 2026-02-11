@@ -7,9 +7,10 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 import { ExtensionContext } from 'vscode';
-import { ModelConfig } from './config.js';
-import { AutoconfigureResult } from './providers/index.js';
+import { ModelConfig } from './configTypes.js';
+import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 import { ModelProvider } from './providers/base/modelProvider.js';
+import { PROVIDER_METADATA } from './providerMetadata.js';
 
 const PROVIDER_ID = 'github';
 const GITHUB_SCOPE_USER_EMAIL = ['user:email'];
@@ -181,12 +182,7 @@ export class CopilotModelProvider extends ModelProvider {
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			// Use 'copilot-auth' as the ID to distinguish from the full
-			// Copilot implementation, which has the id 'copilot'
-			id: 'copilot-auth',
-			displayName: 'GitHub Copilot'
-		},
+		provider: PROVIDER_METADATA.copilot,
 		supportedOptions: ['oauth', 'autoconfigure'],
 		defaults: {
 			name: 'GitHub Copilot',

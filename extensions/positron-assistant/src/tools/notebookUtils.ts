@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as xml from '../xml.js';
 import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT, getOriginalContentLength } from '../notebookContextFilter.js';
 import { isRuntimeSessionReference } from '../utils.js';
-import { log } from '../extension.js';
+import { log } from '../log.js';
 
 /**
  * Maximum preview length per cell for confirmations (characters)

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { log } from './extension.js';
+import { log } from './log.js';
 import { DEFAULT_SELECTABLE_PATTERNS } from './constants.js';
 import { markDefaultModel } from './modelResolutionHelpers.js';
 

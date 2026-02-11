@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,7 +12,7 @@ import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
@@ -35,7 +35,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	async registerChatAgent(extension: IExtensionDescription, agentData: positron.ai.ChatAgentData): Promise<Disposable> {
 		await this._proxy.$registerChatAgent({
 			...agentData,
-			modes: agentData.modes as any as ChatModeKind[],
+			modes: agentData.modes as unknown as ChatModeKind[],
 			extensionId: extension.identifier,
 			extensionVersion: extension.version,
 			extensionPublisherId: extension.publisher,
@@ -48,12 +48,12 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Promise<void> {
+	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, options?: positron.ai.ShowLanguageModelConfigOptions): Promise<void> {
 		const id = generateUuid();
 		this._languageModelRequestRegistry.set(id, onAction);
 
 		try {
-			await this._proxy.$languageModelConfig(id, sources);
+			await this._proxy.$languageModelConfig(id, sources, options);
 		} catch (err) {
 			throw err;
 		}
@@ -91,12 +91,12 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		this._languageModelRequestRegistry.delete(id);
 	}
 
-	async getSupportedProviders(): Promise<string[]> {
-		return this._proxy.$getSupportedProviders();
-	}
-
 	async getChatExport(): Promise<object | undefined> {
 		return this._proxy.$getChatExport();
+	}
+
+	registerProviderMetadata(metadata: IPositronProviderMetadata): void {
+		this._proxy.$registerProviderMetadata(metadata);
 	}
 
 	addLanguageModelConfig(source: IPositronLanguageModelSource): void {
@@ -125,6 +125,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	async setCurrentProvider(id: string): Promise<IPositronChatProvider | undefined> {
 		return this._proxy.$setCurrentProvider(id);
+	}
+
+	async getEnabledProviders(): Promise<string[]> {
+		return this._proxy.$getEnabledProviders();
 	}
 
 }
