@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 4 test cases · Auto-generated on 2026-02-11T18:27:04.705Z
+> 4 test cases · Auto-generated on 2026-02-11T18:30:53.003Z
 
 ## Summary
 
@@ -13,7 +13,7 @@
 
 ## Test Cases
 
-<details>
+<details id="python-edit-file">
 <summary><strong>python-edit-file</strong> — Ensure editFile tool is called when editing files in Edit mode</summary>
 
 **Mode:** Edit
@@ -39,7 +39,7 @@ Add a method to return today's date.
 
 </details>
 
-<details>
+<details id="python-no-execution-hallucination">
 <summary><strong>python-no-execution-hallucination</strong> — Ensure LLM does not hallucinate execution results in Edit mode</summary>
 
 **Mode:** Edit
@@ -70,7 +70,7 @@ Extract the animal's primary color from their physical characteristics.
 
 </details>
 
-<details>
+<details id="python-table-summary">
 <summary><strong>python-table-summary</strong> — Ensure getTableSummary tool is called when summarizing data in Ask mode</summary>
 
 **Mode:** Ask
@@ -96,7 +96,7 @@ Summarize my table df.
 
 </details>
 
-<details>
+<details id="r-forested-hallucination">
 <summary><strong>r-forested-hallucination</strong> — Ensure LLM does not hallucinate column names for unknown R packages</summary>
 
 **Mode:** Ask | **Tags:** `@:ark`

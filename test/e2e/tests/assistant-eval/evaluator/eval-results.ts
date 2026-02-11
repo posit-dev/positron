@@ -215,9 +215,10 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 
 	for (const tc of testCases) {
 		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '';
+		const anchorId = tc.id.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
-		// Collapsible section with summary
-		lines.push(`<details>`);
+		// Collapsible section with summary and anchor id
+		lines.push(`<details id="${anchorId}">`);
 		lines.push(`<summary><strong>${tc.id}</strong> — ${tc.description}</summary>`);
 		lines.push('');
 		lines.push(`**Mode:** ${tc.mode}${tags ? ` | **Tags:** ${tags}` : ''}`);
