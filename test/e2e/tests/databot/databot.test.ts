@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Databot', {
-	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
+	tag: [tags.ASSISTANT, tags.DATABOT, tags.WEB, tags.WIN],
 }, () => {
 
 	test.beforeAll(async function ({ app, sessions }) {
