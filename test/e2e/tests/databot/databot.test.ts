@@ -13,10 +13,15 @@ test.describe('Databot', {
 	tag: [tags.ASSISTANT, tags.DATABOT, tags.WEB, tags.WIN],
 }, () => {
 
+	let pySessionId: string;
+	let rSessionId: string;
+
 	test.beforeAll(async function ({ app, sessions }) {
 		await app.workbench.extensions.installExtension('posit.databot', true);
 		await app.workbench.assistant.loginModelProvider('anthropic-api');
-		await sessions.start(['python', 'r'], { reuse: true });
+		const [pySession, rSession] = await sessions.start(['python', 'r'], { reuse: true });
+		pySessionId = pySession.id;
+		rSessionId = rSession.id;
 	});
 
 	test.afterEach(async function ({ app }) {
@@ -24,7 +29,7 @@ test.describe('Databot', {
 	});
 
 	test('Execute Python code via Databot', async function ({ app, sessions }) {
-		await sessions.restart('Python');
+		await sessions.restart(pySessionId);
 		await app.workbench.databot.open();
 		await app.workbench.databot.waitForReady();
 
@@ -36,7 +41,7 @@ test.describe('Databot', {
 	});
 
 	test('Execute R code via Databot', async function ({ app, sessions }) {
-		await sessions.restart('R');
+		await sessions.restart(rSessionId);
 		await app.workbench.databot.open();
 		await app.workbench.databot.waitForReady();
 
@@ -48,7 +53,7 @@ test.describe('Databot', {
 	});
 
 	test('Allow once prompts again on next tool call', async function ({ app, sessions }) {
-		await sessions.restart('Python');
+		await sessions.restart(pySessionId);
 		await app.workbench.databot.open();
 		await app.workbench.databot.waitForReady();
 
@@ -67,7 +72,7 @@ test.describe('Databot', {
 	});
 
 	test('Allow for session does not prompt again on next tool call', async function ({ app, sessions }) {
-		await sessions.restart('Python');
+		await sessions.restart(pySessionId);
 		await app.workbench.databot.open();
 		await app.workbench.databot.waitForReady();
 
@@ -83,7 +88,7 @@ test.describe('Databot', {
 	});
 
 	test('Create data visualization via Databot', async function ({ app, sessions }) {
-		await sessions.restart('R');
+		await sessions.restart(rSessionId);
 		await app.workbench.plots.clearPlots();
 		await app.workbench.databot.open();
 		await app.workbench.databot.waitForReady();
