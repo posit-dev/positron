@@ -49,7 +49,7 @@ function parseToolsCalled(response: string): string[] {
 }
 
 /**
- * Formats test results as markdown for Playwright report attachment.
+ * Formats test results as GitHub-compatible markdown.
  *
  * @param params - The test result parameters
  * @returns Formatted markdown string
@@ -57,37 +57,77 @@ function parseToolsCalled(response: string): string[] {
 export function formatResultsMarkdown(params: PrintResultsParams): string {
 	const { testId, description, model, grade, explanation, question, response } = params;
 	const toolsCalled = parseToolsCalled(response);
-	const resultSymbol = grade === 'I' ? '❌' : '✅';
+	const resultSymbol = grade === 'I' ? '✗' : '✓';
+	const gradeLabel = GRADE_LABELS[grade];
+
+	const truncatedResponse = response.length > 2000
+		? response.substring(0, 2000) + '\n... [truncated]'
+		: response;
 
 	const lines: string[] = [
-		`# ${testId}`,
+		`# ${testId} ${resultSymbol}`,
 		'',
-		`**Result:** ${GRADE_LABELS[grade]} ${resultSymbol}`,
-		`**Model:** ${model}`,
+		`**Result:** ${gradeLabel} | **Model:** ${model}`,
 		'',
 		'## Description',
+		'',
 		description,
 		'',
 		'## Tools Called',
+		'',
 		toolsCalled.length > 0
 			? toolsCalled.map(t => `- ${t}`).join('\n')
 			: '_none_',
 		'',
 		'## Evaluation',
-		explanation,
+		'',
+		formatEvaluationMarkdown(explanation),
 		'',
 		'## Prompt',
+		'',
 		'```',
 		question,
 		'```',
 		'',
 		'## Response',
+		'',
 		'```',
-		response.length > 2000
-			? response.substring(0, 2000) + '\n... [truncated]'
-			: response,
+		truncatedResponse,
 		'```',
 	];
+
+	return lines.join('\n');
+}
+
+/**
+ * Formats the evaluation section as GitHub-compatible markdown with a criteria table.
+ */
+function formatEvaluationMarkdown(explanation: string): string {
+	const parsed = parseEvaluation(explanation);
+
+	if (parsed.criteria.length === 0) {
+		// No structured criteria found, just show the explanation
+		return explanation;
+	}
+
+	const lines: string[] = [];
+
+	// Summary text above the table
+	if (parsed.explanation) {
+		lines.push(parsed.explanation);
+		lines.push('');
+	}
+
+	// Markdown table header
+	lines.push('| Pass | Type | Criterion |');
+	lines.push('|:----:|------|-----------|');
+
+	// Table rows
+	for (const c of parsed.criteria) {
+		const passIcon = c.met ? '✓' : '✗';
+		const typeLabel = TYPE_LABELS[c.type];
+		lines.push(`| ${passIcon} | ${typeLabel} | ${c.text} |`);
+	}
 
 	return lines.join('\n');
 }
