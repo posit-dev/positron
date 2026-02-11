@@ -23,7 +23,7 @@ test.describe('Positron Notebooks: .qmd Support', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.QUARTO]
 }, () => {
 
-	test('Can open a .qmd file', async function ({ app }) {
+	test('Can open a .qmd file and perform cell actions', async function ({ app }) {
 		// Single test that .qmd files parse correctly into a notebook
 		// Extensive checks are handled in unit tests in the positronQuartoNotebook contribution
 
@@ -76,6 +76,11 @@ test.describe('Positron Notebooks: .qmd Support', {
 			'  ggplot(aes(x = carat)) + ',
 			'  geom_freqpoly(binwidth = 0.01)',
 		]);
+
+		// Run the first code cell and check output
+		await notebooksPositron.kernel.select('R');
+		await notebooksPositron.runCodeAtIndex(1);
+		await notebooksPositron.expectOutputAtIndex(1, ['── Attaching']);
 	});
 
 	test('Can edit and save a .qmd file', async function ({ app, hotKeys }) {
