@@ -18,21 +18,18 @@ export function useSortable({ id }: UseSortableProps) {
 	const { getTransform, getTransitionStyle } = useAnimationContext();
 
 	// Get animation transform for this item
-	const animationTransform = getTransform(id);
+	const transform = getTransform(id);
 	const transition = getTransitionStyle();
+
+	// Extract stable refs before using in deps
+	const { setNodeRef: setDraggableRef } = draggable;
+	const { setNodeRef: setDroppableRef } = droppable;
 
 	// Combine refs
 	const setNodeRef = React.useCallback((node: HTMLElement | null) => {
-		draggable.setNodeRef(node);
-		droppable.setNodeRef(node);
-	}, [draggable.setNodeRef, droppable.setNodeRef]);
-
-	// Combine drag transform with animation transform
-	// When dragging, apply the animation transform to move the cell to its insertion position
-	// When not dragging, apply animation transform if item needs to shift
-	const combinedTransform = draggable.isDragging
-		? animationTransform  // Use animation transform to position at insertion gap
-		: animationTransform;
+		setDraggableRef(node);
+		setDroppableRef(node);
+	}, [setDraggableRef, setDroppableRef]);
 
 	return {
 		setNodeRef,
@@ -41,8 +38,7 @@ export function useSortable({ id }: UseSortableProps) {
 		listeners: draggable.listeners,
 		isDragging: draggable.isDragging,
 		isOver: droppable.isOver,
-		transform: combinedTransform,
-		// Apply transition for smooth animations (both during drag and for FLIP)
+		transform,
 		transition,
 	};
 }
