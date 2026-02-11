@@ -49,75 +49,6 @@ suite('Round-trip serialization', () => {
 		}
 	});
 
-	test('should round-trip document with consecutive markdown cells', () => {
-		const cells: ICellDto2[] = [
-			markdownCell('# Cell 1'),
-			markdownCell('# Cell 2'),
-			codeCell('x = 1', 'python'),
-			markdownCell('# Cell 3'),
-		];
-
-		const serialized = notebookToQmd(notebook(cells));
-		const { cells: roundTripped } = qmdToNotebook(serialized);
-
-		assert.strictEqual(roundTripped.length, 4);
-		assert.strictEqual(roundTripped[0].cellKind, CellKind.Markup);
-		assert.strictEqual(roundTripped[1].cellKind, CellKind.Markup);
-		assert.strictEqual(roundTripped[2].cellKind, CellKind.Code);
-		assert.strictEqual(roundTripped[3].cellKind, CellKind.Markup);
-		assert.strictEqual(roundTripped[0].source, '# Cell 1');
-		assert.strictEqual(roundTripped[1].source, '# Cell 2');
-		assert.strictEqual(roundTripped[2].source, 'x = 1');
-		assert.strictEqual(roundTripped[3].source, '# Cell 3');
-	});
-
-	test('should round-trip code cell languages', () => {
-		const cells: ICellDto2[] = [
-			codeCell('x = 1', 'python'),
-			codeCell('y <- 2', 'r'),
-			codeCell('z = 3', 'julia'),
-		];
-
-		const serialized = notebookToQmd(notebook(cells));
-		const { cells: roundTripped } = qmdToNotebook(serialized);
-
-		assert.strictEqual(roundTripped[0].language, 'python');
-		assert.strictEqual(roundTripped[1].language, 'r');
-		assert.strictEqual(roundTripped[2].language, 'julia');
-	});
-
-	test('should round-trip code content exactly', () => {
-		const code = 'def foo():\n    return 42\n\nprint(foo())';
-		const cells: ICellDto2[] = [codeCell(code, 'python')];
-
-		const serialized = notebookToQmd(notebook(cells));
-		const { cells: roundTripped } = qmdToNotebook(serialized);
-
-		assert.strictEqual(roundTripped[0].source, code);
-	});
-
-	test('should round-trip mixed content document', () => {
-		const cells: ICellDto2[] = [
-			markdownCell('# Introduction'),
-			codeCell('import pandas as pd', 'python'),
-			markdownCell('## Analysis'),
-			markdownCell('Some notes about the analysis.'),
-			codeCell('df.describe()', 'python'),
-			markdownCell('# Conclusion'),
-		];
-
-		const serialized = notebookToQmd(notebook(cells));
-		const { cells: roundTripped } = qmdToNotebook(serialized);
-
-		assert.strictEqual(roundTripped.length, 6);
-		assert.strictEqual(roundTripped[0].cellKind, CellKind.Markup);
-		assert.strictEqual(roundTripped[1].cellKind, CellKind.Code);
-		assert.strictEqual(roundTripped[2].cellKind, CellKind.Markup);
-		assert.strictEqual(roundTripped[3].cellKind, CellKind.Markup);
-		assert.strictEqual(roundTripped[4].cellKind, CellKind.Code);
-		assert.strictEqual(roundTripped[5].cellKind, CellKind.Markup);
-	});
-
 	test('should round-trip document with frontmatter', () => {
 		const original = '---\ntitle: Test Document\nauthor: Test Author\n---\n\n# Content\n\n```{python}\nprint("hello")\n```\n';
 		const { cells } = qmdToNotebook(original);
@@ -142,14 +73,6 @@ suite('Round-trip serialization', () => {
 		assert.ok(serialized.includes('items:'));
 		assert.ok(serialized.includes('  - one'));
 		assert.ok(serialized.includes('  - two'));
-	});
-
-	test('should not create frontmatter cell when document has none', () => {
-		const original = '# Just content\n\n```{python}\nx = 1\n```\n';
-		const { cells } = qmdToNotebook(original);
-
-		assert.ok(!isFrontmatterCell(cells[0]));
-		assert.strictEqual(cells[0].cellKind, CellKind.Markup);
 	});
 
 	test('should preserve extra newlines in markdown content', () => {

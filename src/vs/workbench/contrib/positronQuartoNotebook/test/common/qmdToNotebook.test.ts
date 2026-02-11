@@ -197,6 +197,13 @@ suite('qmdToNotebook', () => {
 			assert.strictEqual(cells[2].cellKind, CellKind.Code);
 		});
 
+		test('should not create frontmatter cell when document has none', () => {
+			const { cells } = qmdToNotebook('# Just content\n\n```{python}\nx = 1\n```\n');
+
+			assert.ok(!isFrontmatterCell(cells[0]));
+			assert.strictEqual(cells[0].cellKind, CellKind.Markup);
+		});
+
 	});
 
 	suite('Cell markers', () => {
