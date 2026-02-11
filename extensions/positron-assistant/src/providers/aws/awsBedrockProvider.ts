@@ -246,6 +246,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			? await this.bedrockClient.config.region()
 			: this.bedrockClient.config.region || 'us-east-1';
 
+		// Determine if we're in a connection test to adjust error handling (e.g., avoid duplicate prompts)
+		const isConnectionTest = this._resolvingConnection;
+
 		// Handle AWS SSO credential errors
 		if (name === 'CredentialsProviderError') {
 			// This error occurs when the SSO refresh token is expired
@@ -261,7 +264,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 					}
 				} else {
 					// The model has already been registered, so we can prompt the user to login
-					const isConnectionTest = this._resolvingConnection;
 					const action = { title: vscode.l10n.t('Run in Terminal'), id: 'aws-sso-login' };
 
 					vscode.window.showErrorMessage(`Amazon Bedrock: ${message}`, action).then(async selection => {
@@ -288,11 +290,16 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 				}
 			} else {
 				// Generic credentials error - provide helpful context about which profile was used
-				return vscode.l10n.t(
-					'AWS credentials are invalid or missing for profile \'{0}\' in region \'{1}\'. Please ensure your AWS credentials are configured correctly. You can set up credentials by running \'aws configure --profile {0}\' or \'aws sso login --profile {0}\' in the terminal.',
+				// Create a command link for opening settings
+				const settingsArg = encodeURIComponent(JSON.stringify(['positron.assistant.providerVariables.bedrock']));
+				const errorMessage = vscode.l10n.t(
+					'AWS credentials are invalid or missing for profile \'{0}\' in region \'{1}\'. \n\nYou can [configure the AWS profile and region](command:workbench.action.openSettings?{2}), or set up credentials by running \'aws configure --profile {0}\' or \'aws sso login --profile {0}\' in the terminal.',
 					profile,
-					region
+					region,
+					settingsArg
 				);
+
+				return errorMessage;
 			}
 		}
 

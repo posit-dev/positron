@@ -69,6 +69,8 @@ suite('AWSModelProvider', () => {
 			assert.ok(result, 'Expected error message to be returned');
 			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
 			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
+			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
+			assert.ok(result.includes('configure the AWS profile and region'), 'Expected link text for settings');
 			assert.ok(result.includes('aws configure'), 'Expected setup instructions in error message');
 			assert.ok(result.includes('aws sso login'), 'Expected SSO login instructions in error message');
 		});
