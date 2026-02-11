@@ -168,7 +168,7 @@ interface CatalogTestCase {
 }
 
 /**
- * Generates an HTML catalog of all test cases.
+ * Generates a markdown catalog of all test cases.
  * Call in afterAll to keep the catalog up to date.
  * Skipped in CI environments.
  */
@@ -177,489 +177,97 @@ export function generateCatalog(testCases: CatalogTestCase[]): void {
 		return;
 	}
 
-	const catalogPath = join(__dirname, '..', 'LLM_EVAL_TEST_CATALOG.html');
+	const catalogPath = join(__dirname, '..', 'LLM_EVAL_TEST_CATALOG.md');
 
 	// Sort by ID for deterministic order
 	const sortedCases = [...testCases].sort((a, b) => a.id.localeCompare(b.id));
 
-	generateCatalogHtml(sortedCases, catalogPath);
+	generateCatalogMarkdown(sortedCases, catalogPath);
 }
 
 /**
- * Escapes HTML special characters.
+ * Generates a GitHub-compatible markdown catalog of all test cases.
  */
-function escapeHtml(text: string): string {
-	return text
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&#039;');
-}
-
-/**
- * Generates an HTML catalog of all test cases for easier browsing.
- *
- * Design changes (v3):
- * - Added subtle section separators and faint background tints for structure
- * - Refined criteria icons: ✓ for essential (muted green), • for additional, × for fail-if (neutral, not red)
- * - Icons are smaller (0.8em), lighter weight, better aligned with text
- * - Improved typography hierarchy with stronger section headers
- * - "Fail if" header emphasized with border-bottom, but × icon stays neutral gray
- * - Consistent spacing and visual rhythm throughout
- */
-function generateCatalogHtml(testCases: CatalogTestCase[], outputPath: string): void {
+function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: string): void {
 	const timestamp = new Date().toISOString();
+	const lines: string[] = [];
 
-	// Build summary table rows
-	const tableRows = testCases.map(tc => {
-		const tags = tc.tags?.map(t => `<code class="tag">${escapeHtml(String(t))}</code>`).join(' ') || '<span class="muted">—</span>';
-		return `
-			<tr>
-				<td><a href="#${tc.id}" class="link">${escapeHtml(tc.id)}</a></td>
-				<td class="desc">${escapeHtml(tc.description)}</td>
-				<td><span class="mode-badge">${tc.mode}</span></td>
-				<td>${tags}</td>
-			</tr>`;
-	}).join('');
+	// Header
+	lines.push('# Positron: LLM Eval Test Catalog');
+	lines.push('');
+	lines.push(`> ${testCases.length} test cases · Auto-generated on ${timestamp}`);
+	lines.push('');
 
-	// Build detail cards with unified criteria container
-	// v4: Groups essential/additional/fail-if under single "Criteria" section
-	const detailCards = testCases.map(tc => {
-		// Essential criteria - checkmark icon
-		const essentialItems = tc.evaluationCriteria.essential.map(c =>
-			`<div class="criterion"><span class="icon icon-essential">✓</span><span>${escapeHtml(c)}</span></div>`
-		).join('');
-
-		// Additional criteria - small decorative bullet (middle dot, not hollow circle)
-		const additionalSection = tc.evaluationCriteria.additional?.length
-			? `<div class="criteria-subsection">
-				<h5 class="criteria-subheading">Additional</h5>
-				${tc.evaluationCriteria.additional.map(c =>
-					`<div class="criterion"><span class="icon icon-additional">·</span><span>${escapeHtml(c)}</span></div>`
-				).join('')}
-			</div>`
-			: '';
-
-		// Fail-if criteria - × icon (neutral, NOT red)
-		const failIfSection = tc.evaluationCriteria.failIf?.length
-			? `<div class="criteria-subsection">
-				<h5 class="criteria-subheading">Fail if</h5>
-				${tc.evaluationCriteria.failIf.map(c =>
-					`<div class="criterion"><span class="icon icon-fail">×</span><span>${escapeHtml(c)}</span></div>`
-				).join('')}
-			</div>`
-			: '';
-
-		const tags = tc.tags?.map(t => `<code class="tag">${escapeHtml(String(t))}</code>`).join(' ') || '';
-
-		return `
-		<details id="${tc.id}" class="card">
-			<summary class="card-header">
-				<div class="card-title-row">
-					<span class="expand-icon"></span>
-					<h3 class="card-title">${escapeHtml(tc.id)}</h3>
-					<span class="mode-badge">${tc.mode}</span>
-					${tags}
-				</div>
-				<p class="card-desc">${escapeHtml(tc.description)}</p>
-			</summary>
-			<div class="card-body">
-				<div class="section section-prompt">
-					<h4 class="section-heading">Prompt</h4>
-					<pre class="prompt-box">${escapeHtml(tc.prompt)}</pre>
-				</div>
-				<div class="section section-criteria">
-					<h4 class="section-heading">Criteria</h4>
-					<div class="criteria-container">
-						<div class="criteria-subsection">
-							<h5 class="criteria-subheading">Essential</h5>
-							${essentialItems}
-						</div>
-						${additionalSection}
-						${failIfSection}
-					</div>
-				</div>
-			</div>
-		</details>`;
-	}).join('');
-
-	const html = `<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Positron: LLM Eval Test Catalog</title>
-	<style>
-		/* ========================================
-		   Design Tokens (v4)
-		   - Unified criteria container groups essential/additional/fail-if
-		   - Icons: larger (~0.95em), higher contrast, decorative style
-		   - No strong dividers between criteria subsections
-		   - Red reserved for actual failure states only
-		   ======================================== */
-		:root {
-			/* Colors */
-			--color-bg: #fafafa;
-			--color-surface: #ffffff;
-			--color-surface-tint: #f8f9fa;
-			--color-border: #e5e7eb;
-			--color-border-light: #f1f3f5;
-			--color-divider: #eef0f2;
-			--color-criteria-bg: #f9fafb;
-			--color-text: #374151;
-			--color-text-muted: #6b7280;
-			--color-text-subtle: #9ca3af;
-			--color-accent: #475569;
-			--color-link: #475569;
-			--color-link-hover: #1e293b;
-			--color-icon-check: #4a7c6f;
-			--color-icon-circle: #6b7280;
-			--color-icon-x: #64748b;
-
-			/* Spacing */
-			--space-xs: 4px;
-			--space-sm: 8px;
-			--space-md: 16px;
-			--space-lg: 24px;
-			--space-xl: 32px;
-
-			/* Border radius */
-			--radius-sm: 4px;
-			--radius-md: 6px;
-			--radius-lg: 8px;
-
-			/* Font sizes */
-			--text-xs: 0.75rem;
-			--text-sm: 0.875rem;
-			--text-base: 1rem;
-			--text-lg: 1.125rem;
-			--text-xl: 1.5rem;
-		}
-
-		/* ========================================
-		   Base styles
-		   ======================================== */
-		* { box-sizing: border-box; }
-		body {
-			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-			margin: 0;
-			padding: var(--space-lg);
-			background: var(--color-bg);
-			color: var(--color-text);
-			line-height: 1.6;
-			font-size: var(--text-sm);
-		}
-		.container { max-width: 900px; margin: 0 auto; }
-
-		/* ========================================
-		   Header - light, subtle styling
-		   ======================================== */
-		.header {
-			background: var(--color-surface);
-			border: 1px solid var(--color-border);
-			border-radius: var(--radius-lg);
-			padding: var(--space-lg);
-			margin-bottom: var(--space-lg);
-		}
-		.header h1 {
-			margin: 0;
-			font-size: var(--text-xl);
-			font-weight: 600;
-			color: var(--color-text);
-		}
-		.header .meta {
-			margin-top: var(--space-xs);
-			font-size: var(--text-xs);
-			color: var(--color-text-subtle);
-		}
-
-		/* ========================================
-		   Section headings (Summary, Test Cases)
-		   ======================================== */
-		.section-heading-top {
-			font-size: var(--text-base);
-			font-weight: 600;
-			color: var(--color-text);
-			margin: 0 0 var(--space-md) 0;
-		}
-
-		/* ========================================
-		   Summary table - clean, minimal
-		   ======================================== */
-		.summary-table {
-			background: var(--color-surface);
-			border: 1px solid var(--color-border);
-			border-radius: var(--radius-lg);
-			padding: var(--space-lg);
-			margin-bottom: var(--space-lg);
-			overflow-x: auto;
-		}
-		table { width: 100%; border-collapse: collapse; }
-		th {
-			padding: var(--space-sm) var(--space-md);
-			text-align: left;
-			border-bottom: 1px solid var(--color-border);
-			color: var(--color-text-muted);
-			font-size: var(--text-xs);
-			font-weight: 500;
-			text-transform: uppercase;
-			letter-spacing: 0.03em;
-		}
-		td {
-			padding: var(--space-sm) var(--space-md);
-			border-bottom: 1px solid var(--color-border-light);
-			vertical-align: top;
-		}
-		td.desc { color: var(--color-text-muted); }
-		tr:last-child td { border-bottom: none; }
-
-		/* Links - summary table ID links */
-		.link {
-			color: var(--color-link);
-			text-decoration: none;
-			font-weight: 600;
-			border-bottom: 1px solid transparent;
-			transition: border-color 0.15s ease;
-		}
-		.link:hover {
-			color: var(--color-link-hover);
-			border-bottom-color: var(--color-link-hover);
-		}
-
-		/* Mode badge - neutral slate */
-		.mode-badge {
-			display: inline-block;
-			padding: 2px 8px;
-			border-radius: var(--radius-sm);
-			font-size: var(--text-xs);
-			font-weight: 500;
-			background: var(--color-border-light);
-			color: var(--color-text-muted);
-		}
-
-		/* Tags */
-		.tag {
-			background: var(--color-border-light);
-			padding: 2px 6px;
-			border-radius: var(--radius-sm);
-			font-size: var(--text-xs);
-			font-family: ui-monospace, monospace;
-			color: var(--color-text-muted);
-		}
-		.muted { color: var(--color-text-subtle); }
-
-		/* ========================================
-		   Test case cards - collapsible
-		   ======================================== */
-		.card {
-			background: var(--color-surface);
-			border: 1px solid var(--color-border);
-			border-radius: var(--radius-lg);
-			margin-bottom: var(--space-md);
-			overflow: hidden;
-		}
-		.card-header {
-			padding: var(--space-md) var(--space-lg);
-			cursor: pointer;
-			list-style: none;
-			user-select: none;
-		}
-		.card-header::-webkit-details-marker { display: none; }
-		.card-header::marker { display: none; }
-		.card-header:hover { background: var(--color-surface-tint); }
-		.card-header:focus { outline: 2px solid var(--color-border); outline-offset: -2px; }
-		.card[open] .card-header {
-			border-bottom: 1px solid var(--color-border-light);
-		}
-		.card-title-row {
-			display: flex;
-			align-items: center;
-			gap: var(--space-sm);
-			flex-wrap: wrap;
-		}
-		.expand-icon {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			width: 18px;
-			height: 18px;
-			flex-shrink: 0;
-			color: var(--color-text-muted);
-			transition: transform 0.15s ease;
-			transform-origin: center center;
-		}
-		.expand-icon::before {
-			content: '▶';
-			font-size: 10px;
-			line-height: 1;
-		}
-		.card[open] .expand-icon {
-			transform: rotate(90deg);
-		}
-		.card-title {
-			margin: 0;
-			font-size: var(--text-base);
-			font-weight: 600;
-			color: var(--color-text);
-		}
-		.card-desc {
-			margin: var(--space-xs) 0 0 0;
-			padding-left: 24px;
-			font-size: var(--text-sm);
-			color: var(--color-text-muted);
-		}
-		.card-body { padding: var(--space-lg); }
-
-		/* ========================================
-		   Sections - subtle structure
-		   ======================================== */
-		.section {
-			padding: var(--space-md) 0;
-		}
-		.section:first-child { padding-top: 0; }
-		.section:last-child { padding-bottom: 0; }
-		.section-heading {
-			margin: 0 0 var(--space-sm) 0;
-			font-size: var(--text-xs);
-			font-weight: 700;
-			text-transform: uppercase;
-			letter-spacing: 0.04em;
-			color: var(--color-text);
-		}
-
-		/* Prompt box */
-		.prompt-box {
-			background: var(--color-surface-tint);
-			color: var(--color-text);
-			padding: var(--space-md);
-			border-radius: var(--radius-md);
-			margin: 0;
-			font-size: var(--text-sm);
-			font-family: ui-monospace, monospace;
-			white-space: pre-wrap;
-			word-wrap: break-word;
-			border: 1px solid var(--color-border-light);
-		}
-
-		/* ========================================
-		   Criteria - unified container
-		   Groups essential/additional/fail-if as one concept
-		   Two-column layout: icon gutter + text
-		   ======================================== */
-		.criteria-container {
-			background: #f6f8f9;
-			border: 1px solid var(--color-border-light);
-			border-left: 4px solid #d1d5db;
-			border-radius: var(--radius-md);
-			padding: var(--space-md);
-		}
-
-		.criteria-subsection {
-			margin-bottom: var(--space-md);
-		}
-		.criteria-subsection:last-child {
-			margin-bottom: 0;
-		}
-
-		.criteria-subheading {
-			margin: 0 0 var(--space-sm) 0;
-			font-size: var(--text-xs);
-			font-weight: 600;
-			text-transform: uppercase;
-			letter-spacing: 0.04em;
-			color: var(--color-text-muted);
-		}
-
-		/* Two-column layout: fixed icon gutter + fluid text */
-		.criterion {
-			display: grid;
-			grid-template-columns: 20px 1fr;
-			align-items: start;
-			padding: 4px 0;
-			font-size: var(--text-sm);
-			color: var(--color-text);
-			line-height: 1.5;
-		}
-
-		/* Icons: decorative list markers, top-aligned with first line */
-		.criterion .icon {
-			font-size: 0.95em;
-			text-align: center;
-			line-height: 1.5;
-			user-select: none;
-			pointer-events: none;
-		}
-		.icon-essential {
-			color: #2d5a4e;
-			font-weight: 600;
-		}
-		.icon-additional {
-			color: #4b5563;
-			font-size: 1.2em;
-			font-weight: 700;
-		}
-		.icon-fail {
-			color: #475569;
-			font-weight: 600;
-		}
-
-		/* ========================================
-		   Responsive
-		   ======================================== */
-		@media (max-width: 640px) {
-			body { padding: var(--space-md); }
-			.card-body, .card-header, .summary-table, .header { padding: var(--space-md); }
-			th, td { padding: var(--space-xs) var(--space-sm); font-size: var(--text-xs); }
-		}
-	</style>
-</head>
-<body>
-<div class="container">
-	<div class="header">
-		<h1>Positron: LLM Eval Test Catalog</h1>
-		<div class="meta">${testCases.length} test cases · Auto-generated on ${timestamp}</div>
-	</div>
-
-	<h2 class="section-heading-top">Summary</h2>
-	<div class="summary-table">
-		<table>
-			<thead>
-				<tr>
-					<th style="width: 200px;">ID</th>
-					<th>Description</th>
-					<th style="width: 70px;">Mode</th>
-					<th style="width: 100px;">Tags</th>
-				</tr>
-			</thead>
-			<tbody>
-				${tableRows}
-			</tbody>
-		</table>
-	</div>
-
-	<h2 class="section-heading-top">Test Cases</h2>
-	${detailCards}
-</div>
-<script>
-	// Auto-expand card when navigating via anchor link
-	function expandFromHash() {
-		const hash = window.location.hash;
-		if (hash) {
-			const target = document.querySelector(hash);
-			if (target && target.tagName === 'DETAILS') {
-				target.open = true;
-				target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-			}
-		}
+	// Summary table
+	lines.push('## Summary');
+	lines.push('');
+	lines.push('| ID | Description | Mode | Tags |');
+	lines.push('|----|-------------|------|------|');
+	for (const tc of testCases) {
+		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '—';
+		lines.push(`| [${tc.id}](#${tc.id.toLowerCase().replace(/[^a-z0-9]/g, '-')}) | ${tc.description} | ${tc.mode} | ${tags} |`);
 	}
-	// Run on page load
-	expandFromHash();
-	// Run when hash changes (clicking links)
-	window.addEventListener('hashchange', expandFromHash);
-</script>
-</body>
-</html>`;
+	lines.push('');
+
+	// Test case details
+	lines.push('## Test Cases');
+	lines.push('');
+
+	for (const tc of testCases) {
+		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '';
+
+		lines.push(`### ${tc.id}`);
+		lines.push('');
+		lines.push(`**${tc.description}**`);
+		lines.push('');
+		lines.push(`**Mode:** ${tc.mode}${tags ? ` | **Tags:** ${tags}` : ''}`);
+		lines.push('');
+
+		// Prompt
+		lines.push('#### Prompt');
+		lines.push('');
+		lines.push('```');
+		lines.push(tc.prompt);
+		lines.push('```');
+		lines.push('');
+
+		// Criteria
+		lines.push('#### Criteria');
+		lines.push('');
+
+		// Essential
+		lines.push('**Essential**');
+		lines.push('');
+		for (const c of tc.evaluationCriteria.essential) {
+			lines.push(`- ✓ ${c}`);
+		}
+		lines.push('');
+
+		// Additional
+		if (tc.evaluationCriteria.additional?.length) {
+			lines.push('**Additional**');
+			lines.push('');
+			for (const c of tc.evaluationCriteria.additional) {
+				lines.push(`- · ${c}`);
+			}
+			lines.push('');
+		}
+
+		// Fail if
+		if (tc.evaluationCriteria.failIf?.length) {
+			lines.push('**Fail if**');
+			lines.push('');
+			for (const c of tc.evaluationCriteria.failIf) {
+				lines.push(`- ✗ ${c}`);
+			}
+			lines.push('');
+		}
+
+		lines.push('---');
+		lines.push('');
+	}
+
+	const markdown = lines.join('\n');
 
 	// Check if content has changed (ignore timestamp differences)
 	const stripTimestamp = (content: string) =>
@@ -668,15 +276,15 @@ function generateCatalogHtml(testCases: CatalogTestCase[], outputPath: string): 
 	let shouldWrite = true;
 	if (existsSync(outputPath)) {
 		const existing = readFileSync(outputPath, 'utf-8');
-		if (stripTimestamp(existing) === stripTimestamp(html)) {
+		if (stripTimestamp(existing) === stripTimestamp(markdown)) {
 			shouldWrite = false;
 		}
 	}
 
 	if (shouldWrite) {
-		writeFileSync(outputPath, html);
-		console.log(`📄 HTML catalog updated:\n${outputPath}\n`);
+		writeFileSync(outputPath, markdown);
+		console.log(`📄 Markdown catalog updated:\n${outputPath}\n`);
 	} else {
-		console.log(`📄 HTML catalog unchanged, skipping write.\n`);
+		console.log(`📄 Markdown catalog unchanged, skipping write.\n`);
 	}
 }

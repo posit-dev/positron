@@ -33,8 +33,8 @@ node "$OUT_DIR/generate-catalog.js"
 # Copy file to source directory
 echo ""
 echo "Copying to source directory..."
-cp "$OUT_DIR/LLM_EVAL_TEST_CATALOG.html" "$SRC_DIR/"
+cp "$OUT_DIR/LLM_EVAL_TEST_CATALOG.md" "$SRC_DIR/"
 
 echo ""
 echo "✅ Catalog generated:"
-echo "   $SRC_DIR/LLM_EVAL_TEST_CATALOG.html"
+echo "   $SRC_DIR/LLM_EVAL_TEST_CATALOG.md"

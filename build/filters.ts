@@ -182,9 +182,6 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!extensions/positron-r/resources/testing/**',
 	'!scripts/positron/**/*',
 	'!extensions/positron-r/src/test/snapshots/*.R',
-	// Excluded: contains HTML template with embedded CSS that uses space indentation
-	'!test/e2e/tests/assistant-eval/evaluator/eval-results.ts',
-	'!test/e2e/tests/assistant-eval/LLM_EVAL_TEST_CATALOG.html',
 	// --- End Positron ---
 ]);
 
