@@ -50,6 +50,19 @@ interface PendingDrag {
 	source: 'pointer' | 'keyboard';
 }
 
+const IDLE_STATE: DragState = {
+	status: 'idle',
+	activeId: null,
+	activeIds: [],
+	overId: null,
+	insertionIndex: null,
+	initialPosition: null,
+	currentPosition: null,
+	initialRect: null,
+	initialDroppableRects: null,
+	initialScrollOffset: null,
+};
+
 export function DndContext({
 	children,
 	items: itemsProp,
@@ -111,6 +124,11 @@ export function DndContext({
 	// Track dragging state in a ref for use in event handlers (avoids stale closure issues)
 	const isDraggingRef = React.useRef(false);
 	isDraggingRef.current = state.status === 'dragging';
+
+	// Mirror full state in a ref so event handlers can read it synchronously
+	// without needing to fire callbacks inside setState updaters
+	const stateRef = React.useRef(state);
+	stateRef.current = state;
 
 	// Auto-scroll controller - lazily initialized in effect to avoid side effects during render
 	const autoScrollRef = React.useRef<AutoScrollController | null>(null);
@@ -346,44 +364,25 @@ export function DndContext({
 				return;
 			}
 
-			// Use a flag to ensure the callback is only called once
-			// React can call setState callbacks multiple times (strict mode, concurrent rendering)
-			let callbackFired = false;
+			const prev = stateRef.current;
+			if (prev.status !== 'dragging') {
+				return;
+			}
 
-			setState(prev => {
-				if (prev.status !== 'dragging') {
-					return prev;
-				}
-
-				// Fire the end callback only once
-				if (!callbackFired) {
-					callbackFired = true;
-					onDragEndRef.current?.({
-						active: { id: prev.activeId! },
-						over: prev.overId ? { id: prev.overId } : null,
-						insertionIndex: prev.insertionIndex,
-					});
-				}
-
-				// Announce drag end for screen readers
-				const items = getItems();
-				const activeIndex = items.indexOf(prev.activeId!);
-				const overIndex = prev.overId ? items.indexOf(prev.overId) : null;
-				setAnnouncement(getAnnouncement('end', activeIndex, overIndex, items.length));
-
-				return {
-					status: 'idle',
-					activeId: null,
-					activeIds: [],
-					overId: null,
-					insertionIndex: null,
-					initialPosition: null,
-					currentPosition: null,
-					initialRect: null,
-					initialDroppableRects: null,
-					initialScrollOffset: null,
-				};
+			// Fire callback synchronously before state transition
+			onDragEndRef.current?.({
+				active: { id: prev.activeId! },
+				over: prev.overId ? { id: prev.overId } : null,
+				insertionIndex: prev.insertionIndex,
 			});
+
+			// Announce drag end for screen readers
+			const items = getItems();
+			const activeIndex = items.indexOf(prev.activeId!);
+			const overIndex = prev.overId ? items.indexOf(prev.overId) : null;
+			setAnnouncement(getAnnouncement('end', activeIndex, overIndex, items.length));
+
+			setState(IDLE_STATE);
 		};
 
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -396,39 +395,20 @@ export function DndContext({
 					return;
 				}
 
-				// Use a flag to ensure the callback is only called once
-				// React can call setState callbacks multiple times (strict mode, concurrent rendering)
-				let callbackFired = false;
+				const prev = stateRef.current;
+				if (prev.status !== 'dragging') {
+					return;
+				}
 
-				setState(prev => {
-					if (prev.status !== 'dragging') {
-						return prev;
-					}
+				// Fire callback synchronously before state transition
+				onDragCancelRef.current?.({ active: { id: prev.activeId! } });
 
-					// Fire the cancel callback only once
-					if (!callbackFired) {
-						callbackFired = true;
-						onDragCancelRef.current?.({ active: { id: prev.activeId! } });
-					}
+				// Announce drag cancel for screen readers
+				const items = getItems();
+				const activeIndex = items.indexOf(prev.activeId!);
+				setAnnouncement(getAnnouncement('cancel', activeIndex, null, items.length));
 
-					// Announce drag cancel for screen readers
-					const items = getItems();
-					const activeIndex = items.indexOf(prev.activeId!);
-					setAnnouncement(getAnnouncement('cancel', activeIndex, null, items.length));
-
-					return {
-						status: 'idle',
-						activeId: null,
-						activeIds: [],
-						overId: null,
-						insertionIndex: null,
-						initialPosition: null,
-						currentPosition: null,
-						initialRect: null,
-						initialDroppableRects: null,
-						initialScrollOffset: null,
-					};
-				});
+				setState(IDLE_STATE);
 				return;
 			}
 
@@ -437,39 +417,25 @@ export function DndContext({
 				e.preventDefault();
 				autoScrollRef.current?.stop();
 
-				let callbackFired = false;
-				setState(prev => {
-					if (prev.status !== 'dragging') {
-						return prev;
-					}
-					if (!callbackFired) {
-						callbackFired = true;
-						onDragEndRef.current?.({
-							active: { id: prev.activeId! },
-							over: prev.overId ? { id: prev.overId } : null,
-							insertionIndex: prev.insertionIndex,
-						});
-					}
+				const prev = stateRef.current;
+				if (prev.status !== 'dragging') {
+					return;
+				}
 
-					// Announce drag end for screen readers
-					const items = getItems();
-					const activeIndex = items.indexOf(prev.activeId!);
-					const overIndex = prev.overId ? items.indexOf(prev.overId) : null;
-					setAnnouncement(getAnnouncement('end', activeIndex, overIndex, items.length));
-
-					return {
-						status: 'idle',
-						activeId: null,
-						activeIds: [],
-						overId: null,
-						insertionIndex: null,
-						initialPosition: null,
-						currentPosition: null,
-						initialRect: null,
-						initialDroppableRects: null,
-						initialScrollOffset: null,
-					};
+				// Fire callback synchronously before state transition
+				onDragEndRef.current?.({
+					active: { id: prev.activeId! },
+					over: prev.overId ? { id: prev.overId } : null,
+					insertionIndex: prev.insertionIndex,
 				});
+
+				// Announce drag end for screen readers
+				const items = getItems();
+				const activeIndex = items.indexOf(prev.activeId!);
+				const overIndex = prev.overId ? items.indexOf(prev.overId) : null;
+				setAnnouncement(getAnnouncement('end', activeIndex, overIndex, items.length));
+
+				setState(IDLE_STATE);
 				return;
 			}
 
