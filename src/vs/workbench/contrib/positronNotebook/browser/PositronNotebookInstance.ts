@@ -1382,10 +1382,90 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void {
 		this._assertTextModel();
 
-		// TODO: Implement based on VSCode's performCellDropEdits() algorithm
-		// Reference: cellDnd.ts:422-510
-		// Handle multiple selection ranges, adjust indices correctly
-		throw new Error('moveCells not yet implemented - to be completed in Step 3 (Drag & Drop)');
+		const allCells = this.cells.get();
+
+		// Validate inputs
+		if (cells.length === 0 || targetIndex < 0 || targetIndex > allCells.length) {
+			return;
+		}
+
+		// Get indices of cells to move
+		const indices = cells.map(cell => allCells.indexOf(cell)).filter(idx => idx !== -1);
+		if (indices.length === 0) {
+			return;
+		}
+
+		// Sort indices to move cells in order
+		indices.sort((a, b) => a - b);
+
+		const firstIndex = indices[0];
+		const lastIndex = indices[indices.length - 1];
+
+		// Check if cells are contiguous
+		const isContiguous = indices.every((idx, i) => i === 0 || idx === indices[i - 1] + 1);
+
+		// Check if move is necessary (no-op if already at target)
+		if (isContiguous && firstIndex === targetIndex) {
+			return;
+		}
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+		const length = lastIndex - firstIndex + 1;
+
+		// Adjust target index if moving down (account for removal of cells above target)
+		let adjustedTarget = targetIndex;
+		if (isContiguous && targetIndex > firstIndex) {
+			// When moving down, the removal shifts everything up
+			adjustedTarget = targetIndex - length;
+		}
+
+		const focusRange = { start: firstIndex, end: lastIndex + 1 };
+
+		textModel.applyEdits([{
+			editType: CellEditType.Move,
+			index: firstIndex,
+			length: length,
+			newIdx: adjustedTarget
+		}],
+			true,
+			{
+				kind: SelectionStateType.Index,
+				focus: focusRange,
+				selections: [focusRange]
+			},
+			() => ({
+				kind: SelectionStateType.Index,
+				focus: { start: adjustedTarget, end: adjustedTarget + length },
+				selections: [{ start: adjustedTarget, end: adjustedTarget + length }]
+			}),
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
+	}
+
+	/**
+	 * Move a single cell from one index to another (for drag-and-drop).
+	 * @param fromIndex The current index of the cell
+	 * @param toIndex The target index (final position the cell should end up at)
+	 */
+	moveCell(fromIndex: number, toIndex: number): void {
+		const cells = this.cells.get();
+		if (fromIndex < 0 || fromIndex >= cells.length || toIndex < 0 || toIndex > cells.length) {
+			return;
+		}
+		if (fromIndex === toIndex) {
+			return; // No movement needed
+		}
+
+		const cellToMove = cells[fromIndex];
+		// When moving down, add 1 to counteract the adjustment in moveCells.
+		// dnd-kit gives us the final position, but moveCells expects the insertion
+		// point before adjustment (it subtracts length when moving down).
+		const adjustedToIndex = toIndex > fromIndex ? toIndex + 1 : toIndex;
+		this.moveCells([cellToMove], adjustedToIndex);
 	}
 
 

@@ -6,8 +6,8 @@
 /* Drag handle for sortable cells */
 .cell-drag-handle {
 	position: absolute;
-	left: 4px; /* Positioned inside cell to avoid clipping */
-	top: 8px;
+	left: -13px; /* Aligned with left gutter: -25px + 12px cell margin = -13px from sortable-cell */
+	top: 4px;
 	width: 16px;
 	height: 24px;
 	display: flex;
@@ -39,21 +39,88 @@
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
+.cell-drag-handle .codicon {
+	cursor: inherit;
+}
+
 .cell-drag-handle:active {
 	cursor: grabbing;
 }
 
-/* Cell being dragged (placeholder) */
-.sortable-cell.dragging {
-	opacity: 0.4;
+/* Global cursor during drag operation */
+body.dragging-notebook-cell,
+body.dragging-notebook-cell * {
+	cursor: grabbing !important;
 }
 
-/* Drag overlay (preview following cursor) */
-.cell-drag-overlay {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	border-radius: 4px;
-	background: var(--vscode-editor-background);
-	border: 1px solid var(--vscode-focusBorder);
-	opacity: 0.95;
-	pointer-events: none;
+/* Cell being dragged - visible with visual treatment to indicate it's being moved */
+.sortable-cell.dragging {
+	position: relative;
+	z-index: 100;
+	opacity: 0.5; /* Fade original position to indicate "this is being moved" */
 }
+
+/* Apply drag visual treatment to inner cell element so it matches natural boundaries.
+ * Lift effect (transform) is on inner element to avoid conflicting with FLIP animations
+ * which apply transforms to the outer .sortable-cell wrapper. */
+.sortable-cell.dragging .positron-notebook-cell {
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+	background: var(--vscode-editor-background);
+	transform: translate(4px, -3px); /* Subtle lift effect - hover off the page */
+	transition: transform 0.15s ease-out;
+}
+
+/* Respect reduced motion preferences for lift animation */
+@media (prefers-reduced-motion: reduce) {
+	.sortable-cell.dragging .positron-notebook-cell {
+		transition: none;
+	}
+}
+
+/*
+ * Drag outline overlay - creates a unified border around the cell content
+ * using a pseudo-element positioned relative to the cell container
+ */
+.sortable-cell.dragging .positron-notebook-cell::before {
+	content: '';
+	position: absolute;
+	/* Inset positioned just inside the cell's margin area */
+	top: -2px;
+	right: -2px;
+	bottom: -2px;
+	left: -2px;
+	border: 2px solid var(--vscode-editorInfo-foreground);
+	border-radius: calc(var(--vscode-positronNotebook-cell-radius) + 2px);
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* Hide cell action bar during drag for cleaner appearance */
+.sortable-cell.dragging .positron-notebooks-cell-action-bar {
+	opacity: 0;
+}
+
+/* Collapsed line for non-primary dragged cells in multi-drag */
+.sortable-cell.collapsed-drag {
+	overflow: hidden;
+	/* scaleY from transform handles the visual collapse */
+}
+
+.sortable-cell.collapsed-drag .positron-notebook-cell {
+	visibility: hidden; /* Hide content but keep space for scaleY */
+}
+
+/* Visual indicator bar positioned at collapsed height */
+.sortable-cell.collapsed-drag::before {
+	content: '';
+	position: absolute;
+	left: 12px;
+	right: 12px;
+	top: 2px; /* Near top since transform-origin is top */
+	height: 3px;
+	background: var(--vscode-editorInfo-foreground);
+	border-radius: 2px;
+	opacity: 0.7;
+	z-index: 10;
+}
+

@@ -8,8 +8,10 @@ import './SortableCell.css';
 
 // React.
 import * as React from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+// Replace dnd-kit imports with custom implementation
+import { useSortable } from '../dnd/useSortable.js';
+import { useMultiDragState } from '../dnd/MultiDragContext.js';
+import { transformToString } from '../dnd/animations.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 interface SortableCellProps {
@@ -18,27 +20,50 @@ interface SortableCellProps {
 }
 
 export function SortableCell({ cell, children }: SortableCellProps) {
+	const nodeRef = React.useRef<HTMLDivElement>(null);
 	const {
 		attributes,
 		listeners,
-		setNodeRef,
+		setNodeRef: setSortableRef,
 		setActivatorNodeRef,
 		transform,
 		transition,
 		isDragging,
 	} = useSortable({ id: cell.handleId });
 
+	// Combine refs
+	const setNodeRef = React.useCallback((node: HTMLDivElement | null) => {
+		(nodeRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+		setSortableRef(node);
+	}, [setSortableRef]);
+
+	// Check multi-drag state for this cell
+	const multiDragState = useMultiDragState(cell.handleId);
+	const isCollapsed = multiDragState?.isBeingDragged && !multiDragState?.isPrimaryDrag;
+
+	// Use transformToString utility to handle scaleY for collapsed cells
+	const transformStyle = transformToString(transform);
+
 	const style: React.CSSProperties = {
-		transform: CSS.Transform.toString(transform),
+		transform: transformStyle,
 		transition,
-		opacity: isDragging ? 0.5 : 1,
+		// Keep the cell visible during drag - it animates to its insertion position
 		position: 'relative',
+		// Collapse from top edge for smooth scaleY animation
+		transformOrigin: 'top',
 	};
+
+	// Build class name with collapsed state
+	const className = [
+		'sortable-cell',
+		isDragging && 'dragging',
+		isCollapsed && 'collapsed-drag',
+	].filter(Boolean).join(' ');
 
 	return (
 		<div
 			ref={setNodeRef}
-			className={isDragging ? 'sortable-cell dragging' : 'sortable-cell'}
+			className={className}
 			style={style}
 		>
 			<button
