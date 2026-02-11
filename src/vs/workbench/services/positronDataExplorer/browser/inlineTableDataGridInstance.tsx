@@ -69,7 +69,7 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 		// Call the base class's constructor with simplified options
 		super({
 			columnHeaders: true,
-			columnHeadersHeight: 28,
+			columnHeadersHeight: 34,
 			rowHeaders: true,
 			rowHeadersWidth: 50,
 			rowHeadersResize: false,

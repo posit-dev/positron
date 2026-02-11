@@ -67,5 +67,12 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): 
 		}
 	}
 
+	if (highestPriority === null) {
+		console.warn(
+			'Could not determine preferred output for notebook cell with mime types: ' +
+			outputItems.map(item => item.mime).join(', ')
+		);
+	}
+
 	return preferredOutput;
 }

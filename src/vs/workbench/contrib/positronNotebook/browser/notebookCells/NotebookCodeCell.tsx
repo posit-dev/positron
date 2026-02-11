@@ -15,6 +15,7 @@ import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -64,7 +65,11 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	};
 
 	return (
-		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'} ${isSingleDataExplorer && !isCollapsed ? 'single-data-explorer' : ''}`}>
+		<div className={positronClassNames(
+			'positron-notebook-outputs-section',
+			{ 'no-outputs': outputs.length === 0 },
+			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
+		)}>
 			<CellOutputLeftActionMenu cell={cell} />
 			<section
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}

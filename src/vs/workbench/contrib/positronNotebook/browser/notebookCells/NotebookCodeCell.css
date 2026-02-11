@@ -19,7 +19,7 @@
 			display: none;
 		}
 
-		&.single-data-explorer .positron-notebook-code-cell-outputs-inner {
+		&.single-data-explorer .positron-notebook-code-cell-outputs-inner:has(.inline-data-explorer-container) {
 			padding: 8px 0 0 0;
 			margin-inline: 0;
 			overflow: hidden; /* Data explorer handles its own scrolling */
