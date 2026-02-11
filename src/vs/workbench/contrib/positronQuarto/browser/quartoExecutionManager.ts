@@ -209,7 +209,15 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * Execute a set of cells as identified by their ranges in the document.
 	 */
 	async executeCellRanges(documentUri: URI, cellRanges: Range[], token?: CancellationToken) {
-		const documentModel = this._documentModelService.getModelForUri(documentUri);
+		// First get the text model - this works as long as the document is open in an editor
+		const textModel = await this._getTextModel(documentUri);
+		if (!textModel) {
+			this._logService.warn(`[QuartoExecutionManager] No text model available for ${documentUri.toString()}`);
+			return;
+		}
+
+		// Get or create the Quarto document model
+		const documentModel = this._documentModelService.getModel(textModel);
 		const cellsToExecute: QuartoCodeCell[] = [];
 		const quartoCells = documentModel.cells;
 
@@ -252,7 +260,15 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${codeRanges.length} inline code ranges for execution`);
 
-		const documentModel = this._documentModelService.getModelForUri(documentUri);
+		// First get the text model - this works as long as the document is open in an editor
+		const textModel = await this._getTextModel(documentUri);
+		if (!textModel) {
+			this._logService.warn(`[QuartoExecutionManager] No text model available for ${documentUri.toString()}`);
+			return;
+		}
+
+		// Get or create the Quarto document model
+		const documentModel = this._documentModelService.getModel(textModel);
 		const quartoCells = documentModel.cells;
 
 		// For each range, find the containing cell and prepare execution info
