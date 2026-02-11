@@ -113,12 +113,13 @@ type OpenBlock = OpenCodeBlock | OpenRawBlock;
 
 /** Parse QMD content. */
 export function parseQuarto(content: string, logService?: ILogService): QuartoDocument {
-	if (!content) {
-		return { blocks: [], lines: [] };
-	}
-
 	const lines = content.split(/\r?\n/);
 	const blocks: (QuartoCodeBlock | QuartoRawBlock)[] = [];
+
+	if (lines.length === 0) {
+		return { blocks, lines };
+	}
+
 	let frontmatter: QuartoFrontmatter | undefined;
 	let lineIndex = 0;
 

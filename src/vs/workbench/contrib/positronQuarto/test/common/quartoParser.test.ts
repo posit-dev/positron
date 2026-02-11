@@ -12,8 +12,6 @@ suite('parseQuartoDocument', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	// --- Empty / minimal documents ---
-
 	suite('Empty and minimal documents', () => {
 		test('empty string returns no blocks', () => {
 			const result = parseQuarto('');
@@ -22,6 +20,7 @@ suite('parseQuartoDocument', () => {
 		});
 
 		test('markdown-only document returns no blocks', () => {
+			// NOTE: markdown blocks are not currently supported
 			const result = parseQuarto('# Hello\n\nSome text here.\n');
 			assert.strictEqual(result.blocks.length, 0);
 			assert.strictEqual(result.frontmatter, undefined);
@@ -34,8 +33,6 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(result.frontmatter.rawContent, '---\ntitle: Test\n---');
 		});
 	});
-
-	// --- Frontmatter ---
 
 	suite('Frontmatter', () => {
 		test('extracts raw frontmatter content including delimiters', () => {
@@ -73,8 +70,6 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(result.frontmatter.jupyterKernel, undefined);
 		});
 	});
-
-	// --- Code blocks ---
 
 	suite('Code blocks', () => {
 		test('parses a single code block', () => {
@@ -140,8 +135,6 @@ suite('parseQuartoDocument', () => {
 		});
 	});
 
-	// --- Options and labels ---
-
 	suite('Options and labels', () => {
 		test('extracts options string', () => {
 			const content = '```{python echo=FALSE, eval=TRUE}\nx = 1\n```\n';
@@ -181,8 +174,6 @@ suite('parseQuartoDocument', () => {
 		});
 	});
 
-	// --- Raw blocks ---
-
 	suite('Raw blocks', () => {
 		test('parses a raw block', () => {
 			const content = '```{=html}\n<b>bold</b>\n```\n';
@@ -204,8 +195,6 @@ suite('parseQuartoDocument', () => {
 		});
 
 	});
-
-	// --- Mixed blocks ---
 
 	suite('Mixed code and raw blocks', () => {
 		test('code and raw blocks interleaved', () => {
@@ -233,8 +222,6 @@ suite('parseQuartoDocument', () => {
 		});
 	});
 
-	// --- Plain fences (should NOT become blocks) ---
-
 	suite('Plain fences', () => {
 		test('plain fence is not parsed as a block', () => {
 			const content = '```\nsome code\n```\n';
@@ -248,7 +235,7 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(result.blocks.length, 0);
 		});
 
-		test('plain fence does not interfere with Quarto code blocks', () => {
+		test('plain fence does not interfere with executable code blocks', () => {
 			const content = [
 				'```python',
 				'# this is just markdown',
@@ -267,8 +254,6 @@ suite('parseQuartoDocument', () => {
 		});
 	});
 
-	// --- Lines array ---
-
 	suite('Lines array', () => {
 		test('returns split lines', () => {
 			const content = 'line1\nline2\nline3';
@@ -286,8 +271,6 @@ suite('parseQuartoDocument', () => {
 			assert.strictEqual(block.content, 'foo\nbar');
 		});
 	});
-
-	// --- Unclosed fences ---
 
 	suite('Unclosed fences', () => {
 		test('unclosed code block is ignored', () => {
