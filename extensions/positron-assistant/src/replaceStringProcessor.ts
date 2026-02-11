@@ -123,10 +123,36 @@ export class ReplaceStringProcessor {
 
 	private onOldClose() {
 		// Find the text to replace in the document.
-		// TODO: Should this error if there are multiple matches?
-		const startPos = this._document.getText().indexOf(this._oldTextBuffer);
+		const documentText = this._document.getText();
+
+		// If we have a previous insert position, search from that position onwards
+		// to handle sequential edits correctly.
+		const searchStartOffset = this._insertPosition
+			? this._document.offsetAt(this._insertPosition)
+			: 0;
+
+		// Find the first occurrence of the text to replace
+		const startPos = documentText.indexOf(this._oldTextBuffer, searchStartOffset);
 		if (startPos === -1) {
 			throw new Error(`Could not replace text, old text not found: ${this._oldTextBuffer}.`);
+		}
+
+		// Check if there are multiple occurrences after the search start position
+		const nextOccurrence = documentText.indexOf(this._oldTextBuffer, startPos + 1);
+		if (nextOccurrence !== -1) {
+			// Multiple matches found - this is ambiguous
+			const startLine = this._document.positionAt(startPos).line + 1;
+			const nextLine = this._document.positionAt(nextOccurrence).line + 1;
+			const preview = this._oldTextBuffer.length > 50
+				? this._oldTextBuffer.substring(0, 50) + '...'
+				: this._oldTextBuffer;
+
+			throw new Error(
+				`Cannot replace text: found multiple occurrences of the text to replace.\n` +
+				`First match at line ${startLine}, another at line ${nextLine}.\n` +
+				`Text: "${preview}"\n` +
+				`Please provide more unique context that appears only once in the document.`
+			);
 		}
 
 		// Create a text edit to delete the old text.
