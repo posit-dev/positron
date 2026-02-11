@@ -1,11 +1,13 @@
 # Positron: LLM Eval Test Catalog
 
-> 4 test cases · Auto-generated on 2026-02-11T19:21:05.547Z
+> 4 test cases · Auto-generated on 2026-02-11T19:28:57.461Z
 
 <details>
-<summary><strong>python-edit-file</strong> · Edit: Ensure editFile tool is called when editing files</summary>
+<summary><strong>python-edit-file</strong> · Edit</summary>
 
-### Prompt
+**Intent:** Ensure editFile tool is called when editing files
+
+### User prompt
 
 ```text
 Add a method to return today's date.
@@ -27,9 +29,11 @@ Add a method to return today's date.
 </details>
 
 <details>
-<summary><strong>python-no-execution-hallucination</strong> · Edit: Ensure LLM does not hallucinate execution results</summary>
+<summary><strong>python-no-execution-hallucination</strong> · Edit</summary>
 
-### Prompt
+**Intent:** Ensure LLM does not hallucinate execution results
+
+### User prompt
 
 ```text
 Extract the animal's primary color from their physical characteristics.
@@ -56,9 +60,11 @@ Extract the animal's primary color from their physical characteristics.
 </details>
 
 <details>
-<summary><strong>python-table-summary</strong> · Ask: Ensure getTableSummary tool is called when summarizing data</summary>
+<summary><strong>python-table-summary</strong> · Ask</summary>
 
-### Prompt
+**Intent:** Ensure getTableSummary tool is called when summarizing data
+
+### User prompt
 
 ```text
 Summarize my table df.
@@ -80,9 +86,11 @@ Summarize my table df.
 </details>
 
 <details>
-<summary><strong>r-forested-hallucination</strong> · Ask: Ensure LLM does not hallucinate column names for unknown R packages</summary>
+<summary><strong>r-forested-hallucination</strong> · Ask</summary>
 
-### Prompt
+**Intent:** Ensure LLM does not hallucinate column names for unknown R packages
+
+### User prompt
 
 ```text
 Load the forested package and make some plots of the forested data

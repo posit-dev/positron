@@ -199,13 +199,15 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 	lines.push('');
 
 	for (const tc of testCases) {
-		// Collapsible section: <type> · <id> — <description>
+		// Collapsible section: id · mode (description inside)
 		lines.push(`<details>`);
-		lines.push(`<summary><strong>${tc.id}</strong> · ${tc.mode}: ${tc.description}</summary>`);
+		lines.push(`<summary><strong>${tc.id}</strong> · ${tc.mode}</summary>`);
+		lines.push('');
+		lines.push(`**Intent:** ${tc.description}`);
 		lines.push('');
 
-		// Prompt
-		lines.push(`### Prompt`);
+		// User prompt
+		lines.push(`### User prompt`);
 		lines.push('');
 		lines.push('```text');
 		lines.push(tc.prompt);
