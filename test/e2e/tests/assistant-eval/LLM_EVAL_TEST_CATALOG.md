@@ -1,21 +1,9 @@
 # Positron: LLM Eval Test Catalog
 
-> 4 test cases · Auto-generated on 2026-02-11T18:45:24.342Z
+> 4 test cases · Auto-generated on 2026-02-11T18:52:11.290Z
 
-## Summary
-
-| ID | Description | Mode | Tags |
-|----|-------------|------|------|
-| [python-edit-file](#python-edit-file) | Ensure editFile tool is called when editing files in Edit mode | Edit | — |
-| [python-no-execution-hallucination](#python-no-execution-hallucination) | Ensure LLM does not hallucinate execution results in Edit mode | Edit | — |
-| [python-table-summary](#python-table-summary) | Ensure getTableSummary tool is called when summarizing data in Ask mode | Ask | — |
-| [r-forested-hallucination](#r-forested-hallucination) | Ensure LLM does not hallucinate column names for unknown R packages | Ask | `@:ark` |
-
-## Test Cases
-
-<a id="python-edit-file"></a>
 <details>
-<summary><strong>python-edit-file</strong> — Ensure editFile tool is called when editing files in Edit mode <code>Edit</code></summary>
+<summary><strong>python-edit-file</strong> — Ensure editFile tool is called when editing files in Edit mode &nbsp;<code>Edit</code></summary>
 
 ### Prompt
 
@@ -38,9 +26,8 @@ Add a method to return today's date.
 
 </details>
 
-<a id="python-no-execution-hallucination"></a>
 <details>
-<summary><strong>python-no-execution-hallucination</strong> — Ensure LLM does not hallucinate execution results in Edit mode <code>Edit</code></summary>
+<summary><strong>python-no-execution-hallucination</strong> — Ensure LLM does not hallucinate execution results in Edit mode &nbsp;<code>Edit</code></summary>
 
 ### Prompt
 
@@ -68,9 +55,8 @@ Extract the animal's primary color from their physical characteristics.
 
 </details>
 
-<a id="python-table-summary"></a>
 <details>
-<summary><strong>python-table-summary</strong> — Ensure getTableSummary tool is called when summarizing data in Ask mode <code>Ask</code></summary>
+<summary><strong>python-table-summary</strong> — Ensure getTableSummary tool is called when summarizing data in Ask mode &nbsp;<code>Ask</code></summary>
 
 ### Prompt
 
@@ -93,9 +79,8 @@ Summarize my table df.
 
 </details>
 
-<a id="r-forested-hallucination"></a>
 <details>
-<summary><strong>r-forested-hallucination</strong> — Ensure LLM does not hallucinate column names for unknown R packages <code>Ask</code> `@:ark`</summary>
+<summary><strong>r-forested-hallucination</strong> — Ensure LLM does not hallucinate column names for unknown R packages &nbsp;<code>Ask</code> `@:ark`</summary>
 
 ### Prompt
 

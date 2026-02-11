@@ -198,30 +198,13 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 	lines.push(`> ${testCases.length} test cases · Auto-generated on ${timestamp}`);
 	lines.push('');
 
-	// Summary table
-	lines.push('## Summary');
-	lines.push('');
-	lines.push('| ID | Description | Mode | Tags |');
-	lines.push('|----|-------------|------|------|');
-	for (const tc of testCases) {
-		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '—';
-		lines.push(`| [${tc.id}](#${tc.id.toLowerCase().replace(/[^a-z0-9]/g, '-')}) | ${tc.description} | ${tc.mode} | ${tags} |`);
-	}
-	lines.push('');
-
-	// Test case details (collapsible)
-	lines.push('## Test Cases');
-	lines.push('');
-
 	for (const tc of testCases) {
 		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '';
-		const anchorId = tc.id.toLowerCase().replace(/[^a-z0-9]/g, '-');
 		const tagsSuffix = tags ? ` ${tags}` : '';
 
-		// Anchor for navigation + collapsible section with mode badge
-		lines.push(`<a id="${anchorId}"></a>`);
+		// Collapsible section with mode badge
 		lines.push(`<details>`);
-		lines.push(`<summary><strong>${tc.id}</strong> — ${tc.description} <code>${tc.mode}</code>${tagsSuffix}</summary>`);
+		lines.push(`<summary><strong>${tc.id}</strong> — ${tc.description} &nbsp;<code>${tc.mode}</code>${tagsSuffix}</summary>`);
 		lines.push('');
 
 		// Prompt
