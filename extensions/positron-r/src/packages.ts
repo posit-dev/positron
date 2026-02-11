@@ -73,7 +73,13 @@ export class RPackageManager {
 			this._validatePackageName(pkg.split('@')[0]);
 		}
 
-		const hasPak = await this._ensurePak();
+		// If we're installing pak, don't prompt to install pak
+		let hasPak: boolean;
+		if (packages.some((pkg) => pkg.split('@')[0] === 'pak')) {
+			hasPak = await this._ensurePakChecked();
+		} else {
+			hasPak = await this._ensurePak();
+		}
 
 		let code: string;
 		if (hasPak) {
