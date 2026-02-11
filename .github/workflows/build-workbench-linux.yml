@@ -36,6 +36,11 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory '*'
+          git rev-parse --show-toplevel
+
       - name: Install build dependencies
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
