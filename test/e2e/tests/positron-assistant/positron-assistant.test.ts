@@ -264,21 +264,9 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
  * @see https://github.com/posit-dev/positron/pull/11299
  */
 test.describe('Positron Assistant Model Picker Default Indicator - Multiple Providers', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
-	test.beforeAll('Enable Assistant and sign in to providers', async function ({ app, settings }) {
+	test.beforeAll('Enable Assistant and sign in to providers', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-
-		// Sign in to Echo provider
 		await app.workbench.assistant.loginModelProvider('echo');
-
-		// Sign in to Anthropic (method handles auto-sign-in detection)
-		// If we manually signed in (not auto-signed-in), we'll reload when we update the settings below
-		await app.workbench.assistant.loginModelProvider('anthropic-api');
-
-		// Configure defaults for both Anthropic and Echo providers
-		await settings.set({
-			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
-			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
-		}, { reload: true });
 	});
 
 	test.afterAll('Sign out of providers and clean up', async function ({ app, settings }) {
@@ -304,7 +292,21 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	 * 1. Each provider shows its respective default model with "(default)" suffix
 	 * 2. Each default model appears first in its provider group
 	 */
-	test('Verify default model indicators and ordering for multiple providers', async function ({ app }) {
+	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings, runCommand }) {
+		// Configure defaults for both Anthropic and Echo providers
+		await settings.set({
+			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
+			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
+		}, { reload: true });
+
+		// Sign in to Anthropic (method handles auto-sign-in detection)
+		await app.workbench.assistant.loginModelProvider('anthropic-api');
+
+		// Reload window if we manually signed in (not auto-signed-in)
+		if (!process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_KEY) {
+			await runCommand('workbench.action.reloadWindow');
+		}
+
 		await expect(async () => {
 			try {
 				await app.workbench.assistant.pickModel();
