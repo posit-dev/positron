@@ -236,8 +236,8 @@ export class Assistant {
 			await this.openPositronAssistantChat();
 		}
 
-		const configureProvidersLinkIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_LINK).isVisible();
-		if (!configureProvidersLinkIsVisible) {
+		const configureProvidersButtonIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
+		if (!configureProvidersButtonIsVisible) {
 			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		}
 		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
