@@ -209,16 +209,16 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 	}
 	lines.push('');
 
-	// Test case details
+	// Test case details (collapsible)
 	lines.push('## Test Cases');
 	lines.push('');
 
 	for (const tc of testCases) {
 		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '';
 
-		lines.push(`### ${tc.id}`);
-		lines.push('');
-		lines.push(`**${tc.description}**`);
+		// Collapsible section with summary
+		lines.push(`<details>`);
+		lines.push(`<summary><strong>${tc.id}</strong> — ${tc.description}</summary>`);
 		lines.push('');
 		lines.push(`**Mode:** ${tc.mode}${tags ? ` | **Tags:** ${tags}` : ''}`);
 		lines.push('');
@@ -263,7 +263,7 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 			lines.push('');
 		}
 
-		lines.push('---');
+		lines.push('</details>');
 		lines.push('');
 	}
 

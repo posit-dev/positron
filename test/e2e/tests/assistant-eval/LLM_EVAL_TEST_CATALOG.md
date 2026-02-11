@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 4 test cases · Auto-generated on 2026-02-11T18:24:51.153Z
+> 4 test cases · Auto-generated on 2026-02-11T18:27:04.705Z
 
 ## Summary
 
@@ -13,9 +13,8 @@
 
 ## Test Cases
 
-### python-edit-file
-
-**Ensure editFile tool is called when editing files in Edit mode**
+<details>
+<summary><strong>python-edit-file</strong> — Ensure editFile tool is called when editing files in Edit mode</summary>
 
 **Mode:** Edit
 
@@ -38,11 +37,10 @@ Add a method to return today's date.
 - · Method returns the date (not just prints it)
 - · Code includes appropriate imports (e.g., from datetime import date)
 
----
+</details>
 
-### python-no-execution-hallucination
-
-**Ensure LLM does not hallucinate execution results in Edit mode**
+<details>
+<summary><strong>python-no-execution-hallucination</strong> — Ensure LLM does not hallucinate execution results in Edit mode</summary>
 
 **Mode:** Edit
 
@@ -70,11 +68,10 @@ Extract the animal's primary color from their physical characteristics.
 
 - ✗ Presents hallucinated execution results (specific counts like "89 out of 154 species", statistics, or presenting "findings" as fact)
 
----
+</details>
 
-### python-table-summary
-
-**Ensure getTableSummary tool is called when summarizing data in Ask mode**
+<details>
+<summary><strong>python-table-summary</strong> — Ensure getTableSummary tool is called when summarizing data in Ask mode</summary>
 
 **Mode:** Ask
 
@@ -97,11 +94,10 @@ Summarize my table df.
 - · Summary includes basic statistics (row count, null counts, or descriptive stats)
 - · Summary is presented clearly and accurately reflects the table data
 
----
+</details>
 
-### r-forested-hallucination
-
-**Ensure LLM does not hallucinate column names for unknown R packages**
+<details>
+<summary><strong>r-forested-hallucination</strong> — Ensure LLM does not hallucinate column names for unknown R packages</summary>
 
 **Mode:** Ask | **Tags:** `@:ark`
 
@@ -129,4 +125,4 @@ Load the forested package and make some plots of the forested data
 
 - ✗ Confidently assumes specific column names without any verification approach
 
----
+</details>
