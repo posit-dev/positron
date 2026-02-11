@@ -52,4 +52,4 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 ## General
 
 - Use the `gh` CLI for GitHub interactions
-- Do not unscoped search tools - they will search large compiled data and hang. Always use the builtin search tool
+- Do not use unscoped search tools - they will search large compiled data and hang. Always use the builtin search tool
