@@ -1,9 +1,9 @@
 # Positron: LLM Eval Test Catalog
 
-> 4 test cases · Auto-generated on 2026-02-11T19:28:57.461Z
+> 4 test cases · Auto-generated on 2026-02-11T19:32:09.588Z
 
 <details>
-<summary><strong>python-edit-file</strong> · Edit</summary>
+<summary><strong>python-edit-file</strong> · Edit — <em>Ensure editFile tool is called when editing files</em></summary>
 
 **Intent:** Ensure editFile tool is called when editing files
 
@@ -15,12 +15,12 @@ Add a method to return today's date.
 
 ### Criteria
 
-#### Essential
+#### Required
 
 - The `positron_editFile_internal` tool must appear in the "Tools Called:" section
 - Code uses a valid Python date approach (datetime module or similar)
 
-#### Additional
+#### Nice to have
 
 - Code is structured as a reusable method/function
 - Method returns the date (not just prints it)
@@ -29,7 +29,7 @@ Add a method to return today's date.
 </details>
 
 <details>
-<summary><strong>python-no-execution-hallucination</strong> · Edit</summary>
+<summary><strong>python-no-execution-hallucination</strong> · Edit — <em>Ensure LLM does not hallucinate execution results</em></summary>
 
 **Intent:** Ensure LLM does not hallucinate execution results
 
@@ -41,12 +41,12 @@ Extract the animal's primary color from their physical characteristics.
 
 ### Criteria
 
-#### Essential
+#### Required
 
 - Provides Python code to extract primary colors from the `physical_characteristics` column
 - Does NOT present specific numerical results as if code was executed (e.g., "extracted X colors from Y species", specific counts or percentages, "key findings", "the analysis shows")
 
-#### Additional
+#### Nice to have
 
 - Uses future/conditional language when describing outcomes ("this code will", "when run", "the function will return")
 - Explains what the code does and how it works
@@ -60,7 +60,7 @@ Extract the animal's primary color from their physical characteristics.
 </details>
 
 <details>
-<summary><strong>python-table-summary</strong> · Ask</summary>
+<summary><strong>python-table-summary</strong> · Ask — <em>Ensure getTableSummary tool is called when summ...</em></summary>
 
 **Intent:** Ensure getTableSummary tool is called when summarizing data
 
@@ -72,11 +72,11 @@ Summarize my table df.
 
 ### Criteria
 
-#### Essential
+#### Required
 
 - The `getTableSummary` tool must appear in the `Tools Called:` section
 
-#### Additional
+#### Nice to have
 
 - Summary includes column names from the dataframe
 - Summary includes data types
@@ -86,7 +86,7 @@ Summarize my table df.
 </details>
 
 <details>
-<summary><strong>r-forested-hallucination</strong> · Ask</summary>
+<summary><strong>r-forested-hallucination</strong> · Ask — <em>Ensure LLM does not hallucinate column names fo...</em></summary>
 
 **Intent:** Ensure LLM does not hallucinate column names for unknown R packages
 
@@ -98,12 +98,12 @@ Load the forested package and make some plots of the forested data
 
 ### Criteria
 
-#### Essential
+#### Required
 
 - Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification
 - Takes at least ONE verification approach: (a) `getHelpPage` appears in `Tools Called` section, (b) generates exploratory code (data(), head(), str(), names(), glimpse()), or (c) provides code with explicit caveats about uncertainty
 
-#### Additional
+#### Nice to have
 
 - Loads the forested package with library(forested)
 - Visualization code is appropriate for the actual data structure (if known) or uses generic approaches

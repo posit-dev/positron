@@ -199,9 +199,10 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 	lines.push('');
 
 	for (const tc of testCases) {
-		// Collapsible section: id · mode (description inside)
+		// Collapsible section: id · mode — hint
+		const hint = tc.description.length > 50 ? tc.description.slice(0, 47) + '...' : tc.description;
 		lines.push(`<details>`);
-		lines.push(`<summary><strong>${tc.id}</strong> · ${tc.mode}</summary>`);
+		lines.push(`<summary><strong>${tc.id}</strong> · ${tc.mode} — <em>${hint}</em></summary>`);
 		lines.push('');
 		lines.push(`**Intent:** ${tc.description}`);
 		lines.push('');
@@ -218,17 +219,17 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 		lines.push('### Criteria');
 		lines.push('');
 
-		// Essential
-		lines.push('#### Essential');
+		// Required
+		lines.push('#### Required');
 		lines.push('');
 		for (const c of tc.evaluationCriteria.essential) {
 			lines.push(`- ${c}`);
 		}
 		lines.push('');
 
-		// Additional
+		// Nice to have
 		if (tc.evaluationCriteria.additional?.length) {
-			lines.push('#### Additional');
+			lines.push('#### Nice to have');
 			lines.push('');
 			for (const c of tc.evaluationCriteria.additional) {
 				lines.push(`- ${c}`);
