@@ -3170,7 +3170,9 @@ class DataExplorerService:
 
     def _open_data_explorer(self, source_comm_id: str) -> None:
         """Open a new, independent data explorer for the same underlying data."""
-        table_view = self.table_views[source_comm_id]
+        table_view = self.table_views.get(source_comm_id)
+        if table_view is None:
+            raise KeyError(f"No table view found for comm_id: {source_comm_id}")
         self.register_table(
             table_view.table,
             table_view.state.name,
