@@ -49,8 +49,7 @@ const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat ac
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MODEL_PICKER_DROPDOWN = '.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label:not([aria-label^="Set Agent"])';
-const MODEL_PICKER_LABEL = `${MODEL_PICKER_DROPDOWN} span.chat-model-label`;
+const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item a.action-label[aria-label*="(Ctrl+Alt+.)"] .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 
@@ -263,8 +262,6 @@ export class Assistant {
 	}
 
 	async pickModel() {
-		// Wait until some models are loaded before clicking (label changes from "Pick Model" to an actual model name)
-		await expect(this.code.driver.page.locator(MODEL_PICKER_LABEL)).not.toHaveText('Pick Model');
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 	}
 
@@ -1043,6 +1040,58 @@ export class Assistant {
 		} catch (error) {
 			throw new Error(`Failed to parse chat export file ${filePath}: ${error}`);
 		}
+	}
+
+	/**
+	 * Parses the available tools from a chat export JSON file
+	 * @param filePath Path to the chat export JSON file
+	 * @returns Array of available tool names from the most recent request
+	 */
+	async parseAvailableToolsFromFile(filePath: string): Promise<string[]> {
+		const fs = require('fs').promises;
+
+		try {
+			const fileContent = await fs.readFile(filePath, 'utf-8');
+			const chatData = JSON.parse(fileContent);
+
+			// Get the available tools from the most recent request
+			if (chatData.requests && Array.isArray(chatData.requests) && chatData.requests.length > 0) {
+				const lastRequest = chatData.requests[chatData.requests.length - 1];
+				if (lastRequest.result?.metadata?.availableTools) {
+					return lastRequest.result.metadata.availableTools;
+				}
+			}
+
+			return [];
+		} catch (error) {
+			throw new Error(`Failed to parse available tools from chat export file ${filePath}: ${error}`);
+		}
+	}
+
+	/**
+	 * Gets the available tools from the most recent chat response.
+	 * Exports the chat to a file and parses the availableTools array from the metadata.
+	 * @param exportFolder Optional folder path to export the chat to
+	 * @returns Array of available tool names
+	 */
+	async getAvailableTools(exportFolder?: string): Promise<string[]> {
+		// Export the chat to a file first
+		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
+		await this.toasts.waitForAppear('Chat log exported to:');
+		await this.toasts.closeAll();
+
+		// Find and parse the chat export file
+		const chatExportFile = await this.findChatExportFile(exportFolder);
+		if (!chatExportFile) {
+			throw new Error('No chat export file found');
+		}
+
+		const availableTools = await this.parseAvailableToolsFromFile(chatExportFile);
+
+		// Rename the file to prevent it from being found again
+		await this.renameChatExportFile(chatExportFile);
+
+		return availableTools;
 	}
 
 	/**
