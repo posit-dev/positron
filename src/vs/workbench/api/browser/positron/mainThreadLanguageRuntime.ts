@@ -1836,7 +1836,7 @@ export class MainThreadLanguageRuntime
 		const revivedUri = URI.revive(documentUri);
 		// Convert IRange objects (with startLineNumber, etc.) to editor Range objects
 		const cellRanges = ranges.map(r => Range.lift(r));
-		return this._quartoExecutionManager.executeCellRanges(revivedUri, cellRanges);
+		return this._quartoExecutionManager.executeInlineCells(revivedUri, cellRanges);
 	}
 
 	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {

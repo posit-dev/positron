@@ -37,6 +37,7 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
+import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
 
 // Re-export for convenience
 export { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -252,6 +253,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * This executes just the code in the specified ranges, even if they are partial cells.
 	 * The output replaces any previous output for the containing cell.
 	 * Multiple calls to this method will queue executions properly.
+	 *
+	 * Respects Quarto cell execution options:
+	 * - `eval: false` - When multiple cells are passed, cells with eval:false are skipped.
+	 *                   When a single cell is passed, it executes anyway (explicit user action).
+	 * - `error: true` (default) - Stop execution queue on error.
+	 * - `error: false` - Continue execution queue even on error.
 	 */
 	async executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken): Promise<void> {
 		if (codeRanges.length === 0) {
@@ -275,6 +282,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		interface InlineExecution {
 			cell: QuartoCodeCell;
 			codeRange: Range;
+			effectiveCodeRange: Range;
+			options: QuartoCellExecutionOptions;
 		}
 		const executions: InlineExecution[] = [];
 
@@ -299,9 +308,26 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				continue;
 			}
 
+			// Get the code content and parse execution options
+			const code = textModel.getValueInRange(range);
+			const { options, optionLineCount } = parseCellExecutionOptions(code);
+
+			// Calculate effective code range (excluding option lines at the start)
+			let effectiveCodeRange = range;
+			if (optionLineCount > 0) {
+				effectiveCodeRange = new Range(
+					range.startLineNumber + optionLineCount,
+					1,
+					range.endLineNumber,
+					range.endColumn
+				);
+			}
+
 			executions.push({
 				cell: containingCell,
 				codeRange: range,
+				effectiveCodeRange,
+				options,
 			});
 		}
 
@@ -309,8 +335,28 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return;
 		}
 
+		// Filter executions based on eval option
+		// When multiple cells are passed, skip cells with eval: false
+		// When a single cell is passed, execute it anyway (explicit user action)
+		const isMultiCellExecution = executions.length > 1;
+		const filteredExecutions = isMultiCellExecution
+			? executions.filter(e => {
+				if (!e.options.eval) {
+					this._logService.debug(
+						`[QuartoExecutionManager] Skipping cell ${e.cell.id} due to eval: false`
+					);
+				}
+				return e.options.eval;
+			})
+			: executions;
+
+		if (filteredExecutions.length === 0) {
+			this._logService.debug(`[QuartoExecutionManager] All cells filtered out by eval: false`);
+			return;
+		}
+
 		// Add all ranges to queued state with decorations
-		for (const execution of executions) {
+		for (const execution of filteredExecutions) {
 			this._addToQueuedRanges(execution.cell.id, execution.codeRange);
 			// Only set state to Queued if cell is not already running
 			// (if it's running, the queued range decoration will still show)
@@ -323,7 +369,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		// Fire state change to update decorations immediately
 		this._onDidChangeExecutionState.fire({
 			execution: {
-				cellId: executions[0].cell.id,
+				cellId: filteredExecutions[0].cell.id,
 				state: CellExecutionState.Queued,
 				executionId: '',
 				documentUri,
@@ -335,21 +381,58 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		const lastPromise = this._executionQueue.get(documentUri) ?? Promise.resolve();
 
 		const executionPromise = lastPromise.then(async () => {
-			for (const execution of executions) {
+			for (const execution of filteredExecutions) {
 				// Check cancellation before each range
 				if (token?.isCancellationRequested) {
 					// Mark remaining queued ranges as idle
-					for (const e of executions) {
+					for (const e of filteredExecutions) {
 						this._removeFromQueuedRanges(e.cell.id, e.codeRange);
 					}
 					break;
 				}
 
 				try {
-					await this._executeRange(documentUri, execution.cell, execution.codeRange, token);
+					const hadError = await this._executeRange(
+						documentUri,
+						execution.cell,
+						execution.effectiveCodeRange,
+						execution.options,
+						token
+					);
+
+					// If error occurred and error option is true (stop on error),
+					// clear remaining queued cells and break
+					if (hadError && execution.options.error) {
+						this._logService.debug(
+							`[QuartoExecutionManager] Stopping execution queue due to error (error: true)`
+						);
+						// Remove remaining queued ranges
+						const currentIndex = filteredExecutions.indexOf(execution);
+						for (let i = currentIndex + 1; i < filteredExecutions.length; i++) {
+							const e = filteredExecutions[i];
+							this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+							this._setCellState(e.cell.id, CellExecutionState.Idle, documentUri);
+						}
+						break;
+					}
 				} catch (error) {
 					this._logService.error(`[QuartoExecutionManager] Inline execution error for cell ${execution.cell.id}:`, error);
 					this._setCellState(execution.cell.id, CellExecutionState.Error, documentUri);
+
+					// If error option is true (stop on error), break out of the loop
+					if (execution.options.error) {
+						this._logService.debug(
+							`[QuartoExecutionManager] Stopping execution queue due to exception (error: true)`
+						);
+						// Remove remaining queued ranges
+						const currentIndex = filteredExecutions.indexOf(execution);
+						for (let i = currentIndex + 1; i < filteredExecutions.length; i++) {
+							const e = filteredExecutions[i];
+							this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+							this._setCellState(e.cell.id, CellExecutionState.Idle, documentUri);
+						}
+						break;
+					}
 				}
 			}
 		}).finally(() => {
@@ -366,13 +449,21 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/**
 	 * Execute a specific range of code within a cell.
 	 * This is the unified execution method used by both cell execution and inline execution.
+	 *
+	 * @param documentUri URI of the document
+	 * @param cell Cell containing the code
+	 * @param codeRange Range of code to execute
+	 * @param options Execution options (eval, error behavior)
+	 * @param token Optional cancellation token
+	 * @returns true if an error occurred during execution, false otherwise
 	 */
 	private async _executeRange(
 		documentUri: URI,
 		cell: QuartoCodeCell,
 		codeRange: Range,
+		options: QuartoCellExecutionOptions = DEFAULT_CELL_EXECUTION_OPTIONS,
 		token?: CancellationToken
-	): Promise<void> {
+	): Promise<boolean> {
 		const cellLanguage = cell.language.toLowerCase();
 
 		// Check if this is a shell language - execute via terminal
@@ -398,13 +489,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (!session) {
 			this._logService.warn(`[QuartoExecutionManager] No session available for ${documentUri.toString()}`);
 			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-			return;
+			return true; // Error occurred
 		}
 
 		// Check cancellation
 		if (token?.isCancellationRequested) {
-			return;
+			return false; // No error, just cancelled
 		}
+
+		// Track if an error occurred during execution
+		let hadError = false;
 
 		// Create execution tracker
 		const executionId = `${QUARTO_EXEC_PREFIX}-${generateUuid()}`;
@@ -444,8 +538,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		this._outputsByCell.delete(cell.id);
 
 		try {
-			// Set up message handlers
-			this._setupMessageHandlers(tracker, session, documentUri);
+			// Set up message handlers, passing options for error tracking
+			this._setupMessageHandlers(tracker, session, documentUri, () => {
+				hadError = true;
+			});
 
 			// Get just the code in the specified range
 			const code = await this._getCodeInRange(documentUri, codeRange);
@@ -514,12 +610,18 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				}),
 			]);
 
-			// Update state to completed
-			this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+			// Update state to completed or error based on whether runtime errors occurred
+			if (hadError) {
+				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			} else {
+				this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+			}
 
 		} catch (error) {
+			hadError = true;
 			if (cts.token.isCancellationRequested) {
 				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
+				hadError = false; // Cancellation is not an error
 			} else {
 				this._logService.error(`[QuartoExecutionManager] Execution failed for cell ${cell.id}:`, error);
 				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
@@ -533,22 +635,29 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			cts.dispose();
 			await this._persistQueueState(documentUri);
 		}
+
+		return hadError;
 	}
 
 	/**
 	 * Execute a range of code via the console service.
 	 * This is used for cells whose language doesn't match the document's primary language.
 	 * Also captures outputs to show as inline output in addition to console output.
+	 *
+	 * @returns true if an error occurred during execution, false otherwise
 	 */
 	private async _executeRangeViaConsole(
 		documentUri: URI,
 		cell: QuartoCodeCell,
 		codeRange: Range,
 		token?: CancellationToken
-	): Promise<void> {
+	): Promise<boolean> {
 		this._logService.debug(
 			`[QuartoExecutionManager] Executing ${cell.language} code via console (non-primary language)`
 		);
+
+		// Track if an error occurred during execution
+		let hadError = false;
 
 		// Remove this range from the queued ranges (it's now running)
 		this._removeFromQueuedRanges(cell.id, codeRange);
@@ -599,7 +708,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			// This avoids the race condition where execution starts before handlers are set up.
 			const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(cell.language);
 			if (existingSession) {
-				this._setupConsoleMessageHandlers(tracker, existingSession, documentUri);
+				this._setupConsoleMessageHandlers(tracker, existingSession, documentUri, () => {
+					hadError = true;
+				});
 			}
 
 			// Execute via console service with our execution ID
@@ -631,7 +742,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			if (!existingSession) {
 				const newSession = this._runtimeSessionService.getSession(sessionId);
 				if (newSession) {
-					this._setupConsoleMessageHandlers(tracker, newSession, documentUri);
+					this._setupConsoleMessageHandlers(tracker, newSession, documentUri, () => {
+						hadError = true;
+					});
 				}
 			}
 
@@ -646,11 +759,17 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				}),
 			]);
 
-			// Mark as completed
-			this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+			// Mark as completed or error based on runtime errors
+			if (hadError) {
+				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+			} else {
+				this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+			}
 		} catch (error) {
+			hadError = true;
 			if (cts.token.isCancellationRequested) {
 				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
+				hadError = false; // Cancellation is not an error
 			} else {
 				this._logService.error(
 					`[QuartoExecutionManager] Console execution failed for cell ${cell.id}:`,
@@ -665,21 +784,28 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			disposables.dispose();
 			cts.dispose();
 		}
+
+		return hadError;
 	}
 
 	/**
 	 * Execute a range of code via the terminal.
 	 * This is used for shell/bash cells that should be executed in a terminal.
+	 *
+	 * @returns true if an error occurred during execution, false otherwise
 	 */
 	private async _executeRangeViaTerminal(
 		documentUri: URI,
 		cell: QuartoCodeCell,
 		codeRange: Range,
 		token?: CancellationToken
-	): Promise<void> {
+	): Promise<boolean> {
 		this._logService.debug(
 			`[QuartoExecutionManager] Executing ${cell.language} code via terminal`
 		);
+
+		// Track if an error occurred during execution
+		let hadError = false;
 
 		// Remove this range from the queued ranges (it's now running)
 		this._removeFromQueuedRanges(cell.id, codeRange);
@@ -757,13 +883,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 			// Set final state based on exit code
 			if (exitCode !== undefined && exitCode !== 0) {
+				hadError = true;
 				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
 			} else {
 				this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
 			}
 		} catch (error) {
+			hadError = true;
 			if (cts.token.isCancellationRequested) {
 				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
+				hadError = false; // Cancellation is not an error
 			} else {
 				this._logService.error(
 					`[QuartoExecutionManager] Terminal execution failed for cell ${cell.id}:`,
@@ -778,6 +907,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			disposables.dispose();
 			cts.dispose();
 		}
+
+		return hadError;
 	}
 
 	/**
@@ -1244,11 +1375,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	/**
 	 * Set up message handlers for console session output.
 	 * Similar to _setupMessageHandlers but for console sessions.
+	 * @param tracker Execution tracker
+	 * @param session Runtime session
+	 * @param documentUri Document URI
+	 * @param onError Optional callback invoked when an error message is received
 	 */
 	private _setupConsoleMessageHandlers(
 		tracker: ExecutionTracker,
 		session: ILanguageRuntimeSession,
-		documentUri: URI
+		documentUri: URI,
+		onError?: () => void
 	): void {
 		const { execution, deferred, disposables } = tracker;
 		const executionId = execution.executionId;
@@ -1288,6 +1424,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			if (message.parent_id !== executionId) {
 				return;
 			}
+			// Notify caller that an error occurred
+			onError?.();
 			this._addOutput(tracker, documentUri, [{
 				mime: 'application/vnd.code.notebook.error',
 				data: JSON.stringify({
@@ -1495,16 +1633,23 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		await this._persistQueueState(documentUri);
 
 		// Delegate to the unified range execution
-		return this._executeRange(documentUri, currentCell, codeRange, token);
+		// The return value (error status) is ignored for cell execution since
+		// executeCells handles errors per-cell and doesn't stop on error
+		await this._executeRange(documentUri, currentCell, codeRange, DEFAULT_CELL_EXECUTION_OPTIONS, token);
 	}
 
 	/**
 	 * Set up message handlers for runtime output.
+	 * @param tracker Execution tracker
+	 * @param session Runtime session
+	 * @param documentUri Document URI
+	 * @param onError Optional callback invoked when an error message is received
 	 */
 	private _setupMessageHandlers(
 		tracker: ExecutionTracker,
 		session: import('../../../services/runtimeSession/common/runtimeSessionService.js').ILanguageRuntimeSession,
-		documentUri: URI
+		documentUri: URI,
+		onError?: () => void
 	): void {
 		const { execution, deferred, disposables } = tracker;
 		const executionId = execution.executionId;
@@ -1546,6 +1691,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			if (message.parent_id !== executionId) {
 				return;
 			}
+			// Notify caller that an error occurred
+			onError?.();
 			this._addOutput(tracker, documentUri, [{
 				mime: 'application/vnd.code.notebook.error',
 				data: JSON.stringify({

@@ -1,0 +1,24 @@
+---
+title: "Execution Options Test"
+---
+
+This document tests execution options.
+
+```{test}
+#| eval: false
+skip this code
+```
+
+```{test}
+#| eval: true
+execute this code
+```
+
+```{test}
+#| error: false
+code with error continue
+```
+
+```{test}
+regular test code
+```

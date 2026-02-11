@@ -341,4 +341,131 @@ suite('positron API - executeInlineCell', () => {
 			assert.strictEqual(session.executedCode.length, 0, 'No code should have been executed for invalid range');
 		}
 	});
+
+	suite('Execution Options', () => {
+		test('strips option lines from executed code', async () => {
+			// Register a test runtime manager
+			const manager = new TestLanguageRuntimeManager();
+			const managerDisposable = positron.runtime.registerLanguageRuntimeManager('test', manager);
+			disposables.push(managerDisposable);
+
+			// Wait for the runtime to be registered
+			await poll(
+				async () => (await positron.runtime.getRegisteredRuntimes())
+					.filter(runtime => runtime.languageId === 'test'),
+				runtimes => runtimes.length > 0,
+				'test runtime should be registered',
+			);
+
+			const workspaceFolders = vscode.workspace.workspaceFolders;
+			assert.ok(workspaceFolders && workspaceFolders.length > 0, 'Should have a workspace folder');
+
+			// Use the execution-options.qmd test file
+			const testFileUri = vscode.Uri.joinPath(workspaceFolders[0].uri, 'execution-options.qmd');
+			const document = await vscode.workspace.openTextDocument(testFileUri);
+			await vscode.window.showTextDocument(document);
+
+			// Wait for document to be ready
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			// Execute the second code block which has:
+			// ```{test}
+			// #| eval: true
+			// execute this code
+			// ```
+			// Lines 12-15 (1-indexed), code content is on lines 13-14
+			// 0-indexed: lines 12-13 for code content
+			const codeRange = new vscode.Range(12, 0, 13, 17); // Includes option line
+
+			await positron.runtime.executeInlineCell(testFileUri, [codeRange]);
+
+			// Wait for execution to complete
+			await new Promise(resolve => setTimeout(resolve, 1000));
+
+			// Verify the session executed code
+			const session = manager.getLastSession();
+			assert.ok(session, 'A test session should have been created');
+			assert.ok(session.executedCode.length > 0, 'Code should have been executed');
+
+			// The executed code should NOT include the option line
+			const lastExecution = session.executedCode[session.executedCode.length - 1];
+			assert.ok(!lastExecution.code.includes('#| eval'), `Executed code should NOT include option lines, got: ${lastExecution.code}`);
+			assert.ok(lastExecution.code.includes('execute this code'), `Executed code should contain the actual code`);
+		});
+
+		test('eval: false skips cells in multi-cell execution but executes when single cell', async () => {
+			// Register a test runtime manager
+			const manager = new TestLanguageRuntimeManager();
+			const managerDisposable = positron.runtime.registerLanguageRuntimeManager('test', manager);
+			disposables.push(managerDisposable);
+
+			// Manually fire discovery event to ensure runtime is registered
+			// This is needed because previous test's cleanup may interfere with automatic discovery
+			manager.onDidDiscoverRuntimeEmitter.fire(manager['_metadata']);
+
+			// Wait for the runtime to be registered
+			await poll(
+				async () => (await positron.runtime.getRegisteredRuntimes())
+					.filter(runtime => runtime.languageId === 'test'),
+				runtimes => runtimes.length > 0,
+				'test runtime should be registered',
+			);
+
+			const workspaceFolders = vscode.workspace.workspaceFolders;
+			assert.ok(workspaceFolders && workspaceFolders.length > 0, 'Should have a workspace folder');
+
+			// Use a DIFFERENT test file (eval-options.qmd) to avoid session reuse from other tests
+			const testFileUri = vscode.Uri.joinPath(workspaceFolders[0].uri, 'eval-options.qmd');
+			const document = await vscode.workspace.openTextDocument(testFileUri);
+			await vscode.window.showTextDocument(document);
+
+			// Wait for document to be ready
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			// --- Test 1: Multi-cell execution should skip eval: false cells ---
+			// eval-options.qmd structure:
+			// Lines 7-10: eval: false cell (skip this code)
+			// Lines 12-15: eval: true cell (execute this code)
+
+			// Execute multiple cells: one with eval: false and one with eval: true
+			// The cell with eval: false should be SKIPPED when executing multiple cells
+			const evalFalseRange = new vscode.Range(7, 0, 8, 14); // #| eval: false + skip this code
+			const evalTrueRange = new vscode.Range(12, 0, 13, 17);  // #| eval: true + execute this code
+
+			await positron.runtime.executeInlineCell(testFileUri, [evalFalseRange, evalTrueRange]);
+
+			// Wait for execution to complete
+			await new Promise(resolve => setTimeout(resolve, 1000));
+
+			// Verify the session executed code
+			const session = manager.getLastSession();
+			assert.ok(session, 'A test session should have been created');
+
+			// Only ONE cell should have been executed (the eval: true one)
+			assert.strictEqual(session.executedCode.length, 1, 'Only one cell should have been executed in multi-cell mode');
+
+			// The executed code should be from the eval: true cell, not the eval: false cell
+			let executedCode = session.executedCode[0].code;
+			assert.ok(executedCode.includes('execute this code'), `Should execute the eval: true cell, got: ${executedCode}`);
+			assert.ok(!executedCode.includes('skip this code'), `Should NOT execute the eval: false cell in multi-cell mode`);
+
+			// --- Test 2: Single cell execution should execute eval: false cell ---
+
+			// Execute ONLY the cell with eval: false
+			// When it's the only cell, it SHOULD execute (explicit user action)
+			await positron.runtime.executeInlineCell(testFileUri, [evalFalseRange]);
+
+			// Wait for execution to complete
+			await new Promise(resolve => setTimeout(resolve, 1000));
+
+			// Now we should have TWO executions total
+			assert.strictEqual(session.executedCode.length, 2, 'The single eval: false cell should now be executed');
+
+			// The second execution should be from the eval: false cell (with option stripped)
+			executedCode = session.executedCode[1].code;
+			assert.ok(executedCode.includes('skip this code'), `Single-cell execution should execute the cell content, got: ${executedCode}`);
+			assert.ok(!executedCode.includes('#| eval'), `Option lines should be stripped`);
+		});
+
+	});
 });

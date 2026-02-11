@@ -1,0 +1,19 @@
+---
+title: "Eval Options Test"
+---
+
+Test document for eval option behavior.
+
+```{test}
+#| eval: false
+skip this code
+```
+
+```{test}
+#| eval: true
+execute this code
+```
+
+```{test}
+regular test code
+```
