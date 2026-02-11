@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as ai from 'ai';
 import { createAmazonBedrock, AmazonBedrockProvider } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import {
@@ -22,6 +23,7 @@ import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers'
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
+import { ErrorTemplates, ErrorContext } from './errorFormatting';
 
 /**
  * Environment variables for AWS Bedrock configuration.
@@ -220,24 +222,66 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	 * Handles SSO authentication errors with automatic login prompts.
 	 *
 	 * @param error The error object returned by Bedrock.
+	 * @param context Optional context about where the error is being displayed
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
-	override async parseProviderError(error: any) {
-		// First try the base class error parsing
-		const aiSdkError = await super.parseProviderError(error);
-		if (aiSdkError) {
-			return aiSdkError;
+	override async parseProviderError(error: any, context?: ErrorContext) {
+		// Handle AI_APICallError which wraps AWS errors in responseBody
+		// Check this first since AI_APICallError test cases may not be proper Error instances
+		let name = error?.name;
+		let message = error?.message;
+		let isAIAPICallError = false;
+
+		// Check for AI API call errors (either via isInstance or by duck typing)
+		if ((ai.APICallError.isInstance(error) || error?.name === 'AI_APICallError') && error.responseBody) {
+			isAIAPICallError = true;
+			try {
+				const parsedBody = JSON.parse(error.responseBody);
+				message = parsedBody.Message || parsedBody.message || message;
+
+				// Extract error type from response headers
+				if (error.responseHeaders?.['x-amzn-errortype']) {
+					const errorType = error.responseHeaders['x-amzn-errortype'];
+					// Extract the error name (e.g., "AccessDeniedException" from "AccessDeniedException:http://...")
+					const errorNameMatch = errorType.match(/^([^:]+)/);
+					if (errorNameMatch) {
+						name = errorNameMatch[1];
+					}
+				}
+			} catch (e) {
+				// If we can't parse the response body, fall back to the original error
+			}
 		}
 
-		if (!(error instanceof Error)) {
+		// If not an AI_APICallError and not an Error instance, return undefined
+		if (!isAIAPICallError && !(error instanceof Error)) {
 			return undefined;
 		}
 
-		const name = error.name;
-		const message = error.message;
-
 		if (!message) {
-			return await super.parseProviderError(error);
+			return await super.parseProviderError(error, context);
+		}
+
+		// Get AWS profile and region for better error messages
+		const profile = this.bedrockClient.config.profile || 'default';
+		const region = typeof this.bedrockClient.config.region === 'function'
+			? await this.bedrockClient.config.region()
+			: this.bedrockClient.config.region || 'us-east-1';
+
+		// Determine if we're in a connection test (used for SSO login handling)
+		const isConnectionTest = context?.isConnectionTest ?? this._resolvingConnection;
+
+		// Handle IAM authorization errors
+		if (name === 'AccessDeniedException' || name === 'UnauthorizedException' ||
+			message.includes('not authorized to perform')) {
+
+			return ErrorTemplates.permissionError({
+				provider: 'Amazon Bedrock',
+				profile,
+				region,
+				settingId: 'positron.assistant.providerVariables.bedrock',
+				documentationUrl: 'https://docs.posit.co/ide/server-pro/admin/authenticating_users/aws_credentials.html#amazon-bedrock-permissions'
+			});
 		}
 
 		// Handle AWS SSO credential errors
@@ -255,7 +299,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 					}
 				} else {
 					// The model has already been registered, so we can prompt the user to login
-					const isConnectionTest = this._resolvingConnection;
 					const action = { title: vscode.l10n.t('Run in Terminal'), id: 'aws-sso-login' };
 
 					vscode.window.showErrorMessage(`Amazon Bedrock: ${message}`, action).then(async selection => {
@@ -273,17 +316,31 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						// We are in a chat response, so we should return an error to display in the chat pane
 						throw new Error(
 							vscode.l10n.t(
-								`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`
+								'AWS login required. Please run `aws sso login --profile {0} --region {1}` in the terminal, and retry this request.',
+								profile,
+								region
 							)
 						);
 					}
 				}
 			} else {
-				return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
+				// Generic credentials error - provide helpful context about which profile was used
+				return ErrorTemplates.authenticationError({
+					provider: 'Amazon Bedrock',
+					profile,
+					region,
+					settingId: 'positron.assistant.providerVariables.bedrock',
+					setupInstructions: vscode.l10n.t(
+						'Set up credentials by running one of these commands in the terminal:\n\n' +
+						'- `aws configure --profile {0}`\n' +
+						'- `aws sso login --profile {0}`',
+						profile
+					)
+				});
 			}
 		}
 
-		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
+		return vscode.l10n.t('Amazon Bedrock error: {0}', message);
 	}
 
 	/**
@@ -357,6 +414,15 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	 */
 	override async resolveConnection(token: vscode.CancellationToken) {
 		this.logger.debug('Resolving connection by fetching available models...');
+
+		// Set connection test context for error handling
+		const connectionTestContext: ErrorContext = {
+			isConnectionTest: true,
+			isChat: false,
+			isStartup: false
+		};
+
+		// Keep _resolvingConnection for backward compatibility
 		this._resolvingConnection = true;
 
 		try {
@@ -365,7 +431,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		} catch (error) {
 			// Try to parse specific Bedrock errors
 			// This way, we can handle SSO login errors specifically
-			const parsedError = await this.parseProviderError(error);
+			const parsedError = await this.parseProviderError(error, connectionTestContext);
 			if (parsedError) {
 				return new Error(parsedError);
 			}

@@ -13,6 +13,7 @@ import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
+import { ErrorContext } from './errorContext';
 
 /**
  * Base class for all Vercel AI SDK-based model providers.
@@ -70,6 +71,16 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * formatting (e.g., image support).
 	 */
 	protected usesChatCompletions: boolean = false;
+
+	/**
+	 * Current error context for tracking where errors occur.
+	 * Used to adjust error messages and notification behavior based on context.
+	 */
+	protected _errorContext: ErrorContext = {
+		isConnectionTest: false,
+		isChat: false,
+		isStartup: false
+	};
 
 
 	/**
@@ -274,6 +285,14 @@ export abstract class VercelModelProvider extends ModelProvider {
 		token: vscode.CancellationToken,
 		requestId?: string
 	): Promise<void> {
+		// Set chat context for error handling
+		this._errorContext = {
+			isConnectionTest: false,
+			isChat: true,
+			isStartup: false,
+			requestId
+		};
+
 		let accumulatedTextDeltas: string[] = [];
 
 		const flushAccumulatedTextDeltas = () => {
@@ -284,29 +303,34 @@ export abstract class VercelModelProvider extends ModelProvider {
 			}
 		};
 
-		for await (const part of result.fullStream) {
-			if (token.isCancellationRequested) {
-				break;
-			}
+		try {
+			for await (const part of result.fullStream) {
+				if (token.isCancellationRequested) {
+					break;
+				}
 
-			if (part.type === 'text-delta') {
-				accumulatedTextDeltas.push(part.text);
-				progress.report(new vscode.LanguageModelTextPart(part.text));
-			}
+				if (part.type === 'text-delta') {
+					accumulatedTextDeltas.push(part.text);
+					progress.report(new vscode.LanguageModelTextPart(part.text));
+				}
 
-			if (part.type === 'tool-call') {
-				flushAccumulatedTextDeltas();
-				this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with input: ${JSON.stringify(part.input)}`);
-				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
-			}
+				if (part.type === 'tool-call') {
+					flushAccumulatedTextDeltas();
+					this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with input: ${JSON.stringify(part.input)}`);
+					progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
+				}
 
-			if (part.type === 'error') {
-				flushAccumulatedTextDeltas();
-				this.logger.warn(`[${model.name}] RECV error`, part.error);
-				const errorMsg = await this.parseProviderError(part.error) ||
-					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
-				throw new Error(`[${model.name}] Error in chat response: ${errorMsg}`);
+				if (part.type === 'error') {
+					flushAccumulatedTextDeltas();
+					this.logger.warn(`[${model.name}] RECV error`, part.error);
+					const errorMsg = await this.parseProviderError(part.error, this._errorContext) ||
+						(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
+					throw new Error(`[${model.name}] Error in chat response: ${errorMsg}`);
+				}
 			}
+		} finally {
+			// Reset error context after handling stream
+			this._errorContext = { isConnectionTest: false, isChat: false, isStartup: false };
 		}
 
 		// Flush any remaining accumulated text deltas
