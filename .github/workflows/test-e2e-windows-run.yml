@@ -327,6 +327,7 @@ jobs:
             ${{ runner.os }}-r-4.4.0-
 
       - name: Install R packages for 4.4.0
+        if: steps.cache-r.outputs.cache-hit != 'true'
         run: |
           Rscript -e "install.packages('pak')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
