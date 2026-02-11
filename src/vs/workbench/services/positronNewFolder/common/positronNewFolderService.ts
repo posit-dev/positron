@@ -926,7 +926,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		if (!this._newFolderConfig) {
 			return false;
 		}
-		const currentFolderPath = this._contextService.getWorkspace().folders[0]?.uri;
+		const folder = this._contextService.getWorkspace().folders.at(0);
+		if (!folder) {
+			return false;
+		}
+		const currentFolderPath = folder.uri;
 		const newFolderPath = URI.from({
 			scheme: this._newFolderConfig.folderScheme,
 			authority: this._newFolderConfig.folderAuthority,
