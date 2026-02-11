@@ -29,6 +29,9 @@ export function useDraggable({ id, touchConfig }: UseDraggableProps) {
 	}, []);
 
 	const handlePointerDown = React.useCallback((e: React.PointerEvent) => {
+		if (e.pointerType === 'touch') {
+			return; // Touch uses long-press via TouchSensor
+		}
 		e.preventDefault();
 		// Store initial element rect for overlay positioning
 		const rect = nodeRef.current?.getBoundingClientRect();
@@ -45,7 +48,7 @@ export function useDraggable({ id, touchConfig }: UseDraggableProps) {
 				startDrag(id, {
 					x: rect.left + rect.width / 2,
 					y: rect.top + rect.height / 2,
-				}, rect);
+				}, rect, 'keyboard');
 			}
 		}
 	}, [id, startDrag]);

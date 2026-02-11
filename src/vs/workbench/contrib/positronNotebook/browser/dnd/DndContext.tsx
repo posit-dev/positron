@@ -15,7 +15,7 @@ interface DndContextValue {
 	state: DragState;
 	registerDroppable: (id: string, node: HTMLElement) => void;
 	unregisterDroppable: (id: string) => void;
-	startDrag: (id: string, position: { x: number; y: number }, initialRect: DOMRect | null) => void;
+	startDrag: (id: string, position: { x: number; y: number }, initialRect: DOMRect | null, source?: 'pointer' | 'keyboard') => void;
 	updateDrag: (position: { x: number; y: number }) => void;
 	endDrag: () => void;
 	cancelDrag: () => void;
@@ -46,6 +46,7 @@ interface PendingDrag {
 	id: string;
 	startPosition: { x: number; y: number };
 	initialRect: DOMRect | null;
+	source: 'pointer' | 'keyboard';
 }
 
 export function DndContext({
@@ -178,13 +179,47 @@ export function DndContext({
 		return adjustedRects;
 	}, [state.initialDroppableRects, state.initialScrollOffset, scrollContainerRef]);
 
-	const startDrag = React.useCallback((id: string, position: { x: number; y: number }, initialRect: DOMRect | null) => {
+	const startDrag = React.useCallback((id: string, position: { x: number; y: number }, initialRect: DOMRect | null, source: 'pointer' | 'keyboard' = 'pointer') => {
 		// Store pending drag - actual drag starts after activation distance
-		setPendingDrag({ id, startPosition: position, initialRect });
+		setPendingDrag({ id, startPosition: position, initialRect, source });
 	}, []);
 
 	// Global pointer event handlers - attached immediately when pending or dragging
 	React.useEffect(() => {
+		// Keyboard drags activate immediately (no movement threshold needed)
+		if (pendingDrag?.source === 'keyboard') {
+			const { id, startPosition, initialRect } = pendingDrag;
+			setPendingDrag(null);
+
+			const initialDroppableRects = new Map<string, DOMRect>();
+			for (const [droppableId, entry] of droppablesRef.current) {
+				initialDroppableRects.set(droppableId, entry.node.getBoundingClientRect());
+			}
+			const initialScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
+
+			onDragStartRef.current?.({ active: { id } });
+			const activeIds = multiDragContext?.getActiveIds() ?? [id];
+
+			// Announce drag start for screen readers
+			const items = getItems();
+			const activeIndex = items.indexOf(id);
+			setAnnouncement(getAnnouncement('start', activeIndex, null, items.length));
+
+			setState({
+				status: 'dragging',
+				activeId: id,
+				activeIds: activeIds.length > 0 ? activeIds : [id],
+				overId: null,
+				insertionIndex: null,
+				initialPosition: startPosition,
+				currentPosition: startPosition,
+				initialRect,
+				initialDroppableRects,
+				initialScrollOffset,
+			});
+			return; // Don't attach pointer listeners for keyboard drag
+		}
+
 		const handlePointerMove = (e: PointerEvent) => {
 			const position = { x: e.clientX, y: e.clientY };
 
@@ -397,6 +432,47 @@ export function DndContext({
 					const items = getItems();
 					const activeIndex = items.indexOf(prev.activeId!);
 					setAnnouncement(getAnnouncement('cancel', activeIndex, null, items.length));
+
+					return {
+						status: 'idle',
+						activeId: null,
+						activeIds: [],
+						overId: null,
+						insertionIndex: null,
+						initialPosition: null,
+						currentPosition: null,
+						initialRect: null,
+						initialDroppableRects: null,
+						initialScrollOffset: null,
+					};
+				});
+				return;
+			}
+
+			// Space/Enter to drop during keyboard drag
+			if ((e.key === ' ' || e.key === 'Enter') && isDraggingRef.current) {
+				e.preventDefault();
+				autoScrollRef.current?.stop();
+
+				let callbackFired = false;
+				setState(prev => {
+					if (prev.status !== 'dragging') {
+						return prev;
+					}
+					if (!callbackFired) {
+						callbackFired = true;
+						onDragEndRef.current?.({
+							active: { id: prev.activeId! },
+							over: prev.overId ? { id: prev.overId } : null,
+							insertionIndex: prev.insertionIndex,
+						});
+					}
+
+					// Announce drag end for screen readers
+					const items = getItems();
+					const activeIndex = items.indexOf(prev.activeId!);
+					const overIndex = prev.overId ? items.indexOf(prev.overId) : null;
+					setAnnouncement(getAnnouncement('end', activeIndex, overIndex, items.length));
 
 					return {
 						status: 'idle',

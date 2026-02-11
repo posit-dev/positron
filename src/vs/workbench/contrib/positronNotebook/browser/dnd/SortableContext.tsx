@@ -102,7 +102,26 @@ export function SortableContext({
 				.map((id: string) => items.indexOf(id))
 				.filter((i: number) => i !== -1)
 				.sort((a: number, b: number) => a - b);
-			onBatchReorder(fromIndices, insertionIndex);
+
+			// Check if indices are contiguous
+			const isContiguous = fromIndices.every(
+				(idx: number, i: number) => i === 0 || idx === fromIndices[i - 1] + 1
+			);
+
+			if (isContiguous) {
+				onBatchReorder(fromIndices, insertionIndex);
+			} else {
+				// Non-contiguous selection: only move the primary dragged cell
+				const primaryIndex = items.indexOf(event.active.id);
+				if (primaryIndex !== -1) {
+					const newIndex = insertionIndex > primaryIndex
+						? insertionIndex - 1
+						: insertionIndex;
+					if (primaryIndex !== newIndex) {
+						onReorder(primaryIndex, newIndex);
+					}
+				}
+			}
 		} else {
 			// Single-cell: existing logic
 			const oldIndex = items.indexOf(event.active.id);
@@ -128,7 +147,11 @@ export function SortableContext({
 	}, [multiDrag, onDragEndProp]);
 
 	if (disabled) {
-		return <>{children}</>;
+		return (
+			<DndContext items={items}>
+				{children}
+			</DndContext>
+		);
 	}
 
 	return (

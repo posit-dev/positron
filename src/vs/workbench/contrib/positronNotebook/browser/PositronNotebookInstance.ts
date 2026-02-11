@@ -1404,11 +1404,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Check if cells are contiguous
 		const isContiguous = indices.every((idx, i) => i === 0 || idx === indices[i - 1] + 1);
 
-		// Check if move is necessary (no-op if already at target)
-		if (isContiguous && firstIndex === targetIndex) {
-			return;
-		}
-
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const length = lastIndex - firstIndex + 1;
@@ -1418,6 +1413,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (isContiguous && targetIndex > firstIndex) {
 			// When moving down, the removal shifts everything up
 			adjustedTarget = targetIndex - length;
+		}
+
+		// Check if move is a no-op (cells already at target position)
+		// Must be checked after target adjustment to catch both directions
+		if (isContiguous && adjustedTarget === firstIndex) {
+			return;
 		}
 
 		const focusRange = { start: firstIndex, end: lastIndex + 1 };
