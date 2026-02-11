@@ -240,6 +240,12 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			return await super.parseProviderError(error);
 		}
 
+		// Get AWS profile and region for better error messages
+		const profile = this.bedrockClient.config.profile || 'default';
+		const region = typeof this.bedrockClient.config.region === 'function'
+			? await this.bedrockClient.config.region()
+			: this.bedrockClient.config.region || 'us-east-1';
+
 		// Handle AWS SSO credential errors
 		if (name === 'CredentialsProviderError') {
 			// This error occurs when the SSO refresh token is expired
@@ -273,17 +279,24 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						// We are in a chat response, so we should return an error to display in the chat pane
 						throw new Error(
 							vscode.l10n.t(
-								`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`
+								'AWS login required. Please run `aws sso login --profile {0} --region {1}` in the terminal, and retry this request.',
+								profile,
+								region
 							)
 						);
 					}
 				}
 			} else {
-				return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
+				// Generic credentials error - provide helpful context about which profile was used
+				return vscode.l10n.t(
+					'AWS credentials are invalid or missing for profile \'{0}\' in region \'{1}\'. Please ensure your AWS credentials are configured correctly. You can set up credentials by running \'aws configure --profile {0}\' or \'aws sso login --profile {0}\' in the terminal.',
+					profile,
+					region
+				);
 			}
 		}
 
-		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
+		return vscode.l10n.t('Amazon Bedrock error: {0}', message);
 	}
 
 	/**
