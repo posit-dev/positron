@@ -1,0 +1,198 @@
+name: "Test: E2E Workbench (Ubuntu)"
+
+on:
+  workflow_call:
+    inputs:
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames."
+        default: "@:workbench"
+        type: string
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-workbench"
+        type: string
+      install_license:
+        required: false
+        description: "Whether or not to install positron-license"
+        type: boolean
+        default: false
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: true
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  e2e-workbench:
+    name: ${{ inputs.display_name || 'e2e-workbench' }}
+    timeout-minutes: 120
+    runs-on: ubuntu-latest-8x
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+      POSIT_WORKBENCH_PASSWORD: ${{ secrets.POSIT_WORKBENCH_PASSWORD }}
+      WB_PASSWORD: ${{ secrets.POSIT_WORKBENCH_PASSWORD }}
+      CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
+      E2E_CONNECT_SERVER: http://localhost:3939
+      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY }}
+      HOME: /home/runner
+      AWS_S3_BUCKET: positron-test-reports
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      GH_SUMMARY_REPORT: true
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
+          POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
+          POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install jq for JSON parsing
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Download workbench artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: "positron-workbench-linux-x64"
+          path: /tmp/artifacts
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+      - name: Setup Workbench Docker Environment
+        uses: ./.github/actions/setup-workbench-docker
+        with:
+          install-mode: ci
+          wb-password: ${{ secrets.POSIT_WORKBENCH_PASSWORD }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.run_id }}
+          custom-positron-tarball: /tmp/artifacts/positron-workbench-linux-x64-branch.tar.gz
+
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh e2e-workbench "${{ inputs.grep }}"
+        shell: bash
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Alter AppArmor Restrictions for Playwright
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Install Playwright browsers
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Generate Report Directory
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: e2e-workbench
+
+      - name: 🧪 Run Playwright Workbench Tests
+        shell: bash
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+          POSITRON_PY_VER_SEL: "3.10.12"
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
+          PW_PROJECT_NAME: e2e-workbench
+          REPORTER_REPO_NAME: positron
+        run: |
+          if [ -z "$PW_TAGS" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"$PW_TAGS\""
+          fi
+
+          echo "Final --grep argument: $GREP_ARG"
+          echo "Running: npx playwright test --project e2e-workbench --workers 2 $GREP_ARG"
+
+          eval npx playwright test --project e2e-workbench --workers 2 $GREP_ARG
+
+      - name: Upload HTML report to S3
+        if: always()
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+
+      - name: Check test results
+        if: always()
+        run: |
+          JSON_REPORT="playwright-report/results.json"
+          if [ ! -f "$JSON_REPORT" ]; then
+            echo "⚠ JSON report not found at $JSON_REPORT"
+            exit 1
+          fi
+
+          EXTRA_ARGS=""
+          if [[ "${{ inputs.allow_soft_fail }}" != "true" ]]; then
+            echo "SOFT-FAIL DISABLED: standard test failure behavior"
+            EXTRA_ARGS="--no-soft-fail"
+          else
+            echo "SOFT-FAIL ENABLED: soft-fail tests won't fail the job"
+          fi
+
+          node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
+
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-workbench-ubuntu-logs
+          path: test-logs
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Stop Docker containers
+        if: always()
+        run: |
+          docker compose -p ${{ github.run_id }} -f dockerfiles/docker-compose.workbench.yml down || true

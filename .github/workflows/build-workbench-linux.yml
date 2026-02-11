@@ -1,0 +1,79 @@
+name: "Build: Positron Workbench (Linux x64)"
+
+on:
+  workflow_call:
+    outputs:
+      artifact-name:
+        description: "Name of the workbench artifact uploaded"
+        value: ${{ jobs.build-workbench.outputs.artifact-name }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build-workbench:
+    name: Build Positron Workbench Linux x64
+    runs-on: ubuntu-22.04-x64-4-core
+    timeout-minutes: 180
+    outputs:
+      artifact-name: positron-workbench-linux-x64
+    container:
+      image: ghcr.io/posit-dev/positron-builds-rocky8:2
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install build dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          npm_config_arch: x64
+        shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
+        run: |
+          npm install --prefix build --fetch-timeout 120000
+          npm ci --fetch-timeout 120000
+
+      - name: Replace default license key with test key
+        env:
+          LICENSE_KEY: ${{ secrets.POSITRON_WORKBENCH_LICENSE_KEY }}
+        run: |
+          # Create a temporary file with the license key from the secret
+          echo "$LICENSE_KEY" > /tmp/positron-workbench-license.pub
+
+          # Use the replace-license script to update the license key
+          ./scripts/replace-license.sh src/vs/server/node/remoteLicenseKey.ts /tmp/positron-workbench-license.pub
+
+          # Clean up
+          rm -f /tmp/positron-workbench-license.pub
+
+      - name: Build Positron Workbench
+        env:
+          npm_config_arch: x64
+          MANGLER_WORKER_POOL_SIZE: 1
+        run: |
+          npm run gulp vscode-reh-web-linux-x64
+
+      - name: Package workbench tar.gz
+        run: |
+          cd ..
+          tar czvf positron/positron-workbench-linux-x64-branch.tar.gz vscode-reh-web-linux-x64
+
+      - name: Upload workbench artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: positron-workbench-linux-x64
+          path: positron-workbench-linux-x64-branch.tar.gz
+          retention-days: 1
