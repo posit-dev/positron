@@ -325,8 +325,8 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				this._identifier
 			);
 
-			// Check for cancellation after the async wait.
-			if (token.isCancellationRequested) {
+			// Check for cancellation or disposal after the async wait.
+			if (token.isCancellationRequested || this._store.isDisposed) {
 				return;
 			}
 

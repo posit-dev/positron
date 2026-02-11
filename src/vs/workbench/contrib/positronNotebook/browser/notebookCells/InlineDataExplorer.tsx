@@ -224,13 +224,14 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 			// Only show an error for genuine MethodNotFound failures, which
 			// indicate the kernel doesn't support this method.
 			const isMethodNotFound = error && typeof error === 'object' &&
-				'code' in error && (error as { code: number }).code === -32601;
+				'code' in error && typeof (error as Record<string, unknown>).code === 'number' &&
+				(error as Record<string, unknown>).code === -32601;
 			if (isMethodNotFound) {
 				services.notificationService.warn(
 					localize('openDataExplorerNotSupported', 'Opening a full Data Explorer from inline view is not supported by this kernel.')
 				);
 			} else {
-				console.debug('openDataExplorer RPC error (likely benign comm-disposed race):', error);
+				console.warn('openDataExplorer RPC error (likely benign comm-disposed race):', error);
 			}
 		}
 	};
