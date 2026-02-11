@@ -199,12 +199,9 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 	lines.push('');
 
 	for (const tc of testCases) {
-		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '';
-		const tagsSuffix = tags ? ` ${tags}` : '';
-
-		// Collapsible section with mode badge
+		// Collapsible section: <type> · <id> — <description>
 		lines.push(`<details>`);
-		lines.push(`<summary><strong>${tc.id}</strong> — ${tc.description} &nbsp;<code>${tc.mode}</code>${tagsSuffix}</summary>`);
+		lines.push(`<summary><code>${tc.mode}</code> · <strong>${tc.id}</strong> — ${tc.description}</summary>`);
 		lines.push('');
 
 		// Prompt
