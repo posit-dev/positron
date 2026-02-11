@@ -112,23 +112,22 @@ export function DndContext({
 	const isDraggingRef = React.useRef(false);
 	isDraggingRef.current = state.status === 'dragging';
 
-	// Auto-scroll controller - initialized once and updated via ref
+	// Auto-scroll controller - lazily initialized in effect to avoid side effects during render
 	const autoScrollRef = React.useRef<AutoScrollController | null>(null);
 
-	// Initialize auto-scroll controller once
-	if (autoScrollRef.current === null && autoScroll?.enabled !== false) {
-		autoScrollRef.current = new AutoScrollController(scrollContainerRef ?? null, {
-			threshold: autoScroll?.threshold,
-			speed: autoScroll?.speed,
-		});
-	}
-
-	// Update scroll container ref when it changes
 	React.useEffect(() => {
-		if (autoScrollRef.current) {
+		if (autoScroll?.enabled === false) {
+			return;
+		}
+		if (autoScrollRef.current === null) {
+			autoScrollRef.current = new AutoScrollController(scrollContainerRef ?? null, {
+				threshold: autoScroll?.threshold,
+				speed: autoScroll?.speed,
+			});
+		} else {
 			autoScrollRef.current.setScrollContainerRef(scrollContainerRef ?? null);
 		}
-	}, [scrollContainerRef]);
+	}, [scrollContainerRef, autoScroll?.enabled, autoScroll?.threshold, autoScroll?.speed]);
 
 	const registerDroppable = React.useCallback((id: string, node: HTMLElement) => {
 		droppablesRef.current.set(id, {
