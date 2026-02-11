@@ -184,39 +184,54 @@ export function DndContext({
 		setPendingDrag({ id, startPosition: position, initialRect, source });
 	}, []);
 
+	// Shared drag activation logic used by both keyboard and pointer paths.
+	// Captures initial rects/scroll, fires onDragStart, resolves activeIds, and sets state.
+	const activateDrag = React.useCallback((
+		id: string,
+		startPosition: { x: number; y: number },
+		currentPosition: { x: number; y: number },
+		initialRect: DOMRect | null,
+	) => {
+		const initialDroppableRects = new Map<string, DOMRect>();
+		for (const [droppableId, entry] of droppablesRef.current) {
+			initialDroppableRects.set(droppableId, entry.node.getBoundingClientRect());
+		}
+		const initialScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
+
+		// Fire onDragStart FIRST so multi-drag context can set activeIds
+		// This updates the multi-drag ref synchronously
+		onDragStartRef.current?.({ active: { id } });
+
+		// Now get activeIds from multi-drag context (ref was updated by startMultiDrag)
+		// Fall back to single activeId if no multi-drag context
+		const activeIds = multiDragContext?.getActiveIds() ?? [id];
+
+		// Announce drag start for screen readers
+		const items = getItems();
+		const activeIndex = items.indexOf(id);
+		setAnnouncement(getAnnouncement('start', activeIndex, null, items.length));
+
+		setState({
+			status: 'dragging',
+			activeId: id,
+			activeIds: activeIds.length > 0 ? activeIds : [id],
+			overId: null,
+			insertionIndex: null,
+			initialPosition: startPosition,
+			currentPosition,
+			initialRect,
+			initialDroppableRects,
+			initialScrollOffset,
+		});
+	}, [scrollContainerRef, multiDragContext, getItems]);
+
 	// Global pointer event handlers - attached immediately when pending or dragging
 	React.useEffect(() => {
 		// Keyboard drags activate immediately (no movement threshold needed)
 		if (pendingDrag?.source === 'keyboard') {
 			const { id, startPosition, initialRect } = pendingDrag;
 			setPendingDrag(null);
-
-			const initialDroppableRects = new Map<string, DOMRect>();
-			for (const [droppableId, entry] of droppablesRef.current) {
-				initialDroppableRects.set(droppableId, entry.node.getBoundingClientRect());
-			}
-			const initialScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
-
-			onDragStartRef.current?.({ active: { id } });
-			const activeIds = multiDragContext?.getActiveIds() ?? [id];
-
-			// Announce drag start for screen readers
-			const items = getItems();
-			const activeIndex = items.indexOf(id);
-			setAnnouncement(getAnnouncement('start', activeIndex, null, items.length));
-
-			setState({
-				status: 'dragging',
-				activeId: id,
-				activeIds: activeIds.length > 0 ? activeIds : [id],
-				overId: null,
-				insertionIndex: null,
-				initialPosition: startPosition,
-				currentPosition: startPosition,
-				initialRect,
-				initialDroppableRects,
-				initialScrollOffset,
-			});
+			activateDrag(id, startPosition, startPosition, initialRect);
 			return; // Don't attach pointer listeners for keyboard drag
 		}
 
@@ -232,44 +247,8 @@ export function DndContext({
 				);
 
 				if (distance >= activationDistance) {
-					// Activate drag
 					setPendingDrag(null);
-
-					// Capture initial rects of all droppables BEFORE any transforms are applied
-					// This prevents feedback loops where transforms affect collision detection
-					const initialDroppableRects = new Map<string, DOMRect>();
-					for (const [droppableId, entry] of droppablesRef.current) {
-						initialDroppableRects.set(droppableId, entry.node.getBoundingClientRect());
-					}
-
-					// Capture initial scroll offset for adjusting rects during scroll
-					const initialScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
-
-					// Fire onDragStart FIRST so multi-drag context can set activeIds
-					// This updates the multi-drag ref synchronously
-					onDragStartRef.current?.({ active: { id } });
-
-					// Now get activeIds from multi-drag context (ref was updated by startMultiDrag)
-					// Fall back to single activeId if no multi-drag context
-					const activeIds = multiDragContext?.getActiveIds() ?? [id];
-
-					setState({
-						status: 'dragging',
-						activeId: id,
-						activeIds: activeIds.length > 0 ? activeIds : [id],
-						overId: null,
-						insertionIndex: null,
-						initialPosition: startPosition,
-						currentPosition: position,
-						initialRect,
-						initialDroppableRects,
-						initialScrollOffset,
-					});
-
-					// Announce drag start for screen readers
-					const items = getItems();
-					const activeIndex = items.indexOf(id);
-					setAnnouncement(getAnnouncement('start', activeIndex, null, items.length));
+					activateDrag(id, startPosition, position, initialRect);
 				}
 				return;
 			}
@@ -587,7 +566,7 @@ export function DndContext({
 			window.removeEventListener('pointerup', handlePointerUp);
 			window.removeEventListener('keydown', handleKeyDown);
 		};
-	}, [state.status, pendingDrag, activationDistance, getItems, multiDragContext, scrollContainerRef]);
+	}, [state.status, pendingDrag, activationDistance, activateDrag, getItems, multiDragContext, scrollContainerRef]);
 
 	// Handle scroll events during drag - recalculate collision detection
 	// since cell positions change relative to viewport during scroll
