@@ -24,6 +24,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
+import * as typeConvert from '../extHostTypeConverters.js';
 
 /**
  * Interface for code execution observers
@@ -714,7 +715,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot get packages from runtime: session handle '${handle}' not found or no longer valid.`);
 		}
-		const session = this._runtimeSessions[handle]
+		const session = this._runtimeSessions[handle];
 		if (!session.getPackages) {
 			throw new Error(`Cannot get packages from runtime: session handle '${handle}' does not implement package management.`);
 		}
@@ -726,7 +727,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot install package from runtime: session handle '${handle}' not found or no longer valid.`);
 		}
-		const session = this._runtimeSessions[handle]
+		const session = this._runtimeSessions[handle];
 		if (!session.installPackages) {
 			throw new Error(`Cannot install packages from runtime: session handle '${handle}' does not implement package management.`);
 		}
@@ -1405,7 +1406,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @returns A promise that resolves when the request has been sent
 	 */
 	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: any[]): Promise<void> {
-		return this._proxy.$executeInlineCells(extensionId, documentUri, cellRanges);
+		// Convert vscode.Range objects to serializable IRange format
+		// Filter out undefined/null ranges in case any are invalid
+		const convertedRanges = cellRanges
+			.filter(r => r != null)
+			.map(r => typeConvert.Range.from(r)!);
+		return this._proxy.$executeInlineCells(extensionId, documentUri, convertedRanges);
 	}
 
 	/**

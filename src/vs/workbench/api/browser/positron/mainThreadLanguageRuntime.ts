@@ -44,8 +44,8 @@ import { IPositronConnectionsService } from '../../../services/positronConnectio
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 import { basename } from '../../../../base/common/resources.js';
-import { RuntimeOnlineState, Range as ExtHostRange } from '../../common/extHostTypes.js';
-import { Range } from '../../../../editor/common/core/range.js';
+import { RuntimeOnlineState } from '../../common/extHostTypes.js';
+import { Range, IRange } from '../../../../editor/common/core/range.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
@@ -1832,14 +1832,10 @@ export class MainThreadLanguageRuntime
 			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
 	}
 
-	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: ExtHostRange[]): Promise<void> {
+	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: IRange[]): Promise<void> {
 		const revivedUri = URI.revive(documentUri);
-		const cellRanges = ranges.map(r => new Range(
-			r.start.line,
-			r.start.character,
-			r.end.line,
-			r.end.character
-		));
+		// Convert IRange objects (with startLineNumber, etc.) to editor Range objects
+		const cellRanges = ranges.map(r => Range.lift(r));
 		return this._quartoExecutionManager.executeCellRanges(revivedUri, cellRanges);
 	}
 
