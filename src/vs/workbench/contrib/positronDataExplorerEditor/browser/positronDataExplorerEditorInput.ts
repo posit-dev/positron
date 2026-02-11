@@ -7,6 +7,9 @@ import { URI } from '../../../../base/common/uri.js';
 import { IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
+import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * PositronDataExplorerEditorInput class.
@@ -33,9 +36,13 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	/**
 	 * Constructor.
 	 * @param resource The resource.
+	 * @param _positronDataExplorerService The Positron data explorer service.
 	 */
-	constructor(readonly resource: URI) {
-		// Call the base class's constructor.
+	constructor(
+		readonly resource: URI,
+		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
+		@ILogService private readonly _logService: ILogService
+	) {
 		super();
 	}
 
@@ -43,13 +50,14 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
-		// Note: We intentionally do NOT dispose the dataExplorerClientInstance here.
-		// The client instance lifecycle is managed by the kernel/runtime that created it.
-		// Disposing it here would break inline data explorers in notebooks that share
-		// the same instance. The instance will be properly cleaned up when the kernel
-		// closes the comm or the runtime is shut down.
-
-		// Call the base class's dispose method.
+		// Dispose the client when this editor tab closes (sole owner)
+		const identifier = PositronDataExplorerUri.parse(this.resource);
+		if (identifier) {
+			const instance = this._positronDataExplorerService.getInstance(identifier);
+			instance?.dataExplorerClientInstance.dispose();
+		} else {
+			this._logService.warn(`PositronDataExplorerEditorInput: failed to parse URI on dispose, client instance may leak: ${this.resource.toString()}`);
+		}
 		super.dispose();
 	}
 

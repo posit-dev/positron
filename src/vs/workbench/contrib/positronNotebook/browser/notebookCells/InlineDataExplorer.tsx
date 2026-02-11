@@ -149,6 +149,12 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 					return;
 				}
 
+				// Do NOT dispose the client on unmount. The inline view may unmount
+				// temporarily (e.g., when switching editor tabs) and remount when
+				// the notebook becomes active again. The comm lifecycle is managed
+				// by the kernel (closed on cell re-execution or kernel restart)
+				// and by the DataExplorerRuntime (closed on session end).
+
 				// Create the table data cache for this inline view
 				const clientInstance = instance.dataExplorerClientInstance;
 				const tableDataCache = disposables.add(new TableDataCache(clientInstance));
@@ -195,21 +201,37 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	}, [commId, dataExplorerService, onFallback]);
 
 	const handleOpenInExplorer = async () => {
-		// Try to get the instance synchronously first
-		let instance = dataExplorerService.getInstance(commId);
-
-		// If not found, try async lookup in case of timing issue
+		const instance = dataExplorerService.getInstance(commId);
 		if (!instance) {
-			instance = await dataExplorerService.getInstanceAsync(commId, 2000);
-		}
-
-		if (instance) {
-			instance.requestFocus();
-		} else {
-			// Notify user that the instance could not be found
 			services.notificationService.warn(
 				localize('dataExplorerNotFound', 'Unable to open Data Explorer. Please re-run the cell.')
 			);
+			return;
+		}
+
+		try {
+			// Request kernel to create a new, independent data explorer.
+			// The kernel creates a new comm which auto-opens an editor tab.
+			// Note: the RPC response may not arrive if the inline view
+			// unmounts (disposing the comm) before the response is delivered.
+			// This is expected -- the new editor tab opens regardless.
+			await instance.dataExplorerClientInstance.openDataExplorer();
+		} catch (error) {
+			// The RPC may "fail" because the inline view's comm was disposed
+			// before the response arrived (the new editor tab opening causes
+			// the notebook to deactivate, unmounting this component). This is
+			// fine -- the new editor tab was already created by the kernel.
+			// Only show an error for genuine MethodNotFound failures, which
+			// indicate the kernel doesn't support this method.
+			const isMethodNotFound = error && typeof error === 'object' &&
+				'code' in error && (error as { code: number }).code === -32601;
+			if (isMethodNotFound) {
+				services.notificationService.warn(
+					localize('openDataExplorerNotSupported', 'Opening a full Data Explorer from inline view is not supported by this kernel.')
+				);
+			} else {
+				console.debug('openDataExplorer RPC error (likely benign comm-disposed race):', error);
+			}
 		}
 	};
 
