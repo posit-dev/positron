@@ -8,7 +8,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js';
 import { notebookToQmd } from '../../common/notebookToQmd.js';
 
-suite('NotebookData to QMD Serializer', () => {
+suite('notebookToQmd', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	function codeCell(code: string, language: string, metadata?: Record<string, unknown>): ICellDto2 {

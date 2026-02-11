@@ -9,7 +9,7 @@ import { qmdToNotebook } from '../../common/qmdToNotebook.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { isFrontmatterCell } from '../../common/notebookToQmd.js';
 
-suite('QMD to NotebookData Converter', () => {
+suite('qmdToNotebook', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('should convert CodeBlock to code cell', () => {
