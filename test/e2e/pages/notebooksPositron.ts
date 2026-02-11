@@ -722,16 +722,19 @@ export class PositronNotebooks extends Notebooks {
 	/**
 	 * Verify: Cell type at specified index matches expected type.
 	 * @param cellIndex - The index of the cell to check.
-	 * @param expectedType - The expected type of the cell ('code' or 'markdown').
+	 * @param expectedType - The expected type of the cell ('code', 'markdown', or 'raw').
 	 */
-	async expectCellTypeAtIndexToBe(cellIndex: number, expectedType: 'code' | 'markdown'): Promise<void> {
+	async expectCellTypeAtIndexToBe(cellIndex: number, expectedType: 'code' | 'markdown' | 'raw'): Promise<void> {
 		await test.step(`Expect cell ${cellIndex} type to be: ${expectedType}`, async () => {
 			const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
 
-			expectedType === 'code'
-				? expect(ariaLabel).toContain('Code cell')
-				: expect(ariaLabel).toContain('Markdown cell');
-
+			if (expectedType === 'code') {
+				expect(ariaLabel).toContain('Code cell');
+			} else if (expectedType === 'markdown') {
+				expect(ariaLabel).toContain('Markdown cell');
+			} else if (expectedType === 'raw') {
+				expect(ariaLabel).toContain('Raw cell');
+			}
 		});
 	}
 

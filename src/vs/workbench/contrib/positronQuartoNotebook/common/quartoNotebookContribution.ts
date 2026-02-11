@@ -7,7 +7,6 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
-import { RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { QMD_VIEW_TYPE } from './quartoNotebookConstants.js';
 import { localize } from '../../../../nls.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -32,11 +31,9 @@ class QuartoNotebookContribution extends Disposable implements IWorkbenchContrib
 		this._register(this._notebookService.registerContributedNotebookType(
 			QMD_VIEW_TYPE,
 			{
-				extension: QUARTO_NOTEBOOK_EXTENSION_ID,
 				displayName: localize('quartoNotebook.displayName', 'Quarto Notebook'),
 				providerDisplayName: localize('quartoNotebook.providerDisplayName', 'Positron'),
 				filenamePattern: ['*.qmd'],
-				priority: RegisteredEditorPriority.default,
 			}
 		));
 

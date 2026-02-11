@@ -6,6 +6,8 @@
 // --- Start Positron ---
 import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../positronNotebook/common/positronNotebookConfig.js';
+import { IPYNB_VIEW_TYPE } from '../notebookBrowser.js';
+import { QMD_VIEW_TYPE } from '../../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 // --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
@@ -191,8 +193,8 @@ export class NotebookProviderInfoStore extends Disposable {
 			// Use an editor info object so we can mutate `priority`
 			const notebookCellEditorInfo: RegisteredEditorInfo = { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive };
 
-			// For jupyter-notebook, update the notebook/cell editor priorities based on whether Positron notebooks are enabled
-			if (notebookProviderInfo.id === 'jupyter-notebook') {
+			// For notebooks supported by the Positron notebook editor, update the notebook/cell editor priorities based on whether Positron notebooks are enabled
+			if (notebookProviderInfo.id === IPYNB_VIEW_TYPE || notebookProviderInfo.id === QMD_VIEW_TYPE) {
 				const updatePriorities = () => {
 					const usingPositron = usingPositronNotebooks(this._configurationService);
 					notebookEditorInfo.priority = usingPositron

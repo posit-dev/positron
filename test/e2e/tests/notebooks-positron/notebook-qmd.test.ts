@@ -27,15 +27,11 @@ test.describe('Positron Notebooks: .qmd Support', {
 		// Open the .qmd file
 		await notebooksPositron.openNotebook('workspaces/quarto_basic/quarto_basic.qmd');
 
-		// Verify cells were parsed from the .qmd content:
-		// 1. Frontmatter cell
-		// 2. R code cell with setup
-		// 3. Markdown cell
-		// 4. R code cell with plot
+		// Check parsed cells
 		await notebooksPositron.expectCellCountToBe(4);
 
 		// 1. Frontmatter
-		await notebooksPositron.expectCellTypeAtIndexToBe(0, 'code');
+		await notebooksPositron.expectCellTypeAtIndexToBe(0, 'raw');
 		await notebooksPositron.expectCellContentAtIndexToBe(0, [
 			'---',
 			'title: "Diamond sizes"',
@@ -60,7 +56,8 @@ test.describe('Positron Notebooks: .qmd Support', {
 		await notebooksPositron.expectCellTypeAtIndexToBe(2, 'markdown');
 		await notebooksPositron.expectCellContentAtIndexToBe(2, [
 			'We have data about `r nrow(diamonds)` diamonds.',
-			'Only `r nrow(diamonds) - nrow(smaller)` are larger than 2.5 carats.',
+			'Only `r nrow(diamonds) - nrow(smaller)` are larger than 2.5 ',
+			'carats.',
 			'The distribution of the remainder is shown below:',
 		]);
 
@@ -74,5 +71,20 @@ test.describe('Positron Notebooks: .qmd Support', {
 			'  ggplot(aes(x = carat)) + ',
 			'  geom_freqpoly(binwidth = 0.01)',
 		]);
+	});
+
+	test.skip('Can edit and save a .qmd file in the Positron notebook editor', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Open the .qmd file
+		await notebooksPositron.openNotebook('workspaces/quarto_basic/quarto_basic.qmd');
+
+		// Verify cells were parsed from the .qmd content
+		await notebooksPositron.expectCellCountToBe(4);
+
+		await notebooksPositron.editModeAtIndex(3);
+		const editor = notebooksPositron.editorAtIndex(3);
+		await editor.focus();
+		editor.press('End');
 	});
 });
