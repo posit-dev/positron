@@ -53,7 +53,7 @@ interface PendingDrag {
 const IDLE_STATE: DragState = Object.freeze({
 	status: 'idle' as const,
 	activeId: null,
-	activeIds: [] as string[],
+	activeIds: Object.freeze([] as string[]) as string[],
 	overId: null,
 	insertionIndex: null,
 	initialPosition: null,

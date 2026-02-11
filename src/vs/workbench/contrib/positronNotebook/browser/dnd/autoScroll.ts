@@ -144,6 +144,10 @@ export class AutoScrollController {
 	 * Update the auto-scroll configuration (threshold and speed).
 	 */
 	setConfig(config: Partial<AutoScrollConfig>) {
-		this.config = { ...this.config, ...config };
+		// Filter out undefined values so they don't overwrite existing defaults
+		const defined = Object.fromEntries(
+			Object.entries(config).filter(([, v]) => v !== undefined)
+		);
+		this.config = { ...this.config, ...defined };
 	}
 }
