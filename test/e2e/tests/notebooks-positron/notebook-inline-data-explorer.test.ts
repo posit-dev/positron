@@ -112,7 +112,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 
 		await test.step('Verify full Data Explorer renders', async () => {
 			await dataExplorer.waitForIdle();
-			await dataExplorer.expectStatusBarToHaveText('5 x 3');
+			await dataExplorer.expectStatusBarToHaveText(/5\s+rows\s+3\s+columns/);
 		});
 
 		await test.step('Close Data Explorer tab and return to notebook', async () => {
@@ -155,7 +155,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 		});
 	});
 
-	test('Python - Verify re-execution updates the inline data explorer', async function ({ app }) {
+	test('Python - Verify re-execution updates the inline data explorer', async function ({ app, hotKeys }) {
 		const { notebooksPositron, inlineDataExplorer } = app.workbench;
 
 		const initialCode = `import pandas as pd
@@ -183,7 +183,7 @@ df`;
 			await notebooksPositron.editModeAtIndex(0);
 			const editor = notebooksPositron.editorAtIndex(0);
 			await editor.focus();
-			await app.code.driver.page.keyboard.press('Meta+a');
+			await hotKeys.selectAll();
 			await editor.pressSequentially(updatedCode);
 			await notebooksPositron.runCodeAtIndex(0);
 		});
