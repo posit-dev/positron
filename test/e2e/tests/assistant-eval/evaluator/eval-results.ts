@@ -177,7 +177,7 @@ export function generateCatalog(testCases: CatalogTestCase[]): void {
 		return;
 	}
 
-	const catalogPath = join(__dirname, '..', 'LLM_EVAL_TEST_CATALOG.md');
+	const catalogPath = join(__dirname, '..', 'EVAL_CATALOG.md');
 
 	// Sort by ID for deterministic order
 	const sortedCases = [...testCases].sort((a, b) => a.id.localeCompare(b.id));

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { EvalTestCase } from './types';
+import { EvalTestCase } from '../types';
 
 // Import all test cases
 import { rForestedHallucination } from './r-forested-hallucination';
@@ -27,4 +27,4 @@ export const testCases: EvalTestCase[] = [
 ];
 
 // Re-export types for convenience
-export { EvalTestCase, TestFixtures, EvaluationCriteria } from './types';
+export { EvalTestCase, TestFixtures, EvaluationCriteria } from '../types';

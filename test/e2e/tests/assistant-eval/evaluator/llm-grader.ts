@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import Anthropic from '@anthropic-ai/sdk';
-import { EvaluationCriteria, EvaluationResult } from '../test-cases/types';
+import { EvaluationCriteria, EvaluationResult } from '../types';
 
 /**
  * Model used for grading responses. Using a specific version for consistent evaluation.

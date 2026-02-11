@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { join } from 'path';
-import { EvalTestCase } from './types';
+import { EvalTestCase } from '../types';
 
 /**
  * Test: getTableSummary tool usage

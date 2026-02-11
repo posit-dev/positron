@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { TestTags } from '../../../infra';
-import { EvalTestCase } from './types';
+import { EvalTestCase } from '../types';
 
 /**
  * Test: R forested package hallucination check

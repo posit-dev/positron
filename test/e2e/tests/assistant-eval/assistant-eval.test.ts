@@ -19,12 +19,12 @@ test.use({
  * Use Opus:      EVAL_MODELS=opus npx playwright test assistant-eval --project e2e-electron
  * Both models:   EVAL_MODELS=sonnet,opus npx playwright test assistant-eval --project e2e-electron
  */
-test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAIL] }, () => {
+test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL] }, () => {
 
-	test.beforeAll(async ({ app }) => {
+	test.beforeAll(async ({ assistant }) => {
 		initResults();
-		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.loginModelProvider('anthropic-api');
+		await assistant.openPositronAssistantChat();
+		await assistant.loginModelProvider('anthropic-api');
 	});
 
 	// Generate test suites for each model
@@ -93,12 +93,12 @@ test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL, tags.SOFT_FAI
 		});
 	});
 
-	test.afterAll(async ({ app }, testInfo) => {
+	test.afterAll(async ({ assistant }, testInfo) => {
 		const logPath = finalizeResults();
 		if (logPath) {
 			await testInfo.attach('evaluation-log.json', { path: logPath, contentType: 'application/json' });
 		}
 		generateCatalog(testCases);
-		await app.workbench.assistant.logoutModelProvider('anthropic-api');
+		await assistant.logoutModelProvider('anthropic-api');
 	});
 });
