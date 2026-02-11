@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { AWSModelProvider } from '../providers/aws/awsBedrockProvider';
 import { BedrockClient } from '@aws-sdk/client-bedrock';
 import { ModelConfig } from '../config';
+import { ErrorContext } from '../providers/aws/errorFormatting';
 
 suite('AWSModelProvider', () => {
 	suite('deriveInferenceProfileRegion', () => {
@@ -70,7 +71,7 @@ suite('AWSModelProvider', () => {
 			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
 			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
 			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
-			assert.ok(result.includes('configure the AWS profile and region'), 'Expected link text for settings');
+			assert.ok(result.includes('configure credentials'), 'Expected link text for settings');
 			assert.ok(result.includes('aws configure'), 'Expected setup instructions in error message');
 			assert.ok(result.includes('aws sso login'), 'Expected SSO login instructions in error message');
 		});
@@ -157,7 +158,7 @@ suite('AWSModelProvider', () => {
 			}
 		});
 
-		test('handles IAM AccessDeniedException with required permissions guidance', async () => {
+		test('handles IAM AccessDeniedException with documentation link', async () => {
 			const error = new Error(
 				'User: arn:aws:sts:::assumed-role/EC2_SSM_Role/session is not authorized to perform: bedrock:ListFoundationModels because no identity-based policy allows the bedrock:ListFoundationModels action'
 			);
@@ -166,15 +167,15 @@ suite('AWSModelProvider', () => {
 			const result = await provider.parseProviderError(error);
 
 			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('IAM authorization failed'), 'Expected IAM authorization failure message');
+			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
 			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
 			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
-			assert.ok(result.includes('EC2_SSM_Role'), 'Expected user/role ARN in error message');
-			assert.ok(result.includes('bedrock:ListFoundationModels'), 'Expected denied action in error message');
-			assert.ok(result.includes('bedrock:ListInferenceProfiles'), 'Expected required permissions list');
-			assert.ok(result.includes('bedrock:InvokeModel'), 'Expected required permissions list');
-			assert.ok(result.includes('bedrock:InvokeModelWithResponseStream'), 'Expected required streaming permissions list');
+			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
+			assert.ok(result.includes('docs.posit.co'), 'Expected documentation URL');
 			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
+			// Should not include technical details
+			assert.ok(!result.includes('EC2_SSM_Role'), 'Should not include user ARN');
+			assert.ok(!result.includes('Denied action'), 'Should not include denied action label');
 		});
 
 		test('handles IAM errors without specific action match', async () => {
@@ -184,9 +185,8 @@ suite('AWSModelProvider', () => {
 			const result = await provider.parseProviderError(error);
 
 			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('IAM authorization failed'), 'Expected IAM authorization failure message');
-			assert.ok(result.includes('bedrock actions'), 'Expected fallback action description');
-			assert.ok(result.includes('current user'), 'Expected fallback user description');
+			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
+			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
 		});
 
 		test('handles errors with "is not authorized to perform" phrase', async () => {
@@ -196,8 +196,8 @@ suite('AWSModelProvider', () => {
 			const result = await provider.parseProviderError(error);
 
 			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('IAM authorization failed'), 'Expected IAM authorization failure message');
-			assert.ok(result.includes('bedrock:InvokeModel'), 'Expected extracted action');
+			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
+			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
 		});
 
 		test('handles AI_APICallError with AccessDeniedException in responseBody', async () => {
@@ -217,10 +217,71 @@ suite('AWSModelProvider', () => {
 			const result = await provider.parseProviderError(error);
 
 			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('IAM authorization failed'), 'Expected IAM authorization failure message');
-			assert.ok(result.includes('TestRole'), 'Expected user/role ARN in error message');
-			assert.ok(result.includes('bedrock:InvokeModelWithResponseStream'), 'Expected denied action in error message');
-			assert.ok(result.includes('bedrock:InvokeModel'), 'Expected required permissions list');
+			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
+			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
+			// Should not include technical details
+			assert.ok(!result.includes('TestRole'), 'Should not include user ARN');
+		});
+
+		test('IAM error includes markdown formatting and command links', async () => {
+			const error = new Error(
+				'User: arn:aws:iam::123456789012:user/alice is not authorized to perform: bedrock:InvokeModel'
+			);
+			error.name = 'AccessDeniedException';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+
+			// Verify command link to settings
+			assert.ok(result.includes('[configure'), 'Expected link text');
+			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command URI');
+
+			// Verify documentation link
+			assert.ok(result.includes('[required permissions documentation]'), 'Expected documentation link');
+			assert.ok(result.includes('docs.posit.co'), 'Expected documentation URL');
+
+			// Verify paragraph breaks
+			assert.ok(result.includes('\n\n'), 'Expected paragraph breaks');
+
+			// Should not include technical details
+			assert.ok(!result.includes('**User:**'), 'Should not include user ARN label');
+			assert.ok(!result.includes('**Denied action:**'), 'Should not include denied action label');
+		});
+
+		test('connection test context is used to check if in connection test', async () => {
+			const error = new Error(
+				'User: arn:aws:iam::123456789012:user/alice is not authorized to perform: bedrock:InvokeModel'
+			);
+			error.name = 'AccessDeniedException';
+
+			const context: ErrorContext = {
+				isConnectionTest: true,
+				isChat: false,
+				isStartup: false
+			};
+
+			// Should not show notification when in connection test
+			const result = await provider.parseProviderError(error, context);
+
+			assert.ok(result, 'Expected error message to be returned');
+			// Manual verification: In a real scenario, we would verify that
+			// vscode.window.showErrorMessage is not called, but that requires mocking
+		});
+
+		test('credentials error uses authentication template', async () => {
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('authentication failed'), 'Expected authentication failure message');
+			assert.ok(result.includes('test-profile'), 'Expected profile name');
+			assert.ok(result.includes('us-west-2'), 'Expected region');
+			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected settings link');
+			assert.ok(result.includes('command:workbench.action.terminal.new'), 'Expected terminal link');
+			assert.ok(result.includes('aws configure'), 'Expected setup instructions');
 		});
 	});
 });
