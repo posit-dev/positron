@@ -1404,6 +1404,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// CellEditType.Move assumes contiguous indices. Bail out if non-contiguous
 		// to avoid silent data corruption (callers should pre-filter).
 		if (!indices.every((idx, i) => i === 0 || idx === indices[i - 1] + 1)) {
+			console.warn(`[moveCells] Non-contiguous indices [${indices.join(', ')}] - callers should pre-filter`);
 			return;
 		}
 

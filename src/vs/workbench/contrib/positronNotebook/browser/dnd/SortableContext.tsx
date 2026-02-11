@@ -111,7 +111,11 @@ export function SortableContext({
 			if (isContiguous) {
 				onBatchReorder(fromIndices, insertionIndex);
 			} else {
-				// Non-contiguous selection: only move the primary dragged cell
+				// Non-contiguous selection: batch move not supported, fall back to single cell
+				console.warn(
+					`[DnD] Non-contiguous multi-drag selection (indices: [${fromIndices.join(', ')}]). ` +
+					'Only the primary dragged cell will be moved.'
+				);
 				const primaryIndex = items.indexOf(event.active.id);
 				if (primaryIndex !== -1) {
 					const newIndex = insertionIndex > primaryIndex
