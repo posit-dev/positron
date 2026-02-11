@@ -111,10 +111,14 @@ export class AutoScrollController {
 				(container as HTMLElement).scrollLeft += delta.x;
 				(container as HTMLElement).scrollTop += delta.y;
 			}
+			// Continue scrolling while there is non-zero delta
+			this.animationFrameId = requestAnimationFrame(this.scrollLoop);
+		} else {
+			// Stop the loop when cursor is away from edges.
+			// The next update() call will restart it if needed.
+			this.isScrolling = false;
+			this.animationFrameId = null;
 		}
-
-		// Continue the scroll loop
-		this.animationFrameId = requestAnimationFrame(this.scrollLoop);
 	};
 
 	/**
