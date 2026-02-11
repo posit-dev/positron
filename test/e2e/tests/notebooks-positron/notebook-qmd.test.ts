@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
@@ -11,62 +10,41 @@ test.use({
 	suiteId: __filename
 });
 
-// Enable plain text notebook support and associate .qmd files with
-// the Positron notebook editor
 test.beforeAll(async function ({ settings }) {
+	// Make the Positron notebook editor the default for .qmd files
 	await settings.set({
-		'positron.notebook.plainText.enable': true,
 		'workbench.editorAssociations': { '*.qmd': 'workbench.editor.positronNotebook' },
 	});
 });
 
-test.describe('Positron Notebooks: QMD Files', {
+test.describe('Positron Notebooks: .qmd Support', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.QUARTO]
 }, () => {
 
-	test('Can open a .qmd file in the Positron notebook editor', async function ({ app, openFile }) {
-		const { notebooksPositron, editors } = app.workbench;
-		const page = app.code.driver.page;
+	test('Can open a .qmd file in the Positron notebook editor', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
 
-		// Wait for the Quarto notebook serializer to be registered.
-		// The QuartoNotebookContribution registers at WorkbenchPhase.AfterRestored,
-		// which runs asynchronously in idle cycles. Without this wait, the file
-		// may open before the serializer is ready, causing an editor error.
-		await page.waitForTimeout(2000);
-
-		// Open the .qmd file (skip waitForFocus since notebook editors don't
-		// have a focusable Monaco text editor)
-		await openFile('workspaces/quarto_basic/quarto_basic.qmd', false);
-
-		// Race: wait for either the notebook to appear or an editor error
-		const notebook = page.locator('.positron-notebook').first();
-		const editorError = page.getByText('The editor could not be opened');
-		const result = await Promise.race([
-			notebook.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'notebook' as const),
-			editorError.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error' as const),
-		]).catch(() => 'timeout' as const);
-
-		if (result === 'timeout') {
-			// Neither appeared — dump page content for debugging
-			const bodyText = await page.locator('body').innerText();
-			throw new Error(`Neither the Positron notebook nor an editor error appeared within 15s.\nPage text:\n${bodyText.substring(0, 2000)}`);
-		}
-
-		// Fail immediately with a clear message if the editor errored
-		expect(result, 'Expected the Positron notebook editor to open, but got an editor error instead. ' +
-			'Check the Positron logs for details.').toBe('notebook');
-
-		// Verify the active tab shows the .qmd file
-		await editors.waitForActiveTab('quarto_basic.qmd', false);
+		// Open the .qmd file
+		await notebooksPositron.openNotebook('workspaces/quarto_basic/quarto_basic.qmd');
 
 		// Verify cells were parsed from the .qmd content:
-		// 1. YAML frontmatter cell
-		// 2. R code cell (setup)
-		// 3. Markdown cell (diamond sizes text)
-		// 4. R code cell (plot)
+		// 1. Frontmatter cell
+		// 2. R code cell with setup
+		// 3. Markdown cell
+		// 4. R code cell with plot
 		await notebooksPositron.expectCellCountToBe(4);
 
-		// Verify the first code cell contains the expected R code
+		// 1. Frontmatter
+		await notebooksPositron.expectCellTypeAtIndexToBe(0, 'code');
+		await notebooksPositron.expectCellContentAtIndexToBe(0, [
+			'---',
+			'title: "Diamond sizes"',
+			'date: 2022-09-12',
+			'format: html',
+			'---',
+		]);
+
+		// 2. R code cell with setup
 		await notebooksPositron.expectCellTypeAtIndexToBe(1, 'code');
 		await notebooksPositron.expectCellContentAtIndexToBe(1, [
 			'#| label: setup',
@@ -74,8 +52,27 @@ test.describe('Positron Notebooks: QMD Files', {
 			'',
 			'library(tidyverse)',
 			'',
-			'smaller <- diamonds |>',
+			'smaller <- diamonds |> ',
 			'  filter(carat <= 2.5)',
+		]);
+
+		// 3. Markdown cell
+		await notebooksPositron.expectCellTypeAtIndexToBe(2, 'markdown');
+		await notebooksPositron.expectCellContentAtIndexToBe(2, [
+			'We have data about `r nrow(diamonds)` diamonds.',
+			'Only `r nrow(diamonds) - nrow(smaller)` are larger than 2.5 carats.',
+			'The distribution of the remainder is shown below:',
+		]);
+
+		// 4. R code cell with plot
+		await notebooksPositron.expectCellTypeAtIndexToBe(3, 'code');
+		await notebooksPositron.expectCellContentAtIndexToBe(3, [
+			'#| label: plot-smaller-diamonds',
+			'#| echo: false',
+			'',
+			'smaller |> ',
+			'  ggplot(aes(x = carat)) + ',
+			'  geom_freqpoly(binwidth = 0.01)',
 		]);
 	});
 });
