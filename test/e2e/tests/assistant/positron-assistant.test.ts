@@ -23,9 +23,22 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	 */
 	test('Verify Positron Assistant enabled', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.verifyAddModelButtonVisible();
+		await app.workbench.assistant.verifyConfigureProvidersButtonVisible();
 	});
 
+	/**
+	 * Verifies that Posit AI is the first provider in the Configure Providers modal.
+	 * This ensures Posit AI has prominence as the default/recommended provider.
+	 *
+	 * @param app - Application fixture providing access to UI elements
+	 */
+	test('Verify Posit AI is first provider in modal', async function ({ app }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.clickConfigureProvidersButton();
+		const providerNames = await app.workbench.assistant.getProviderButtonNames();
+		expect(providerNames[0]).toBe('Posit AI');
+		await app.workbench.assistant.clickCloseButton();
+	});
 
 	/**
 	 * Verifies an error is returned when a bad api key is input.
@@ -34,7 +47,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	 */
 	test('Anthropic: Verify Bad API key results in error', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.clickConfigureProvidersButton();
 		await app.workbench.assistant.selectModelProvider('anthropic-api');
 		await app.workbench.assistant.enterApiKey('1234');
 		await app.workbench.assistant.clickSignInButton();
@@ -109,7 +122,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	});
 
 	test('Verify Authentication Type When Switching Providers', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.runConfigureProviders();
 		await app.workbench.assistant.selectModelProvider('Copilot');
 		await app.workbench.assistant.verifyAuthMethod('oauth');
 		await app.workbench.assistant.selectModelProvider('anthropic-api');
@@ -204,9 +217,7 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 	test('Verify default model indicator and ordering for single provider', async function ({ app, settings }) {
 		// Configure the Echo Language Model v2 as the default for the echo provider
 		await settings.set({
-			'positron.assistant.models.preference.byProvider': {
-				'echo': 'Echo Language Model v2'
-			}
+			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
 		}, { reload: true });
 
 		// Open the model picker dropdown
@@ -238,7 +249,7 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 
 		// Clean up: reset the setting
 		await settings.set({
-			'positron.assistant.models.preference.byProvider': {}
+			'positron.assistant.models.preference.echo': ''
 		});
 	});
 
@@ -261,7 +272,8 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	test.afterAll('Sign out of providers and clean up', async function ({ app, settings }) {
 		// Clean up settings
 		await settings.set({
-			'positron.assistant.models.preference.byProvider': {}
+			'positron.assistant.models.preference.anthropic': '',
+			'positron.assistant.models.preference.echo': ''
 		});
 
 		// Sign out of providers (methods handle auto-sign-in detection)
@@ -283,10 +295,8 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings, runCommand }) {
 		// Configure defaults for both Anthropic and Echo providers
 		await settings.set({
-			'positron.assistant.models.preference.byProvider': {
-				'anthropic-api': 'Claude Haiku 4.5',
-				'echo': 'Echo Language Model v2'
-			}
+			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
+			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
 		}, { reload: true });
 
 		// Sign in to Anthropic (method handles auto-sign-in detection)
@@ -298,45 +308,47 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 		}
 
 		await expect(async () => {
-			await app.workbench.assistant.pickModel();
+			try {
+				await app.workbench.assistant.pickModel();
 
-			// Get all models from the picker
-			const models = await app.workbench.assistant.getModelPickerItems();
+				// Get all models from the picker
+				const models = await app.workbench.assistant.getModelPickerItems();
 
-			// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
-			const anthropicDefault = models.find(m => m.label === 'Claude Haiku 4.5 (default)');
-			expect(anthropicDefault, 'Expected Claude Haiku 4.5 to have "(default)" indicator').toBeDefined();
-			expect(anthropicDefault?.isDefault).toBe(true);
+				// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
+				const anthropicDefault = models.find(m => m.label === 'Claude Haiku 4.5 (default)');
+				expect(anthropicDefault, 'Expected Claude Haiku 4.5 to have "(default)" indicator').toBeDefined();
+				expect(anthropicDefault?.isDefault).toBe(true);
 
-			// Verify other Anthropic models do NOT have "(default)"
-			const anthropicNonDefault = models.find(m => m.label === 'Claude Sonnet 4' && !m.isDefault);
-			expect(anthropicNonDefault, 'Expected Claude Sonnet 4 to exist without "(default)" indicator').toBeDefined();
+				// Verify other Anthropic models do NOT have "(default)"
+				const anthropicNonDefault = models.find(m => m.label === 'Claude Sonnet 4' && !m.isDefault);
+				expect(anthropicNonDefault, 'Expected Claude Sonnet 4 to exist without "(default)" indicator').toBeDefined();
 
-			// Verify Echo default - Echo Language Model v2 should have "(default)"
-			const echoDefault = models.find(m => m.label === 'Echo Language Model v2 (default)');
-			expect(echoDefault, 'Expected Echo Language Model v2 to have "(default)" indicator').toBeDefined();
-			expect(echoDefault?.isDefault).toBe(true);
+				// Verify Echo default - Echo Language Model v2 should have "(default)"
+				const echoDefault = models.find(m => m.label === 'Echo Language Model v2 (default)');
+				expect(echoDefault, 'Expected Echo Language Model v2 to have "(default)" indicator').toBeDefined();
+				expect(echoDefault?.isDefault).toBe(true);
 
-			// Verify other Echo model does NOT have "(default)"
-			const echoNonDefault = models.find(m => m.label === 'Echo' && !m.isDefault);
-			expect(echoNonDefault, 'Expected Echo to exist without "(default)" indicator').toBeDefined();
+				// Verify other Echo model does NOT have "(default)"
+				const echoNonDefault = models.find(m => m.label === 'Echo' && !m.isDefault);
+				expect(echoNonDefault, 'Expected Echo to exist without "(default)" indicator').toBeDefined();
 
-			// Verify default models appear first in their respective vendor groups
-			// Check Anthropic vendor group - Haiku should be first
-			const anthropicModels = await app.workbench.assistant.getModelPickerItemsForVendor('Anthropic');
-			expect(anthropicModels.length).toBeGreaterThanOrEqual(2);
-			expect(anthropicModels[0].label).toBe('Claude Haiku 4.5 (default)');
-			expect(anthropicModels[0].isDefault).toBe(true);
+				// Verify default models appear first in their respective vendor groups
+				// Check Anthropic vendor group - Haiku should be first
+				const anthropicModels = await app.workbench.assistant.getModelPickerItemsForVendor('Anthropic');
+				expect(anthropicModels.length).toBeGreaterThanOrEqual(2);
+				expect(anthropicModels[0].label).toBe('Claude Haiku 4.5 (default)');
+				expect(anthropicModels[0].isDefault).toBe(true);
 
-			// Check Echo vendor group - v2 should be first
-			const echoModels = await app.workbench.assistant.getModelPickerItemsForVendor('Echo');
-			expect(echoModels.length).toBeGreaterThanOrEqual(2);
-			expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
-			expect(echoModels[0].isDefault).toBe(true);
+				// Check Echo vendor group - v2 should be first
+				const echoModels = await app.workbench.assistant.getModelPickerItemsForVendor('Echo');
+				expect(echoModels.length).toBeGreaterThanOrEqual(2);
+				expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
+				expect(echoModels[0].isDefault).toBe(true);
+			} finally {
+				// Always close dropdown to ensure clean state for retry
+				await app.workbench.assistant.closeModelPickerDropdown().catch(() => { });
+			}
 		}).toPass({ timeout: 30000 });
-
-		// Close the dropdown
-		await app.workbench.assistant.closeModelPickerDropdown();
 	});
 });
 
