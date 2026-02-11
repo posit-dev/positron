@@ -14,7 +14,7 @@ permissions:
 jobs:
   build-workbench:
     name: Build Positron Workbench Linux x64
-    runs-on: ubuntu-22.04-x64-4-core
+    runs-on: ubuntu-latest-8x
     timeout-minutes: 180
     outputs:
       artifact-name: positron-workbench-linux-x64
