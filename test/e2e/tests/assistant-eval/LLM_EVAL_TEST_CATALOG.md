@@ -1,11 +1,13 @@
 # Positron: LLM Eval Test Catalog
 
-> 4 test cases · Auto-generated on 2026-02-11T19:32:09.588Z
+> 4 test cases · Auto-generated on 2026-02-11T19:38:03.355Z
 
 <details>
-<summary><strong>python-edit-file</strong> · Edit — <em>Ensure editFile tool is called when editing files</em></summary>
+<summary><strong>python-edit-file</strong> · Edit · Ensure editFile tool is called when editing files</summary>
 
-**Intent:** Ensure editFile tool is called when editing files
+### Intent
+
+Ensure editFile tool is called when editing files
 
 ### User prompt
 
@@ -29,9 +31,11 @@ Add a method to return today's date.
 </details>
 
 <details>
-<summary><strong>python-no-execution-hallucination</strong> · Edit — <em>Ensure LLM does not hallucinate execution results</em></summary>
+<summary><strong>python-no-execution-hallucination</strong> · Edit · Ensure LLM does not hallucinate execution results</summary>
 
-**Intent:** Ensure LLM does not hallucinate execution results
+### Intent
+
+Ensure LLM does not hallucinate execution results
 
 ### User prompt
 
@@ -60,9 +64,11 @@ Extract the animal's primary color from their physical characteristics.
 </details>
 
 <details>
-<summary><strong>python-table-summary</strong> · Ask — <em>Ensure getTableSummary tool is called when summ...</em></summary>
+<summary><strong>python-table-summary</strong> · Ask · Ensure getTableSummary tool is called when summ...</summary>
 
-**Intent:** Ensure getTableSummary tool is called when summarizing data
+### Intent
+
+Ensure getTableSummary tool is called when summarizing data
 
 ### User prompt
 
@@ -86,9 +92,11 @@ Summarize my table df.
 </details>
 
 <details>
-<summary><strong>r-forested-hallucination</strong> · Ask — <em>Ensure LLM does not hallucinate column names fo...</em></summary>
+<summary><strong>r-forested-hallucination</strong> · Ask · Ensure LLM does not hallucinate column names fo...</summary>
 
-**Intent:** Ensure LLM does not hallucinate column names for unknown R packages
+### Intent
+
+Ensure LLM does not hallucinate column names for unknown R packages
 
 ### User prompt
 

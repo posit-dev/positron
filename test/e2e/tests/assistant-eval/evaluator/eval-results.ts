@@ -202,9 +202,11 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 		// Collapsible section: id · mode — hint
 		const hint = tc.description.length > 50 ? tc.description.slice(0, 47) + '...' : tc.description;
 		lines.push(`<details>`);
-		lines.push(`<summary><strong>${tc.id}</strong> · ${tc.mode} — <em>${hint}</em></summary>`);
+		lines.push(`<summary><strong>${tc.id}</strong> · ${tc.mode} · ${hint}</summary>`);
 		lines.push('');
-		lines.push(`**Intent:** ${tc.description}`);
+		lines.push(`### Intent`);
+		lines.push('');
+		lines.push(tc.description);
 		lines.push('');
 
 		// User prompt
