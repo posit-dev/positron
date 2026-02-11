@@ -216,6 +216,10 @@ export function DndContext({
 	) => {
 		const initialDroppableRects = new Map<string, DOMRect>();
 		for (const [droppableId, entry] of droppablesRef.current) {
+			// Skip detached nodes that may have been unmounted between render and activation
+			if (!entry.node.isConnected) {
+				continue;
+			}
 			initialDroppableRects.set(droppableId, entry.node.getBoundingClientRect());
 		}
 		const initialScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
