@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 4 test cases · Auto-generated on 2026-02-11T18:40:44.765Z
+> 4 test cases · Auto-generated on 2026-02-11T18:45:24.342Z
 
 ## Summary
 
@@ -15,9 +15,9 @@
 
 <a id="python-edit-file"></a>
 <details>
-<summary><strong>python-edit-file</strong> — Ensure editFile tool is called when editing files in Edit mode</summary>
+<summary><strong>python-edit-file</strong> — Ensure editFile tool is called when editing files in Edit mode <code>Edit</code></summary>
 
-### Prompt `Edit`
+### Prompt
 
 ```text
 Add a method to return today's date.
@@ -40,9 +40,9 @@ Add a method to return today's date.
 
 <a id="python-no-execution-hallucination"></a>
 <details>
-<summary><strong>python-no-execution-hallucination</strong> — Ensure LLM does not hallucinate execution results in Edit mode</summary>
+<summary><strong>python-no-execution-hallucination</strong> — Ensure LLM does not hallucinate execution results in Edit mode <code>Edit</code></summary>
 
-### Prompt `Edit`
+### Prompt
 
 ```text
 Extract the animal's primary color from their physical characteristics.
@@ -70,9 +70,9 @@ Extract the animal's primary color from their physical characteristics.
 
 <a id="python-table-summary"></a>
 <details>
-<summary><strong>python-table-summary</strong> — Ensure getTableSummary tool is called when summarizing data in Ask mode</summary>
+<summary><strong>python-table-summary</strong> — Ensure getTableSummary tool is called when summarizing data in Ask mode <code>Ask</code></summary>
 
-### Prompt `Ask`
+### Prompt
 
 ```text
 Summarize my table df.
@@ -95,9 +95,9 @@ Summarize my table df.
 
 <a id="r-forested-hallucination"></a>
 <details>
-<summary><strong>r-forested-hallucination</strong> — Ensure LLM does not hallucinate column names for unknown R packages</summary>
+<summary><strong>r-forested-hallucination</strong> — Ensure LLM does not hallucinate column names for unknown R packages <code>Ask</code> `@:ark`</summary>
 
-### Prompt `Ask` | `@:ark`
+### Prompt
 
 ```text
 Load the forested package and make some plots of the forested data

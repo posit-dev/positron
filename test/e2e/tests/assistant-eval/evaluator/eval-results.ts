@@ -216,16 +216,16 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 	for (const tc of testCases) {
 		const tags = tc.tags?.map(t => `\`${String(t)}\``).join(' ') || '';
 		const anchorId = tc.id.toLowerCase().replace(/[^a-z0-9]/g, '-');
-		const tagsSuffix = tags ? ` | ${tags}` : '';
+		const tagsSuffix = tags ? ` ${tags}` : '';
 
-		// Anchor for navigation + collapsible section
+		// Anchor for navigation + collapsible section with mode badge
 		lines.push(`<a id="${anchorId}"></a>`);
 		lines.push(`<details>`);
-		lines.push(`<summary><strong>${tc.id}</strong> — ${tc.description}</summary>`);
+		lines.push(`<summary><strong>${tc.id}</strong> — ${tc.description} <code>${tc.mode}</code>${tagsSuffix}</summary>`);
 		lines.push('');
 
-		// Prompt with mode badge
-		lines.push(`### Prompt \`${tc.mode}\`${tagsSuffix}`);
+		// Prompt
+		lines.push(`### Prompt`);
 		lines.push('');
 		lines.push('```text');
 		lines.push(tc.prompt);
