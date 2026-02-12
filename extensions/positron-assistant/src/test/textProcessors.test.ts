@@ -111,4 +111,40 @@ suite('Text Processors', () => {
 		assert.strictEqual(textEdits[0].edits[0].newText, '');
 		assert.strictEqual(textEdits[1].edits[0].newText, 'new content');
 	});
+
+	test('ReplaceStringProcessor throws error when text appears multiple times', async () => {
+		// Create a document with duplicate text
+		const duplicateDoc = mock<vscode.TextDocument>({
+			uri: mockUri,
+			getText: () => 'test content\nsome other line\ntest content',
+			positionAt: (offset: number) => {
+				// Simple line calculation for test
+				const text = 'test content\nsome other line\ntest content';
+				const lines = text.substring(0, offset).split('\n');
+				return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+			},
+			offsetAt: (position: vscode.Position) => {
+				const text = 'test content\nsome other line\ntest content';
+				const lines = text.split('\n');
+				let offset = 0;
+				for (let i = 0; i < position.line && i < lines.length; i++) {
+					offset += lines[i].length + 1; // +1 for newline
+				}
+				return offset + position.character;
+			}
+		});
+
+		const defaultTextProcessor = new DefaultTextProcessor(mockResponse);
+		const processor = new ReplaceStringProcessor(duplicateDoc, mockResponse, defaultTextProcessor);
+
+		try {
+			await processor.process('<replaceString><old>test content</old><new>new content</new></replaceString>');
+			await processor.flush();
+			assert.fail('Expected error for multiple occurrences');
+		} catch (error: any) {
+			assert.ok(error.message.includes('multiple occurrences'));
+			assert.ok(error.message.includes('line 1'));
+			assert.ok(error.message.includes('line 3'));
+		}
+	});
 });
