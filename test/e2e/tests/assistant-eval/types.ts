@@ -4,18 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, TestTags, Sessions, HotKeys, TestTeardown } from '../../infra';
-
-/**
- * Settings fixture for configuring application settings.
- */
-export interface Settings {
-	set: (settings: Record<string, unknown>, options?: {
-		reload?: boolean | 'web';
-		waitMs?: number;
-		waitForReady?: boolean;
-		keepOpen?: boolean;
-	}) => Promise<void>;
-}
+import { Settings } from '../../fixtures/test-setup/settings.fixtures';
 
 /**
  * Playwright fixtures passed to test case run functions.
