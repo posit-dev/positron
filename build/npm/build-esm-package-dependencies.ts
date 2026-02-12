@@ -15,8 +15,63 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 	// Log.
 	console.log(`Building ESM package dependencies to ${outdir}...`);
 
-	// Define entry points for dependencies to bundle. These should have corresponding entries in package.json.
-	const entryPoints = ['he', 'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'react-window', 'scheduler'];
+	// Define the export map that specifies which named exports to create for each dependency.
+	// Entry points are derived from the keys of this map.
+	const exportMap: Record<string, string[]> = {
+		'he': [
+			'decode',
+			'encode',
+			'escape',
+			'unescape'
+		],
+		'react/jsx-runtime': [
+			'jsx',
+			'jsxs',
+			'Fragment'
+		],
+		'react': [
+			'Component',
+			'PureComponent',
+			'Fragment',
+			'StrictMode',
+			'Suspense',
+			'useState',
+			'useEffect',
+			'useContext',
+			'useReducer',
+			'useCallback',
+			'useMemo',
+			'useRef',
+			'useImperativeHandle',
+			'useLayoutEffect',
+			'useDebugValue',
+			'createElement',
+			'createContext',
+			'forwardRef',
+			'memo',
+			'lazy'],
+		'react-dom/client': [
+			'createRoot',
+			'hydrateRoot'
+		],
+		'react-dom': [
+			'render',
+			'hydrate',
+			'unmountComponentAtNode',
+			'findDOMNode',
+			'createPortal',
+			'flushSync'
+		],
+		'react-window': [
+			'FixedSizeList',
+			'VariableSizeList',
+			'FixedSizeGrid',
+			'VariableSizeGrid'
+		],
+	};
+
+	// Derive entry points from the export map keys.
+	const entryPoints = Object.keys(exportMap);
 
 	// Bundle the entry points with esbuild.
 	esbuild.buildSync({
@@ -71,60 +126,6 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 	*/
 
 	// Post-process: Replace default-only exports with named + default exports.
-	const exportMap: Record<string, string[]> = {
-		'he': [
-			'decode',
-			'encode',
-			'escape',
-			'unescape'
-		],
-		'react/jsx-runtime': [
-			'jsx',
-			'jsxs',
-			'Fragment'
-		],
-		'react': [
-			'Component',
-			'PureComponent',
-			'Fragment',
-			'StrictMode',
-			'Suspense',
-			'useState',
-			'useEffect',
-			'useContext',
-			'useReducer',
-			'useCallback',
-			'useMemo',
-			'useRef',
-			'useImperativeHandle',
-			'useLayoutEffect',
-			'useDebugValue',
-			'createElement',
-			'createContext',
-			'forwardRef',
-			'memo',
-			'lazy'],
-		'react-dom/client': [
-			'createRoot',
-			'hydrateRoot'
-		],
-		'react-dom': [
-			'render',
-			'hydrate',
-			'unmountComponentAtNode',
-			'findDOMNode',
-			'createPortal',
-			'flushSync'
-		],
-		'react-window': [
-			'FixedSizeList',
-			'VariableSizeList',
-			'FixedSizeGrid',
-			'VariableSizeGrid'
-		],
-	};
-
-	// For each entry, read the generated file, find the default export, and create named exports.
 	for (const [entry, exportNames] of Object.entries(exportMap)) {
 		// Construct the path to the generated ESM file for this entry.
 		const outputPath = path.join(outdir, entry + '.js');
