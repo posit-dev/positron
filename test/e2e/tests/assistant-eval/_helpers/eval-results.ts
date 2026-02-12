@@ -62,7 +62,7 @@ export interface EvalResult {
 
 // Directory paths
 const RESULTS_DIR = join(__dirname, '..', '.results');
-const LOGS_DIR = join(__dirname, '..', 'logs');
+const LOGS_DIR = join(__dirname, '..', '_logs');
 
 /**
  * Initializes the results directory. Call in beforeAll.
