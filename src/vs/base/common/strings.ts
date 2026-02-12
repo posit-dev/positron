@@ -1409,3 +1409,179 @@ function toBinary(str: string): string {
 export function multibyteAwareBtoa(str: string): string {
 	return btoa(toBinary(str));
 }
+
+//#region Punycode
+
+// RFC 3492 constants
+const enum PunycodeConstants {
+	BASE = 36,
+	TMIN = 1,
+	TMAX = 26,
+	SKEW = 38,
+	DAMP = 700,
+	INITIAL_BIAS = 72,
+	INITIAL_N = 128,
+	DELIMITER = CharCode.Dash
+}
+
+/**
+ * Encodes a digit value (0-35) to its punycode character.
+ * 0-25 -> 'a'-'z', 26-35 -> '0'-'9'
+ */
+function encodePunycodeDigit(d: number): number {
+	return d < 26 ? CharCode.a + d : CharCode.Digit0 + d - 26;
+}
+
+/**
+ * Adapts the bias according to RFC 3492 section 3.4.
+ */
+function adaptPunycodeBias(delta: number, numPoints: number, firstTime: boolean): number {
+	delta = firstTime ? Math.floor(delta / PunycodeConstants.DAMP) : delta >> 1;
+	delta += Math.floor(delta / numPoints);
+
+	let k = 0;
+	const baseMinusTmin = PunycodeConstants.BASE - PunycodeConstants.TMIN;
+	while (delta > (baseMinusTmin * PunycodeConstants.TMAX) >> 1) {
+		delta = Math.floor(delta / baseMinusTmin);
+		k += PunycodeConstants.BASE;
+	}
+	return k + Math.floor((baseMinusTmin + 1) * delta / (delta + PunycodeConstants.SKEW));
+}
+
+/**
+ * Encodes a Unicode string to Punycode according to RFC 3492.
+ * This is the raw encoding without the "xn--" ACE prefix.
+ *
+ * @param input The Unicode string to encode.
+ * @returns The Punycode-encoded ASCII string.
+ * @throws Error if the input contains invalid surrogate pairs.
+ *
+ * @example
+ * // allow-any-unicode-next-line
+ * punycodeEncode('münchen') // returns 'mnchen-3ya'
+ * // allow-any-unicode-next-line
+ * punycodeEncode('bücher') // returns 'bcher-kva'
+ * // allow-any-unicode-next-line
+ * punycodeEncode('日本語') // returns 'wgv71a119e'
+ */
+export function punycodeEncode(input: string): string {
+	const output: number[] = [];
+
+	// Collect all code points using the existing CodePointIterator
+	const codePoints: number[] = [];
+	const iterator = new CodePointIterator(input);
+	while (!iterator.eol()) {
+		const cp = iterator.nextCodePoint();
+		// Check for lone surrogates (invalid Unicode)
+		if (cp >= 0xD800 && cp <= 0xDFFF) {
+			throw new Error('Invalid surrogate pair in input');
+		}
+		codePoints.push(cp);
+	}
+
+	// Copy basic code points to output
+	let basicCount = 0;
+	for (const cp of codePoints) {
+		if (cp < PunycodeConstants.INITIAL_N) {
+			output.push(cp);
+			basicCount++;
+		}
+	}
+
+	// Add delimiter if there were basic code points and there are non-basic ones
+	const handledCount = basicCount;
+	if (basicCount > 0 && basicCount < codePoints.length) {
+		output.push(PunycodeConstants.DELIMITER);
+	}
+
+	// Main encoding loop
+	let n = PunycodeConstants.INITIAL_N;
+	let delta = 0;
+	let bias = PunycodeConstants.INITIAL_BIAS;
+	let h = handledCount;
+
+	while (h < codePoints.length) {
+		// Find the minimum code point >= n
+		let m = 0x10FFFF; // Maximum valid Unicode code point
+		for (const cp of codePoints) {
+			if (cp >= n && cp < m) {
+				m = cp;
+			}
+		}
+
+		// Increase delta to account for skipped code points
+		const deltaIncrement = (m - n) * (h + 1);
+		if (delta > Number.MAX_SAFE_INTEGER - deltaIncrement) {
+			throw new Error('Punycode overflow');
+		}
+		delta += deltaIncrement;
+		n = m;
+
+		// Process each code point
+		for (const cp of codePoints) {
+			if (cp < n) {
+				delta++;
+				if (delta === 0) {
+					throw new Error('Punycode overflow');
+				}
+			} else if (cp === n) {
+				// Encode delta as a variable-length integer
+				let q = delta;
+				for (let k = PunycodeConstants.BASE; ; k += PunycodeConstants.BASE) {
+					const t = k <= bias ? PunycodeConstants.TMIN :
+						k >= bias + PunycodeConstants.TMAX ? PunycodeConstants.TMAX :
+							k - bias;
+					if (q < t) {
+						break;
+					}
+					const digit = t + ((q - t) % (PunycodeConstants.BASE - t));
+					output.push(encodePunycodeDigit(digit));
+					q = Math.floor((q - t) / (PunycodeConstants.BASE - t));
+				}
+				output.push(encodePunycodeDigit(q));
+				bias = adaptPunycodeBias(delta, h + 1, h === handledCount);
+				delta = 0;
+				h++;
+			}
+		}
+		delta++;
+		n++;
+	}
+
+	let ret = '';
+	for (const ch of output) {
+		ret += String.fromCharCode(ch);
+	}
+	return ret;
+}
+
+/**
+ * Encodes a domain label using Punycode with the ACE prefix "xn--".
+ * If the label contains only ASCII characters, it is returned unchanged.
+ *
+ * @param label The domain label to encode.
+ * @returns The ACE-encoded label with "xn--" prefix, or the original label if all ASCII.
+ *
+ * @example
+ * // allow-any-unicode-next-line
+ * toPunycodeACE('münchen') // returns 'xn--mnchen-3ya'
+ * toPunycodeACE('example') // returns 'example' (no encoding needed)
+ */
+export function toPunycodeACE(label: string): string {
+	// Check if the label contains only ASCII characters
+	let hasNonASCII = false;
+	for (let i = 0; i < label.length; i++) {
+		if (label.charCodeAt(i) >= PunycodeConstants.INITIAL_N) {
+			hasNonASCII = true;
+			break;
+		}
+	}
+
+	if (!hasNonASCII) {
+		return label;
+	}
+
+	return 'xn--' + punycodeEncode(label);
+}
+
+//#endregion
