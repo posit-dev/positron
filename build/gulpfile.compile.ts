@@ -9,17 +9,19 @@ import * as date from './lib/date.ts';
 import * as task from './lib/task.ts';
 import * as compilation from './lib/compilation.ts';
 // --- Start Positron ---
-import { buildESMDependencies } from './npm/build-esm-dependencies.ts';
-// --- End Positron ---
+import { getESMPackageDependencies } from './lib/esm-package-dependencies.ts';
 
-// ESM dependencies task for production builds.
-const buildESMDependenciesTask = task.define('build-esm-dependencies-for-build', () => buildESMDependencies('out-build/esm-package-dependencies'));
+// ESM package dependencies copy task for production builds - copies from .build/ to out-build/.
+const copyESMPackageDependenciesTask = task.define('copy-esm-package-dependencies-for-build', () => {
+	return getESMPackageDependencies('out-build').pipe(gulp.dest('.'));
+});
+// --- End Positron ---
 
 function makeCompileBuildTask(disableMangle: boolean) {
 	return task.series(
 		util.rimraf('out-build'),
 		// --- Start Positron ---
-		buildESMDependenciesTask,
+		copyESMPackageDependenciesTask,
 		// --- End Positron ---
 		date.writeISODate('out-build'),
 		compilation.compileApiProposalNamesTask,

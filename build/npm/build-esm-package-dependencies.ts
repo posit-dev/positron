@@ -8,13 +8,13 @@ import * as path from 'path';
 import esbuild from 'esbuild';
 
 /**
- * Build ESM dependencies. This is necessary because some dependencies (e.g. React) are
+ * Build ESM package dependencies. This is necessary because some dependencies (e.g. React) are
  * only published as CommonJS and need to be bundled into ESM for use.
  */
-export function buildESMDependencies(outdir: string = 'out/esm-package-dependencies') {
+export function buildESMPackageDependencies(outdir: string = 'out/esm-package-dependencies') {
 	const entryPoints = ['he', 'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'react-window', 'scheduler'];
 
-	console.log(`Building ESM dependencies to ${outdir}...`);
+	console.log(`Building ESM package dependencies to ${outdir}...`);
 
 	// Bundle with esbuild.
 	esbuild.buildSync({

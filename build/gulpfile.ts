@@ -11,7 +11,9 @@ import { compileExtensionMediaTask, compileExtensionsTask, watchExtensionsTask }
 import * as compilation from './lib/compilation.ts';
 import * as task from './lib/task.ts';
 import * as util from './lib/util.ts';
-import { buildESMDependencies } from './npm/build-esm-dependencies.ts';
+// --- Start Positron ---
+import { getESMPackageDependencies } from './lib/esm-package-dependencies.ts';
+// --- End Positron ---
 
 EventEmitter.defaultMaxListeners = 100;
 
@@ -23,24 +25,28 @@ const { transpileTask, compileTask, watchTask, compileApiProposalNamesTask, watc
 gulp.task(compileApiProposalNamesTask);
 gulp.task(watchApiProposalNamesTask);
 
-// ESM dependencies task.
-const buildESMDependenciesTask = task.define('build-esm-dependencies', () => buildESMDependencies());
-gulp.task(buildESMDependenciesTask);
+// --- Start Positron ---
+// ESM package dependencies copy task for development builds - copies from .build/ to out/.
+const copyESMPackageDependenciesTask = task.define('copy-esm-package-dependencies', () => {
+	return getESMPackageDependencies('out').pipe(gulp.dest('.'));
+});
 
 // SWC Client Transpile
-const transpileClientSWCTask = task.define('transpile-client-esbuild', task.series(util.rimraf('out'), buildESMDependenciesTask, transpileTask('src', 'out', true)));
+const transpileClientSWCTask = task.define('transpile-client-esbuild', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, transpileTask('src', 'out', true)));
 gulp.task(transpileClientSWCTask);
 
 // Transpile only
-const transpileClientTask = task.define('transpile-client', task.series(util.rimraf('out'), buildESMDependenciesTask, transpileTask('src', 'out')));
+const transpileClientTask = task.define('transpile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, transpileTask('src', 'out')));
 gulp.task(transpileClientTask);
 
 // Fast compile for development time
-const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), buildESMDependenciesTask, compileApiProposalNamesTask, compileTask('src', 'out', false)));
+const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, compileApiProposalNamesTask, compileTask('src', 'out', false)));
 gulp.task(compileClientTask);
 
-const watchClientTask = task.define('watch-client', task.series(util.rimraf('out'), buildESMDependenciesTask, task.parallel(watchTask('out', false), watchApiProposalNamesTask)));
+const watchClientTask = task.define('watch-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, task.parallel(watchTask('out', false), watchApiProposalNamesTask)));
 gulp.task(watchClientTask);
+
+// --- End Positron ---
 
 // All
 const _compileTask = task.define('compile', task.parallel(monacoTypecheckTask, compileClientTask, compileExtensionsTask, compileExtensionMediaTask));
