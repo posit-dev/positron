@@ -20,11 +20,12 @@ export const EVAL_TAG = tags.ASSISTANT_EVAL;
  * @example
  * import { test } from '../../_test.setup';
  * import { EVAL_TAG, defineEvalTests } from '../_helpers/test-runner';
+ * import { myTestCase } from './my-test-case';
  *
- * const testCases = [...];
- *
- * test.describe('Assistant Eval: Hallucination', { tag: [EVAL_TAG] }, () => {
- *   defineEvalTests(test, testCases);
+ * test.describe('Assistant Eval: Category', { tag: [EVAL_TAG] }, () => {
+ *   defineEvalTests(test, [
+ *     myTestCase,
+ *   ]);
  * });
  */
 export function defineEvalTests(

@@ -11,16 +11,14 @@ import { rNotebookEditCells } from './r-notebook-edit-cells';
 import { rNotebookRunCells } from './r-notebook-run-cells';
 import { rNotebookCreate } from './r-notebook-create';
 
-const testCases = [
-	rNotebookAutomaticContext,
-	rNotebookGetCells,
-	rNotebookEditCells,
-	rNotebookRunCells,
-	rNotebookCreate,
-];
-
 test.use({ suiteId: __filename });
 
 test.describe('Assistant Eval: Notebooks', { tag: [EVAL_TAG] }, () => {
-	defineEvalTests(test, testCases);
+	defineEvalTests(test, [
+		rNotebookAutomaticContext,
+		rNotebookGetCells,
+		rNotebookEditCells,
+		rNotebookRunCells,
+		rNotebookCreate,
+	]);
 });

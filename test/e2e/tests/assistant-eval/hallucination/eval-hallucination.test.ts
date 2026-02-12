@@ -8,13 +8,11 @@ import { EVAL_TAG, defineEvalTests } from '../_helpers/test-runner';
 import { rForestedHallucination } from './r-forested-hallucination';
 import { pythonNoExecutionHallucination } from './python-no-execution-hallucination';
 
-const testCases = [
-	rForestedHallucination,
-	pythonNoExecutionHallucination,
-];
-
 test.use({ suiteId: __filename });
 
 test.describe('Assistant Eval: Hallucination', { tag: [EVAL_TAG] }, () => {
-	defineEvalTests(test, testCases);
+	defineEvalTests(test, [
+		rForestedHallucination,
+		pythonNoExecutionHallucination,
+	]);
 });
