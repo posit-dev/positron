@@ -265,12 +265,14 @@ jobs:
         id: cache-python
         uses: actions/cache/restore@v5
         with:
-          path: ${{ env.LOCALAPPDATA }}\uv\cache
+          path: ${{ runner.temp }}\uv-cache
           key: ${{ runner.os }}-uv-${{ steps.download-python-reqs.outputs.requirements-hash }}
           restore-keys: |
             ${{ runner.os }}-uv-
 
       - name: Install python dependencies
+        env:
+          UV_CACHE_DIR: ${{ runner.temp }}\uv-cache
         run: |
           uv pip install --system -r requirements.txt
           uv pip install --system trcli
@@ -280,7 +282,7 @@ jobs:
         continue-on-error: true
         uses: actions/cache/save@v5
         with:
-          path: ${{ env.LOCALAPPDATA }}\uv\cache
+          path: ${{ runner.temp }}\uv-cache
           key: ${{ runner.os }}-uv-${{ steps.download-python-reqs.outputs.requirements-hash }}
 
       # Alternate python version
@@ -291,6 +293,8 @@ jobs:
 
       # Ensure Python 3.13.0 is used and only install ipykernel
       - name: Install ipykernel for Python 3.13.0
+        env:
+          UV_CACHE_DIR: ${{ runner.temp }}\uv-cache
         run: |
           python --version  # Verify it's 3.13.0
           uv pip install --system ipykernel
