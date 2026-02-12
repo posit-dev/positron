@@ -87,7 +87,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			return;
 		}
 
-		setPackages(activeInstance.packages)
+		setPackages(activeInstance.packages);
 		const disposables = new DisposableStore();
 		disposables.add(activeInstance.onDidRefreshPackagesInstance((packages) => {
 			setPackages(packages);
@@ -97,19 +97,19 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}));
 		disposables.add(activeInstance.onDidChangeInstallState((isLoading) => {
 			setInstallLoading(isLoading);
-		}))
+		}));
 		disposables.add(activeInstance.onDidChangeUpdateState((isLoading) => {
 			setUpdateLoading(isLoading);
-		}))
+		}));
 		disposables.add(activeInstance.onDidChangeUpdateAllState((isLoading) => {
 			setUpdateAllLoading(isLoading);
-		}))
+		}));
 		disposables.add(activeInstance.onDidChangeUninstallState((isLoading) => {
 			setUninstallLoading(isLoading);
 		}));
 
 		return () => disposables.dispose();
-	}, [activeInstance])
+	}, [activeInstance]);
 
 	useEffect(() => {
 		let progressBar: ProgressBar | undefined;
@@ -170,7 +170,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Load packages when the active session changes
 	useEffect(() => {
-		services.commandService.executeCommand('positronPackages.refreshPackages')
+		services.commandService.executeCommand('positronPackages.refreshPackages');
 	}, [activeInstance, services.commandService]);
 
 	// We're required to save the scroll state because browsers will automatically
@@ -230,7 +230,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									tooltip: localize('positronPackages.copyPackage', "Copy '{0}'", name),
 									class: undefined,
 									enabled: true,
-									run: () => services.clipboardService.writeText(`${name} ${version}`)
+									run: () => services.clipboardService.writeText(`${name} (${version})`)
 								},
 								{
 									id: 'copyAll',
@@ -238,7 +238,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
 									class: undefined,
 									enabled: true,
-									run: () => services.clipboardService.writeText(packages.map((pkg) => `${pkg.name} ${pkg.version}`).join('\n'))
+									run: () => services.clipboardService.writeText(packages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
 								},
 								new Separator(),
 								{
@@ -296,14 +296,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				onUninstallPackage={() => {
 					const packageName = getSelectedItemPackageName(selectedItem);
 					if (packageName) {
-						services.commandService.executeCommand('positronPackages.uninstallPackage', packageName)
+						services.commandService.executeCommand('positronPackages.uninstallPackage', packageName);
 					}
 				}}
 				onUpdateAllPackages={() => services.commandService.executeCommand('positronPackages.updateAllPackages')}
 				onUpdatePackage={() => {
 					const packageName = getSelectedItemPackageName(selectedItem);
 					if (packageName) {
-						services.commandService.executeCommand('positronPackages.updatePackage', packageName)
+						services.commandService.executeCommand('positronPackages.updatePackage', packageName);
 					}
 				}}
 			></ActionBar>
@@ -328,7 +328,7 @@ const ACTION_BAR_PADDING_RIGHT = 8;
 const ACTION_BAR_HEIGHT = 28;
 
 interface ActionBarProps {
-	busy: boolean,
+	busy: boolean;
 	activeSession?: ILanguageRuntimeSession;
 	selectedItem?: string;
 	onInstallPackage: () => void;
