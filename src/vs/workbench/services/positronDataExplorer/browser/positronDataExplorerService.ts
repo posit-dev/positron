@@ -303,16 +303,23 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			return existingInstance;
 		}
 
-		// Wait for the instance to be registered, with timeout
-		return raceTimeout(
-			Event.toPromise(
-				Event.filter(
-					this._onDidRegisterInstanceEmitter.event,
-					instance => instance.dataExplorerClientInstance.identifier === identifier
-				)
-			),
-			timeoutMs
+		// Wait for the instance to be registered, with timeout.
+		// Event.toPromise returns a CancelablePromise -- we must cancel it
+		// when the timeout wins so the filtered event listener is cleaned up.
+		// Without this, stale comm IDs (common after notebook reload) would
+		// leak listeners indefinitely.
+		const eventPromise = Event.toPromise(
+			Event.filter(
+				this._onDidRegisterInstanceEmitter.event,
+				instance => instance.dataExplorerClientInstance.identifier === identifier
+			)
 		);
+
+		const result = await raceTimeout(eventPromise, timeoutMs, () => {
+			eventPromise.cancel();
+		});
+
+		return result;
 	}
 
 	/**

@@ -68,10 +68,9 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): 
 	}
 
 	if (highestPriority === null) {
-		console.warn(
-			'Could not determine preferred output for notebook cell with mime types: ' +
-			outputItems.map(item => item.mime).join(', ')
-		);
+		// Unknown mime mixes can occur in normal notebook usage.
+		// We fall through to returning the first item, which is the
+		// best we can do for unrecognized mime types.
 	}
 
 	return preferredOutput;

@@ -231,7 +231,9 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 					localize('openDataExplorerNotSupported', 'Opening a full Data Explorer from inline view is not supported by this kernel.')
 				);
 			} else {
-				console.warn('openDataExplorer RPC error (likely benign comm-disposed race):', error);
+				// Expected race: the inline view's comm was disposed before the
+				// RPC response arrived. The new editor tab was already created.
+				services.logService.trace('openDataExplorer RPC error (benign comm-disposed race):', error);
 			}
 		}
 	};
