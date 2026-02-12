@@ -7,13 +7,13 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { AnthropicAIModelProvider } from '../providers/anthropic/anthropicVercelProvider';
-import { ModelConfig } from '../config';
 import {
 	createVercelRateLimitError,
 	createVercelServerError,
 	assertRateLimitErrorWithRetry,
 	assertRateLimitErrorWithoutRetry
 } from './utils.js';
+import { ModelConfig } from '../configTypes.js';
 
 suite('AnthropicAIModelProvider (Vercel)', () => {
 	let model: AnthropicAIModelProvider;
