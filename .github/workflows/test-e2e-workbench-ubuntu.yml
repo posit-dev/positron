@@ -41,7 +41,6 @@ jobs:
     runs-on: ubuntu-latest-8x
 
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0
       E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
       E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
@@ -62,6 +61,14 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Generate access token for private repos
+        id: access-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v5
@@ -108,7 +115,7 @@ jobs:
         with:
           install-mode: ci
           wb-password: ${{ secrets.POSIT_WORKBENCH_PASSWORD }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.access-token.outputs.token }}
           run-id: ${{ github.run_id }}
           custom-positron-tarball: /tmp/artifacts/positron-workbench-linux-x64-branch.tar.gz
 
