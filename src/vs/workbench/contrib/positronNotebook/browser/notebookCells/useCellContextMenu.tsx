@@ -13,21 +13,20 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CellSelectionType } from '../selectionMachine.js';
-import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { IAnchor } from '../../../../../base/browser/ui/contextview/contextview.js';
 
 /**
- * A hook that provides the cell output context menu.
+ * A hook that provides the cell context menu.
  *
- * This hook extracts the common context menu logic so the menu can be shown by the
- * CellOutputLeftActionMenu (ellipses button to the left of code cell outputs)
- * or when right-clicking on a code cell output container.
+ * This hook extracts the common context menu logic so the menu can be
+ * shown when right-clicking anywhere on a cell (that isn't the cell output).
  *
- * @param cell The code cell whose outputs the menu will operate on
- * @returns The showCellOutputContextMenu function that can be called with
+ * @param cell The notebook cell the menu will operate on
+ * @returns The showCellContextMenu function that can be called with
  *          either an HTMLElement (for buttons) or coordinates (for right-clicks)
  */
-export function useCellOutputContextMenu(cell: PositronNotebookCodeCell) {
+export function useCellContextMenu(cell: IPositronNotebookCell) {
 	const instance = useNotebookInstance();
 	const contextKeyService = useCellScopedContextKeyService();
 	const { contextMenuService } = usePositronReactServicesContext();
@@ -40,8 +39,8 @@ export function useCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 	 * the cell actions use the notebook selection state to determine which
 	 * cell to operate on.
 	 *
-	 * If we didn't do this, then certain actions (e.g. "Collapse Outputs") would operate
-	 * on the selected cell instead of the one that the user clicked on.
+	 * If we didn't do this, then certain actions would operate on the
+	 * selected cell instead of the one that the user clicked on.
 	 */
 	useEffect(() => {
 		const actionRunner = new ActionRunner();
@@ -60,19 +59,19 @@ export function useCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 	}, [cell, instance]);
 
 	/**
-	 * Shows the context menu for cell output actions.
+	 * Shows the context menu for cell actions.
 	 *
 	 * @param anchor Either an HTMLElement (for button-triggered menus) or
 	 *               an IAnchor with x/y coordinates (for right-click menus)
 	 * @param onHide Optional callback to run when the menu is hidden
 	 */
-	const showCellOutputContextMenu = (anchor: HTMLElement | IAnchor, onHide?: () => void) => {
+	const showCellContextMenu = (anchor: HTMLElement | IAnchor, onHide?: () => void) => {
 		if (!actionRunnerRef.current) {
 			return;
 		}
 
 		contextMenuService.showContextMenu({
-			menuId: MenuId.PositronNotebookCellOutputActionLeft,
+			menuId: MenuId.PositronNotebookCellContext,
 			contextKeyService,
 			getAnchor: () => anchor,
 			actionRunner: actionRunnerRef.current,
@@ -80,5 +79,5 @@ export function useCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 		});
 	};
 
-	return { showCellOutputContextMenu };
+	return { showCellContextMenu };
 }
