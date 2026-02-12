@@ -7,7 +7,7 @@ import { test as baseTest, expect, tags } from '../../_test.setup';
 import { EvalTestCase } from '../types';
 import { evaluateWithLLM } from './llm-grader';
 import { formatResultsHtml } from './format-results';
-import { getModelKeys, getModelConfig, initResults, saveResult, finalizeResults, generateCatalog } from './eval-results';
+import { getModelKeys, getModelConfig, initResults, saveResult, finalizeResults } from './eval-results';
 
 // Re-export for test files
 export { tags };
@@ -67,7 +67,6 @@ export function defineEvalTests(
 		if (logPath) {
 			await testInfo.attach('evaluation-log.json', { path: logPath, contentType: 'application/json' });
 		}
-		generateCatalog(testCases);
 		await assistant.logoutModelProvider('anthropic-api');
 	});
 }

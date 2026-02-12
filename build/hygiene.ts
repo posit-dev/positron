@@ -380,6 +380,25 @@ if (import.meta.main) {
 
 				const some = out.split(/\r?\n/).filter((l) => !!l);
 
+				// --- Start Positron ---
+				// Check if any assistant-eval test cases changed and regenerate catalog
+				const evalTestCasePattern = /^test\/e2e\/tests\/assistant-eval\/(?!_)[^/]+\/[^/]+\.ts$/;
+				const hasEvalChanges = some.some(f => evalTestCasePattern.test(f) && !f.includes('.test.'));
+				if (hasEvalChanges) {
+					console.log('Regenerating assistant-eval catalog...');
+					try {
+						cp.execSync('npx tsx test/e2e/tests/assistant-eval/_helpers/generate-catalog.ts', {
+							stdio: 'inherit',
+							timeout: 30000
+						});
+						// Stage the catalog if it changed
+						cp.execSync('git add test/e2e/tests/assistant-eval/EVAL_CATALOG.md', { stdio: 'pipe' });
+					} catch (e) {
+						console.warn('Failed to regenerate eval catalog:', e);
+					}
+				}
+				// --- End Positron ---
+
 				if (some.length > 0) {
 					console.log('Reading git index versions...');
 

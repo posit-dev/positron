@@ -74,7 +74,7 @@ export const rNotebookGetCells: EvalTestCase = {
 		optional: [
 			'Explains what the code does or references the calculation',
 			'Does not hallucinate values from cells that don\'t exist',
-			'Correctly identifies cell 20 (0-indexed: cell index 19)',
+			'Correctly identifies cell 20 (0-indexed: cell index 20)',
 		],
 	},
 };

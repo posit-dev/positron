@@ -27,14 +27,11 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 	mode,
 	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
 
-	run: async ({ app, sessions, hotKeys, cleanup, settings }) => {
-		const { assistant, notebooksPositron, console } = app.workbench;
+	run: async ({ app, hotKeys, cleanup, settings }) => {
+		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
 		await notebooksPositron.enablePositronNotebooks(settings);
-
-		// Start R session
-		const [rSession] = await sessions.start(['r']);
 
 		// Create a new notebook and select R kernel
 		await notebooksPositron.newNotebook();
@@ -59,8 +56,6 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
-		await console.focus();
-		await sessions.restart(rSession.id);
 		await cleanup.discardAllChanges();
 
 		return response;

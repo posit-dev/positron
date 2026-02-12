@@ -43,12 +43,9 @@ export const rNotebookRunCells: EvalTestCase = {
 		await notebooksPositron.runCodeAtIndex(0);
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 
-		// Add a second cell that uses x - run it once so it exists with content
-		// We'll ask the assistant to run it (even if already run, runNotebookCells should still be called)
+		// Add a second cell that uses x, we'll ask the assistant to run it
 		const code2 = `result <- x + 5; print(result)`;
 		await notebooksPositron.addCodeToCell(1, code2);
-		await notebooksPositron.runCodeAtIndex(1);
-		await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
 
 		// Ask the question
 		await assistant.clickNewChatButton();
