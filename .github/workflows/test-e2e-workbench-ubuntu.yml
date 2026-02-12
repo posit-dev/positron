@@ -119,16 +119,11 @@ jobs:
           run-id: ${{ github.run_id }}
           custom-positron-tarball: /tmp/artifacts/positron-workbench-linux-x64-branch.tar.gz
 
-      - name: Install E2E test dependencies
-        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
 
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
-      - name: Install Playwright browsers
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-        run: npx playwright install chromium --with-deps
 
       - name: Setup Xvfb
         uses: ./.github/actions/setup-xvfb
