@@ -48,7 +48,9 @@ jobs:
           body: |
             This PR was automatically generated from https://github.com/rstudio/vscode-server branch `${{ env.BRANCH }}`.
             Updated PWB Code Server version to `${{ env.VERSION }}` in two locations.
+
+            @:vscode
           branch: update-pwb-code-server-${{ env.VERSION }}
           draft: true
-          reviewers: melissa-barca, cm421
+          reviewers: melissa-barca
           path: rstudio-pro

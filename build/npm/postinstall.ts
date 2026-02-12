@@ -13,6 +13,7 @@ import mergeJson from 'gulp-merge-json';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const root = path.dirname(path.dirname(import.meta.dirname));
+const rootNpmrcConfigKeys = getNpmrcConfigKeys(path.join(root, '.npmrc'));
 
 function log(dir: string, message: string) {
 	if (process.stdout.isTTY) {
@@ -110,9 +111,8 @@ function setNpmrcConfig(dir: string, env: NodeJS.ProcessEnv) {
 	}
 }
 
-// incoming
 function removeParcelWatcherPrebuild(dir: string) {
-	const parcelModuleFolder = path.join(root, dir, 'node_modules', '@vscode');
+	const parcelModuleFolder = path.join(root, dir, 'node_modules', '@parcel');
 	if (!fs.existsSync(parcelModuleFolder)) {
 		return;
 	}
@@ -122,68 +122,43 @@ function removeParcelWatcherPrebuild(dir: string) {
 		if (moduleName.startsWith('watcher-')) {
 			const modulePath = path.join(parcelModuleFolder, moduleName);
 			fs.rmSync(modulePath, { recursive: true, force: true });
-			log(dir, `Removed @vscode/watcher prebuilt module ${modulePath}`);
+			log(dir, `Removed @parcel/watcher prebuilt module ${modulePath}`);
 		}
 	}
 }
 
-for (const dir of dirs) {
-
-	if (dir === '') {
-		removeParcelWatcherPrebuild(dir);
-		continue; // already executed in root
+function getNpmrcConfigKeys(npmrcPath: string): string[] {
+	if (!fs.existsSync(npmrcPath)) {
+		return [];
 	}
-
-	let opts: child_process.SpawnSyncOptions | undefined;
-
-	if (dir === 'build') {
-		opts = {
-			env: {
-				...process.env
-			},
-		};
-		if (process.env['CC']) { opts.env!['CC'] = 'gcc'; }
-		if (process.env['CXX']) { opts.env!['CXX'] = 'g++'; }
-		if (process.env['CXXFLAGS']) { opts.env!['CXXFLAGS'] = ''; }
-		if (process.env['LDFLAGS']) { opts.env!['LDFLAGS'] = ''; }
-
-		setNpmrcConfig('build', opts.env!);
-		npmInstall('build', opts);
-		continue;
-	}
-
-	if (/^(.build\/distro\/npm\/)?remote$/.test(dir)) {
-		// node modules used by vscode server
-		opts = {
-			env: {
-				...process.env
-			},
-		};
-		if (process.env['VSCODE_REMOTE_CC']) {
-			opts.env!['CC'] = process.env['VSCODE_REMOTE_CC'];
-		} else {
-			delete opts.env!['CC'];
+	const lines = fs.readFileSync(npmrcPath, 'utf8').split('\n');
+	const keys: string[] = [];
+	for (const line of lines) {
+		const trimmedLine = line.trim();
+		if (trimmedLine && !trimmedLine.startsWith('#')) {
+			const eqIndex = trimmedLine.indexOf('=');
+			if (eqIndex > 0) {
+				keys.push(trimmedLine.substring(0, eqIndex).trim());
+			}
 		}
-		if (process.env['VSCODE_REMOTE_CXX']) {
-			opts.env!['CXX'] = process.env['VSCODE_REMOTE_CXX'];
-		} else {
-			delete opts.env!['CXX'];
-		}
-		if (process.env['CXXFLAGS']) { delete opts.env!['CXXFLAGS']; }
-		if (process.env['CFLAGS']) { delete opts.env!['CFLAGS']; }
-		if (process.env['LDFLAGS']) { delete opts.env!['LDFLAGS']; }
-		if (process.env['VSCODE_REMOTE_CXXFLAGS']) { opts.env!['CXXFLAGS'] = process.env['VSCODE_REMOTE_CXXFLAGS']; }
-		if (process.env['VSCODE_REMOTE_LDFLAGS']) { opts.env!['LDFLAGS'] = process.env['VSCODE_REMOTE_LDFLAGS']; }
-		if (process.env['VSCODE_REMOTE_NODE_GYP']) { opts.env!['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
-
-		setNpmrcConfig('remote', opts.env!);
-		npmInstall(dir, opts);
-		continue;
 	}
-
-	npmInstall(dir, opts);
+	return keys;
 }
-// end incoming
+
+function clearInheritedNpmrcConfig(dir: string, env: NodeJS.ProcessEnv): void {
+	const dirNpmrcPath = path.join(root, dir, '.npmrc');
+	if (fs.existsSync(dirNpmrcPath)) {
+		return;
+	}
+
+	for (const key of rootNpmrcConfigKeys) {
+		const envKey = `npm_config_${key.replace(/-/g, '_')}`;
+		delete env[envKey];
+	}
+}
+
+// Remove @parcel/watcher prebuilt modules from root (new upstream feature)
+removeParcelWatcherPrebuild('');
 
 // --- Start Positron ---
 /**

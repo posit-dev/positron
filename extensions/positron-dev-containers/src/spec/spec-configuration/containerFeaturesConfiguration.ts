@@ -1097,7 +1097,7 @@ export async function fetchContentsAtTarballUri(params: { output: Log; env: Node
 		}
 
 		// Filter what gets emitted from the tar.extract().
-		const filter = (file: string, _: tar.FileStat) => {
+		const filter = (file: string, _: tar.ReadEntry) => {
 			// Don't include .dotfiles or the archive itself.
 			if (file.startsWith('./.') || file === `./${V1_ASSET_NAME}` || file === './.') {
 				return false;
@@ -1128,7 +1128,7 @@ export async function fetchContentsAtTarballUri(params: { output: Log; env: Node
 			{
 				file: tempTarballPath,
 				cwd: featCachePath,
-				filter: (path: string, _: tar.FileStat) => {
+				filter: (path: string, _: tar.ReadEntry) => {
 					return path === `./${metadataFile}`;
 				}
 			});

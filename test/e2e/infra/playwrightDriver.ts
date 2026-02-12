@@ -4,17 +4,45 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as playwright from '@playwright/test';
-// eslint-disable-next-line local/code-import-patterns
 import type { Protocol } from 'playwright-core/types/protocol';
 import { dirname, join } from 'path';
-import { promises } from 'fs';
+import { promises, readFileSync } from 'fs';
 import { IWindowDriver } from './driver';
 import { measureAndLog } from './logger';
 import { LaunchOptions } from './code';
 import { teardown } from './processes';
 import { ChildProcess } from 'child_process';
+import type { AxeResults, RunOptions } from 'axe-core';
+
+// Load axe-core source for injection into pages (works with Electron)
+let axeSource = '';
+try {
+	const axePath = require.resolve('axe-core/axe.min.js');
+	axeSource = readFileSync(axePath, 'utf-8');
+} catch {
+	// axe-core may not be installed; keep axeSource empty to avoid failing module initialization
+	axeSource = '';
+}
 
 type PageFunction<Arg, T> = (arg: Arg) => T | Promise<T>;
+
+export interface AccessibilityScanOptions {
+	/** Specific selector to scan. If not provided, scans the entire page. */
+	selector?: string;
+	/** WCAG tags to include (e.g., 'wcag2a', 'wcag2aa', 'wcag21aa'). Defaults to WCAG 2.1 AA. */
+	tags?: string[];
+	/** Rule IDs to disable for this scan. */
+	disableRules?: string[];
+	/**
+	 * Patterns to exclude from specific rules. Keys are rule IDs, values are strings to match against element target or HTML.
+	 *
+	 * **IMPORTANT**: Adding exclusions here bypasses accessibility checks. Before adding an exclusion:
+	 * 1. File an issue to track the accessibility problem
+	 * 2. Ensure there's a plan to fix the underlying issue (e.g., hover/focus states that axe can't detect)
+	 * 3. Get approval from @anthropics/accessibility team
+	 */
+	excludeRules?: { [ruleId: string]: string[] };
+}
 
 export class PlaywrightDriver {
 
@@ -37,8 +65,12 @@ export class PlaywrightDriver {
 
 	constructor(
 		private readonly application: playwright.Browser | playwright.ElectronApplication,
-		readonly context: playwright.BrowserContext,
+		private readonly context: playwright.BrowserContext,
+		// --- Start Positron ---
+		// Changed from private to readonly (public) because Positron's e2e
+		// test infrastructure extensively uses driver.page (735+ occurrences).
 		readonly page: playwright.Page,
+		// --- End Positron ---
 		private readonly serverProcess: ChildProcess | undefined,
 		private readonly whenLoaded: Promise<unknown>,
 		private readonly options: LaunchOptions
@@ -53,22 +85,21 @@ export class PlaywrightDriver {
 		return this.page;
 	}
 
-	async startTracing(name: string): Promise<void> {
+	async startTracing(name?: string): Promise<void> {
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
 
 		try {
-			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing for ${name}`, this.options.logger);
+			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing${name ? ` for ${name}` : ''}`, this.options.logger);
 		} catch (error) {
 			// Ignore
 		}
 	}
 
 	// --- Start Positron ---
-	// Added customPath parameter to allow specifying a custom path for the trace file
-	async stopTracing(name: string, persist: boolean = true, customPath?: string): Promise<void> {
-		// --- End Positron ---
+	async stopTracing(name?: string, persist: boolean = false, customPath?: string): Promise<void> {
+	// --- End Positron ---
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
@@ -77,15 +108,24 @@ export class PlaywrightDriver {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
 				// --- Start Positron ---
-				//  Windows has issues with long paths; shortened the name
-				persistPath = customPath || join(this.options.logsPath, `trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
+				persistPath = customPath || join(this.options.logsPath, `playwright-trace-${PlaywrightDriver.traceCounter++}-${name ? name.replace(/\s+/g, '-') : ''}.zip`);
 				// --- End Positron ---
 			}
-			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing for ${name}`, this.options.logger);
+
+			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing${name ? ` for ${name}` : ''}`, this.options.logger);
+
+			// To ensure we have a screenshot at the end where
+			// it failed, also trigger one explicitly. Tracing
+			// does not guarantee to give us a screenshot unless
+			// some driver action ran before.
+			if (persist) {
+				await this.takeScreenshot(name);
+			}
 		} catch (error) {
 			// Ignore
 		}
 	}
+
 	async didFinishLoad(): Promise<void> {
 		await this.whenLoaded;
 	}
@@ -167,12 +207,13 @@ export class PlaywrightDriver {
 	}
 
 	// --- Start Positron ---
-	// Make this method public for access from R/Python fixtures
-	async takeScreenshot(name: string): Promise<void> {
-		// --- End Positron ---
+	// Changed from private to public for e2e test fixture screenshot capturing
+	// --- End Positron ---
+	async takeScreenshot(name?: string): Promise<void> {
 		try {
-			// Positron: Windows has issues with long paths, shortened the name
-			const persistPath = join(this.options.logsPath, `screenshot-${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
+			const nameSuffix = name ? `-${name.replace(/\s+/g, '-')}` : '';
+			const persistPath = join(this.options.logsPath, `playwright-screenshot-${PlaywrightDriver.screenShotCounter++}${nameSuffix}.png`);
+
 			await measureAndLog(() => this.page.screenshot({ path: persistPath, type: 'png' }), 'takeScreenshot', this.options.logger);
 		} catch (error) {
 			// Ignore
@@ -194,30 +235,14 @@ export class PlaywrightDriver {
 			// Ignore
 		}
 
-		// Web: Extract client logs (skip for external servers since we don't manage them)
-		if (this.options.web && !this.options.useExternalServer) {
+		// Web: Extract client logs
+		if (this.options.web) {
 			try {
 				await measureAndLog(() => this.saveWebClientLogs(), 'saveWebClientLogs()', this.options.logger);
 			} catch (error) {
 				this.options.logger.log(`Error saving web client logs (${error})`);
 			}
 		}
-
-		// --- Start Positron ---
-		// Explicitly close page and context before closing the browser to ensure proper cleanup
-		// of browser child processes (renderers, GPU processes, etc.)
-		try {
-			await measureAndLog(() => this.page.close(), 'close page', this.options.logger);
-		} catch (error) {
-			this.options.logger.log(`Error closing page (${error})`);
-		}
-
-		try {
-			await measureAndLog(() => this.context.close(), 'close context', this.options.logger);
-		} catch (error) {
-			this.options.logger.log(`Error closing context (${error})`);
-		}
-		// --- End Positron ---
 
 		//  exit via `close` method
 		try {
@@ -326,13 +351,9 @@ export class PlaywrightDriver {
 		return this.page.evaluate(([driver]) => driver.getLogs(), [await this.getDriverHandle()] as const);
 	}
 
-	// --- Start Positron ---
 	private async evaluateWithDriver<T>(pageFunction: PageFunction<IWindowDriver[], T>) {
-		const driverHandle = await this.getDriverHandle();
-		const driver = driverHandle as unknown as IWindowDriver; // Explicit cast
-		return this.page.evaluate(pageFunction, [driver]);
+		return this.page.evaluate(pageFunction, [await this.getDriverHandle()]);
 	}
-	// --- End Positron ---
 
 	wait(ms: number): Promise<void> {
 		return wait(ms);
@@ -352,6 +373,117 @@ export class PlaywrightDriver {
 			return true;
 		} catch (error) {
 			return false;
+		}
+	}
+
+	/**
+	 * Run an accessibility scan on the current page using axe-core.
+	 * Uses direct script injection to work with Electron.
+	 * @param options Configuration options for the accessibility scan.
+	 * @returns The axe-core scan results including any violations found.
+	 */
+	async runAccessibilityScan(options?: AccessibilityScanOptions): Promise<AxeResults> {
+		// Inject axe-core into the page if not already present
+		await this.page.evaluate(axeSource);
+
+		// Build axe-core run options
+		const runOptions: RunOptions = {
+			runOnly: {
+				type: 'tag',
+				values: options?.tags ?? ['wcag2a', 'wcag2aa', 'wcag21aa']
+			}
+		};
+
+		// Disable specific rules if requested
+		if (options?.disableRules && options.disableRules.length > 0) {
+			runOptions.rules = {};
+			for (const ruleId of options.disableRules) {
+				runOptions.rules[ruleId] = { enabled: false };
+			}
+		}
+
+		// Build context for axe.run
+		const context: { include?: string[]; exclude?: string[][] } = {};
+
+		if (options?.selector) {
+			context.include = [options.selector];
+		}
+
+		// Exclude known problematic areas
+		context.exclude = [
+			['.monaco-editor .view-lines'],
+			['.xterm-screen canvas']
+		];
+
+		// Run axe-core analysis
+		const results = await measureAndLog(
+			() => this.page.evaluate(
+				([ctx, opts]) => {
+					// @ts-expect-error axe is injected globally
+					return window.axe.run(ctx, opts);
+				},
+				[context, runOptions] as const
+			),
+			'runAccessibilityScan',
+			this.options.logger
+		);
+
+		return results as AxeResults;
+	}
+
+	/**
+	 * Run an accessibility scan and throw an error if any violations are found.
+	 * @param options Configuration options for the accessibility scan.
+	 * @throws Error if accessibility violations are detected.
+	 */
+	async assertNoAccessibilityViolations(options?: AccessibilityScanOptions): Promise<void> {
+		const results = await this.runAccessibilityScan(options);
+
+		// Filter out violations for specific elements based on excludeRules
+		let filteredViolations = results.violations;
+		if (options?.excludeRules) {
+			filteredViolations = results.violations.map((violation: AxeResults['violations'][number]) => {
+				const excludePatterns = options.excludeRules![violation.id];
+				if (!excludePatterns) {
+					return violation;
+				}
+				// Filter out nodes that match any of the exclude patterns
+				const filteredNodes = violation.nodes.filter((node: AxeResults['violations'][number]['nodes'][number]) => {
+					const target = node.target.join(' ');
+					const html = node.html || '';
+					// Check if any exclude pattern appears in target or HTML
+					return !excludePatterns.some(pattern => target.includes(pattern) || html.includes(pattern));
+				});
+				return { ...violation, nodes: filteredNodes };
+			}).filter((violation: AxeResults['violations'][number]) => violation.nodes.length > 0);
+		}
+
+		if (filteredViolations.length > 0) {
+			const violationMessages = filteredViolations.map((violation: AxeResults['violations'][number]) => {
+				const nodes = violation.nodes.map((node: AxeResults['violations'][number]['nodes'][number]) => {
+					const target = node.target.join(' > ');
+					const html = node.html || 'N/A';
+					// Extract class from HTML for easier identification
+					const classMatch = html.match(/class="([^"]+)"/);
+					const className = classMatch ? classMatch[1] : 'no class';
+					return [
+						`  Element: ${target}`,
+						`    Class: ${className}`,
+						`    HTML: ${html}`,
+						`    Issue: ${node.failureSummary}`
+					].join('\n');
+				}).join('\n\n');
+				return [
+					`[${violation.id}] ${violation.help} (${violation.impact})`,
+					`  Help URL: ${violation.helpUrl}`,
+					nodes
+				].join('\n');
+			}).join('\n\n---\n\n');
+
+			throw new Error(
+				`Accessibility violations found:\n\n${violationMessages}\n\n` +
+				`Total: ${filteredViolations.length} violation(s) affecting ${filteredViolations.reduce((sum: number, v: AxeResults['violations'][number]) => sum + v.nodes.length, 0)} element(s)`
+			);
 		}
 	}
 
@@ -378,3 +510,5 @@ export class PlaywrightDriver {
 export function wait(ms: number): Promise<void> {
 	return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
+
+export type { AxeResults };

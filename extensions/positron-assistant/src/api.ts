@@ -204,7 +204,7 @@ export function getEnabledTools(
 	for (const tool of tools) {
 		// Check if the user has explicitly disabled this tool via the Configure Tools picker,
 		// which is only available in Agent mode.
-		if (isAgentMode && request.tools?.get(tool.name) === false) {
+		if (isAgentMode && request.tools?.get(tool) === false) {
 			disabledTools.push({ name: tool.name, reason: 'Was disabled via Configure Tools picker' });
 			continue;
 		}

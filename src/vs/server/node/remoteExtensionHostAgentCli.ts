@@ -76,6 +76,7 @@ class CliMain extends Disposable {
 		await instantiationService.invokeFunction(async accessor => {
 			const configurationService = accessor.get(IConfigurationService);
 			const logService = accessor.get(ILogService);
+			const productService = accessor.get(IProductService);
 
 			// On Windows, configure the UNC allow list based on settings
 			if (isWindows) {
@@ -87,7 +88,7 @@ class CliMain extends Disposable {
 			}
 
 			try {
-				await this.doRun(instantiationService.createInstance(ExtensionManagementCLI, new ConsoleLogger(logService.getLevel(), false)));
+				await this.doRun(instantiationService.createInstance(ExtensionManagementCLI, productService.extensionsForceVersionByQuality ?? [], new ConsoleLogger(logService.getLevel(), false)));
 			} catch (error) {
 				logService.error(error);
 				console.error(getErrorMessage(error));

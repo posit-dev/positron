@@ -17,6 +17,10 @@ import { ExtensionIdentifier, IExtensionManifest } from '../../../../platform/ex
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+// --- Start Positron ---
+// Positron uses Codicon.positronAssistant instead of registerIcon for the chat view icon
+// import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
+// --- End Positron ---
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainer, ViewContainerLocation, Extensions as ViewExtensions } from '../../../common/views.js';
@@ -34,13 +38,16 @@ import { ChatViewPane } from './widgetHosts/viewPane/chatViewPane.js';
 
 // --- Chat Container &  View Registration
 
+// --- Start Positron ---
+// Upstream uses chatViewIcon; Positron overrides with its own icon.
+// const chatViewIcon = registerIcon('chat-view-icon', Codicon.chatSparkle, localize('chatViewIcon', 'View icon of the chat view.'));
+// --- End Positron ---
+
 const chatViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
 	id: ChatViewContainerId,
 	title: localize2('chat.viewContainer.label', "Chat"),
 	// --- Start Positron ---
-	/*
-	icon: Codicon.chatSparkle,
-	*/
+	// icon: chatViewIcon,
 	icon: Codicon.positronAssistant,
 	// --- End Positron ---
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [ChatViewContainerId, { mergeViewWithContainerWhenSingleView: true }]),
@@ -48,9 +55,6 @@ const chatViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(Vi
 	hideIfEmpty: true,
 	order: 1,
 	// --- Start Positron ---
-	/* TODO 1.104.0 - does order change to 1 (upstream) or keep 100 (previous Positron value)?
-}, ViewContainerLocation.AuxiliaryBar, { isDefault: true, doNotRegisterOpenCommand: true });
-	*/
 	// In VS Code the location is set to `ViewContainerLocation.AuxiliaryBar`,
 	// but that's where all Positron's views are too (plots, variables,
 	// etc.) Put the Chat view in the Sidebar instead so that it doesn't

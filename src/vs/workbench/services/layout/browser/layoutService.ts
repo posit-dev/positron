@@ -146,6 +146,11 @@ export function isMultiWindowPart(part: Parts): part is MULTI_WINDOW_PARTS {
 		part === Parts.TITLEBAR_PART;
 }
 
+export interface IPartVisibilityChangeEvent {
+	readonly partId: string;
+	readonly visible: boolean;
+}
+
 export interface IWorkbenchLayoutService extends ILayoutService {
 
 	readonly _serviceBrand: undefined;
@@ -176,9 +181,9 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	readonly onDidChangePanelAlignment: Event<PanelAlignment>;
 
 	/**
-	 * Emit when part visibility changes
+	 * Emit when part visibility changes.
 	 */
-	readonly onDidChangePartVisibility: Event<void>;
+	readonly onDidChangePartVisibility: Event<IPartVisibilityChangeEvent>;
 
 	/**
 	 * Emit when notifications (toasts or center) visibility changes.

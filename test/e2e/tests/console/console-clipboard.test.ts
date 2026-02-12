@@ -39,7 +39,7 @@ test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }
 async function testConsoleClipboard(app: Application, testLine: string, port: string) {
 
 	if (app.web) {
-		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: `http://localhost:${port}` });
+		await app.code.driver.browserContext.grantPermissions(['clipboard-read'], { origin: `http://localhost:${port}` });
 	}
 
 	const console = app.workbench.console;
@@ -61,7 +61,7 @@ async function testConsoleClipboardWithContextMenu(app: Application, prompt: str
 
 	if (app.web) {
 
-		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: `http://localhost:${port}` });
+		await app.code.driver.browserContext.grantPermissions(['clipboard-read'], { origin: `http://localhost:${port}` });
 	}
 
 	await expect(async () => {

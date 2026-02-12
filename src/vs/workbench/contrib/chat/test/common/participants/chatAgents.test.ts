@@ -11,7 +11,7 @@ import { MockContextKeyService } from '../../../../../../platform/keybinding/tes
 import { ChatAgentService, IChatAgentData, IChatAgentImplementation } from '../../../common/participants/chatAgents.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 // --- Start Positron ---
-import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModelsService, IUserFriendlyLanguageModel } from '../../../common/languageModels.js';
+import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModelsService, ILanguageModelProviderDescriptor, ILanguageModelsGroup } from '../../../common/languageModels.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { Disposable, IDisposable } from '../../../../../../base/common/lifecycle.js';
@@ -46,29 +46,32 @@ class TestingContextKeyService extends MockContextKeyService {
 
 // --- Start Positron ---
 class TestLanguageModelsService implements ILanguageModelsService {
-	onDidChangeProviders: Event<ILanguageModelsChangeEvent> = new Emitter<ILanguageModelsChangeEvent>().event;
-	updateModelPickerPreference(modelIdentifier: string, showInModelPicker: boolean): void { }
-	getVendors(): IUserFriendlyLanguageModel[] { return []; }
-	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
-		return Disposable.None;
-	}
 	readonly _serviceBrand: undefined;
-
+	onDidChangeProviders: Event<ILanguageModelsChangeEvent> = new Emitter<ILanguageModelsChangeEvent>().event;
 	onDidChangeLanguageModels = new Emitter<any>().event;
-	onDidChangeCurrentProvider = new Emitter<any>().event;
-
+	onDidChangeLanguageModelVendors = new Emitter<readonly string[]>().event;
+	onDidChangeCurrentProvider = new Emitter<string | undefined>().event;
 	get currentProvider() { return undefined; }
-	set currentProvider(provider: any) { }
-
-	getLanguageModelIdsForCurrentProvider() { return []; }
+	set currentProvider(_provider: any) { }
 	getLanguageModelProviders() { return []; }
+	getExtensionIdentifierForProvider(_vendor: string) { return undefined; }
+	updateModelPickerPreference(_modelIdentifier: string, _showInModelPicker: boolean): void { }
+	getVendors(): ILanguageModelProviderDescriptor[] { return []; }
 	getLanguageModelIds() { return []; }
 	lookupLanguageModel() { return undefined; }
+	lookupLanguageModelByQualifiedName() { return undefined; }
+	getLanguageModelGroups(_vendor: string): ILanguageModelsGroup[] { return []; }
 	async selectLanguageModels() { return []; }
-	registerLanguageModelChat() { return { dispose: () => { } }; }
+	registerLanguageModelProvider(_vendor: string, _provider: ILanguageModelChatProvider): IDisposable {
+		return Disposable.None;
+	}
+	deltaLanguageModelChatProviderDescriptors(): void { }
 	async sendChatRequest(): Promise<any> { throw new Error('Not implemented'); }
 	async computeTokenLength() { return 0; }
-	getExtensionIdentifierForProvider(vendor: string) { return undefined; }
+	async addLanguageModelsProviderGroup(): Promise<void> { }
+	async removeLanguageModelsProviderGroup(): Promise<void> { }
+	async configureLanguageModelsProviderGroup(): Promise<void> { }
+	async migrateLanguageModelsProviderGroup(): Promise<void> { }
 }
 // --- End Positron ---
 

@@ -28,28 +28,28 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 				targetType: MetricTargetType,
 				options?: DataExplorerShortcutOptions
 			): Promise<MetricResult<T>> => {
-				return recordDataFileLoad(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
+				return recordDataFileLoad(operation, targetType, !app.web, logger, dataExplorerAutoContext, options);
 			},
 			filter: async <T>(
 				operation: () => Promise<T>,
 				targetType: MetricTargetType,
 				options?: DataExplorerShortcutOptions
 			): Promise<MetricResult<T>> => {
-				return recordDataFilter(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
+				return recordDataFilter(operation, targetType, !app.web, logger, dataExplorerAutoContext, options);
 			},
 			sort: async <T>(
 				operation: () => Promise<T>,
 				targetType: MetricTargetType,
 				options?: DataExplorerShortcutOptions
 			): Promise<MetricResult<T>> => {
-				return recordDataSort(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
+				return recordDataSort(operation, targetType, !app.web, logger, dataExplorerAutoContext, options);
 			},
 			toCode: async <T>(
 				operation: () => Promise<T>,
 				targetType: MetricTargetType,
 				options?: DataExplorerShortcutOptions
 			): Promise<MetricResult<T>> => {
-				return recordToCode(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
+				return recordToCode(operation, targetType, !app.web, logger, dataExplorerAutoContext, options);
 			}
 		},
 		notebooks: {
@@ -64,7 +64,7 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 					description,
 					additionalContext: context
 				};
-				return recordRunCell(operation, targetType, !!app.code.electronApp, logger, language, options);
+				return recordRunCell(operation, targetType, !app.web, logger, language, options);
 			}
 		}
 	};

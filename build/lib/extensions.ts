@@ -26,12 +26,13 @@ import { type IExtensionDefinition, getExtensionStream } from './builtInExtensio
 import { getVersion } from './getVersion.ts';
 import { fetchUrls, fetchGithub } from './fetch.ts';
 import vzip from 'gulp-vinyl-zip';
-
-import { createRequire } from 'module';
 // --- Start Positron ---
 import os from 'os';
 import { getBootstrapExtensionStream } from './bootstrapExtensions.ts';
 // --- End Positron ---
+
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const root = path.dirname(path.dirname(import.meta.dirname));
 const commit = getVersion(root);
@@ -93,30 +94,31 @@ function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolea
 	return input;
 }
 
+
 function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, disableMangle: boolean): Stream {
-	const require = createRequire(import.meta.url);
 	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 	const webpack = require('webpack');
 	const webpackGulp = require('webpack-stream');
 	const result = es.through();
 
 	const packagedDependencies: string[] = [];
+	const stripOutSourceMaps: string[] = [];
 	const packageJsonConfig = require(path.join(extensionPath, 'package.json'));
 	if (packageJsonConfig.dependencies) {
-		const webpackRootConfig = require(path.join(extensionPath, webpackConfigFileName)).default;
-		fancyLog('Webpack config:', ansiColors.yellow(path.join(path.basename(extensionPath), webpackConfigFileName)));
+		const webpackConfig = require(path.join(extensionPath, webpackConfigFileName));
+		const webpackRootConfig = webpackConfig.default;
 		for (const key in webpackRootConfig.externals) {
 			if (key in packageJsonConfig.dependencies) {
 				packagedDependencies.push(key);
 			}
 		}
-	}
 
-	// TODO: add prune support based on packagedDependencies to vsce.PackageManager.Npm similar
-	// to vsce.PackageManager.Yarn.
-	// A static analysis showed there are no webpack externals that are dependencies of the current
-	// local extensions so we can use the vsce.PackageManager.None config to ignore dependencies list
-	// as a temporary workaround.
+		if (webpackConfig.StripOutSourceMaps) {
+			for (const filePath of webpackConfig.StripOutSourceMaps) {
+				stripOutSourceMaps.push(filePath);
+			}
+		}
+	}
 
 	// --- Start Positron ---
 
@@ -137,6 +139,13 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	const packageManager = extensionsWithNpmDeps.includes(packageJsonConfig.name) ?
 		vsce.PackageManager.Npm :
 		vsce.PackageManager.None;
+	// --- End Positron ---
+
+	// TODO: add prune support based on packagedDependencies to vsce.PackageManager.Npm similar
+	// to vsce.PackageManager.Yarn.
+	// A static analysis showed there are no webpack externals that are dependencies of the current
+	// local extensions so we can use the vsce.PackageManager.None config to ignore dependencies list
+	// as a temporary workaround.
 
 	// --- Start PWB: from Positron ---
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
@@ -172,7 +181,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 				}
 			};
 
-			const exportedConfig = createRequire(import.meta.url)(webpackConfigPath).default;
+			const exportedConfig = require(webpackConfigPath).default;
 			return (Array.isArray(exportedConfig) ? exportedConfig : [exportedConfig]).map(config => {
 				const webpackConfig = {
 					...config,
@@ -204,10 +213,15 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 						// * rewrite sourceMappingURL
 						// * save to disk so that upload-task picks this up
 						if (path.extname(data.basename) === '.js') {
-							const contents = (data.contents as Buffer).toString('utf8');
-							data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
-								return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
-							}), 'utf8');
+							if (stripOutSourceMaps.indexOf(data.relative) >= 0) { // remove source map
+								const contents = (data.contents as Buffer).toString('utf8');
+								data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, ''), 'utf8');
+							} else {
+								const contents = (data.contents as Buffer).toString('utf8');
+								data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
+									return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
+								}), 'utf8');
+							}
 						}
 
 						this.emit('data', data);
@@ -228,14 +242,13 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		console.error(packagedDependencies);
 		result.emit('error', err);
 	});
-
 	// --- End PWB: from Positron ---
 
 	return result.pipe(createStatsStream(path.basename(extensionPath)));
 }
 
 function fromLocalNormal(extensionPath: string): Stream {
-	const vsce = createRequire(import.meta.url)('@vscode/vsce') as typeof import('@vscode/vsce');
+	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 	const result = es.through();
 
 	// --- Start PWB: from Positron ---
@@ -250,13 +263,12 @@ function fromLocalNormal(extensionPath: string): Stream {
 	return result.pipe(createStatsStream(path.basename(extensionPath)));
 }
 
-function getBaseHeaders() {
-	return {
-		'X-Market-Client-Id': 'VSCode Build',
-		'User-Agent': 'VSCode Build',
-		'X-Market-User-Id': '291C1CD0-051A-4123-9B4B-30D60EF52EE2',
-	};
-}
+const userAgent = 'VSCode Build';
+const baseHeaders = {
+	'X-Market-Client-Id': 'VSCode Build',
+	'User-Agent': userAgent,
+	'X-Market-User-Id': '291C1CD0-051A-4123-9B4B-30D60EF52EE2',
+};
 
 // --- Start Positron ---
 
@@ -290,7 +302,7 @@ function getArchFromPlatformId(platformId: string): string {
 }
 
 export function fromMarketplace(serviceUrl: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
-	const json = createRequire(import.meta.url)('gulp-json-editor') as typeof import('gulp-json-editor');
+	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	// --- End Positron ---
 	const [publisher, name] = extensionName.split('.');
@@ -324,7 +336,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 
 				return fetchUrls('', {
 					base: url,
-					nodeFetchOptions: { headers: getBaseHeaders() },
+					nodeFetchOptions: { headers: baseHeaders },
 					checksumSha256: sha256
 				})
 					.pipe(buffer())
@@ -337,7 +349,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 			return fetchUrls('', {
 				base: urls[0],
 				nodeFetchOptions: {
-					headers: getBaseHeaders()
+					headers: baseHeaders
 				},
 				checksumSha256: sha256
 			})
@@ -350,7 +362,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 		return fetchUrls('', {
 			base: urls[0],
 			nodeFetchOptions: {
-				headers: getBaseHeaders()
+				headers: baseHeaders
 			},
 			checksumSha256: sha256
 		})
@@ -367,7 +379,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 
 // --- Start PWB: Bundle PWB extension ---
 export function fromPositUrl({ name: extensionName, version, sha256, positUrl, metadata }: IExtensionDefinition): Stream {
-	const json = createRequire(import.meta.url)('gulp-json-editor') as typeof import('gulp-json-editor');
+	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	const [, name] = extensionName.split('.');
 	const url = `${positUrl}/${name}-${version}.vsix`;
@@ -379,7 +391,7 @@ export function fromPositUrl({ name: extensionName, version, sha256, positUrl, m
 	return fetchUrls('', {
 		base: url,
 		nodeFetchOptions: {
-			headers: getBaseHeaders()
+			headers: baseHeaders
 		},
 		checksumSha256: sha256
 	})
@@ -394,7 +406,7 @@ export function fromPositUrl({ name: extensionName, version, sha256, positUrl, m
 // --- End PWB: Bundle PWB extension ---
 
 export function fromVsix(vsixPath: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition): Stream {
-	const json = createRequire(import.meta.url)('gulp-json-editor') as typeof import('gulp-json-editor');
+	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	fancyLog('Using local VSIX for extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 
@@ -421,7 +433,7 @@ export function fromVsix(vsixPath: string, { name: extensionName, version, sha25
 }
 
 export function fromGithub({ name, version, repo, sha256, metadata }: IExtensionDefinition): Stream {
-	const json = createRequire(import.meta.url)('gulp-json-editor') as typeof import('gulp-json-editor');
+	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	fancyLog('Downloading extension from GH:', ansiColors.yellow(`${name}@${version}`), '...');
 
@@ -464,9 +476,8 @@ const excludedExtensions = [
 ];
 
 // --- Start Positron ---
-// If this is not Windows, exclude the open-remote-wsl extension, which is only
-// relevant on Windows.
-if (process.platform !== 'win32') {
+// Conditionally exclude open-remote-wsl on non-Windows platforms
+if (os.platform() !== 'win32') {
 	excludedExtensions.push('open-remote-wsl');
 }
 // --- End Positron ---
@@ -481,10 +492,10 @@ const marketplaceWebExtensionsExclude = new Set([
 
 const productJson = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../../product.json'), 'utf8'));
 const builtInExtensions: IExtensionDefinition[] = productJson.builtInExtensions || [];
+const webBuiltInExtensions: IExtensionDefinition[] = productJson.webBuiltInExtensions || [];
 // --- Start Positron ---
 const bootstrapExtensions: IExtensionDefinition[] = productJson.bootstrapExtensions || [];
 // --- End Positron ---
-const webBuiltInExtensions: IExtensionDefinition[] = productJson.webBuiltInExtensions || [];
 
 type ExtensionKind = 'ui' | 'workspace' | 'web';
 interface IExtensionManifest {
@@ -576,20 +587,19 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 			.filter(({ name }) => native ? nativeExtensionsSet.has(name) : !nativeExtensionsSet.has(name))
 			.filter(({ name }) => excludedExtensions.indexOf(name) === -1)
 			.filter(({ name }) => builtInExtensions.every(b => b.name !== name))
-			.filter(({ manifestPath }) => (forWeb ? isWebExtension(createRequire(import.meta.url)(manifestPath)) : true))
+			.filter(({ manifestPath }) => (forWeb ? isWebExtension(require(manifestPath)) : true))
 	);
-
 	// --- Start Positron ---
 
 	// Process the local extensions serially to avoid running out of file
 	// descriptors (EMFILE) when building.
 
-	const localExtensionsStream = es.through();
+	const serialStream = es.through();
 	const queue = [...localExtensionsDescriptions];
 
 	function processNext() {
 		if (queue.length === 0) {
-			localExtensionsStream.end();
+			serialStream.end();
 			return;
 		}
 
@@ -601,10 +611,12 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 			.pipe(rename(p => p.dirname = `extensions/${extension.name}/${p.dirname}`))
 			.pipe(es.through(undefined, processNext));
 
-		stream.pipe(localExtensionsStream, { end: false });
+		stream.pipe(serialStream, { end: false });
 	}
 
 	processNext();
+
+	const localExtensionsStream = minifyExtensionResources(serialStream);
 	// --- End Positron ---
 
 	let result: Stream;
@@ -656,14 +668,24 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 
 // --- Start Positron ---
 export function packageBootstrapExtensionsStream(): Stream {
-	return es.merge(
-		...bootstrapExtensions
-			.map(extension => {
-				const src = getBootstrapExtensionStream(extension).pipe(rename(p => {
-					p.dirname = `extensions/bootstrap/${p.dirname}`;
-				}));
-				return src;
-			})
+	const bootstrapExtensionsStream = minifyExtensionResources(
+		es.merge(
+			...bootstrapExtensions
+				.map(extension => {
+					const src = getBootstrapExtensionStream(extension);
+					return updateExtensionPackageJSON(src, (data: any) => {
+						delete data.scripts;
+						delete data.dependencies;
+						delete data.devDependencies;
+						return data;
+					});
+				})
+		)
+	);
+
+	return (
+		bootstrapExtensionsStream
+			.pipe(util2.setExecutableBit(['**/*.sh']))
 	);
 }
 // --- End Positron ---
@@ -755,7 +777,6 @@ const esbuildMediaScripts = [
 ];
 
 export async function webpackExtensions(taskName: string, isWatch: boolean, webpackConfigLocations: { configPath: string; outputRoot?: string }[]) {
-	const require = createRequire(import.meta.url);
 	const webpack = require('webpack') as typeof import('webpack');
 
 	const webpackConfigs: webpack.Configuration[] = [];
@@ -1016,7 +1037,7 @@ function listExtensionFiles(opts: any): Promise<string[]> {
  * Processes the queue of pending work
  */
 function processListQueue() {
-	const vsce = createRequire(import.meta.url)('@vscode/vsce') as typeof import('@vscode/vsce');
+	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 
 	// Ignore if we are currently doing work
 	if (listBusy) {

@@ -21,12 +21,12 @@ import vfs from 'vinyl-fs';
 import packageJson from '../package.json' with { type: 'json' };
 import flatmap from 'gulp-flatmap';
 import gunzip from 'gulp-gunzip';
-import untar from 'gulp-untar';
+import { untar } from './lib/util.ts';
 import File from 'vinyl';
 import * as fs from 'fs';
 import glob from 'glob';
 import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
-import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } from './gulpfile.extensions.ts';
+import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, copyExtensionBinariesTask } from './gulpfile.extensions.ts';
 import { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } from './gulpfile.vscode.web.ts';
 import * as cp from 'child_process';
 import log from 'fancy-log';
@@ -36,8 +36,6 @@ import jsonEditor from 'gulp-json-editor';
 
 // --- Start Positron ---
 import { positronBuildNumber } from './utils.ts';
-// eslint-disable-next-line no-duplicate-imports
-import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
@@ -345,7 +343,6 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const extensions = gulp.src([...extensionPaths, ...bootstrapExtensionPaths], { base: '.build', dot: true });
 
 		// --- End Positron ---
-
 		const extensionsCommonDependencies = gulp.src('.build/extensions/node_modules/**', { base: '.build', dot: true });
 		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.{js,css}.map'], { dot: true }));
@@ -574,11 +571,11 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 			gulp.task(serverTaskCI);
 
 			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				// --- Start Positron ---
+				// --- Start PWB ---
 				// Only mangle when minified is true. This matches the behavior of gulpfile.vscode:628.
-				// minified ? compileBuildWithManglingTask,
+				// compileBuildWithManglingTask,
 				minified ? compileBuildWithManglingTask : compileBuildWithoutManglingTask,
-				// --- End Positron ---
+				// --- End PWB ---
 				cleanExtensionsBuildTask,
 				compileNonNativeExtensionsBuildTask,
 				compileExtensionMediaBuildTask,

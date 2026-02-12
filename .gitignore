@@ -6,17 +6,22 @@ node_modules/
 .build/
 .vscode/extensions/**/out/
 extensions/**/dist/
+# --- Start Positron ---
+# Positron maintains a custom codicon.ttf that includes Positron-specific icons.
+# Do not gitignore it (upstream does because they copy from the npm package).
+# src/vs/base/browser/ui/codicons/codicon/codicon.ttf
+# --- End Positron ---
 /out*/
 /extensions/**/out/
 build/node_modules
 coverage/
-tags
 test_data/
 test-results/
 test-results.xml
 vscode.lsif
 vscode.db
 /.profile-oss
+tags
 /cli/target
 /cli/openssl
 product.overrides.json
@@ -25,7 +30,6 @@ product.overrides.json
 .vscode-test
 vscode-telemetry-docs/
 pwb-version
-
 # --- Start Positron ---
 # Ignore Claude local/personal files but keep commands
 .claude/*
@@ -47,3 +51,4 @@ vsix-cache/
 product.json.backup
 *.lic
 # --- End Positron ---
+test-output.json

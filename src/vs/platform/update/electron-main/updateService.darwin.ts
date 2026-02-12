@@ -135,7 +135,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			return;
 		}
 
-		this.setState(State.Downloading);
+		this.setState(State.Downloading(false, false));
 	}
 
 	private onUpdateDownloaded(update: IUpdate): void {
@@ -143,7 +143,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			return;
 		}
 
-		this.setState(State.Downloaded(update));
+		this.setState(State.Downloaded(update, false, false));
 
 		type UpdateDownloadedClassification = {
 			owner: 'joaomoreno';
@@ -152,7 +152,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		};
 		this.telemetryService.publicLog2<{ newVersion: String }, UpdateDownloadedClassification>('update:downloaded', { newVersion: update.version });
 
-		this.setState(State.Ready(update));
+		this.setState(State.Ready(update, false, false));
 	}
 
 	private onUpdateNotAvailable(): void {

@@ -6,28 +6,31 @@
 import * as cp from 'child_process';
 import * as os from 'os';
 import * as playwright from 'playwright';
+// --- Start Positron ---
+import type { ElectronApplication } from 'playwright';
+// --- End Positron ---
 import { IElement, ILocaleInfo, ILocalizedStrings, ILogFile } from './driver';
 import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
+// --- Start Positron ---
 import { launch as launchPlaywrightExternalServer } from './playwrightExternalServer';
+// --- End Positron ---
 import { PlaywrightDriver } from './playwrightDriver';
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
 import { Quality } from './application';
-import { ElectronApplication } from '@playwright/test';
-
-export type Browser = 'chromium' | 'firefox' | 'webkit' | 'chromium-msedge' | 'chromium-chrome' | undefined;
 
 export interface LaunchOptions {
 	// Allows you to override the Playwright instance
 	playwright?: typeof playwright;
 	codePath?: string;
-	readonly workspacePath: string;
+	readonly workspacePath?: string;
 	userDataDir?: string;
 	readonly extensionsPath?: string;
 	readonly logger: Logger;
 	logsPath: string;
 	crashesPath: string;
+	readonly videosPath?: string;
 	verbose?: boolean;
 	useInMemorySecretStorage?: boolean;
 	readonly extraArgs?: string[];
@@ -36,14 +39,19 @@ export interface LaunchOptions {
 	readonly tracing?: boolean;
 	snapshots?: boolean;
 	readonly headless?: boolean;
-	readonly browser?: Browser;
+	readonly browser?: 'chromium' | 'webkit' | 'firefox' | 'chromium-msedge' | 'chromium-chrome';
 	readonly quality: Quality;
 	version: { major: number; minor: number; patch: number };
-	/** When true, connects to an external server instead of launching one */
+	readonly extensionDevelopmentPath?: string;
+	// --- Start Positron ---
 	readonly useExternalServer?: boolean;
-	/** The URL of an external server to connect to */
 	readonly externalServerUrl?: string;
+	// --- End Positron ---
 }
+
+// --- Start Positron ---
+export type Browser = LaunchOptions['browser'];
+// --- End Positron ---
 
 interface ICodeInstance {
 	kill: () => Promise<void>;
@@ -97,7 +105,8 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		throw new Error('Smoke test process has terminated, refusing to spawn Code');
 	}
 
-	// External server mode (browser tests against external server)
+	// --- Start Positron ---
+	// External server smoke tests (e.g. Posit Workbench, Positron Server)
 	if (options.web && options.useExternalServer) {
 		if (!options.externalServerUrl) {
 			throw new Error('External server URL must be provided when useExternalServer is true');
@@ -105,12 +114,12 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 
 		const { driver } = await measureAndLog(() => launchPlaywrightExternalServer(options, options.externalServerUrl!), 'launch playwright (external server)', options.logger);
 
-		// No server process to register since we're connecting to an external one
-		return new Code(driver, options.logger, null as any, undefined, options.quality, options.version);
+		return new Code(driver, options.logger, null, undefined, options.quality, options.version);
 	}
+	// --- End Positron ---
 
-	// Browser smoke tests (managed server)
-	else if (options.web) {
+	// Browser smoke tests
+	if (options.web) {
 		const { serverProcess, driver } = await measureAndLog(() => launchPlaywrightBrowser(options), 'launch playwright (browser)', options.logger);
 		registerInstance(serverProcess, options.logger, 'server');
 
@@ -119,10 +128,12 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 
 	// Electron smoke tests (playwright)
 	else {
+		// --- Start Positron ---
 		const { electronProcess, driver, electronApp } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
 		const { safeToKill } = registerInstance(electronProcess, options.logger, 'electron');
 
 		return new Code(driver, options.logger, electronProcess, safeToKill, options.quality, options.version, electronApp);
+		// --- End Positron ---
 	}
 }
 
@@ -133,12 +144,16 @@ export class Code {
 	constructor(
 		driver: PlaywrightDriver,
 		readonly logger: Logger,
+		// --- Start Positron ---
 		private readonly mainProcess: cp.ChildProcess | null,
+		// --- End Positron ---
 		private readonly safeToKill: Promise<void> | undefined,
 		readonly quality: Quality,
 		readonly version: { major: number; minor: number; patch: number },
+		// --- Start Positron ---
 		// Only available when running against Electron
 		readonly electronApp?: ElectronApplication,
+		// --- End Positron ---
 	) {
 		this.driver = new Proxy(driver, {
 			get(target, prop) {
@@ -146,6 +161,7 @@ export class Code {
 					throw new Error('Invalid usage');
 				}
 
+				// eslint-disable-next-line local/code-no-any-casts
 				const targetProp = (target as any)[prop];
 				if (typeof targetProp !== 'function') {
 					return targetProp;
@@ -163,14 +179,12 @@ export class Code {
 		return !(this.quality === Quality.Stable && this.version.major === 1 && this.version.minor < 101);
 	}
 
-	async startTracing(name: string): Promise<void> {
+	async startTracing(name?: string): Promise<void> {
 		return await this.driver.startTracing(name);
 	}
 
-
 	// --- Start Positron ---
-	// Add custom path argument.
-	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
+	async stopTracing(name?: string, persist: boolean = false, customPath?: string): Promise<void> {
 		return await this.driver.stopTracing(name, persist, customPath);
 	}
 	// --- End Positron ---
@@ -198,14 +212,7 @@ export class Code {
 
 	async exit(): Promise<void> {
 		return measureAndLog(() => new Promise<void>(resolve => {
-			// If no main process (external server mode), just close the driver
-			if (!this.mainProcess) {
-				this.driver.close();
-				resolve();
-				return;
-			}
-
-			const pid = this.mainProcess.pid!;
+			const pid = this.mainProcess?.pid!;
 
 			let done = false;
 
@@ -226,40 +233,25 @@ export class Code {
 
 					if (safeToKill) {
 						this.logger.log('Smoke test exit(): call did not terminate the process yet, but safeToKill is true, so we can kill it');
-						await this.killProcessTree(pid);
-						done = true;
-						resolve();
-						return;
+						this.kill(pid);
 					}
 
 					switch (retries) {
 
-						// --- Start Positron ---
-						// after 1 second: proactively kill process tree while main process is still alive
-						// This ensures child processes are killed before they can be reparented
-						case 2: {
-							this.logger.log('Smoke test exit(): proactively killing process tree after 1s');
-							await this.killProcessTree(pid);
-							break;
-						}
-						// --- End Positron ---
-
 						// after 10 seconds: forcefully kill
 						case 20: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
-							await this.killProcessTree(pid);
-							done = true;
-							resolve();
-							return;
+							this.kill(pid);
+							break;
 						}
 
 						// after 20 seconds: give up
 						case 40: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
-							await this.killProcessTree(pid);
+							this.kill(pid);
 							done = true;
 							resolve();
-							return;
+							break;
 						}
 					}
 
@@ -268,6 +260,7 @@ export class Code {
 						await this.wait(500);
 					} catch (error) {
 						this.logger.log('Smoke test exit(): call terminated process successfully');
+
 						done = true;
 						resolve();
 					}
@@ -276,35 +269,21 @@ export class Code {
 		}), 'Code#exit()', this.logger);
 	}
 
-	// --- Start Positron ---
-	/**
-	 * Kill the entire process tree starting from the given PID.
-	 * This ensures child processes (kernels, language servers, etc.) are also terminated.
-	 */
-	private async killProcessTree(pid: number): Promise<void> {
+	private kill(pid: number): void {
 		try {
 			process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
 		} catch (e) {
-			this.logger.log('Smoke test killProcessTree(): process does not exist, skipping');
+			this.logger.log('Smoke test kill(): returning early because process does not exist anymore');
 			return;
 		}
 
 		try {
-			this.logger.log(`Smoke test killProcessTree(): Killing process tree for PID: ${pid}`);
-			// Create a ChildProcess object with the PID for teardown
-			const processStub: Pick<cp.ChildProcess, 'pid'> = { pid };
-			// Use teardown which calls treeKill to kill entire process tree
-			await teardown(processStub as cp.ChildProcess, this.logger);
-			this.logger.log('Smoke test killProcessTree(): Process tree killed successfully');
-
-			// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
-			// The shared dbus session (started in xvfb setup) should handle all Electron instances
-			// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
+			this.logger.log(`Smoke test kill(): Trying to SIGTERM process: ${pid}`);
+			process.kill(pid);
 		} catch (e) {
-			this.logger.log('Smoke test killProcessTree(): treeKill failed', e);
+			this.logger.log('Smoke test kill(): SIGTERM failed', e);
 		}
 	}
-	// --- End Positron ---
 
 	async getElement(selector: string): Promise<IElement | undefined> {
 		return (await this.driver.getElements(selector))?.[0];

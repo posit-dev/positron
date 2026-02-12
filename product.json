@@ -15,7 +15,7 @@
 	"serverLicense": [],
 	"serverLicensePrompt": "",
 	"serverApplicationName": "positron-server",
-	"serverDataFolderName": ".positron-server",
+	"serverDataFolderName": ".vscode-server",
 	"serverDownloadUrlTemplate": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz",
 	"tunnelApplicationName": "positron-tunnel",
 	"win32DirName": "Positron",
@@ -24,21 +24,21 @@
 	"win32AppId": "{{1CE64477-8EE2-479C-942A-D7B101721AFB}",
 	"win32x64AppId": "{{08FC0438-DEF4-4349-85AE-FA80317766E9}",
 	"win32arm64AppId": "{{17BBF21B-410B-40F4-ACC4-2E9515616AC6}",
-	"win32UserAppId": "{{CA791628-3EE5-404F-8BBE-8844E6C04455}",
-	"win32x64UserAppId": "{{5894F169-3C13-4E32-A124-67BDE57636E1}",
-	"win32arm64UserAppId": "{{585852C3-3385-447E-8711-67F60DE17946}",
+	"win32UserAppId": "{{BA70F482-04D8-4BD6-B6C5-976E94C73E13}",
+	"win32x64UserAppId": "{{D4272F45-0AAB-432E-89DE-DBC7DFA87F7D}",
+	"win32arm64UserAppId": "{{B9BE1090-E373-4510-829E-D98C416CB4D9}",
 	"win32AppUserModelId": "Posit.Positron",
 	"win32ShellNameShort": "&Positron",
-	"win32TunnelServiceMutex": "positron-tunnelservice",
-	"win32TunnelMutex": "positrontunnel",
+	"win32TunnelServiceMutex": "vscodeoss-tunnelservice",
+	"win32TunnelMutex": "vscodeoss-tunnel",
 	"darwinBundleIdentifier": "co.posit.positron",
-	"darwinProfileUUID": "0501C5DF-0DC9-4217-9C18-A5595A125743",
-	"darwinProfilePayloadUUID": "BEA2CCD2-3F74-4174-9C0E-606A6F13B050",
+	"darwinProfileUUID": "47827DD9-4734-49A0-AF80-7E19B11495CC",
+	"darwinProfilePayloadUUID": "CF808BE7-53F3-46C6-A7E2-7EDB98A5E959",
 	"linuxIconName": "co.posit.positron",
 	"licenseFileName": "LICENSE.txt",
-	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
+	"reportIssueUrl": "https://github.com/microsoft/vscode/issues/new",
 	"nodejsRepository": "https://nodejs.org",
-	"urlProtocol": "positron",
+	"urlProtocol": "vscode-server",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
 	"releaseNotesUrl": "https://cdn.posit.co/positron",
@@ -93,28 +93,13 @@
 			}
 		},
 		{
-			"name": "ms-toolsai.jupyter-renderers",
-			"version": "1.0.19",
-			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
-			"metadata": {
-				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
-				"publisherId": {
-					"publisherId": "ac8eb7c9-3e59-4b39-8040-f0484d8170ce",
-					"publisherName": "ms-toolsai",
-					"displayName": "Jupyter Notebook Renderers",
-					"flags": "verified"
-				},
-				"publisherDisplayName": "ms-toolsai"
-			}
-		},
-		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.47",
+			"version": "1.6.46",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "6ec213bab8e7e4e63e2ff0518aa96223d1621b37ce613b296feeaee39e309edc",
+			"sha256": "a5d808dc2964b389e433d57bbd97ba6d88aac9389468ab1f73a0adf01331ec3f",
 			"metadata": {
-				"publisherDisplayName": "Posit Software, PBC"
+				"publisherDisplayName": "Posit PBC"
 			}
 		}
 	],
@@ -298,28 +283,18 @@
 		"serviceUrl": "https://open-vsx.org/vscode/gallery",
 		"itemUrl": "https://open-vsx.org/vscode/item",
 		"resourceUrlTemplate": "https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}",
-		"extensionUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest",
 		"controlUrl": "",
 		"recommendationsUrl": "",
+		"extensionUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest",
 		"nlsBaseUrl": "",
 		"publisherUrl": ""
 	},
 	"linkProtectionTrustedDomains": [
-		"https://open-vsx.org",
-		"https://github.com/posit-dev/positron",
-		"https://positron.posit.co",
-		"https://github.com/login/device",
-		"https://login.posit.cloud",
-		"https://connect.posit.cloud",
-		"https://login.staging.posit.cloud",
-		"https://staging.connect.posit.cloud",
-		"https://posit.co",
-		"https://support.posit.co"
+		"https://open-vsx.org"
 	],
 	"defaultChatAgent": {
 		"extensionId": "positron.positron-assistant",
 		"chatExtensionId": "positron.positron-assistant",
-
 		"provider": {
 			"default": {
 				"id": "positron.assistant",
@@ -357,7 +332,20 @@
 		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",
 		"resolveMergeConflictsCommand": "github.copilot.git.resolveMergeConflicts",
 		"completionsAdvancedSetting": "github.copilot.advanced",
-		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled"
+		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled",
+		"chatExtensionOutputId": "GitHub.copilot-chat.GitHub Copilot Chat.log",
+		"documentationUrl": "https://aka.ms/github-copilot-overview",
+		"termsStatementUrl": "https://aka.ms/github-copilot-terms-statement",
+		"privacyStatementUrl": "https://aka.ms/github-copilot-privacy-statement",
+		"skusDocumentationUrl": "https://aka.ms/github-copilot-plans",
+		"publicCodeMatchesUrl": "https://aka.ms/github-copilot-match-public-code",
+		"manageSettingsUrl": "https://aka.ms/github-copilot-settings",
+		"managePlanUrl": "https://aka.ms/github-copilot-manage-plan",
+		"manageOverageUrl": "https://aka.ms/github-copilot-manage-overage",
+		"upgradePlanUrl": "https://aka.ms/github-copilot-upgrade-plan",
+		"signUpUrl": "https://aka.ms/github-sign-up",
+		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
+		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry"
 	},
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"

@@ -317,6 +317,9 @@ export class WebClientServer {
 				queryConnectionToken,
 				{
 					sameSite: 'lax',
+					// --- Start PWB: Use secure auth cookie
+					httpOnly: true,
+					// --- End PWB
 					maxAge: 60 * 60 * 24 * 7 /* 1 week */
 				}
 			);
@@ -443,6 +446,10 @@ export class WebClientServer {
 		} else {
 			this._logService.info('[WebClientServer] No POSITRON_ENFORCED_SETTINGS environment variable found');
 		}
+
+		// --- Start PWB: Use secure auth cookie ---
+		const cookies = cookie.parse(req.headers.cookie || '');
+		const connectionTokenFromCookie = cookies[connectionTokenCookieName];
 		// --- End PWB ---
 
 		const workbenchWebConfiguration = {
@@ -471,11 +478,11 @@ export class WebClientServer {
 			productConfiguration,
 			callbackRoute: callbackRoute,
 			// --- Start PWB: Admin enforced settings ---
-			adminPoliciesData: enforcedSettings
+			adminPoliciesData: enforcedSettings,
+			// --- Start PWB: Use secure auth cookie ---
+			connectionToken: connectionTokenFromCookie
 			// --- End PWB ---
 		};
-
-		const cookies = cookie.parse(req.headers.cookie || '');
 		const locale = cookies['vscode.nls.locale'] || req.headers['accept-language']?.split(',')[0]?.toLowerCase() || 'en';
 		let WORKBENCH_NLS_BASE_URL: string | undefined;
 		let WORKBENCH_NLS_URL: string;
@@ -557,6 +564,9 @@ export class WebClientServer {
 				this._connectionToken.value,
 				{
 					sameSite: 'lax',
+					// --- Start PWB: Use secure auth cookie
+					httpOnly: true,
+					// --- End PWB
 					maxAge: 60 * 60 * 24 * 7 /* 1 week */
 				}
 			);

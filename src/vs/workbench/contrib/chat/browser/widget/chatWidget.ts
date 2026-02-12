@@ -8,14 +8,11 @@ import './media/chatAgentHover.css';
 import './media/chatViewWelcome.css';
 import * as dom from '../../../../../base/browser/dom.js';
 import { IMouseWheelEvent } from '../../../../../base/browser/mouseEvent.js';
-import { Button } from '../../../../../base/browser/ui/button/button.js';
-import { ITreeContextMenuEvent, ITreeElement } from '../../../../../base/browser/ui/tree/tree.js';
 import { disposableTimeout, timeout } from '../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { FuzzyScore } from '../../../../../base/common/filters.js';
 import { IMarkdownString, MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { Iterable } from '../../../../../base/common/iterator.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, thenIfNotDisposed } from '../../../../../base/common/lifecycle.js';
@@ -34,24 +31,20 @@ import { localize } from '../../../../../nls.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, IContextKey, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
+
 import { ITextResourceEditorInput } from '../../../../../platform/editor/common/editor.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
-import { WorkbenchObjectTree } from '../../../../../platform/list/browser/listService.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { bindContextKey } from '../../../../../platform/observable/common/platformObservableUtils.js';
 import product from '../../../../../platform/product/common/product.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
-import { buttonSecondaryBackground, buttonSecondaryForeground, buttonSecondaryHoverBackground } from '../../../../../platform/theme/common/colorRegistry.js';
-import { asCssVariable } from '../../../../../platform/theme/common/colorUtils.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
 import { EditorResourceAccessor } from '../../../../common/editor.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
 import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
-import { katexContainerClassName } from '../../../markdown/common/markedKatexExtension.js';
 import { checkModeOption } from '../../common/chat.js';
 import { IChatAgentAttachmentCapabilities, IChatAgentCommand, IChatAgentData, IChatAgentService } from '../../common/participants/chatAgents.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
@@ -66,21 +59,21 @@ import { IChatSessionsService } from '../../common/chatSessionsService.js';
 import { IChatSlashCommandService } from '../../common/participants/chatSlashCommands.js';
 import { IChatTodoListService } from '../../common/tools/chatTodoListService.js';
 import { ChatRequestVariableSet, IChatRequestVariableEntry, isPromptFileVariableEntry, isPromptTextVariableEntry, isWorkspaceVariableEntry, PromptFileVariableKind, toPromptFileVariableEntry } from '../../common/attachments/chatVariableEntries.js';
-import { ChatViewModel, IChatRequestViewModel, IChatResponseViewModel, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
+import { ChatViewModel, IChatResponseViewModel, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
 import { CodeBlockModelCollection } from '../../common/widget/codeBlockModelCollection.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../common/constants.js';
-import { ILanguageModelToolsService, ToolSet } from '../../common/tools/languageModelToolsService.js';
+import { ILanguageModelToolsService, isToolSet } from '../../common/tools/languageModelToolsService.js';
 import { ComputeAutomaticInstructions } from '../../common/promptSyntax/computeAutomaticInstructions.js';
 import { PromptsConfig } from '../../common/promptSyntax/config/config.js';
 import { IHandOff, PromptHeader, Target } from '../../common/promptSyntax/promptFileParser.js';
 import { IPromptsService } from '../../common/promptSyntax/service/promptsService.js';
 import { handleModeSwitch } from '../actions/chatActions.js';
 import { ChatTreeItem, IChatAcceptInputOptions, IChatAccessibilityService, IChatCodeBlockInfo, IChatFileTreeInfo, IChatListItemRendererOptions, IChatWidget, IChatWidgetService, IChatWidgetViewContext, IChatWidgetViewModelChangeEvent, IChatWidgetViewOptions, isIChatResourceViewContext, isIChatViewViewContext } from '../chat.js';
-import { ChatAccessibilityProvider } from '../accessibility/chatAccessibilityProvider.js';
 import { ChatAttachmentModel } from '../attachments/chatAttachmentModel.js';
 import { ChatSuggestNextWidget } from './chatContentParts/chatSuggestNextWidget.js';
 import { ChatInputPart, IChatInputPartOptions, IChatInputStyles } from './input/chatInputPart.js';
-import { ChatListDelegate, ChatListItemRenderer, IChatListItemTemplate, IChatRendererDelegate } from './chatListRenderer.js';
+import { IChatListItemTemplate } from './chatListRenderer.js';
+import { ChatListWidget } from './chatListWidget.js';
 import { ChatEditorOptions } from './chatOptions.js';
 import { ChatViewWelcomePart, IChatSuggestedPrompts, IChatViewWelcomeContent } from '../viewsWelcome/chatViewWelcomeController.js';
 import { IAgentSessionsService } from '../agentSessions/agentSessionsService.js';
@@ -226,14 +219,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	get domNode() { return this.container; }
 
-	private tree!: WorkbenchObjectTree<ChatTreeItem, FuzzyScore>;
-	private renderer!: ChatListItemRenderer;
+	private listWidget!: ChatListWidget;
 	private readonly _codeBlockModelCollection: CodeBlockModelCollection;
-	private lastItem: ChatTreeItem | undefined;
 
 	private readonly visibilityTimeoutDisposable: MutableDisposable<IDisposable> = this._register(new MutableDisposable());
 	private readonly visibilityAnimationFrameDisposable: MutableDisposable<IDisposable> = this._register(new MutableDisposable());
-	private readonly scrollAnimationFrameDisposable: MutableDisposable<IDisposable> = this._register(new MutableDisposable());
 
 	private readonly inputPartDisposable: MutableDisposable<ChatInputPart> = this._register(new MutableDisposable());
 	private readonly inlineInputPartDisposable: MutableDisposable<ChatInputPart> = this._register(new MutableDisposable());
@@ -259,14 +249,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private _visible = false;
 	get visible() { return this._visible; }
 
-	private previousTreeScrollHeight: number = 0;
-
-	/**
-	 * Whether the list is scroll-locked to the bottom. Initialize to true so that we can scroll to the bottom on first render.
-	 * The initial render leads to a lot of `onDidChangeTreeContentHeight` as the renderer works out the real heights of rows.
-	*/
-	private scrollLock = true;
-
 	private _instructionFilesCheckPromise: Promise<boolean> | undefined;
 	private _instructionFilesExist: boolean | undefined;
 
@@ -289,8 +271,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private readonly promptUriCache = new Map<string, URI>();
 	private _isLoadingPromptDescriptions = false;
 
-	private _mostRecentlyFocusedItemIndex: number = -1;
-
 	private readonly viewModelDisposables = this._register(new DisposableStore());
 	private _viewModel: ChatViewModel | undefined;
 
@@ -306,6 +286,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (viewModel) {
 			this.viewModelDisposables.add(viewModel);
 			this.logService.debug('ChatWidget#setViewModel: have viewModel');
+
+			// If switching to a model with a request in progress, play progress sound
+			if (viewModel.model.requestInProgress.get()) {
+				this.chatAccessibilityService.acceptRequest(viewModel.sessionResource, true);
+			}
 		} else {
 			this.logService.debug('ChatWidget#setViewModel: no viewModel');
 		}
@@ -371,7 +356,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@IChatService private readonly chatService: IChatService,
 		@IChatAgentService private readonly chatAgentService: IChatAgentService,
 		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
-		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IChatAccessibilityService private readonly chatAccessibilityService: IChatAccessibilityService,
 		@ILogService private readonly logService: ILogService,
 		@IThemeService private readonly themeService: IThemeService,
@@ -462,10 +446,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.chatSuggestNextWidget = this._register(this.instantiationService.createInstance(ChatSuggestNextWidget));
 
 		this._register(this.configurationService.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration('chat.renderRelatedFiles')) {
-				this.input.renderChatRelatedFiles();
-			}
-
 			if (e.affectsConfiguration(ChatConfiguration.EditRequests) || e.affectsConfiguration(ChatConfiguration.CheckpointsEnabled)) {
 				this.settingChangeCounter++;
 				this.onDidChangeItems();
@@ -533,7 +513,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 			await timeout(0); // wait for list to actually render
 
-			for (const codeBlockPart of this.renderer.editorsInUse()) {
+			for (const codeBlockPart of this.listWidget.editorsInUse()) {
 				if (extUri.isEqual(codeBlockPart.uri, resource, true)) {
 					const editor = codeBlockPart.editor;
 
@@ -605,11 +585,17 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		return this._attachmentCapabilities;
 	}
 
+	/**
+	 * Either the inline input (when editing) or the main input part
+	 */
 	get input(): ChatInputPart {
 		return this.viewModel?.editing && this.configurationService.getValue<string>('chat.editRequests') !== 'input' ? this.inlineInputPart : this.inputPart;
 	}
 
-	private get inputPart(): ChatInputPart {
+	/**
+	 * The main input part at the buttom of the chat widget. Use `input` to get the active input (main or inline editing part).
+	 */
+	get inputPart(): ChatInputPart {
 		return this.inputPartDisposable.value!;
 	}
 
@@ -622,7 +608,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	get contentHeight(): number {
-		return this.input.contentHeight + this.tree.contentHeight + this.chatSuggestNextWidget.height;
+		return this.input.height.get() + this.listWidget.contentHeight + this.chatSuggestNextWidget.height;
 	}
 
 	get attachmentModel(): ChatAttachmentModel {
@@ -672,20 +658,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.renderWelcomeViewContentIfNeeded();
 		this.createList(this.listContainer, { editable: !isInlineChat(this) && !isQuickChat(this), ...this.viewOptions.rendererOptions, renderStyle });
 
-		const scrollDownButton = this._register(new Button(this.listContainer, {
-			supportIcons: true,
-			buttonBackground: asCssVariable(buttonSecondaryBackground),
-			buttonForeground: asCssVariable(buttonSecondaryForeground),
-			buttonHoverBackground: asCssVariable(buttonSecondaryHoverBackground),
-		}));
-		scrollDownButton.element.classList.add('chat-scroll-down');
-		scrollDownButton.label = `$(${Codicon.chevronDown.id})`;
-		scrollDownButton.setTitle(localize('scrollDownButtonLabel', "Scroll down"));
-		this._register(scrollDownButton.onDidClick(() => {
-			this.scrollLock = true;
-			this.scrollToEnd();
-		}));
-
 		// Update the font family and size
 		this._register(autorun(reader => {
 			const fontFamily = this.chatLayoutService.fontFamily.read(reader);
@@ -695,7 +667,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			this.container.style.fontSize = `${fontSize}px`;
 
 			if (this.visible) {
-				this.tree.rerender();
+				this.listWidget.rerender();
 			}
 		}));
 
@@ -704,7 +676,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		// Do initial render
 		if (this.viewModel) {
 			this.onDidChangeItems();
-			this.scrollToEnd();
+			this.listWidget.scrollToEnd();
 		}
 
 		this.contribs = ChatWidget.CONTRIBS.map(contrib => {
@@ -749,15 +721,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}
 	}
 
-	private scrollToEnd() {
-		if (this.lastItem) {
-			const offset = Math.max(this.lastItem.currentRenderedHeight ?? 0, 1e6);
-			if (this.tree.hasElement(this.lastItem)) {
-				this.tree.reveal(this.lastItem, offset);
-			}
-		}
-	}
-
 	focusInput(): void {
 		this.input.focus();
 
@@ -775,8 +738,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (!this.viewModel) {
 			return;
 		}
+
+		const previous = this.parsedChatRequest;
 		this.parsedChatRequest = this.instantiationService.createInstance(ChatRequestParser).parseChatRequest(this.viewModel.sessionResource, this.getInput(), this.location, { selectedAgent: this._lastSelectedAgent, mode: this.input.currentModeKind });
-		this._onDidChangeParsedInput.fire();
+		if (!previous || !IParsedChatRequest.equals(previous, this.parsedChatRequest)) {
+			this._onDidChangeParsedInput.fire();
+		}
 	}
 
 	getSibling(item: ChatTreeItem, type: 'next' | 'previous'): ChatTreeItem | undefined {
@@ -825,17 +792,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private onDidChangeItems(skipDynamicLayout?: boolean) {
 		if (this._visible || !this.viewModel) {
-			const treeItems = (this.viewModel?.getItems() ?? [])
-				.map((item): ITreeElement<ChatTreeItem> => {
-					return {
-						element: item,
-						collapsed: false,
-						collapsible: false
-					};
-				});
+			const items = this.viewModel?.getItems() ?? [];
 
-
-			if (treeItems.length > 0) {
+			if (items.length > 0) {
 				this.updateChatViewVisibility();
 			} else {
 				this.renderWelcomeViewContentIfNeeded();
@@ -843,35 +802,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 			this._onWillMaybeChangeHeight.fire();
 
-			this.lastItem = treeItems.at(-1)?.element;
-			ChatContextKeys.lastItemId.bindTo(this.contextKeyService).set(this.lastItem ? [this.lastItem.id] : []);
-			this.tree.setChildren(null, treeItems, {
-				diffIdentityProvider: {
-					getId: (element) => {
-						return element.dataId +
-							// Ensure re-rendering an element once slash commands are loaded, so the colorization can be applied.
-							`${(isRequestVM(element)) /* && !!this.lastSlashCommands ? '_scLoaded' : '' */}` +
-							// If a response is in the process of progressive rendering, we need to ensure that it will
-							// be re-rendered so progressive rendering is restarted, even if the model wasn't updated.
-							`${isResponseVM(element) && element.renderData ? `_${this.visibleChangeCount}` : ''}` +
-							// Re-render once content references are loaded
-							(isResponseVM(element) ? `_${element.contentReferences.length}` : '') +
-							// Re-render if element becomes hidden due to undo/redo
-							`_${element.shouldBeRemovedOnSend ? `${element.shouldBeRemovedOnSend.afterUndoStop || '1'}` : '0'}` +
-							// Re-render if element becomes enabled/disabled due to checkpointing
-							`_${element.shouldBeBlocked ? '1' : '0'}` +
-							// Re-render if we have an element currently being edited
-							`_${this.viewModel?.editing ? '1' : '0'}` +
-							// Re-render if we have an element currently being checkpointed
-							`_${this.viewModel?.model.checkpoint ? '1' : '0'}` +
-							// Re-render all if invoked by setting change
-							`_setting${this.settingChangeCounter || '0'}` +
-							// Rerender request if we got new content references in the response
-							// since this may change how we render the corresponding attachments in the request
-							(isRequestVM(element) && element.contentReferences ? `_${element.contentReferences?.length}` : '');
-					},
-				}
-			});
+			// Update list widget state and refresh
+			this.listWidget.setVisibleChangeCount(this.visibleChangeCount);
+			this.listWidget.refresh();
 
 			if (!skipDynamicLayout && this._dynamicMessageLayoutData) {
 				this.layoutDynamicChatTreeItemMode();
@@ -890,13 +823,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	 * Updates the DOM visibility of welcome view and chat list immediately
 	 */
 	private updateChatViewVisibility(): void {
-		if (!this.viewModel) {
-			return;
+		if (this.viewModel) {
+			const numItems = this.viewModel.getItems().length;
+			dom.setVisibility(numItems === 0, this.welcomeMessageContainer);
+			dom.setVisibility(numItems !== 0, this.listContainer);
 		}
-
-		const numItems = this.viewModel.getItems().length;
-		dom.setVisibility(numItems === 0, this.welcomeMessageContainer);
-		dom.setVisibility(numItems !== 0, this.listContainer);
 
 		this._onDidChangeEmptyState.fire();
 	}
@@ -963,51 +894,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			this._isRenderingWelcome = false;
 		}
 	}
-
-	// --- Start Positron ---
-	private getPositronWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined): IChatViewWelcomeContent {
-		let welcomeText;
-		let welcomeTitle;
-		let tips: IMarkdownString | undefined;
-
-		// Show a link to enable the assistant if it's not yet enabled
-		if (!this.configurationService.getValue('positron.assistant.enable')) {
-			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Welcome to Positron Assistant");
-			const enableAssistantMessage = localize('positronAssistant.enableAssistantMessage', "Enable Positron Assistant");
-			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
-			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistantSetting)`;
-		} else if (!this.languageModelsService.currentProvider) {
-			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
-			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
-			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant, you must first select and authenticate with a language model provider.");
-			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
-		} else {
-			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
-			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");
-			// eslint-disable-next-line local/code-no-unexternalized-strings
-			welcomeText = localize('positronAssistant.welcomeMessageReady', `Positron Assistant is an AI coding companion designed to accelerate and enhance your data science projects.
-
-The {guide-link} explains the possibilities and capabilities of Positron Assistant.
-
-Always verify results. AI assistants can sometimes produce incorrect code.`);
-			// eslint-disable-next-line local/code-no-unexternalized-strings
-			tips = new MarkdownString(localize('positronAssistant.welcomeMessageReadyTips', `Click on or type $(mention) to select a Chat Participant.
-
-Click on $(attach) or type \`#\` to add context, such as files to your chat.
-
-Type \`/\` to use predefined commands such as \`/help\`.`,
-			), { supportThemeIcons: true, isTrusted: true });
-			welcomeText = welcomeText.replace('{guide-link}', `[${guideLinkMessage}](https://positron.posit.co/assistant)`);
-		}
-		return {
-			title: welcomeTitle,
-			message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
-			icon: Codicon.positronAssistant,
-			tips,
-			additionalMessage,
-		};
-	}
-	// --- End Positron ---
 
 	private _getGenerateInstructionsMessage(): IMarkdownString {
 		// Start checking for instruction files immediately if not already done
@@ -1108,6 +994,51 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			suggestedPrompts: this.getPromptFileSuggestions()
 		};
 	}
+
+	// --- Start Positron ---
+	private getPositronWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined): IChatViewWelcomeContent {
+		let welcomeText;
+		let welcomeTitle;
+		let tips: IMarkdownString | undefined;
+
+		// Show a link to enable the assistant if it's not yet enabled
+		if (!this.configurationService.getValue('positron.assistant.enable')) {
+			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Welcome to Positron Assistant");
+			const enableAssistantMessage = localize('positronAssistant.enableAssistantMessage', "Enable Positron Assistant");
+			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
+			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistantSetting)`;
+		} else if (!this.languageModelsService.currentProvider) {
+			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
+			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
+			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant, you must first select and authenticate with a language model provider.");
+			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
+		} else {
+			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
+			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");
+			// eslint-disable-next-line local/code-no-unexternalized-strings
+			welcomeText = localize('positronAssistant.welcomeMessageReady', `Positron Assistant is an AI coding companion designed to accelerate and enhance your data science projects.
+
+The {guide-link} explains the possibilities and capabilities of Positron Assistant.
+
+Always verify results. AI assistants can sometimes produce incorrect code.`);
+			// eslint-disable-next-line local/code-no-unexternalized-strings
+			tips = new MarkdownString(localize('positronAssistant.welcomeMessageReadyTips', `Click on or type $(mention) to select a Chat Participant.
+
+Click on $(attach) or type \`#\` to add context, such as files to your chat.
+
+Type \`/\` to use predefined commands such as \`/help\`.`,
+			), { supportThemeIcons: true, isTrusted: true });
+			welcomeText = welcomeText.replace('{guide-link}', `[${guideLinkMessage}](https://positron.posit.co/assistant)`);
+		}
+		return {
+			title: welcomeTitle,
+			message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
+			icon: Codicon.positronAssistant,
+			tips,
+			additionalMessage,
+		};
+	}
+	// --- End Positron ---
 
 	private getPromptFileSuggestions(): IChatSuggestedPrompts[] {
 
@@ -1287,21 +1218,14 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			return;
 		}
 		this.input.renderChatEditingSessionState(this._editingSession.get() ?? null);
-
-		if (this.bodyDimension) {
-			this.layout(this.bodyDimension.height, this.bodyDimension.width);
-		}
 	}
 
 	private async renderFollowups(): Promise<void> {
-		if (this.lastItem && isResponseVM(this.lastItem) && this.lastItem.isComplete) {
-			this.input.renderFollowups(this.lastItem.replyFollowups, this.lastItem);
+		const lastItem = this.listWidget.lastItem;
+		if (lastItem && isResponseVM(lastItem) && lastItem.isComplete) {
+			this.input.renderFollowups(lastItem.replyFollowups, lastItem);
 		} else {
 			this.input.renderFollowups(undefined, undefined);
-		}
-
-		if (this.bodyDimension) {
-			this.layout(this.bodyDimension.height, this.bodyDimension.width);
 		}
 	}
 
@@ -1384,6 +1308,10 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		} else if (handoff.agent) {
 			// Regular handoff to specified agent
 			this._switchToAgentByName(handoff.agent);
+			// Switch to the specified model if provided
+			if (handoff.model) {
+				this.input.switchModelByQualifiedName([handoff.model]);
+			}
 			// Insert the handoff prompt into the input
 			this.input.setValue(promptToUse, false);
 			this.input.focus();
@@ -1509,7 +1437,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		const wasVisible = this._visible;
 		this._visible = visible;
 		this.visibleChangeCount++;
-		this.renderer.setVisible(visible);
+		this.listWidget.setVisible(visible);
 		this.input.setVisible(visible);
 
 		if (visible) {
@@ -1535,37 +1463,42 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		}
 	}
 
-
 	private createList(listContainer: HTMLElement, options: IChatListItemRendererOptions): void {
-		const scopedInstantiationService = this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, this.contextKeyService])));
-		const delegate = scopedInstantiationService.createInstance(ChatListDelegate, this.viewOptions.defaultElementHeight ?? 200);
-		const rendererDelegate: IChatRendererDelegate = {
-			getListLength: () => this.tree.getNode(null).visibleChildrenCount,
-			onDidScroll: this.onDidScroll,
-			container: listContainer,
-			currentChatMode: () => this.input.currentModeKind,
-		};
-
 		// Create a dom element to hold UI from editor widgets embedded in chat messages
 		const overflowWidgetsContainer = document.createElement('div');
 		overflowWidgetsContainer.classList.add('chat-overflow-widget-container', 'monaco-editor');
 		listContainer.append(overflowWidgetsContainer);
 
-		this.renderer = this._register(scopedInstantiationService.createInstance(
-			ChatListItemRenderer,
-			this.editorOptions,
-			options,
-			rendererDelegate,
-			this._codeBlockModelCollection,
-			overflowWidgetsContainer,
-			this.viewModel,
+		// Create chat list widget
+		this.listWidget = this._register(this.instantiationService.createInstance(
+			ChatListWidget,
+			listContainer,
+			{
+				rendererOptions: options,
+				renderStyle: this.viewOptions.renderStyle,
+				defaultElementHeight: this.viewOptions.defaultElementHeight ?? 200,
+				overflowWidgetsDomNode: overflowWidgetsContainer,
+				styles: {
+					listForeground: this.styles.listForeground,
+					listBackground: this.styles.listBackground,
+				},
+				currentChatMode: () => this.input.currentModeKind,
+				filter: this.viewOptions.filter ? { filter: this.viewOptions.filter.bind(this.viewOptions) } : undefined,
+				codeBlockModelCollection: this._codeBlockModelCollection,
+				viewModel: this.viewModel,
+				editorOptions: this.editorOptions,
+				location: this.location,
+				getCurrentLanguageModelId: () => this.input.currentLanguageModel,
+				getCurrentModeInfo: () => this.input.currentModeInfo,
+			}
 		));
 
-		this._register(this.renderer.onDidClickRequest(async item => {
+		// Wire up ChatWidget-specific list widget events
+		this._register(this.listWidget.onDidClickRequest(async item => {
 			this.clickedRequest(item);
 		}));
 
-		this._register(this.renderer.onDidRerender(item => {
+		this._register(this.listWidget.onDidRerender(item => {
 			if (isRequestVM(item.currentElement) && this.configurationService.getValue<string>('chat.editRequests') !== 'input') {
 				if (!item.rowContainer.contains(this.inputContainer)) {
 					item.rowContainer.appendChild(this.inputContainer);
@@ -1574,103 +1507,34 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			}
 		}));
 
-		this._register(this.renderer.onDidDispose((item) => {
+		this._register(this.listWidget.onDidDispose(() => {
 			this.focusedInputDOM.appendChild(this.inputContainer);
 			this.input.focus();
 		}));
 
-		this._register(this.renderer.onDidFocusOutside(() => {
+		this._register(this.listWidget.onDidFocusOutside(() => {
 			this.finishedEditing();
 		}));
 
-		this._register(this.renderer.onDidClickFollowup(item => {
+		this._register(this.listWidget.onDidClickFollowup(item => {
 			// is this used anymore?
 			this.acceptInput(item.message);
 		}));
-		this._register(this.renderer.onDidClickRerunWithAgentOrCommandDetection(e => {
-			const request = this.chatService.getSession(e.sessionResource)?.getRequests().find(candidate => candidate.id === e.requestId);
-			if (request) {
-				const options: IChatSendRequestOptions = {
-					noCommandDetection: true,
-					attempt: request.attempt + 1,
-					location: this.location,
-					userSelectedModelId: this.input.currentLanguageModel,
-					modeInfo: this.input.currentModeInfo,
-				};
-				this.chatService.resendRequest(request, options).catch(e => this.logService.error('FAILED to rerun request', e));
-			}
+
+		this._register(this.listWidget.onDidChangeContentHeight(() => {
+			this._onDidChangeContentHeight.fire();
 		}));
 
-		this.tree = this._register(scopedInstantiationService.createInstance(
-			WorkbenchObjectTree<ChatTreeItem, FuzzyScore>,
-			'Chat',
-			listContainer,
-			delegate,
-			[this.renderer],
-			{
-				identityProvider: { getId: (e: ChatTreeItem) => e.id },
-				horizontalScrolling: false,
-				alwaysConsumeMouseWheel: false,
-				supportDynamicHeights: true,
-				hideTwistiesOfChildlessElements: true,
-				accessibilityProvider: this.instantiationService.createInstance(ChatAccessibilityProvider),
-				keyboardNavigationLabelProvider: { getKeyboardNavigationLabel: (e: ChatTreeItem) => isRequestVM(e) ? e.message : isResponseVM(e) ? e.response.value : '' }, // TODO
-				setRowLineHeight: false,
-				filter: this.viewOptions.filter ? { filter: this.viewOptions.filter.bind(this.viewOptions), } : undefined,
-				scrollToActiveElement: true,
-				overrideStyles: {
-					listFocusBackground: this.styles.listBackground,
-					listInactiveFocusBackground: this.styles.listBackground,
-					listActiveSelectionBackground: this.styles.listBackground,
-					listFocusAndSelectionBackground: this.styles.listBackground,
-					listInactiveSelectionBackground: this.styles.listBackground,
-					listHoverBackground: this.styles.listBackground,
-					listBackground: this.styles.listBackground,
-					listFocusForeground: this.styles.listForeground,
-					listHoverForeground: this.styles.listForeground,
-					listInactiveFocusForeground: this.styles.listForeground,
-					listInactiveSelectionForeground: this.styles.listForeground,
-					listActiveSelectionForeground: this.styles.listForeground,
-					listFocusAndSelectionForeground: this.styles.listForeground,
-					listActiveSelectionIconForeground: undefined,
-					listInactiveSelectionIconForeground: undefined,
-				}
-			}));
-
-		this._register(this.tree.onDidChangeFocus(() => {
-			const focused = this.tree.getFocus();
-			if (focused && focused.length > 0) {
-				const focusedItem = focused[0];
-				const items = this.tree.getNode(null).children;
-				const idx = items.findIndex(i => i.element === focusedItem);
-				if (idx !== -1) {
-					this._mostRecentlyFocusedItemIndex = idx;
-				}
-			}
-		}));
-		this._register(this.tree.onContextMenu(e => this.onContextMenu(e)));
-
-		this._register(this.tree.onDidChangeContentHeight(() => {
-			this.onDidChangeTreeContentHeight();
-		}));
-		this._register(this.renderer.onDidChangeItemHeight(e => {
-			if (this.tree.hasElement(e.element) && this.visible) {
-				this.tree.updateElementHeight(e.element, e.height);
-			}
-		}));
-		this._register(this.tree.onDidFocus(() => {
+		this._register(this.listWidget.onDidFocus(() => {
 			this._onDidFocus.fire();
 		}));
-		this._register(this.tree.onDidScroll(() => {
+		this._register(this.listWidget.onDidScroll(() => {
 			this._onDidScroll.fire();
-
-			const isScrolledDown = this.tree.scrollTop >= this.tree.scrollHeight - this.tree.renderHeight - 2;
-			this.container.classList.toggle('show-scroll-down', !isScrolledDown && !this.scrollLock);
 		}));
 	}
 
 	startEditing(requestId: string): void {
-		const editedRequest = this.renderer.getTemplateDataForRequestId(requestId);
+		const editedRequest = this.listWidget.getTemplateDataForRequestId(requestId);
 		if (editedRequest) {
 			this.clickedRequest(editedRequest);
 		}
@@ -1709,7 +1573,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			for (let i = requests.length - 1; i >= 0; i -= 1) {
 				const request = requests[i];
 				if (request.id === currentElement.id) {
-					request.shouldBeBlocked = false; // unblocking just this request.
+					request.setShouldBeBlocked(false); // unblocking just this request.
 					request.attachedContext?.forEach(addToContext);
 					currentElement.variables.forEach(addToContext);
 				}
@@ -1744,7 +1608,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.inputPart.dnd.setDisabledOverlay(!isInput);
 			this.input.renderAttachedContext();
 			this.input.setValue(currentElement.messageText, false);
-			this.renderer.updateItemHeightOnRender(currentElement, item);
 			this.onDidChangeItems();
 			this.input.inputEditor.focus();
 
@@ -1757,11 +1620,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			// listeners
 			if (!isInput) {
 				this._register(this.inlineInputPart.inputEditor.onDidChangeModelContent(() => {
-					this.scrollToCurrentItem(currentElement);
+					this.listWidget.scrollToCurrentItem(currentElement);
 				}));
 
 				this._register(this.inlineInputPart.inputEditor.onDidChangeCursorSelection((e) => {
-					this.scrollToCurrentItem(currentElement);
+					this.listWidget.scrollToCurrentItem(currentElement);
 				}));
 			}
 		}
@@ -1781,7 +1644,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 	finishedEditing(completedEdit?: boolean): void {
 		// reset states
-		const editedRequest = this.renderer.getTemplateDataForRequestId(this.viewModel?.editing?.id);
+		const editedRequest = this.listWidget.getTemplateDataForRequestId(this.viewModel?.editing?.id);
 		if (this.recentlyRestoredCheckpoint) {
 			this.recentlyRestoredCheckpoint = false;
 		} else {
@@ -1796,7 +1659,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 		if (!isInput) {
 			this.inputPart.setChatMode(this.input.currentModeObs.get().id);
-			const currentModel = this.input.selectedLanguageModel;
+			const currentModel = this.input.selectedLanguageModel.get();
 			if (currentModel) {
 				this.inputPart.switchModel(currentModel.metadata);
 			}
@@ -1825,9 +1688,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		this.inputPart?.setEditing(!!this.viewModel?.editing && isInput);
 
 		this.onDidChangeItems();
-		if (editedRequest?.currentElement) {
-			this.renderer.updateItemHeightOnRender(editedRequest.currentElement, editedRequest);
-		}
 
 		type CancelRequestEditEvent = {
 			editRequestType: string;
@@ -1847,69 +1707,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		});
 
 		this.inputPart.focus();
-	}
-
-	private scrollToCurrentItem(currentElement: IChatRequestViewModel): void {
-		if (this.viewModel?.editing && currentElement) {
-			const element = currentElement;
-			if (!this.tree.hasElement(element)) {
-				return;
-			}
-			const relativeTop = this.tree.getRelativeTop(element);
-			if (relativeTop === null || relativeTop < 0 || relativeTop > 1) {
-				this.tree.reveal(element, 0);
-			}
-		}
-	}
-
-	private onContextMenu(e: ITreeContextMenuEvent<ChatTreeItem | null>): void {
-		e.browserEvent.preventDefault();
-		e.browserEvent.stopPropagation();
-
-		const selected = e.element;
-
-		// Check if the context menu was opened on a KaTeX element
-		const target = e.browserEvent.target as HTMLElement;
-		const isKatexElement = target.closest(`.${katexContainerClassName}`) !== null;
-
-		const scopedContextKeyService = this.contextKeyService.createOverlay([
-			[ChatContextKeys.responseIsFiltered.key, isResponseVM(selected) && !!selected.errorDetails?.responseIsFiltered],
-			[ChatContextKeys.isKatexMathElement.key, isKatexElement]
-		]);
-		this.contextMenuService.showContextMenu({
-			menuId: MenuId.ChatContext,
-			menuActionOptions: { shouldForwardArgs: true },
-			contextKeyService: scopedContextKeyService,
-			getAnchor: () => e.anchor,
-			getActionsContext: () => selected,
-		});
-	}
-
-	private onDidChangeTreeContentHeight(): void {
-		// If the list was previously scrolled all the way down, ensure it stays scrolled down, if scroll lock is on
-		if (this.tree.scrollHeight !== this.previousTreeScrollHeight) {
-			const lastItem = this.viewModel?.getItems().at(-1);
-			const lastResponseIsRendering = isResponseVM(lastItem) && lastItem.renderData;
-			if (!lastResponseIsRendering || this.scrollLock) {
-				// Due to rounding, the scrollTop + renderHeight will not exactly match the scrollHeight.
-				// Consider the tree to be scrolled all the way down if it is within 2px of the bottom.
-				const lastElementWasVisible = this.tree.scrollTop + this.tree.renderHeight >= this.previousTreeScrollHeight - 2;
-				if (lastElementWasVisible) {
-					this.scrollAnimationFrameDisposable.value = dom.scheduleAtNextAnimationFrame(dom.getWindow(this.listContainer), () => {
-						// Can't set scrollTop during this event listener, the list might overwrite the change
-
-						this.scrollToEnd();
-					}, 0);
-				}
-			}
-		}
-
-		// TODO@roblourens add `show-scroll-down` class when button should show
-		// Show the button when content height changes, the list is not fully scrolled down, and (the latest response is currently rendering OR I haven't yet scrolled all the way down since the last response)
-		// So for example it would not reappear if I scroll up and delete a message
-
-		this.previousTreeScrollHeight = this.tree.scrollHeight;
-		this._onDidChangeContentHeight.fire();
 	}
 
 	private getWidgetViewKindTag(): string {
@@ -1938,11 +1735,14 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			supportsChangingModes: this.viewOptions.supportsChangingModes,
 			dndContainer: this.viewOptions.dndContainer,
 			widgetViewKindTag: this.getWidgetViewKindTag(),
-			defaultMode: this.viewOptions.defaultMode
+			defaultMode: this.viewOptions.defaultMode,
+			sessionTypePickerDelegate: this.viewOptions.sessionTypePickerDelegate,
+			workspacePickerDelegate: this.viewOptions.workspacePickerDelegate,
+			isQuickChat: isQuickChat(this)
 		};
 
 		if (this.viewModel?.editing) {
-			const editedRequest = this.renderer.getTemplateDataForRequestId(this.viewModel?.editing?.id);
+			const editedRequest = this.listWidget.getTemplateDataForRequestId(this.viewModel?.editing?.id);
 			const scopedInstantiationService = this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, editedRequest?.contextKeyService])));
 			this.inlineInputPartDisposable.value = scopedInstantiationService.createInstance(ChatInputPart,
 				this.location,
@@ -1957,9 +1757,25 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				this.styles,
 				false
 			);
+			this._register(autorun(reader => {
+				this.inputPart.height.read(reader);
+				if (!this.listWidget) {
+					// This is set up before the list/renderer are created
+					return;
+				}
+
+				if (this.bodyDimension) {
+					this.layout(this.bodyDimension.height, this.bodyDimension.width);
+				}
+
+				this._onDidChangeContentHeight.fire();
+			}));
 		}
 
 		this.input.render(container, '', this);
+		if (this.bodyDimension?.width) {
+			this.input.layout(this.bodyDimension.width);
+		}
 
 		this._register(this.input.onDidLoadInputState(() => {
 			this.refreshParsedInput();
@@ -2007,18 +1823,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				},
 			});
 		}));
-		this._register(this.input.onDidChangeHeight(() => {
-			const editedRequest = this.renderer.getTemplateDataForRequestId(this.viewModel?.editing?.id);
-			if (isRequestVM(editedRequest?.currentElement) && this.viewModel?.editing) {
-				this.renderer.updateItemHeightOnRender(editedRequest?.currentElement, editedRequest);
-			}
-
-			if (this.bodyDimension) {
-				this.layout(this.bodyDimension.height, this.bodyDimension.width);
-			}
-
-			this._onDidChangeContentHeight.fire();
-		}));
 		this._register(this.inputEditor.onDidChangeModelContent(() => {
 			this.parsedChatRequest = undefined;
 			this.updateChatInputContext();
@@ -2034,6 +1838,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.renderFollowups();
 			this.renderChatSuggestNextWidget();
 		}));
+
 		// --- Start Positron ---
 		this._register(this.languageModelsService.onDidChangeLanguageModels(() => {
 			this.renderWelcomeViewContentIfNeeded();
@@ -2045,7 +1850,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			const toolIds = new Set<string>();
 			for (const [entry, enabled] of this.input.selectedToolsModel.entriesMap.read(r)) {
 				if (enabled) {
-					if (entry instanceof ToolSet) {
+					if (isToolSet(entry)) {
 						toolSetIds.add(entry.id);
 					} else {
 						toolIds.add(entry.id);
@@ -2095,10 +1900,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		this._codeBlockModelCollection.clear();
 
 		this.container.setAttribute('data-session-id', model.sessionId);
-		this.viewModel = this.instantiationService.createInstance(ChatViewModel, model, this._codeBlockModelCollection);
+		this.viewModel = this.instantiationService.createInstance(ChatViewModel, model, this._codeBlockModelCollection, undefined);
 
 		// Pass input model reference to input part for state syncing
 		this.inputPart.setInputModel(model.inputModel, model.getRequests().length === 0);
+		this.listWidget.setViewModel(this.viewModel);
 
 		if (this._lockedAgent) {
 			let placeholder = this.chatSessionsService.getInputPlaceholderForSessionType(this._lockedAgent.id);
@@ -2128,13 +1934,9 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 			this.onDidChangeItems();
 			if (events?.some(e => e?.kind === 'addRequest') && this.visible) {
-				this.scrollToEnd();
+				this.listWidget.scrollToEnd();
 			}
 		})));
-		this.viewModelDisposables.add(autorun(reader => {
-			this._editingSession.read(reader); // re-render when the session changes
-			this.renderChatEditingSessionState();
-		}));
 		this.viewModelDisposables.add(this.viewModel.onDidDisposeModel(() => {
 			// Ensure that view state is saved here, because we will load it again when a new model is assigned
 			if (this.viewModel?.editing) {
@@ -2173,37 +1975,37 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				}
 				// Only show if response wasn't canceled
 				this.renderChatSuggestNextWidget();
+
+				// Mark the session as read when the request completes and the widget is visible
+				if (this.visible && this.viewModel?.sessionResource) {
+					this.agentSessionsService.getSession(this.viewModel.sessionResource)?.setRead(true);
+				}
 			}
 		}));
 
-		if (this.tree && this.visible) {
+		if (this.listWidget && this.visible) {
 			this.onDidChangeItems();
-			this.scrollToEnd();
+			this.listWidget.scrollToEnd();
 		}
 
-		this.renderer.updateViewModel(this.viewModel);
 		this.updateChatInputContext();
 		this.input.renderChatTodoListWidget(this.viewModel.sessionResource);
 	}
 
 	getFocus(): ChatTreeItem | undefined {
-		return this.tree.getFocus()[0] ?? undefined;
+		return this.listWidget.getFocus()[0] ?? undefined;
 	}
 
 	reveal(item: ChatTreeItem, relativeTop?: number): void {
-		this.tree.reveal(item, relativeTop);
+		this.listWidget.reveal(item, relativeTop);
 	}
 
 	focus(item: ChatTreeItem): void {
-		const items = this.tree.getNode(null).children;
-		const node = items.find(i => i.element?.id === item.id);
-		if (!node) {
+		if (!this.listWidget.hasElement(item)) {
 			return;
 		}
 
-		this._mostRecentlyFocusedItemIndex = items.indexOf(node);
-		this.tree.setFocus([node.element]);
-		this.tree.domFocus();
+		this.listWidget.focusItem(item);
 	}
 
 	setInputPlaceholder(placeholder: string): void {
@@ -2240,9 +2042,9 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		// Update capabilities for the locked agent
 		const agent = this.chatAgentService.getAgent(agentId);
 		this._updateAgentCapabilitiesContextKeys(agent);
-		this.renderer.updateOptions({ restorable: false, editable: false, noFooter: true, progressMessageAtBottomOfResponse: true });
+		this.listWidget?.updateRendererOptions({ restorable: false, editable: false, noFooter: true, progressMessageAtBottomOfResponse: true });
 		if (this.visible) {
-			this.tree.rerender();
+			this.listWidget?.rerender();
 		}
 	}
 
@@ -2259,10 +2061,10 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		if (this.viewModel) {
 			this.viewModel.resetInputPlaceholder();
 		}
-		this.inputEditor.updateOptions({ placeholder: undefined });
-		this.renderer.updateOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
+		this.inputEditor?.updateOptions({ placeholder: undefined });
+		this.listWidget?.updateRendererOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
 		if (this.visible) {
-			this.tree.rerender();
+			this.listWidget?.rerender();
 		}
 	}
 
@@ -2356,8 +2158,17 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			return;
 		}
 
+		// Check if a custom submit handler wants to handle this submission
+		if (this.viewOptions.submitHandler) {
+			const inputValue = !query ? this.getInput() : query.query;
+			const handled = await this.viewOptions.submitHandler(inputValue, this.input.currentModeKind);
+			if (handled) {
+				return;
+			}
+		}
+
 		this._onDidAcceptInput.fire();
-		this.scrollLock = this.isLockedToCodingAgent || !!checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll);
+		this.listWidget.setScrollLock(this.isLockedToCodingAgent || !!checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll));
 
 		const editorValue = this.getInput();
 		const requestInputs: IChatRequestInputOptions = {
@@ -2477,76 +2288,49 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	}
 
 	getCodeBlockInfosForResponse(response: IChatResponseViewModel): IChatCodeBlockInfo[] {
-		return this.renderer.getCodeBlockInfosForResponse(response);
+		return this.listWidget.getCodeBlockInfosForResponse(response);
 	}
 
 	getCodeBlockInfoForEditor(uri: URI): IChatCodeBlockInfo | undefined {
-		return this.renderer.getCodeBlockInfoForEditor(uri);
+		return this.listWidget.getCodeBlockInfoForEditor(uri);
 	}
 
 	getFileTreeInfosForResponse(response: IChatResponseViewModel): IChatFileTreeInfo[] {
-		return this.renderer.getFileTreeInfosForResponse(response);
+		return this.listWidget.getFileTreeInfosForResponse(response);
 	}
 
 	getLastFocusedFileTreeForResponse(response: IChatResponseViewModel): IChatFileTreeInfo | undefined {
-		return this.renderer.getLastFocusedFileTreeForResponse(response);
+		return this.listWidget.getLastFocusedFileTreeForResponse(response);
 	}
 
 	focusResponseItem(lastFocused?: boolean): void {
-		if (!this.viewModel) {
-			return;
-		}
-		const items = this.tree.getNode(null).children;
-		let item;
-		if (lastFocused) {
-			item = items[this._mostRecentlyFocusedItemIndex] ?? items[items.length - 1];
-		} else {
-			item = items[items.length - 1];
-		}
-		if (!item) {
-			return;
-		}
-
-		this.tree.setFocus([item.element]);
-		this.tree.domFocus();
+		this.listWidget.focusLastItem(lastFocused);
 	}
 
 	layout(height: number, width: number): void {
 		width = Math.min(width, this.viewOptions.renderStyle === 'minimal' ? width : 950); // no min width of inline chat
 
-		const heightUpdated = this.bodyDimension && this.bodyDimension.height !== height;
 		this.bodyDimension = new dom.Dimension(width, height);
 
-		const layoutHeight = this._dynamicMessageLayoutData?.enabled ? this._dynamicMessageLayoutData.maxHeight : height;
 		if (this.viewModel?.editing) {
-			this.inlineInputPart?.layout(layoutHeight, width);
+			this.inlineInputPart?.layout(width);
 		}
 
-		this.inputPart.layout(layoutHeight, width);
+		this.inputPart.layout(width);
 
-		const inputHeight = this.inputPart.inputPartHeight;
+		const inputHeight = this.inputPart.height.get();
 		const chatSuggestNextWidgetHeight = this.chatSuggestNextWidget.height;
-		const lastElementVisible = this.tree.scrollTop + this.tree.renderHeight >= this.tree.scrollHeight - 2;
-		const lastItem = this.viewModel?.getItems().at(-1);
-		const contentHeight = Math.max(0, height - inputHeight - chatSuggestNextWidgetHeight);
+		const lastElementVisible = this.listWidget.isScrolledToBottom;
+		const lastItem = this.listWidget.lastItem;
 
-		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
-			this.listContainer.style.removeProperty('--chat-current-response-min-height');
-		} else {
-			this.listContainer.style.setProperty('--chat-current-response-min-height', contentHeight * .75 + 'px');
-			if (heightUpdated && lastItem && this.visible && this.tree.hasElement(lastItem)) {
-				this.tree.updateElementHeight(lastItem, undefined);
-			}
-		}
-		this.tree.layout(contentHeight, width);
+		const contentHeight = Math.max(0, height - inputHeight - chatSuggestNextWidgetHeight);
+		this.listWidget.layout(contentHeight, width);
 
 		this.welcomeMessageContainer.style.height = `${contentHeight}px`;
 
-		this.renderer.layout(width);
-
 		const lastResponseIsRendering = isResponseVM(lastItem) && lastItem.renderData;
 		if (lastElementVisible && (!lastResponseIsRendering || checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll))) {
-			this.scrollToEnd();
+			this.listWidget.scrollToEnd();
 		}
 		this.listContainer.style.height = `${contentHeight}px`;
 
@@ -2561,10 +2345,10 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	// TODO@TylerLeonhardt: This could use some refactoring to make it clear which layout strategy is being used
 	setDynamicChatTreeItemLayout(numOfChatTreeItems: number, maxHeight: number) {
 		this._dynamicMessageLayoutData = { numOfMessages: numOfChatTreeItems, maxHeight, enabled: true };
-		this._register(this.renderer.onDidChangeItemHeight(() => this.layoutDynamicChatTreeItemMode()));
+		this._register(this.listWidget.onDidChangeItemHeight(() => this.layoutDynamicChatTreeItemMode()));
 
 		const mutableDisposable = this._register(new MutableDisposable());
-		this._register(this.tree.onDidScroll((e) => {
+		this._register(this.listWidget.onDidScroll((e) => {
 			// TODO@TylerLeonhardt this should probably just be disposed when this is disabled
 			// and then set up again when it is enabled again
 			if (!this._dynamicMessageLayoutData?.enabled) {
@@ -2582,8 +2366,8 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 				const possibleMaxHeight = (this._dynamicMessageLayoutData?.maxHeight ?? maxHeight);
 				const width = this.bodyDimension?.width ?? this.container.offsetWidth;
-				this.input.layout(possibleMaxHeight, width);
-				const inputPartHeight = this.input.inputPartHeight;
+				this.input.layout(width);
+				const inputPartHeight = this.input.height.get();
 				const chatSuggestNextWidgetHeight = this.chatSuggestNextWidget.height;
 				const newHeight = Math.min(renderHeight + diff, possibleMaxHeight - inputPartHeight - chatSuggestNextWidgetHeight);
 				this.layout(newHeight + inputPartHeight + chatSuggestNextWidgetHeight, width);
@@ -2627,8 +2411,8 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		}
 
 		const width = this.bodyDimension?.width ?? this.container.offsetWidth;
-		this.input.layout(this._dynamicMessageLayoutData.maxHeight, width);
-		const inputHeight = this.input.inputPartHeight;
+		this.input.layout(width);
+		const inputHeight = this.input.height.get();
 		const chatSuggestNextWidgetHeight = this.chatSuggestNextWidget.height;
 
 		const totalMessages = this.viewModel.getItems();
@@ -2650,7 +2434,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		);
 
 		if (needsRerender || !listHeight) {
-			this.scrollToEnd();
+			this.listWidget.scrollToEnd();
 		}
 	}
 
@@ -2678,7 +2462,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		});
 	}
 	// --- End Positron ---
-
 	private async _switchToAgentByName(agentName: string): Promise<void> {
 		const currentAgent = this.input.currentModeObs.get();
 
@@ -2714,7 +2497,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 		// if not tools to enable are present, we are done
 		if (tools !== undefined && this.input.currentModeKind === ChatModeKind.Agent) {
-			const enablementMap = this.toolsService.toToolAndToolSetEnablementMap(tools, Target.VSCode);
+			const enablementMap = this.toolsService.toToolAndToolSetEnablementMap(tools, Target.VSCode, this.input.selectedLanguageModel.get()?.metadata);
 			this.input.selectedToolsModel.set(enablementMap, true);
 		}
 
@@ -2731,13 +2514,13 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	 */
 	private async _autoAttachInstructions({ attachedContext }: IChatRequestInputOptions): Promise<void> {
 		this.logService.debug(`ChatWidget#_autoAttachInstructions: prompt files are always enabled`);
-		const enabledTools = this.input.currentModeKind === ChatModeKind.Agent ? this.input.selectedToolsModel.entriesMap.get() : undefined;
-
-		const computer = this.instantiationService.createInstance(ComputeAutomaticInstructions, enabledTools);
+		const enabledTools = this.input.currentModeKind === ChatModeKind.Agent ? this.input.selectedToolsModel.userSelectedTools.get() : undefined;
+		const enabledSubAgents = this.input.currentModeKind === ChatModeKind.Agent ? this.input.currentModeObs.get().agents?.get() : undefined;
+		const computer = this.instantiationService.createInstance(ComputeAutomaticInstructions, this.input.currentModeKind, enabledTools, enabledSubAgents);
 		await computer.collect(attachedContext, CancellationToken.None);
 	}
 
 	delegateScrollFromMouseWheelEvent(browserEvent: IMouseWheelEvent): void {
-		this.tree.delegateScrollFromMouseWheelEvent(browserEvent);
+		this.listWidget.delegateScrollFromMouseWheelEvent(browserEvent);
 	}
 }

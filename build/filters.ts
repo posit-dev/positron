@@ -58,6 +58,7 @@ export const unicodeFilter = Object.freeze<string[]>([
 	'!**/*.test.ts',
 	'!**/*.{d.ts,json,md}',
 	'!**/*.mp3',
+	'!**/*.tiff',
 
 	'!build/win32/**',
 	'!extensions/markdown-language-features/notebook-out/*.js',
@@ -95,7 +96,6 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!**/LICENSE',
 	'!**/NOTICE',
 	'!**/*.mp3',
-	'!src/vs/loader.js',
 	'!src/vs/base/browser/dompurify/*',
 	'!src/vs/base/common/marked/marked.js',
 	'!src/vs/base/common/semver/semver.js',
@@ -106,6 +106,7 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!test/unit/assert.js',
 	'!resources/linux/snap/electron-launch',
 	'!build/ext.js',
+	'!build/darwin/patch-dmg.py',
 	'!build/npm/gyp/patches/gyp_spectre_mitigation_support.patch',
 	'!product.overrides.json',
 
@@ -156,6 +157,7 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!**/Dockerfile.*',
 	'!**/*.Dockerfile',
 	'!**/*.dockerfile',
+	'!**/*.tiff',
 
 	// except for built files
 	'!extensions/mermaid-chat-features/chat-webview-out/*.js',
@@ -203,7 +205,9 @@ export const copyrightFilter = Object.freeze<string[]>([
 	'!**/*.code-workspace',
 	'!**/*.js.map',
 	'!**/*.wasm',
+	'!**/*.tiff',
 	'!build/**/*.init',
+	'!build/darwin/patch-dmg.py',
 	'!build/linux/libcxx-fetcher.*',
 	'!build/npm/gyp/custom-headers/*.patch',
 	'!resources/linux/snap/snapcraft.yaml',

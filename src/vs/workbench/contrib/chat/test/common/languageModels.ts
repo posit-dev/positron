@@ -4,40 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { IStringDictionary } from '../../../../../base/common/collections.js';
 import { Event } from '../../../../../base/common/event.js';
 import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelsService, IUserFriendlyLanguageModel } from '../../common/languageModels.js';
-
-// --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { IPositronChatProvider } from '../../common/languageModels.js';
-// --- End Positron ---
+import { IChatMessage, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatResponse, ILanguageModelChatSelector, ILanguageModelProviderDescriptor, ILanguageModelsGroup, ILanguageModelsService, IUserFriendlyLanguageModel, IPositronChatProvider, ILanguageModelsChangeEvent } from '../../common/languageModels.js';
+import { ILanguageModelsProviderGroup } from '../../common/languageModelsConfiguration.js';
 
 export class NullLanguageModelsService implements ILanguageModelsService {
-
 	_serviceBrand: undefined;
 
-	// --- Start Positron ---
-	_currentProvider: IPositronChatProvider | undefined;
-
-	// Add extension identifier to parameters
-	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
+	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable {
 		return Disposable.None;
 	}
-	// --- End Positron ---
+
+	deltaLanguageModelChatProviderDescriptors(added: IUserFriendlyLanguageModel[], removed: IUserFriendlyLanguageModel[]): void {
+	}
 
 	onDidChangeLanguageModels = Event.None;
-
-	// --- Start Positron ---
-	onDidChangeProviders = Event.None;
-	// --- End Positron ---
+	onDidChangeLanguageModelVendors = Event.None;
 
 	updateModelPickerPreference(modelIdentifier: string, showInModelPicker: boolean): void {
 		return;
 	}
 
-	getVendors(): IUserFriendlyLanguageModel[] {
+	getVendors(): ILanguageModelProviderDescriptor[] {
 		return [];
 	}
 
@@ -46,6 +37,10 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 	}
 
 	lookupLanguageModel(identifier: string): ILanguageModelChatMetadata | undefined {
+		return undefined;
+	}
+
+	lookupLanguageModelByQualifiedName(qualifiedName: string) {
 		return undefined;
 	}
 
@@ -61,6 +56,10 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 		return;
 	}
 
+	getLanguageModelGroups(vendor: string): ILanguageModelsGroup[] {
+		return [];
+	}
+
 	async selectLanguageModels(selector: ILanguageModelChatSelector): Promise<string[]> {
 		return [];
 	}
@@ -70,28 +69,38 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 		throw new Error('Method not implemented.');
 	}
 
-	computeTokenLength(identifier: string, message: string | IChatMessage, token: CancellationToken): Promise<number> {
-		throw new Error('Method not implemented.');
-	}
-
 	// --- Start Positron ---
-	// Add Positron-specific methods
+	private _currentProvider: IPositronChatProvider | undefined;
 	get currentProvider(): IPositronChatProvider | undefined {
 		return this._currentProvider;
 	}
 	set currentProvider(provider: IPositronChatProvider | undefined) {
 		this._currentProvider = provider;
 	}
-	onDidChangeCurrentProvider: Event<string> = Event.None;
-	getLanguageModelIdsForCurrentProvider(): string[] {
-		throw new Error('Method not implemented.');
-	}
+	onDidChangeCurrentProvider: Event<string | undefined> = Event.None;
+	onDidChangeProviders: Event<ILanguageModelsChangeEvent> = Event.None;
 	getLanguageModelProviders(): IPositronChatProvider[] {
+		return [];
+	}
+	getExtensionIdentifierForProvider(_vendor: string): ExtensionIdentifier | undefined {
+		return undefined;
+	}
+	// --- End Positron ---
+
+	computeTokenLength(identifier: string, message: string | IChatMessage, token: CancellationToken): Promise<number> {
 		throw new Error('Method not implemented.');
 	}
 
-	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined {
-		throw new Error('Method not implemented.');
+	async configureLanguageModelsProviderGroup(vendorId: string, name?: string): Promise<void> {
+
 	}
-	// --- End Positron ---
+
+	async addLanguageModelsProviderGroup(name: string, vendorId: string, configuration: IStringDictionary<unknown> | undefined): Promise<void> {
+
+	}
+
+	async removeLanguageModelsProviderGroup(vendorId: string, providerGroupName: string): Promise<void> {
+	}
+
+	async migrateLanguageModelsProviderGroup(languageModelsProviderGroup: ILanguageModelsProviderGroup): Promise<void> { }
 }

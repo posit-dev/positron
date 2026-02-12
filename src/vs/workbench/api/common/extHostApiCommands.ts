@@ -22,6 +22,9 @@ import * as types from './extHostTypes.js';
 import { TransientCellMetadata, TransientDocumentMetadata } from '../../contrib/notebook/common/notebookCommon.js';
 import * as search from '../../contrib/search/common/search.js';
 import type * as vscode from 'vscode';
+import { PromptsType } from '../../contrib/chat/common/promptSyntax/promptTypes.js';
+import type { IExtensionPromptFileResult } from '../../contrib/chat/common/promptSyntax/chatPromptFilesContribution.js';
+
 // --- Start Positron ---
 import type * as positron from 'positron';
 // --- End Positron ---
@@ -452,16 +455,6 @@ const newCommands: ApiCommand[] = [
 		],
 		ApiCommandResult.Void
 	),
-	// --- Start Positron ---
-	new ApiCommand(
-		'positron.reopenWith', '_workbench.reopenWith', 'Replace the provided resource with the same resource opened in a specific editor.',
-		[
-			ApiCommandArgument.Uri.with('resource', 'Resource to reopen'),
-			ApiCommandArgument.String.with('viewId', 'Custom editor view id. This should be the viewType string for custom editors or the notebookType string for notebooks. Use \'default\' to use VS Code\'s default text editor'),
-		],
-		ApiCommandResult.Void
-	),
-	// --- End Positron ---
 	new ApiCommand(
 		'vscode.diff', '_workbench.diff', 'Opens the provided resources in the diff editor to compare their contents.',
 		[
@@ -569,7 +562,15 @@ const newCommands: ApiCommand[] = [
 			return result ? typeConverters.Position.to(result) : undefined;
 		})
 	),
-	// --- End Positron
+	new ApiCommand(
+		'positron.reopenWith', '_workbench.reopenWith', 'Replace the provided resource with the same resource opened in a specific editor.',
+		[
+			ApiCommandArgument.Uri.with('resource', 'Resource to reopen'),
+			ApiCommandArgument.String.with('viewId', 'Custom editor view id. This should be the viewType string for custom editors or the notebookType string for notebooks. Use \'default\' to use VS Code\'s default text editor'),
+		],
+		ApiCommandResult.Void
+	),
+	// --- End Positron ---
 
 	// --- context keys
 	new ApiCommand(
@@ -596,10 +597,27 @@ const newCommands: ApiCommand[] = [
 				attachments: v.attachments,
 				autoSend: v.autoSend,
 				position: v.position ? typeConverters.Position.from(v.position) : undefined,
-				blockOnResponse: v.blockOnResponse
+				resolveOnResponse: v.resolveOnResponse
 			};
 		})],
 		ApiCommandResult.Void
+	),
+	// --- extension prompt files
+	new ApiCommand(
+		'vscode.extensionPromptFileProvider', '_listExtensionPromptFiles', 'Get all extension-contributed prompt files (custom agents, instructions, and prompt files).',
+		[],
+		new ApiCommandResult<IExtensionPromptFileResult[], { uri: vscode.Uri; type: PromptsType }[]>(
+			'A promise that resolves to an array of objects containing uri and type.',
+			(value) => {
+				if (!value) {
+					return [];
+				}
+				return value.map(item => ({
+					uri: URI.revive(item.uri),
+					type: item.type
+				}));
+			}
+		)
 	)
 ];
 
@@ -610,7 +628,7 @@ type InlineChatEditorApiArg = {
 	attachments?: vscode.Uri[];
 	autoSend?: boolean;
 	position?: vscode.Position;
-	blockOnResponse?: boolean;
+	resolveOnResponse?: boolean;
 };
 
 type InlineChatRunOptions = {
@@ -620,7 +638,7 @@ type InlineChatRunOptions = {
 	attachments?: URI[];
 	autoSend?: boolean;
 	position?: IPosition;
-	blockOnResponse?: boolean;
+	resolveOnResponse?: boolean;
 };
 
 //#endregion

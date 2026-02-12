@@ -9,13 +9,22 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 export enum ChatConfiguration {
+	AIDisabled = 'chat.disableAIFeatures',
 	// --- Start Positron ---
 	UseCopilotParticipantsWithOtherProviders = 'chat.useCopilotParticipantsWithOtherProviders',
 	// --- End Positron ---
 	AgentEnabled = 'chat.agent.enabled',
+	AgentStatusEnabled = 'chat.agentsControl.enabled',
+	EditorAssociations = 'chat.editorAssociations',
+	UnifiedAgentsBar = 'chat.unifiedAgentsBar.enabled',
+	AgentSessionProjectionEnabled = 'chat.agentSessionProjection.enabled',
+	EditModeHidden = 'chat.editMode.hidden',
+	AlternativeToolAction = 'chat.alternativeToolAction.enabled',
 	Edits2Enabled = 'chat.edits2.enabled',
 	ExtensionToolsEnabled = 'chat.extensionTools.enabled',
+	RepoInfoEnabled = 'chat.repoInfo.enabled',
 	EditRequests = 'chat.editRequests',
+	InlineReferencesStyle = 'chat.inlineReferences.style',
 	GlobalAutoApprove = 'chat.tools.global.autoApprove',
 	AutoApproveEdits = 'chat.tools.edits.autoApprove',
 	AutoApprovedUrls = 'chat.tools.urls.autoApprove',
@@ -24,19 +33,25 @@ export enum ChatConfiguration {
 	CheckpointsEnabled = 'chat.checkpoints.enabled',
 	ThinkingStyle = 'chat.agent.thinkingStyle',
 	ThinkingGenerateTitles = 'chat.agent.thinking.generateTitles',
+	TerminalToolsInThinking = 'chat.agent.thinking.terminalTools',
+	AutoExpandToolFailures = 'chat.tools.autoExpandFailures',
 	TodosShowWidget = 'chat.tools.todos.showWidget',
 	NotifyWindowOnResponseReceived = 'chat.notifyWindowOnResponseReceived',
 	ChatViewSessionsEnabled = 'chat.viewSessions.enabled',
+	ChatViewSessionsGrouping = 'chat.viewSessions.grouping',
 	ChatViewSessionsOrientation = 'chat.viewSessions.orientation',
-	ChatViewTitleEnabled = 'chat.viewTitle.enabled',
-	ChatViewWelcomeEnabled = 'chat.viewWelcome.enabled',
+	ChatViewProgressBadgeEnabled = 'chat.viewProgressBadge.enabled',
 	SubagentToolCustomAgents = 'chat.customAgentInSubagent.enabled',
 	ShowCodeBlockProgressAnimation = 'chat.agent.codeBlockProgress',
 	RestoreLastPanelSession = 'chat.restoreLastPanelSession',
 	ExitAfterDelegation = 'chat.exitAfterDelegation',
-	SuspendThrottling = 'chat.suspendThrottling',
+	AgentsControlClickBehavior = 'chat.agentsControl.clickBehavior',
+	ExplainChangesEnabled = 'chat.editing.explainChanges.enabled',
 }
 
+// --- Start Positron ---
+export const COPILOT_CHAT_EXTENSION_ID = 'github.copilot-chat';
+// --- End Positron ---
 /**
  * The "kind" of agents for custom agents.
  */
@@ -74,6 +89,12 @@ export enum CollapsedToolsDisplayMode {
 	Always = 'always',
 }
 
+export enum AgentsControlClickBehavior {
+	Default = 'default',
+	Cycle = 'cycle',
+	Focus = 'focus',
+}
+
 export type RawChatParticipantLocation = 'panel' | 'terminal' | 'notebook' | 'editing-session';
 
 export enum ChatAgentLocation {
@@ -101,10 +122,6 @@ export namespace ChatAgentLocation {
 		return ChatAgentLocation.Chat;
 	}
 }
-
-// --- Start Positron ---
-export const COPILOT_CHAT_EXTENSION_ID = 'github.copilot-chat';
-// --- End Positron ---
 
 /**
  * List of file schemes that are always unsupported for use in chat
