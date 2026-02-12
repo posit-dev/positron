@@ -265,7 +265,7 @@ jobs:
         id: cache-python
         uses: actions/cache/restore@v5
         with:
-          path: ~\AppData\Local\uv\cache
+          path: ${{ env.LOCALAPPDATA }}\uv\cache
           key: ${{ runner.os }}-uv-${{ steps.download-python-reqs.outputs.requirements-hash }}
           restore-keys: |
             ${{ runner.os }}-uv-
@@ -280,7 +280,7 @@ jobs:
         continue-on-error: true
         uses: actions/cache/save@v5
         with:
-          path: ~\AppData\Local\uv\cache
+          path: ${{ env.LOCALAPPDATA }}\uv\cache
           key: ${{ runner.os }}-uv-${{ steps.download-python-reqs.outputs.requirements-hash }}
 
       # Alternate python version
