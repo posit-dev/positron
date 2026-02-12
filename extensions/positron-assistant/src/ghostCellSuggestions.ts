@@ -34,6 +34,12 @@ export interface GhostCellSuggestionResult {
  */
 export type GhostCellProgressCallback = (partial: Partial<GhostCellSuggestionResult>) => void;
 
+/** Timeout for fetching session variables (ms) */
+const VARIABLE_FETCH_TIMEOUT_MS = 3000;
+
+/** Max characters for a variable's display_value in the summary */
+const VARIABLE_VALUE_MAX_LENGTH = 60;
+
 /**
  * Valid XML tag names for parsing ghost cell suggestions
  */
@@ -90,6 +96,9 @@ export async function generateGhostCellSuggestion(
 		return null;
 	}
 
+	// Start variable fetch concurrently with model selection
+	const variablesSummaryPromise = fetchSessionVariablesSummary(uri, log);
+
 	// Get the model to use for generation
 	const modelSelection = await getModel(participantService, log);
 	if (!modelSelection) {
@@ -126,8 +135,11 @@ export async function generateGhostCellSuggestion(
 		)
 	);
 
+	// Await variables (already fetching concurrently)
+	const variablesSummary = await variablesSummaryPromise;
+
 	// Build the context message
-	const contextMessage = buildContextMessage(cellContent, outputs, language, hasError, executedCellIndex, notebook);
+	const contextMessage = buildContextMessage(cellContent, outputs, language, hasError, executedCellIndex, notebook, variablesSummary);
 
 	// Load the system prompt template
 	const systemPrompt = await fs.promises.readFile(
@@ -181,7 +193,8 @@ function buildContextMessage(
 	language: string,
 	hasError: boolean,
 	cellIndex: number,
-	notebook: vscode.NotebookDocument
+	notebook: vscode.NotebookDocument,
+	variablesSummary?: string
 ): string {
 	const parts: string[] = [];
 
@@ -225,6 +238,15 @@ function buildContextMessage(
 				parts.push('```');
 			}
 		}
+	}
+
+	if (variablesSummary) {
+		parts.push('');
+		parts.push('## Session Variables');
+		parts.push('Variables currently defined in the runtime (name|type|value):');
+		parts.push('```');
+		parts.push(variablesSummary);
+		parts.push('```');
 	}
 
 	parts.push('');
@@ -309,6 +331,113 @@ async function parseStreamingXML(
 		explanation: explanation || 'Suggested next step',
 		language
 	};
+}
+
+/**
+ * Get the priority of a variable based on its display_type.
+ * Lower number = higher priority (included first in the summary).
+ *
+ * Priority 1: Tables/data structures (DataFrame, tibble, Series, etc.)
+ * Priority 2: Collections (list, dict, vector, etc.)
+ * Priority 3: Scalars (int, float, str, bool, etc.)
+ * Priority 4: Everything else (module, function, class, etc.)
+ */
+function getVariablePriority(displayType: string): number {
+	const t = displayType.toLowerCase();
+
+	// Priority 1: tables and data structures
+	const tableTypes = ['dataframe', 'data.frame', 'tibble', 'series', 'matrix', 'array', 'ndarray'];
+	if (tableTypes.some(tt => t.includes(tt))) {
+		return 1;
+	}
+
+	// Priority 2: collections
+	const collectionTypes = ['list', 'dict', 'set', 'tuple', 'vector', 'environment'];
+	if (collectionTypes.some(ct => t.includes(ct))) {
+		return 2;
+	}
+
+	// Priority 3: scalars
+	const scalarTypes = ['int', 'float', 'str', 'bool', 'numeric', 'character', 'logical', 'complex', 'double'];
+	if (scalarTypes.some(st => t.includes(st))) {
+		return 3;
+	}
+
+	// Priority 4: everything else
+	return 4;
+}
+
+/**
+ * Fetch a summary of session variables for the given notebook.
+ *
+ * Returns a pipe-delimited summary string (name|type|value per line),
+ * or empty string if variables cannot be fetched (no session, timeout, error).
+ */
+async function fetchSessionVariablesSummary(
+	notebookUri: vscode.Uri,
+	log: vscode.LogOutputChannel
+): Promise<string> {
+	const config = vscode.workspace.getConfiguration('positron.assistant.notebook');
+	const maxVariables = config.get<number>('ghostCellSuggestions.maxVariables', 20);
+
+	if (maxVariables === 0) {
+		log.debug('[ghost-cell] Variable context disabled (maxVariables=0)');
+		return '';
+	}
+
+	try {
+		const result = await Promise.race([
+			fetchVariablesFromSession(notebookUri, maxVariables, log),
+			new Promise<string>((_, reject) =>
+				setTimeout(() => reject(new Error('Variable fetch timed out')), VARIABLE_FETCH_TIMEOUT_MS)
+			),
+		]);
+		return result;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		log.debug(`[ghost-cell] Could not fetch session variables: ${msg}`);
+		return '';
+	}
+}
+
+/**
+ * Inner helper that fetches variables from the runtime session.
+ */
+async function fetchVariablesFromSession(
+	notebookUri: vscode.Uri,
+	maxVariables: number,
+	log: vscode.LogOutputChannel
+): Promise<string> {
+	const session = await positron.runtime.getNotebookSession(notebookUri);
+	if (!session) {
+		log.debug('[ghost-cell] No runtime session for notebook');
+		return '';
+	}
+
+	const allVariables = await positron.runtime.getSessionVariables(session.metadata.sessionId);
+	const rootVariables = allVariables[0] || [];
+
+	if (rootVariables.length === 0) {
+		log.debug('[ghost-cell] No variables in session');
+		return '';
+	}
+
+	// Sort by priority (lower = more relevant) then take top N
+	const sorted = [...rootVariables].sort(
+		(a, b) => getVariablePriority(a.display_type) - getVariablePriority(b.display_type)
+	);
+	const selected = sorted.slice(0, maxVariables);
+
+	// Format as pipe-delimited lines
+	const lines = selected.map(v => {
+		const value = v.display_value.length > VARIABLE_VALUE_MAX_LENGTH
+			? v.display_value.substring(0, VARIABLE_VALUE_MAX_LENGTH) + '...'
+			: v.display_value;
+		return `${v.display_name}|${v.display_type}|${value}`;
+	});
+
+	log.debug(`[ghost-cell] Including ${lines.length} of ${rootVariables.length} session variables`);
+	return lines.join('\n');
 }
 
 /**

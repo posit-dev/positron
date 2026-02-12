@@ -23,6 +23,9 @@ export const POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY = 'positron.assistant.no
 // Configuration key for ghost cell suggestion model patterns
 export const POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY = 'positron.assistant.notebook.ghostCellSuggestions.model';
 
+// Configuration key for maximum number of session variables to include in ghost cell context
+export const POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY = 'positron.assistant.notebook.ghostCellSuggestions.maxVariables';
+
 // Register ghost cell configuration settings
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -69,6 +72,17 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.assistant.notebook.ghostCellSuggestions.model',
 				'Model patterns for ghost cell suggestions. [Select a model](command:positron-assistant.selectGhostCellModel) or specify patterns manually. Patterns are tried in order until a match is found (case-insensitive partial matching). Falls back to the current chat session model, then the provider\'s model, then the first available model.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY]: {
+			type: 'number',
+			default: 20,
+			minimum: 0,
+			maximum: 100,
+			markdownDescription: localize(
+				'positron.assistant.notebook.ghostCellSuggestions.maxVariables',
+				'Maximum number of session variables to include in ghost cell suggestion context. Variables are prioritized by relevance (DataFrames and tables first, then collections and scalars). Set to 0 to disable variable context.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
