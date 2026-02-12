@@ -81,7 +81,10 @@ export function PositronNotebookComponent() {
 		previousCellCount.current = currentCount;
 	}, [notebookCells.length]);
 
-	// Observe scroll events and fire to notebook instance, also track scroll position
+	// Observe scroll events and fire to notebook instance, also track scroll position.
+	// Cast: React 19's RefObject is invariant (mutable .current), so RefObject<HTMLDivElement>
+	// is not assignable to RefObject<HTMLElement>. Changing the useRef type would break the
+	// <div ref={containerRef}> assignment instead.
 	useScrollObserver(containerRef as React.RefObject<HTMLElement>, React.useCallback(() => {
 		notebookInstance.fireScrollEvent();
 		setIsScrolled((containerRef.current?.scrollTop ?? 0) > 0);
@@ -125,6 +128,7 @@ export function PositronNotebookComponent() {
 				<SortableCellList
 					cells={notebookCells}
 					disabled={isReadOnly}
+					// See comment above useScrollObserver for why this cast is needed.
 					scrollContainerRef={containerRef as React.RefObject<HTMLElement>}
 					selectedIds={selectedIds}
 					onBatchReorder={handleBatchReorder}
