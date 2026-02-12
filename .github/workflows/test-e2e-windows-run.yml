@@ -94,7 +94,7 @@ permissions:
 jobs:
   e2e-windows-run:
     name: ${{ inputs.display_name || 'e2e-windows-run' }}-${{ matrix.shard }}
-    timeout-minutes: 120
+    timeout-minutes: 150
     runs-on: windows-latest-8x
     strategy:
       fail-fast: false
