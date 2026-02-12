@@ -11,24 +11,23 @@ import { getModelKeys, getModelConfig, initResults, saveResult, finalizeResults 
 
 // Re-export for test files
 export { tags };
-export const EVAL_TAG = tags.ASSISTANT_EVAL;
 
 /**
- * Defines the test structure inside a test.describe block.
+ * Sets up the eval test structure inside a test.describe block.
  * The test.describe must be in the test file for UI visibility.
  *
  * @example
  * import { test } from '../../_test.setup';
- * import { EVAL_TAG, defineEvalTests } from '../_helpers/test-runner';
+ * import { tags, evalTests } from '../_helpers/test-template';
  * import { myTestCase } from './my-test-case';
  *
- * test.describe('Assistant Eval: Category', { tag: [EVAL_TAG] }, () => {
- *   defineEvalTests(test, [
+ * test.describe('Assistant Eval: Category', { tag: [tags.ASSISTANT_EVAL] }, () => {
+ *   evalTests(test, [
  *     myTestCase,
  *   ]);
  * });
  */
-export function defineEvalTests(
+export function evalTests(
 	test: typeof baseTest,
 	testCases: EvalTestCase[]
 ): void {

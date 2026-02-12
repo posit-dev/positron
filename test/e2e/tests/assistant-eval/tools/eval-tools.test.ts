@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test } from '../../_test.setup';
-import { EVAL_TAG, defineEvalTests } from '../_helpers/test-runner';
+import { tags, evalTests } from '../_helpers/test-template';
 import { pythonEditFile } from './python-edit-file';
 import { pythonTableSummary } from './python-table-summary';
 
 test.use({ suiteId: __filename });
 
-test.describe('Assistant Eval: Tools', { tag: [EVAL_TAG] }, () => {
-	defineEvalTests(test, [
+test.describe('Assistant Eval: Tools', { tag: [tags.ASSISTANT_EVAL] }, () => {
+	evalTests(test, [
 		pythonEditFile,
 		pythonTableSummary,
 	]);

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test } from '../../_test.setup';
-import { EVAL_TAG, defineEvalTests } from '../_helpers/test-runner';
+import { evalTests, tags } from '../_helpers/test-template';
 import { rNotebookAutomaticContext } from './r-notebook-automatic-context';
 import { rNotebookGetCells } from './r-notebook-get-cells';
 import { rNotebookEditCells } from './r-notebook-edit-cells';
@@ -13,8 +13,8 @@ import { rNotebookCreate } from './r-notebook-create';
 
 test.use({ suiteId: __filename });
 
-test.describe('Assistant Eval: Notebooks', { tag: [EVAL_TAG] }, () => {
-	defineEvalTests(test, [
+test.describe('Assistant Eval: Notebooks', { tag: [tags.ASSISTANT_EVAL, tags.POSITRON_NOTEBOOKS] }, () => {
+	evalTests(test, [
 		rNotebookAutomaticContext,
 		rNotebookGetCells,
 		rNotebookEditCells,

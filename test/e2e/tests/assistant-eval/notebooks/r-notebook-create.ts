@@ -40,7 +40,7 @@ export const rNotebookCreate: EvalTestCase = {
 		await assistant.selectChatMode(mode);
 		await assistant.enterChatMessage(prompt, false);
 
-		// Handle allow and get response
+		// Click allow button and get response
 		await assistant.clickAllowButton();
 		await assistant.waitForResponseComplete();
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);

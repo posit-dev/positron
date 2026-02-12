@@ -48,10 +48,9 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 		await assistant.selectChatMode(mode);
 		await assistant.enterChatMessage(prompt, false);
 
-		// Handle allow button
+		// Click allow button and get response
 		await assistant.clickAllowButton();
-		await assistant.expectResponseComplete(60000);
-
+		await assistant.expectResponseComplete();
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup

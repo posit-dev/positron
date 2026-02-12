@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test } from '../../_test.setup';
-import { EVAL_TAG, defineEvalTests } from '../_helpers/test-runner';
+import { evalTests, tags } from '../_helpers/test-template';
 import { rForestedHallucination } from './r-forested-hallucination';
 import { pythonNoExecutionHallucination } from './python-no-execution-hallucination';
 
 test.use({ suiteId: __filename });
 
-test.describe('Assistant Eval: Hallucination', { tag: [EVAL_TAG] }, () => {
-	defineEvalTests(test, [
+test.describe('Assistant Eval: Hallucination', { tag: [tags.ASSISTANT_EVAL] }, () => {
+	evalTests(test, [
 		rForestedHallucination,
 		pythonNoExecutionHallucination,
 	]);
