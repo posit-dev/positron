@@ -25,7 +25,7 @@ export const rNotebookGetCells: EvalTestCase = {
 	description: 'Ensure getNotebookCells is called for large notebooks',
 	prompt,
 	mode,
-	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
+	tags: [TestTags.POSITRON_NOTEBOOKS],
 
 	run: async ({ app, hotKeys, cleanup, settings }) => {
 		const { assistant, notebooksPositron } = app.workbench;

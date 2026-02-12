@@ -25,7 +25,7 @@ export const rNotebookRunCells: EvalTestCase = {
 	description: 'Ensure runNotebookCells is used to execute notebook cells',
 	prompt,
 	mode,
-	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
+	tags: [TestTags.POSITRON_NOTEBOOKS],
 
 	run: async ({ app, hotKeys, cleanup, settings }) => {
 		const { assistant, notebooksPositron } = app.workbench;
