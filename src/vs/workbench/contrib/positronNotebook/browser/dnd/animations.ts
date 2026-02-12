@@ -243,6 +243,7 @@ export function calculateMultiSortingTransforms(
 	if (activeIndices.length === 0) {
 		return transforms;
 	}
+	const hasContiguousSelection = activeIndices.every((idx, i) => i === 0 || idx === activeIndices[i - 1] + 1);
 
 	const primaryActiveId = activeIds[0];
 	const primaryActiveIndex = items.indexOf(primaryActiveId);
@@ -391,6 +392,27 @@ export function calculateMultiSortingTransforms(
 						y: (existing?.y ?? 0) - gapToClose,
 					});
 				}
+			}
+		}
+	}
+
+	// At the original insertion slot, contiguous "primary-first" drags still need to
+	// close the vacated space created by collapsed secondary indicators.
+	if (atOriginalPosition && hasContiguousSelection && activeIndices.length > 1 && nonPrimaryAboveCount === 0) {
+		const gapToClose = totalActiveSlotHeight - primarySlotHeight;
+		const lastActiveIndex = activeIndices[activeIndices.length - 1];
+
+		if (gapToClose > 0) {
+			for (let i = lastActiveIndex + 1; i < items.length; i++) {
+				if (activeIndexSet.has(i)) {
+					continue;
+				}
+				const id = items[i];
+				const existing = transforms.get(id);
+				transforms.set(id, {
+					x: existing?.x ?? 0,
+					y: (existing?.y ?? 0) - gapToClose,
+				});
 			}
 		}
 	}

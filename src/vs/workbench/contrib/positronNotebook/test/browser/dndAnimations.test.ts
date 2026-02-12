@@ -71,6 +71,40 @@ suite('Positron Notebook DnD Animations', () => {
 		assert.strictEqual(nextCellTop - primaryBottom, 30);
 	});
 
+	test('original-position drag keeps equal spacing around primary for contiguous selection', () => {
+		const items = ['a', 'b', 'c', 'd', 'e'];
+		const rects = new Map<string, DOMRect>([
+			['a', rect(0)],
+			['b', rect(130)],
+			['c', rect(260)],
+			['d', rect(390)],
+			['e', rect(520)],
+		]);
+
+		// Drag contiguous selection [b, c] using b's handle without crossing insertion threshold.
+		// insertionIndex 3 is the original slot (after the selected block).
+		const transforms = calculateMultiSortingTransforms(items, rects, ['b', 'c'], 3);
+
+		const secondary = transforms.get('c');
+		const belowPrimary = transforms.get('d');
+
+		assert.ok(secondary);
+		assert.ok(belowPrimary);
+
+		const primaryTop = rects.get('b')!.top + (transforms.get('b')?.y ?? 0);
+		const primaryBottom = primaryTop + rects.get('b')!.height;
+		const aboveCellBottom = rects.get('a')!.top + rects.get('a')!.height;
+		const secondaryTop = rects.get('c')!.top + secondary!.y;
+		const nextCellTop = rects.get('d')!.top + belowPrimary!.y;
+
+		// Keep normal inter-cell spacing above and below the primary cell.
+		assert.strictEqual(primaryTop - aboveCellBottom, 30);
+		assert.strictEqual(nextCellTop - primaryBottom, 30);
+
+		// Secondary indicator should remain attached just below primary.
+		assert.strictEqual(secondaryTop, primaryBottom);
+	});
+
 	test('large indicator stacks stay within surrounding gap space', () => {
 		const items = Array.from({ length: 15 }, (_, i) => `i${i}`);
 		const rects = new Map<string, DOMRect>();
