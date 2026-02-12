@@ -545,82 +545,6 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Hover over a cell to show the drag handle.
-	 * @param cellIndex - The index of the cell to hover over
-	 */
-	async hoverCell(cellIndex: number): Promise<void> {
-		await test.step(`Hover over cell at index ${cellIndex}`, async () => {
-			await this.sortableCellAtIndex(cellIndex).hover();
-		});
-	}
-
-	/**
-	 * Get bounding boxes for all cells, returning their visual positions.
-	 * During drag operations, these reflect positions with CSS transforms applied.
-	 * @returns Array of {index, top, bottom} sorted by visual top position
-	 */
-	async getCellBoundingBoxes(): Promise<{ index: number; top: number; bottom: number }[]> {
-		return await test.step('Get cell bounding boxes', async () => {
-			const cellCount = await this.getCellCount();
-			const boxes: { index: number; top: number; bottom: number }[] = [];
-
-			for (let i = 0; i < cellCount; i++) {
-				const cell = this.sortableCellAtIndex(i);
-				const box = await cell.boundingBox();
-				if (box) {
-					boxes.push({ index: i, top: box.y, bottom: box.y + box.height });
-				}
-			}
-
-			// Sort by visual top position
-			boxes.sort((a, b) => a.top - b.top);
-			return boxes;
-		});
-	}
-
-	/**
-	 * Move the mouse to a specific cell position during an active drag.
-	 * Use after startDragCell() to position the cursor without releasing.
-	 * @param targetIndex - The index of the cell to move over
-	 * @param position - Where on the cell to target: 'top', 'middle', or 'bottom'
-	 */
-	async moveDragToCell(targetIndex: number, position: 'top' | 'middle' | 'bottom' = 'middle'): Promise<void> {
-		await test.step(`Move drag cursor to cell ${targetIndex} (${position})`, async () => {
-			const targetCell = this.sortableCellAtIndex(targetIndex);
-			const targetBox = await targetCell.boundingBox();
-
-			if (!targetBox) {
-				throw new Error(`Could not get bounding box for cell ${targetIndex}`);
-			}
-
-			const targetX = targetBox.x + targetBox.width / 2;
-			let targetY: number;
-
-			switch (position) {
-				case 'top':
-					targetY = targetBox.y + targetBox.height * 0.25;
-					break;
-				case 'bottom':
-					targetY = targetBox.y + targetBox.height * 0.75;
-					break;
-				default:
-					targetY = targetBox.y + targetBox.height * 0.5;
-			}
-
-			await this.code.driver.page.mouse.move(targetX, targetY, { steps: 10 });
-		});
-	}
-
-	/**
-	 * Release the mouse to complete a drag operation.
-	 */
-	async releaseDrag(): Promise<void> {
-		await test.step('Release drag', async () => {
-			await this.code.driver.page.mouse.up();
-		});
-	}
-
-	/**
 	 * Action: Create a new code cell at the END of the notebook.
 	 */
 	private async addCodeCellToEnd(): Promise<void> {
@@ -1173,54 +1097,6 @@ export class PositronNotebooks extends Notebooks {
 		await test.step(`Verify cells at indices [${expectedIndices.join(', ')}] are selected`, async () => {
 			for (const index of expectedIndices) {
 				await this.expectCellIndexToBeSelected(index, { isSelected: true, timeout });
-			}
-		});
-	}
-
-	/**
-	 * Verify: drag handle visibility state for a cell.
-	 * @param cellIndex - The index of the cell to check.
-	 * @param visible - Whether the drag handle should be visible.
-	 * @param timeout - Timeout for the expectation.
-	 */
-	async expectDragHandleVisibility(cellIndex: number, visible: boolean, timeout = DEFAULT_TIMEOUT): Promise<void> {
-		await test.step(`Expect drag handle at index ${cellIndex} to be ${visible ? 'visible' : 'hidden'}`, async () => {
-			const dragHandle = this.dragHandleAtIndex(cellIndex);
-
-			// Note: Drag handle uses opacity for show/hide (see SortableCell.css)
-			// opacity: 0 when hidden, 0.6 on cell hover, 1 on handle hover
-			await expect(async () => {
-				const opacity = await dragHandle.evaluate(el =>
-					parseFloat(window.getComputedStyle(el).opacity)
-				);
-				if (visible) {
-					expect(opacity).toBeGreaterThan(0);
-				} else {
-					expect(opacity).toBe(0);
-				}
-			}).toPass({ timeout });
-		});
-	}
-
-	/**
-	 * Verify: no cells overlap visually.
-	 * Checks that each cell's visual bottom edge does not exceed the next cell's top edge.
-	 * Useful for verifying correct positioning during drag animations.
-	 * @param tolerance - Pixel tolerance for overlap detection (default: 2)
-	 */
-	async expectNoCellOverlaps(tolerance = 2): Promise<void> {
-		await test.step('Verify no cell overlaps', async () => {
-			const boxes = await this.getCellBoundingBoxes();
-
-			for (let i = 0; i < boxes.length - 1; i++) {
-				const current = boxes[i];
-				const next = boxes[i + 1];
-				const overlap = current.bottom - next.top;
-
-				expect(
-					overlap,
-					`Cell at visual position ${i} (index ${current.index}) overlaps with next cell by ${overlap}px`
-				).toBeLessThanOrEqual(tolerance);
 			}
 		});
 	}
