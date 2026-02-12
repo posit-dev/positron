@@ -47,7 +47,7 @@ const CHAT_INPUT = '.chat-editor-container .interactive-input-editor .native-edi
 const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
-const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Agent"]';
+const MODE_DROPDOWN = '.chat-input-toolbars a.action-label[aria-label^="Set"]'; // "Set Agent" or "Set Model" depending on context
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 // Use :is() to match either Ctrl (Linux/Windows) or ⌘ (macOS) in the keybinding
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item a.action-label:is([aria-label*="Ctrl+Alt+."], [aria-label*="⌥⌘."]) .codicon.codicon-chevron-down';
@@ -684,6 +684,16 @@ export class Assistant {
 	}
 
 	/**
+	 * Asserts that the chat response is complete (not loading).
+	 * Unlike waitForResponseComplete, this does not wait for loading to become visible first,
+	 * making it suitable for asserting state when the response may already be complete.
+	 * @param timeout The maximum time to wait for the assertion (default: 10000ms)
+	 */
+	async expectResponseComplete(timeout: number = 10000) {
+		await expect(this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading')).not.toBeVisible({ timeout });
+	}
+
+	/**
 	 * Verifies the chat panel is visible.
 	 * @param timeout The maximum time to wait for visibility (default: 10000ms)
 	 */
@@ -708,8 +718,24 @@ export class Assistant {
 		await this.code.driver.page.locator(RUN_BUTTON).click();
 	}
 
-	async clickKeepButton(timeout: number = 20000) {
+	async clickKeepButton(timeout: number = 10000) {
 		await this.code.driver.page.locator(KEEP_BUTTON).click({ timeout });
+	}
+
+	/**
+	 * Clicks the "Allow" button that appears when the assistant requests permission to use a tool.
+	 * @param timeout Maximum time to wait for the button to appear (default: 30000ms)
+	 * @returns true if the button was clicked, false if it wasn't found within the timeout
+	 */
+	async clickAllowButton(timeout: number = 10000): Promise<boolean> {
+		try {
+			const allowButton = this.code.driver.page.getByRole('button', { name: 'Allow' });
+			await allowButton.waitFor({ state: 'visible', timeout });
+			await allowButton.click();
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	async clickNewChatButton() {
@@ -775,11 +801,16 @@ export class Assistant {
 	}
 
 	async selectChatMode(mode: string) {
-		// Click the mode dropdown to open it
-		await this.code.driver.page.locator(MODE_DROPDOWN).click();
+		// Use retry logic to handle flaky dropdown opening
+		await expect(async () => {
+			// Click the mode dropdown to open it
+			const dropdown = this.code.driver.page.locator(MODE_DROPDOWN);
+			await dropdown.waitFor({ state: 'visible', timeout: 5000 });
+			await dropdown.click();
 
-		// Wait for the dropdown menu to appear
-		await this.code.driver.page.locator(MODE_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
+			// Wait for the dropdown menu to appear
+			await this.code.driver.page.locator(MODE_DROPDOWN_ITEM).first().waitFor({ state: 'visible', timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 
 		// Find and click the item with the matching text
 		const items = this.code.driver.page.locator(MODE_DROPDOWN_ITEM);

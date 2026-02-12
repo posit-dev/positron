@@ -66,26 +66,26 @@ CRITICAL INSTRUCTIONS:
 1. Focus ENTIRELY on whether the response meets the specified criteria.
 2. When criteria mention that specific tools must be called, look for them in a "Tools Called:" section in the response.
 3. Check FAIL IF conditions FIRST. If ANY fail-if condition is triggered, the grade MUST be I. No exceptions.
-4. Then check ESSENTIAL criteria. If ANY essential criterion fails, the grade MUST be I. No exceptions.
+4. Then check REQUIRED criteria. If ANY required criterion fails, the grade MUST be I. No exceptions.
 
 GRADING SCALE (apply in this strict order):
 1. FIRST: If ANY FAIL IF condition is triggered → grade is I (Incomplete). STOP.
-2. SECOND: If ANY essential criterion is NOT met → grade is I (Incomplete). STOP.
-3. THIRD: If ALL essential are met but some additional are missing → grade is P (Partial).
-4. FOURTH: If ALL essential AND most additional are met → grade is C (Complete).
+2. SECOND: If ANY required criterion is NOT met → grade is I (Incomplete). STOP.
+3. THIRD: If ALL required are met but some optional are missing → grade is P (Partial).
+4. FOURTH: If ALL required AND most optional are met → grade is C (Complete).
 
-⚠️ You CANNOT give C or P if ANY essential criterion fails or ANY fail-if condition is triggered.`);
+⚠️ You CANNOT give C or P if ANY required criterion fails or ANY fail-if condition is triggered.`);
 
 	parts.push(`\n\nRESPONSE TO EVALUATE:\n${response}`);
 
-	parts.push(`\n\nESSENTIAL CRITERIA (ALL must be met for Complete or Partial):`);
-	criteria.essential.forEach((c, i) => {
+	parts.push(`\n\nREQUIRED CRITERIA (ALL must be met for Complete or Partial):`);
+	criteria.required.forEach((c, i) => {
 		parts.push(`${i + 1}. ${c}`);
 	});
 
-	if (criteria.additional && criteria.additional.length > 0) {
-		parts.push(`\n\nADDITIONAL CRITERIA (most met = Complete, some met = Partial):`);
-		criteria.additional.forEach((c, i) => {
+	if (criteria.optional && criteria.optional.length > 0) {
+		parts.push(`\n\nOPTIONAL CRITERIA (most met = Complete, some met = Partial):`);
+		criteria.optional.forEach((c, i) => {
 			parts.push(`${i + 1}. ${c}`);
 		});
 	}
@@ -104,12 +104,12 @@ Show criteria results in a simple aligned table, then a brief summary:
 
 Type  Criterion                               Met?
 ────  ──────────────────────────────────────  ────
-E     [short criterion name, max 40 chars]    ✓ or ✗
-A     [additional criterion]                  ✓ or ✗
+R     [short criterion name, max 40 chars]    ✓ or ✗
+O     [optional criterion]                    ✓ or ✗
 F     [fail-if criterion]                     ✓ or ✗
 ...
 
-Type legend: E=Essential (required), A=Additional (optional), F=Fail-if (auto-fail)
+Type legend: R=Required, O=Optional, F=Fail-if (auto-fail)
 
 [1-2 sentence summary of why this grade was given]`);
 
