@@ -62,5 +62,5 @@ class QuartoNotebookContribution extends Disposable implements IWorkbenchContrib
 registerWorkbenchContribution2(
 	QuartoNotebookContribution.ID,
 	QuartoNotebookContribution,
-	WorkbenchPhase.AfterRestored
+	WorkbenchPhase.BlockRestore
 );
