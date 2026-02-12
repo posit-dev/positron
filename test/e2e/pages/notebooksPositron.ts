@@ -300,7 +300,7 @@ export class PositronNotebooks extends Notebooks {
 			const isMarkdown = cellType === 'markdown';
 
 			// Use Cmd/Ctrl+click to add to existing selection
-			const modifiers = addToSelection ? ['Meta'] as const : undefined;
+			const modifiers: ('ControlOrMeta')[] | undefined = addToSelection ? ['ControlOrMeta'] : undefined;
 			await cell.click({ modifiers });
 
 			if (editMode === undefined) {
