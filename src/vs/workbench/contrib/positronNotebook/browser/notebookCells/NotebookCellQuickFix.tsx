@@ -7,7 +7,7 @@
 import './NotebookCellQuickFix.css';
 
 // React.
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
