@@ -4,15 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, test } from '@playwright/test';
+import { expect, test, chromium, Browser, BrowserContext, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
 import { Modals } from './dialog-modals.js';
 
+// Positron modal dialog selectors (used by Posit AI)
+const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
+
+
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
-const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
-const ADD_MODEL_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
+const CONFIGURE_PROVIDERS_LINK = 'a[data-href="command:positron-assistant.configureProviders"]';
+const CONFIGURE_PROVIDERS_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -23,6 +27,13 @@ const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-auth-provider-button)';
 const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
+const POSIT_AI_BUTTON = 'button.positron-button.language-model.button:has(#posit-ai-provider-button)';
+
+// Posit OAuth login page selectors
+const POSIT_EMAIL_FIELD = 'input[name="email"]';
+const POSIT_PASSWORD_FIELD = 'input[name="password"]';
+const POSIT_CONTINUE_BUTTON = 'button[type="submit"]:has-text("Continue")';
+const POSIT_LOGIN_BUTTON = 'button[type="submit"]:has-text("Log in")';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
 const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
 const APPLY_IN_EDITOR_BUTTON = 'a.action-label.codicon.codicon-git-pull-request-go-to-changes[role="button"][aria-label="Apply in Editor"]';
@@ -38,7 +49,8 @@ const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat ac
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = '.chat-input-toolbars a.action-label[aria-label^="Set"]'; // "Set Agent" or "Set Model" depending on context
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
+// Use :is() to match either Ctrl (Linux/Windows) or ⌘ (macOS) in the keybinding
+const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item a.action-label:is([aria-label*="Ctrl+Alt+."], [aria-label*="⌥⌘."]) .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 
@@ -51,12 +63,36 @@ export type ModelProvider =
 	| 'Copilot'
 	| 'echo'
 	| 'error'
-	| 'openai-api';
+	| 'openai-api'
+	| 'posit-ai';
 
 /**
  * Authentication types for model providers.
  */
-type ProviderAuthType = 'none' | 'apiKey' | 'aws';
+type ProviderAuthType = 'none' | 'apiKey' | 'aws' | 'oauth';
+
+/**
+ * Supported OAuth providers for device code flow.
+ */
+export type OAuthProvider = 'posit';
+
+/**
+ * Configuration for OAuth device code flow authentication.
+ */
+export interface OAuthDeviceCodeConfig {
+	/** The OAuth provider (e.g., 'posit') */
+	provider: OAuthProvider;
+	/** URL to navigate to for device code entry (empty if constructed from env var) */
+	verificationUrl: string;
+	/** Environment variable name for the auth host base URL (used to construct verification URL) */
+	authHostEnvVar?: string;
+	/** Environment variable names for credentials */
+	envVars: {
+		username: string;
+		password: string;
+		otp?: string;
+	};
+}
 
 /**
  * Options for the loginModelProvider method.
@@ -66,6 +102,8 @@ export interface LoginModelProviderOptions {
 	apiKey?: string;
 	/** Timeout for verifying sign-in success (default: 15000ms) */
 	timeout?: number;
+	/** Whether to run the OAuth browser in headless mode (default: false) */
+	headless?: boolean;
 }
 
 /**
@@ -81,8 +119,31 @@ function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 			return 'apiKey';
 		case 'amazon-bedrock':
 			return 'aws';
+		case 'posit-ai':
+			return 'oauth';
 		default:
 			throw new Error(`Unknown provider: ${provider}`);
+	}
+}
+
+/**
+ * Returns the OAuth device code configuration for a given model provider.
+ */
+function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
+	switch (provider.toLowerCase()) {
+		case 'posit-ai':
+			return {
+				provider: 'posit',
+				// Verification URL is constructed from POSIT_AUTH_HOST env var + device code
+				verificationUrl: '',
+				authHostEnvVar: 'POSIT_AUTH_HOST',
+				envVars: {
+					username: 'POSIT_EMAIL',
+					password: 'POSIT_PASSWORD'
+				}
+			};
+		default:
+			throw new Error(`No OAuth configuration for provider: ${provider}`);
 	}
 }
 
@@ -160,33 +221,31 @@ export class Assistant {
 		});
 	}
 
-	async clickAddModelLink() {
-		await this.code.driver.page.locator(CONFIGURE_MODELS_LINK).click();
+	async runConfigureProviders() {
+		await this.quickaccess.runCommand('positron-assistant.configureProviders');
 	}
 
-	async clickAddModelButton() {
+	async clickConfigureProvidersLink() {
+		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_LINK).click();
+	}
+
+	async clickConfigureProvidersButton() {
 		// Ensure chat panel is open first
 		const chatPanelIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
 		if (!chatPanelIsVisible) {
 			await this.openPositronAssistantChat();
 		}
 
-		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
-		if (!addModelLinkIsVisible) {
+		const configureProvidersButtonIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
+		if (!configureProvidersButtonIsVisible) {
 			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		}
-		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click({ force: true });
+		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
 	}
 
-	async verifyAddModelLinkVisible() {
-		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toBeVisible();
-		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toHaveText('Add a Language Model.');
-	}
-
-	async verifyAddModelButtonVisible() {
+	async verifyConfigureProvidersButtonVisible() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Configure Model Providers...');
+		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
 	}
 
 	async verifyInlineChatInputsVisible() {
@@ -231,6 +290,9 @@ export class Assistant {
 			case 'openai-api':
 				await this.code.driver.page.locator(OPENAI_BUTTON).click();
 				break;
+			case 'posit-ai':
+				await this.code.driver.page.locator(POSIT_AI_BUTTON).click();
+				break;
 			default:
 				throw new Error(`Unsupported model provider: ${provider}`);
 		}
@@ -272,8 +334,8 @@ export class Assistant {
 		}
 
 		await test.step(`Sign in to ${provider} model provider`, async () => {
-			// Open the model configuration dialog
-			await this.clickAddModelButton();
+			// Open the model configuration dialog via command (more reliable than clicking UI)
+			await this.quickaccess.runCommand('positron-assistant.configureProviders');
 
 			// Select the provider
 			await this.selectModelProvider(provider);
@@ -315,6 +377,13 @@ export class Assistant {
 					await this.clickSignInButton();
 					break;
 
+				case 'oauth': {
+					// OAuth device code flow (e.g., GitHub Copilot)
+					const oauthConfig = getOAuthConfig(provider);
+					await this.completeOAuthDeviceCodeFlow(oauthConfig, options);
+					break;
+				}
+
 				default:
 					throw new Error(`Unknown authentication type for provider: ${provider}`);
 			}
@@ -350,7 +419,7 @@ export class Assistant {
 		}
 
 		await test.step(`Sign out from ${provider} model provider`, async () => {
-			await this.quickaccess.runCommand('positron-assistant.configureModels');
+			await this.runConfigureProviders();
 			await this.selectModelProvider(provider);
 			await this.clickSignOutButton();
 			await this.verifySignInButtonVisible(timeout);
@@ -408,6 +477,187 @@ export class Assistant {
 			default:
 				throw new Error(`Unsupported auth method: ${type}`);
 		}
+	}
+
+	/**
+	 * Completes an OAuth device code flow by launching a separate browser,
+	 * signing in to the OAuth provider, and entering the verification code.
+	 *
+	 * This method:
+	 * 1. Clicks the sign-in button in the Electron app
+	 * 2. Waits for the device code modal to appear and captures the verification code
+	 * 3. Launches a separate Playwright browser
+	 * 4. Navigates to the OAuth provider's verification URL
+	 * 5. Signs in with credentials from environment variables
+	 * 6. Enters the verification code and authorizes the app
+	 * 7. Closes the OAuth browser
+	 *
+	 * @param config - The OAuth device code configuration
+	 * @param options - Login options including headless mode setting
+	 */
+	async completeOAuthDeviceCodeFlow(config: OAuthDeviceCodeConfig, options: LoginModelProviderOptions = {}) {
+		const { headless = false } = options;
+
+		await test.step(`Complete OAuth device code flow for ${config.provider}`, async () => {
+			// Click sign-in to trigger the OAuth flow
+			await this.clickSignInButton();
+
+			// Wait for the device code modal to appear and extract the verification code
+			const { verificationCode } = await this.extractDeviceCodeFromModal(config);
+
+			// Construct or get the verification URL
+			let finalVerificationUrl = config.verificationUrl;
+
+			if (!finalVerificationUrl && config.authHostEnvVar) {
+				// For Posit AI, construct URL from POSIT_AUTH_HOST env var
+				const authHost = process.env[config.authHostEnvVar];
+				if (!authHost) {
+					throw new Error(
+						`OAuth auth host not configured. Please set ${config.authHostEnvVar} environment variable.`
+					);
+				}
+				// Posit uses verification_uri_complete which redirects through login
+				// URL format: {authHost}/login?redirect=/oauth/device?user_code={code}
+				const redirectPath = encodeURIComponent(`/oauth/device?user_code=${verificationCode}`);
+				finalVerificationUrl = `${authHost}/login?redirect=${redirectPath}`;
+			}
+
+			if (!finalVerificationUrl) {
+				throw new Error('No verification URL available for OAuth flow');
+			}
+
+			// Launch a separate browser for OAuth authentication
+			let browser: Browser | undefined;
+			let context: BrowserContext | undefined;
+			let page: Page | undefined;
+
+			try {
+				browser = await chromium.launch({ headless });
+				context = await browser.newContext();
+				page = await context.newPage();
+
+				// Complete the OAuth flow in the browser
+				await this.completePositLogin(page, config, verificationCode, finalVerificationUrl);
+			} finally {
+				// Ensure browser is closed even if an error occurs
+				if (context) {
+					await context.close();
+				}
+				if (browser) {
+					await browser.close();
+				}
+			}
+		});
+	}
+
+	/**
+	 * Extracts the device verification code from the Positron modal dialog.
+	 * Used by Posit AI OAuth flow. The code is displayed in a <code> HTML element.
+	 *
+	 * The device code modal shows: "You will need this code to sign in: <code>XXXX-XXXX</code>"
+	 *
+	 * @param config - The OAuth configuration (unused, kept for future extensibility)
+	 * @returns Object containing the verification code
+	 */
+	private async extractDeviceCodeFromModal(config: OAuthDeviceCodeConfig): Promise<{ verificationCode: string }> {
+		// Wait for the device code modal to appear (not the configuration modal)
+		// The device code modal contains "You will need this code to sign in" text
+		const deviceCodeModalLocator = this.code.driver.page.locator(`${POSITRON_MODAL_DIALOG}:has-text("You will need this code to sign in")`);
+		await expect(deviceCodeModalLocator).toBeVisible({ timeout: 30000 });
+
+		// Get the modal HTML content - Posit AI uses <code> element for the verification code
+		const modalHtml = await deviceCodeModalLocator.innerHTML();
+		if (!modalHtml) {
+			throw new Error('Could not read Positron device code modal content');
+		}
+
+		// Extract the verification code from the <code> element
+		// Pattern: <code>XXXX-XXXX</code> or similar
+		const codeMatch = modalHtml.match(/<code>([A-Z0-9-]+)<\/code>/i);
+		if (!codeMatch) {
+			throw new Error(`Could not extract verification code from Positron modal: "${modalHtml}"`);
+		}
+
+		const verificationCode = codeMatch[1];
+
+		// Click OK button to dismiss the device code modal
+		// The browser will be opened automatically by the extension
+		const okButton = deviceCodeModalLocator.locator('button:has-text("OK"), button:has-text("Ok")');
+		await okButton.click();
+
+		// Note: For Posit AI, the verification URL is opened automatically by the extension
+		// via vscode.env.openExternal(), so we don't need to extract it here.
+		// The test will navigate to the URL that was opened.
+
+		return { verificationCode };
+	}
+
+	/**
+	 * Completes the Posit OAuth device code flow.
+	 *
+	 * The Posit login flow is:
+	 * 1. Enter email and click Continue
+	 * 2. Enter password and click Login
+	 * 3. Authorization completes automatically (device code is in URL)
+	 *
+	 * @param page - The Playwright page for the OAuth browser
+	 * @param config - The OAuth configuration with Posit-specific settings
+	 * @param verificationCode - The device verification code (already in URL)
+	 * @param verificationUrl - The URL to navigate to (includes the device code)
+	 */
+	private async completePositLogin(page: Page, config: OAuthDeviceCodeConfig, verificationCode: string, verificationUrl: string) {
+		// Get credentials from environment variables
+		const email = process.env[config.envVars.username];
+		const password = process.env[config.envVars.password];
+
+		if (!email || !password) {
+			throw new Error(
+				`Posit OAuth credentials not found. Please set ${config.envVars.username} and ${config.envVars.password} environment variables.`
+			);
+		}
+
+		// Navigate to Posit verification page (URL includes the device code)
+		await page.goto(verificationUrl);
+
+		// Step 1: Enter email and click Continue
+		await expect(page.locator(POSIT_EMAIL_FIELD)).toBeVisible({ timeout: 15000 });
+		await page.locator(POSIT_EMAIL_FIELD).fill(email);
+		await page.locator(POSIT_CONTINUE_BUTTON).click();
+
+		// Step 2: Enter password and click Log in
+		await expect(page.locator(POSIT_PASSWORD_FIELD)).toBeVisible({ timeout: 15000 });
+		await page.locator(POSIT_PASSWORD_FIELD).fill(password);
+		await page.locator(POSIT_LOGIN_BUTTON).click();
+
+		// Step 3: Click Continue button
+		const continueButton = page.locator('button[type="submit"]:has-text("Continue")');
+		await expect(continueButton).toBeVisible({ timeout: 15000 });
+		await continueButton.click();
+
+		// Step 4: Click Authorize button
+		const authorizeButton = page.locator('button[type="submit"]:has-text("Authorize")');
+		await expect(authorizeButton).toBeVisible({ timeout: 15000 });
+		await authorizeButton.click();
+
+		// Wait for authorization to complete (success page)
+		// Need to wait for success before closing browser so Positron can complete the login
+		await expect(page.locator('body')).toContainText(/success|authorized|complete|congratulations/i, { timeout: 30000 });
+
+		// Close the page explicitly to signal completion to Positron
+		await page.close();
+	}
+
+	/**
+	 * Gets the provider display names in their display order from the Configure Providers modal.
+	 * The modal must already be open before calling this method.
+	 * @returns Array of provider display names in display order (e.g., "Posit AI", "Anthropic")
+	 */
+	async getProviderButtonNames(): Promise<string[]> {
+		const providerButtons = this.code.driver.page.locator('div[id$="-provider-button"]');
+		await providerButtons.first().waitFor({ state: 'visible' });
+
+		const texts = await providerButtons.allTextContents();
+		return texts.map(t => t.trim()).filter(Boolean);
 	}
 
 	async enterChatMessage(message: string, waitForResponse: boolean = true) {
@@ -716,10 +966,14 @@ export class Assistant {
 	}
 
 	/**
-	 * Closes the model picker dropdown by pressing Escape.
+	 * Closes the model picker dropdown by pressing Escape if it is open.
 	 */
 	async closeModelPickerDropdown() {
-		await this.code.driver.page.keyboard.press('Escape');
+		const dropdownItem = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first();
+		if (await dropdownItem.isVisible()) {
+			await this.code.driver.page.keyboard.press('Escape');
+			await expect(dropdownItem).not.toBeVisible();
+		}
 	}
 
 	async getChatResponseText(exportFolder?: string) {
@@ -748,9 +1002,8 @@ export class Assistant {
 	 * @returns The file path of the found chat export file, or null if not found
 	 */
 	async findChatExportFile(exportFolder?: string): Promise<string | null> {
-		const fs = require('fs').promises;
-		const path = require('path');
-
+		const fs = await import('fs/promises');
+		const path = await import('path');
 		// Use provided folder or current working directory
 		const searchPath = exportFolder || process.cwd();
 
@@ -784,8 +1037,7 @@ export class Assistant {
 	 * @returns The concatenated response text from all chat responses
 	 */
 	async parseChatResponseFromFile(filePath: string): Promise<string> {
-		const fs = require('fs').promises;
-
+		const fs = await import('fs/promises');
 		try {
 			const fileContent = await fs.readFile(filePath, 'utf-8');
 			const chatData = JSON.parse(fileContent);
@@ -824,13 +1076,64 @@ export class Assistant {
 	}
 
 	/**
+	 * Parses the available tools from a chat export JSON file
+	 * @param filePath Path to the chat export JSON file
+	 * @returns Array of available tool names from the most recent request
+	 */
+	async parseAvailableToolsFromFile(filePath: string): Promise<string[]> {
+		const fs = require('fs').promises;
+
+		try {
+			const fileContent = await fs.readFile(filePath, 'utf-8');
+			const chatData = JSON.parse(fileContent);
+
+			// Get the available tools from the most recent request
+			if (chatData.requests && Array.isArray(chatData.requests) && chatData.requests.length > 0) {
+				const lastRequest = chatData.requests[chatData.requests.length - 1];
+				if (lastRequest.result?.metadata?.availableTools) {
+					return lastRequest.result.metadata.availableTools;
+				}
+			}
+
+			return [];
+		} catch (error) {
+			throw new Error(`Failed to parse available tools from chat export file ${filePath}: ${error}`);
+		}
+	}
+
+	/**
+	 * Gets the available tools from the most recent chat response.
+	 * Exports the chat to a file and parses the availableTools array from the metadata.
+	 * @param exportFolder Optional folder path to export the chat to
+	 * @returns Array of available tool names
+	 */
+	async getAvailableTools(exportFolder?: string): Promise<string[]> {
+		// Export the chat to a file first
+		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
+		await this.toasts.waitForAppear('Chat log exported to:');
+		await this.toasts.closeAll();
+
+		// Find and parse the chat export file
+		const chatExportFile = await this.findChatExportFile(exportFolder);
+		if (!chatExportFile) {
+			throw new Error('No chat export file found');
+		}
+
+		const availableTools = await this.parseAvailableToolsFromFile(chatExportFile);
+
+		// Rename the file to prevent it from being found again
+		await this.renameChatExportFile(chatExportFile);
+
+		return availableTools;
+	}
+
+	/**
 	 * Renames a chat export file to mark it as processed
 	 * @param filePath Path to the chat export JSON file to rename
 	 */
 	async renameChatExportFile(filePath: string): Promise<void> {
-		const fs = require('fs').promises;
-		const path = require('path');
-
+		const fs = await import('fs/promises');
+		const path = await import('path');
 		try {
 			const dir = path.dirname(filePath);
 			const filename = path.basename(filePath);

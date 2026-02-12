@@ -1233,6 +1233,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Get the current working directory of a runtime session.
+	 * @param sessionId the session ID, or undefined for the foreground session
+	 * @returns The working directory, or undefined if not available
+	 */
+	public async getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined> {
+		return this._proxy.$getSessionWorkingDirectory(sessionId);
+	}
+
+	/**
 	 * Registers a new language runtime manager with the extension host.
 	 *
 	 * @param extension The extension that is registering the manager

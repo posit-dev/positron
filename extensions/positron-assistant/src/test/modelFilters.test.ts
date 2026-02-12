@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,7 +17,6 @@ suite('Model Filters', () => {
 		sinon.stub(vscode.workspace, 'getConfiguration').returns({
 			get: mockWorkspaceConfig
 		} as any);
-		mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
 	});
 
 	teardown(() => {

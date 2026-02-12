@@ -11,7 +11,7 @@ import { IProductService } from '../../product/common/productService.js';
 import { INativeEnvironmentService } from '../../environment/common/environment.js';
 import { FileOperationResult, IFileService, IFileStat, toFileOperationResult } from '../../files/common/files.js';
 import { getErrorMessage } from '../../../base/common/errors.js';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, accessSync, constants as fsConstants } from 'fs';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { getSystemArchitecture } from '../../../base/node/arch.js';
 import { DeferredPromise } from '../../../base/common/async.js';
@@ -44,6 +44,21 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 
 		// Clean up timeout when the promise settles
 		this._whenReady.p.finally(() => clearTimeout(timeoutHandle));
+
+		// Check if the extensions directory is writable before attempting installation
+		if (!this.isExtensionsDirectoryWritable()) {
+			const isWorkbenchSession = !!process.env['WORKBENCH_WEB_BASE_URL'];
+			const instructions = isWorkbenchSession
+				? 'Please contact your administrator to install the bootstrap extensions.'
+				: 'To fix this, make the extensions directory writable.';
+
+			this.logService.error(
+				`Cannot install bootstrap extensions: The extensions directory is not writable: ${this.environmentService.extensionsPath}. ` +
+				instructions
+			);
+			this._whenReady.complete();
+			return;
+		}
 
 		const storageFilePath = join(this.environmentService.extensionsPath, '.version');
 		const currentVersion = `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`;
@@ -174,6 +189,20 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		}
 
 		return URI.file(this.environmentService.bootstrapExtensionsPath);
+	}
+
+	/**
+	 * Tests if the extensions directory is writable.
+	 */
+	private isExtensionsDirectoryWritable(): boolean {
+		const extensionsPath = this.environmentService.extensionsPath;
+
+		try {
+			accessSync(extensionsPath, fsConstants.W_OK);
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	/**

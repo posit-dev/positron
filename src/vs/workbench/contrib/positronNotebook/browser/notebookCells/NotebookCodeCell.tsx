@@ -6,9 +6,6 @@
 // CSS.
 import './NotebookCodeCell.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
@@ -25,6 +22,7 @@ import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { useCellOutputContextMenu } from './useCellOutputContextMenu.js';
 
 
 interface CellOutputsSectionProps {
@@ -34,6 +32,7 @@ interface CellOutputsSectionProps {
 
 function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const { showCellOutputContextMenu } = useCellOutputContextMenu(cell);
 
 	const handleShowHiddenOutput = () => {
 		cell.expandOutput();
@@ -48,28 +47,42 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 		cell.container?.focus();
 	};
 
+	const handleContextMenu = (event: React.MouseEvent) => {
+		// Only show context menu if there are outputs
+		if (outputs.length === 0) {
+			return;
+		}
+
+		event.preventDefault();
+		showCellOutputContextMenu({ x: event.clientX, y: event.clientY });
+	};
+
 	return (
 		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'}`}>
 			<CellOutputLeftActionMenu cell={cell} />
-			<div className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs' data-testid='cell-output'>
+			<section
+				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
+				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
+				data-testid='cell-output'
+				onContextMenu={handleContextMenu}
+			>
 				<div className='positron-notebook-code-cell-outputs-inner'>
 					{isCollapsed
-						? (<Button
+						? <Button
 							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
 							className='show-hidden-output-button'
 							onPressed={handleShowHiddenOutput}
 						>
 							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
 						</Button>
-						)
-						: (<>
+						: <>
 							{outputs?.map((output) => (
 								<CellOutput key={output.outputId} {...output} />
 							))}
 						</>
-						)}
+					}
 				</div>
-			</div>
+			</section>
 		</div>
 	);
 }

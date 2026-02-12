@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PositronAssistantToolName } from '../types.js';
-import { log } from '../extension.js';
+import { log } from '../log.js';
 
 interface CreateDocumentInput {
 	filePath: string;

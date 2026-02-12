@@ -38,7 +38,7 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 }) => {
 	const instance = useNotebookInstance();
 	const services = usePositronReactServicesContext();
-	const timeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
+	const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const [isPaused, setIsPaused] = React.useState(false);
 
 	// Get configuration values

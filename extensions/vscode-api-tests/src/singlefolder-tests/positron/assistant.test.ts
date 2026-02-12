@@ -19,11 +19,6 @@ suite('positron API - ai', () => {
 		assertNoRpcFromEntry([positron, 'positron']);
 	});
 
-	test('getSupportedProviders returns providers', async () => {
-		const providers = await positron.ai.getSupportedProviders();
-		assert.ok(Array.isArray(providers), 'Providers should be an array');
-	});
-
 	test('getCurrentPlotUri returns expected type', async () => {
 		const plotUri = await positron.ai.getCurrentPlotUri();
 		assert.ok(plotUri === undefined || typeof plotUri === 'string',
