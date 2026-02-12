@@ -28,6 +28,7 @@ jobs:
       debian_electron_tag_found: ${{ steps.pr-tags.outputs.debian_electron_tag_found }}
       debian_web_tag_found: ${{ steps.pr-tags.outputs.debian_web_tag_found }}
       pyrefly_tag_found: ${{ steps.pr-tags.outputs.pyrefly_tag_found }}
+      workbench_tag_found: ${{ steps.pr-tags.outputs.workbench_tag_found }}
 
     steps:
       - uses: actions/checkout@v6
@@ -202,6 +203,26 @@ jobs:
     if: ${{ needs.pr-tags.outputs.pyrefly_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-pyrefly.yml
+    secrets: inherit
+
+  build-workbench:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' }}
+    name: build
+    uses: ./.github/workflows/build-workbench-linux.yml
+    secrets: inherit
+
+  e2e-workbench:
+    needs: [pr-tags, build-workbench]
+    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "workbench"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   unit-tests:

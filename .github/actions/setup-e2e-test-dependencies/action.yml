@@ -1,0 +1,37 @@
+name: 'Setup E2E Test Dependencies'
+description: 'Install TypeScript, Playwright, and test dependencies, then compile tests'
+
+inputs:
+  working-directory:
+    description: 'Working directory to run commands in (default: current directory)'
+    required: false
+    default: '.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup test dependencies and compile tests
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+      run: |
+        # Must remove root package.json and provide simple stub to use root dir for test run but not build
+        rm package.json
+        echo '{"scripts":{"compile":"npx tsc"}}' > package.json
+
+        # Install TypeScript locally
+        npm install typescript
+
+        # Install required dependencies - must keep in sync with root package.json
+        npm install @playwright/test@^1.53.1
+        npx playwright install
+        npx playwright install-deps
+        npm install @currents/playwright@^1.14.1
+        npm install @midleman/playwright-reporter@latest
+        npm install @midleman/github-actions-reporter@^1.9.5
+        npm install @vscode/v8-heap-parser@^0.1.0
+        npm install fs-extra
+
+        npm --prefix test/e2e install
+        npm --prefix test/e2e run compile
