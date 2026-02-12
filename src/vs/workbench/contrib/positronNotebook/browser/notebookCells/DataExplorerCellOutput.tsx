@@ -62,12 +62,10 @@ export const DataExplorerCellOutput = React.memo(function DataExplorerCellOutput
 		// Fallback was triggered but no HTML output is available.
 		// Show an explicit message instead of re-rendering InlineDataExplorer
 		// (which would loop back to loading/fallback indefinitely).
-		if (useFallback) {
-			return <div className='inline-data-explorer-error'>
-				<span className='codicon codicon-warning' />
-				{localize('dataUnavailableFallback', 'Data unavailable. Re-run cell to view.')}
-			</div>;
-		}
+		return <div className='inline-data-explorer-error'>
+			<span className='codicon codicon-warning' />
+			{localize('dataUnavailableFallback', 'Data unavailable. Re-run cell to view.')}
+		</div>;
 	}
 
 	return <InlineDataExplorer {...parsed} onFallback={handleFallback} />;

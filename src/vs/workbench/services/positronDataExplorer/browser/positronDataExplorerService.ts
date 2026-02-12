@@ -315,6 +315,8 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			)
 		);
 
+		// Note: cancel() removes the event listener but does not settle the
+		// promise -- it becomes orphaned and GC'd after raceTimeout returns.
 		const result = await raceTimeout(eventPromise, timeoutMs, () => {
 			eventPromise.cancel();
 		});
