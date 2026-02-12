@@ -30,10 +30,12 @@ import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { Commands, EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
+import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
 import { hasFiles } from './util';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { EnvironmentType } from '../pythonEnvironments/info';
+import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import { IApplicationShell } from '../common/application/types';
 import { Interpreters } from '../common/utils/localize';
 import { untildify } from '../common/helpers';
@@ -174,6 +176,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 userInterpreterSettings.globalValue;
         }
 
+        // if user has startup set to manual, isImmediate should be false even if we find a recommended interpreter
+        // Check both the general interpreters setting and the Python-specific override
+        const generalStartupBehavior = getConfiguration('interpreters').get<string>('startupBehavior');
+        const pythonStartupBehavior = getConfiguration('interpreters', { languageId: 'python' }).get<string>(
+            'startupBehavior',
+        );
+        if (generalStartupBehavior === 'manual' || pythonStartupBehavior === 'manual') {
+            isImmediate = false;
+        }
         return { path: interpreterPath, isImmediate };
     }
 
@@ -316,6 +327,22 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // only provided for new sessions; existing (restored) sessions already
         // have one.
         const env = await environmentVariablesProvider.getEnvironmentVariables();
+
+        // On Windows, conda environments need additional library paths (Library/bin, etc.)
+        // for DLL loading. Without these, Python could crash with STATUS_FATAL_USER_CALLBACK_EXCEPTION
+        // when importing packages with native dependencies like numpy, matplotlib, etc.
+        // See: https://github.com/posit-dev/positron/issues/9740
+        if (os.platform() === 'win32' && (await isCondaEnvironment(extraData.pythonPath))) {
+            const root = path.dirname(extraData.pythonPath);
+            const condaPaths = [
+                path.join(root, 'Library', 'bin'),
+                path.join(root, 'Library', 'mingw-w64', 'bin'),
+                path.join(root, 'Library', 'usr', 'bin'),
+                path.join(root, 'bin'),
+                path.join(root, 'Scripts'),
+            ].join(path.delimiter);
+            env.PATH = env.PATH ? condaPaths + path.delimiter + env.PATH : condaPaths;
+        }
         if (sessionMetadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
             // Workaround to use Plotly's browser renderer. Ensures the plot is
             // displayed to fill the webview.

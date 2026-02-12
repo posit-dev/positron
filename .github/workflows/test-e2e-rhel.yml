@@ -33,16 +33,6 @@ on:
         description: "The name of the job as it will appear in the GitHub Actions UI."
         default: "e2e-rhel"
         type: string
-      currents_tags:
-        required: false
-        description: "The tags to use for Currents recording."
-        default: "@rhel"
-        type: string
-      report_currents:
-        required: false
-        description: "Whether or not to report results to Currents."
-        type: boolean
-        default: true
       install_undetectable_interpreters:
         required: false
         description: "Whether or not to install undetectable interpreters."
@@ -101,7 +91,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-rocky8-amd64:65
+      image: ghcr.io/posit-dev/positron-rocky8-amd64:102
       options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -109,7 +99,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-rocky8-amd64:65
+        image: ghcr.io/posit-dev/positron-postgres-rocky8-amd64:102
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -157,6 +147,9 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
           OPENAI_KEY: "op://Positron/OpenAI/credential"
+          POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
+          POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
+          POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
@@ -193,7 +186,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         with:
-          project: ${{ inputs.project }}
+          identifier: ${{ inputs.project }}
 
       - name: 🧪 Run Playwright Tests
         shell: bash
@@ -204,13 +197,8 @@ jobs:
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
           POSITRON_HIDDEN_R: 4.4.1
-          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/rhel' }}
-          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
-          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           PW_JSON_FILE: test-results/rhel.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}

@@ -7,11 +7,15 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
-import { deleteConfiguration, ModelConfig, SecretStorage } from '../../config';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { deleteConfiguration } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
-import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
+import { log } from '../../log.js';
+import { recordRequestTokenUsage, recordTokenUsage } from '../../tokens.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
-import { ModelProvider } from '../base/modelProvider.js';
+import { VercelModelProvider } from '../base/vercelModelProvider.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
@@ -32,19 +36,17 @@ export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
  * - Authentication: OAuth (no API key required)
  * - Managed through workspace settings for authHost, scope, clientId, and baseUrl
  */
-export class PositModelProvider extends ModelProvider {
+export class PositModelProvider extends VercelModelProvider {
 	/** The cancellation token for the current operation. */
 	private static _cancellationToken: vscode.CancellationTokenSource | null = null;
 
-	private _anthropicClient: Anthropic;
+	private _anthropicClient!: Anthropic;
+	private _useNativeSdk!: boolean;
 	public readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'posit-ai',
-			displayName: 'Posit AI'
-		},
+		provider: PROVIDER_METADATA.positAI,
 		supportedOptions: ['oauth'],
 		defaults: {
 			name: DEFAULT_POSITAI_MODEL_NAME,
@@ -67,7 +69,7 @@ export class PositModelProvider extends ModelProvider {
 		return { authHost, scope, clientId, baseUrl };
 	}
 
-	public static async signIn(storage: SecretStorage): Promise<void> {
+	public static async signIn(context: vscode.ExtensionContext): Promise<void> {
 		log.info('[Posit AI] Signing in.');
 
 		const params = PositModelProvider.getOAuthParameters();
@@ -130,9 +132,9 @@ export class PositModelProvider extends ModelProvider {
 					log.info('[Posit AI] Sign-in successful.');
 
 					const expiryTime = Date.now() + expires_in * 1000;
-					storage.store('positron.assistant.positai.access_token', access_token);
-					storage.store('positron.assistant.positai.refresh_token', refresh_token);
-					storage.store('positron.assistant.positai.token_expiry', expiryTime.toString());
+					context.secrets.store('positron.assistant.positai.access_token', access_token);
+					context.secrets.store('positron.assistant.positai.refresh_token', refresh_token);
+					context.secrets.store('positron.assistant.positai.token_expiry', expiryTime.toString());
 					break;
 				}
 
@@ -166,14 +168,14 @@ export class PositModelProvider extends ModelProvider {
 		return;
 	}
 
-	public static async signOut(storage: SecretStorage): Promise<boolean> {
+	public static async signOut(context: vscode.ExtensionContext): Promise<boolean> {
 		log.info('[Posit AI] Signing out.');
 
 		try {
 			// Sign-out is considered successful when the model is deleted in the config service
-			storage.delete('positron.assistant.positai.access_token');
-			storage.delete('positron.assistant.positai.refresh_token');
-			storage.delete('positron.assistant.positai.token_expiry');
+			context.secrets.delete('positron.assistant.positai.access_token');
+			context.secrets.delete('positron.assistant.positai.refresh_token');
+			context.secrets.delete('positron.assistant.positai.token_expiry');
 			return true;
 		} catch (error) {
 			if (error instanceof Error) {
@@ -191,11 +193,11 @@ export class PositModelProvider extends ModelProvider {
 		PositModelProvider._cancellationToken = null;
 	}
 
-	public static async refreshAccessToken(storage: SecretStorage): Promise<{ success: false } | { success: true; accessToken: string }> {
+	public static async refreshAccessToken(context: vscode.ExtensionContext): Promise<{ success: false } | { success: true; accessToken: string }> {
 		log.info('[Posit AI] Refreshing access token.');
 		const params = PositModelProvider.getOAuthParameters();
 
-		const refreshToken = await storage.get('positron.assistant.positai.refresh_token');
+		const refreshToken = await context.secrets.get('positron.assistant.positai.refresh_token');
 		if (!refreshToken) {
 			log.error('[Posit AI] No refresh token found.');
 			return { success: false };
@@ -229,9 +231,9 @@ export class PositModelProvider extends ModelProvider {
 		const { access_token, refresh_token, expires_in } = tokenData;
 		const expiryTime = Date.now() + expires_in * 1000;
 
-		await storage.store('positron.assistant.positai.access_token', access_token);
-		await storage.store('positron.assistant.positai.refresh_token', refresh_token);
-		await storage.store('positron.assistant.positai.token_expiry', expiryTime.toString());
+		await context.secrets.store('positron.assistant.positai.access_token', access_token);
+		await context.secrets.store('positron.assistant.positai.refresh_token', refresh_token);
+		await context.secrets.store('positron.assistant.positai.token_expiry', expiryTime.toString());
 
 		log.info('[Posit AI] Access token refreshed successfully.');
 		return { success: true, accessToken: access_token };
@@ -240,21 +242,37 @@ export class PositModelProvider extends ModelProvider {
 	constructor(
 		_config: ModelConfig,
 		_context?: vscode.ExtensionContext,
-		_storage?: SecretStorage,
 	) {
-		super(_config, _context, _storage);
+		super(_config, _context);
 	}
 
 	/**
 	 * Initializes the Posit AI provider with OAuth-authenticated Anthropic client.
+	 * Uses either native Anthropic SDK or Vercel AI SDK based on the useAnthropicSdk preference.
 	 */
 	protected override initializeProvider() {
 		const params = PositModelProvider.getOAuthParameters();
-		this._anthropicClient = new Anthropic({
-			authToken: '_', // Actual token is set in authFetch
-			fetch: this.authFetch.bind(this),
-			baseURL: `${params.baseUrl}/anthropic`,
-		});
+
+		// Check preference: true (default) = native SDK, false = Vercel SDK
+		this._useNativeSdk = vscode.workspace.getConfiguration('positron.assistant')
+			.get('useAnthropicSdk', true);
+
+		if (this._useNativeSdk) {
+			// Initialize native Anthropic SDK (existing behavior)
+			this._anthropicClient = new Anthropic({
+				authToken: '_', // Actual token is set in authFetch
+				apiKey: '_',   // API key is not used
+				fetch: this.authFetch.bind(this),
+				baseURL: `${params.baseUrl}/anthropic`,
+			});
+		} else {
+			// Initialize Vercel AI SDK provider with OAuth fetch
+			// Note: Vercel SDK expects baseURL to include /v1 (default is https://api.anthropic.com/v1)
+			this.aiProvider = createAnthropic({
+				baseURL: `${params.baseUrl}/anthropic/v1`,
+				fetch: this.authFetch.bind(this),
+			});
+		}
 	}
 
 	/**
@@ -271,8 +289,8 @@ export class PositModelProvider extends ModelProvider {
 	 * Gets the current access token, refreshing if necessary.
 	 */
 	async getAccessToken(): Promise<string> {
-		let accessToken = await this._storage!.get('positron.assistant.positai.access_token');
-		const tokenExpiry = await this._storage!.get('positron.assistant.positai.token_expiry');
+		let accessToken = await this._context!.secrets.get('positron.assistant.positai.access_token');
+		const tokenExpiry = await this._context!.secrets.get('positron.assistant.positai.token_expiry');
 
 		this.logger.debug(`Token expiry at ${tokenExpiry}. Current time is ${Date.now()}.`);
 
@@ -280,9 +298,9 @@ export class PositModelProvider extends ModelProvider {
 		const expiry = parseInt(tokenExpiry) - tenMin;
 		if (tokenExpiry && Date.now() >= expiry) {
 			this.logger.info('Access token has expired.');
-			const result = await PositModelProvider.refreshAccessToken(this._storage!);
+			const result = await PositModelProvider.refreshAccessToken(this._context!);
 			if (!result.success) {
-				deleteConfiguration(this._context, this._storage, this.providerId);
+				deleteConfiguration(this._context, this.providerId);
 				throw new Error('Failed to refresh Posit AI access token. Please sign in again.');
 			}
 			accessToken = result.accessToken;
@@ -292,7 +310,7 @@ export class PositModelProvider extends ModelProvider {
 	}
 
 	/**
-	 * Provides chat response using Anthropic SDK with OAuth authentication.
+	 * Provides chat response using either native Anthropic SDK or Vercel AI SDK with OAuth authentication.
 	 */
 	override async provideLanguageModelChatResponse(
 		model: vscode.LanguageModelChatInformation,
@@ -301,6 +319,15 @@ export class PositModelProvider extends ModelProvider {
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	) {
+		// If using Vercel SDK, delegate to base class implementation
+		if (!this._useNativeSdk) {
+			return this.provideVercelResponse(model, messages, options, progress, token, {
+				toolResultExperimentalContent: true,
+				anthropicCacheBreakpoint: true
+			});
+		}
+
+		// Native SDK implementation follows
 		const cacheControlOptions = isCacheControlOptions(options.modelOptions?.cacheControl)
 			? options.modelOptions.cacheControl
 			: undefined;
@@ -417,9 +444,9 @@ export class PositModelProvider extends ModelProvider {
 		}
 
 		// Record token usage
-		if (message.usage && this._context) {
+		if (message.usage) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.providerId, tokens);
+			recordTokenUsage(this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
@@ -442,11 +469,16 @@ export class PositModelProvider extends ModelProvider {
 
 	/**
 	 * Sends a test message to verify model connectivity.
-	 * For Posit AI, this is handled by resolveConnection.
+	 * When using Vercel SDK, delegates to base class. When using native SDK,
+	 * connection is verified via OAuth token in resolveConnection.
 	 */
-	protected async sendTestMessage(modelId: string) {
-		// Posit AI connection is verified via OAuth token in resolveConnection
-		return Promise.resolve();
+	protected override async sendTestMessage(modelId: string) {
+		if (!this._useNativeSdk) {
+			// Use Vercel SDK's test message implementation
+			return super.sendTestMessage(modelId);
+		}
+		// For native SDK, connection is verified via OAuth token in resolveConnection
+		return Promise.resolve() as any;
 	}
 
 	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {

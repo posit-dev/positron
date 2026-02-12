@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { AnthropicModelProvider, CacheControlOptions } from '../providers/anthropic/anthropicProvider';
-import { ModelConfig } from '../config';
+import { ModelConfig } from '../configTypes.js';
 import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from '../utils.js';
 import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 import Anthropic from '@anthropic-ai/sdk';
@@ -102,7 +102,7 @@ suite('AnthropicModelProvider', () => {
 		};
 
 		// Create an instance of the AnthropicModelProvider
-		model = new AnthropicModelProvider(config, undefined, undefined, mockClient as unknown as Anthropic);
+		model = new AnthropicModelProvider(config, undefined, mockClient as unknown as Anthropic);
 
 		// Create mock model info for provideLanguageModelChatResponse
 		mockModelInfo = {

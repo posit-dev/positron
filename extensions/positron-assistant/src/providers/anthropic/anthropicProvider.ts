@@ -7,18 +7,26 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelProvider } from '../base/modelProvider';
-import { getProviderTimeoutMs, ModelConfig, SecretStorage } from '../../config';
+import { getProviderTimeoutMs } from '../../providerConfig.js';
+import { ModelConfig } from '../../configTypes.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
-import { recordTokenUsage, recordRequestTokenUsage, log } from '../../extension.js';
-import { TokenUsage } from '../../tokens.js';
+import { log } from '../../log.js';
+import { TokenUsage, recordTokenUsage, recordRequestTokenUsage } from '../../tokens.js';
 import { getAllModelDefinitions } from '../../modelDefinitions.js';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 import { LanguageModelDataPartMimeType } from '../../types.js';
 import { ModelProviderLogger } from '../base/modelProviderLogger.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
+import {
+	DEFAULT_ANTHROPIC_MODEL_NAME,
+	DEFAULT_ANTHROPIC_MODEL_MATCH,
+	fetchAnthropicModelsFromApi,
+	getAnthropicModelsFromConfig
+} from './anthropicModelUtils.js';
 
-export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
-export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4';
+// Re-export for consumers that import from this file
+export { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH };
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -63,13 +71,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
-			// use 'anthropic-api' instead to make it possible to differentiate
-			// the two.
-			id: 'anthropic-api',
-			displayName: 'Anthropic'
-		},
+		provider: PROVIDER_METADATA.anthropic,
 		supportedOptions: ['apiKey', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
@@ -82,10 +84,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	constructor(
 		_config: ModelConfig,
 		_context?: vscode.ExtensionContext,
-		_storage?: SecretStorage,
 		client?: Anthropic, // For testing only - production uses constructor initialization
 	) {
-		super(_config, _context, _storage);
+		super(_config, _context);
 		this._client = client ?? new Anthropic({ apiKey: _config.apiKey });
 	}
 
@@ -121,73 +122,22 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	}
 
 	protected override retrieveModelsFromConfig() {
-		const configuredModels = getAllModelDefinitions(this.providerId);
-		if (configuredModels.length === 0) {
-			return undefined;
-		}
-
-		this.logger.info(`Using ${configuredModels.length} configured models.`);
-
-		const modelListing = configuredModels.map((modelDef) =>
-			createModelInfo({
-				id: modelDef.identifier,
-				name: modelDef.name,
-				family: this.providerId,
-				version: '',
-				provider: this.providerId,
-				providerName: this.providerName,
-				capabilities: this.capabilities,
-				defaultMaxInput: modelDef.maxInputTokens,
-				defaultMaxOutput: modelDef.maxOutputTokens
-			})
+		return getAnthropicModelsFromConfig(
+			this.providerId,
+			this.providerName,
+			this.capabilities,
+			this.logger
 		);
-
-		return markDefaultModel(modelListing, this.providerId, DEFAULT_ANTHROPIC_MODEL_MATCH);
 	}
 
-	protected override async retrieveModelsFromApi(token: vscode.CancellationToken) {
-		try {
-			const modelListing: vscode.LanguageModelChatInformation[] = [];
-			const knownAnthropicModels = getAllModelDefinitions(this.providerId);
-			let hasMore = true;
-			let nextPageToken: string | undefined;
-
-			this.logger.trace(`Fetching models from Anthropic API...`);
-
-			while (hasMore) {
-				const modelsPage = nextPageToken
-					? await this._client.models.list({ after_id: nextPageToken })
-					: await this._client.models.list();
-
-				modelsPage.data.forEach(model => {
-					const knownModel = knownAnthropicModels?.find(m => model.id.startsWith(m.identifier));
-
-					modelListing.push(
-						createModelInfo({
-							id: model.id,
-							name: model.display_name,
-							family: this.providerId,
-							version: model.created_at,
-							provider: this.providerId,
-							providerName: this.providerName,
-							capabilities: this.capabilities,
-							defaultMaxInput: knownModel?.maxInputTokens,
-							defaultMaxOutput: knownModel?.maxOutputTokens
-						})
-					);
-				});
-
-				hasMore = modelsPage.has_more;
-				if (hasMore && modelsPage.data.length > 0) {
-					nextPageToken = modelsPage.data[modelsPage.data.length - 1].id;
-				}
-			}
-
-			return markDefaultModel(modelListing, this.providerId, DEFAULT_ANTHROPIC_MODEL_MATCH);
-		} catch (error) {
-			this.logger.warn(`Failed to fetch models from Anthropic API: ${error}`);
-			return undefined;
-		}
+	protected override async retrieveModelsFromApi(_token: vscode.CancellationToken) {
+		return fetchAnthropicModelsFromApi(
+			this._client,
+			this.providerId,
+			this.providerName,
+			this.capabilities,
+			this.logger
+		);
 	}
 
 	override async provideLanguageModelChatResponse(
@@ -306,9 +256,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		}
 
 		// Record token usage
-		if (message.usage && this._context) {
+		if (message.usage) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.providerId, tokens);
+			recordTokenUsage(this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;

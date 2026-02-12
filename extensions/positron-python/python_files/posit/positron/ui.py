@@ -4,6 +4,7 @@
 #
 
 import contextlib
+import importlib.metadata
 import inspect
 import logging
 import os
@@ -11,15 +12,17 @@ import sys
 import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from comm.base_comm import BaseComm
+from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
 from .positron_comm import CommMessage, PositronComm
 from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
+    EditorContextChangedRequest,
     OpenEditorParams,
     ShowHtmlFileDestination,
     ShowHtmlFileParams,
@@ -111,10 +114,27 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
         torch.set_printoptions(linewidth=width)
 
 
+# Get all installed packages
+def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
+    packages_dict = {}
+    for dist in importlib.metadata.distributions():
+        canonical = canonicalize_name(dist.name)
+        # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
+        if canonical not in packages_dict:
+            packages_dict[canonical] = {
+                "id": f"{canonical}-{dist.version}",
+                "name": dist.name,
+                "displayName": canonical,
+                "version": dist.version,
+            }
+    return sorted(packages_dict.values(), key=lambda p: p["displayName"])
+
+
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
+    "getPackagesInstalled": _get_packages_installed,
 }
 
 
@@ -130,7 +150,61 @@ class UiService:
 
         self._comm: Optional[PositronComm] = None
 
-        self._working_directory: Optional[Path] = None
+        self.working_directory: Optional[Path] = None
+
+        # The URI of the last active editor, updated by the frontend
+        self._last_active_editor_uri: str = ""
+
+        # Whether the current editor context is the source of code being executed
+        # This is set to True when code is about to be executed from a file,
+        # and should be reset to False after execution completes.
+        self._is_execution_source: bool = False
+
+    @property
+    def last_active_editor_uri(self) -> str:
+        """
+        The URI of the last active text editor.
+
+        Returns an empty string if no editor is active.
+        """
+        return self._last_active_editor_uri
+
+    @property
+    def is_execution_source(self) -> bool:
+        """
+        Whether the current editor context is the source of code being executed.
+
+        When True, the backend should temporarily add the editor's directory to sys.path.
+        """
+        return self._is_execution_source
+
+    def clear_execution_source(self) -> None:
+        """Clear the execution source flag after code execution completes."""
+        self._is_execution_source = False
+
+    def get_editor_file_path(self) -> Optional[Path]:
+        """
+        Parse the last active editor URI and return the file path.
+
+        Returns None if no editor is active or the URI is not a file URI.
+        """
+        if not self._last_active_editor_uri:
+            return None
+
+        parsed = urlparse(self._last_active_editor_uri)
+
+        if parsed.scheme not in ["file", "vscode-remote"]:  # for remote and local files
+            return None
+
+        path = unquote(parsed.path)
+
+        # On Windows, file URIs like file:///C:/path result in /C:/path after parsing.
+        # We need to strip the leading slash to get a valid Windows path.
+        # Check for drive letter pattern: /X:/ where X is a letter
+        if len(path) >= 3 and path[0] == "/" and path[1].isalpha() and path[2] == ":":
+            path = path[1:]
+
+        return Path(path)
 
     def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
@@ -146,7 +220,7 @@ class UiService:
 
         # Clear the current working directory to generate an event for the new
         # client (i.e. after a reconnect)
-        self._working_directory = None
+        self.working_directory = None
         try:
             self.poll_working_directory()
         except Exception:
@@ -162,8 +236,8 @@ class UiService:
         current_dir = Path.cwd()
 
         # If it isn't the same as the last working directory, send an event
-        if current_dir != self._working_directory:
-            self._working_directory = current_dir
+        if current_dir != self.working_directory:
+            self.working_directory = current_dir
             # Deliver event to client
             if self._comm is not None:
                 event = WorkingDirectoryParams(directory=str(alias_home(current_dir)))
@@ -186,11 +260,19 @@ class UiService:
             # Unwrap nested JSON-RPC
             self._call_method(request.params)
 
+        elif isinstance(request, EditorContextChangedRequest):
+            # Update the cached last active editor URI and execution source flag
+            self._last_active_editor_uri = request.params.document_uri
+            self._is_execution_source = request.params.is_execution_source
+            # Send null result to acknowledge the notification
+            if self._comm is not None:
+                self._comm.send_result(data=None)
+
         else:
             logger.warning(f"Unhandled request: {request}")
 
     def _call_method(self, rpc_request: CallMethodParams) -> None:
-        func = _RPC_METHODS.get(rpc_request.method, None)
+        func = _RPC_METHODS.get(rpc_request.method)
         if func is None:
             return logger.warning(f"Invalid frontend RPC request method: {rpc_request.method}")
 

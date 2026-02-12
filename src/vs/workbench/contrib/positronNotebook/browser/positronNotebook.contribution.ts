@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -30,7 +30,7 @@ import { NotebookDiffEditorInput } from '../../notebook/common/notebookDiffEdito
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_ENABLED_KEY } from '../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../common/positronNotebookConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
@@ -40,9 +40,9 @@ import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../note
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -52,6 +52,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
@@ -320,6 +321,9 @@ registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebook
 
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
+
+// Register the prompt that invites users to try the new notebook editor
+registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNotebookPromptContribution, WorkbenchPhase.AfterRestored);
 
 
 
@@ -660,6 +664,56 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell) {
 			cell.insertMarkdownCellBelow();
+		}
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.insertRawCellAbove',
+			title: localize2('positronNotebook.rawCell.insertAbove', "Insert Raw Cell Above"),
+			icon: ThemeIcon.fromId('arrow-up'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Insert,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Insert,
+			}]
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell) {
+			cell.insertRawCellAbove();
+		}
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.insertRawCellBelow',
+			title: localize2('positronNotebook.rawCell.insertBelow', "Insert Raw Cell Below"),
+			icon: ThemeIcon.fromId('arrow-down'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Insert,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Insert,
+			}]
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell) {
+			cell.insertRawCellBelow();
 		}
 	}
 });
@@ -1286,6 +1340,60 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Collapse all outputs for a cell
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.collapseOutput',
+			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Collapse,
+				order: 1,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+				)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.collapseOutput();
+		}
+	}
+});
+
+// Expand all outputs for a cell
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.expandOutput',
+			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Collapse,
+				order: 2,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
+				)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.expandOutput();
+		}
+	}
+});
+
 //#endregion Cell Commands
 
 //#region Notebook Header Actions
@@ -1464,46 +1572,6 @@ registerAction2(class extends NotebookAction2 {
 
 // Ask Assistant - Opens assistant chat with prompt options for the notebook
 // Action is defined in AskAssistantAction.ts
-
-// Toggle Assistant Auto-Follow - Status indicator for automatic scrolling to AI-modified cells
-// This action displays as a status indicator showing "Following assistant" when enabled.
-// Clicking the status will toggle auto-follow off.
-registerAction2(class extends NotebookAction2 {
-	constructor() {
-		super({
-			id: 'positronNotebook.toggleAssistantAutoFollow',
-			title: localize2('toggleAssistantAutoFollow.disabled', 'Follow assistant'),
-			tooltip: localize2('toggleAssistantAutoFollow.disabledTooltip', 'Click to follow assistant edits and automatically scroll to cells modified by the AI assistant.'),
-			icon: ThemeIcon.fromId('eye-watch'),
-			f1: true,
-			category: POSITRON_NOTEBOOK_CATEGORY,
-			positronActionBarOptions: {
-				controlType: 'button',
-				displayTitle: true
-			},
-			toggled: {
-				condition: ContextKeyExpr.equals('config.positron.assistant.notebook.autoFollow', true),
-				title: localize('toggleAssistantAutoFollow.status', 'Following assistant'),
-				tooltip: localize('toggleAssistantAutoFollow.enabledTooltip', 'Click to stop following assistant edits.')
-			},
-			menu: {
-				id: MenuId.EditorActionsLeft,
-				group: 'navigation',
-				order: 55, // After Ask Assistant (50)
-				when: ContextKeyExpr.and(
-					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-					ContextKeyExpr.has('config.positron.assistant.enable'),
-				)
-			}
-		});
-	}
-
-	override runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor): void {
-		const configurationService = accessor.get(IConfigurationService);
-		const currentValue = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
-		configurationService.updateValue(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, !currentValue);
-	}
-});
 
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
 // Widget is self-contained: manages its own menu interactions via ActionBarMenuButton

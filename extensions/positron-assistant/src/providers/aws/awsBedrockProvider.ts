@@ -15,13 +15,16 @@ import {
 	ListInferenceProfilesCommand
 } from '@aws-sdk/client-bedrock';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig, SecretStorage, getStoredModels, expandConfigToSource } from '../../config';
+import { getStoredModels, expandConfigToSource } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
-import { registerModelWithAPI, AssistantError } from '../../extension';
+import { AssistantError } from '../../errors';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
+import { registerModelWithAPI } from '../../modelRegistration';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Environment variables for AWS Bedrock configuration.
@@ -119,10 +122,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'amazon-bedrock',
-			displayName: 'Amazon Bedrock'
-		},
+		provider: PROVIDER_METADATA.amazonBedrock,
 		supportedOptions: ['toolCalls', 'autoconfigure'],
 		defaults: {
 			name: 'Claude 4 Sonnet Bedrock',
@@ -136,8 +136,8 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		},
 	};
 
-	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
-		super(_config, _context, _storage);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 	}
 
 	/**
@@ -334,7 +334,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						registerModelWithAPI(
 							this._config,
 							this._context,
-							this._storage,
 							this
 						).then(() => {
 							positron.ai.addLanguageModelConfig(expandConfigToSource(this._config));

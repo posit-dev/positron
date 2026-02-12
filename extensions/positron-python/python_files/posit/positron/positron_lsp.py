@@ -164,7 +164,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "os":
-                        key = alias.asname if alias.asname else "os"
+                        key = alias.asname or "os"
                         imports[key] = "os"
         return imports
     except SyntaxError:
@@ -183,7 +183,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         if alias.name == "os":
-                            key = alias.asname if alias.asname else "os"
+                            key = alias.asname or "os"
                             imports[key] = "os"
         except SyntaxError:
             continue
@@ -1015,9 +1015,8 @@ def _get_path_completions(
         remaining = entry_name[len(filename_prefix) :]
 
         if is_directory:
-            # Directories get trailing separator, no auto-close quote
-            # Windows: escape backslash for string literal
-            completion_text = remaining + "\\" + os.sep if os.name == "nt" else remaining + "/"
+            # Directories get trailing separator
+            completion_text = remaining + "/"
         else:
             # Files: auto-close quote if needed
             completion_text = remaining if has_closing_quote else remaining + quote_char

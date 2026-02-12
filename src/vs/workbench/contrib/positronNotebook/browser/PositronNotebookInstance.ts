@@ -28,6 +28,7 @@ import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
+import { getAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
@@ -1009,7 +1010,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param content Optional content to set for the cell. Defaults to an empty string if not provided.
 	 * @throws Error if no language is set for the notebook
 	 */
-	addCell(type: CellKind, index: number, enterEditMode: boolean, content: string = ''): void {
+	addCell(type: CellKind, index: number, enterEditMode: boolean, content: string = '', language?: string): void {
 		this._assertTextModel();
 
 		if (!this.language) {
@@ -1020,6 +1021,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// Set operation type to enable automatic edit mode entry for normal inserts
 			this.setCurrentOperation(NotebookOperationType.InsertAndEdit);
 		}
+
+		const cellLanguage = language ?? (type === CellKind.Code ? this.language : 'markdown');
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -1037,7 +1040,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				cells: [
 					{
 						cellKind: type,
-						language: type === CellKind.Code ? this.language : 'markdown',
+						language: cellLanguage,
 						mime: undefined,
 						outputs: [],
 						metadata: undefined,
@@ -1060,7 +1063,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._onDidChangeContent.fire();
 	}
 
-	private _insertCellAndFocusContainer(type: CellKind, aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+	private _insertCellAndFocusContainer(type: CellKind, aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell, language?: string): void {
 		let index: number | undefined;
 
 		this._assertTextModel();
@@ -1076,7 +1079,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), false);
+		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), false, '', language);
 	}
 
 	/**
@@ -1090,6 +1093,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
 		this._insertCellAndFocusContainer(CellKind.Markup, aboveOrBelow, referenceCell);
+	}
+
+	insertRawCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+		this._insertCellAndFocusContainer(CellKind.Code, aboveOrBelow, referenceCell, 'raw');
 	}
 
 	/**
@@ -2031,7 +2038,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		// Cell is not visible - check auto-follow setting for scrolling behavior
-		const autoFollow = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
+		// Notebook metadata takes precedence over global configuration
+		const settings = getAssistantSettings(this.textModel?.metadata);
+		const autoFollow = settings.autoFollow !== undefined
+			? settings.autoFollow === 'autoFollow'
+			: (this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true);
 
 		if (autoFollow) {
 			// Reveal (scroll to) and highlight

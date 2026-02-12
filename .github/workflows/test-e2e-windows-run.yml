@@ -61,16 +61,6 @@ on:
         description: "The name of the job as it will appear in the GitHub Actions UI."
         default: "e2e-windows-run"
         type: string
-      currents_tags:
-        required: false
-        description: "The tags to use for Currents recording."
-        default: "electron/windows"
-        type: string
-      report_currents:
-        required: false
-        description: "Whether or not to report results to Currents."
-        type: boolean
-        default: false
       upload_logs:
         required: false
         description: "Whether or not to upload e2e test logs."
@@ -104,7 +94,7 @@ permissions:
 jobs:
   e2e-windows-run:
     name: ${{ inputs.display_name || 'e2e-windows-run' }}-${{ matrix.shard }}
-    timeout-minutes: 90
+    timeout-minutes: 150
     runs-on: windows-latest-8x
     strategy:
       fail-fast: false
@@ -135,6 +125,9 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
           OPENAI_KEY: "op://Positron/OpenAI/credential"
+          POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
+          POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
+          POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
 
       - name: Set screen resolution
         shell: pwsh
@@ -423,7 +416,7 @@ jobs:
       - name: Set Report URL
         uses: ./.github/actions/gen-report-dir
         with:
-          project: ${{ inputs.project }}
+          identifier: ${{ inputs.project }}
           skip-summary: true
 
       - name: 🧪 Run Bootstrap Extensions Test
@@ -445,13 +438,8 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: 3.13.0
           POSITRON_R_ALT_VER_SEL: 4.4.2
-          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
-          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
-          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
@@ -552,7 +540,7 @@ jobs:
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
         with:
-          project: ${{ inputs.project }}
+          identifier: ${{ inputs.project }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v7

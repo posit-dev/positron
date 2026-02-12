@@ -14,7 +14,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { groupBy } from '../../../../base/common/collections.js';
 import { Event } from '../../../../base/common/event.js';
-import { markdownCommandLink, MarkdownString } from '../../../../base/common/htmlContent.js';
+import { createMarkdownCommandLink, MarkdownString } from '../../../../base/common/htmlContent.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { autorun, derived, derivedObservableWithCache, observableValue } from '../../../../base/common/observable.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -50,11 +50,11 @@ import { IUserDataProfileService } from '../../../services/userDataProfile/commo
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { CHAT_CONFIG_MENU_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatViewId, IChatWidgetService } from '../../chat/browser/chat.js';
-import { ChatContextKeys } from '../../chat/common/chatContextKeys.js';
-import { IChatElicitationRequest, IChatToolInvocation } from '../../chat/common/chatService.js';
+import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
+import { IChatElicitationRequest, IChatToolInvocation } from '../../chat/common/chatService/chatService.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { ILanguageModelsService } from '../../chat/common/languageModels.js';
-import { ILanguageModelToolsService } from '../../chat/common/languageModelToolsService.js';
+import { ILanguageModelToolsService } from '../../chat/common/tools/languageModelToolsService.js';
 import { VIEW_CONTAINER } from '../../extensions/browser/extensions.contribution.js';
 import { extensionsFilterSubMenu, IExtensionsWorkbenchService } from '../../extensions/common/extensions.js';
 import { TEXT_FILE_EDITOR_ID } from '../../files/common/files.js';
@@ -195,7 +195,7 @@ export class McpConfirmationServerOptionsCommand extends Action2 {
 			if (tool?.source.type === 'mcp') {
 				accessor.get(ICommandService).executeCommand(McpCommandIds.ServerOptions, tool.source.definitionId);
 			}
-		} else if (arg.kind === 'elicitation') {
+		} else if (arg.kind === 'elicitation2') {
 			if (arg.source?.type === 'mcp') {
 				accessor.get(ICommandService).executeCommand(McpCommandIds.ServerOptions, arg.source.definitionId);
 			}
@@ -548,7 +548,7 @@ export class MCPServerActionRendering extends Disposable implements IWorkbenchCo
 				}
 
 				protected override getHoverContents({ state, servers } = displayedStateCurrent.get()): string | undefined | IManagedHoverTooltipHTMLElement {
-					const link = (s: IMcpServer) => markdownCommandLink({
+					const link = (s: IMcpServer) => createMarkdownCommandLink({
 						title: s.definition.label,
 						id: McpCommandIds.ServerOptions,
 						arguments: [s.definition.id],
@@ -657,7 +657,7 @@ export class ResetMcpTrustCommand extends Action2 {
 			title: localize2('mcp.resetTrust', "Reset Trust"),
 			category,
 			f1: true,
-			precondition: McpContextKeys.toolsCount.greater(0),
+			precondition: ContextKeyExpr.and(McpContextKeys.toolsCount.greater(0), ChatContextKeys.Setup.hidden.negate()),
 		});
 	}
 
@@ -821,9 +821,13 @@ export class StartServer extends Action2 {
 		});
 	}
 
-	async run(accessor: ServicesAccessor, serverId: string, opts?: IMcpServerStartOpts) {
-		const s = accessor.get(IMcpService).servers.get().find(s => s.definition.id === serverId);
-		await s?.start({ promptType: 'all-untrusted', ...opts });
+	async run(accessor: ServicesAccessor, serverId: string | undefined, opts?: IMcpServerStartOpts) {
+		let servers = accessor.get(IMcpService).servers.get();
+		if (serverId !== undefined) {
+			servers = servers.filter(s => s.definition.id === serverId);
+		}
+
+		await Promise.all(servers.map(s => s.start({ promptType: 'all-untrusted', ...opts })));
 	}
 }
 
@@ -885,7 +889,7 @@ export class ShowInstalledMcpServersCommand extends Action2 {
 			id: McpCommandIds.ShowInstalled,
 			title: localize2('mcp.command.show.installed', "Show Installed Servers"),
 			category,
-			precondition: HasInstalledMcpServersContext,
+			precondition: ContextKeyExpr.and(HasInstalledMcpServersContext, ChatContextKeys.Setup.hidden.negate()),
 			f1: true,
 		});
 	}
@@ -1019,7 +1023,7 @@ export class McpBrowseResourcesCommand extends Action2 {
 			id: McpCommandIds.BrowseResources,
 			title: localize2('mcp.browseResources', "Browse Resources..."),
 			category,
-			precondition: McpContextKeys.serverCount.greater(0),
+			precondition: ContextKeyExpr.and(McpContextKeys.serverCount.greater(0), ChatContextKeys.Setup.hidden.negate()),
 			f1: true,
 		});
 	}

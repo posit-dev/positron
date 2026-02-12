@@ -26,7 +26,15 @@ function parseEnvLine(line: string): [string, string] | null {
 		return null;
 	}
 
-	return [key, valueParts.join('=')];
+	let value = valueParts.join('=');
+
+	// Strip surrounding quotes (single or double)
+	if ((value.startsWith('"') && value.endsWith('"')) ||
+		(value.startsWith("'") && value.endsWith("'"))) {
+		value = value.slice(1, -1);
+	}
+
+	return [key, value];
 }
 
 /**

@@ -38,7 +38,12 @@ import {
 import { shouldDisplayEnvCreationProgress } from './hideEnvCreation';
 import { noop } from '../../../common/utils/misc';
 
-function generateCommandArgs(version?: string, options?: CreateEnvironmentOptions): string[] {
+function generateCommandArgs(
+    version?: string,
+    // --- Start Positron ---
+    options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+    // --- End Positron ---
+): string[] {
     let addGitIgnore = true;
     let installPackages = true;
     if (options) {
@@ -60,6 +65,12 @@ function generateCommandArgs(version?: string, options?: CreateEnvironmentOption
         command.push('--python');
         command.push(version);
     }
+
+    // --- Start Positron ---
+    if (options?.envName) {
+        command.push('--name', options.envName);
+    }
+    // --- End Positron ---
 
     return command;
 }

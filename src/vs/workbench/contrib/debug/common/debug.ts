@@ -602,6 +602,7 @@ export interface IScope extends IExpressionContainer {
 	readonly expensive: boolean;
 	readonly range?: IRange;
 	readonly hasChildren: boolean;
+	readonly childrenHaveBeenLoaded: boolean;
 }
 
 export interface IStackFrame extends ITreeElement {
@@ -1272,7 +1273,7 @@ export interface IDebugService {
 	 * Removes all breakpoints. If id is passed only removes the breakpoint associated with that id.
 	 * Notifies debug adapter of breakpoint changes.
 	 */
-	removeBreakpoints(id?: string): Promise<void>;
+	removeBreakpoints(id?: string | string[]): Promise<void>;
 
 	/**
 	 * Adds a new function breakpoint for the given name.
