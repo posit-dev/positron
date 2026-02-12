@@ -44,7 +44,7 @@ export function SortableCellList({
 	}, []);
 
 	return (
-		<MultiDragProvider selectedIds={selectedIds}>
+		<MultiDragProvider selectedIds={selectedIds} orderedIds={items}>
 			<SortableContext
 				disabled={disabled}
 				items={items}

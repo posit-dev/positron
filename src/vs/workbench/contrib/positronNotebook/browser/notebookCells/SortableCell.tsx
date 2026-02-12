@@ -40,6 +40,13 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 	// Check multi-drag state for this cell
 	const multiDragState = useMultiDragState(cell.handleId);
 	const isCollapsed = multiDragState?.isBeingDragged && !multiDragState?.isPrimaryDrag;
+	const isPrimaryMultiDrag = Boolean(
+		multiDragState?.isDragging &&
+		multiDragState?.isPrimaryDrag &&
+		(multiDragState?.dragCount ?? 0) > 1
+	);
+	const showAboveIndicator = isPrimaryMultiDrag && Boolean(multiDragState?.hasDraggedAbove);
+	const showBelowIndicator = isPrimaryMultiDrag && Boolean(multiDragState?.hasDraggedBelow);
 
 	// Use transformToString utility to handle scaleY for collapsed cells
 	const transformStyle = transformToString(transform);
@@ -58,6 +65,8 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 		'sortable-cell',
 		isDragging && 'dragging',
 		isCollapsed && 'collapsed-drag',
+		showAboveIndicator && 'multi-drag-primary-indicator-above',
+		showBelowIndicator && 'multi-drag-primary-indicator-below',
 	].filter(Boolean).join(' ');
 
 	return (

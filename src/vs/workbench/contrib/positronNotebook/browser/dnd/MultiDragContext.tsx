@@ -14,6 +14,7 @@ export interface MultiDragState {
 export interface MultiDragContextValue {
 	state: MultiDragState;
 	selectedIds: string[];
+	orderedIds: string[];
 	startMultiDrag: (primaryId: string) => void;
 	updateMultiDrag: (overId: string | null) => void;
 	endMultiDrag: () => void;
@@ -27,6 +28,7 @@ const MultiDragReactContext = React.createContext<MultiDragContextValue | null>(
 interface MultiDragProviderProps {
 	children: React.ReactNode;
 	selectedIds: string[];
+	orderedIds: string[];
 	onReorder?: (fromIndices: number[], toIndex: number) => void;
 }
 
@@ -37,6 +39,7 @@ interface MultiDragProviderProps {
 export function MultiDragProvider({
 	children,
 	selectedIds,
+	orderedIds,
 	onReorder,
 }: MultiDragProviderProps) {
 	const [state, setState] = React.useState<MultiDragState>({
@@ -52,6 +55,8 @@ export function MultiDragProvider({
 	// Store selectedIds in ref for use in startMultiDrag to avoid stale closure issues
 	const selectedIdsRef = React.useRef(selectedIds);
 	selectedIdsRef.current = selectedIds;
+	const orderedIdsRef = React.useRef(orderedIds);
+	orderedIdsRef.current = orderedIds;
 
 	// Synchronous ref for activeIds - updated immediately when startMultiDrag is called,
 	// bypassing React's state batching. This allows consumers to access the activeIds
@@ -61,12 +66,17 @@ export function MultiDragProvider({
 	const startMultiDrag = React.useCallback((primaryId: string) => {
 		// Use selectedIds from ref to get the latest value (avoids stale closure issues)
 		const currentSelectedIds = selectedIdsRef.current;
+		const currentOrderedIds = orderedIdsRef.current;
+		const orderedIndex = new Map(currentOrderedIds.map((id, idx) => [id, idx]));
+		const sortedSelectedIds = [...currentSelectedIds].sort(
+			(a, b) => (orderedIndex.get(a) ?? Number.MAX_SAFE_INTEGER) - (orderedIndex.get(b) ?? Number.MAX_SAFE_INTEGER)
+		);
 		// If the primary drag item is in the selection, drag all selected items
 		// Otherwise, only drag the single item
 		// IMPORTANT: The primaryId (the cell being dragged) must be FIRST in the array
 		// because activeIds[0] is used as the primary for transforms and collapse logic
-		const idsToMove = currentSelectedIds.includes(primaryId)
-			? [primaryId, ...currentSelectedIds.filter(id => id !== primaryId)]
+		const idsToMove = sortedSelectedIds.includes(primaryId)
+			? [primaryId, ...sortedSelectedIds.filter(id => id !== primaryId)]
 			: [primaryId];
 
 		// Update ref synchronously BEFORE setState (bypasses React batching)
@@ -112,13 +122,14 @@ export function MultiDragProvider({
 		() => ({
 			state,
 			selectedIds,
+			orderedIds,
 			startMultiDrag,
 			updateMultiDrag,
 			endMultiDrag,
 			cancelMultiDrag,
 			getActiveIds,
 		}),
-		[state, selectedIds, startMultiDrag, updateMultiDrag, endMultiDrag, cancelMultiDrag, getActiveIds]
+		[state, selectedIds, orderedIds, startMultiDrag, updateMultiDrag, endMultiDrag, cancelMultiDrag, getActiveIds]
 	);
 
 	return (
@@ -156,16 +167,37 @@ export function useMultiDragState(itemId: string) {
 	}
 
 	const { state, selectedIds } = context;
+	const { orderedIds } = context;
 	const isSelected = selectedIds.includes(itemId);
 	const isBeingDragged = state.activeIds.includes(itemId);
 	const isPrimaryDrag = state.activeIds[0] === itemId;
 	const dragCount = state.activeIds.length;
+	let draggedAboveCount = 0;
+	let draggedBelowCount = 0;
+
+	if (isPrimaryDrag && dragCount > 1) {
+		const primaryOrderIndex = orderedIds.indexOf(itemId);
+		if (primaryOrderIndex !== -1) {
+			for (const id of state.activeIds.slice(1)) {
+				const idx = orderedIds.indexOf(id);
+				if (idx !== -1 && idx < primaryOrderIndex) {
+					draggedAboveCount++;
+				} else if (idx !== -1 && idx > primaryOrderIndex) {
+					draggedBelowCount++;
+				}
+			}
+		}
+	}
 
 	return {
 		isSelected,
 		isBeingDragged,
 		isPrimaryDrag,
 		dragCount,
+		draggedAboveCount,
+		draggedBelowCount,
+		hasDraggedAbove: draggedAboveCount > 0,
+		hasDraggedBelow: draggedBelowCount > 0,
 		isDragging: state.isDragging,
 	};
 }

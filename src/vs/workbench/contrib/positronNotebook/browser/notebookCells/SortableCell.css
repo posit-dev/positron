@@ -58,6 +58,8 @@ body.dragging-notebook-cell * {
 	position: relative;
 	z-index: 100;
 	opacity: 0.5; /* Fade original position to indicate "this is being moved" */
+	--_drag-lift-x: 4px;
+	--_drag-lift-y: -3px;
 }
 
 /* Apply drag visual treatment to inner cell element so it matches natural boundaries.
@@ -66,7 +68,7 @@ body.dragging-notebook-cell * {
 .sortable-cell.dragging .positron-notebook-cell {
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 	background: var(--vscode-editor-background);
-	transform: translate(4px, -3px); /* Subtle lift effect - hover off the page */
+	transform: translate(var(--_drag-lift-x), var(--_drag-lift-y)); /* Subtle lift effect - hover off the page */
 	transition: transform 0.15s ease-out;
 }
 
@@ -110,17 +112,28 @@ body.dragging-notebook-cell * {
 	visibility: hidden; /* Hide content but keep space for scaleY */
 }
 
-/* Visual indicator bar positioned at collapsed height */
-.sortable-cell.collapsed-drag::before {
+/* Multi-drag indicators rendered on the primary dragged cell (unscaled). */
+.sortable-cell.dragging.multi-drag-primary-indicator-above::before,
+.sortable-cell.dragging.multi-drag-primary-indicator-below::after {
 	content: '';
 	position: absolute;
-	left: 12px;
-	right: 12px;
-	top: 2px; /* Near top since transform-origin is top */
+	/* Match dragged outline geometry: cell margin-left (12px) plus outline inset (-2px). */
+	left: 10px;
+	right: -2px;
+	transform: translateX(var(--_drag-lift-x, 0px));
 	height: 3px;
 	background: var(--vscode-editorInfo-foreground);
 	border-radius: 2px;
 	opacity: 0.7;
-	z-index: 10;
+	pointer-events: none;
+	z-index: 101;
 }
 
+.sortable-cell.dragging.multi-drag-primary-indicator-above::before {
+	/* Account for drag lift so this stays above (not on) the dragged border. */
+	top: calc(-6px + var(--_drag-lift-y, 0px));
+}
+
+.sortable-cell.dragging.multi-drag-primary-indicator-below::after {
+	top: calc(100% + 2px);
+}
