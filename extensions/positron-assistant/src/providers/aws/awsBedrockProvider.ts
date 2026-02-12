@@ -174,7 +174,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			this._inferenceProfileRegion = AWSModelProvider.deriveInferenceProfileRegion(region);
 		}
 		this.logger.info(
-			`Using AWS region: ${region}, profile: ${profile ?? '(default chain)'}, ` +
+			`Using AWS region: ${region}, profile: ${profile ?? '(not set, using default)'}, ` +
 			`inference profile region: ${this._inferenceProfileRegion}`
 		);
 
@@ -272,9 +272,10 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						throw new AssistantError(message, false);
 					} else {
 						// We are in a chat response, so we should return an error to display in the chat pane
+						const profileArg = this.bedrockClient.config.profile ? ` --profile ${this.bedrockClient.config.profile}` : '';
 						throw new Error(
 							vscode.l10n.t(
-								`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`
+								`AWS login required. Please run \`aws sso login${profileArg} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`
 							)
 						);
 					}
@@ -301,13 +302,17 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			? await this.bedrockClient.config.region()
 			: this.bedrockClient.config.region;
 
+		// Build the SSO login command, only including --profile if explicitly configured
+		const profileArg = profile ? ` --profile ${profile}` : '';
+		const ssoCommand = `aws sso login${profileArg} --region ${region}`;
+
 		// Execute the AWS SSO login command as a native task
 		const taskExecution = await vscode.tasks.executeTask(new vscode.Task(
 			{ type: 'shell' },
 			vscode.TaskScope.Workspace,
 			'AWS SSO Login',
 			'AWS',
-			new vscode.ShellExecution(`aws sso login --profile ${profile} --region ${region}`)
+			new vscode.ShellExecution(ssoCommand)
 		));
 
 		const result = new Promise<boolean>((resolve) => {
