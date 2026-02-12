@@ -70,8 +70,8 @@ runs:
           cd /tmp &&
           tar -xzf positron-custom.tar.gz &&
           # Remove the default Positron installation
-          rm -rf /opt/rstudio-server/bin/positron &&
+          rm -rf /usr/lib/rstudio-server/bin/positron &&
           # Install our custom build
-          cp -r vscode-reh-web-linux-x64 /opt/rstudio-server/bin/positron &&
-          chown -R rstudio-server:rstudio-server /opt/rstudio-server/bin/positron
+          cp -r vscode-reh-web-linux-x64 /usr/lib/rstudio-server/bin/positron &&
+          chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron
         "
