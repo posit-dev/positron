@@ -11,6 +11,7 @@ import { QMD_VIEW_TYPE } from './quartoNotebookConstants.js';
 import { localize } from '../../../../nls.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { QuartoNotebookSerializer } from './quartoNotebookSerializer.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 /** Mock extension identifier for notebook serializer registration */
 const QUARTO_NOTEBOOK_EXTENSION_ID = new ExtensionIdentifier('positron.quarto-notebook');
@@ -23,25 +24,36 @@ class QuartoNotebookContribution extends Disposable implements IWorkbenchContrib
 
 	constructor(
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService,
 	) {
 		super();
 
-		// Register the notebook type (file pattern association)
-		this._register(this._notebookService.registerContributedNotebookType(
-			QMD_VIEW_TYPE,
-			{
-				displayName: localize('quartoNotebook.displayName', 'Quarto Notebook'),
-				providerDisplayName: localize('quartoNotebook.providerDisplayName', 'Positron'),
-				filenamePattern: ['*.qmd'],
-			}
-		));
+		this._logService.info('[QuartoNotebookContribution] Registering Quarto notebook contribution');
 
-		// Register the serializer
+		// Register the .qmd notebook type if not already registered e.g. after a window reload
+		const info = this._notebookService.getContributedNotebookType(QMD_VIEW_TYPE);
+		if (!info) {
+			this._register(this._notebookService.registerContributedNotebookType(
+				QMD_VIEW_TYPE,
+				{
+					displayName: localize('quartoNotebook.displayName', 'Quarto Notebook'),
+					providerDisplayName: localize('quartoNotebook.providerDisplayName', 'Positron'),
+					filenamePattern: ['*.qmd'],
+				}
+			));
+		}
+
+		// Register the .qmd notebook serializer
 		const notebookSerializer = this._instantiationService.createInstance(QuartoNotebookSerializer);
 		this._register(this._notebookService.registerNotebookSerializer(
 			QMD_VIEW_TYPE,
-			{ id: QUARTO_NOTEBOOK_EXTENSION_ID, location: undefined },
+			{
+				id: QUARTO_NOTEBOOK_EXTENSION_ID,
+				// Location URI is added as a resource root in notebook output webviews,
+				// which we don't currently need
+				location: undefined
+			},
 			notebookSerializer
 		));
 	}
