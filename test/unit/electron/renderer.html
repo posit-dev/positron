@@ -109,7 +109,8 @@
 
         const addModule = (packageName) => {
             const module = `esm-package-dependencies/${packageName}.js`;
-            importMap.imports[packageName] = "../../../out/" + module;
+			console.log('+++++++++++++++++++++++++++++++++++++++++++++++++ YAYA')
+            importMap.imports[packageName] = "../../../.build/" + module;
         };
 
 		addModule("he");
