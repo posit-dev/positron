@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
 import { PositModelProvider } from '../providers/posit/positProvider';
-import { ModelConfig } from '../config';
+import { ModelConfig } from '../configTypes.js';
 import {
 	mock,
 	createVercelRateLimitError,
