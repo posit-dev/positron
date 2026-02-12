@@ -43,13 +43,17 @@ function renderWidget(
 	servicesAccessor: ServicesAccessor
 ) {
 	// Render the widget and wait for React to flush
+	console.log('[TEST] Before flushSync render');
 	flushSync(() => {
+		console.log('[TEST] Inside flushSync, calling root.render');
 		root.render(
 			<PositronReactServicesContext.Provider value={servicesAccessor as any}>
 				<ActionBarWidget descriptor={descriptor} />
 			</PositronReactServicesContext.Provider>
 		);
+		console.log('[TEST] root.render called');
 	});
+	console.log('[TEST] After flushSync');
 }
 
 suite('ActionBarWidget', () => {
@@ -92,7 +96,14 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span className='test-widget-content'>Test Widget</span>
 		};
 
+		console.log('[TEST] Container before render:', container.innerHTML);
+		console.log('[TEST] Container children count:', container.childNodes.length);
+
 		renderWidget(root, descriptor, mockServicesAccessor);
+
+		console.log('[TEST] Container after render:', container.innerHTML);
+		console.log('[TEST] Container children count:', container.childNodes.length);
+		console.log('[TEST] Container childNodes:', Array.from(container.childNodes).map(n => n.nodeName));
 
 		const widgetContent = container.querySelector('.test-widget-content');
 		assert.ok(widgetContent, 'Expected to find widget content');
