@@ -13,6 +13,8 @@ runs:
     - name: Setup test dependencies and compile tests
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
       run: |
         # Must remove root package.json and provide simple stub to use root dir for test run but not build
         rm package.json
