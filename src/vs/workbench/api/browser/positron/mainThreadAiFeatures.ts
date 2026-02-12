@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,12 +7,12 @@ import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js'
 import { revive } from '../../../../base/common/marshalling.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { ChatViewId } from '../../../contrib/chat/browser/chat.js';
-import { ChatViewPane } from '../../../contrib/chat/browser/chatViewPane.js';
-import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
-import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/chatModel.js';
-import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
+import { ChatViewPane } from '../../../contrib/chat/browser/widgetHosts/viewPane/chatViewPane.js';
+import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/participants/chatAgents.js';
+import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/model/chatModel.js';
+import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
-import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
@@ -27,6 +27,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronAssistantService private readonly _positronAssistantService: IPositronAssistantService,
+		@IPositronAssistantConfigurationService private readonly _positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		@IChatService private readonly _chatService: IChatService,
 		@IChatAgentService private readonly _chatAgentService: IChatAgentService,
 		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
@@ -56,7 +57,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 * Show a modal dialog for language model configuration. Return a promise resolving to the
 	 * configuration saved by the user.
 	 */
-	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void> {
+	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[], options?: IShowLanguageModelConfigOptions): Thenable<void> {
 		return new Promise((resolve, reject) => {
 			this._positronAssistantService.showLanguageModelModalDialog(
 				sources,
@@ -65,6 +66,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 					resolve();
 				},
 				() => this._proxy.$onCompleteLanguageModelConfig(id),
+				options,
 			);
 		});
 	}
@@ -79,9 +81,9 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	/**
 	 * Respond to a request from the extension host to send a progress part to the chat response.
 	 */
-	$responseProgress(sessionId: string, content: IChatProgressDto): void {
+	$responseProgress(sessionResource: URI, content: IChatProgressDto): void {
 		const progress = revive(content) as IChatProgress;
-		const model = this._chatService.getSessionByLegacyId(sessionId) as ChatModel;
+		const model = this._chatService.getSession(sessionResource) as ChatModel;
 		if (!model) {
 			throw new Error('Chat session not found.');
 		}
@@ -98,17 +100,14 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Get Positron's supported providers.
-	 */
-	async $getSupportedProviders(): Promise<string[]> {
-		return this._positronAssistantService.getSupportedProviders();
-	}
-
-	/**
 	 * Get the chat export as a JSON object (IExportableChatData).
 	 */
 	async $getChatExport(): Promise<IExportableChatData | undefined> {
 		return this._positronAssistantService.getChatExport();
+	}
+
+	$registerProviderMetadata(metadata: IPositronProviderMetadata): void {
+		this._positronAssistantConfigurationService.registerProviderMetadata(metadata);
 	}
 
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void {
@@ -163,5 +162,12 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		const provider = this._languageModelsService.getLanguageModelProviders().find(p => p.id === id);
 		this._languageModelsService.currentProvider = provider;
 		return provider;
+	}
+
+	/**
+	 * Get the list of enabled provider IDs from configuration.
+	 */
+	async $getEnabledProviders(): Promise<string[]> {
+		return this._positronAssistantConfigurationService.getEnabledProviders();
 	}
 }

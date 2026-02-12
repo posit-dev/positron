@@ -464,9 +464,7 @@ test.describe('R Breakpoints', {
 		await debug.expectBreakpointUnverified(0);
 
 		// Continue - invalidated breakpoint should NOT trigger again
-		await console.focus();
-		await page.keyboard.type('c', { delay: 100 });
-		await page.keyboard.press('Enter');
+		await debug.continue();
 		await console.waitForReady('>');
 	});
 });

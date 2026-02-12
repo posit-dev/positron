@@ -49,8 +49,9 @@ export class NotebookExecutionService implements INotebookExecutionService, IDis
 	}
 
 	async executeNotebookCells(notebook: INotebookTextModel, cells: Iterable<NotebookCellTextModel>, contextKeyService: IContextKeyService): Promise<void> {
+		// Filter to only executable code cells, excluding raw cells (which have language='raw')
 		const cellsArr = Array.from(cells)
-			.filter(c => c.cellKind === CellKind.Code);
+			.filter(c => c.cellKind === CellKind.Code && c.language !== 'raw');
 		if (!cellsArr.length) {
 			return;
 		}

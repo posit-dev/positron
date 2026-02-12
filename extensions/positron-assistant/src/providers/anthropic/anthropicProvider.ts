@@ -7,13 +7,17 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelProvider } from '../base/modelProvider';
-import { getProviderTimeoutMs, ModelConfig, SecretStorage } from '../../config';
+import { getProviderTimeoutMs } from '../../providerConfig.js';
+import { ModelConfig } from '../../configTypes.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
-import { recordTokenUsage, recordRequestTokenUsage, log } from '../../extension.js';
-import { TokenUsage } from '../../tokens.js';
+import { log } from '../../log.js';
+import { TokenUsage, recordTokenUsage, recordRequestTokenUsage } from '../../tokens.js';
+import { getAllModelDefinitions } from '../../modelDefinitions.js';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 import { LanguageModelDataPartMimeType } from '../../types.js';
 import { ModelProviderLogger } from '../base/modelProviderLogger.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 import {
 	DEFAULT_ANTHROPIC_MODEL_NAME,
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
@@ -68,13 +72,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
-			// use 'anthropic-api' instead to make it possible to differentiate
-			// the two.
-			id: 'anthropic-api',
-			displayName: 'Anthropic'
-		},
+		provider: PROVIDER_METADATA.anthropic,
 		supportedOptions: ['apiKey', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
@@ -87,10 +85,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	constructor(
 		_config: ModelConfig,
 		_context?: vscode.ExtensionContext,
-		_storage?: SecretStorage,
 		client?: Anthropic, // For testing only - production uses constructor initialization
 	) {
-		super(_config, _context, _storage);
+		super(_config, _context);
 		this._client = client ?? new Anthropic({ apiKey: _config.apiKey });
 	}
 
@@ -264,9 +261,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		}
 
 		// Record token usage
-		if (message.usage && this._context) {
+		if (message.usage) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.providerId, tokens);
+			recordTokenUsage(this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;

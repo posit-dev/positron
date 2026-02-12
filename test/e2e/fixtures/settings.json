@@ -6,11 +6,18 @@
   "remote.autoForwardPortsFallback": 0,
   "files.simpleDialog.enable": true,
   "positron.importSettings.enable": false,
-  "positron.assistant.enable": true,
-  "positron.assistant.enabledProviders": [
-    "openai-api",
-    "echo",
-    "error"
-  ],
-  "posit.workbench.showWorkbenchFlaskHint": false
+	"positron.assistant.enable": true,
+	"positron.assistant.positai.authHost": "https://login.staging.posit.cloud",
+  "positron.assistant.positai.scope": "prism",
+  "positron.assistant.positai.clientId": "databot-staging",
+  "positron.assistant.positai.baseUrl": "https://gateway.staging.posit.ai",
+	"positron.assistant.provider.positAI.enable": true,
+	"positron.assistant.provider.anthropic.enable": true,
+	"positron.assistant.provider.amazonBedrock.enable": true,
+	"positron.assistant.provider.githubCopilot.enable": true,
+	"positron.assistant.provider.openAI.enable": true,
+	"positron.assistant.provider.echo.enable": true,
+	"positron.assistant.provider.error.enable": true,
+  "posit.workbench.showWorkbenchFlaskHint": false,
+	"editor.accessibilitySupport": "off"
 }

@@ -1005,7 +1005,8 @@
                 "editor.inlayHints.enabled": "offUnlessPressed"
             },
             "pyright.disableLanguageServices": true,
-            "pyright.disableOrganizeImports": true
+            "pyright.disableOrganizeImports": true,
+            "pyrefly.commentFoldingRanges": true
         },
         "debuggers": [
             {

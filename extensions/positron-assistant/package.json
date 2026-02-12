@@ -6,7 +6,7 @@
   "publisher": "positron",
   "private": true,
   "engines": {
-    "vscode": "^1.104.0"
+    "vscode": "^1.108.0"
   },
   "categories": [
     "Other"
@@ -162,8 +162,8 @@
         "enablement": "config.positron.assistant.enable"
       },
       {
-        "command": "positron-assistant.configureModels",
-        "title": "%commands.configureModels.title%",
+        "command": "positron-assistant.configureProviders",
+        "title": "%commands.configureProviders.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
       },
@@ -302,14 +302,6 @@
               "minimum": 512
             }
           },
-          "positron.assistant.followups.enable": {
-            "type": "boolean",
-            "default": false,
-            "tags": [
-              "experimental"
-            ],
-            "description": "%configuration.followups.enable.description%"
-          },
           "positron.assistant.consoleActions.enable": {
             "type": "boolean",
             "default": true,
@@ -366,72 +358,6 @@
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
-            ]
-          },
-          "positron.assistant.models.preference.byProvider": {
-            "type": "object",
-            "default": {},
-            "additionalProperties": {
-              "type": "string"
-            },
-            "markdownDescription": "%configuration.models.preference.byProvider.description%",
-            "examples": [
-              {
-                "anthropic-api": "Claude Sonnet 4.5"
-              }
-            ]
-          },
-          "positron.assistant.models.custom": {
-            "type": "object",
-            "default": {},
-            "markdownDescription": "%configuration.models.custom.description%",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Display name for the model"
-                  },
-                  "identifier": {
-                    "type": "string",
-                    "description": "Model identifier for API calls"
-                  },
-                  "maxInputTokens": {
-                    "type": "number",
-                    "minimum": 512,
-                    "description": "Maximum input tokens for this model"
-                  },
-                  "maxOutputTokens": {
-                    "type": "number",
-                    "minimum": 512,
-                    "description": "Maximum output tokens for this model"
-                  }
-                },
-                "required": [
-                  "name",
-                  "identifier"
-                ]
-              }
-            },
-            "examples": [
-              {
-                "openai-compatible": [
-                  {
-                    "name": "Claude Sonnet 4.5",
-                    "identifier": "claude-sonnet-4-5",
-                    "maxInputTokens": 200000,
-                    "maxOutputTokens": 64000
-                  },
-                  {
-                    "name": "GPT-4 Turbo",
-                    "identifier": "gpt-4-turbo",
-                    "maxInputTokens": 8192,
-                    "maxOutputTokens": 2048
-                  }
-                ]
-              }
             ]
           },
           "positron.assistant.notebookSuggestions.model": {
@@ -501,43 +427,503 @@
             "description": "%configuration.alwaysEnableApplyInEditorAction.description%"
           }
         }
+      },
+      {
+        "type": "object",
+        "title": "%configuration.modelPreferences.title%",
+        "properties": {
+          "positron.assistant.models.preference.byProvider": {
+            "type": "object",
+            "markdownDeprecationMessage": "%configuration.models.preference.byProvider.deprecated.markdownDeprecationMessage%",
+            "description": "%configuration.models.preference.byProvider.deprecated.description%"
+          },
+          "positron.assistant.models.preference.anthropic": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.anthropic.description%"
+          },
+          "positron.assistant.models.preference.amazonBedrock": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.amazonBedrock.description%"
+          },
+          "positron.assistant.models.preference.snowflakeCortex": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.snowflakeCortex.description%"
+          },
+          "positron.assistant.models.preference.openAI": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.openAI.description%"
+          },
+          "positron.assistant.models.preference.customProvider": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.customProvider.description%"
+          },
+          "positron.assistant.models.preference.positAI": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.positAI.description%",
+            "tags": [
+              "advanced"
+            ]
+          },
+          "positron.assistant.models.preference.azure": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.azure.description%",
+            "tags": [
+              "advanced"
+            ]
+          },
+          "positron.assistant.models.preference.google": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.google.description%",
+            "tags": [
+              "advanced"
+            ]
+          }
+        }
+      },
+      {
+        "type": "object",
+        "title": "%configuration.models.overrides.title%",
+        "properties": {
+          "positron.assistant.models.custom": {
+            "markdownDeprecationMessage": "%configuration.models.custom.deprecated.markdownDeprecationMessage%",
+            "description": "%configuration.models.custom.deprecated.description%"
+          },
+          "positron.assistant.models.overrides.anthropic": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.anthropic.description%",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            },
+            "examples": [
+              [
+                {
+                  "name": "Claude Sonnet 4.5",
+                  "identifier": "claude-sonnet-4-5",
+                  "maxInputTokens": 200000,
+                  "maxOutputTokens": 8192
+                }
+              ]
+            ]
+          },
+          "positron.assistant.models.overrides.amazonBedrock": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.amazonBedrock.description%",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            }
+          },
+          "positron.assistant.models.overrides.snowflakeCortex": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.snowflakeCortex.description%",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            },
+            "examples": [
+              [
+                {
+                  "name": "Claude Sonnet 4",
+                  "identifier": "claude-sonnet-4",
+                  "maxInputTokens": 200000,
+                  "maxOutputTokens": 8192
+                }
+              ]
+            ]
+          },
+          "positron.assistant.models.overrides.openAI": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.openAI.description%",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            },
+            "examples": [
+              [
+                {
+                  "name": "GPT-4o",
+                  "identifier": "gpt-4o"
+                }
+              ]
+            ]
+          },
+          "positron.assistant.models.overrides.customProvider": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.customProvider.description%",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            },
+            "examples": [
+              [
+                {
+                  "name": "Claude Sonnet 4.5 via OpenRouter",
+                  "identifier": "anthropic/claude-sonnet-4.5",
+                  "maxInputTokens": 200000,
+                  "maxOutputTokens": 8192
+                }
+              ]
+            ]
+          },
+          "positron.assistant.models.overrides.positAI": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.positAI.description%",
+            "tags": [
+              "advanced"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            }
+          },
+          "positron.assistant.models.overrides.azure": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.azure.description%",
+            "tags": [
+              "advanced"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            }
+          },
+          "positron.assistant.models.overrides.google": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.overrides.google.description%",
+            "tags": [
+              "advanced"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the model"
+                },
+                "identifier": {
+                  "type": "string",
+                  "description": "Model identifier for API calls"
+                },
+                "maxInputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum input tokens for this model"
+                },
+                "maxOutputTokens": {
+                  "type": "number",
+                  "minimum": 512,
+                  "description": "Maximum output tokens for this model"
+                }
+              },
+              "required": [
+                "name",
+                "identifier"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "title": "%configuration.providers.title%",
+        "properties": {
+          "positron.assistant.provider.anthropic.enable": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%configuration.provider.anthropic.enable.description%",
+            "order": 1
+          },
+          "positron.assistant.provider.githubCopilot.enable": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%configuration.provider.githubCopilot.enable.description%",
+            "tags": [
+              "preview"
+            ],
+            "order": 2
+          },
+          "positron.assistant.provider.amazonBedrock.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.amazonBedrock.enable.description%",
+            "tags": [
+              "preview"
+            ],
+            "order": 3
+          },
+          "positron.assistant.provider.snowflakeCortex.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.snowflakeCortex.enable.description%",
+            "tags": [
+              "preview"
+            ],
+            "order": 4
+          },
+          "positron.assistant.provider.openAI.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.openAI.enable.description%",
+            "tags": [
+              "preview"
+            ],
+            "order": 5
+          },
+          "positron.assistant.provider.customProvider.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.customProvider.enable.description%",
+            "tags": [
+              "experimental"
+            ],
+            "order": 6
+          },
+          "positron.assistant.provider.positAI.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.positAI.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 7
+          },
+          "positron.assistant.provider.azure.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.azure.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 8
+          },
+          "positron.assistant.provider.google.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.google.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 9
+          }
+        }
       }
     ],
     "languageModelChatProviders": [
       {
         "vendor": "echo",
         "displayName": "Echo",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "amazon-bedrock",
         "displayName": "Amazon Bedrock",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "anthropic-api",
         "displayName": "Anthropic",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "openai-api",
         "displayName": "OpenAI",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "openai-compatible",
         "displayName": "Custom Provider",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "posit-ai",
         "displayName": "Posit AI",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "snowflake-cortex",
         "displayName": "Snowflake Cortex",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       }
     ],
     "languageModelTools": [
@@ -970,12 +1356,9 @@
     "@ai-sdk/anthropic": "^2.0.53",
     "@ai-sdk/azure": "^2.0.78",
     "@ai-sdk/google": "^2.0.44",
-    "@ai-sdk/google-vertex": "^3.0.85",
-    "@ai-sdk/mistral": "^2.0.25",
     "@ai-sdk/openai": "^2.0.76",
     "@aws-sdk/credential-providers": "^3.734.0",
     "@eslint/js": "^9.13.0",
-    "@openrouter/ai-sdk-provider": "^1.3.0",
     "@stylistic/eslint-plugin": "^2.9.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "^20",
@@ -984,7 +1367,6 @@
     "eslint": "^9.13.0",
     "google-auth-library": "^9.15.1",
     "mocha": "^9.2.1",
-    "ollama-ai-provider-v2": "^1.0.2",
     "openai": "^6.10.0",
     "sinon": "^17.0.1",
     "ts-node": "^10.9.2",

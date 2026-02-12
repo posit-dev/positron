@@ -1095,6 +1095,13 @@ declare module 'positron' {
 		LSP = 'lsp',
 	}
 
+	export interface LanguageRuntimePackage {
+		id: string;
+		name: string;
+		displayName: string;
+		version: string;
+	}
+
 	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
@@ -1297,6 +1304,41 @@ declare module 'positron' {
 		 * Show profiler log if supported.
 		 */
 		showProfile?(): Thenable<void>;
+
+		/**
+		 * Get list of installed packages.
+		 */
+		getPackages?(): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Install the list of packages.
+		 */
+		installPackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Update the list of packages. Package names can optionally include version if split using an '@'.
+		 */
+		updatePackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Update all installed packages.
+		 */
+		updateAllPackages?(): Thenable<void>;
+
+		/**
+		 * Uninstall the list of packages.
+		 */
+		uninstallPackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Search a repository for packages matching the query.
+		 */
+		searchPackages?(query: string): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Search a repository for available versions of a package.
+		 */
+		searchPackageVersions?(name: string): Thenable<string[]>;
 	}
 
 
@@ -1610,8 +1652,27 @@ declare module 'positron' {
 
 		/**
 		 * Generates the connection code based on the inputs.
+		 *
+		 * @param inputs The current values of the connection inputs defined in metadata.
+		 * @returns Either a string containing valid connection code, or an object with:
+		 *   - `code`: The generated connection code. Should still be generated even when
+		 *     validation fails, so users can see and copy the partial code.
+		 *   - `errorMessage`: A user-facing message explaining the validation error,
+		 *     displayed in an error banner overlay on the code editor. The Connect
+		 *     button is disabled when an error message is present.
+		 *
+		 * @example
+		 * // Return valid code as a string
+		 * generateCode: (inputs) => `library(DBI)\ncon <- dbConnect(...)`
+		 *
+		 * @example
+		 * // Return validation error with generated code
+		 * generateCode: (inputs) => ({
+		 *   code: `library(bigrquery)\ncon <- dbConnect(...)`,
+		 *   errorMessage: 'Project ID is required'
+		 * })
 		 */
-		generateCode?: (inputs: Array<ConnectionsInput>) => string;
+		generateCode?: (inputs: Array<ConnectionsInput>) => string | { code: string; errorMessage: string };
 
 		/**
 		 * Connect session.
@@ -2171,47 +2232,72 @@ declare module 'positron' {
 	}
 
 	/**
-	 * Utilities for pasting files as paths.
+	 * Utilities for formatting file paths for use in code.
 	 */
 	namespace paths {
 		/**
-		 * Options for extracting clipboard file paths
+		 * Specifies the base directory for making a relative path.
+		 * Can be an abstract reference (which will be made concrete at runtime)
+		 * or a literal URI.
+		 *
+		 * - 'workspace': The workspace folder
+		 * - 'session': Working directory of a session
+		 * - 'home': User's home directory
+		 * - vscode.Uri: A literal URI provided by the caller
 		 */
-		export interface ExtractClipboardFilePathsOptions {
+		export type RelativeBase = 'workspace' | 'session' | 'home' | vscode.Uri;
+
+		/**
+		 * Options for formatting file paths for use in code.
+		 */
+		export interface FormatPathForCodeOptions {
 			/**
-			 * Whether to prefer relative paths when workspace context is available.
-			 * Defaults to true.
+			 * Specifies base directories for relative path calculation, tried in order.
+			 * The path will be made relative to the first base that contains the file.
+			 * If omitted or empty, the path won't be relative-ized.
+			 *
+			 * Examples:
+			 * - ['workspace', 'home']: Try workspace-relative, fall back to home-relative
+			 * - ['session', 'home']: Try session-working-directory-relative, fall back to home-relative
+			 * - [vscode.Uri.file('/custom/base'), 'home']: Try custom base, fall back to home-relative
 			 */
-			preferRelative?: boolean;
+			relativeTo?: RelativeBase | RelativeBase[];
 
 			/**
-			 * Custom base URI for relative path calculation.
-			 * If not provided and preferRelative is true, uses the first workspace folder.
+			 * Optional session ID when using 'session' in relativeTo.
 			 */
-			baseUri?: vscode.Uri;
+			sessionId?: string;
 
 			/**
-			 * User home directory URI for home-relative path calculation.
+			 * User's home directory URI. Required for 'home' and to expand ~ in 'session'.
 			 */
 			homeUri?: vscode.Uri;
 		}
 
 		/**
-		 * Extract file paths from clipboard.
-		 * Detects files copied from file manager and returns their paths for use in scripts.
-		 * Windows: Replaces `\` with `/`.
-		 * Surrounds paths with double quotes (and escapes any internal double quotes).
-		 * Optionally returns relative paths (e.g. to workspace or user's home directory).
-		 * Try to use core utilities (versus DIY path hacking).
+		 * Format a file path for use in code.
+		 * - Replaces `\` with `/` because Windows.
+		 * - Surrounds path with double quotes and escapes any internal double quotes.
+		 * - Optionally returns a relative path (e.g. to workspace or user's home directory).
+		 *
+		 * @param filePath The file path to format
+		 * @param options Options for path formatting
+		 * @returns A Thenable that resolves to a quoted, forward-slash path ready for use in code,
+		 *  e.g., "C:/path/file.txt", "relative/path.txt", or "~/relative/path.txt"
+		 */
+		export function formatPathForCode(
+			filePath: string,
+			options?: FormatPathForCodeOptions
+		): Thenable<string>;
 
-		 * @param dataTransfer The clipboard data transfer object
-		 * @param options Options for path conversion
-		 * @returns A Thenable that resolves to an array of quoted, forward-slash,
-		 *  possibly relative file paths, or null if no files detected
+		/**
+		 * Extract file paths from clipboard data.
+		 * Detects files copied from a file manager and returns paths formatted for use in code,
+		 * or null if no files detected.
 		 */
 		export function extractClipboardFilePaths(
 			dataTransfer: vscode.DataTransfer,
-			options?: ExtractClipboardFilePathsOptions
+			options?: FormatPathForCodeOptions
 		): Thenable<string[] | null>;
 	}
 
@@ -2286,11 +2372,34 @@ declare module 'positron' {
 		export function registerChatAgent(agentData: ChatAgentData): Thenable<vscode.Disposable>;
 
 		/**
+		 * Metadata about a language model provider used for configuration.
+		 * Registered during extension activation, independent of sign-in state.
+		 */
+		export interface ProviderMetadata {
+			/**
+			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot').
+			 * Used internally to distinguish between provider implementations.
+			 */
+			id: string;
+			/**
+			 * Display name shown in the UI (e.g., 'Anthropic', 'OpenAI', 'GitHub Copilot').
+			 * Appears in settings, model selection dialogs, and provider lists.
+			 */
+			displayName: string;
+			/**
+			 * Setting name for user configuration in camelCase format (e.g., 'anthropic', 'openAI', 'gitHubCopilot').
+			 * Corresponds to `positron.assistant.provider.<settingName>.enable` in settings.json if visible in Settings UI.
+			 * Positron's Assistant Service automatically reads this from registered providers.
+			 */
+			settingName: string;
+		}
+
+		/**
 		 * Positron Language Model source, used for user configuration of language models.
 		 */
 		export interface LanguageModelSource {
 			type: PositronLanguageModelType;
-			provider: { id: string; displayName: string };
+			provider: ProviderMetadata;
 			supportedOptions: Exclude<{
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
@@ -2380,12 +2489,21 @@ declare module 'positron' {
 			edits: vscode.TextEdit[];
 		}): void;
 
-		export function getSupportedProviders(): Thenable<string[]>;
-
 		/**
 		 * Get the chat export as a JSON object (IExportableChatData).
 		 */
 		export function getChatExport(): Thenable<object | undefined>;
+
+		/**
+		 * Options for showing the language model configuration modal.
+		 */
+		export interface ShowLanguageModelConfigOptions {
+			/**
+			 * Optional provider ID to pre-select in the dialog.
+			 * If provided and valid, the modal will open with this provider selected.
+			 */
+			preselectedProviderId?: string;
+		}
 
 		/**
 		 * Show a modal dialog for language model configuration.
@@ -2393,7 +2511,17 @@ declare module 'positron' {
 		export function showLanguageModelConfig(
 			sources: LanguageModelSource[],
 			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
+			options?: ShowLanguageModelConfigOptions,
 		): Thenable<void>;
+
+		/**
+		 * Registers provider metadata with the core service.
+		 * This allows the core to check provider enable settings without requiring sign-in.
+		 * Should be called during extension activation for all available providers.
+		 *
+		 * @param metadata Provider identification and settings information
+		 */
+		export function registerProviderMetadata(metadata: ProviderMetadata): void;
 
 		/**
 		 * Adds the model to the service's known configurations and notifies its listeners.
@@ -2451,6 +2579,16 @@ declare module 'positron' {
 		 * Set the current language chat provider.
 		 */
 		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
+
+		/**
+		 * Gets the list of enabled provider IDs from user configuration.
+		 *
+		 * Reads from individual provider enable settings ('positron.assistant.provider.<name>.enable')
+		 * and the deprecated 'positron.assistant.enabledProviders' array setting for backward compatibility.
+		 *
+		 * @returns A Thenable that resolves to an array of enabled provider IDs
+		 */
+		export function getEnabledProviders(): Thenable<string[]>;
 
 		/**
 		 * Checks if completions are enabled for the given file.

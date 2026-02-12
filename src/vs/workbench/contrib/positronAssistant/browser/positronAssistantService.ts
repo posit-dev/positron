@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,13 +8,13 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IChatService } from '../../chat/common/chatService.js';
+import { IChatService } from '../../chat/common/chatService/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
 import { isFileExcludedFromAI } from '../../chat/browser/tools/utils.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -28,9 +28,36 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	declare readonly _serviceBrand: undefined;
 	private _copilotEnabled = false;
 	private _copilotEnabledEmitter = this._register(new Emitter<boolean>());
+	private _enabledProvidersEmitter = this._register(new Emitter<void>());
+
+	// Tracks registered provider metadata for checking enable settings
+	// This is populated during extension activation, independent of sign-in state
+	private _providerMetadata = new Map<string, IPositronProviderMetadata>();
 
 	readonly onChangeCopilotEnabled = this._copilotEnabledEmitter.event;
+	readonly onChangeEnabledProviders = this._enabledProvidersEmitter.event;
 
+	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+	) {
+		super();
+
+		// Listen for configuration changes to provider enablement settings
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			// Check individual provider enable settings
+			for (const metadata of this._providerMetadata.values()) {
+				const settingKey = `positron.assistant.provider.${metadata.settingName}.enable`;
+				if (e.affectsConfiguration(settingKey)) {
+					this._enabledProvidersEmitter.fire();
+					break;
+				}
+			}
+		}));
+	}
+
+	registerProviderMetadata(metadata: IPositronProviderMetadata): void {
+		this._providerMetadata.set(metadata.id, metadata);
+	}
 
 	get copilotEnabled(): boolean {
 		return this._copilotEnabled;
@@ -39,6 +66,27 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	set copilotEnabled(value: boolean) {
 		this._copilotEnabled = value;
 		this._copilotEnabledEmitter.fire(this._copilotEnabled);
+	}
+
+	getEnabledProviders(): string[] {
+		const enabledProviders: string[] = [];
+
+		for (const [providerId, metadata] of this._providerMetadata.entries()) {
+			const settingKey = `positron.assistant.provider.${metadata.settingName}.enable`;
+			const isEnabled = this._configurationService.getValue<boolean>(settingKey);
+			if (isEnabled) {
+				enabledProviders.push(providerId);
+			}
+		}
+
+		return enabledProviders;
+	}
+
+	isProviderEnabled(providerId: string): boolean {
+		const enabledProviders = this.getEnabledProviders();
+		return enabledProviders.includes(providerId) ||
+			// Special case: 'copilot' vendor is enabled via 'copilot-auth' provider id's setting
+			(providerId === 'copilot' && enabledProviders.includes('copilot-auth'));
 	}
 }
 
@@ -171,17 +219,14 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onClose: () => void,
+		options?: IShowLanguageModelConfigOptions,
 	): void {
 		showLanguageModelModalDialog(
 			sources,
 			onAction,
-			onClose
+			onClose,
+			options
 		);
-	}
-
-	getSupportedProviders(): string[] {
-		const providers = ['anthropic-api', 'copilot-auth'];
-		return providers;
 	}
 
 	getChatExport() {
