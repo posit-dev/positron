@@ -17,7 +17,6 @@ import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
-import { setupArkJupyterKernel } from './kernel';
 import { RDataEditorProvider, RdsEditorProvider } from './rdata-editor.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
@@ -40,9 +39,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 	runtimeManager = new RRuntimeManager(context);
 	positron.runtime.registerLanguageRuntimeManager('r', runtimeManager);
-
-	// Set up Positron's embedded ark as a Jupyter kernel so external tools like Quarto can find it
-	setupArkJupyterKernel(context);
 
 	// Set contexts.
 	setContexts(context);
