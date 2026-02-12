@@ -232,6 +232,31 @@ function safeStatSync(targetPath: string): fs.Stats | undefined {
 }
 
 /**
+ * Returns the base environment variables needed to run ark with a given R installation.
+ * This includes R_HOME and platform-specific library paths.
+ *
+ * @param rHomePath The R_HOME path for the R installation
+ * @returns A record of environment variables
+ */
+export function getArkEnvironmentVariables(rHomePath: string): Record<string, string> {
+	const env: Record<string, string> = {
+		R_HOME: rHomePath
+	};
+
+	// Set library paths to help ark find R's shared libraries
+	// Workaround for https://github.com/posit-dev/positron/issues/1619
+	if (process.platform === 'linux') {
+		env['LD_LIBRARY_PATH'] = rHomePath + '/lib';
+	}
+	// Workaround for https://github.com/posit-dev/positron/issues/3732
+	if (process.platform === 'darwin') {
+		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
+	}
+
+	return env;
+}
+
+/**
  * Sniffs the architecture of a Windows binary by examining its PE header.
  *
  * @param binaryPath The path to the binary file.
@@ -283,19 +308,31 @@ export function sniffWindowsBinaryArchitecture(binaryPath?: string): WindowsKern
  * Quarto can find it via `jupyter kernelspec list`.
  *
  * This creates a kernel.json file in the extension's global storage and sets
- * JUPYTER_PATH to point to it. This is done at extension activation time so
- * that ark is available even before an R session is started.
+ * JUPYTER_PATH to point to it. The kernel spec includes R-specific environment
+ * variables so ark uses the same R installation as the active Positron console.
  *
  * @param context The extension context
+ * @param rHomePath The R_HOME path for the active R installation
  */
-export function setupArkJupyterKernel(context: vscode.ExtensionContext): void {
+export function setupArkJupyterKernel(
+	context: vscode.ExtensionContext,
+	rHomePath: string
+): void {
 	const arkPath = getArkKernelPath();
 	if (!arkPath) {
 		LOGGER.debug('Could not find ark kernel path; skipping Jupyter kernel setup');
 		return;
 	}
 
-	// Create kernel.json content (without R_HOME - ark will discover R on its own)
+	// Build environment variables for the kernel spec
+	const env: Record<string, string> = {
+		RUST_LOG: 'error',
+		...getArkEnvironmentVariables(rHomePath)
+	};
+
+	LOGGER.debug(`Setting up ark Jupyter kernel with R_HOME=${rHomePath}`);
+
+	// Create kernel.json content
 	const kernelSpec = {
 		argv: [
 			arkPath,
@@ -306,9 +343,7 @@ export function setupArkJupyterKernel(context: vscode.ExtensionContext): void {
 		],
 		display_name: 'Ark R Kernel',
 		language: 'R',
-		env: {
-			RUST_LOG: 'error'
-		}
+		env
 	};
 
 	// Write to globalStorage/jupyter/kernels/ark/kernel.json
@@ -345,10 +380,9 @@ export function setupArkJupyterKernel(context: vscode.ExtensionContext): void {
 	const newJupyterPath = originalJupyterPath
 		? `${jupyterDir}${pathSeparator}${originalJupyterPath}`
 		: jupyterDir;
-	collection.clear();
 	collection.replace('JUPYTER_PATH', newJupyterPath, {
 		applyAtProcessCreation: true,
 		applyAtShellIntegration: true
 	});
-	LOGGER.debug(`Prepended ${jupyterDir} to JUPYTER_PATH`);
+	LOGGER.debug(`Set JUPYTER_PATH to ${newJupyterPath}`);
 }
