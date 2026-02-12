@@ -119,12 +119,8 @@ jobs:
           run-id: ${{ github.run_id }}
           custom-positron-tarball: /tmp/artifacts/positron-workbench-linux-x64-branch.tar.gz
 
-      - name: Transform to Playwright tags $PW_TAGS
-        run: bash scripts/pr-tags-transform.sh e2e-workbench "${{ inputs.grep }}"
-        shell: bash
-
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
 
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
@@ -133,6 +129,9 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install chromium --with-deps
+
+      - name: Setup Xvfb
+        uses: ./.github/actions/setup-xvfb
 
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
@@ -153,16 +152,8 @@ jobs:
           PW_PROJECT_NAME: e2e-workbench
           REPORTER_REPO_NAME: positron
         run: |
-          if [ -z "$PW_TAGS" ]; then
-            GREP_ARG=""
-          else
-            GREP_ARG="--grep \"$PW_TAGS\""
-          fi
-
-          echo "Final --grep argument: $GREP_ARG"
-          echo "Running: npx playwright test --project e2e-workbench --workers 2 $GREP_ARG"
-
-          eval npx playwright test --project e2e-workbench --workers 2 $GREP_ARG
+          export DISPLAY=:10
+          npx playwright test --project e2e-workbench --retries=1 --workers=1
 
       - name: Upload HTML report to S3
         if: always()
