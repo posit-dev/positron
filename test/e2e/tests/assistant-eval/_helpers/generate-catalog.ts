@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Standalone script to generate the EVAL_CATALOG.md file.
+ * Standalone script to generate the README.md file.
  * Run via: npm run generate-eval-catalog
  *
  * This script scans all test case files and generates the catalog
@@ -30,7 +30,7 @@ interface TestCase {
 }
 
 const EVAL_DIR = dirname(__dirname);
-const CATALOG_PATH = join(EVAL_DIR, 'EVAL_CATALOG.md');
+const CATALOG_PATH = join(EVAL_DIR, 'README.md');
 
 /**
  * Discovers test case directories (excluding _helpers, _logs, etc.)
@@ -170,7 +170,7 @@ function generateMarkdown(categories: Map<string, TestCase[]>): string {
  * Main entry point.
  */
 async function main(): Promise<void> {
-	console.log('Generating EVAL_CATALOG.md...\n');
+	console.log('Generating README.md...\n');
 
 	const categories = getCategories();
 	console.log(`Found categories: ${categories.join(', ')}`);

@@ -392,7 +392,7 @@ if (import.meta.main) {
 							timeout: 30000
 						});
 						// Stage the catalog if it changed
-						cp.execSync('git add test/e2e/tests/assistant-eval/EVAL_CATALOG.md', { stdio: 'pipe' });
+						cp.execSync('git add test/e2e/tests/assistant-eval/README.md', { stdio: 'pipe' });
 					} catch (e) {
 						console.warn('Failed to regenerate eval catalog:', e);
 					}
