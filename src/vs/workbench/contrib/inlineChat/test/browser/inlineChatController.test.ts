@@ -82,6 +82,7 @@ import { TestMcpService } from '../../../mcp/test/common/testMcpService.js';
 import { INotebookEditorService } from '../../../notebook/browser/services/notebookEditorService.js';
 // --- Start Positron ---
 import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
+import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
 // --- End Positron ---
 import { RerunAction } from '../../browser/inlineChatActions.js';
 import { InlineChatController1, State } from '../../browser/inlineChatController.js';
@@ -224,6 +225,9 @@ suite('InlineChatController', function () {
 			// --- Start Positron ---
 			[IPositronNotebookService, new class extends mock<IPositronNotebookService>() {
 				override listInstances() { return []; }
+			}],
+			[IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
+				override onChangeEnabledProviders = Event.None;
 			}],
 			// --- End Positron ---
 			[IWorkbenchAssignmentService, new NullWorkbenchAssignmentService()],

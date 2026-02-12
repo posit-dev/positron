@@ -1,7 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/**
+ * Centralized logging for the positron-assistant extension.
+ *
+ * This module provides a BufferedLogOutputChannel that wraps VS Code's LogOutputChannel
+ * with an in-memory circular buffer for diagnostics collection. The `log` instance is
+ * exported for use throughout the extension.
+ *
+ * This module is intentionally low-level with minimal dependencies to avoid circular
+ * imports - many modules need logging but logging should not depend on higher-level
+ * extension functionality.
+ */
 
 import * as vscode from 'vscode';
 
@@ -125,3 +137,11 @@ export class BufferedLogOutputChannel implements vscode.LogOutputChannel {
 		}).join('\n');
 	}
 }
+
+/**
+ * The shared log instance for the positron-assistant extension.
+ * Use this for all logging throughout the extension.
+ */
+export const log = new BufferedLogOutputChannel(
+	vscode.window.createOutputChannel('Assistant', { log: true })
+);

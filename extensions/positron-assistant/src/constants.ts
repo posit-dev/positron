@@ -31,6 +31,9 @@ export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
 /** Default patterns for selectable models */
 export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt'];
 
+/** Settings search string for provider enable settings */
+export const PROVIDER_ENABLE_SETTINGS_SEARCH = 'positron.assistant.provider enable';
+
 /**
  * Tag used by tools to indicate that a session must be active in order to use the tool
  *
@@ -65,6 +68,9 @@ export const MAX_CONTEXT_VARIABLES = 400;
 
 /** Max number of models to attempt connecting to when checking auth for a provider */
 export const DEFAULT_MAX_CONNECTION_ATTEMPTS = 3;
+
+/** Default timeout for provider connections in seconds */
+export const DEFAULT_PROVIDER_TIMEOUT_SEC = 60;
 
 /**
  * Determines if the Posit Web environment is detected.

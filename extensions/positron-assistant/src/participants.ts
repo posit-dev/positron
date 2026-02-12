@@ -15,12 +15,12 @@ import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
-import { log, getRequestTokenUsage } from './extension.js';
+import { log } from './log.js';
+import { getRequestTokenUsage, TokenUsage } from './tokens.js';
 import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
-import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
 import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage } from './tools/notebookUtils.js';
 

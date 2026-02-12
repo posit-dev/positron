@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AnthropicModelProvider } from './providers/anthropic/anthropicProvider.js';
+import { PROVIDER_METADATA } from './providerMetadata.js';
 
 export type TokenUsage = {
 	/** The number of input tokens, not including tokens read from cache. */
@@ -21,8 +21,49 @@ export function isTokenUsage(obj: any): obj is TokenUsage {
 	return obj && typeof obj.inputTokens === 'number' && typeof obj.outputTokens === 'number' && typeof obj.cachedTokens === 'number';
 }
 
+// Module-level token tracker instance, initialized in initializeTokenTracking
+let tokenTracker: TokenTracker;
+
+// Registry to store token usage by request ID for individual requests
+const requestTokenUsage = new Map<string, { tokens: TokenUsage; provider: string }>();
+
+/**
+ * Initialize the token tracking system. Must be called during extension activation.
+ */
+export function initializeTokenTracking(context: vscode.ExtensionContext): void {
+	tokenTracker = new TokenTracker(context);
+}
+
+export function recordTokenUsage(provider: string, tokens: TokenUsage): void {
+	tokenTracker.addTokens(provider, tokens);
+}
+
+export function clearTokenUsage(provider: string): void {
+	tokenTracker.clearTokens(provider);
+}
+
+export function recordRequestTokenUsage(requestId: string, provider: string, tokens: TokenUsage): void {
+	const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
+
+	enabledProviders.push(PROVIDER_METADATA.anthropic.id); // ensure anthropicId is always included
+
+	if (!enabledProviders.includes(provider)) {
+		return; // Skip if token counting is disabled for this provider
+	}
+
+	requestTokenUsage.set(requestId, { provider, tokens });
+	// Clean up old entries to prevent memory leaks
+	setTimeout(() => {
+		requestTokenUsage.delete(requestId);
+	}, 30000); // Clean up after 30 seconds
+}
+
+export function getRequestTokenUsage(requestId: string): { tokens: TokenUsage; provider: string } | undefined {
+	return requestTokenUsage.get(requestId);
+}
+
 export class TokenTracker {
-	private static DEFAULT_PROVIDERS = [AnthropicModelProvider.source.provider.id];
+	private static DEFAULT_PROVIDERS = [PROVIDER_METADATA.anthropic.id];
 	private _tokenUsage: Map<string, TokenUsage> = new Map();
 	private _enabledProviders: Set<string> = new Set([...TokenTracker.DEFAULT_PROVIDERS]);
 
@@ -71,7 +112,7 @@ export class TokenTracker {
 			if (event.affectsConfiguration('positron.assistant.approximateTokenCount')) {
 				const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
 
-				const anthropicId = AnthropicModelProvider.source.provider.id;
+				const anthropicId = PROVIDER_METADATA.anthropic.id;
 				this._enabledProviders = new Set([...enabledProviders, anthropicId]); // ensure anthropicId is always included
 
 				// clear token counts for providers that are no longer enabled

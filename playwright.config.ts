@@ -5,23 +5,11 @@
 
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
-import { currentsReporter, CurrentsFixtures, CurrentsWorkerFixtures } from '@currents/playwright';
 import * as fs from 'fs';
-
-// Merge Currents Fixtures into CustomTestOptions
-type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorkerFixtures;
 
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
-const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
-	? [currentsReporter({
-		ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
-		recordKey: process.env.CURRENTS_RECORD_KEY || '',
-		projectId: 'ZOs5z2',
-		disableTitleTags: true,
-	})]
-	: [];
 // Custom reporter is enabled by default.
 // Disable with: ENABLE_CUSTOM_REPORTER=false (or "false", 0, "0", no, "no")
 // YAML booleans are converted to strings by GitHub Actions, so both work.
@@ -43,11 +31,11 @@ const projectName = process.env.PW_PROJECT_NAME || 'default';
 const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
-	'**/inspect-ai/**',
 	'**/remote-ssh/**',
+	'**/assistant-eval/**',
 ];
 
-export default defineConfig<ExtendedTestOptions>({
+export default defineConfig<CustomTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
@@ -73,7 +61,6 @@ export default defineConfig<ExtendedTestOptions>({
 	reporter: process.env.CI
 		? [
 			...githubSummaryReport,
-			...currentsReporters,
 			...customReporter,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
@@ -90,12 +77,25 @@ export default defineConfig<ExtendedTestOptions>({
 		trace: 'off', // we are manually handling tracing in _test.setup.ts
 		actionTimeout: 15000,
 		navigationTimeout: 15000,
-		currentsFixturesEnabled: !!process.env.CI,
 	},
 
 	projects: [
 		{
 			name: 'e2e-electron',
+			testIgnore: process.env.ALLOW_PYREFLY === 'true'
+				? [
+					'example.test.ts',
+					'**/workbench/**',
+					'**/remote-ssh/**',
+					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+				]
+				: [
+					'example.test.ts',
+					'**/workbench/**',
+					'**/remote-ssh/**',
+					'**/lsp/**',
+					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+				],
 			use: {
 				artifactDir: 'e2e-electron'
 			},
@@ -165,22 +165,10 @@ export default defineConfig<ExtendedTestOptions>({
 			grepInvert: /@:web-only|@:interpreter/
 		},
 		{
-			name: 'inspect-ai',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/remote-ssh/**'
-			],
-			use: {
-				artifactDir: 'inspect-ai',
-			},
-			grep: /@:inspect-ai/
-		},
-		{
 			name: 'e2e-workbench',
 			testIgnore: [
 				'example.test.ts',
-				'**/inspect-ai/**',
+				'**/assistant-eval/**',
 				'**/remote-ssh/**'
 			],
 			use: {
@@ -196,7 +184,7 @@ export default defineConfig<ExtendedTestOptions>({
 			name: 'e2e-remote-ssh',
 			testIgnore: [
 				'example.test.ts',
-				'**/inspect-ai/**',
+				'**/assistant-eval/**',
 				'**/workbench/**',
 			],
 			use: {
