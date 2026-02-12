@@ -257,6 +257,9 @@ export function calculateMultiSortingTransforms(
 
 	// Infer the CSS gap once for use in all slot height calculations
 	const gap = inferGap(items, rects);
+	const firstActiveIndex = activeIndices[0];
+	const firstActiveRect = rects.get(items[firstActiveIndex]);
+	const nonPrimaryAboveCount = activeIndices.filter(idx => idx < primaryActiveIndex).length;
 
 	// Calculate total "slot height" of all active items combined
 	// This is the space they occupy together, which non-active items need to shift around
@@ -276,13 +279,14 @@ export function calculateMultiSortingTransforms(
 	const activeIndexSet = new Set(activeIndices);
 
 	// Determine drag direction based on primary item
-	const firstActiveIndex = activeIndices[0];
 	const isDraggingDown = insertionIndex > firstActiveIndex;
 
 	// Check if we're at original position (no movement needed for primary)
 	const atOriginalPosition = insertionIndex === firstActiveIndex || insertionIndex === activeIndices[activeIndices.length - 1] + 1;
 
-	// Calculate the transform for the primary active item to move to insertion position
+	// Track movement of the multi-drag block's top edge (first active item).
+	// Primary transform is derived from this and adjusted for collapsed indicators above primary.
+	let groupTopTransformY = 0;
 	let primaryTransformY = 0;
 
 	// Only calculate shifts if not at original position
@@ -308,24 +312,25 @@ export function calculateMultiSortingTransforms(
 				if (i > firstActiveIndex && i < insertionIndex) {
 					shouldShift = true;
 					shiftDirection = -1; // Shift up
-					// Primary item moves down by this item's slot height
-					primaryTransformY += getSlotHeight(i, items, rects, gap);
+					// Drag block moves down by this item's slot height
+					groupTopTransformY += getSlotHeight(i, items, rects, gap);
 				}
 			} else {
 				// Dragging up: items between insertion point and first active shift down
 				if (i >= insertionIndex && i < firstActiveIndex) {
 					shouldShift = true;
 					shiftDirection = 1; // Shift down
-					// Primary item moves up by this item's slot height
-					primaryTransformY -= getSlotHeight(i, items, rects, gap);
+					// Drag block moves up by this item's slot height
+					groupTopTransformY -= getSlotHeight(i, items, rects, gap);
 				}
 			}
 
 			if (shouldShift) {
 				// When dragging DOWN: items shift UP by totalActiveSlotHeight to fill vacated space.
-				// When dragging UP: items shift DOWN by visualDragSize (only what's visually needed).
-				const nonPrimaryCount = activeIndices.length - 1;
-				const visualDragSize = primarySlotHeight + (nonPrimaryCount * (collapsedHeight + gap));
+				// When dragging UP: items shift DOWN by the primary slot only.
+				// Secondary dragged cells are rendered as overflow indicators and must not
+				// increase layout displacement.
+				const visualDragSize = primarySlotHeight;
 				const shiftAmount = isDraggingDown ? totalActiveSlotHeight : visualDragSize;
 				transforms.set(id, {
 					x: 0,
@@ -333,6 +338,13 @@ export function calculateMultiSortingTransforms(
 				});
 			}
 		}
+
+		// Convert block-top movement into primary movement.
+		// Without this offset correction, dragging a non-first selected cell
+		// over-shoots by the full height of selected cells above it.
+		const primaryOffsetFromGroupTop = firstActiveRect ? (primaryRect.top - firstActiveRect.top) : 0;
+		const collapsedOffsetAbovePrimary = nonPrimaryAboveCount * collapsedHeight;
+		primaryTransformY = groupTopTransformY - primaryOffsetFromGroupTop + collapsedOffsetAbovePrimary;
 
 		// Set transform for primary active item
 		if (primaryTransformY !== 0) {
@@ -345,8 +357,9 @@ export function calculateMultiSortingTransforms(
 		// When multiple cells are being dragged, non-primary cells collapse to thin lines.
 		// This creates visual gaps that need to be closed.
 		if (activeIndices.length > 1) {
-			const nonPrimaryCount = activeIndices.length - 1;
-			const visualDragSize = primarySlotHeight + (nonPrimaryCount * (collapsedHeight + gap));
+			// Keep displacement equivalent to single-cell drag (primary slot only).
+			// Secondary cells are visual-only indicators.
+			const visualDragSize = primarySlotHeight;
 			const gapToClose = totalActiveSlotHeight - visualDragSize;
 
 			if (isDraggingDown) {
@@ -408,6 +421,12 @@ export function calculateMultiSortingTransforms(
 	nonPrimaryAbove.sort((a, b) => items.indexOf(a) - items.indexOf(b));
 	nonPrimaryBelow.sort((a, b) => items.indexOf(a) - items.indexOf(b));
 
+	// Keep indicator spillover bounded to the inter-cell gap so indicators
+	// stay in margin/padding space and do not overlap neighboring cells.
+	const stackStride = Math.min(collapsedHeight, 2);
+	const maxStackSpread = Math.max(gap - collapsedHeight, 0);
+	const maxStackSteps = stackStride > 0 ? Math.floor(maxStackSpread / stackStride) : 0;
+
 	// Stack collapsed indicators above the primary cell (from bottom to top)
 	// The last item in nonPrimaryAbove should be closest to primary
 	for (let i = 0; i < nonPrimaryAbove.length; i++) {
@@ -418,7 +437,7 @@ export function calculateMultiSortingTransforms(
 		}
 		// Position from primary's top, stacking upward
 		// i=0 is furthest from primary, i=length-1 is closest
-		const stackOffset = (nonPrimaryAbove.length - 1 - i) * collapsedHeight;
+		const stackOffset = Math.min(nonPrimaryAbove.length - 1 - i, maxStackSteps) * stackStride;
 		const targetTop = primaryFinalTop - collapsedHeight - stackOffset;
 		transforms.set(id, {
 			x: 0,
@@ -437,7 +456,7 @@ export function calculateMultiSortingTransforms(
 		}
 		// Position from primary's bottom, stacking downward
 		// i=0 is closest to primary
-		const targetTop = primaryFinalBottom + (i * collapsedHeight);
+		const targetTop = primaryFinalBottom + (Math.min(i, maxStackSteps) * stackStride);
 		transforms.set(id, {
 			x: 0,
 			y: targetTop - rect.top,
