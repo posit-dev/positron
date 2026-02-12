@@ -13,15 +13,23 @@ import { Markdown } from './Markdown.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell.js';
 import { localize } from '../../../../../nls.js';
+import { useCellContextMenu } from './useCellContextMenu.js';
 
 // Localized strings.
 const emptyMarkdownCell = localize('positron.notebooks.markdownCell.empty', "Empty markdown cell.");
 const doubleClickToEdit = localize('positron.notebooks.markdownCell.doubleClickToEdit', " Double click to edit.");
+const renderedMarkdownContent = localize('positron.notebooks.markdownCell.renderedContent', "Rendered markdown content");
 
 export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownCell }) {
 
 	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);
+	const { showCellContextMenu } = useCellContextMenu(cell);
+
+	const handleContextMenu = (event: React.MouseEvent) => {
+		event.preventDefault();
+		showCellContextMenu({ x: event.clientX, y: event.clientY });
+	};
 
 	return (
 		<NotebookCellWrapper
@@ -32,8 +40,10 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 			</div>
 			{!editorShown
 				? (
-					<div
+					<section
+						aria-label={renderedMarkdownContent}
 						className='cell-contents positron-notebook-cell-outputs'
+						onContextMenu={handleContextMenu}
 						onDoubleClick={() => cell.toggleEditor()}
 					>
 						{
@@ -44,7 +54,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 									{doubleClickToEdit}
 								</div>
 						}
-					</div>
+					</section>
 				)
 				: null
 			}
