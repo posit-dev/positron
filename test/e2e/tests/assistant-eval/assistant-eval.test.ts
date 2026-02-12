@@ -44,10 +44,10 @@ test.describe('Assistant: LLM Evals', { tag: [tags.ASSISTANT_EVAL] }, () => {
 			testCases.forEach((testCase) => {
 				test(`${testCase.id}: ${testCase.description}`,
 					{ tag: testCase.tags ?? [] },
-					async ({ app, sessions, hotKeys, cleanup }) => {
+					async ({ app, sessions, hotKeys, cleanup, settings }) => {
 
 						// Run the test case
-						const response = await testCase.run({ app, sessions, hotKeys, cleanup });
+						const response = await testCase.run({ app, sessions, hotKeys, cleanup, settings });
 						expect(response?.trim(), 'Expected a non-empty response from assistant').toBeTruthy();
 
 						// Evaluate with LLM grader

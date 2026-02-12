@@ -10,6 +10,11 @@ import { rForestedHallucination } from './r-forested-hallucination';
 import { pythonTableSummary } from './python-table-summary';
 import { pythonEditFile } from './python-edit-file';
 import { pythonNoExecutionHallucination } from './python-no-execution-hallucination';
+import { rNotebookAutomaticContext } from './r-notebook-automatic-context';
+import { rNotebookGetCells } from './r-notebook-get-cells';
+import { rNotebookEditCells } from './r-notebook-edit-cells';
+import { rNotebookRunCells } from './r-notebook-run-cells';
+import { rNotebookCreate } from './r-notebook-create';
 
 /**
  * All assistant evaluation test cases.
@@ -24,6 +29,11 @@ export const testCases: EvalTestCase[] = [
 	pythonTableSummary,
 	pythonEditFile,
 	pythonNoExecutionHallucination,
+	rNotebookAutomaticContext,
+	rNotebookGetCells,
+	rNotebookEditCells,
+	rNotebookRunCells,
+	rNotebookCreate,
 ];
 
 // Re-export types for convenience
