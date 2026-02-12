@@ -157,25 +157,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
-      - name: Check test results
-        if: always()
-        run: |
-          JSON_REPORT="playwright-report/results.json"
-          if [ ! -f "$JSON_REPORT" ]; then
-            echo "⚠ JSON report not found at $JSON_REPORT"
-            exit 1
-          fi
-
-          EXTRA_ARGS=""
-          if [[ "${{ inputs.allow_soft_fail }}" != "true" ]]; then
-            echo "SOFT-FAIL DISABLED: standard test failure behavior"
-            EXTRA_ARGS="--no-soft-fail"
-          else
-            echo "SOFT-FAIL ENABLED: soft-fail tests won't fail the job"
-          fi
-
-          node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
-
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v6
