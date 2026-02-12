@@ -335,7 +335,7 @@ export class Assistant {
 
 		await test.step(`Sign in to ${provider} model provider`, async () => {
 			// Open the model configuration dialog via command (more reliable than clicking UI)
-			await this.quickaccess.runCommand('positron-assistant.configureModels');
+			await this.quickaccess.runCommand('positron-assistant.configureProviders');
 
 			// Select the provider
 			await this.selectModelProvider(provider);
