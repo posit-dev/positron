@@ -309,8 +309,8 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 		// --- Start Positron ---
 
-		// External modules (React, etc.)
-		const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname ?? ''); }));
+		// External modules (React, etc.) - copy from out-build where they were generated.
+		const moduleSources = gulp.src('out-build/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname ?? ''); }));
 
 		// Positron API
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
