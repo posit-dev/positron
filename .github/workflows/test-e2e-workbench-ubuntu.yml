@@ -45,8 +45,8 @@ jobs:
       E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
       E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
       E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
-      POSIT_WORKBENCH_PASSWORD: ${{ secrets.POSIT_WORKBENCH_PASSWORD }}
-      WB_PASSWORD: ${{ secrets.POSIT_WORKBENCH_PASSWORD }}
+      POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
+      WB_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
       E2E_CONNECT_SERVER: http://localhost:3939
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY }}
@@ -114,7 +114,7 @@ jobs:
         uses: ./.github/actions/setup-workbench-docker
         with:
           install-mode: ci
-          wb-password: ${{ secrets.POSIT_WORKBENCH_PASSWORD }}
+          wb-password: ${{ secrets.WB_PASSWORD }}
           github-token: ${{ steps.access-token.outputs.token }}
           run-id: ${{ github.run_id }}
           custom-positron-tarball: /tmp/artifacts/positron-workbench-linux-x64-branch.tar.gz
