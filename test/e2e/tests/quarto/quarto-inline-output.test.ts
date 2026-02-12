@@ -2582,4 +2582,115 @@ test.describe('Quarto - Inline Output', {
 		expect(outputText).not.toContain('echo');
 		expect(outputText).not.toMatch(/^\s*\$/m); // No lines starting with $
 	});
+
+	test('R - Verify execution options are respected when running all cells', async function ({ app, openFile, r }) {
+		// This test verifies that Quarto cell execution options (#| eval, #| error)
+		// are respected when using the "Run All Cells" interactive gesture.
+		//
+		// execution_options.qmd has 6 cells:
+		// Cell 1: #| label: first cell → print("This is the first cell.") → should execute
+		// Cell 2: #| eval: false → print("...second cell...") → should be SKIPPED
+		// Cell 3: #| error: false → stop("Oh no") → error occurs, but queue continues
+		// Cell 4: (no options) → print("It's the end of the world...") → should execute (error in cell 3 was non-fatal)
+		// Cell 5: #| error: true → stop("Well, this is awkward.") → error occurs, queue STOPS
+		// Cell 6: (no options) → print("How did we get here?") → should NOT execute (stopped by cell 5)
+		//
+		// Expected: 4 output zones for cells 1, 3, 4, 5.
+		// Cell 2 is skipped (eval: false), Cell 6 is not reached (queue stopped at cell 5).
+
+		const page = app.code.driver.page;
+
+		// Open the execution options test document
+		await openFile(join('workspaces', 'quarto_inline_output', 'execution_options.qmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Run All Cells via command (interactive gesture)
+		await app.workbench.quickaccess.runCommand('positronQuarto.runAllCells');
+
+		// Wait for execution to complete by looking for inline outputs.
+		// The output view zones are DOM elements with class 'quarto-inline-output'.
+		// Monaco virtualizes rendering so elements may be hidden when off-screen,
+		// but they remain in the DOM and we can read their textContent.
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Helper to scroll editor to a specific line and wait
+		const scrollToLine = async (line: number) => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type(String(line));
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+		};
+
+		// Wait for execution to complete. We need to wait until the queue finishes.
+		// Without execution options, all 6 cells run. With options, only 5 run (cell 2 skipped)
+		// but cell 5 error stops the queue, so cells 1,3,4,5 produce output (4 total).
+		// Without the feature, all 6 cells run and produce 6 outputs.
+		// Either way, wait for execution to stabilize by watching for outputs to stop appearing.
+		await expect(async () => {
+			// Scroll through document to trigger view zone creation
+			await scrollToLine(49);
+			await page.waitForTimeout(500);
+			await scrollToLine(1);
+			await page.waitForTimeout(500);
+
+			// Check that some outputs have appeared
+			const count = await inlineOutput.count();
+			expect(count).toBeGreaterThanOrEqual(1);
+		}).toPass({ timeout: 120000 });
+
+		// Wait for execution queue to fully drain
+		// All cells should have finished executing by now
+		await page.waitForTimeout(10000);
+
+		// Scroll through the entire document to ensure all view zones are in the DOM
+		await scrollToLine(49);
+		await page.waitForTimeout(1000);
+		await scrollToLine(1);
+		await page.waitForTimeout(1000);
+
+		// Now count outputs and verify content.
+		// Use page.evaluate to read all output text from the DOM regardless of visibility.
+		// Note: Monaco virtualizes rendering, so DOM order may not match document order.
+		// We collect all output texts and verify presence/absence of expected content.
+		const outputTexts = await page.evaluate(() => {
+			const outputs = document.querySelectorAll('.quarto-inline-output .quarto-output-content');
+			return Array.from(outputs).map(el => el.textContent ?? '');
+		});
+
+		// CRITICAL ASSERTION: With execution options properly respected:
+		// - Cell 1: executed → output contains "This is the first cell."
+		// - Cell 2: eval: false → SKIPPED, no output
+		// - Cell 3: error: false → executed, output contains "Oh no" error
+		// - Cell 4: executed → output contains "end of the world"
+		// - Cell 5: error: true → executed, output contains "awkward" error, queue STOPS
+		// - Cell 6: NOT executed (queue stopped at cell 5)
+		//
+		// Expected: exactly 4 outputs
+
+		expect(outputTexts.length).toBe(4);
+
+		// Verify expected outputs are present (checking content regardless of order
+		// since Monaco DOM order may differ from document order due to virtualization)
+		const allOutputText = outputTexts.join('\n');
+		expect(allOutputText).toContain('This is the first cell.');
+		expect(allOutputText).toContain('Oh no');
+		expect(allOutputText).toContain('end of the world');
+		expect(allOutputText).toContain('awkward');
+
+		// Double-check: cell 2 output should NOT appear anywhere (eval: false)
+		expect(allOutputText).not.toContain('second cell');
+		// Cell 6 output should NOT appear (queue stopped at cell 5 error)
+		expect(allOutputText).not.toContain('How did we get here');
+	});
 });

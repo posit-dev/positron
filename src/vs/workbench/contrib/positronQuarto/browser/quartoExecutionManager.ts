@@ -163,8 +163,39 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		this._logService.debug(`[QuartoExecutionManager] Queueing ${cells.length} cells for execution`);
 
-		// Add all cells to queue with Queued state
-		for (const cell of cells) {
+		// Filter cells based on eval option when running multiple cells.
+		// When a single cell is executed, always execute regardless of eval option (explicit user action).
+		const isMultiCellExecution = cells.length > 1;
+		let filteredCells = cells;
+		if (isMultiCellExecution) {
+			const textModel = await this._getTextModel(documentUri);
+			if (textModel) {
+				filteredCells = cells.filter(cell => {
+					const codeRange = new Range(
+						cell.codeStartLine,
+						1,
+						cell.codeEndLine,
+						textModel.getLineMaxColumn(cell.codeEndLine)
+					);
+					const code = textModel.getValueInRange(codeRange);
+					const { options } = parseCellExecutionOptions(code);
+					if (!options.eval) {
+						this._logService.debug(
+							`[QuartoExecutionManager] Skipping cell ${cell.id} due to eval: false`
+						);
+					}
+					return options.eval;
+				});
+			}
+		}
+
+		if (filteredCells.length === 0) {
+			this._logService.debug(`[QuartoExecutionManager] All cells filtered out by eval: false`);
+			return;
+		}
+
+		// Add filtered cells to queue with Queued state
+		for (const cell of filteredCells) {
 			this._setCellState(cell.id, CellExecutionState.Queued, documentUri);
 			this._addToQueue(documentUri, cell.id);
 		}
@@ -176,11 +207,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		const lastPromise = this._executionQueue.get(documentUri) ?? Promise.resolve();
 
 		const executionPromise = lastPromise.then(async () => {
-			for (const cell of cells) {
+			for (let i = 0; i < filteredCells.length; i++) {
+				const cell = filteredCells[i];
+
 				// Check cancellation before each cell
 				if (token?.isCancellationRequested) {
 					// Mark remaining queued cells as idle
-					for (const c of cells) {
+					for (const c of filteredCells) {
 						if (this.getExecutionState(c.id) === CellExecutionState.Queued) {
 							this._setCellState(c.id, CellExecutionState.Idle, documentUri);
 						}
@@ -189,7 +222,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				}
 
 				try {
-					await this._executeCell(documentUri, cell, token);
+					const result = await this._executeCell(documentUri, cell, token);
+
+					// If error occurred and error option is true (stop on error),
+					// clear remaining queued cells and stop the queue
+					if (result.hadError && result.options.error) {
+						this._logService.debug(
+							`[QuartoExecutionManager] Stopping execution queue due to error (error: true)`
+						);
+						for (let j = i + 1; j < filteredCells.length; j++) {
+							this._setCellState(filteredCells[j].id, CellExecutionState.Idle, documentUri);
+							this._removeFromQueue(documentUri, filteredCells[j].id);
+						}
+						break;
+					}
 				} catch (error) {
 					this._logService.error(`[QuartoExecutionManager] Execution error for cell ${cell.id}:`, error);
 					this._setCellState(cell.id, CellExecutionState.Error, documentUri);
@@ -1592,13 +1638,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		documentUri: URI,
 		cell: QuartoCodeCell,
 		token?: CancellationToken
-	): Promise<void> {
+	): Promise<{ hadError: boolean; options: QuartoCellExecutionOptions }> {
 		// Check if the cell was cancelled while queued
 		// This happens when the user clicks the cancel button on a queued cell
 		const currentState = this.getExecutionState(cell.id);
 		if (currentState !== CellExecutionState.Queued) {
 			this._logService.debug(`[QuartoExecutionManager] Cell ${cell.id} was cancelled while queued (state: ${currentState}), skipping execution`);
-			return;
+			return { hadError: false, options: DEFAULT_CELL_EXECUTION_OPTIONS };
 		}
 
 		// Look up the current cell position from the document model
@@ -1608,7 +1654,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			this._logService.warn(`[QuartoExecutionManager] No text model available for ${documentUri.toString()}`);
 			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
 			this._removeFromQueue(documentUri, cell.id);
-			return;
+			return { hadError: true, options: DEFAULT_CELL_EXECUTION_OPTIONS };
 		}
 
 		const quartoModel = this._documentModelService.getModel(textModel);
@@ -1617,7 +1663,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			this._logService.warn(`[QuartoExecutionManager] Cell ${cell.id} no longer exists in document`);
 			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
 			this._removeFromQueue(documentUri, cell.id);
-			return;
+			return { hadError: true, options: DEFAULT_CELL_EXECUTION_OPTIONS };
 		}
 
 		// Convert the cell to a range covering its code content
@@ -1628,14 +1674,28 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			textModel.getLineMaxColumn(currentCell.codeEndLine)
 		);
 
+		// Parse execution options from cell code
+		const code = textModel.getValueInRange(codeRange);
+		const { options, optionLineCount } = parseCellExecutionOptions(code);
+
+		// Calculate effective code range (excluding option lines at the start)
+		let effectiveCodeRange = codeRange;
+		if (optionLineCount > 0) {
+			effectiveCodeRange = new Range(
+				codeRange.startLineNumber + optionLineCount,
+				1,
+				codeRange.endLineNumber,
+				codeRange.endColumn
+			);
+		}
+
 		// Remove from queue before executing
 		this._removeFromQueue(documentUri, cell.id);
 		await this._persistQueueState(documentUri);
 
-		// Delegate to the unified range execution
-		// The return value (error status) is ignored for cell execution since
-		// executeCells handles errors per-cell and doesn't stop on error
-		await this._executeRange(documentUri, currentCell, codeRange, DEFAULT_CELL_EXECUTION_OPTIONS, token);
+		// Delegate to the unified range execution with parsed options
+		const hadError = await this._executeRange(documentUri, currentCell, effectiveCodeRange, options, token);
+		return { hadError, options };
 	}
 
 	/**
