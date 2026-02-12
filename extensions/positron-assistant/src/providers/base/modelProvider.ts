@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { ModelConfig, getMaxConnectionAttempts } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
+import { getMaxConnectionAttempts } from '../../providerConfig.js';
 import { isAuthorizationError } from '../../utils';
 import { applyModelFilters } from '../../modelFilters';
 import { getAllModelDefinitions } from '../../modelDefinitions';

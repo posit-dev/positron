@@ -14,7 +14,7 @@ import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
@@ -172,9 +172,9 @@ export interface MainThreadAiFeaturesShape {
 	$getCurrentPlotUri(): Promise<string | undefined>;
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
 	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;
-	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void>;
-	$getSupportedProviders(): Thenable<string[]>;
+	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[], options?: IShowLanguageModelConfigOptions): Thenable<void>;
 	$getChatExport(): Thenable<object | undefined>;
+	$registerProviderMetadata(metadata: IPositronProviderMetadata): void;
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
@@ -182,6 +182,7 @@ export interface MainThreadAiFeaturesShape {
 	$getCurrentChatMode(): Thenable<string | undefined>;
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
+	$getEnabledProviders(): Thenable<string[]>;
 }
 
 export interface ExtHostAiFeaturesShape {

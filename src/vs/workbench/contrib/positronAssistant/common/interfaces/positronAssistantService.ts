@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -40,10 +40,23 @@ export type PositronLanguageModelOptions = Exclude<{
 	[K in keyof IPositronLanguageModelConfig]: undefined extends IPositronLanguageModelConfig[K] ? K : never
 }[keyof IPositronLanguageModelConfig], undefined>;
 
+/**
+ * Metadata about a language model provider used for configuration.
+ * Registered during extension activation, independent of sign-in state.
+ */
+export interface IPositronProviderMetadata {
+	/** Provider ID (e.g., 'anthropic-api', 'copilot') */
+	id: string;
+	/** Display name shown in UI (e.g., 'Anthropic', 'GitHub Copilot') */
+	displayName: string;
+	/** Setting name used in positron.assistant.provider.<settingName>.enable */
+	settingName: string;
+}
+
 // Equivalent in positron.d.ts API: LanguageModelSource
 export interface IPositronLanguageModelSource {
 	type: PositronLanguageModelType;
-	provider: { id: string; displayName: string };
+	provider: IPositronProviderMetadata;
 	supportedOptions: PositronLanguageModelOptions[];
 	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
 	signedIn?: boolean;
@@ -90,6 +103,15 @@ export interface IPositronLanguageModelConfig {
 	autoconfigure?: IPositronLanguageModelAutoconfigure;
 }
 
+// Equivalent in positron.d.ts API: ShowLanguageModelConfigOptions
+export interface IShowLanguageModelConfigOptions {
+	/**
+	 * Optional provider ID to pre-select in the dialog.
+	 * If provided and valid, the modal will open with this provider selected.
+	 */
+	preselectedProviderId?: string;
+}
+
 //#endregion
 //#region Configuration Service
 
@@ -111,6 +133,42 @@ export interface IPositronAssistantConfigurationService {
 	 * Event that fires when the Copilot enabled flag changes.
 	 */
 	readonly onChangeCopilotEnabled: Event<boolean>;
+
+	/**
+	 * Event that fires when enabled providers configuration changes.
+	 * Fires when either individual provider enable settings or the deprecated enabledProviders array changes.
+	 */
+	readonly onChangeEnabledProviders: Event<void>;
+
+	/**
+	 * Registers provider metadata with the configuration service.
+	 * This allows the service to check provider enable settings without requiring sign-in.
+	 * Should be called during extension activation for all available providers.
+	 *
+	 * @param metadata Provider identification and settings information
+	 */
+	registerProviderMetadata(metadata: IPositronProviderMetadata): void;
+
+	/**
+	 * Gets the list of enabled provider IDs from configuration.
+	 *
+	 * Should only be used after the Positron Assistant extension has finished activation,
+	 * as enabled providers are registered as part of the extension activation flow.
+	 *
+	 * Reads from individual provider enable settings (`positron.assistant.provider.<settingName>.enable`)
+	 * and the deprecated `positron.assistant.enabledProviders` array setting.
+	 *
+	 * @returns Array of enabled provider IDs
+	 */
+	getEnabledProviders(): string[];
+
+	/**
+	 * Check if a specific provider is enabled in Positron's provider configuration.
+	 *
+	 * @param providerId The provider ID to check (e.g., 'copilot', 'anthropic-api', 'openai-api')
+	 * @returns true if the provider is enabled, false otherwise
+	 */
+	isProviderEnabled(providerId: string): boolean;
 
 }
 //#endregion
@@ -147,12 +205,8 @@ export interface IPositronAssistantService {
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onClose: () => void,
+		options?: IShowLanguageModelConfigOptions,
 	): void;
-
-	/**
-	 * Get the supported providers for Positron Assistant.
-	 */
-	getSupportedProviders(): string[];
 
 	/**
 	 * Get the chat export as a JSON object (IExportableChatData).
