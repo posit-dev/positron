@@ -160,8 +160,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		};
 
 		const region = AWS_REGION ?? 'us-east-1';
-		const profile = AWS_PROFILE ?? 'default';
-		const credentials = fromNodeProviderChain({ profile });
+		// Only use profile if explicitly configured; omit for OIDC/environment credentials
+		const profile = AWS_PROFILE;
+		const credentials = fromNodeProviderChain(profile ? { profile } : {});
 
 		const inferenceProfileRegion = vscode.workspace
 			.getConfiguration('positron.assistant.bedrock')
@@ -173,7 +174,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			this._inferenceProfileRegion = AWSModelProvider.deriveInferenceProfileRegion(region);
 		}
 		this.logger.info(
-			`Using AWS region: ${region}, profile: ${profile}, ` +
+			`Using AWS region: ${region}, profile: ${profile ?? '(default chain)'}, ` +
 			`inference profile region: ${this._inferenceProfileRegion}`
 		);
 
@@ -185,7 +186,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 		// Initialize Bedrock SDK client for model listing
 		this.bedrockClient = new BedrockClient({
-			profile,
+			...(profile && { profile }),
 			region,
 			credentials: credentials
 		});
