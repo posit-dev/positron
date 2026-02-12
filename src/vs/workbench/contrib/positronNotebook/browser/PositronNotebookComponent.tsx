@@ -125,7 +125,7 @@ export function PositronNotebookComponent() {
 				<SortableCellList
 					cells={notebookCells}
 					disabled={isReadOnly}
-					scrollContainerRef={containerRef}
+					scrollContainerRef={containerRef as React.RefObject<HTMLElement>}
 					selectedIds={selectedIds}
 					onBatchReorder={handleBatchReorder}
 					onReorder={handleReorder}
