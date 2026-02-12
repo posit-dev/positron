@@ -15,8 +15,8 @@ const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
 
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
-const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
-const ADD_MODEL_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
+const CONFIGURE_PROVIDERS_LINK = 'a[data-href="command:positron-assistant.configureProviders"]';
+const CONFIGURE_PROVIDERS_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -49,7 +49,8 @@ const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat ac
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
+// Use :is() to match either Ctrl (Linux/Windows) or ⌘ (macOS) in the keybinding
+const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item a.action-label:is([aria-label*="Ctrl+Alt+."], [aria-label*="⌥⌘."]) .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 
@@ -220,33 +221,31 @@ export class Assistant {
 		});
 	}
 
-	async clickAddModelLink() {
-		await this.code.driver.page.locator(CONFIGURE_MODELS_LINK).click();
+	async runConfigureProviders() {
+		await this.quickaccess.runCommand('positron-assistant.configureProviders');
 	}
 
-	async clickAddModelButton() {
+	async clickConfigureProvidersLink() {
+		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_LINK).click();
+	}
+
+	async clickConfigureProvidersButton() {
 		// Ensure chat panel is open first
 		const chatPanelIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
 		if (!chatPanelIsVisible) {
 			await this.openPositronAssistantChat();
 		}
 
-		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
-		if (!addModelLinkIsVisible) {
+		const configureProvidersButtonIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
+		if (!configureProvidersButtonIsVisible) {
 			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		}
-		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click({ force: true });
+		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
 	}
 
-	async verifyAddModelLinkVisible() {
-		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toBeVisible();
-		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toHaveText('Add a Language Model.');
-	}
-
-	async verifyAddModelButtonVisible() {
+	async verifyConfigureProvidersButtonVisible() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Configure Model Providers...');
+		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
 	}
 
 	async verifyInlineChatInputsVisible() {
@@ -335,8 +334,8 @@ export class Assistant {
 		}
 
 		await test.step(`Sign in to ${provider} model provider`, async () => {
-			// Open the model configuration dialog
-			await this.clickAddModelButton();
+			// Open the model configuration dialog via command (more reliable than clicking UI)
+			await this.quickaccess.runCommand('positron-assistant.configureProviders');
 
 			// Select the provider
 			await this.selectModelProvider(provider);
@@ -419,7 +418,7 @@ export class Assistant {
 		}
 
 		await test.step(`Sign out from ${provider} model provider`, async () => {
-			await this.quickaccess.runCommand('positron-assistant.configureModels');
+			await this.runConfigureProviders();
 			await this.selectModelProvider(provider);
 			await this.clickSignOutButton();
 			await this.verifySignInButtonVisible(timeout);
@@ -645,6 +644,19 @@ export class Assistant {
 
 		// Close the page explicitly to signal completion to Positron
 		await page.close();
+	}
+
+	/**
+	 * Gets the provider display names in their display order from the Configure Providers modal.
+	 * The modal must already be open before calling this method.
+	 * @returns Array of provider display names in display order (e.g., "Posit AI", "Anthropic")
+	 */
+	async getProviderButtonNames(): Promise<string[]> {
+		const providerButtons = this.code.driver.page.locator('div[id$="-provider-button"]');
+		await providerButtons.first().waitFor({ state: 'visible' });
+
+		const texts = await providerButtons.allTextContents();
+		return texts.map(t => t.trim()).filter(Boolean);
 	}
 
 	async enterChatMessage(message: string, waitForResponse: boolean = true) {
@@ -922,10 +934,14 @@ export class Assistant {
 	}
 
 	/**
-	 * Closes the model picker dropdown by pressing Escape.
+	 * Closes the model picker dropdown by pressing Escape if it is open.
 	 */
 	async closeModelPickerDropdown() {
-		await this.code.driver.page.keyboard.press('Escape');
+		const dropdownItem = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first();
+		if (await dropdownItem.isVisible()) {
+			await this.code.driver.page.keyboard.press('Escape');
+			await expect(dropdownItem).not.toBeVisible();
+		}
 	}
 
 	async getChatResponseText(exportFolder?: string) {
@@ -1025,6 +1041,58 @@ export class Assistant {
 		} catch (error) {
 			throw new Error(`Failed to parse chat export file ${filePath}: ${error}`);
 		}
+	}
+
+	/**
+	 * Parses the available tools from a chat export JSON file
+	 * @param filePath Path to the chat export JSON file
+	 * @returns Array of available tool names from the most recent request
+	 */
+	async parseAvailableToolsFromFile(filePath: string): Promise<string[]> {
+		const fs = require('fs').promises;
+
+		try {
+			const fileContent = await fs.readFile(filePath, 'utf-8');
+			const chatData = JSON.parse(fileContent);
+
+			// Get the available tools from the most recent request
+			if (chatData.requests && Array.isArray(chatData.requests) && chatData.requests.length > 0) {
+				const lastRequest = chatData.requests[chatData.requests.length - 1];
+				if (lastRequest.result?.metadata?.availableTools) {
+					return lastRequest.result.metadata.availableTools;
+				}
+			}
+
+			return [];
+		} catch (error) {
+			throw new Error(`Failed to parse available tools from chat export file ${filePath}: ${error}`);
+		}
+	}
+
+	/**
+	 * Gets the available tools from the most recent chat response.
+	 * Exports the chat to a file and parses the availableTools array from the metadata.
+	 * @param exportFolder Optional folder path to export the chat to
+	 * @returns Array of available tool names
+	 */
+	async getAvailableTools(exportFolder?: string): Promise<string[]> {
+		// Export the chat to a file first
+		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
+		await this.toasts.waitForAppear('Chat log exported to:');
+		await this.toasts.closeAll();
+
+		// Find and parse the chat export file
+		const chatExportFile = await this.findChatExportFile(exportFolder);
+		if (!chatExportFile) {
+			throw new Error('No chat export file found');
+		}
+
+		const availableTools = await this.parseAvailableToolsFromFile(chatExportFile);
+
+		// Rename the file to prevent it from being found again
+		await this.renameChatExportFile(chatExportFile);
+
+		return availableTools;
 	}
 
 	/**
