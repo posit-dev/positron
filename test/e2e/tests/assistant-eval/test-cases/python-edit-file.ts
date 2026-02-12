@@ -64,11 +64,11 @@ export const pythonEditFile: EvalTestCase = {
 	},
 
 	evaluationCriteria: {
-		essential: [
+		required: [
 			'The `positron_editFile_internal` tool must appear in the "Tools Called:" section',
 			'Code uses a valid Python date approach (datetime module or similar)',
 		],
-		additional: [
+		optional: [
 			'Code is structured as a reusable method/function',
 			'Method returns the date (not just prints it)',
 			'Code includes appropriate imports (e.g., from datetime import date)',

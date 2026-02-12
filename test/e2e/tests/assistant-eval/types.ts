@@ -22,11 +22,11 @@ export interface TestFixtures {
  * Evaluation criteria for grading LLM responses.
  */
 export interface EvaluationCriteria {
-	/** Essential criteria - ALL must be met for Complete grade */
-	essential: string[];
+	/** Required criteria - ALL must be met for Complete grade */
+	required: string[];
 
-	/** Additional criteria - meeting these improves the grade */
-	additional?: string[];
+	/** Optional criteria - meeting these improves the grade */
+	optional?: string[];
 
 	/** Automatic fail conditions - ANY of these results in Incomplete */
 	failIf?: string[];

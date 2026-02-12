@@ -161,8 +161,8 @@ interface CatalogTestCase {
 	mode: 'Ask' | 'Edit' | 'Agent';
 	tags?: { toString(): string }[];
 	evaluationCriteria: {
-		essential: string[];
-		additional?: string[];
+		required: string[];
+		optional?: string[];
 		failIf?: string[];
 	};
 }
@@ -224,16 +224,16 @@ function generateCatalogMarkdown(testCases: CatalogTestCase[], outputPath: strin
 		// Required
 		lines.push('#### Required');
 		lines.push('');
-		for (const c of tc.evaluationCriteria.essential) {
+		for (const c of tc.evaluationCriteria.required) {
 			lines.push(`- ${c}`);
 		}
 		lines.push('');
 
 		// Nice to have
-		if (tc.evaluationCriteria.additional?.length) {
+		if (tc.evaluationCriteria.optional?.length) {
 			lines.push('#### Nice to have');
 			lines.push('');
-			for (const c of tc.evaluationCriteria.additional) {
+			for (const c of tc.evaluationCriteria.optional) {
 				lines.push(`- ${c}`);
 			}
 			lines.push('');

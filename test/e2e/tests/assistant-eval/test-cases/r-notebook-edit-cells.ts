@@ -25,16 +25,13 @@ export const rNotebookEditCells: EvalTestCase = {
 	description: 'Ensure editNotebookCells is used when editing notebook cells',
 	prompt,
 	mode,
-	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
+	tags: [TestTags.POSITRON_NOTEBOOKS],
 
-	run: async ({ app, sessions, hotKeys, cleanup, settings }) => {
-		const { assistant, notebooksPositron, console } = app.workbench;
+	run: async ({ app, hotKeys, cleanup, settings }) => {
+		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
 		await notebooksPositron.enablePositronNotebooks(settings);
-
-		// Start R session
-		const [rSession] = await sessions.start(['r']);
 
 		// Create a new notebook and select R kernel
 		await notebooksPositron.newNotebook();
@@ -71,19 +68,17 @@ export const rNotebookEditCells: EvalTestCase = {
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
-		await console.focus();
-		await sessions.restart(rSession.id);
 		await cleanup.discardAllChanges();
 
 		return response;
 	},
 
 	evaluationCriteria: {
-		essential: [
+		required: [
 			'The `editNotebookCells` tool must appear in the "Tools Called:" section',
 			'The `editFile` or `positron_editFile_internal` tool must NOT appear (wrong tool for notebooks)',
 		],
-		additional: [
+		optional: [
 			'Correctly identifies the R error (object "undefined_variable" not found)',
 			'Provides a reasonable fix (define the variable, use a different value, or remove the reference)',
 			'Fix is applied to the correct cell (cell index 1, which is the second cell)',

@@ -222,16 +222,16 @@ function escapeHtml(text: string): string {
 
 /**
  * Criterion type from LLM grader output
- * E = Essential (required), A = Additional (optional), F = Fail-if (auto-fail)
+ * R = Required, O = Optional, F = Fail-if (auto-fail)
  */
-type CriterionType = 'E' | 'A' | 'F' | 'unknown';
+type CriterionType = 'R' | 'O' | 'F' | 'unknown';
 
 /**
  * Type labels for display
  */
 const TYPE_LABELS: Record<CriterionType, string> = {
-	'E': 'Required',
-	'A': 'Optional',
+	'R': 'Required',
+	'O': 'Optional',
 	'F': 'Fail if',
 	'unknown': '—',
 };
@@ -275,9 +275,9 @@ function parseEvaluation(explanation: string): { criteria: Array<{ text: string;
 			!hasManyDashes &&
 			(checkmark === '✓' || checkmark === '✗')) {
 
-			// Try to extract type prefix (E, A, F at the start)
+			// Try to extract type prefix (R, O, F at the start)
 			let type: CriterionType = 'unknown';
-			const typeMatch = criterionText.match(/^([EAF])\s+/);
+			const typeMatch = criterionText.match(/^([ROF])\s+/);
 			if (typeMatch) {
 				type = typeMatch[1] as CriterionType;
 				criterionText = criterionText.substring(typeMatch[0].length).trim();
@@ -307,8 +307,8 @@ function parseEvaluation(explanation: string): { criteria: Array<{ text: string;
  */
 function getTypeColor(type: CriterionType): { bg: string; text: string } {
 	switch (type) {
-		case 'E': return { bg: '#dbeafe', text: '#1e40af' };  // Blue for required
-		case 'A': return { bg: '#f3f4f6', text: '#6b7280' };  // Gray for optional
+		case 'R': return { bg: '#dbeafe', text: '#1e40af' };  // Blue for required
+		case 'O': return { bg: '#f3f4f6', text: '#6b7280' };  // Gray for optional
 		case 'F': return { bg: '#fef2f2', text: '#dc2626' };  // Red for fail-if
 		default: return { bg: '#f3f4f6', text: '#6b7280' };
 	}

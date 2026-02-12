@@ -24,16 +24,13 @@ export const rNotebookCreate: EvalTestCase = {
 	description: 'Ensure createNotebook tool is used to create new notebooks',
 	prompt,
 	mode,
-	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
+	tags: [TestTags.POSITRON_NOTEBOOKS],
 
-	run: async ({ app, sessions, hotKeys, cleanup, settings }) => {
-		const { assistant, notebooksPositron, console } = app.workbench;
+	run: async ({ app, hotKeys, cleanup, settings }) => {
+		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
 		await notebooksPositron.enablePositronNotebooks(settings);
-
-		// Start R session (needed for the R kernel to be available)
-		const [rSession] = await sessions.start(['r']);
 
 		// Close all editors to start fresh
 		await hotKeys.closeAllEditors();
@@ -43,27 +40,24 @@ export const rNotebookCreate: EvalTestCase = {
 		await assistant.selectChatMode(mode);
 		await assistant.enterChatMessage(prompt, false);
 
-		// Handle allow button
+		// Handle allow and get response
 		await assistant.clickAllowButton();
 		await assistant.waitForResponseComplete();
-
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
-		await console.focus();
-		await sessions.restart(rSession.id);
 		await cleanup.discardAllChanges();
 
 		return response;
 	},
 
 	evaluationCriteria: {
-		essential: [
+		required: [
 			'The `createNotebook` tool must appear in the "Tools Called:" section',
 			'Creates an R notebook (not Python)',
 		],
-		additional: [
+		optional: [
 			'Confirms the notebook was created',
 			'Offers to help add content or explains next steps',
 			'Does not create a Python notebook when R was requested',

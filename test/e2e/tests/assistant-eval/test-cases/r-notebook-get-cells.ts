@@ -27,14 +27,11 @@ export const rNotebookGetCells: EvalTestCase = {
 	mode,
 	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
 
-	run: async ({ app, sessions, hotKeys, cleanup, settings }) => {
-		const { assistant, notebooksPositron, console } = app.workbench;
+	run: async ({ app, hotKeys, cleanup, settings }) => {
+		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
 		await notebooksPositron.enablePositronNotebooks(settings);
-
-		// Start R session
-		const [rSession] = await sessions.start(['r']);
 
 		// Create a new notebook and select R kernel
 		await notebooksPositron.newNotebook();
@@ -57,27 +54,24 @@ export const rNotebookGetCells: EvalTestCase = {
 		await assistant.selectChatMode(mode);
 		await assistant.enterChatMessage(prompt, false);
 
-		// Handle allow button
+		// Allow tools and get response
 		await assistant.clickAllowButton();
-		await assistant.waitForResponseComplete();
-
+		await assistant.expectResponseComplete();
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
-		await console.focus();
-		await sessions.restart(rSession.id);
 		await cleanup.discardAllChanges();
 
 		return response;
 	},
 
 	evaluationCriteria: {
-		essential: [
+		required: [
 			'The `getNotebookCells` tool must appear in the "Tools Called:" section (required because large notebooks use sliding window)',
 			'Reports the correct value from cell 20 (which is 200, since it calculates x * 10 where x = 20)',
 		],
-		additional: [
+		optional: [
 			'Explains what the code does or references the calculation',
 			'Does not hallucinate values from cells that don\'t exist',
 			'Correctly identifies cell 20 (0-indexed: cell index 19)',

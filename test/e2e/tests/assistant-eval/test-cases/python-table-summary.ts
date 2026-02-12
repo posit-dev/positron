@@ -52,10 +52,10 @@ export const pythonTableSummary: EvalTestCase = {
 	},
 
 	evaluationCriteria: {
-		essential: [
+		required: [
 			'The `getTableSummary` tool must appear in the `Tools Called:` section',
 		],
-		additional: [
+		optional: [
 			'Summary includes column names from the dataframe',
 			'Summary includes data types',
 			'Summary includes basic statistics (row count, null counts, or descriptive stats)',

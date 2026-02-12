@@ -27,14 +27,11 @@ export const rNotebookRunCells: EvalTestCase = {
 	mode,
 	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
 
-	run: async ({ app, sessions, hotKeys, cleanup, settings }) => {
-		const { assistant, notebooksPositron, console } = app.workbench;
+	run: async ({ app, hotKeys, cleanup, settings }) => {
+		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
 		await notebooksPositron.enablePositronNotebooks(settings);
-
-		// Start R session
-		const [rSession] = await sessions.start(['r']);
 
 		// Create a new notebook and select R kernel
 		await notebooksPositron.newNotebook();
@@ -58,27 +55,24 @@ export const rNotebookRunCells: EvalTestCase = {
 		await assistant.selectChatMode(mode);
 		await assistant.enterChatMessage(prompt, false);
 
-		// Handle allow button
+		// Allow tools and get response
 		await assistant.clickAllowButton();
 		await assistant.waitForResponseComplete();
-
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
-		await console.focus();
-		await sessions.restart(rSession.id);
 		await cleanup.discardAllChanges();
 
 		return response;
 	},
 
 	evaluationCriteria: {
-		essential: [
+		required: [
 			'The `runNotebookCells` tool must appear in the "Tools Called:" section',
 			'Reports the correct output value (15, since x=10 and the code is result <- x + 5)',
 		],
-		additional: [
+		optional: [
 			'Explains what the code does (adds x + 5 where x is 10)',
 			'Confirms the cell was executed successfully',
 			'Does not use editNotebookCells when only asked to run (should use runNotebookCells)',

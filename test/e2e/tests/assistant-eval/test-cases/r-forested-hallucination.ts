@@ -42,11 +42,11 @@ export const rForestedHallucination: EvalTestCase = {
 	},
 
 	evaluationCriteria: {
-		essential: [
+		required: [
 			'Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification',
 			'Takes at least ONE verification approach: (a) `getHelpPage` appears in `Tools Called` section, (b) generates exploratory code (data(), head(), str(), names(), glimpse()), or (c) provides code with explicit caveats about uncertainty',
 		],
-		additional: [
+		optional: [
 			'Loads the forested package with library(forested)',
 			'Visualization code is appropriate for the actual data structure (if known) or uses generic approaches',
 			'Explanations clearly distinguish between known facts and assumptions',
