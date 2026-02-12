@@ -372,8 +372,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
-			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Thenable<void> {
-				return extHostAiFeatures.showLanguageModelConfig(sources, onAction);
+			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
+				return extHostAiFeatures.showLanguageModelConfig(sources, onAction, options);
 			},
 			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
 				return extHostAiFeatures.registerChatAgent(extension, agentData);
@@ -385,11 +385,11 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getPositronChatContext(request: vscode.ChatRequest): Thenable<positron.ai.ChatContext> {
 				return extHostAiFeatures.getPositronChatContext(request);
 			},
-			getSupportedProviders(): Thenable<string[]> {
-				return extHostAiFeatures.getSupportedProviders();
-			},
 			getChatExport(): Thenable<object | undefined> {
 				return extHostAiFeatures.getChatExport();
+			},
+			registerProviderMetadata(metadata: { id: string; displayName: string; settingName: string }): void {
+				return extHostAiFeatures.registerProviderMetadata(metadata);
 			},
 			addLanguageModelConfig(source: IPositronLanguageModelSource): void {
 				return extHostAiFeatures.addLanguageModelConfig(source);
@@ -411,6 +411,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			setCurrentProvider(id: string): Promise<positron.ai.ChatProvider | undefined> {
 				return extHostAiFeatures.setCurrentProvider(id);
+			},
+			getEnabledProviders(): Thenable<string[]> {
+				return extHostAiFeatures.getEnabledProviders();
 			},
 			LanguageModelAutoconfigureType: extHostTypes.LanguageModelAutoconfigureType
 		};
