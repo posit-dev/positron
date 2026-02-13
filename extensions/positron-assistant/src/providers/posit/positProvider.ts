@@ -594,6 +594,7 @@ export class PositAuthProvider implements vscode.AuthenticationProvider {
 				scopes: scopes ?? [],
 			}];
 		} catch {
+			log.trace('[PositAuthProvider] No valid session found.');
 			return [];
 		}
 	}
