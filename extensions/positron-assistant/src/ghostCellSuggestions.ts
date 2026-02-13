@@ -182,7 +182,17 @@ export async function generateGhostCellSuggestion(
 }
 
 /**
- * Build the context message for the LLM based on the executed cell
+ * Build the context message for the LLM based on the executed cell.
+ *
+ * Data sent to the model provider:
+ * - Full source code of the just-executed cell
+ * - Cell text outputs (truncated to 1000 chars per output item)
+ * - Source code of up to 3 previous cells (truncated to 200 chars each)
+ * - Session variable names and types (no values) -- max 20 by default
+ * - Notebook metadata: language, cell position, execution status
+ *
+ * NOT sent: variable values, notebook file path, user identity, or
+ * non-text outputs (images, rich HTML).
  */
 function buildContextMessage(
 	cellContent: string,
@@ -435,6 +445,13 @@ async function fetchVariablesFromSession(
 }
 
 /**
+ * Escape special regex characters in a string for safe use in a RegExp constructor.
+ */
+function escapeRegExp(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Result of model selection
  */
 interface ModelSelectionResult {
@@ -473,13 +490,14 @@ async function getModel(
 				log.debug(`[ghost-cell] Using configured model (exact match): ${exactMatch.name}`);
 				return { model: exactMatch, usedFallback: false };
 			}
-			// Try partial match
-			const partialMatch = allModels.find(m =>
-				m.id.toLowerCase().includes(patternLower) || m.name.toLowerCase().includes(patternLower)
+			// Try word-boundary match (e.g., "mini" matches "gpt-4o-mini" but not "gemini")
+			const boundaryPattern = new RegExp(`(^|[\\s\\-_./])${escapeRegExp(patternLower)}($|[\\s\\-_./])`, 'i');
+			const boundaryMatch = allModels.find(m =>
+				boundaryPattern.test(m.id) || boundaryPattern.test(m.name)
 			);
-			if (partialMatch) {
-				log.debug(`[ghost-cell] Using configured model (partial match): ${partialMatch.name}`);
-				return { model: partialMatch, usedFallback: false };
+			if (boundaryMatch) {
+				log.debug(`[ghost-cell] Using configured model (boundary match): ${boundaryMatch.name}`);
+				return { model: boundaryMatch, usedFallback: false };
 			}
 		}
 		// User configured a model but none matched - we'll fall back but mark it
