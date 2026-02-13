@@ -39,9 +39,8 @@ export function handleNativeSdkRateLimitError(error: unknown, providerName: stri
  *
  * @param error - The error to check
  * @param providerName - The name of the provider for the error message prefix
- * @returns true if the error was handled (and thrown), false otherwise
  */
-export function handleVercelSdkRateLimitError(error: unknown, providerName: string): boolean {
+export function handleVercelSdkRateLimitError(error: unknown, providerName: string): void {
 	// Check for RetryError first - the Vercel SDK wraps retried errors in this type
 	// when maxRetries is exceeded
 	let apiError: unknown = error;
@@ -57,7 +56,6 @@ export function handleVercelSdkRateLimitError(error: unknown, providerName: stri
 		}
 		throw new Error(`[${providerName}] Rate limit exceeded. Please try again later.`);
 	}
-	return false;
 }
 
 export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
