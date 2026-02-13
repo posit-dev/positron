@@ -103,10 +103,11 @@ lockFiles.forEach(f => console.error('  → ' + f));
 // generated. Changes to these should invalidate the cache even if package-lock
 // files haven't changed.
 //
-// NOTE: If you add a new script that runs during postinstall, add it here!
+// NOTE: If you add a new script that runs during install, add it here!
 const buildScripts = [
-  'build/npm/postinstall.ts',  // Main postinstall script
-  'build/npm/dirs.ts',         // Controls which directories get npm install
+  'build/npm/preinstall.ts',   // Preinstall script - installs build/ dependencies
+  'build/npm/postinstall.ts',  // Postinstall script - runs npm install in all dirs
+  'build/npm/dirs.ts',         // List of directories that get npm install
 ].sort();
 
 console.error('');
