@@ -263,6 +263,8 @@ export interface ICachedCellOutput {
 	readonly contentHash: string;
 	/** Cell label if present */
 	readonly label?: string;
+	/** Source code of the cell */
+	readonly source?: string;
 	/** Stored outputs */
 	readonly outputs: ICellOutput[];
 }
@@ -313,7 +315,7 @@ export interface IQuartoOutputCacheService {
 	/**
 	 * Save output for a cell. Marks the document as dirty for debounced write.
 	 */
-	saveOutput(documentUri: URI, cellId: string, contentHash: string, label: string | undefined, output: ICellOutput): void;
+	saveOutput(documentUri: URI, cellId: string, contentHash: string, label: string | undefined, output: ICellOutput, source?: string): void;
 
 	/**
 	 * Clear outputs for a cell in the cache.

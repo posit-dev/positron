@@ -8,6 +8,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
+import { Range } from '../../../../editor/common/core/range.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -521,9 +522,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 
 			if (cell) {
+				// Get source code for cache storage
+				const codeRange = new Range(
+					cell.codeStartLine, 1,
+					cell.codeEndLine, model.getLineMaxColumn(cell.codeEndLine)
+				);
+				const source = model.getValueInRange(codeRange);
+
 				// Save outputs to cache under the new file URI
 				for (const output of outputs) {
-					this._cacheService.saveOutput(toUri, cell.id, cell.contentHash, cell.label, output);
+					this._cacheService.saveOutput(toUri, cell.id, cell.contentHash, cell.label, output, source);
 				}
 
 				// Also restore the in-memory output state so view zones can be created
@@ -685,12 +693,20 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					// Track content hash so we can find this cell if it moves
 					this._contentHashByCellId.set(cellId, cell.contentHash);
 
+					// Get source code for cache storage
+					const codeRange = new Range(
+						cell.codeStartLine, 1,
+						cell.codeEndLine, model.getLineMaxColumn(cell.codeEndLine)
+					);
+					const source = model.getValueInRange(codeRange);
+
 					this._cacheService.saveOutput(
 						this._documentUri,
 						cellId,
 						cell.contentHash,
 						cell.label,
-						output
+						output,
+						source
 					);
 				}
 			}

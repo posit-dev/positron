@@ -101,6 +101,7 @@ interface CellCacheEntry {
 	cellId: string;
 	contentHash: string;
 	label?: string;
+	source?: string;
 	outputs: ICellOutput[];
 }
 
@@ -276,6 +277,7 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 					cellId: cell.cellId,
 					contentHash: cell.contentHash,
 					label: cell.label,
+					source: cell.source,
 					outputs: [...cell.outputs],
 				});
 			}
@@ -297,7 +299,7 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 		}
 	}
 
-	saveOutput(documentUri: URI, cellId: string, contentHash: string, label: string | undefined, output: ICellOutput): void {
+	saveOutput(documentUri: URI, cellId: string, contentHash: string, label: string | undefined, output: ICellOutput, source?: string): void {
 		const key = documentUri.toString();
 
 		// Get or create document cache entry
@@ -331,9 +333,15 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 				cellId,
 				contentHash,
 				label,
+				source,
 				outputs: [],
 			};
 			entry.cells.set(cellId, cellEntry);
+		}
+
+		// Update source if provided (may arrive with later outputs for the same cell)
+		if (source !== undefined) {
+			cellEntry.source = source;
 		}
 
 		// Add output
@@ -611,6 +619,7 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 								cellId: cell.cellId,
 								contentHash: cell.contentHash,
 								label: cell.label,
+								source: cell.source,
 								outputs: [...cell.outputs],
 							});
 						}
@@ -714,7 +723,9 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 					quarto_content_hash: cellEntry.contentHash,
 					quarto_label: cellEntry.label,
 				},
-				source: [], // We don't store source in cache
+				source: cellEntry.source
+					? cellEntry.source.split('\n').map((line, i, arr) => i < arr.length - 1 ? line + '\n' : line)
+					: [],
 				outputs,
 			});
 		}
@@ -742,6 +753,7 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 				cellId: cellEntry.cellId,
 				contentHash: cellEntry.contentHash,
 				label: cellEntry.label,
+				source: cellEntry.source,
 				outputs: [...cellEntry.outputs],
 			});
 		}
@@ -766,10 +778,15 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 
 			const outputs = cell.outputs.map(o => this._ipynbToOutput(o));
 
+			const source = Array.isArray(cell.source) && cell.source.length > 0
+				? cell.source.join('')
+				: undefined;
+
 			cells.push({
 				cellId: cell.metadata?.quarto_cell_id ?? '',
 				contentHash: cell.metadata?.quarto_content_hash ?? '',
 				label: cell.metadata?.quarto_label,
+				source,
 				outputs,
 			});
 		}
