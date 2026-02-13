@@ -198,7 +198,7 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
 			echo ""
 			echo "npm install created **$UNCACHED_COUNT files** outside node_modules/ that aren't cached."
 			echo ""
-			echo "See the \"Check for uncached postinstall artifacts\" step for details and next steps."
+			echo "**Where to look:** In the \`${GITHUB_JOB:-unit}\` job, expand the \"🔍 Check for uncached postinstall artifacts\" step for details and next steps."
 		} >> "$GITHUB_STEP_SUMMARY"
 	fi
 
