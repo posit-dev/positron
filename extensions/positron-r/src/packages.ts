@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { format } from 'util';
 import { randomUUID } from 'crypto';
 import { RSession } from './session';
 import { EXTENSION_ROOT_DIR } from './constants';
@@ -109,7 +110,7 @@ export class RPackageManager {
 		}
 
 		const script = readScript(scriptName);
-		const code = script.replace('%s', pkgVector);
+		const code = format(script, pkgVector);
 		await this._executeAndWait(code);
 	}
 
@@ -139,7 +140,7 @@ export class RPackageManager {
 		}
 
 		const script = readScript(scriptName);
-		const code = script.replace('%s', pkgVector);
+		const code = format(script, pkgVector);
 		await this._executeAndWait(code);
 	}
 
@@ -168,7 +169,7 @@ export class RPackageManager {
 		const pkgVector = formatPackageVector(packages);
 
 		const script = readScript(scriptName);
-		const code = script.replace('%s', pkgVector);
+		const code = format(script, pkgVector);
 		await this._executeAndWait(code);
 	}
 
@@ -182,7 +183,7 @@ export class RPackageManager {
 		const sanitizedQuery = query.replace(/["\\]/g, '');
 		const scriptName = hasPak ? 'search-packages-pak.R' : 'search-packages-base.R';
 		const script = readScript(scriptName);
-		const code = script.replace('%s', formatString(sanitizedQuery));
+		const code = format(script, formatString(sanitizedQuery));
 
 		const result = await this._executeAndCapture(code);
 		if (!result || result.trim() === '') {
@@ -202,7 +203,7 @@ export class RPackageManager {
 
 		// Use R's configured repos (respects user settings and pak configuration)
 		const script = readScript('search-package-versions.R');
-		const code = script.replace('%s', formatString(name));
+		const code = format(script, formatString(name));
 
 		try {
 			const result = await this._executeAndCapture(code);
