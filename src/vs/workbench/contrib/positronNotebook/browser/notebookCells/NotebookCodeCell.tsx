@@ -52,8 +52,6 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 		if (outputs.length === 0) {
 			return;
 		}
-
-		event.preventDefault();
 		showCellOutputContextMenu({ x: event.clientX, y: event.clientY });
 	};
 

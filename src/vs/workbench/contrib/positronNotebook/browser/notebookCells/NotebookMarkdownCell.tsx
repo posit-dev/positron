@@ -27,7 +27,6 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 	const { showCellContextMenu } = useMarkdownCellContextMenu(cell);
 
 	const handleContextMenu = (event: React.MouseEvent) => {
-		event.preventDefault();
 		showCellContextMenu({ x: event.clientX, y: event.clientY });
 	};
 
