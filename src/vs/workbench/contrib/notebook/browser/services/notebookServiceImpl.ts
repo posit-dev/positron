@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 // --- Start Positron ---
+/* eslint-disable no-duplicate-imports */
 import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../positronNotebook/common/positronNotebookConfig.js';
 import { IPYNB_VIEW_TYPE } from '../notebookBrowser.js';
-import { QMD_VIEW_TYPE } from '../../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 // --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
@@ -194,7 +194,7 @@ export class NotebookProviderInfoStore extends Disposable {
 			const notebookCellEditorInfo: RegisteredEditorInfo = { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive };
 
 			// For notebooks supported by the Positron notebook editor, update the notebook/cell editor priorities based on whether Positron notebooks are enabled
-			if (notebookProviderInfo.id === IPYNB_VIEW_TYPE || notebookProviderInfo.id === QMD_VIEW_TYPE) {
+			if (notebookProviderInfo.id === IPYNB_VIEW_TYPE) {
 				const updatePriorities = () => {
 					const usingPositron = usingPositronNotebooks(this._configurationService);
 					notebookEditorInfo.priority = usingPositron

@@ -90,11 +90,10 @@ function inferViewTypeFromExtension(resource: URI): string {
  * Configuration for registering a notebook editor with the editor resolver service.
  */
 interface NotebookEditorRegistration {
+	detail: string;
 	extension: string;
 	globPattern: string;
 	viewType: string;
-	editorInfo: RegisteredEditorInfo;
-	cellEditorInfo: RegisteredEditorInfo;
 }
 
 /**
@@ -116,70 +115,65 @@ class PositronNotebookContribution extends Disposable {
 	}
 
 	private registerEditor(): void {
-		const ipynbEditorInfo: RegisteredEditorInfo = {
-			id: POSITRON_NOTEBOOK_EDITOR_ID,
-			label: localize('positronNotebook', "Positron Notebook"),
-			detail: localize('positronNotebook.detail', "Native .ipynb Support (Alpha)"),
-			priority: this.getPriority(),
-		};
-		const ipynbCellEditorInfo: RegisteredEditorInfo = {
-			...ipynbEditorInfo,
-			priority: this.getCellPriority(),
-		};
-
-		const quartoEditorInfo: RegisteredEditorInfo = {
-			id: POSITRON_NOTEBOOK_EDITOR_ID,
-			label: localize('positronQuartoNotebook', "Positron Quarto Notebook"),
-			detail: localize('positronQuartoNotebook.detail', "Quarto Notebook Editor"),
-			priority: this.getPriority(),
-		};
-		const quartoCellEditorInfo: RegisteredEditorInfo = {
-			...quartoEditorInfo,
-			priority: this.getCellPriority(),
-		};
-
 		this.registerNotebookEditor({
+			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support (Alpha)'),
 			extension: '.ipynb',
 			globPattern: '*.ipynb',
 			viewType: IPYNB_VIEW_TYPE,
-			editorInfo: ipynbEditorInfo,
-			cellEditorInfo: ipynbCellEditorInfo,
 		});
 
 		this.registerNotebookEditor({
+			detail: localize('positronNotebook.qmd.detail', 'Experimental .qmd Support (Alpha)'),
 			extension: '.qmd',
 			globPattern: '*.qmd',
 			viewType: QMD_VIEW_TYPE,
-			editorInfo: quartoEditorInfo,
-			cellEditorInfo: quartoCellEditorInfo,
 		});
 	}
 
-	private getPriority(): RegisteredEditorPriority {
+	private getPriority(viewType: string): RegisteredEditorPriority {
+		// Always use `option` priority while .qmd support is experimental
+		if (viewType === QMD_VIEW_TYPE) {
+			return RegisteredEditorPriority.option;
+		}
 		return usingPositronNotebooks(this.configurationService)
 			? RegisteredEditorPriority.default
 			: RegisteredEditorPriority.option;
 	}
 
-	private getCellPriority(): RegisteredEditorPriority {
+	private getCellPriority(viewType: string): RegisteredEditorPriority {
+		// Always use `option` priority while .qmd support is experimental
+		if (viewType === QMD_VIEW_TYPE) {
+			return RegisteredEditorPriority.option;
+		}
 		return usingPositronNotebooks(this.configurationService)
 			? RegisteredEditorPriority.exclusive
 			: RegisteredEditorPriority.option;
 	}
 
 	private registerNotebookEditor(info: NotebookEditorRegistration): void {
+		const editorInfo: RegisteredEditorInfo = {
+			id: POSITRON_NOTEBOOK_EDITOR_ID,
+			label: localize('positronNotebook', "Positron Notebook"),
+			detail: info.detail,
+			priority: this.getPriority(info.viewType),
+		};
+		const cellEditorInfo: RegisteredEditorInfo = {
+			...editorInfo,
+			priority: this.getCellPriority(info.viewType),
+		};
+
 		// Listen for configuration changes to update priorities dynamically
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
-				info.editorInfo.priority = this.getPriority();
-				info.cellEditorInfo.priority = this.getCellPriority();
+				editorInfo.priority = this.getPriority(info.viewType);
+				cellEditorInfo.priority = this.getCellPriority(info.viewType);
 			}
 		}));
 
 		// Register file editor
 		this._register(this.editorResolverService.registerEditor(
 			info.globPattern,
-			info.editorInfo,
+			editorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
@@ -257,7 +251,7 @@ class PositronNotebookContribution extends Disposable {
 			// The editor resolver service expects a single handler with 'exclusive' priority.
 			// This one is only registered if Positron notebooks are enabled.
 			// This does not seem to be an issue for file schemes (registered above).
-			info.cellEditorInfo,
+			cellEditorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
