@@ -21,6 +21,14 @@ export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
 
 const POSIT_AUTH_PROVIDER_ID = 'posit-ai';
 
+interface PositModelsResponse {
+	chat: {
+		display_name: string;
+		id: string;
+		max_context_length?: number;
+	}[];
+}
+
 /**
  * Posit AI model provider implementation using native Anthropic SDK with OAuth authentication.
  *
@@ -535,7 +543,12 @@ export class PositModelProvider extends VercelModelProvider {
 				throw new Error(`API returned ${response.status}`);
 			}
 
-			const data = await response.json() as { chat: Array<{ display_name: string; id: string; max_context_length?: number }> };
+			const data: unknown = await response.json();
+			if (!isPositModelsResponse(data)) {
+				log.warn(`[${this.providerName}] Unexpected /models response format: ${JSON.stringify(data)}`);
+				return undefined;
+			}
+
 			data.chat.forEach(model => {
 				const knownModel = knownPositModels?.find(m => model.id.startsWith(m.identifier));
 
@@ -561,6 +574,18 @@ export class PositModelProvider extends VercelModelProvider {
 			return undefined;
 		}
 	}
+}
+
+function isPositModelsResponse(data: unknown): data is PositModelsResponse {
+	return (
+		typeof data === 'object' && data !== null &&
+		'chat' in data && Array.isArray(data.chat) &&
+		data.chat.every(
+			(m) => typeof m === 'object' && m !== null &&
+				typeof m.display_name === 'string' &&
+				typeof m.id === 'string'
+		)
+	);
 }
 
 /**
