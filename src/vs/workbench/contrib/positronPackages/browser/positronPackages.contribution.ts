@@ -15,7 +15,6 @@ import { PositronPackagesView } from './positronPackagesView.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -71,12 +70,14 @@ export const PACKAGES_UPDATE_ALL_COMMAND_ID = 'positronPackages.updateAllPackage
 export const PACKAGES_UNINSTALL_COMMAND_ID = 'positronPackages.uninstallPackage';
 export const PACKAGES_REFRESH_COMMAND_ID = 'positronPackages.refreshPackages';
 
+const PACKAGES_CATEGORY = nls.localize2('packages', 'Packages');
+
 class RefreshPackagesAction extends Action2 {
 	constructor() {
 		super({
 			id: PACKAGES_REFRESH_COMMAND_ID,
 			title: nls.localize2('refreshPackages', 'Refresh Packages'),
-			category: Categories.Developer,
+			category: PACKAGES_CATEGORY,
 			f1: true,
 			menu: {
 				id: MenuId.MenubarFileMenu,
@@ -103,7 +104,7 @@ class InstallPackageAction extends Action2 {
 		super({
 			id: PACKAGES_INSTALL_COMMAND_ID,
 			title: nls.localize2('installPackage', 'Install Package'),
-			category: Categories.Developer,
+			category: PACKAGES_CATEGORY,
 			f1: true,
 			menu: {
 				id: MenuId.MenubarFileMenu,
@@ -170,7 +171,7 @@ class UninstallPackageAction extends Action2 {
 		super({
 			id: PACKAGES_UNINSTALL_COMMAND_ID,
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
-			category: Categories.Developer,
+			category: PACKAGES_CATEGORY,
 			f1: true,
 			menu: {
 				id: MenuId.MenubarFileMenu,
@@ -246,7 +247,7 @@ class UpdatePackageAction extends Action2 {
 		super({
 			id: PACKAGES_UPDATE_COMMAND_ID,
 			title: nls.localize2('updatePackage', 'Update Package'),
-			category: Categories.Developer,
+			category: PACKAGES_CATEGORY,
 			f1: true,
 			menu: {
 				id: MenuId.ViewItemContext,
@@ -316,7 +317,7 @@ class UpdateAllPackagesAction extends Action2 {
 		super({
 			id: PACKAGES_UPDATE_ALL_COMMAND_ID,
 			title: nls.localize2('updateAllPackages', 'Update All Packages'),
-			category: Categories.Developer,
+			category: PACKAGES_CATEGORY,
 			f1: true,
 			menu: {
 				id: MenuId.ViewItemContext,
