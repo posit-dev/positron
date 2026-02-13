@@ -58,7 +58,7 @@ import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
 import { ScrollType } from '../../../../../editor/common/editorCommon.js';
-import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { INotebookCellExecution, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IContextKeysCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
@@ -312,11 +312,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	 */
 	private static _revealGenerationByInstance = new WeakMap<object, number>();
 
-	async reveal(typeOrOptions?: CellRevealType | ICellRevealOptions): Promise<boolean> {
-		// Handle backward compatibility - if just a CellRevealType is passed, treat as programmatic
-		const options: ICellRevealOptions = typeOrOptions !== null && typeof typeOrOptions === 'object'
-			? typeOrOptions
-			: { reason: 'programmatic' };
+	async reveal(options?: ICellRevealOptions): Promise<boolean> {
+		const resolvedOptions = options ?? { reason: 'programmatic' };
 
 		// Capture per-notebook generation so we can bail if a newer reveal starts while we await
 		const genMap = PositronNotebookCellGeneral._revealGenerationByInstance;
@@ -336,7 +333,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 
 		// Apply scroll behavior based on reason
-		if (options.reason === 'keyboardNavigation') {
+		if (resolvedOptions.reason === 'keyboardNavigation') {
 			// Keyboard navigation: instant scroll ensuring full cell visibility.
 			// We always call scrollIntoView here (skipping isInViewport()) because
 			// the 50% visibility threshold used by isInViewport() would leave
@@ -346,9 +343,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			const containerRect = this._instance.cellsContainer.getBoundingClientRect();
 			const isOversized = cellRect.height > containerRect.height;
 
-			if (isOversized && options.direction) {
+			if (isOversized && resolvedOptions.direction) {
 				// Oversized cell: show top when navigating down, bottom when navigating up
-				const block = options.direction === 'down' ? 'start' : 'end';
+				const block = resolvedOptions.direction === 'down' ? 'start' : 'end';
 				this._container.scrollIntoView({ behavior: 'instant', block });
 			} else {
 				// Normal cell: scroll minimum distance to make fully visible
@@ -394,7 +391,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 
 		// Scroll the cell into view
-		await this.reveal(options.cellRevealType);
+		await this.reveal();
 
 		// Select the cell in edit mode
 		this.select(CellSelectionType.Edit);

@@ -745,36 +745,30 @@ export class SelectionStateMachine extends Disposable {
 						active: nextCell  // nextCell becomes the new active cell
 					});
 				}
-				void nextCell.reveal({ reason: 'keyboardNavigation', direction });
+			} else {
+				// Expanding the selection
+				const newSelection = verifyNonEmptyArray(up ? [nextCell, ...currentSelection] : [...currentSelection, nextCell]);
+				// The newly added cell becomes the active cell
+				this._setState({
+					type: SelectionState.MultiSelection,
+					selected: newSelection,
+					active: nextCell
+				});
+			}
+		} else if (state.type === SelectionState.MultiSelection) {
+			this.selectCell(nextCell, CellSelectionType.Normal);
+		} else {
+			// If the reference cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
+			if (indexOfReferenceCell <= 0 && up || indexOfReferenceCell >= cells.length - 1 && !up) {
+				// Already at the edge of the cells.
 				return;
 			}
 
-			// Otherwise, we're expanding the selection
-			const newSelection = verifyNonEmptyArray(up ? [nextCell, ...currentSelection] : [...currentSelection, nextCell]);
-			// The newly added cell becomes the active cell
-			this._setState({
-				type: SelectionState.MultiSelection,
-				selected: newSelection,
-				active: nextCell
-			});
-			void nextCell.reveal({ reason: 'keyboardNavigation', direction });
-			return;
-		}
-
-		if (state.type === SelectionState.MultiSelection) {
+			// Single selection mode.
 			this.selectCell(nextCell, CellSelectionType.Normal);
-			void nextCell.reveal({ reason: 'keyboardNavigation', direction });
-			return;
 		}
 
-		// If the reference cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
-		if (indexOfReferenceCell <= 0 && up || indexOfReferenceCell >= cells.length - 1 && !up) {
-			// Already at the edge of the cells.
-			return;
-		}
-
-		// If meta is not held down, we're in single selection mode.
-		this.selectCell(nextCell, CellSelectionType.Normal);
+		// Reveal the newly active cell
 		void nextCell.reveal({ reason: 'keyboardNavigation', direction });
 	}
 
