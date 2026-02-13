@@ -214,7 +214,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async (e) => {
 			if (e.affectsConfiguration('positron.assistant.enabledProviders')) {
-				await registerModels(context, storage);
+				await registerModels(context);
 			}
 		})
 	);
@@ -224,7 +224,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// and enables features that depend on those credentials
 	context.subscriptions.push(
 		vscode.authentication.onDidChangeSessions(async () => {
-			await registerModels(context, storage);
+			await registerModels(context);
 		})
 	);
 
