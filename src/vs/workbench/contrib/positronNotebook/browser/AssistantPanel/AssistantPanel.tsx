@@ -443,7 +443,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 
 	// State for ghost cell suggestions setting
 	const [ghostCellSuggestionsOverride, setGhostCellSuggestionsOverride] = useState<GhostCellSuggestionsOverride>(undefined);
-	const globalGhostCellSuggestions = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY) ?? true;
+	const globalGhostCellSuggestions = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY) ?? false;
 
 	// Load settings overrides from notebook metadata when notebook becomes available
 	useEffect(() => {

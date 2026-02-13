@@ -411,11 +411,14 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	 * Updates the user setting to disable suggestions and dismisses the current ghost cell.
 	 */
 	disableGhostCellSuggestions(): void {
-		// Setting enabled to false marks the user's explicit choice
-		// Use undefined to remove when setting matches default (false)
+		// Clear session flag so the check in _isGhostCellEnabled() stops
+		// short-circuiting to true for the remainder of this session.
+		this._enabledThisSession = false;
+
+		// Persist the user's explicit choice to disable suggestions.
 		this._configurationService.updateValue(
 			POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
-			undefined,
+			false,
 			ConfigurationTarget.USER
 		);
 
