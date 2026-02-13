@@ -19,6 +19,16 @@ interface MessageEmitter {
 }
 
 /**
+ * Represents a package to install or update, with an optional version.
+ */
+export interface PackageInstallRequest {
+	/** The package name */
+	name: string;
+	/** Optional version to install (if not specified, installs latest) */
+	version?: string;
+}
+
+/**
  * Pip Package Manager
  *
  * Provides package management functionality for Python sessions using pip.
@@ -45,17 +55,18 @@ export class PipPackageManager {
 
 	/**
 	 * Install one or more packages.
-	 * Supports specifying versions with == syntax (e.g., "package==1.0.0").
+	 * @param packages Array of package install requests with name and optional version
 	 */
-	async installPackages(packages: string[]): Promise<void> {
+	async installPackages(packages: PackageInstallRequest[]): Promise<void> {
 		if (packages.length === 0) {
 			return;
 		}
 
 		await this._ensurePip();
 
+		const packageSpecs = this._formatPackageSpecs(packages);
 		const flags = await this._getInstallFlags();
-		const args = ['-m', 'pip', 'install', ...flags, ...packages];
+		const args = ['-m', 'pip', 'install', ...flags, ...packageSpecs];
 
 		await this._executePipCommandWithRetry(args);
 	}
@@ -77,17 +88,18 @@ export class PipPackageManager {
 
 	/**
 	 * Update specific packages to latest versions.
-	 * Supports specifying versions with == syntax (e.g., "package==1.0.0").
+	 * @param packages Array of package install requests with name and optional version
 	 */
-	async updatePackages(packages: string[]): Promise<void> {
+	async updatePackages(packages: PackageInstallRequest[]): Promise<void> {
 		if (packages.length === 0) {
 			return;
 		}
 
 		await this._ensurePip();
 
+		const packageSpecs = this._formatPackageSpecs(packages);
 		const flags = await this._getInstallFlags();
-		const args = ['-m', 'pip', 'install', '--upgrade', ...flags, ...packages];
+		const args = ['-m', 'pip', 'install', '--upgrade', ...flags, ...packageSpecs];
 
 		await this._executePipCommandWithRetry(args);
 	}
@@ -143,6 +155,15 @@ export class PipPackageManager {
 			);
 		}
 	}
+
+	/**
+	 * Format package install requests into pip package specifiers.
+	 * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0"
+	 */
+	private _formatPackageSpecs(packages: PackageInstallRequest[]): string[] {
+		return packages.map(pkg => pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name);
+	}
+
 
 	/**
 	 * Get installation flags based on the Python environment type.
