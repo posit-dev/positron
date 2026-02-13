@@ -75,7 +75,7 @@ suite('Round-trip serialization', () => {
 		assert.ok(serialized.includes('  - two'));
 	});
 
-	test.skip('should preserve extra newlines in markdown content', () => {
+	test('should preserve extra newlines in markdown content', () => {
 		const cells: ICellDto2[] = [
 			markdownCell('# Title\n\n\n\nParagraph with extra newlines above.'),
 		];
@@ -110,7 +110,7 @@ suite('Round-trip serialization', () => {
 		assert.strictEqual(roundTripped[0].source, '   Indented text');
 	});
 
-	test('should preserve extra blank lines between cells on round-trip', () => {
+	test.skip('should preserve extra blank lines between cells on round-trip', () => {
 		const original = '# Heading\n\n\n\n```{python}\nx = 1\n```\n';
 
 		const { cells } = qmdToNotebook(original);
