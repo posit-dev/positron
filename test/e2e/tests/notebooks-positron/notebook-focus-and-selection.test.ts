@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
