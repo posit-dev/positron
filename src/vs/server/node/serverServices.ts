@@ -268,7 +268,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		const extensionGalleryService = accessor.get(IExtensionGalleryService);
 		const languagePackService = accessor.get(ILanguagePackService);
 		// --- Start Positron ---
-    // add licensee info
+         // add licensee info
 		const remoteExtensionEnvironmentChannel = new RemoteAgentEnvironmentChannel(connectionToken, environmentService, userDataProfilesService, extensionHostStatusService, logService, positronLicenseeInfo);
 		// --- End Positron ---
 		socketServer.registerChannel('remoteextensionsenvironment', remoteExtensionEnvironmentChannel);
