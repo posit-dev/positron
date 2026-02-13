@@ -37,9 +37,6 @@ export type GhostCellProgressCallback = (partial: Partial<GhostCellSuggestionRes
 /** Timeout for fetching session variables (ms) */
 const VARIABLE_FETCH_TIMEOUT_MS = 3000;
 
-/** Max characters for a variable's display_value in the summary */
-const VARIABLE_VALUE_MAX_LENGTH = 60;
-
 /**
  * Valid XML tag names for parsing ghost cell suggestions
  */
@@ -243,7 +240,7 @@ function buildContextMessage(
 	if (variablesSummary) {
 		parts.push('');
 		parts.push('## Session Variables');
-		parts.push('Variables currently defined in the runtime (name|type|value):');
+		parts.push('Variables currently defined in the runtime (name|type):');
 		parts.push('```');
 		parts.push(variablesSummary);
 		parts.push('```');
@@ -370,7 +367,7 @@ function getVariablePriority(displayType: string): number {
 /**
  * Fetch a summary of session variables for the given notebook.
  *
- * Returns a pipe-delimited summary string (name|type|value per line),
+ * Returns a pipe-delimited summary string (name|type per line),
  * or empty string if variables cannot be fetched (no session, timeout, error).
  */
 async function fetchSessionVariablesSummary(
@@ -429,12 +426,9 @@ async function fetchVariablesFromSession(
 	const selected = sorted.slice(0, maxVariables);
 
 	// Format as pipe-delimited lines
-	const lines = selected.map(v => {
-		const value = v.display_value.length > VARIABLE_VALUE_MAX_LENGTH
-			? v.display_value.substring(0, VARIABLE_VALUE_MAX_LENGTH) + '...'
-			: v.display_value;
-		return `${v.display_name}|${v.display_type}|${value}`;
-	});
+	const lines = selected.map(v =>
+		`${v.display_name}|${v.display_type}${v.type_info ? '|' + v.type_info : ''}`
+	);
 
 	log.debug(`[ghost-cell] Including ${lines.length} of ${rootVariables.length} session variables`);
 	return lines.join('\n');
