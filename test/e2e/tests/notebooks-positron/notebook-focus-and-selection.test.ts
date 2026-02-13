@@ -241,4 +241,109 @@ test.describe('Notebook Focus and Selection', {
 		await keyboard.type('print("New Below")');
 		await notebooksPositron.expectCellContentAtIndexToBe(1, 'print("New Below")');
 	});
+
+	test.describe('Auto-scroll on keyboard navigation', () => {
+
+		test('Navigating down scrolls off-screen cell into view', async function ({ app }) {
+			const { notebooksPositron } = app.workbench;
+			const keyboard = app.code.driver.page.keyboard;
+			await notebooksPositron.newNotebook({ codeCells: 15 });
+
+			// Start at the first cell in command mode
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+
+			// Navigate down through all cells - each active cell should remain visible
+			for (let i = 0; i < 14; i++) {
+				await keyboard.press('ArrowDown');
+				await notebooksPositron.expectCellIndexToBeSelected(i + 1, { inEditMode: false });
+				await notebooksPositron.expectCellToBeVisibleInViewport(i + 1);
+			}
+		});
+
+		test('Navigating up scrolls off-screen cell into view', async function ({ app }) {
+			const { notebooksPositron } = app.workbench;
+			const keyboard = app.code.driver.page.keyboard;
+			await notebooksPositron.newNotebook({ codeCells: 15 });
+
+			// Navigate to the last cell
+			await notebooksPositron.selectCellAtIndex(14, { editMode: false });
+
+			// Navigate up through all cells - each active cell should remain visible
+			for (let i = 14; i > 0; i--) {
+				await keyboard.press('ArrowUp');
+				await notebooksPositron.expectCellIndexToBeSelected(i - 1, { inEditMode: false });
+				await notebooksPositron.expectCellToBeVisibleInViewport(i - 1);
+			}
+		});
+
+		test('No scroll when target cell is already fully visible', async function ({ app }) {
+			const { notebooksPositron } = app.workbench;
+			const keyboard = app.code.driver.page.keyboard;
+			await notebooksPositron.newNotebook({ codeCells: 3 });
+
+			// Select cell 0 and navigate to cell 1 (both should be visible)
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+			const scrollBefore = await notebooksPositron.getScrollTop();
+			await keyboard.press('ArrowDown');
+			await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
+			const scrollAfter = await notebooksPositron.getScrollTop();
+
+			expect(Math.abs(scrollAfter - scrollBefore)).toBeLessThanOrEqual(1);
+		});
+
+		test('Boundary: no scroll at first/last cell', async function ({ app }) {
+			const { notebooksPositron } = app.workbench;
+			const keyboard = app.code.driver.page.keyboard;
+			await notebooksPositron.newNotebook({ codeCells: 15 });
+
+			// At first cell, pressing ArrowUp should not scroll
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+			const scrollTopBefore = await notebooksPositron.getScrollTop();
+			await keyboard.press('ArrowUp');
+			await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
+			expect(Math.abs(await notebooksPositron.getScrollTop() - scrollTopBefore)).toBeLessThanOrEqual(1);
+
+			// Navigate to last cell
+			await notebooksPositron.selectCellAtIndex(14, { editMode: false });
+			const scrollBottomBefore = await notebooksPositron.getScrollTop();
+			await keyboard.press('ArrowDown');
+			await notebooksPositron.expectCellIndexToBeSelected(14, { inEditMode: false });
+			expect(Math.abs(await notebooksPositron.getScrollTop() - scrollBottomBefore)).toBeLessThanOrEqual(1);
+		});
+
+		test('Shift+navigation keeps active cell visible', async function ({ app }) {
+			const { notebooksPositron } = app.workbench;
+			const keyboard = app.code.driver.page.keyboard;
+			await notebooksPositron.newNotebook({ codeCells: 15 });
+
+			// Start at cell 0, shift-select down through cells
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+			for (let i = 0; i < 14; i++) {
+				await keyboard.press('Shift+ArrowDown');
+				// The active cell (newest in selection) should be selected and visible
+				await notebooksPositron.expectCellIndexToBeSelected(i + 1, { isActive: true, inEditMode: false });
+				await notebooksPositron.expectCellToBeVisibleInViewport(i + 1);
+			}
+		});
+
+		test('Enter/Escape mode transitions do not scroll', async function ({ app }) {
+			const { notebooksPositron } = app.workbench;
+			const keyboard = app.code.driver.page.keyboard;
+			await notebooksPositron.newNotebook({ codeCells: 15 });
+
+			// Navigate to a cell in the middle
+			await notebooksPositron.selectCellAtIndex(7, { editMode: false });
+			const scrollBefore = await notebooksPositron.getScrollTop();
+
+			// Enter edit mode - should not scroll
+			await keyboard.press('Enter');
+			await notebooksPositron.expectCellIndexToBeSelected(7, { inEditMode: true });
+			expect(Math.abs(await notebooksPositron.getScrollTop() - scrollBefore)).toBeLessThanOrEqual(1);
+
+			// Exit edit mode - should not scroll
+			await keyboard.press('Escape');
+			await notebooksPositron.expectCellIndexToBeSelected(7, { inEditMode: false });
+			expect(Math.abs(await notebooksPositron.getScrollTop() - scrollBefore)).toBeLessThanOrEqual(1);
+		});
+	});
 });

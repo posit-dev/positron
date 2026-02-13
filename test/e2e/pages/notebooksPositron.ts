@@ -25,6 +25,7 @@ type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
 export class PositronNotebooks extends Notebooks {
 	// Containers, generic locators
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
+	private cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .native-edit-context');
@@ -1029,6 +1030,58 @@ export class PositronNotebooks extends Notebooks {
 				await expect(this.cellOutput(cellIndex).getByText(line)).toBeVisible();
 			}
 		});
+	}
+
+	/**
+	 * Verify: the cell at the specified index is fully visible within the
+	 * notebook scroll container. For cells taller than the viewport, checks
+	 * that the specified edge ('top' or 'bottom') is visible instead.
+	 */
+	async expectCellToBeVisibleInViewport(
+		cellIndex: number,
+		options?: { edge?: 'top' | 'bottom' }
+	): Promise<void> {
+		await test.step(`Verify cell ${cellIndex} is visible in viewport`, async () => {
+			await expect(async () => {
+				const cellBox = await this.cell.nth(cellIndex).boundingBox();
+				const containerBox = await this.cellsContainer.boundingBox();
+				expect(cellBox, `Cell ${cellIndex} has no bounding box`).not.toBeNull();
+				expect(containerBox, 'Cells container has no bounding box').not.toBeNull();
+
+				const isOversized = cellBox!.height > containerBox!.height;
+
+				if (isOversized) {
+					// Oversized cell: check the requested edge, or default to
+					// verifying at least partial overlap with the viewport.
+					if (options?.edge === 'top') {
+						expect(cellBox!.y).toBeGreaterThanOrEqual(containerBox!.y - 1);
+					} else if (options?.edge === 'bottom') {
+						expect(cellBox!.y + cellBox!.height).toBeLessThanOrEqual(
+							containerBox!.y + containerBox!.height + 1
+						);
+					} else {
+						// No edge specified: cell must at least partially overlap viewport
+						const cellBottom = cellBox!.y + cellBox!.height;
+						const containerBottom = containerBox!.y + containerBox!.height;
+						expect(cellBottom).toBeGreaterThanOrEqual(containerBox!.y - 1);
+						expect(cellBox!.y).toBeLessThanOrEqual(containerBottom + 1);
+					}
+				} else {
+					// Cell should be fully within container
+					expect(cellBox!.y).toBeGreaterThanOrEqual(containerBox!.y - 1);
+					expect(cellBox!.y + cellBox!.height).toBeLessThanOrEqual(
+						containerBox!.y + containerBox!.height + 1
+					);
+				}
+			}).toPass({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Get the current scroll position of the notebook cells container.
+	 */
+	async getScrollTop(): Promise<number> {
+		return this.cellsContainer.evaluate(el => el.scrollTop);
 	}
 	// #endregion
 }
