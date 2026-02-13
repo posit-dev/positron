@@ -8396,7 +8396,7 @@ declare namespace monaco.languages {
 		/**
 		 * Provide the statement that contains the given position.
 		 */
-		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IStatementRange>;
+		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IStatementRange | IStatementRangeError>;
 	}
 
 	/**
@@ -8411,6 +8411,19 @@ declare namespace monaco.languages {
 		 * The code for this statement range, if different from the document contents at this range.
 		 */
 		readonly code?: string;
+	}
+
+	export type IStatementRangeError = IStatementRangeParseError;
+
+	export interface IStatementRangeParseError {
+		/**
+		 * The kind of error thrown.
+		 */
+		readonly error: 'parse';
+		/**
+		 * A 0-indexed line number where the parse error occurred.
+		 */
+		readonly line: number;
 	}
 
 	export interface HelpTopicProvider {

@@ -2045,7 +2045,7 @@ export interface StatementRangeProvider {
 	 * Provide the statement that contains the given position.
 	 */
 	provideStatementRange(model: model.ITextModel, position: Position, token: CancellationToken):
-		ProviderResult<IStatementRange>;
+		ProviderResult<IStatementRange | IStatementRangeError>;
 }
 
 /**
@@ -2062,6 +2062,20 @@ export interface IStatementRange {
 	 */
 	readonly code?: string;
 
+}
+
+export type IStatementRangeError = IStatementRangeParseError;
+
+export interface IStatementRangeParseError {
+	/**
+	 * The kind of error thrown.
+	 */
+	readonly error: 'parse';
+
+	/**
+	 * A 0-indexed line number where the parse error occurred.
+	 */
+	readonly line: number;
 }
 
 export interface HelpTopicProvider {
