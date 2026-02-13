@@ -104,10 +104,9 @@ export const updatePackage = async (
 
 
 	const state = await collectInputs();
+	// If there is no selected package and version, it means the user canceled the QuickPick, so we should not perform the update.
 	if (state.selectedPackage && state.selectedVersion) {
 		await performUpdate(state.selectedPackage, state.selectedVersion);
-	} else {
-		throw new Error('Package or version not selected');
 	}
 };
 
@@ -253,7 +252,8 @@ export const installPackage = async (
 	}
 
 	const state = await collectInputs();
-	if (state.selectedPackage) {
+	// If there is no selected package and version, it means the user canceled the QuickPick, so we should not perform the update.
+	if (state.selectedPackage && state.selectedVersion) {
 		await performInstall(state.selectedPackage, state.selectedVersion);
 	}
 };
