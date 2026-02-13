@@ -38,21 +38,6 @@ export function useDraggable({ id, touchConfig }: UseDraggableProps) {
 		startDrag(id, { x: e.clientX, y: e.clientY }, rect ?? null);
 	}, [id, startDrag]);
 
-	const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
-		// Space or Enter to start drag
-		if (e.key === ' ' || e.key === 'Enter') {
-			e.preventDefault();
-			const rect = nodeRef.current?.getBoundingClientRect();
-			if (rect) {
-				// Start drag from center of element
-				startDrag(id, {
-					x: rect.left + rect.width / 2,
-					y: rect.top + rect.height / 2,
-				}, rect, 'keyboard');
-			}
-		}
-	}, [id, startDrag]);
-
 	// Touch sensor activation callback
 	const handleTouchActivate = React.useCallback((position: { x: number; y: number }) => {
 		const rect = nodeRef.current?.getBoundingClientRect();
@@ -64,17 +49,13 @@ export function useDraggable({ id, touchConfig }: UseDraggableProps) {
 
 	// Attributes for the draggable element
 	const attributes = {
-		role: 'button' as const,
-		tabIndex: 0,
 		'aria-pressed': isDragging,
-		'aria-describedby': `dnd-instructions-${id}`,
 	};
 
 	// Event listeners for the activator (drag handle)
-	// Combines pointer, keyboard, and touch events
+	// Combines pointer and touch events
 	const listeners = {
 		onPointerDown: handlePointerDown,
-		onKeyDown: handleKeyDown,
 		...touchListeners,
 	};
 

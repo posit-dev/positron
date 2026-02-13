@@ -11,7 +11,6 @@ export { closestCenter } from './collisionDetection.js';
 export { SortableContext } from './SortableContext.js';
 export { useSortable } from './useSortable.js';
 export { AutoScrollController, calculateScrollDelta } from './autoScroll.js';
-export { sortableKeyboardCoordinates } from './keyboardCoordinates.js';
 export { AnimationProvider, useAnimationContext } from './AnimationContext.js';
 export { Announcer, getAnnouncement } from './Announcer.js';
 export { calculateSortingTransforms, transformToString, getTransition } from './animations.js';
@@ -43,7 +42,6 @@ export type {
 	DragEndEvent,
 	DragCancelEvent,
 	DroppableEntry,
-	KeyboardCoordinateGetter,
 	AutoScrollOptions,
 	SensorOptions,
 	ItemTransform,

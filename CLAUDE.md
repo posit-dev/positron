@@ -47,6 +47,10 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 - `positron/` - Positron-specific code and assets
 - `build/` - Build configuration and scripts
 
+## Code Style
+
+- Use tabs for indentation, not spaces
+
 ## General
 
 - Use the `gh` CLI for GitHub interactions

@@ -79,6 +79,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 				ref={setActivatorNodeRef}
 				aria-label="Drag to reorder cell"
 				className="cell-drag-handle"
+				tabIndex={-1}
 				type="button"
 				{...attributes}
 				{...listeners}

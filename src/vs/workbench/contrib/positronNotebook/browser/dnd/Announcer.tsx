@@ -46,7 +46,7 @@ export function getAnnouncement(
 ): string {
 	switch (event) {
 		case 'start':
-			return `Picked up cell ${activeIndex + 1} of ${totalItems}. Use arrow keys to move, Enter to drop, Escape to cancel.`;
+			return `Picked up cell ${activeIndex + 1} of ${totalItems}. Drag to reorder, Escape to cancel.`;
 		case 'move':
 			if (overIndex === null) {
 				return `Cell ${activeIndex + 1} is being dragged.`;

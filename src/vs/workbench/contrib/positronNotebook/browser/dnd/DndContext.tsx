@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { DragState, DroppableEntry, DragStartEvent, DragEndEvent, DragCancelEvent, KeyboardCoordinateGetter, AutoScrollOptions, AnimationConfig } from './types.js';
+import { DragState, DroppableEntry, DragStartEvent, DragEndEvent, DragCancelEvent, AutoScrollOptions, AnimationConfig } from './types.js';
 import { closestCenter, detectInsertionIndex } from './collisionDetection.js';
 import { AutoScrollController } from './autoScroll.js';
 import { AnimationProvider } from './AnimationContext.js';
@@ -15,7 +15,7 @@ interface DndContextValue {
 	state: DragState;
 	registerDroppable: (id: string, node: HTMLElement) => void;
 	unregisterDroppable: (id: string) => void;
-	startDrag: (id: string, position: { x: number; y: number }, initialRect: DOMRect | null, source?: 'pointer' | 'keyboard') => void;
+	startDrag: (id: string, position: { x: number; y: number }, initialRect: DOMRect | null) => void;
 	updateDrag: (position: { x: number; y: number }) => void;
 	endDrag: () => void;
 	cancelDrag: () => void;
@@ -34,8 +34,6 @@ interface DndContextProps {
 	onDragCancel?: (event: DragCancelEvent) => void;
 	activationDistance?: number; // Pixels to move before drag activates (default: 10)
 	disabled?: boolean; // When true, startDrag is a no-op (used for read-only notebooks)
-	// Keyboard support
-	keyboardCoordinateGetter?: KeyboardCoordinateGetter;
 	// Auto-scroll support
 	autoScroll?: AutoScrollOptions;
 	scrollContainerRef?: React.RefObject<HTMLElement>;
@@ -47,7 +45,6 @@ interface PendingDrag {
 	id: string;
 	startPosition: { x: number; y: number };
 	initialRect: DOMRect | null;
-	source: 'pointer' | 'keyboard';
 }
 
 const IDLE_STATE: DragState = Object.freeze({
@@ -71,7 +68,6 @@ export function DndContext({
 	onDragCancel,
 	activationDistance = 10,
 	disabled = false,
-	keyboardCoordinateGetter,
 	autoScroll,
 	scrollContainerRef,
 	animationConfig,
@@ -101,10 +97,6 @@ export function DndContext({
 	onDragStartRef.current = onDragStart;
 	onDragEndRef.current = onDragEnd;
 	onDragCancelRef.current = onDragCancel;
-
-	// Store keyboard coordinate getter in ref
-	const keyboardCoordinateGetterRef = React.useRef(keyboardCoordinateGetter);
-	keyboardCoordinateGetterRef.current = keyboardCoordinateGetter;
 
 	// Store items prop in ref for use in event handlers
 	const itemsPropRef = React.useRef(itemsProp);
@@ -210,15 +202,15 @@ export function DndContext({
 		return adjustedRects;
 	}, [state.initialDroppableRects, state.initialScrollOffset, scrollContainerRef]);
 
-	const startDrag = React.useCallback((id: string, position: { x: number; y: number }, initialRect: DOMRect | null, source: 'pointer' | 'keyboard' = 'pointer') => {
+	const startDrag = React.useCallback((id: string, position: { x: number; y: number }, initialRect: DOMRect | null) => {
 		if (disabled) {
 			return; // Don't start drags when DndContext is disabled (e.g. read-only notebooks)
 		}
 		// Store pending drag - actual drag starts after activation distance
-		setPendingDrag({ id, startPosition: position, initialRect, source });
+		setPendingDrag({ id, startPosition: position, initialRect });
 	}, [disabled]);
 
-	// Shared drag activation logic used by both keyboard and pointer paths.
+	// Shared drag activation logic used by pointer and touch paths.
 	// Captures initial rects/scroll, fires onDragStart, resolves activeIds, and sets state.
 	const activateDrag = React.useCallback((
 		id: string,
@@ -265,14 +257,6 @@ export function DndContext({
 
 	// Global pointer event handlers - attached immediately when pending or dragging
 	React.useEffect(() => {
-		// Keyboard drags activate immediately (no movement threshold needed)
-		if (pendingDrag?.source === 'keyboard') {
-			const { id, startPosition, initialRect } = pendingDrag;
-			setPendingDrag(null);
-			activateDrag(id, startPosition, startPosition, initialRect);
-			return; // Don't attach pointer listeners for keyboard drag
-		}
-
 		const handlePointerMove = (e: PointerEvent) => {
 			const position = { x: e.clientX, y: e.clientY };
 
@@ -433,119 +417,6 @@ export function DndContext({
 
 				setState(IDLE_STATE);
 				return;
-			}
-
-			// Space/Enter to drop during keyboard drag
-			if ((e.key === ' ' || e.key === 'Enter') && isDraggingRef.current) {
-				e.preventDefault();
-				autoScrollRef.current?.stop();
-
-				const prev = stateRef.current;
-				if (prev.status !== 'dragging') {
-					return;
-				}
-
-				// Claim the drag immediately to prevent double-callback with concurrent handlers
-				stateRef.current = IDLE_STATE;
-
-				// Fire callback synchronously before state transition
-				onDragEndRef.current?.({
-					active: { id: prev.activeId! },
-					over: prev.overId ? { id: prev.overId } : null,
-					insertionIndex: prev.insertionIndex,
-				});
-
-				// Announce drag end for screen readers
-				const items = getItems();
-				const activeIndex = items.indexOf(prev.activeId!);
-				const overIndex = prev.overId ? items.indexOf(prev.overId) : null;
-				setAnnouncement(getAnnouncement('end', activeIndex, overIndex, items.length));
-
-				setState(IDLE_STATE);
-				return;
-			}
-
-			// Handle arrow keys for keyboard navigation during drag
-			if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && keyboardCoordinateGetterRef.current) {
-				setState(prev => {
-					if (prev.status !== 'dragging' || !prev.currentPosition) {
-						return prev;
-					}
-
-					// Update droppable rects in the registry (needed for animations)
-					for (const [, entry] of droppablesRef.current) {
-						entry.rect = entry.node.getBoundingClientRect();
-					}
-
-					// For collision detection, use scroll-adjusted INITIAL rects
-					const items = getItems();
-					let collisionRects: Map<string, DOMRect>;
-
-					if (prev.initialDroppableRects && prev.initialScrollOffset !== null) {
-						// Calculate scroll delta and adjust initial rects
-						const currentScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
-						const scrollDelta = currentScrollOffset - prev.initialScrollOffset;
-
-						collisionRects = new Map<string, DOMRect>();
-						for (const [id, rect] of prev.initialDroppableRects) {
-							collisionRects.set(id, new DOMRect(
-								rect.x,
-								rect.y - scrollDelta,
-								rect.width,
-								rect.height
-							));
-						}
-					} else {
-						// Fallback: use live rects
-						collisionRects = new Map<string, DOMRect>();
-						for (const [id, entry] of droppablesRef.current) {
-							collisionRects.set(id, entry.rect);
-						}
-					}
-
-					const newCoords = keyboardCoordinateGetterRef.current!(e, {
-						currentCoordinates: prev.currentPosition,
-						context: { droppableRects: collisionRects, activeId: prev.activeId },
-					});
-
-					if (!newCoords) {
-						return prev;
-					}
-
-					e.preventDefault();
-
-					// Find closest droppable using scroll-adjusted initial rects
-					const droppableEntries = items
-						.filter(id => collisionRects.has(id))
-						.map(id => ({
-							id,
-							node: droppablesRef.current.get(id)?.node ?? null,
-							rect: collisionRects.get(id)!,
-						}))
-						.filter(entry => entry.node !== null) as { id: string; node: HTMLElement; rect: DOMRect }[];
-
-					const closest = closestCenter(
-						newCoords,
-						droppableEntries,
-						prev.activeId
-					);
-
-					// Calculate insertion index using scroll-adjusted initial rects
-					// Use all active IDs from multi-drag context for proper collision detection
-					const insertionIndex = detectInsertionIndex(
-						newCoords.y,
-						items,
-						collisionRects,
-						prev.activeIds.length > 0 ? prev.activeIds : [prev.activeId!]
-					);
-
-					return {
-						...prev,
-						currentPosition: newCoords,
-						overId: closest?.id ?? null,
-						insertionIndex,
-					};
-				});
 			}
 		};
 
