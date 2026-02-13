@@ -177,6 +177,152 @@ suite('Positron Notebook DnD Animations', () => {
 		assert.strictEqual(belowIndicatorTop, primaryBottom);
 	});
 
+	test('multi-drag UP: primary first selected maintains proper spacing', () => {
+		const items = ['a', 'b', 'c', 'd', 'e'];
+		const rects = new Map<string, DOMRect>([
+			['a', rect(0)],
+			['b', rect(130)],
+			['c', rect(260)],
+			['d', rect(390)],
+			['e', rect(520)],
+		]);
+
+		// Drag [b, c] with b as primary up to index 0.
+		const transforms = calculateMultiSortingTransforms(items, rects, ['b', 'c'], 0);
+
+		const primaryTop = rects.get('b')!.top + (transforms.get('b')?.y ?? 0);
+		const primaryBottom = primaryTop + rects.get('b')!.height;
+		const shiftedA = transforms.get('a');
+		const secondaryC = transforms.get('c');
+		const shiftedD = transforms.get('d');
+
+		assert.ok(shiftedA);
+		assert.ok(secondaryC);
+		assert.ok(shiftedD);
+
+		// Primary should move to position 0.
+		assert.strictEqual(primaryTop, 0);
+
+		// Secondary indicator should be directly below primary.
+		const secondaryTop = rects.get('c')!.top + secondaryC!.y;
+		assert.strictEqual(secondaryTop, primaryBottom);
+
+		// 'a' shifted down, maintaining 30px gap from primary bottom.
+		const aTop = rects.get('a')!.top + shiftedA!.y;
+		assert.strictEqual(aTop - primaryBottom, 30);
+
+		// Items after selection shifted up to close vacated space.
+		const dTop = rects.get('d')!.top + shiftedD!.y;
+		assert.strictEqual(dTop - (aTop + 100), 30);
+	});
+
+	test('multi-drag UP: primary not first selected shifts by indicator offset', () => {
+		const items = ['a', 'b', 'c', 'd', 'e'];
+		const rects = new Map<string, DOMRect>([
+			['a', rect(0)],
+			['b', rect(130)],
+			['c', rect(260)],
+			['d', rect(390)],
+			['e', rect(520)],
+		]);
+
+		// Drag [b, c] with c as primary up to index 0.
+		const transforms = calculateMultiSortingTransforms(items, rects, ['c', 'b'], 0);
+
+		const primaryTop = rects.get('c')!.top + (transforms.get('c')?.y ?? 0);
+		const indicatorB = transforms.get('b');
+
+		assert.ok(indicatorB);
+
+		// 'b' indicator should be above primary, offset by collapsedHeight (4px).
+		const indicatorTop = rects.get('b')!.top + indicatorB!.y;
+		assert.strictEqual(indicatorTop + 4, primaryTop);
+
+		// Primary should be near position 0, offset by the indicator above it.
+		assert.strictEqual(primaryTop, 4);
+	});
+
+	test('multi-drag UP: multiple selected cells above primary stack correctly', () => {
+		const items = ['a', 'b', 'c', 'd', 'e'];
+		const rects = new Map<string, DOMRect>([
+			['a', rect(0)],
+			['b', rect(130)],
+			['c', rect(260)],
+			['d', rect(390)],
+			['e', rect(520)],
+		]);
+
+		// Drag [b, c, d] with d as primary up to index 0.
+		const transforms = calculateMultiSortingTransforms(items, rects, ['d', 'b', 'c'], 0);
+
+		const primaryTop = rects.get('d')!.top + (transforms.get('d')?.y ?? 0);
+		const indicatorB = transforms.get('b');
+		const indicatorC = transforms.get('c');
+
+		assert.ok(indicatorB);
+		assert.ok(indicatorC);
+
+		const bTop = rects.get('b')!.top + indicatorB!.y;
+		const cTop = rects.get('c')!.top + indicatorC!.y;
+
+		// Closest indicator (c) should be at primaryTop - collapsedHeight.
+		assert.strictEqual(cTop + 4, primaryTop);
+
+		// Next indicator (b) should be stackStride (2px) above c.
+		assert.strictEqual(bTop, cTop - 2);
+
+		// Both indicators above primary.
+		assert.ok(bTop < primaryTop);
+		assert.ok(cTop < primaryTop);
+	});
+
+	test('original-position at firstActiveIndex produces same result as lastActiveIndex+1', () => {
+		const items = ['a', 'b', 'c', 'd', 'e'];
+		const rects = new Map<string, DOMRect>([
+			['a', rect(0)],
+			['b', rect(130)],
+			['c', rect(260)],
+			['d', rect(390)],
+			['e', rect(520)],
+		]);
+
+		// Both insertion indices are "original position" for [b, c].
+		const atFirst = calculateMultiSortingTransforms(items, rects, ['b', 'c'], 1);
+		const atLast = calculateMultiSortingTransforms(items, rects, ['b', 'c'], 3);
+
+		// Both should produce identical transforms for all items.
+		for (const id of items) {
+			const first = atFirst.get(id);
+			const last = atLast.get(id);
+			assert.deepStrictEqual(first, last, `Transform mismatch for '${id}'`);
+		}
+	});
+
+	test('non-contiguous selection at original position does not close gaps', () => {
+		const items = ['a', 'b', 'c', 'd', 'e'];
+		const rects = new Map<string, DOMRect>([
+			['a', rect(0)],
+			['b', rect(130)],
+			['c', rect(260)],
+			['d', rect(390)],
+			['e', rect(520)],
+		]);
+
+		// Non-contiguous: b (index 1) and d (index 3) selected, gap at c.
+		const transforms = calculateMultiSortingTransforms(items, rects, ['b', 'd'], 1);
+
+		// Non-active items should NOT shift because gap closure
+		// only applies to contiguous selections.
+		assert.strictEqual(transforms.get('a'), undefined);
+		assert.strictEqual(transforms.get('c'), undefined);
+		assert.strictEqual(transforms.get('e'), undefined);
+
+		// 'd' should only have indicator transform (collapsed to thin line near primary).
+		const dTransform = transforms.get('d');
+		assert.ok(dTransform);
+		assert.ok(dTransform!.scaleY !== undefined && dTransform!.scaleY < 1);
+	});
+
 	test('large indicator stacks stay within surrounding gap space', () => {
 		const items = Array.from({ length: 15 }, (_, i) => `i${i}`);
 		const rects = new Map<string, DOMRect>();
