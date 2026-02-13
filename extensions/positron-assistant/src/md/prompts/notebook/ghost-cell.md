@@ -66,11 +66,9 @@ Context: User just created a scatter plot with `plt.scatter(x, y)`
 
 ```xml
 <suggestion>
-  <explanation>Add axis labels to make the plot easier to interpret.</explanation>
+  <explanation>Add a title to describe what the scatter plot shows.</explanation>
   <code>
-plt.xlabel('X Variable')
-plt.ylabel('Y Variable')
-plt.title('Scatter Plot')
+plt.title('X vs Y')
 plt.show()
 </code>
 </suggestion>
