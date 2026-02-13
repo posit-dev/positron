@@ -332,9 +332,18 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			return false;
 		}
 
-		// Apply scroll behavior based on reason
+		// Two scroll strategies depending on how the reveal was triggered:
+		//
+		// Keyboard navigation uses an instant jump. The user is driving the
+		// navigation themselves so each step moves at most one cell -- the
+		// scroll distance is small and predictable, and an instant snap keeps
+		// repeated key-presses feeling responsive without disorienting the user.
+		//
+		// Programmatic reveals (e.g. an agent editing a cell elsewhere in the
+		// notebook) use a smooth, centered scroll. The destination may be far
+		// from the current viewport, so the animation gives the user a sense of
+		// direction and helps them re-orient spatially within the document.
 		if (resolvedOptions.reason === 'keyboardNavigation') {
-			// Keyboard navigation: instant scroll ensuring full cell visibility.
 			// We always call scrollIntoView here (skipping isInViewport()) because
 			// the 50% visibility threshold used by isInViewport() would leave
 			// partially-visible cells un-scrolled. scrollIntoView with 'nearest'
@@ -352,7 +361,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 				this._container.scrollIntoView({ behavior: 'instant', block: 'nearest' });
 			}
 		} else {
-			// Programmatic reveal: only scroll if cell is not sufficiently visible
 			if (!this.isInViewport()) {
 				this._container.scrollIntoView({ behavior: 'smooth', block: 'center' });
 			}
