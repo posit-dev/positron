@@ -15,4 +15,14 @@
 		"posit-ai"
   ],
   "posit.workbench.showWorkbenchFlaskHint": false
+	"positron.assistant.enable": true,
+	"positron.assistant.provider.positAI.enable": true,
+	"positron.assistant.provider.anthropic.enable": true,
+	"positron.assistant.provider.amazonBedrock.enable": true,
+	"positron.assistant.provider.githubCopilot.enable": true,
+	"positron.assistant.provider.openAI.enable": true,
+	"positron.assistant.provider.echo.enable": true,
+	"positron.assistant.provider.error.enable": true,
+  "posit.workbench.showWorkbenchFlaskHint": false,
+	"editor.accessibilitySupport": "off"
 }

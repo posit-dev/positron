@@ -11,5 +11,9 @@
 	"json.schemaDownload.enable": false,
 	"npm.fetchOnlinePackageInfo": false,
 	"npm.autoDetect": "off",
+	// --- Start Positron ---
+	// Enable the test lm vendor for testing purposes
+	"positron.assistant.provider.testLmVendor.enable": true,
+	// --- End Positron ---
 	"workbench.localHistory.enabled": false
 }

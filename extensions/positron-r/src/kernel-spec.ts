@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import { execSync } from 'child_process';
 
 import { JupyterKernelSpec } from './positron-supervisor';
-import { getArkKernelPath } from './kernel';
+import { getArkKernelPath, getArkEnvironmentVariables } from './kernel';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { findCondaExe } from './provider-conda';
 import { PackagerMetadata, isPixiMetadata, isCondaMetadata, isModuleMetadata } from './r-installation';
@@ -333,23 +333,13 @@ export async function createJupyterKernelSpec(
 	const env = <Record<string, string>>{
 		'RUST_BACKTRACE': '1',
 		'RUST_LOG': logLevelForeign + ',ark=' + logLevel,
-		'R_HOME': rHomePath,
+		...getArkEnvironmentVariables(rHomePath),
 		...userEnv
 	};
 	/* eslint-enable */
 
 	if (profile) {
 		env['ARK_PROFILE'] = profile;
-	}
-
-	if (process.platform === 'linux') {
-		// Workaround for
-		// https://github.com/posit-dev/positron/issues/1619#issuecomment-1971552522
-		env['LD_LIBRARY_PATH'] = rHomePath + '/lib';
-	} else if (process.platform === 'darwin') {
-		// Workaround for
-		// https://github.com/posit-dev/positron/issues/3732
-		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
 	}
 
 	// If this R is from a packager environment (conda or pixi), activate it
