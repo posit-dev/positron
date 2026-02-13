@@ -10,6 +10,7 @@ import { getAllModelDefinitions } from '../../modelDefinitions.js';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 import { ModelCapabilities } from '../base/modelProviderTypes.js';
 import { ModelProviderLogger } from '../base/modelProviderLogger.js';
+import { log } from '../../log.js';
 
 /**
  * Checks if an error is a rate limit error (HTTP 429) from the native Anthropic SDK
@@ -17,17 +18,16 @@ import { ModelProviderLogger } from '../base/modelProviderLogger.js';
  *
  * @param error - The error to check
  * @param providerName - The name of the provider for the error message prefix
- * @returns true if the error was handled (and thrown), false otherwise
  */
-export function handleNativeSdkRateLimitError(error: unknown, providerName: string): boolean {
+export function handleNativeSdkRateLimitError(error: unknown, providerName: string): void {
 	if (error instanceof Anthropic.APIError && error.status === 429) {
 		const retryAfter = error.headers?.get('retry-after');
+		log.debug(`[${providerName}] Detected rate limit error from Anthropic SDK. Retry-After: ${retryAfter}`);
 		if (retryAfter) {
 			throw new Error(`[${providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
 		}
 		throw new Error(`[${providerName}] Rate limit exceeded. Please try again later.`);
 	}
-	return false;
 }
 
 /**
@@ -51,6 +51,7 @@ export function handleVercelSdkRateLimitError(error: unknown, providerName: stri
 
 	if (ai.APICallError.isInstance(apiError) && apiError.statusCode === 429) {
 		const retryAfter = apiError.responseHeaders?.['retry-after'];
+		log.debug(`[${providerName}] Detected rate limit error from Vercel SDK. Retry-After: ${retryAfter}`);
 		if (retryAfter) {
 			throw new Error(`[${providerName}] Rate limit exceeded. Please retry after ${retryAfter} seconds.`);
 		}
