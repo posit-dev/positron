@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 const QUARTO_BASIC_PATH = 'workspaces/quarto_basic/quarto_basic.qmd';
@@ -58,13 +58,13 @@ test.describe('Positron Notebooks: .qmd Support', {
 		]);
 
 		// 3. Markdown cell
+		// getCellContent returns visually wrapped lines whose boundaries depend on
+		// editor width, so join into a single string for comparison.
 		await notebooksPositron.expectCellTypeAtIndexToBe(2, 'markdown');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, [
-			'We have data about `r nrow(diamonds)` diamonds.',
-			'Only `r nrow(diamonds) - nrow(smaller)` are larger than 2.5 ',
-			'carats.',
-			'The distribution of the remainder is shown below:',
-		]);
+		const markdownContent = (await notebooksPositron.getCellContent(2)).join('');
+		expect(markdownContent).toContain('We have data about `r nrow(diamonds)` diamonds.');
+		expect(markdownContent).toContain('Only `r nrow(diamonds) - nrow(smaller)` are larger than 2.5 carats.');
+		expect(markdownContent).toContain('The distribution of the remainder is shown below:');
 
 		// 4. R code cell with plot
 		await notebooksPositron.expectCellTypeAtIndexToBe(3, 'code');
