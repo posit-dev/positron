@@ -6,15 +6,6 @@
   "remote.autoForwardPortsFallback": 0,
   "files.simpleDialog.enable": true,
   "positron.importSettings.enable": false,
-  "positron.assistant.enable": true,
-  "positron.assistant.enabledProviders": [
-    "openai-api",
-    "echo",
-    "error",
-		"amazon-bedrock",
-		"posit-ai"
-  ],
-  "posit.workbench.showWorkbenchFlaskHint": false
 	"positron.assistant.enable": true,
 	"positron.assistant.provider.positAI.enable": true,
 	"positron.assistant.provider.anthropic.enable": true,
