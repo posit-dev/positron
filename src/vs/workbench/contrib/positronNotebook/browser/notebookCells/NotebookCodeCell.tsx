@@ -22,7 +22,7 @@ import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { useCellOutputContextMenu } from './useCellOutputContextMenu.js';
+import { useCodeCellOutputContextMenu } from './useCodeCellOutputContextMenu.js';
 
 
 interface CellOutputsSectionProps {
@@ -32,7 +32,7 @@ interface CellOutputsSectionProps {
 
 function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
-	const { showCellOutputContextMenu } = useCellOutputContextMenu(cell);
+	const { showCellOutputContextMenu } = useCodeCellOutputContextMenu(cell);
 
 	const handleShowHiddenOutput = () => {
 		cell.expandOutput();

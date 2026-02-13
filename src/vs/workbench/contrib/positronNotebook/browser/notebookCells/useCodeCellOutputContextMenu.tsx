@@ -17,7 +17,7 @@ import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNoteb
 import { IAnchor } from '../../../../../base/browser/ui/contextview/contextview.js';
 
 /**
- * A hook that provides the cell output context menu.
+ * A hook that provides the code cell output context menu.
  *
  * This hook extracts the common context menu logic so the menu can be shown by the
  * CellOutputLeftActionMenu (ellipses button to the left of code cell outputs)
@@ -27,7 +27,7 @@ import { IAnchor } from '../../../../../base/browser/ui/contextview/contextview.
  * @returns The showCellOutputContextMenu function that can be called with
  *          either an HTMLElement (for buttons) or coordinates (for right-clicks)
  */
-export function useCellOutputContextMenu(cell: PositronNotebookCodeCell) {
+export function useCodeCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 	const instance = useNotebookInstance();
 	const contextKeyService = useCellScopedContextKeyService();
 	const { contextMenuService } = usePositronReactServicesContext();
@@ -60,7 +60,7 @@ export function useCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 	}, [cell, instance]);
 
 	/**
-	 * Shows the context menu for cell output actions.
+	 * Shows the context menu for code cell output actions.
 	 *
 	 * @param anchor Either an HTMLElement (for button-triggered menus) or
 	 *               an IAnchor with x/y coordinates (for right-click menus)
