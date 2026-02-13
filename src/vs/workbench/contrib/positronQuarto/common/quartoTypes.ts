@@ -1,11 +1,100 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
+
+// --- Parser types ---
+
+/** Currently parsed node types. Add more as needed. */
+export const enum QuartoNodeType {
+	CodeBlock = 'CodeBlock',
+	RawBlock = 'RawBlock',
+}
+
+/** Source position within a file */
+export interface QuartoSourcePosition {
+	/** Line number (0-indexed). */
+	line: number;
+}
+
+/** Source location span */
+export interface QuartoSourceLocation {
+	/** Beginning position */
+	readonly begin: QuartoSourcePosition;
+
+	/** Ending position */
+	readonly end: QuartoSourcePosition;
+}
+
+/** Base node */
+interface QuartoNode {
+	/** Node type discriminator. */
+	readonly type: QuartoNodeType;
+
+	/** Source location in the document. */
+	readonly location: QuartoSourceLocation;
+}
+
+/** Executable code block */
+export interface QuartoCodeBlock extends QuartoNode {
+	readonly type: QuartoNodeType.CodeBlock;
+
+	/** Content of the code block. */
+	readonly content: string;
+
+	/** Language from the opening fence (lowercased). */
+	readonly language: string;
+
+	/** Optional label (first option if it doesn't contain '='). */
+	readonly label?: string;
+
+	/** Raw options string from the chunk header (trimmed). */
+	readonly options: string;
+}
+
+/** Raw content in a specific format (e.g., HTML, LaTeX) */
+export interface QuartoRawBlock extends QuartoNode {
+	readonly type: QuartoNodeType.RawBlock;
+
+	/** Content of the raw block. */
+	readonly content: string;
+
+	/** Format identifier from the opening fence (lowercased). */
+	readonly format: string;
+}
+
+/** Union type for all Quarto blocks. */
+export type QuartoBlock = QuartoCodeBlock | QuartoRawBlock;
+
+/** Document frontmatter metadata */
+export interface QuartoFrontmatter {
+	/** Raw frontmatter text including --- delimiters. */
+	readonly rawContent: string;
+
+	/** Extracted Jupyter kernel name, if present. */
+	readonly jupyterKernel?: string;
+
+	/** Source location spanning the frontmatter block. */
+	readonly location: QuartoSourceLocation;
+}
+
+/** Parsed QMD document. */
+export interface QuartoDocument {
+	/** All parsed blocks, ordered by position. */
+	readonly blocks: readonly QuartoBlock[];
+
+	/** Frontmatter, if present. */
+	readonly frontmatter?: QuartoFrontmatter;
+
+	/** The document split into lines (for extracting content by line range). */
+	readonly lines: readonly string[];
+}
+
+// --- Document model types ---
 
 /**
  * Represents a code cell in a Quarto document.

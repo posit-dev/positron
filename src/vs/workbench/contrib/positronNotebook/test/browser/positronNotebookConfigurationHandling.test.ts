@@ -14,6 +14,7 @@ import { ITestInstantiationService } from '../../../../test/browser/workbenchTes
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
+import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 
 // Mock implementation for testing static editor registration
 class MockPositronNotebookContribution extends DisposableStore {
@@ -53,6 +54,7 @@ class MockPositronNotebookContribution extends DisposableStore {
 						this.instantiationService,
 						resource,
 						undefined,
+						IPYNB_VIEW_TYPE,
 						{ startDirty: false }
 					);
 					return { editor: editorInput };

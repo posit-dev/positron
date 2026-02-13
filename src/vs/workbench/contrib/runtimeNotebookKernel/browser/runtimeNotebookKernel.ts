@@ -23,7 +23,6 @@ import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../
 import { isNotebookLanguageRuntimeSession, isNotebookRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
@@ -39,7 +38,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	/**
 	 * The kernel's supported view type.
 	 */
-	public readonly viewType = IPYNB_VIEW_TYPE;
+	public readonly viewType = '*';
 
 	/**
 	 * The kernel's extension. Although this kernel lives in the main thread, some notebook services

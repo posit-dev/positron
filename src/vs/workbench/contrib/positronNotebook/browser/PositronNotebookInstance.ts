@@ -663,7 +663,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	getViewModel(): IChatEditingNotebookViewModel {
 		return {
-			viewType: 'jupyter-notebook',
+			viewType: this.viewType,
 		};
 	}
 
