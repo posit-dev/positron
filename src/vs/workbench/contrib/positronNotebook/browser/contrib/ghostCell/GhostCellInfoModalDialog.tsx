@@ -52,7 +52,8 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 		renderer.dispose();
 	}, [renderer]);
 
-	const handleOpenSetting = React.useCallback(() => {
+	const handleOpenSetting = React.useCallback((e: React.MouseEvent) => {
+		e.preventDefault();
 		renderer.dispose(); // Close modal first
 		commandService.executeCommand('workbench.action.openSettings', 'positron.assistant.notebook.ghostCellSuggestions');
 	}, [renderer, commandService]);

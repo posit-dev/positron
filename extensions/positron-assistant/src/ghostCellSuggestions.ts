@@ -192,7 +192,9 @@ export async function generateGhostCellSuggestion(
  * - Notebook metadata: language, cell position, execution status
  *
  * NOT sent: variable values, notebook file path, user identity, or
- * non-text outputs (images, rich HTML).
+ * non-text outputs (images, rich display data). Note: text/html output
+ * items ARE included alongside text/plain as they may contain useful
+ * table representations.
  */
 function buildContextMessage(
 	cellContent: string,
@@ -250,7 +252,7 @@ function buildContextMessage(
 	if (variablesSummary) {
 		parts.push('');
 		parts.push('## Session Variables');
-		parts.push('Variables currently defined in the runtime (name|type):');
+		parts.push('Variables currently defined in the runtime (name|type, with optional type_info):');
 		parts.push('```');
 		parts.push(variablesSummary);
 		parts.push('```');
@@ -377,7 +379,7 @@ function getVariablePriority(displayType: string): number {
 /**
  * Fetch a summary of session variables for the given notebook.
  *
- * Returns a pipe-delimited summary string (name|type per line),
+ * Returns a pipe-delimited summary string (name|type or name|type|type_info per line),
  * or empty string if variables cannot be fetched (no session, timeout, error).
  */
 async function fetchSessionVariablesSummary(
