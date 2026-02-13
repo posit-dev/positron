@@ -247,5 +247,59 @@ data: [DONE]
 			assert.ok(transformedText.includes('"role":"assistant"'), 'Empty role should be transformed to "assistant"');
 			assert.ok(!transformedText.includes('"role":""'), 'Should not contain empty role field');
 		});
+
+		test('handles chunked streaming data split across network packets', async () => {
+			// Simulate SSE data split across multiple network chunks
+			const chunk1 = 'data: {"choices":[{"delta":{"content":"Hel';
+			const chunk2 = 'lo","role":"","tool_calls":null},"index":0}],"created":1234567890,"id":"test-id","model":"openai-gpt-5","object":"chat.completion.chunk"}\n';
+			const chunk3 = '\ndata: [DONE]\n\n';
+
+			// Create a custom ReadableStream that yields data in chunks
+			const encoder = new TextEncoder();
+			const stream = new ReadableStream({
+				start(controller) {
+					controller.enqueue(encoder.encode(chunk1));
+					controller.enqueue(encoder.encode(chunk2));
+					controller.enqueue(encoder.encode(chunk3));
+					controller.close();
+				}
+			});
+
+			const mockResponse = new Response(stream, {
+				status: 200,
+				headers: {
+					'content-type': 'text/event-stream'
+				}
+			});
+
+			fetchStub.resolves(mockResponse);
+
+			const customFetch = createOpenAICompatibleFetch('Snowflake Cortex');
+			const response = await customFetch('https://test.com/api', {
+				method: 'POST',
+				body: JSON.stringify({})
+			});
+
+			assert.strictEqual(response.status, 200);
+
+			// Read the transformed stream
+			const reader = response.body?.getReader();
+			const chunks: string[] = [];
+			if (reader) {
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) { break; }
+					chunks.push(new TextDecoder().decode(value));
+				}
+			}
+
+			const transformedText = chunks.join('');
+
+			console.log('Chunked Transformed Stream Text:', transformedText);
+			// Verify that empty role field was transformed to "assistant" even with chunked data
+			assert.ok(transformedText.includes('"role":"assistant"'), 'Empty role should be transformed to "assistant" even with chunked data');
+			assert.ok(!transformedText.includes('"role":""'), 'Should not contain empty role field');
+			assert.ok(transformedText.includes('"content":"Hello"'), 'Content should be reassembled correctly');
+		});
 	});
 });

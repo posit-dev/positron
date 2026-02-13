@@ -259,25 +259,48 @@ function transformRequestBody(init: RequestInit | undefined, providerName: strin
 }
 
 /**
- * Transforms streaming responses to fix OpenAI-compatible provider issues
+ * Transforms streaming SSE responses to fix OpenAI-compatible provider issues.
+ * Buffers incomplete lines to handle data split across network chunks.
+ *
+ * Example error without this fix:
+ * [Snowflake Cortex] [GPT-4.1] Error: AI_TypeValidationError
+ * Value: {"choices":[{"delta":{"content":"Hi","role":"","tool_calls":null},...}
+ * Error: Invalid input: expected "assistant" at choices[0].delta.role
  */
 function transformStreamingResponse(response: Response, providerName: string, noArgTools: string[] = []): Response {
-	// Only process streaming responses
 	const contentType = response.headers.get('content-type');
-	if (!contentType?.includes('text/event-stream')) {
+	if (!contentType?.includes('text/event-stream') || !response.body) {
 		return response;
 	}
 
-	// Fix empty role fields in streaming responses - some providers (like Snowflake Cortex)
-	// return empty role fields, but the AI SDK expects "assistant".
-	// Example error message without this fix:
-	// [Snowflake Cortex] [GPT-5]' Error in chat response: { "name": "AI_TypeValidationError", "cause": { "issues": [ { "code": "invalid_union", "unionErrors": [ { "issues": [ { "received": "", "code": "invalid_enum_value", "options": [ "assistant" ], "path": [ "choices", 0, "delta", "role" ], "message": "Invalid enum value. Expected 'assistant', received ''" } ], "name": "ZodError" }, { "issues": [ { "code": "invalid_type", "expected": "object", "received": "undefined", "path": [ "error" ], "message": "Required" } ], "name": "ZodError" } ], "path": [], "message": "Invalid input" } ], "name": "ZodError" }, "value": { "choices": [ { "delta": { "content": "Hi", "refusal": "", "role": "", "tool_calls": null }, "index": 0, "logprobs": { "content": null, "refusal": null } } ], "created": 1763996710, "id": "chatcmpl-CfSPmojQUpCNSwEMdoKfgxjEF9rnS", "model": "openai-gpt-5", "object": "chat.completion.chunk", "service_tier": "", "system_fingerprint": "" } }
-	const transformedStream = response.body?.pipeThrough(
+	let buffer = '';
+	const decoder = new TextDecoder();
+	const encoder = new TextEncoder();
+
+	const transformedStream = response.body.pipeThrough(
 		new TransformStream({
 			transform(chunk, controller) {
-				const text = new TextDecoder().decode(chunk);
-				const transformedText = transformServerSentEvents(text, providerName, noArgTools);
-				controller.enqueue(new TextEncoder().encode(transformedText));
+				buffer += decoder.decode(chunk, { stream: true });
+
+				const lastNewlineIndex = buffer.lastIndexOf('\n');
+				if (lastNewlineIndex === -1) {
+					return;
+				}
+
+				const completeText = buffer.slice(0, lastNewlineIndex + 1);
+				buffer = buffer.slice(lastNewlineIndex + 1);
+
+				const transformedText = transformServerSentEvents(completeText, providerName, noArgTools);
+				controller.enqueue(encoder.encode(transformedText));
+			},
+			flush(controller) {
+				// Flush any remaining bytes from the decoder
+				buffer += decoder.decode();
+
+				if (buffer.length > 0) {
+					const transformedText = transformServerSentEvents(buffer, providerName, noArgTools);
+					controller.enqueue(encoder.encode(transformedText));
+				}
 			}
 		})
 	);
