@@ -175,9 +175,9 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
-        key: npm-core-v9-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+        key: npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
         restore-keys: |
-          npm-core-v9-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
+          npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
 
     - name: Restore npm volatile extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}

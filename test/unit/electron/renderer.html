@@ -108,15 +108,7 @@
 		//3: React and other external dependencies
 
         const addModule = (packageName) => {
-            const module = `esm-package-dependencies/${packageName}.js`;
-
-			const fullPath = require('path').join(__dirname, `../../../${outdir}`, module);
-			const exists = require('fs').existsSync(fullPath);
-			console.log(`[ESM] ${packageName} -> ${fullPath} (exists: ${exists})`);
-			if (!exists) {
-				console.warn(`[ESM] WARNING: Module file not found: ${fullPath}`);
-			}
-            importMap.imports[packageName] = `../../../${outdir}/` + module;
+            importMap.imports[packageName] = `../../../${outdir}/esm-package-dependencies/${packageName}.js`
         };
 
 		addModule("he");
