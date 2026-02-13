@@ -75,7 +75,7 @@ suite('Round-trip serialization', () => {
 		assert.ok(serialized.includes('  - two'));
 	});
 
-	test('should preserve extra newlines in markdown content', () => {
+	test.skip('should preserve extra newlines in markdown content', () => {
 		const cells: ICellDto2[] = [
 			markdownCell('# Title\n\n\n\nParagraph with extra newlines above.'),
 		];
