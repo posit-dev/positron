@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -30,6 +30,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPathService } from '../../path/common/pathService.js';
+import { IPositronNewFolderService } from '../../positronNewFolder/common/positronNewFolder.js';
 import { resolveNotebookWorkingDirectory } from '../../../contrib/notebook/common/notebookWorkingDirectoryUtils.js';
 import { isEqual } from '../../../../base/common/resources.js';
 
@@ -112,6 +113,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// the extension host comes back online.
 	private readonly _disconnectedSessions = new Map<string, ActiveRuntimeSession>();
 
+	// Lazily-initialized reference to the new folder service (to avoid circular dependency).
+	private _newFolderService: IPositronNewFolderService | undefined;
+
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
 		this._register(new Emitter<IRuntimeSessionWillStartEvent>);
@@ -184,6 +188,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// If a runtime for the language is already starting or running,
 			// there is no need to check for implicit startup below.
 			if (this.hasStartingOrRunningConsole(languageId)) {
+				return;
+			}
+
+			// If we're in the middle of new folder initialization, don't auto-start yet.
+			// The RuntimeStartupService will handle starting the correct runtime after
+			// the new folder tasks complete (including venv creation).
+			// Note: We use lazy access here to avoid a circular dependency, since
+			// PositronNewFolderService depends on IRuntimeSessionService.
+			if (!this._newFolderService) {
+				this._newFolderService = this._instantiationService.invokeFunction(accessor => accessor.get(IPositronNewFolderService));
+			}
+			if (!this._newFolderService.initTasksComplete.isOpen()) {
 				return;
 			}
 
