@@ -556,7 +556,8 @@ export class PositModelProvider extends VercelModelProvider {
 
 			return markDefaultModel(modelListing, this.providerId, DEFAULT_POSITAI_MODEL_MATCH);
 		} catch (error) {
-			log.warn(`[${this.providerName}] Failed to fetch models from Posit API: ${error}`);
+			const message = error instanceof Error ? error.message : JSON.stringify(error);
+			log.warn(`[${this.providerName}] Failed to fetch models from Posit API: ${message}`);
 			return undefined;
 		}
 	}
