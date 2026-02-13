@@ -53,10 +53,6 @@ export interface ICellRevealOptions {
 	 * The direction of keyboard navigation (only applicable when reason is 'keyboardNavigation')
 	 */
 	direction?: CellNavigationDirection;
-	/**
-	 * Optional cell reveal type for programmatic reveals (backward compatibility)
-	 */
-	type?: CellRevealType;
 }
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
@@ -320,7 +316,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		// Handle backward compatibility - if just a CellRevealType is passed, treat as programmatic
 		const options: ICellRevealOptions = typeOrOptions !== null && typeof typeOrOptions === 'object'
 			? typeOrOptions
-			: { reason: 'programmatic', type: typeOrOptions };
+			: { reason: 'programmatic' };
 
 		// Capture per-notebook generation so we can bail if a newer reveal starts while we await
 		const genMap = PositronNotebookCellGeneral._revealGenerationByInstance;
