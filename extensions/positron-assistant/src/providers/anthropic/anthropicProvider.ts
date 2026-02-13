@@ -22,7 +22,8 @@ import {
 	DEFAULT_ANTHROPIC_MODEL_NAME,
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
 	fetchAnthropicModelsFromApi,
-	getAnthropicModelsFromConfig
+	getAnthropicModelsFromConfig,
+	handleNativeSdkRateLimitError
 } from './anthropicModelUtils.js';
 
 // Re-export for consumers that import from this file
@@ -226,6 +227,10 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		} catch (error) {
 			if (error instanceof Anthropic.APIError) {
 				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
+
+				// Check for rate limit error with retry-after header
+				handleNativeSdkRateLimitError(error, this.providerName);
+
 				let data: any;
 				try {
 					data = JSON.parse(error.message);
@@ -233,7 +238,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 					// Ignore JSON parse errors.
 				}
 				if (data?.error?.type === 'overloaded_error') {
-					throw new Error(`[${this.providerName}] Anthropic's API is temporarily overloaded.`);
+					throw new Error(`[${this.providerName}] API is temporarily overloaded.`);
 				}
 			} else if (error instanceof Anthropic.AnthropicError) {
 				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
@@ -274,7 +279,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 			try {
 				const data = JSON.parse(error.message);
 				if (data?.error?.type === 'overloaded_error') {
-					return `Anthropic's API is temporarily overloaded.`;
+					return `API is temporarily overloaded.`;
 				}
 			} catch { /* ignore */ }
 		} else if (error instanceof Anthropic.AnthropicError) {

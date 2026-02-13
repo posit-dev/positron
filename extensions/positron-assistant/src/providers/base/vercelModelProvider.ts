@@ -197,7 +197,26 @@ export abstract class VercelModelProvider extends ModelProvider {
 			abortSignal: signal,
 		});
 
-		await this.handleStreamResponse(result, model, progress, token, requestId);
+		try {
+			await this.handleStreamResponse(result, model, progress, token, requestId);
+		} catch (error) {
+			// Allow subclasses to handle provider-specific errors
+			this.handleStreamError(error);
+		}
+	}
+
+	/**
+	 * Handles errors that occur during stream processing.
+	 *
+	 * Subclasses can override this method to handle provider-specific errors
+	 * (e.g., rate limiting with retry-after headers). The default implementation
+	 * simply re-throws the error.
+	 *
+	 * @param error - The error that occurred during streaming
+	 * @throws The original error or a transformed error with additional context
+	 */
+	protected handleStreamError(error: unknown): never {
+		throw error;
 	}
 
 	/**
@@ -382,6 +401,45 @@ export abstract class VercelModelProvider extends ModelProvider {
 		recordTokenUsage(this.providerId, tokens);
 
 		this.logger.info(`[vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
+	}
+
+	/**
+	 * Parses provider errors to extract user-friendly messages.
+	 *
+	 * Overrides the base implementation to handle Vercel AI SDK-specific errors,
+	 * particularly RetryError which wraps the actual API error when maxRetries
+	 * is exceeded.
+	 *
+	 * @param error - The error object from the provider
+	 * @returns A user-friendly error message, or undefined if not specifically handled
+	 */
+	override async parseProviderError(error: any): Promise<string | undefined> {
+		// Handle RetryError - the Vercel SDK wraps retried errors in this type
+		// when maxRetries is exceeded. Extract the lastError for processing.
+		if (ai.RetryError.isInstance(error) && error.lastError) {
+			if (ai.APICallError.isInstance(error.lastError)) {
+				const lastError = error.lastError;
+
+				// Check for rate limit error (429) with retry-after header
+				if (lastError.statusCode === 429) {
+					const retryAfter = lastError.responseHeaders?.['retry-after'];
+					if (retryAfter) {
+						return `Rate limit exceeded. Please retry after ${retryAfter} seconds.`;
+					}
+					return 'Rate limit exceeded. Please try again later.';
+				}
+
+				// Try to get the message from the parsed data on the lastError
+				const errorData = lastError.data as { error?: { message?: string } } | undefined;
+				if (errorData?.error?.message) {
+					return errorData.error.message;
+				}
+			}
+			// Delegate to base class with the unwrapped error
+			return super.parseProviderError(error.lastError);
+		}
+
+		return super.parseProviderError(error);
 	}
 
 	/**
