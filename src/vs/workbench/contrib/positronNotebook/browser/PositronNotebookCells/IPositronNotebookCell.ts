@@ -14,6 +14,7 @@ import { NotebookPreloadOutputResults } from '../../../../services/positronWebvi
 import { CellSelectionType } from '../selectionMachine.js';
 import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 import { IPositronCellViewModel } from '../IPositronNotebookEditor.js';
+import { ICellRevealOptions } from './PositronNotebookCell.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
@@ -190,10 +191,10 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 
 	/**
 	 * Reveal the cell in the viewport
-	 * @param type Reveal type.
+	 * @param typeOrOptions Reveal type (for backward compatibility) or reveal options with reason-aware behavior
 	 * @returns Promise that resolves to true if the cell was successfully revealed, false otherwise.
 	 */
-	reveal(type?: CellRevealType): Promise<boolean>;
+	reveal(typeOrOptions?: CellRevealType | ICellRevealOptions): Promise<boolean>;
 
 	/**
 	 * Temporarily highlight the cell with a flash animation to draw attention.

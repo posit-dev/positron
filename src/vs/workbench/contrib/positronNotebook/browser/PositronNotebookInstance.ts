@@ -905,6 +905,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cell The cell to reveal
 	 */
 	private async _revealCell(cell: IExtensionApiCellViewModel, type?: CellRevealType): Promise<void> {
+		// Pass the type parameter to reveal method - it will handle backward compatibility
 		await this._toPositronCell(cell).reveal(type);
 	}
 	//#endregion INotebookEditor
@@ -2046,7 +2047,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		if (autoFollow) {
 			// Reveal (scroll to) and highlight
-			if (!(await cell.reveal())) {
+			if (!(await cell.reveal({ reason: 'programmatic' }))) {
 				this._logService.debug('[PositronNotebookInstance] handleAssistantModification: cell.reveal() returned false');
 			}
 			if (!(await cell.highlightTemporarily(operationType, maxWaitMs))) {
