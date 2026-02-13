@@ -17,7 +17,8 @@ import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNoteboo
 import { IAnchor } from '../../../../../base/browser/ui/contextview/contextview.js';
 
 /**
- * A hook that provides the cell context menu.
+ * A hook that provides the common cell actions in a context menu for any
+ * kind of notebook cell. Currently this hook is only used by the markdown cell.
  *
  * This hook extracts the common context menu logic so the menu can be
  * shown when right-clicking anywhere on a cell (that isn't the cell output).
@@ -26,7 +27,7 @@ import { IAnchor } from '../../../../../base/browser/ui/contextview/contextview.
  * @returns The showCellContextMenu function that can be called with
  *          either an HTMLElement (for buttons) or coordinates (for right-clicks)
  */
-export function useCellContextMenu(cell: IPositronNotebookCell) {
+export function useMarkdownCellContextMenu(cell: IPositronNotebookCell) {
 	const instance = useNotebookInstance();
 	const contextKeyService = useCellScopedContextKeyService();
 	const { contextMenuService } = usePositronReactServicesContext();
