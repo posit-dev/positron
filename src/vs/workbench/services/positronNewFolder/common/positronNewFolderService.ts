@@ -108,14 +108,14 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		// Parse the new folder configuration from the storage service
 		this._newFolderConfig = this._parseNewFolderConfig();
 
-		if (!this.isCurrentWindowNewFolder()) {
+		if (!this._newFolderConfig) {
 			// If no new folder configuration is found, the new folder startup
 			// is complete
 			this.initTasksComplete.open();
 		} else {
 			// If new folder configuration is found, save the runtime metadata.
 			// This metadata will be overwritten if a new environment is created.
-			this._runtimeMetadata = this._newFolderConfig?.runtimeMetadata;
+			this._runtimeMetadata = this._newFolderConfig.runtimeMetadata;
 		}
 
 		// Initialize the pending tasks observable.
@@ -238,19 +238,14 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	 * Runs tasks that require the extension service to be ready.
 	 */
 	private async _runExtensionTasks() {
-		// TODO: it would be nice to run these tasks in parallel!
-
-		// First, create the new empty file since this is a quick task.
-		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
-			await this._runCreateNewFile();
-		}
-
-		// Next, run git init if needed.
+		// First, run git init if needed.
 		if (this.pendingInitTasks.has(NewFolderTask.Git)) {
 			await this._runGitInit();
 		}
 
-		// Next, run language-specific tasks which may take a bit more time.
+		// Next, run language-specific tasks (e.g. venv creation) so the
+		// environment is affiliated before we open a language file, which
+		// triggers language encounter and runtime auto-start logic.
 		if (this.pendingInitTasks.has(NewFolderTask.Python)) {
 			await this._runPythonTasks();
 		}
@@ -259,6 +254,13 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
 			await this._runRTasks();
+		}
+
+		// Finally, create the new file. This is done last because opening a
+		// language file triggers a language encounter; doing it after the
+		// environment tasks ensures the correct interpreter is affiliated.
+		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
+			await this._runCreateNewFile();
 		}
 	}
 
@@ -943,6 +945,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 
 	async initNewFolder() {
 		if (!this.isCurrentWindowNewFolder()) {
+			this.initTasksComplete.open();
 			return;
 		}
 		if (this._newFolderConfig) {
