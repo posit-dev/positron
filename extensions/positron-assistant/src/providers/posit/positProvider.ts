@@ -254,8 +254,9 @@ export class PositModelProvider extends VercelModelProvider {
 	public static async getAccessToken(context: vscode.ExtensionContext): Promise<string> {
 		let accessToken = await context.secrets.get('positron.assistant.positai.access_token');
 		const tokenExpiry = await context.secrets.get('positron.assistant.positai.token_expiry');
+		const now = Date.now();
 
-		log.debug(`[Posit AI] Token expiry at ${tokenExpiry}. Current time is ${Date.now()}.`);
+		log.debug(`[Posit AI] Token expiry at ${tokenExpiry}. Current time is ${now}.`);
 
 		if (!accessToken || !tokenExpiry) {
 			throw new Error('No Posit AI access token found. Please sign in.');
@@ -263,7 +264,7 @@ export class PositModelProvider extends VercelModelProvider {
 
 		const tenMin = 10 * 60 * 1000;
 		const expiry = parseInt(tokenExpiry) - tenMin;
-		if (tokenExpiry && Date.now() >= expiry) {
+		if (tokenExpiry && now >= expiry) {
 			log.info('Access token has expired.');
 			const result = await PositModelProvider.refreshAccessToken(context);
 			if (!result.success) {
