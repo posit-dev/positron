@@ -396,13 +396,39 @@ export function calculateMultiSortingTransforms(
 		}
 	}
 
-	// At the original insertion slot, contiguous "primary-first" drags still need to
-	// close the vacated space created by collapsed secondary indicators.
-	if (atOriginalPosition && hasContiguousSelection && activeIndices.length > 1 && nonPrimaryAboveCount === 0) {
-		const gapToClose = totalActiveSlotHeight - primarySlotHeight;
+	// At the original insertion slot, contiguous multi-drag still needs to close
+	// the vacated space from non-primary selected cells above/below the primary.
+	// Without this, drag-start can show oversized gaps until insertion index changes.
+	if (atOriginalPosition && hasContiguousSelection && activeIndices.length > 1) {
+		let aboveVacatedHeight = 0;
+		let belowVacatedHeight = 0;
+		for (const idx of activeIndices) {
+			if (idx < primaryActiveIndex) {
+				aboveVacatedHeight += getSlotHeight(idx, items, rects, gap);
+			} else if (idx > primaryActiveIndex) {
+				belowVacatedHeight += getSlotHeight(idx, items, rects, gap);
+			}
+		}
+
 		const lastActiveIndex = activeIndices[activeIndices.length - 1];
 
-		if (gapToClose > 0) {
+		// Close vacated slots above primary by moving preceding items down.
+		if (aboveVacatedHeight > 0) {
+			for (let i = 0; i < firstActiveIndex; i++) {
+				if (activeIndexSet.has(i)) {
+					continue;
+				}
+				const id = items[i];
+				const existing = transforms.get(id);
+				transforms.set(id, {
+					x: existing?.x ?? 0,
+					y: (existing?.y ?? 0) + aboveVacatedHeight,
+				});
+			}
+		}
+
+		// Close vacated slots below primary by moving following items up.
+		if (belowVacatedHeight > 0) {
 			for (let i = lastActiveIndex + 1; i < items.length; i++) {
 				if (activeIndexSet.has(i)) {
 					continue;
@@ -411,7 +437,7 @@ export function calculateMultiSortingTransforms(
 				const existing = transforms.get(id);
 				transforms.set(id, {
 					x: existing?.x ?? 0,
-					y: (existing?.y ?? 0) - gapToClose,
+					y: (existing?.y ?? 0) - belowVacatedHeight,
 				});
 			}
 		}

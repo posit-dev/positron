@@ -105,6 +105,78 @@ suite('Positron Notebook DnD Animations', () => {
 		assert.strictEqual(secondaryTop, primaryBottom);
 	});
 
+	test('original-position drag closes gap when selected cells are above primary', () => {
+		const items = ['a', 'b', 'c', 'd', 'e'];
+		const rects = new Map<string, DOMRect>([
+			['a', rect(0)],
+			['b', rect(130)],
+			['c', rect(260)],
+			['d', rect(390)],
+			['e', rect(520)],
+		]);
+
+		// Drag contiguous selection [b, c] using c's handle at original slot.
+		// This keeps insertionIndex at 3 (after the selected block).
+		const transforms = calculateMultiSortingTransforms(items, rects, ['c', 'b'], 3);
+
+		const aboveIndicator = transforms.get('b');
+		const shiftedAboveNeighbor = transforms.get('a');
+
+		assert.ok(aboveIndicator);
+		assert.ok(shiftedAboveNeighbor);
+
+		const primaryTop = rects.get('c')!.top + (transforms.get('c')?.y ?? 0);
+		const primaryBottom = primaryTop + rects.get('c')!.height;
+		const aboveNeighborBottom = rects.get('a')!.top + shiftedAboveNeighbor!.y + rects.get('a')!.height;
+		const aboveIndicatorTop = rects.get('b')!.top + aboveIndicator!.y;
+		const belowNeighborTop = rects.get('d')!.top + (transforms.get('d')?.y ?? 0);
+
+		// Keep normal inter-cell spacing above and below the primary cell.
+		assert.strictEqual(primaryTop - aboveNeighborBottom, 30);
+		assert.strictEqual(belowNeighborTop - primaryBottom, 30);
+
+		// Collapsed "above" indicator should remain attached just above primary.
+		assert.strictEqual(aboveIndicatorTop + 4, primaryTop);
+	});
+
+	test('original-position drag keeps equal spacing when primary has selected cells above and below', () => {
+		const items = ['a', 'b', 'c', 'd', 'e'];
+		const rects = new Map<string, DOMRect>([
+			['a', rect(0)],
+			['b', rect(130)],
+			['c', rect(260)],
+			['d', rect(390)],
+			['e', rect(520)],
+		]);
+
+		// Drag contiguous selection [b, c, d] using c's handle at original slot.
+		// insertionIndex 4 means after the selected block.
+		const transforms = calculateMultiSortingTransforms(items, rects, ['c', 'b', 'd'], 4);
+
+		const aboveIndicator = transforms.get('b');
+		const belowIndicator = transforms.get('d');
+		const shiftedAboveNeighbor = transforms.get('a');
+		const shiftedBelowNeighbor = transforms.get('e');
+
+		assert.ok(aboveIndicator);
+		assert.ok(belowIndicator);
+		assert.ok(shiftedAboveNeighbor);
+		assert.ok(shiftedBelowNeighbor);
+
+		const primaryTop = rects.get('c')!.top + (transforms.get('c')?.y ?? 0);
+		const primaryBottom = primaryTop + rects.get('c')!.height;
+		const aboveNeighborBottom = rects.get('a')!.top + shiftedAboveNeighbor!.y + rects.get('a')!.height;
+		const belowNeighborTop = rects.get('e')!.top + shiftedBelowNeighbor!.y;
+		const aboveIndicatorTop = rects.get('b')!.top + aboveIndicator!.y;
+		const belowIndicatorTop = rects.get('d')!.top + belowIndicator!.y;
+
+		// Keep normal inter-cell spacing around primary while showing both indicators.
+		assert.strictEqual(primaryTop - aboveNeighborBottom, 30);
+		assert.strictEqual(belowNeighborTop - primaryBottom, 30);
+		assert.strictEqual(aboveIndicatorTop + 4, primaryTop);
+		assert.strictEqual(belowIndicatorTop, primaryBottom);
+	});
+
 	test('large indicator stacks stay within surrounding gap space', () => {
 		const items = Array.from({ length: 15 }, (_, i) => `i${i}`);
 		const rects = new Map<string, DOMRect>();
