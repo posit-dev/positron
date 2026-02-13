@@ -225,11 +225,8 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			return;
 		}
 
-		// Get current automatic mode for state
-		const automatic = this._isAutomaticMode();
-
 		// Set loading state
-		this._ghostCellState.set({ status: 'loading', executedCellIndex, automatic }, undefined);
+		this._ghostCellState.set({ status: 'loading', executedCellIndex, automatic: this._isAutomaticMode() }, undefined);
 
 		// Create new cancellation token
 		this._ghostCellCancellationToken = new CancellationTokenSource();
@@ -243,13 +240,14 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 				if (token.isCancellationRequested) {
 					return;
 				}
-				// Update state to streaming with partial content
+				// Update state to streaming with partial content, merging into current state
+				const currentState = this._ghostCellState.get();
 				this._ghostCellState.set({
 					status: 'streaming',
 					executedCellIndex,
-					code: partial.code || '',
-					explanation: partial.explanation || '',
-					automatic
+					code: partial.code ?? (currentState.status === 'streaming' ? currentState.code : ''),
+					explanation: partial.explanation ?? (currentState.status === 'streaming' ? currentState.explanation : ''),
+					automatic: this._isAutomaticMode()
 				}, undefined);
 			}
 		);
@@ -276,7 +274,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 					code: result.code,
 					explanation: result.explanation,
 					language: result.language,
-					automatic,
+					automatic: this._isAutomaticMode(),
 					modelName: result.modelName,
 					usedFallback: result.usedFallback
 				}, undefined);
