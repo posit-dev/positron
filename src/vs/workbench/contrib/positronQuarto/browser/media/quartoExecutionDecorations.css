@@ -15,24 +15,24 @@
 .monaco-editor .quarto-execution-queued-single {
 	width: 3px !important;
 	margin-left: 10px;
-	border-left: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
-	border-right: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-left: 1px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
+	border-right: 1px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 }
 
 /* First line of multi-line cell: top border */
 .monaco-editor .quarto-execution-queued-first {
-	border-top: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-top: 1px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 }
 
 /* Last line of multi-line cell: bottom border */
 .monaco-editor .quarto-execution-queued-last {
-	border-bottom: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-bottom: 1px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 }
 
 /* Single-line cell: all borders */
 .monaco-editor .quarto-execution-queued-single {
-	border-top: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
-	border-bottom: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-top: 1px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
+	border-bottom: 1px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 }
 
 /* Running: filled rectangle with pulsing animation */
@@ -47,7 +47,7 @@
 .monaco-editor .quarto-execution-running-7,
 .monaco-editor .quarto-execution-running-8,
 .monaco-editor .quarto-execution-running-9 {
-	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-left: 5px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 	margin-left: 10px;
 	animation: quarto-pulse 1.5s ease-in-out infinite;
 }
@@ -63,7 +63,7 @@
 .monaco-editor .quarto-execution-error-running-7,
 .monaco-editor .quarto-execution-error-running-8,
 .monaco-editor .quarto-execution-error-running-9 {
-	border-left: 5px solid var(--vscode-editorGutter-quartoErrorBackground, #D32F2F);
+	border-left: 5px solid var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
 	margin-left: 10px;
 	animation: quarto-pulse 1.5s ease-in-out infinite;
 }
@@ -103,28 +103,28 @@
 
 /* Completed: solid green that fades out */
 .monaco-editor .quarto-execution-completed {
-	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-left: 5px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 	margin-left: 10px;
 	opacity: 1;
 }
 
 /* Completed fading: transitions from solid to transparent */
 .monaco-editor .quarto-execution-completed-fading {
-	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-left: 5px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 	margin-left: 10px;
 	animation: quarto-fade-out 300ms ease-out forwards;
 }
 
 /* Error completed: solid red that fades out */
 .monaco-editor .quarto-execution-error-completed {
-	border-left: 5px solid var(--vscode-editorGutter-quartoErrorBackground, #D32F2F);
+	border-left: 5px solid var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
 	margin-left: 10px;
 	opacity: 1;
 }
 
 /* Error completed fading: transitions from solid red to transparent */
 .monaco-editor .quarto-execution-error-completed-fading {
-	border-left: 5px solid var(--vscode-editorGutter-quartoErrorBackground, #D32F2F);
+	border-left: 5px solid var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
 	margin-left: 10px;
 	animation: quarto-fade-out 300ms ease-out forwards;
 }
@@ -141,9 +141,9 @@
 /* Overview ruler markers */
 .monaco-editor .quarto-queued-overview-ruler,
 .monaco-editor .quarto-running-overview-ruler {
-	background-color: var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	background-color: var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 }
 
 .monaco-editor .quarto-error-overview-ruler {
-	background-color: var(--vscode-editorGutter-quartoErrorBackground, #D32F2F);
+	background-color: var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
 }
