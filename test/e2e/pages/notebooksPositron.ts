@@ -1078,6 +1078,25 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Verify: the action bar for the cell at the specified index is not clipped
+	 * by the notebook scroll container (its top edge is within the viewport).
+	 */
+	async expectActionBarVisibleInViewport(cellIndex: number): Promise<void> {
+		await test.step(`Verify action bar for cell ${cellIndex} is visible in viewport`, async () => {
+			await expect(async () => {
+				const actionBar = this.cell.nth(cellIndex).locator('.positron-notebooks-cell-action-bar');
+				const actionBarBox = await actionBar.boundingBox();
+				const containerBox = await this.cellsContainer.boundingBox();
+				expect(actionBarBox, `Action bar for cell ${cellIndex} has no bounding box`).not.toBeNull();
+				expect(containerBox, 'Cells container has no bounding box').not.toBeNull();
+
+				// The action bar's top edge should not be above the scroll container
+				expect(actionBarBox!.y).toBeGreaterThanOrEqual(containerBox!.y - 1);
+			}).toPass({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
 	 * Get the current scroll position of the notebook cells container.
 	 */
 	async getScrollTop(): Promise<number> {

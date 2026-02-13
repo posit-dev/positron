@@ -326,6 +326,29 @@ test.describe('Notebook Focus and Selection', {
 			}
 		});
 
+		test('Action bar is not clipped when scrolling to oversized cell', async function ({ app }) {
+			const { notebooksPositron } = app.workbench;
+			const keyboard = app.code.driver.page.keyboard;
+			await notebooksPositron.newNotebook({ codeCells: 5 });
+
+			// Make cell 3 taller than the viewport by adding many lines
+			await notebooksPositron.selectCellAtIndex(3, { editMode: true });
+			for (let i = 0; i < 50; i++) {
+				await keyboard.press('Enter');
+			}
+			await keyboard.press('Escape');
+
+			// Navigate from cell 2 down to the oversized cell 3.
+			// This triggers scrollIntoView({ block: 'start' }) for oversized cells,
+			// which would clip the action bar without scroll-margin-top.
+			await notebooksPositron.selectCellAtIndex(2, { editMode: false });
+			await keyboard.press('ArrowDown');
+			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: false });
+
+			// Verify the action bar is not clipped by the scroll container
+			await notebooksPositron.expectActionBarVisibleInViewport(3);
+		});
+
 		test('Enter/Escape mode transitions do not scroll', async function ({ app }) {
 			const { notebooksPositron } = app.workbench;
 			const keyboard = app.code.driver.page.keyboard;
