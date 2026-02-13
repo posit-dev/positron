@@ -176,10 +176,11 @@ export function useMultiDragState(itemId: string) {
 	let draggedBelowCount = 0;
 
 	if (isPrimaryDrag && dragCount > 1) {
-		const primaryOrderIndex = orderedIds.indexOf(itemId);
+		const orderMap = new Map(orderedIds.map((id, idx) => [id, idx]));
+		const primaryOrderIndex = orderMap.get(itemId) ?? -1;
 		if (primaryOrderIndex !== -1) {
 			for (const id of state.activeIds.slice(1)) {
-				const idx = orderedIds.indexOf(id);
+				const idx = orderMap.get(id) ?? -1;
 				if (idx !== -1 && idx < primaryOrderIndex) {
 					draggedAboveCount++;
 				} else if (idx !== -1 && idx > primaryOrderIndex) {

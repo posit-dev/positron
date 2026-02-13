@@ -135,5 +135,6 @@ body.dragging-notebook-cell * {
 }
 
 .sortable-cell.dragging.multi-drag-primary-indicator-below::after {
-	top: calc(100% + 2px);
+	/* Account for drag lift so this stays below (not on) the dragged border. */
+	top: calc(100% + 2px + var(--_drag-lift-y, 0px));
 }

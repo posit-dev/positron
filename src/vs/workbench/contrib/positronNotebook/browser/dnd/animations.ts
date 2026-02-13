@@ -276,6 +276,11 @@ export function calculateMultiSortingTransforms(
 	// We collapse them to a thin line (~4px visual height)
 	const collapsedHeight = 4;
 
+	// Indicator stacking parameters (used for both primary offset and indicator placement)
+	const stackStride = Math.min(collapsedHeight, 2);
+	const maxStackSpread = Math.max(gap - collapsedHeight, 0);
+	const maxStackSteps = stackStride > 0 ? Math.floor(maxStackSpread / stackStride) : 0;
+
 	// Set to track active item indices for efficient lookup
 	const activeIndexSet = new Set(activeIndices);
 
@@ -344,7 +349,9 @@ export function calculateMultiSortingTransforms(
 		// Without this offset correction, dragging a non-first selected cell
 		// over-shoots by the full height of selected cells above it.
 		const primaryOffsetFromGroupTop = firstActiveRect ? (primaryRect.top - firstActiveRect.top) : 0;
-		const collapsedOffsetAbovePrimary = nonPrimaryAboveCount * collapsedHeight;
+		const collapsedOffsetAbovePrimary = nonPrimaryAboveCount > 0
+			? collapsedHeight + Math.min(nonPrimaryAboveCount - 1, maxStackSteps) * stackStride
+			: 0;
 		primaryTransformY = groupTopTransformY - primaryOffsetFromGroupTop + collapsedOffsetAbovePrimary;
 
 		// Set transform for primary active item
@@ -468,12 +475,6 @@ export function calculateMultiSortingTransforms(
 	// Sort by index to maintain document order within each group
 	nonPrimaryAbove.sort((a, b) => items.indexOf(a) - items.indexOf(b));
 	nonPrimaryBelow.sort((a, b) => items.indexOf(a) - items.indexOf(b));
-
-	// Keep indicator spillover bounded to the inter-cell gap so indicators
-	// stay in margin/padding space and do not overlap neighboring cells.
-	const stackStride = Math.min(collapsedHeight, 2);
-	const maxStackSpread = Math.max(gap - collapsedHeight, 0);
-	const maxStackSteps = stackStride > 0 ? Math.floor(maxStackSpread / stackStride) : 0;
 
 	// Stack collapsed indicators above the primary cell (from bottom to top)
 	// The last item in nonPrimaryAbove should be closest to primary
