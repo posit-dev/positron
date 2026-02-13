@@ -5,6 +5,11 @@
 
 import { Application } from '../../infra';
 
+/**
+ * Settings fixture type for configuring application settings in tests.
+ */
+export type Settings = ReturnType<typeof SettingsFixture>;
+
 export function SettingsFixture(app: Application) {
 	const { settings } = app.workbench;
 

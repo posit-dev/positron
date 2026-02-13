@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, TestTags, Sessions, HotKeys, TestTeardown } from '../../infra';
+import { Settings } from '../../fixtures/test-setup/settings.fixtures';
 
 /**
  * Playwright fixtures passed to test case run functions.
@@ -14,17 +15,18 @@ export interface TestFixtures {
 	sessions: Sessions;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
+	settings: Settings;
 }
 
 /**
  * Evaluation criteria for grading LLM responses.
  */
 export interface EvaluationCriteria {
-	/** Essential criteria - ALL must be met for Complete grade */
-	essential: string[];
+	/** Required criteria - ALL must be met for Complete grade */
+	required: string[];
 
-	/** Additional criteria - meeting these improves the grade */
-	additional?: string[];
+	/** Optional criteria - meeting these improves the grade */
+	optional?: string[];
 
 	/** Automatic fail conditions - ANY of these results in Incomplete */
 	failIf?: string[];

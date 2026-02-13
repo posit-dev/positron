@@ -82,12 +82,20 @@ export default defineConfig<CustomTestOptions>({
 	projects: [
 		{
 			name: 'e2e-electron',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/remote-ssh/**',
-				// Note: assistant-eval NOT ignored here - runs on e2e-electron only
-			],
+			testIgnore: process.env.ALLOW_PYREFLY === 'true'
+				? [
+					'example.test.ts',
+					'**/workbench/**',
+					'**/remote-ssh/**',
+					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+				]
+				: [
+					'example.test.ts',
+					'**/workbench/**',
+					'**/remote-ssh/**',
+					'**/lsp/**',
+					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+				],
 			use: {
 				artifactDir: 'e2e-electron'
 			},
