@@ -238,27 +238,26 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	 * Runs tasks that require the extension service to be ready.
 	 */
 	private async _runExtensionTasks() {
-		// First, run git init if needed.
+		// Run git init and language environment tasks in parallel since they
+		// are independent of each other.
+		const environmentTasks: Promise<void>[] = [];
 		if (this.pendingInitTasks.has(NewFolderTask.Git)) {
-			await this._runGitInit();
+			environmentTasks.push(this._runGitInit());
 		}
-
-		// Next, run language-specific tasks (e.g. venv creation) so the
-		// environment is affiliated before we open a language file, which
-		// triggers language encounter and runtime auto-start logic.
 		if (this.pendingInitTasks.has(NewFolderTask.Python)) {
-			await this._runPythonTasks();
+			environmentTasks.push(this._runPythonTasks());
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.Jupyter)) {
-			await this._runJupyterTasks();
+			environmentTasks.push(this._runJupyterTasks());
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
-			await this._runRTasks();
+			environmentTasks.push(this._runRTasks());
 		}
+		await Promise.all(environmentTasks);
 
-		// Finally, create the new file. This is done last because opening a
-		// language file triggers a language encounter; doing it after the
-		// environment tasks ensures the correct interpreter is affiliated.
+		// Create the new file last because opening a language file triggers a
+		// language encounter; doing it after the environment tasks ensures the
+		// correct interpreter is affiliated.
 		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
 			await this._runCreateNewFile();
 		}
