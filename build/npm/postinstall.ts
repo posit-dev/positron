@@ -9,6 +9,9 @@ import * as os from 'os';
 import * as child_process from 'child_process';
 import { createRequire } from 'module';
 import { dirs } from './dirs.ts';
+// --- Start Positron ---
+import { buildESMPackageDependencies } from './build-esm-package-dependencies.ts';
+// --- End Positron ---
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const root = path.dirname(path.dirname(import.meta.dirname));
@@ -187,8 +190,8 @@ for (const dir of dirs) {
 // --- Start Positron ---
 /**
  * Async version of npmInstall for parallel execution
- * @param {string} dir
- * @param {*} [opts]
+ * @param dir
+ * @param [opts]
  */
 function npmInstallAsync(dir: string, opts?: any) {
 	return new Promise<void>((resolve, reject) => {
@@ -232,10 +235,10 @@ function npmInstallAsync(dir: string, opts?: any) {
 
 /**
  * Run npm installs in parallel with concurrency limit
- * @param {Array<{dir: string, opts: any}>} tasks
- * @param {number} concurrency
+ * @param tasks
+ * @param concurrency
  */
-async function runBatch(tasks: Array<{ dir: string, opts: any }>, concurrency: number) {
+async function runBatch(tasks: Array<{ dir: string; opts: any }>, concurrency: number) {
 	const results: Promise<string>[] = [];
 	const executing: Promise<void>[] = [];
 
@@ -343,8 +346,8 @@ if (true) {
 		const parentTasks = [];
 		const nestedTasks = [];
 
-		for (let dir of dirs) {
-			if (dir === '') continue;
+		for (const dir of dirs) {
+			if (dir === '') { continue; }
 
 			let opts;
 			if (dir === 'build') {
@@ -403,12 +406,17 @@ if (true) {
 
 			child_process.execSync('git config pull.rebase merges');
 			child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+
+			// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
+			console.log('Building ESM package dependencies...');
+			buildESMPackageDependencies('.build/esm-package-dependencies');
+			console.log('ESM package dependencies built successfully.');
 		})().catch((err) => {
 			console.error('Parallel installation failed:', err);
 			process.exit(1);
 		});
 	} else {
-		for (let dir of dirs) {
+		for (const dir of dirs) {
 
 			if (dir === '') {
 				// already executed in root
@@ -422,7 +430,7 @@ if (true) {
 					env: {
 						...process.env
 					},
-				}
+				};
 				if (process.env!['CC']) { opts.env!['CC'] = 'gcc'; }
 				if (process.env!['CXX']) { opts.env!['CXX'] = 'g++'; }
 				if (process.env!['CXXFLAGS']) { opts.env!['CXXFLAGS'] = ''; }
@@ -441,7 +449,7 @@ if (true) {
 					env: {
 						...process.env
 					},
-				}
+				};
 				if (process.env!['VSCODE_REMOTE_CC']) {
 					opts.env!['CC'] = process.env!['VSCODE_REMOTE_CC'];
 				} else {
@@ -487,6 +495,11 @@ if (true) {
 
 			npmInstall(dir, opts);
 		}
+
+		// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
+		console.log('Building ESM package dependencies...');
+		buildESMPackageDependencies('.build/esm-package-dependencies');
+		console.log('ESM package dependencies built successfully.');
 	}
 }
 
