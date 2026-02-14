@@ -465,6 +465,29 @@ export class BrowserAuxiliaryWindowService extends Disposable implements IAuxili
 				pendingLinksDisposables.add(addDisposableListener(clonedNode, 'error', onLinkSettled));
 			}
 
+			// --- Start Positron ---
+			// For style elements, also copy dynamic CSS rules added via sheet.insertRule().
+			// In Firefox auxiliary windows (opened with ''), @import rules with relative
+			// URLs fail to load, so we resolve them to absolute URLs.
+			if (originalNode.tagName.toLowerCase() === 'style') {
+				const styleElement = originalNode as HTMLStyleElement;
+				const clonedStyleElement = clonedNode as HTMLStyleElement;
+				if (styleElement.sheet?.cssRules?.length) {
+					const rulesText = Array.from(styleElement.sheet.cssRules).map(rule => {
+						const cssText = rule.cssText;
+						const importMatch = cssText.match(/^@import\s+url\(["']?([^"')]+)["']?\)/);
+						if (importMatch) {
+							const relativeUrl = importMatch[1];
+							const absoluteUrl = new URL(relativeUrl, mainWindow.document.baseURI).href;
+							return cssText.replace(relativeUrl, absoluteUrl);
+						}
+						return cssText;
+					}).join('\n');
+					clonedStyleElement.textContent = (clonedStyleElement.textContent || '') + rulesText;
+				}
+			}
+			// --- End Positron ---
+
 			mapOriginalToClone.set(originalNode, clonedNode);
 		}
 
