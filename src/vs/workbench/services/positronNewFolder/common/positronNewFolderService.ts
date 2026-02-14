@@ -240,31 +240,44 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	private async _runExtensionTasks() {
 		// Run git init and language environment tasks in parallel since they
 		// are independent of each other.
-		const environmentTasks: Promise<void>[] = [];
+		const environmentTasks: { label: string; promise: Promise<void> }[] = [];
 		if (this.pendingInitTasks.has(NewFolderTask.Git)) {
-			environmentTasks.push(this._runGitInit());
+			environmentTasks.push({ label: 'Git init', promise: this._runGitInit() });
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.Python)) {
-			environmentTasks.push(this._runPythonTasks());
+			environmentTasks.push({ label: 'Python', promise: this._runPythonTasks() });
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.Jupyter)) {
-			environmentTasks.push(this._runJupyterTasks());
+			environmentTasks.push({ label: 'Jupyter', promise: this._runJupyterTasks() });
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
-			environmentTasks.push(this._runRTasks());
+			environmentTasks.push({ label: 'R', promise: this._runRTasks() });
 		}
-		const results = await Promise.allSettled(environmentTasks);
-		for (const result of results) {
-			if (result.status === 'rejected') {
-				this._logService.error('[New folder startup] Environment task failed:', result.reason);
+		const results = await Promise.allSettled(environmentTasks.map(t => t.promise));
+		const failedLabels = new Set<string>();
+		for (let i = 0; i < results.length; i++) {
+			if (results[i].status === 'rejected') {
+				const label = environmentTasks[i].label;
+				failedLabels.add(label);
+				this._logService.error(`[New folder startup] ${label} task failed:`, (results[i] as PromiseRejectedResult).reason);
 			}
 		}
 
 		// Create the new file last because opening a language file triggers a
 		// language encounter; doing it after the environment tasks ensures the
-		// correct interpreter is affiliated.
+		// correct interpreter is affiliated. Skip file creation if the
+		// relevant language task failed, since the interpreter won't be set up.
 		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
-			await this._runCreateNewFile();
+			const languageTaskFailed =
+				(failedLabels.has('Python') && this._newFolderConfig?.folderTemplate === FolderTemplate.PythonProject) ||
+				(failedLabels.has('Jupyter') && this._newFolderConfig?.folderTemplate === FolderTemplate.JupyterNotebook) ||
+				(failedLabels.has('R') && this._newFolderConfig?.folderTemplate === FolderTemplate.RProject);
+			if (languageTaskFailed) {
+				this._logService.warn('[New folder startup] Skipping file creation because the language environment task failed');
+				this._removePendingInitTask(NewFolderTask.CreateNewFile);
+			} else {
+				await this._runCreateNewFile();
+			}
 		}
 	}
 
