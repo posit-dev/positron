@@ -464,30 +464,18 @@ jobs:
             export SKIP_CLONE=false
           fi
 
-          # Use predictive sharding when shards > 1, otherwise run all tests
-          if [ "${{ inputs.shards }}" -gt "1" ]; then
-            # Extract browser from project name (e2e-windows -> windows)
-            BROWSER="${{ inputs.project }}"
-            BROWSER="${BROWSER#e2e-}"
-
-            echo "Using predictive sharding: shard ${{ matrix.shard }}/${{ inputs.shards }}"
-            echo "Browser filter: $BROWSER"
-
-            CMD="npx e2e-insights run-shard \
-              --shard-index=${{ matrix.shard }} \
-              --shard-total=${{ inputs.shards }} \
-              --repo=${{ github.repository }} \
-              --os=windows \
-              --browser=$BROWSER \
-              --branch=${{ github.head_ref || github.ref_name }} \
-              --project ${{ inputs.project }} \
-              --workers ${{ inputs.workers }} \
-              $GREP_ARG \
-              --repeat-each ${{ inputs.repeat_each }} \
-              --max-failures ${{ inputs.max_failures }}"
-          else
-            CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
-          fi
+          # Use predictive sharding CLI (handles fallback to native sharding automatically)
+          CMD="npx e2e-insights run-shard \
+            --shard-index=${{ matrix.shard }} \
+            --shard-total=${{ inputs.shards }} \
+            --repo=${{ github.repository }} \
+            --os=windows \
+            --branch=${{ github.head_ref || github.ref_name }} \
+            --project ${{ inputs.project }} \
+            --workers ${{ inputs.workers }} \
+            $GREP_ARG \
+            --repeat-each ${{ inputs.repeat_each }} \
+            --max-failures ${{ inputs.max_failures }}"
 
           echo "Running: $CMD"
 
