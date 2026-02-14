@@ -2536,7 +2536,7 @@ export interface ExtHostLanguageFeaturesShape {
 	$provideFoldingRanges(handle: number, resource: UriComponents, context: languages.FoldingContext, token: CancellationToken): Promise<languages.FoldingRange[] | undefined>;
 	$provideSelectionRanges(handle: number, resource: UriComponents, positions: IPosition[], token: CancellationToken): Promise<languages.SelectionRange[][]>;
 	// --- Start Positron ---
-	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<languages.IStatementRange | undefined>;
+	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<languages.IStatementRange | languages.IStatementRangeError | undefined>;
 	$provideHelpTopic(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<string | undefined>;
 	// --- End Positron ---
 	$prepareCallHierarchy(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<ICallHierarchyItemDto[] | undefined>;

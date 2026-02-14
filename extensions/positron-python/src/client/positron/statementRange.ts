@@ -165,7 +165,7 @@ export class PythonStatementRangeProvider implements positron.StatementRangeProv
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken,
-    ): Promise<positron.StatementRange | undefined> {
+    ): Promise<positron.StatementRange | positron.StatementRangeError | undefined> {
         // Try to use the AST to get the statement range, fall back to a simpler regex-based approach.
         try {
             return await provideStatementRangeFromAst(document, position, this.serviceContainer);

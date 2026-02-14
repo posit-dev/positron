@@ -25,7 +25,8 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IStatementRange, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
+import { IStatementRange, IStatementRangeError, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
+import { toAction } from '../../../../base/common/actions.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -163,6 +164,42 @@ async function executeCodeInConsole(
 		return false;
 	}
 	return true;
+}
+
+/**
+ * Show a notification for a statement range parse error, with an action to jump to the error line.
+ */
+function notifyStatementRangeParseError(
+	line: number,
+	uri: URI,
+	notificationService: INotificationService,
+	editorService: IEditorService,
+): void {
+	const action = toAction({
+		id: 'positron.executeCode.jumpToParseErrorLine',
+		label: localize('positron.executeCode.jumpToParseErrorLine', "Jump to line"),
+		run: () => {
+			editorService.openEditor({
+				resource: uri,
+				options: {
+					selection: { startLineNumber: line, startColumn: 1 },
+				}
+			});
+		}
+	});
+
+	notificationService.notify({
+		severity: Severity.Info,
+		message: localize(
+			'positron.executeCode.parseError',
+			"Can't execute code due to a parse error near line {0}.",
+			line
+		),
+		actions: {
+			primary: [action]
+		},
+		sticky: false
+	});
 }
 
 /**
@@ -447,7 +484,7 @@ export function registerPositronConsoleActions() {
 			// which can be used to get the code to execute.
 			if (!isString(code) && statementRangeProviders.length > 0) {
 
-				let statementRange: IStatementRange | null | undefined = undefined;
+				let statementRange: IStatementRange | IStatementRangeError | null | undefined = undefined;
 				try {
 					// Just consult the first statement range provider if several are registered
 					statementRange = await statementRangeProviders[0].provideStatementRange(
@@ -457,6 +494,21 @@ export function registerPositronConsoleActions() {
 				} catch (err) {
 					// If the statement range provider throws an exception, log it and continue
 					logService.warn(`Failed to get statement range at ${position}: ${err}`);
+				}
+
+				if (statementRange && 'error' in statementRange) {
+					if (statementRange.error === 'parse') {
+						notifyStatementRangeParseError(
+							statementRange.line + 1,
+							model.uri,
+							notificationService,
+							editorService
+						);
+					}
+
+					// Typed errors returned by the provider are critical errors.
+					// We should not continue with a line-based after receiving one.
+					return undefined;
 				}
 
 				if (statementRange) {
@@ -556,7 +608,7 @@ export function registerPositronConsoleActions() {
 			statementRange: IStatementRange,
 			provider: StatementRangeProvider,
 			logService: ILogService,
-		): Promise<Position> {
+		): Promise<Position | undefined> {
 
 			// Calculate the next position by creating a position on the line
 			// following the statement and then invoking the
@@ -584,7 +636,7 @@ export function registerPositronConsoleActions() {
 				// Invoke the statement range provider again to
 				// find the appropriate boundary of the next statement.
 
-				let nextStatementRange: IStatementRange | null | undefined = undefined;
+				let nextStatementRange: IStatementRange | IStatementRangeError | null | undefined = undefined;
 				try {
 					nextStatementRange = await provider.provideStatementRange(
 						model,
@@ -593,6 +645,16 @@ export function registerPositronConsoleActions() {
 				} catch (err) {
 					logService.warn(`Failed to get statement range for next statement ` +
 						`at position ${newPosition}: ${err}`);
+				}
+
+				if (nextStatementRange && 'error' in nextStatementRange) {
+					if (nextStatementRange.error === 'parse') {
+						logService.warn(`Can't advance due to a parse error on line ${nextStatementRange.line + 1}.`);
+					}
+
+					// Typed errors returned by the provider are critical errors.
+					// We should not advance the cursor after receiving one.
+					return undefined;
 				}
 
 				if (nextStatementRange) {

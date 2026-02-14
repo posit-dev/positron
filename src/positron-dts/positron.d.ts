@@ -1533,11 +1533,11 @@ declare module 'positron' {
 		 * @param document The document in which the command was invoked.
 		 * @param position The position at which the command was invoked.
 		 * @param token A cancellation token.
-		 * @return The range of the statement at the given position.
+		 * @return The range of the statement at the given position, or an error.
 		 */
 		provideStatementRange(document: vscode.TextDocument,
 			position: vscode.Position,
-			token: vscode.CancellationToken): vscode.ProviderResult<StatementRange>;
+			token: vscode.CancellationToken): vscode.ProviderResult<StatementRange | StatementRangeError>;
 	}
 
 	/**
@@ -1554,6 +1554,20 @@ declare module 'positron' {
 		 */
 		readonly code?: string;
 
+	}
+
+	export type StatementRangeError = StatementRangeParseError;
+
+	export interface StatementRangeParseError {
+		/**
+		 * The kind of error thrown.
+		 */
+		readonly error: 'parse';
+
+		/**
+		 * A 0-indexed line number where the parse error occurred.
+		 */
+		readonly line: number;
 	}
 
 	export interface HelpTopicProvider {

@@ -1924,19 +1924,37 @@ class StatementRangeAdapter {
 	 * @param token The cancellation token (currently unused)
 	 * @returns A promise that resolves to the statement range plus optionally the range's code
 	 */
-	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<languages.IStatementRange | undefined> {
+	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<languages.IStatementRange | languages.IStatementRangeError | undefined> {
 		const document = this._documents.getDocument(resource);
 		const position = typeConvert.Position.to(pos);
 
-		const providerRange = await this._provider.provideStatementRange(document, position, token);
+		const result = await this._provider.provideStatementRange(document, position, token);
 
-		if (!providerRange || !Range.isRange(providerRange?.range)) {
+		if (!result) {
 			return undefined;
 		}
 
-		const range = typeConvert.Range.from(providerRange.range);
-		const statementRange: languages.IStatementRange = { range: range, code: providerRange.code };
-		return statementRange;
+		if ('error' in result) {
+			switch (result.error) {
+				case 'parse': return {
+					error: result.error,
+					line: result.line
+				} as languages.IStatementRangeParseError;
+				default: {
+					// Unknown typed error variant
+					return undefined;
+				}
+			}
+		}
+
+		if (!Range.isRange(result.range)) {
+			return undefined;
+		}
+
+		return {
+			range: typeConvert.Range.from(result.range),
+			code: result.code,
+		} as languages.IStatementRange;
 	}
 }
 
@@ -2945,7 +2963,7 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 		return this._createDisposable(handle);
 	}
 
-	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<languages.IStatementRange | undefined> {
+	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<languages.IStatementRange | languages.IStatementRangeError | undefined> {
 		return this._withAdapter(handle, StatementRangeAdapter, adapter => adapter.provideStatementRange(URI.revive(resource), position, token), undefined, token);
 	}
 
