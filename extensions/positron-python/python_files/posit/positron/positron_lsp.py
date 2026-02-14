@@ -30,7 +30,6 @@ import logging
 import os
 import re
 import threading
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
@@ -206,14 +205,9 @@ def _parse_os_imports(source: str) -> dict[str, str]:
     return imports
 
 
-@lru_cache(maxsize=8)
-def _parse_os_imports_cached(source: str) -> dict[str, str]:
-    return _parse_os_imports(source)
-
-
 def _get_os_imports(document: TextDocument) -> dict[str, str]:
-    """Get cached os imports for a document."""
-    return _parse_os_imports_cached(document.source)
+    """Get os imports for a document."""
+    return _parse_os_imports(document.source)
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -528,6 +522,7 @@ def _handle_completion(
     text_after_cursor = line[params.position.character :]
 
     # Path completions in bare string literals don't require the shell.
+    # Note: _get_path_completions and _is_inside_function_call never access server.shell.
     # Skip when in dict key access or function call context (e.g. os.getenv("...")).
     dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
     if not dict_key_match and not _is_inside_function_call(text_before_cursor):

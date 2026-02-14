@@ -42,6 +42,7 @@ from positron._vendor.lsprotocol.types import (
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
 from positron.positron_lsp import (
+    _RE_ATTRIBUTE_ACCESS,
     HelpTopicParams,
     PositronInitializationOptions,
     PositronLanguageServer,
@@ -307,6 +308,38 @@ class TestParseOsImports:
     def test_whitespace_only(self):
         result = _parse_os_imports("   \n  ")
         assert result == {}
+
+
+class TestAttributeAccessPattern:
+    """Tests for _RE_ATTRIBUTE_ACCESS regex pattern edge cases."""
+
+    def test_simple_attribute(self):
+        match = _RE_ATTRIBUTE_ACCESS.search("obj.attr")
+        assert match and match.groups() == ("obj", "attr")
+
+    def test_chained_attributes(self):
+        match = _RE_ATTRIBUTE_ACCESS.search("a.b.c")
+        assert match and match.groups() == ("a.b", "c")
+
+    def test_after_parenthesis(self):
+        match = _RE_ATTRIBUTE_ACCESS.search("foo(bar.baz")
+        assert match and match.groups() == ("bar", "baz")
+
+    def test_after_operator(self):
+        match = _RE_ATTRIBUTE_ACCESS.search("x + y.attr")
+        assert match and match.groups() == ("y", "attr")
+
+    def test_nested_parens_with_dot(self):
+        match = _RE_ATTRIBUTE_ACCESS.search("func(a, b.c.d")
+        assert match and match.groups() == ("b.c", "d")
+
+    def test_empty_attr_prefix(self):
+        match = _RE_ATTRIBUTE_ACCESS.search("obj.")
+        assert match and match.groups() == ("obj", "")
+
+    def test_no_dot(self):
+        match = _RE_ATTRIBUTE_ACCESS.search("nodot")
+        assert match is None
 
 
 class TestCompletions:
