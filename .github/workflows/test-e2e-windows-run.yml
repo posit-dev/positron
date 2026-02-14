@@ -463,14 +463,12 @@ jobs:
             export SKIP_CLONE=false
           fi
 
-          # Use predictive sharding CLI (handles fallback to native sharding automatically)
-          BROWSER="${{ inputs.project }}"; BROWSER="${BROWSER#e2e-}"
+          # Use predictive sharding CLI (infers browser from --project, handles fallback automatically)
           CMD="npx e2e-insights run-shard \
             --shard-index=${{ matrix.shard }} \
             --shard-total=${{ inputs.shards }} \
             --repo=${{ github.repository }} \
             --os=windows \
-            --browser=$BROWSER \
             --branch=${{ github.head_ref || github.ref_name }} \
             --project ${{ inputs.project }} \
             --workers ${{ inputs.workers }} \
