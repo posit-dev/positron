@@ -17,7 +17,8 @@ import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNoteb
 import { useObservedValue } from '../useObservedValue.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
-import { useCellOutputContextMenu } from './useCellOutputContextMenu.js';
+import { useCellContextMenu } from './useCellContextMenu.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
 
 const cellOutputActions = localize('cellOutputActions', 'Cell Output Actions');
 
@@ -33,7 +34,10 @@ interface CellOutputLeftActionMenuProps {
  */
 export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps) {
 	const instance = useNotebookInstance();
-	const { showCellOutputContextMenu } = useCellOutputContextMenu(cell);
+	const { showContextMenu } = useCellContextMenu({
+		cell,
+		menuId: MenuId.PositronNotebookCellOutputActionLeft,
+	});
 
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -48,7 +52,7 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 		}
 
 		setIsMenuOpen(true);
-		showCellOutputContextMenu(buttonRef.current, () => setIsMenuOpen(false));
+		showContextMenu(buttonRef.current, () => setIsMenuOpen(false));
 	};
 
 	// Don't render if the cell has no outputs
