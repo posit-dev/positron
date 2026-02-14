@@ -297,7 +297,6 @@ jobs:
           PW_PROJECT_NAME: ${{ inputs.project }}
           GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
           ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
-          E2E_API_URL: https://connect.posit.it/e2e-test-insights-api
         run: |
           if [ -z "$PW_TAGS" ]; then
             GREP_ARG=""

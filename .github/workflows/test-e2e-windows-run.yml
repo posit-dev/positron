@@ -447,7 +447,6 @@ jobs:
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
           ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
-          E2E_API_URL: https://connect.posit.it/e2e-test-insights-api
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
