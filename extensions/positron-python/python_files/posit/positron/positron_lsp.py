@@ -60,9 +60,6 @@ _HELP_TOPIC = "positron/textDocument/helpTopic"
 # Compiled regex patterns for performance
 _RE_DICT_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$')
 _RE_WORD_SUFFIX = re.compile(r"(\w*)$")
-# Equivalent to re.match(r".*?(\w[\w\.]*)\.(\w*)$", text) — the non-greedy
-# .*? prefix in the original had no effect because group 1 is greedy and the
-# pattern is $-anchored, so .search() without the prefix matches identically.
 _RE_ATTRIBUTE_ACCESS = re.compile(r"(\w[\w\.]*)\.(\w*)$")
 _RE_FUNC_NAME = re.compile(r"([\w\.]+)$")
 _RE_KEYWORD_ARG = re.compile(r"(\w+)\s*=\s*$")
@@ -527,8 +524,7 @@ def _handle_completion(
     # server startup. Skip when in dict key access or getenv context to avoid
     # interfering with those completions.
     dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
-    in_getenv_call = "getenv" in text_before_cursor and _is_inside_function_call(text_before_cursor)
-    if not dict_key_match and not in_getenv_call:
+    if not dict_key_match and not _is_in_getenv_call(text_before_cursor):
         path_items = _get_path_completions(
             server, text_before_cursor, text_after_cursor, params.position
         )
@@ -608,6 +604,16 @@ def _is_inside_function_call(text_before_cursor: str) -> bool:
         elif c == ")":
             paren_depth -= 1
     return paren_depth > 0
+
+
+def _is_in_getenv_call(text_before_cursor: str) -> bool:
+    """Check if cursor is inside a call whose function name ends with 'getenv'."""
+    paren_pos = _find_enclosing_paren(text_before_cursor)
+    if paren_pos < 0:
+        return False
+    func_expr = text_before_cursor[:paren_pos].rstrip()
+    match = _RE_FUNC_NAME.search(func_expr)
+    return bool(match and match.group(1).endswith("getenv"))
 
 
 def _get_parameter_completions(

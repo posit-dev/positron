@@ -948,6 +948,20 @@ class TestCompletions:
         assert len(completions) == 1
         assert completions[0].label == "data.csv"
 
+    def test_path_completion_inside_getenv_wrapper(self, tmp_path: Path) -> None:
+        """Path completions should work inside functions with 'getenv' in the name but not ending with it."""
+        file = tmp_path / "config.yaml"
+        file.write_text("")
+
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(
+            server, TEST_DOCUMENT_URI, 'my_getenv_wrapper("config"'
+        )
+        completions = self._completions(server, text_document, character=26)
+
+        assert len(completions) == 1
+        assert completions[0].label == "config.yaml"
+
     def test_no_non_path_completions_without_shell(self) -> None:
         """Test that non-path completions return nothing when server.shell is None."""
         server = create_test_server(namespace={"foo": 1})
