@@ -918,6 +918,30 @@ class TestCompletions:
         assert len(completions) == 1
         assert completions[0].label == "home-file.txt"
 
+    def test_path_completion_without_shell(self, tmp_path: Path) -> None:
+        """Test that path completions work even when server.shell is None."""
+        file = tmp_path / "readme.txt"
+        file.write_text("")
+
+        server = create_test_server(root_path=tmp_path)
+        server.shell = None
+
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"read"')
+        completions = self._completions(server, text_document, character=5)
+
+        assert len(completions) == 1
+        assert completions[0].label == "readme.txt"
+
+    def test_no_non_path_completions_without_shell(self) -> None:
+        """Test that non-path completions return nothing when server.shell is None."""
+        server = create_test_server(namespace={"foo": 1})
+        server.shell = None
+
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "fo")
+        completions = self._completions(server, text_document)
+
+        assert completions == []
+
     def test_line_magic_completions(self) -> None:
         """Test completions for line magics."""
         server = create_test_server()

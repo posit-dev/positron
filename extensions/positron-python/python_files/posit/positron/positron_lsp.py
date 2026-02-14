@@ -205,11 +205,6 @@ def _parse_os_imports(source: str) -> dict[str, str]:
     return imports
 
 
-def _get_os_imports(document: TextDocument) -> dict[str, str]:
-    """Get os imports for a document."""
-    return _parse_os_imports(document.source)
-
-
 def _get_expression_at_position(line: str, character: int) -> str:
     """
     Extract the expression at the given character position.
@@ -521,9 +516,10 @@ def _handle_completion(
     text_before_cursor = line[: params.position.character]
     text_after_cursor = line[params.position.character :]
 
-    # Path completions in bare string literals don't require the shell.
-    # Note: _get_path_completions and _is_inside_function_call never access server.shell.
-    # Skip when in dict key access or function call context (e.g. os.getenv("...")).
+    # Path completions in bare string literals don't require the shell, so
+    # they're evaluated before the shell null check to remain available during
+    # server startup. Skip when in dict key access or function call context
+    # (e.g. os.getenv("...")).
     dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
     if not dict_key_match and not _is_inside_function_call(text_before_cursor):
         path_items = _get_path_completions(
@@ -753,7 +749,7 @@ def _get_dict_key_completions(
     if obj is None:
         # Try static analysis fallback for os.environ
         if document is not None:
-            os_imports = _get_os_imports(document)
+            os_imports = _parse_os_imports(document.source)
             # Check if expr is "<alias>.environ" where alias maps to "os"
             match = _RE_OS_ALIAS_ENVIRON.match(expr)
             if match and os_imports.get(match.group(1)) == "os":
@@ -1113,7 +1109,7 @@ def _get_getenv_completions(
     if resolved is not os.getenv:
         # Try static analysis fallback
         if document is not None:
-            os_imports = _get_os_imports(document)
+            os_imports = _parse_os_imports(document.source)
             # Check if func_name is "<alias>.getenv" where alias maps to "os"
             match = _RE_OS_ALIAS_GETENV.match(func_name)
             if not (match and os_imports.get(match.group(1)) == "os"):
