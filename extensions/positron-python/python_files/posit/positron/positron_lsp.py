@@ -61,7 +61,7 @@ _HELP_TOPIC = "positron/textDocument/helpTopic"
 # Compiled regex patterns for performance
 _RE_DICT_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$')
 _RE_WORD_SUFFIX = re.compile(r"(\w*)$")
-_RE_ATTRIBUTE_ACCESS = re.compile(r".*?(\w[\w\.]*)\.(\w*)$")
+_RE_ATTRIBUTE_ACCESS = re.compile(r"(\w[\w\.]*)\.(\w*)$")
 _RE_FUNC_NAME = re.compile(r"([\w\.]+)$")
 _RE_KEYWORD_ARG = re.compile(r"(\w+)\s*=\s*$")
 _RE_PARTIAL_PARAM = re.compile(r"(?:^|,\s*)(\w+)$")
@@ -206,15 +206,14 @@ def _parse_os_imports(source: str) -> dict[str, str]:
     return imports
 
 
-@lru_cache(maxsize=32)
-def _parse_os_imports_cached(source_hash: int, source: str) -> dict[str, str]:  # noqa: ARG001
-    """Cached version of _parse_os_imports. source_hash is the lru_cache key."""
+@lru_cache(maxsize=8)
+def _parse_os_imports_cached(source: str) -> dict[str, str]:
     return _parse_os_imports(source)
 
 
 def _get_os_imports(document: TextDocument) -> dict[str, str]:
     """Get cached os imports for a document."""
-    return _parse_os_imports_cached(hash(document.source), document.source)
+    return _parse_os_imports_cached(document.source)
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -243,9 +242,6 @@ def _get_expression_at_position(line: str, character: int) -> str:
     return line[start:end]
 
 
-_MESSAGE_TYPE_CACHE: dict[str, type | None] = {}
-
-
 class PositronLanguageServerProtocol(LanguageServerProtocol):
     """Custom protocol for the Positron language server."""
 
@@ -253,13 +249,14 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
         super().__init__(server, converter)
         # Queue for handling message batching (performance optimization)
         self._messages_to_handle: list[Any] = []
+        self._message_type_cache: dict[str, type | None] = {}
 
     def get_message_type(self, method: str) -> type | None:
         """Override to include custom Positron LSP messages."""
-        if method in _MESSAGE_TYPE_CACHE:
-            return _MESSAGE_TYPE_CACHE[method]
+        if method in self._message_type_cache:
+            return self._message_type_cache[method]
         result = HelpTopicRequest if method == _HELP_TOPIC else super().get_message_type(method)
-        _MESSAGE_TYPE_CACHE[method] = result
+        self._message_type_cache[method] = result
         return result
 
     @lsp_method(types.INITIALIZE)
@@ -518,9 +515,6 @@ def _handle_completion(
     server: PositronLanguageServer, params: types.CompletionParams
 ) -> types.CompletionList | None:
     """Handle completion requests."""
-    if server.shell is None:
-        return None
-
     document = server.workspace.get_text_document(params.text_document.uri)
     line = document.lines[params.position.line] if document.lines else ""
     trimmed_line = line.lstrip()
@@ -529,12 +523,25 @@ def _handle_completion(
     if trimmed_line.startswith((_COMMENT_PREFIX, _SHELL_PREFIX)):
         return None
 
-    items: list[types.CompletionItem] = []
-    server._magic_completions.clear()  # noqa: SLF001
-
     # Get text before cursor for context
     text_before_cursor = line[: params.position.character]
     text_after_cursor = line[params.position.character :]
+
+    # Path completions in bare string literals don't require the shell.
+    # Skip when in dict key access or function call context (e.g. os.getenv("...")).
+    dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
+    if not dict_key_match and not _is_inside_function_call(text_before_cursor):
+        path_items = _get_path_completions(
+            server, text_before_cursor, text_after_cursor, params.position
+        )
+        if path_items:
+            return types.CompletionList(is_incomplete=False, items=path_items)
+
+    if server.shell is None:
+        return None
+
+    items: list[types.CompletionItem] = []
+    server._magic_completions.clear()  # noqa: SLF001
 
     # Check for parameter completion first (e.g., inside a function call like "f(")
     param_items = _get_parameter_completions(server, text_before_cursor)
@@ -546,7 +553,6 @@ def _handle_completion(
 
     # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
-    dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
     if dict_key_match:
         quote_char = dict_key_match.group(2)
         # Check if there's already a closing quote after cursor
@@ -567,14 +573,6 @@ def _handle_completion(
         server, text_before_cursor, text_after_cursor, document=document
     )
     items.extend(getenv_items)
-
-    # Check for path completions in bare string literals (not dict access, not getenv)
-    if not dict_key_match and not getenv_items:
-        path_items = _get_path_completions(
-            server, text_before_cursor, text_after_cursor, params.position
-        )
-        if path_items:
-            return types.CompletionList(is_incomplete=False, items=path_items)
 
     if not dict_key_match:
         if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
@@ -1203,7 +1201,7 @@ def _get_attribute_completions(
         return []
 
     # Extract the expression before the last dot
-    match = _RE_ATTRIBUTE_ACCESS.match(text_before_cursor)
+    match = _RE_ATTRIBUTE_ACCESS.search(text_before_cursor)
     if not match:
         return []
 
