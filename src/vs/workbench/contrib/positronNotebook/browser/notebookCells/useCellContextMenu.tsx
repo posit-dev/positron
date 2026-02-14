@@ -7,7 +7,7 @@
 import { useEffect, useRef } from 'react';
 
 // Other dependencies.
-import { ActionRunner } from '../../../../../base/common/actions.js';
+import { ActionRunner, IAction } from '../../../../../base/common/actions.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
@@ -74,9 +74,12 @@ export function useCellContextMenu({ cell, menuId }: UseCellContextMenuOptions) 
 	 *
 	 * @param anchor Either an HTMLElement (for button-triggered menus) or
 	 *               an IAnchor with x/y coordinates (for right-click menus)
+	 * @param getActions Optional getter for extra actions that will be prepended to the menu.
+	 *                   Called at the time the menu is shown, allowing callers to capture
+	 *                   context-specific state (like text selection) at the right moment.
 	 * @param onHide Optional callback to run when the menu is hidden
 	 */
-	const showContextMenu = (anchor: HTMLElement | IAnchor, onHide?: () => void) => {
+	const showContextMenu = (anchor: HTMLElement | IAnchor, getActions?: () => IAction[], onHide?: () => void) => {
 		if (!actionRunnerRef.current) {
 			return;
 		}
@@ -86,6 +89,7 @@ export function useCellContextMenu({ cell, menuId }: UseCellContextMenuOptions) 
 			contextKeyService,
 			getAnchor: () => anchor,
 			actionRunner: actionRunnerRef.current,
+			getActions,
 			onHide,
 		});
 	};
