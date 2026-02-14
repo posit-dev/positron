@@ -354,6 +354,18 @@ export type ParsedTextOutput = {
 };
 
 /**
+ * Parsed output for inline data explorer
+ */
+export interface ParsedDataExplorerOutput {
+	type: 'dataExplorer';
+	commId: string;
+	shape: { rows: number; columns: number };
+	title: string;
+	version: number;
+	source?: 'pandas' | 'polars' | 'unknown';
+}
+
+/**
  * Contents from cell outputs parsed for React components to display
  */
 export type ParsedOutput = ParsedTextOutput |
@@ -376,7 +388,8 @@ export type ParsedOutput = ParsedTextOutput |
 {
 	type: 'unknown';
 	content: string;
-};
+} |
+	ParsedDataExplorerOutput;
 
 
 export interface NotebookCellOutputs {

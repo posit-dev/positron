@@ -47,6 +47,7 @@ import { Notebooks } from '../pages/notebooks.js';
 import { PositronNotebooks } from '../pages/notebooksPositron.js';
 import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
 import { Databot } from '../pages/databot.js';
+import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -96,6 +97,7 @@ export class Workbench {
 	readonly hotKeys: HotKeys;
 	readonly positConnect: PositConnect;
 	readonly databot: Databot;
+	readonly inlineDataExplorer: InlineDataExplorer;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
@@ -140,6 +142,7 @@ export class Workbench {
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
 		this.positConnect = new PositConnect(code);
 		this.databot = new Databot(code, this.quickaccess);
+		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
 	}
 }
 

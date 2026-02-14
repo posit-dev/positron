@@ -304,4 +304,8 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 			params: { options } satisfies SetDatasetImportOptionsParams
 		});
 	}
+
+	async openDataExplorer(): Promise<void> {
+		throw new Error('openDataExplorer is not supported by the DuckDB backend');
+	}
 }

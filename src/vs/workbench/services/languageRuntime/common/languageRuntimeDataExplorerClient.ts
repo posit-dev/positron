@@ -73,6 +73,7 @@ export interface IDataExplorerBackendClient extends Disposable {
 	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult>;
 	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void>;
 	getColumnProfiles(callbackId: string, profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<void>;
+	openDataExplorer(): Promise<void>;
 }
 
 export const DATA_EXPLORER_DISCONNECTED_STATE: BackendState = {
@@ -626,6 +627,14 @@ export class DataExplorerClientInstance extends Disposable {
 		);
 	}
 
+	/**
+	 * Request the kernel to open a new, independent data explorer for the
+	 * same underlying data. The kernel creates a new comm which auto-triggers
+	 * the standard editor-open flow on the frontend.
+	 */
+	async openDataExplorer(): Promise<void> {
+		return this._backendClient.openDataExplorer();
+	}
 
 	//#endregion Public Methods
 
