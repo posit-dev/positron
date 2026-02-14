@@ -102,6 +102,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 					overviewRulerLanes: 0,
 					lineDecorationsWidth: 0,
 					padding: { top: 0, bottom: 0 },
+					emptySelectionClipboard: false,
 				},
 				getSimpleCodeEditorWidgetOptions()
 			)

@@ -3,6 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+.activity-prompt {
+	padding-bottom: 10px;
+}
+
 .activity-prompt .prompt-line {
 	display: flex;
 	white-space: pre;
@@ -10,7 +14,6 @@
 }
 
 .activity-prompt .prompt-line .input-field {
-	padding-bottom: 10px;
 	flex-grow: 1;
 	border: none;
 	outline: 0 !important;
