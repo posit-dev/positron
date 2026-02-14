@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -240,7 +240,8 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	private async _runExtensionTasks() {
 		// Map of language NewFolderTask to the FolderTemplate it supports.
 		// Used to determine whether file creation should be skipped when a
-		// language environment task fails.
+		// language environment task fails. Git is intentionally absent -
+		// a Git init failure should not prevent file creation.
 		const languageTaskToTemplate = new Map<NewFolderTask, FolderTemplate>([
 			[NewFolderTask.Python, FolderTemplate.PythonProject],
 			[NewFolderTask.Jupyter, FolderTemplate.JupyterNotebook],
@@ -470,6 +471,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	/**
 	 * Creates the Python environment.
 	 * Relies on extension ms-python.python
+	 *
+	 * NOTE: This method writes to `_runtimeMetadata`. It is called by both
+	 * `_runPythonTasks` and `_runJupyterTasks`, which may run in parallel.
+	 * This is safe because only one language task is active per folder
+	 * template (Python OR Jupyter, never both).
 	 */
 	private async _createPythonEnvironment(): Promise<boolean> {
 		if (this._newFolderConfig) {
@@ -583,7 +589,8 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			this._removePendingInitTask(NewFolderTask.PythonEnvironment);
 			return false;
 		}
-		return true;
+		// No provider configured - no environment was created.
+		return false;
 	}
 
 	/**
