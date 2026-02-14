@@ -238,14 +238,14 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	 * Runs tasks that require the extension service to be ready.
 	 */
 	private async _runExtensionTasks() {
-		// Map of language NewFolderTask to the FolderTemplate it supports.
-		// Used to determine whether file creation should be skipped when a
-		// language environment task fails. Git is intentionally absent -
-		// a Git init failure should not prevent file creation.
-		const languageTaskToTemplate = new Map<NewFolderTask, FolderTemplate>([
-			[NewFolderTask.Python, FolderTemplate.PythonProject],
-			[NewFolderTask.Jupyter, FolderTemplate.JupyterNotebook],
-			[NewFolderTask.R, FolderTemplate.RProject],
+		// Map from FolderTemplate to the language NewFolderTask that sets it
+		// up. Used to skip file creation when the relevant language task
+		// fails. Git is intentionally absent - a Git init failure should not
+		// prevent file creation.
+		const templateToLanguageTask = new Map<FolderTemplate, NewFolderTask>([
+			[FolderTemplate.PythonProject, NewFolderTask.Python],
+			[FolderTemplate.JupyterNotebook, NewFolderTask.Jupyter],
+			[FolderTemplate.RProject, NewFolderTask.R],
 		]);
 
 		// Collect environment tasks to run in parallel. We store the
@@ -255,10 +255,18 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		if (this.pendingInitTasks.has(NewFolderTask.Git)) {
 			environmentTasks.push({ task: NewFolderTask.Git, run: () => this._runGitInit() });
 		}
-		if (this.pendingInitTasks.has(NewFolderTask.Python)) {
-			environmentTasks.push({ task: NewFolderTask.Python, run: () => this._runPythonTasks() });
+		const hasPython = this.pendingInitTasks.has(NewFolderTask.Python);
+		const hasJupyter = this.pendingInitTasks.has(NewFolderTask.Jupyter);
+		if (hasPython && hasJupyter) {
+			this._logService.error(
+				'[New folder startup] Both Python and Jupyter tasks are pending; ' +
+				'only one language task per folder template is supported. Skipping Jupyter.'
+			);
+			this._removePendingInitTask(NewFolderTask.Jupyter);
 		}
-		if (this.pendingInitTasks.has(NewFolderTask.Jupyter)) {
+		if (hasPython) {
+			environmentTasks.push({ task: NewFolderTask.Python, run: () => this._runPythonTasks() });
+		} else if (hasJupyter) {
 			environmentTasks.push({ task: NewFolderTask.Jupyter, run: () => this._runJupyterTasks() });
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
@@ -272,7 +280,6 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 				const { task } = environmentTasks[i];
 				failedTasks.add(task);
 				this._logService.error(`[New folder startup] ${task} task failed:`, (results[i] as PromiseRejectedResult).reason);
-				this._removePendingInitTask(task);
 			}
 		}
 
@@ -281,10 +288,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		// correct interpreter is affiliated. Skip file creation if the
 		// relevant language task failed, since the interpreter won't be set up.
 		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
-			const template = this._newFolderConfig?.folderTemplate;
-			const languageTaskFailed = [...failedTasks].some(
-				task => languageTaskToTemplate.get(task) === template
-			);
+			const template = this._newFolderConfig?.folderTemplate as FolderTemplate | undefined;
+			const relevantTask = template !== undefined ? templateToLanguageTask.get(template) : undefined;
+			const languageTaskFailed = relevantTask !== undefined && failedTasks.has(relevantTask);
 			if (languageTaskFailed) {
 				this._logService.warn('[New folder startup] Skipping file creation because the language environment task failed');
 				this._removePendingInitTask(NewFolderTask.CreateNewFile);
@@ -474,8 +480,8 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	 *
 	 * NOTE: This method writes to `_runtimeMetadata`. It is called by both
 	 * `_runPythonTasks` and `_runJupyterTasks`, which may run in parallel.
-	 * This is safe because only one language task is active per folder
-	 * template (Python OR Jupyter, never both).
+	 * `_runExtensionTasks` enforces that only one of these tasks runs at a
+	 * time (Python OR Jupyter, never both).
 	 */
 	private async _createPythonEnvironment(): Promise<boolean> {
 		if (this._newFolderConfig) {
