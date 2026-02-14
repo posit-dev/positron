@@ -945,9 +945,8 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 
 	async initNewFolder() {
 		if (!this.isCurrentWindowNewFolder()) {
-			if (!this.initTasksComplete.isOpen()) {
-				this.initTasksComplete.open();
-			}
+			// The constructor already opened the barrier for non-new-folder
+			// windows. Nothing else to do here.
 			return;
 		}
 		if (this._newFolderConfig) {
