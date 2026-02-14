@@ -253,7 +253,12 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
 			environmentTasks.push(this._runRTasks());
 		}
-		await Promise.allSettled(environmentTasks);
+		const results = await Promise.allSettled(environmentTasks);
+		for (const result of results) {
+			if (result.status === 'rejected') {
+				this._logService.error('[New folder startup] Environment task failed:', result.reason);
+			}
+		}
 
 		// Create the new file last because opening a language file triggers a
 		// language encounter; doing it after the environment tasks ensures the
