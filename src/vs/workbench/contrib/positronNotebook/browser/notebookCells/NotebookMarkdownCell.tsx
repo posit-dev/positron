@@ -13,7 +13,8 @@ import { Markdown } from './Markdown.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell.js';
 import { localize } from '../../../../../nls.js';
-import { useMarkdownCellContextMenu } from './useMarkdownCellContextMenu.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { useCellContextMenu } from './useCellContextMenu.js';
 
 // Localized strings.
 const emptyMarkdownCell = localize('positron.notebooks.markdownCell.empty', "Empty markdown cell.");
@@ -24,10 +25,13 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 
 	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);
-	const { showCellContextMenu } = useMarkdownCellContextMenu(cell);
+	const { showContextMenu } = useCellContextMenu({
+		cell,
+		menuId: MenuId.PositronNotebookCellContext,
+	});
 
 	const handleContextMenu = (event: React.MouseEvent) => {
-		showCellContextMenu({ x: event.clientX, y: event.clientY });
+		showContextMenu({ x: event.clientX, y: event.clientY });
 	};
 
 	return (

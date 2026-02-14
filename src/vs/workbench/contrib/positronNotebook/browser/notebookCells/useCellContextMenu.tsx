@@ -13,25 +13,35 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CellSelectionType } from '../selectionMachine.js';
-import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { IAnchor } from '../../../../../base/browser/ui/contextview/contextview.js';
 
+
+export interface UseCellContextMenuOptions {
+	/** The notebook cell the menu will operate on */
+	cell: IPositronNotebookCell;
+	/** The menu ID to show */
+	menuId: MenuId;
+}
+
 /**
- * A hook that provides the code cell output context menu.
+ * A generic hook that will show a context menu anywhere on a cell.
  *
- * This hook extracts the common context menu logic so the menu can be shown by the
- * CellOutputLeftActionMenu (ellipses button to the left of code cell outputs)
- * or when right-clicking on a code cell output container.
+ * This hook handles the common context menu logic including:
+ * - Setting up an ActionRunner that selects the cell before any action runs
+ * - Showing the context menu with the appropriate menu ID
+ * - Optionally prepending additional actions to the menu
  *
- * @param cell The code cell whose outputs the menu will operate on
- * @returns The showCellOutputContextMenu function that can be called with
+ * @param cell The notebook cell that the context menu actions will operate on
+ * @param menuId The ID of the context menu to show
+ * @returns The showContextMenu function that can be called with
  *          either an HTMLElement (for buttons) or coordinates (for right-clicks)
  */
-export function useCodeCellOutputContextMenu(cell: PositronNotebookCodeCell) {
+export function useCellContextMenu({ cell, menuId }: UseCellContextMenuOptions) {
 	const instance = useNotebookInstance();
 	const contextKeyService = useCellScopedContextKeyService();
 	const { contextMenuService } = usePositronReactServicesContext();
-	const actionRunnerRef = useRef<ActionRunner>(null);
+	const actionRunnerRef = useRef<ActionRunner | undefined>(undefined);
 
 	/**
 	 * Create and setup the action runner which allows us to run code
@@ -40,8 +50,8 @@ export function useCodeCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 	 * the cell actions use the notebook selection state to determine which
 	 * cell to operate on.
 	 *
-	 * If we didn't do this, then certain actions (e.g. "Collapse Outputs") would operate
-	 * on the selected cell instead of the one that the user clicked on.
+	 * If we didn't do this, then certain actions would operate on the
+	 * selected cell instead of the one that the user clicked on.
 	 */
 	useEffect(() => {
 		const actionRunner = new ActionRunner();
@@ -60,19 +70,19 @@ export function useCodeCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 	}, [cell, instance]);
 
 	/**
-	 * Shows the context menu for code cell output actions.
+	 * Shows the context menu.
 	 *
 	 * @param anchor Either an HTMLElement (for button-triggered menus) or
 	 *               an IAnchor with x/y coordinates (for right-click menus)
 	 * @param onHide Optional callback to run when the menu is hidden
 	 */
-	const showCellOutputContextMenu = (anchor: HTMLElement | IAnchor, onHide?: () => void) => {
+	const showContextMenu = (anchor: HTMLElement | IAnchor, onHide?: () => void) => {
 		if (!actionRunnerRef.current) {
 			return;
 		}
 
 		contextMenuService.showContextMenu({
-			menuId: MenuId.PositronNotebookCellOutputActionLeft,
+			menuId,
 			contextKeyService,
 			getAnchor: () => anchor,
 			actionRunner: actionRunnerRef.current,
@@ -80,5 +90,5 @@ export function useCodeCellOutputContextMenu(cell: PositronNotebookCodeCell) {
 		});
 	};
 
-	return { showCellOutputContextMenu };
+	return { showContextMenu };
 }
