@@ -108,14 +108,14 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		// Parse the new folder configuration from the storage service
 		this._newFolderConfig = this._parseNewFolderConfig();
 
-		if (!this._newFolderConfig) {
-			// If no new folder configuration is found, the new folder startup
-			// is complete
+		if (!this.isCurrentWindowNewFolder()) {
+			// This window is not the new folder window, so initialization is
+			// already complete.
 			this.initTasksComplete.open();
 		} else {
 			// If new folder configuration is found, save the runtime metadata.
 			// This metadata will be overwritten if a new environment is created.
-			this._runtimeMetadata = this._newFolderConfig.runtimeMetadata;
+			this._runtimeMetadata = this._newFolderConfig?.runtimeMetadata;
 		}
 
 		// Initialize the pending tasks observable.
@@ -945,7 +945,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 
 	async initNewFolder() {
 		if (!this.isCurrentWindowNewFolder()) {
-			this.initTasksComplete.open();
+			if (!this.initTasksComplete.isOpen()) {
+				this.initTasksComplete.open();
+			}
 			return;
 		}
 		if (this._newFolderConfig) {
