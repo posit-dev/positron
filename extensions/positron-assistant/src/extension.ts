@@ -26,6 +26,7 @@ import { log } from './log.js';
 import { resetAssistantState } from './reset.js';
 import { performSettingsMigrations } from './providerMigration.js';
 import { disposeModels, registerModels } from './modelRegistration';
+import { registerPositAuthProvider } from './providers/posit/positProvider.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -168,6 +169,8 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
+	// Register Posit AI authentication provider
+	registerPositAuthProvider(context);
 
 	// Register Copilot service
 	registerCopilotService(context);
