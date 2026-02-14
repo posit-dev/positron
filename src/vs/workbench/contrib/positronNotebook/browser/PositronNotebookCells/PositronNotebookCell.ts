@@ -30,11 +30,35 @@ import { derived, IObservable, IObservableSignal, observableFromEvent, observabl
  * Value of 0.5 means 50% of the cell must be visible.
  */
 const MIN_CELL_VISIBILITY_RATIO = 0.5;
+
+/**
+ * Reason for revealing a cell - determines the scroll behavior
+ */
+export type CellRevealReason = 'keyboardNavigation' | 'programmatic';
+
+/**
+ * Direction of keyboard navigation - used for oversized cell handling
+ */
+export type CellNavigationDirection = 'up' | 'down';
+
+/**
+ * Options for revealing a cell with reason-aware behavior
+ */
+export interface ICellRevealOptions {
+	/**
+	 * The reason for revealing the cell - determines scroll behavior
+	 */
+	reason: CellRevealReason;
+	/**
+	 * The direction of keyboard navigation (only applicable when reason is 'keyboardNavigation')
+	 */
+	direction?: CellNavigationDirection;
+}
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
 import { ScrollType } from '../../../../../editor/common/editorCommon.js';
-import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { INotebookCellExecution, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IContextKeysCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
@@ -281,19 +305,67 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return visibilityRatio >= MIN_CELL_VISIBILITY_RATIO;
 	}
 
-	async reveal(type?: CellRevealType): Promise<boolean> {
-		// TODO: We may want to support type, but couldn't find any issues without it
+	/**
+	 * Per-notebook generation counter to cancel stale reveal operations during rapid keyboard
+	 * navigation. Keyed by notebook instance so reveals in one notebook don't cancel reveals
+	 * in another.
+	 */
+	private static _revealGenerationByInstance = new WeakMap<object, number>();
+
+	async reveal(options?: ICellRevealOptions): Promise<boolean> {
+		const resolvedOptions = options ?? { reason: 'programmatic' };
+
+		// Capture per-notebook generation so we can bail if a newer reveal starts while we await
+		const genMap = PositronNotebookCellGeneral._revealGenerationByInstance;
+		const prevGen = genMap.get(this._instance) ?? 0;
+		const generation = prevGen + 1;
+		genMap.set(this._instance, generation);
+
 		// Wait for container if not immediately available
 		const hasContainer = await this._waitForContainer();
 		if (!hasContainer || !this._container || !this._instance.cellsContainer) {
 			return false;
 		}
 
-		// If the cell is not sufficiently visible, scroll it to center
-		if (!this.isInViewport()) {
-			// Use smooth scrolling for better UX when revealing cells
-			this._container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		// A newer reveal was triggered in this notebook while we were waiting -- let it win
+		if (generation !== genMap.get(this._instance)) {
+			return false;
 		}
+
+		// Two scroll strategies depending on how the reveal was triggered:
+		//
+		// Keyboard navigation uses an instant jump. The user is driving the
+		// navigation themselves so each step moves at most one cell -- the
+		// scroll distance is small and predictable, and an instant snap keeps
+		// repeated key-presses feeling responsive without disorienting the user.
+		//
+		// Programmatic reveals (e.g. an agent editing a cell elsewhere in the
+		// notebook) use a smooth, centered scroll. The destination may be far
+		// from the current viewport, so the animation gives the user a sense of
+		// direction and helps them re-orient spatially within the document.
+		if (resolvedOptions.reason === 'keyboardNavigation') {
+			// We always call scrollIntoView here (skipping isInViewport()) because
+			// the 50% visibility threshold used by isInViewport() would leave
+			// partially-visible cells un-scrolled. scrollIntoView with 'nearest'
+			// is a no-op when the cell is already fully visible.
+			const cellRect = this._container.getBoundingClientRect();
+			const containerRect = this._instance.cellsContainer.getBoundingClientRect();
+			const isOversized = cellRect.height > containerRect.height;
+
+			if (isOversized && resolvedOptions.direction) {
+				// Oversized cell: show top when navigating down, bottom when navigating up
+				const block = resolvedOptions.direction === 'down' ? 'start' : 'end';
+				this._container.scrollIntoView({ behavior: 'instant', block });
+			} else {
+				// Normal cell: scroll minimum distance to make fully visible
+				this._container.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+			}
+		} else {
+			if (!this.isInViewport()) {
+				this._container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}
+		}
+
 		return true;
 	}
 
@@ -327,7 +399,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 
 		// Scroll the cell into view
-		await this.reveal(options.cellRevealType);
+		await this.reveal();
 
 		// Select the cell in edit mode
 		this.select(CellSelectionType.Edit);

@@ -8,6 +8,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
+import { CellNavigationDirection } from './PositronNotebookCells/PositronNotebookCell.js';
 
 /**
  * Represents the possible selection states for the notebook.
@@ -708,6 +709,8 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
+		const direction: CellNavigationDirection = up ? 'up' : 'down';
+
 		if (addMode) {
 			// If the edge cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
 			if (indexOfReferenceCell <= 0 && up || indexOfReferenceCell >= cells.length - 1 && !up) {
@@ -742,35 +745,31 @@ export class SelectionStateMachine extends Disposable {
 						active: nextCell  // nextCell becomes the new active cell
 					});
 				}
+			} else {
+				// Expanding the selection
+				const newSelection = verifyNonEmptyArray(up ? [nextCell, ...currentSelection] : [...currentSelection, nextCell]);
+				// The newly added cell becomes the active cell
+				this._setState({
+					type: SelectionState.MultiSelection,
+					selected: newSelection,
+					active: nextCell
+				});
+			}
+		} else if (state.type === SelectionState.MultiSelection) {
+			this.selectCell(nextCell, CellSelectionType.Normal);
+		} else {
+			// If the reference cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
+			if (indexOfReferenceCell <= 0 && up || indexOfReferenceCell >= cells.length - 1 && !up) {
+				// Already at the edge of the cells.
 				return;
 			}
 
-			// Otherwise, we're expanding the selection
-			const newSelection = verifyNonEmptyArray(up ? [nextCell, ...currentSelection] : [...currentSelection, nextCell]);
-			// The newly added cell becomes the active cell
-			this._setState({
-				type: SelectionState.MultiSelection,
-				selected: newSelection,
-				active: nextCell
-			});
-			return;
-		}
-
-		if (state.type === SelectionState.MultiSelection) {
+			// Single selection mode.
 			this.selectCell(nextCell, CellSelectionType.Normal);
-			return;
 		}
 
-		// If the reference cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
-		if (indexOfReferenceCell <= 0 && up || indexOfReferenceCell >= cells.length - 1 && !up) {
-			// Already at the edge of the cells.
-			return;
-		}
-
-		// If meta is not held down, we're in single selection mode.
-		this.selectCell(nextCell, CellSelectionType.Normal);
-
-		// React will handle focus based on selection state change
+		// Reveal the newly active cell
+		void nextCell.reveal({ reason: 'keyboardNavigation', direction });
 	}
 
 	//#endregion Private Methods

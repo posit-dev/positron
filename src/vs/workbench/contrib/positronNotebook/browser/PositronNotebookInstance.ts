@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { CellRevealType, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookCellOverlayChangeAccessor, INotebookDeltaDecoration, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState, INotebookViewZoneChangeAccessor } from '../../notebook/browser/notebookBrowser.js';
+import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookCellOverlayChangeAccessor, INotebookDeltaDecoration, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState, INotebookViewZoneChangeAccessor } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
@@ -873,7 +873,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cell The cell to reveal
 	 */
 	async revealInCenterIfOutsideViewport(cell: IExtensionApiCellViewModel): Promise<void> {
-		this._revealCell(cell, CellRevealType.CenterIfOutsideViewport);
+		this._revealCell(cell);
 	}
 
 	/**
@@ -881,7 +881,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cell The cell to reveal
 	 */
 	async revealInCenter(cell: IExtensionApiCellViewModel): Promise<void> {
-		await this._revealCell(cell, CellRevealType.Center);
+		await this._revealCell(cell);
 	}
 
 	/**
@@ -889,7 +889,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cell The cell to reveal
 	 */
 	async revealInViewAtTop(cell: IExtensionApiCellViewModel): Promise<void> {
-		await this._revealCell(cell, CellRevealType.Top);
+		await this._revealCell(cell);
 	}
 
 	private _toPositronCell(cell: IExtensionApiCellViewModel): IPositronNotebookCell {
@@ -904,8 +904,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * @param cell The cell to reveal
 	 */
-	private async _revealCell(cell: IExtensionApiCellViewModel, type?: CellRevealType): Promise<void> {
-		await this._toPositronCell(cell).reveal(type);
+	private async _revealCell(cell: IExtensionApiCellViewModel): Promise<void> {
+		await this._toPositronCell(cell).reveal();
 	}
 	//#endregion INotebookEditor
 
@@ -2046,7 +2046,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		if (autoFollow) {
 			// Reveal (scroll to) and highlight
-			if (!(await cell.reveal())) {
+			if (!(await cell.reveal({ reason: 'programmatic' }))) {
 				this._logService.debug('[PositronNotebookInstance] handleAssistantModification: cell.reveal() returned false');
 			}
 			if (!(await cell.highlightTemporarily(operationType, maxWaitMs))) {
