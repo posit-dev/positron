@@ -58,6 +58,21 @@ _SHELL_PREFIX = "!"
 # Custom LSP method for help topic requests
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 
+# Compiled regex patterns for performance
+_RE_DICT_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$')
+_RE_WORD_SUFFIX = re.compile(r"(\w*)$")
+_RE_ATTRIBUTE_ACCESS = re.compile(r".*?(\w[\w\.]*)\.(\w*)$")
+_RE_FUNC_NAME = re.compile(r"([\w\.]+)$")
+_RE_KEYWORD_ARG = re.compile(r"(\w+)\s*=\s*$")
+_RE_PARTIAL_PARAM = re.compile(r"(?:^|,\s*)(\w+)$")
+_RE_PARAM_VALUE = re.compile(r"\w+\s*=\s*[^\s,]*$")
+_RE_STRING_LITERAL = re.compile(r'(["\'])([^"\']*)?$')
+_RE_GETENV_FUNC = re.compile(r"([\w\.]+)\s*$")
+_RE_OS_ALIAS_ENVIRON = re.compile(r"^(\w+)\.environ$")
+_RE_OS_ALIAS_GETENV = re.compile(r"^(\w+)\.getenv$")
+_RE_MAGIC_PREFIX = re.compile(r"\s*([^\s]*)$")
+_RE_PERCENT_PREFIX = re.compile(r"^(%*)")
+
 
 @enum.unique
 class _MagicType(str, enum.Enum):
@@ -191,6 +206,17 @@ def _parse_os_imports(source: str) -> dict[str, str]:
     return imports
 
 
+@lru_cache(maxsize=32)
+def _parse_os_imports_cached(source_hash: int, source: str) -> dict[str, str]:  # noqa: ARG001
+    """Cached version of _parse_os_imports. source_hash is the lru_cache key."""
+    return _parse_os_imports(source)
+
+
+def _get_os_imports(document: TextDocument) -> dict[str, str]:
+    """Get cached os imports for a document."""
+    return _parse_os_imports_cached(hash(document.source), document.source)
+
+
 def _get_expression_at_position(line: str, character: int) -> str:
     """
     Extract the expression at the given character position.
@@ -217,6 +243,9 @@ def _get_expression_at_position(line: str, character: int) -> str:
     return line[start:end]
 
 
+_MESSAGE_TYPE_CACHE: dict[str, type | None] = {}
+
+
 class PositronLanguageServerProtocol(LanguageServerProtocol):
     """Custom protocol for the Positron language server."""
 
@@ -225,12 +254,13 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
         # Queue for handling message batching (performance optimization)
         self._messages_to_handle: list[Any] = []
 
-    @lru_cache  # noqa: B019
     def get_message_type(self, method: str) -> type | None:
         """Override to include custom Positron LSP messages."""
-        if method == _HELP_TOPIC:
-            return HelpTopicRequest
-        return super().get_message_type(method)
+        if method in _MESSAGE_TYPE_CACHE:
+            return _MESSAGE_TYPE_CACHE[method]
+        result = HelpTopicRequest if method == _HELP_TOPIC else super().get_message_type(method)
+        _MESSAGE_TYPE_CACHE[method] = result
+        return result
 
     @lsp_method(types.INITIALIZE)
     def lsp_initialize(
@@ -488,6 +518,9 @@ def _handle_completion(
     server: PositronLanguageServer, params: types.CompletionParams
 ) -> types.CompletionList | None:
     """Handle completion requests."""
+    if server.shell is None:
+        return None
+
     document = server.workspace.get_text_document(params.text_document.uri)
     line = document.lines[params.position.line] if document.lines else ""
     trimmed_line = line.lstrip()
@@ -513,7 +546,7 @@ def _handle_completion(
 
     # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
-    dict_key_match = re.search(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$', text_before_cursor)
+    dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
     if dict_key_match:
         quote_char = dict_key_match.group(2)
         # Check if there's already a closing quote after cursor
@@ -595,7 +628,7 @@ def _get_parameter_completions(
 
     # Extract function name/expression
     func_expr = text_before_cursor[:func_end].rstrip()
-    match = re.search(r"([\w\.]+)$", func_expr)
+    match = _RE_FUNC_NAME.search(func_expr)
     if not match:
         return []
 
@@ -615,7 +648,7 @@ def _get_parameter_completions(
 
     # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
     # Pattern: look for "word=" at the end, possibly with a value started
-    if re.search(r"\w+\s*=\s*[^\s,]*$", args_text) and not args_text.rstrip().endswith(","):
+    if _RE_PARAM_VALUE.search(args_text) and not args_text.rstrip().endswith(","):
         # Cursor is positioned after "=" where a value should go, don't suggest parameters
         return []
 
@@ -632,7 +665,7 @@ def _get_parameter_completions(
 
     # Check if we're currently typing a partial parameter name
     # Look for a partial word at the end that doesn't have "=" after it
-    partial_match = re.search(r"(?:^|,\s*)(\w+)$", args_text)
+    partial_match = _RE_PARTIAL_PARAM.search(args_text)
     partial_prefix = partial_match.group(1) if partial_match else ""
 
     items = []
@@ -685,7 +718,7 @@ def _get_namespace_completions(
 
     items = []
     # Get the partial word being typed
-    match = re.search(r"(\w*)$", text_before_cursor)
+    match = _RE_WORD_SUFFIX.search(text_before_cursor)
     prefix = match.group(1) if match else ""
 
     for name, obj in server.shell.user_ns.items():
@@ -727,9 +760,9 @@ def _get_dict_key_completions(
     if obj is None:
         # Try static analysis fallback for os.environ
         if document is not None:
-            os_imports = _parse_os_imports(document.source)
+            os_imports = _get_os_imports(document)
             # Check if expr is "<alias>.environ" where alias maps to "os"
-            match = re.match(r"^(\w+)\.environ$", expr)
+            match = _RE_OS_ALIAS_ENVIRON.match(expr)
             if match and os_imports.get(match.group(1)) == "os":
                 return _make_env_var_completions(
                     prefix, quote_char, has_closing_quote=has_closing_quote
@@ -984,7 +1017,7 @@ def _get_path_completions(
         List of completion items for matching filesystem paths
     """
     # Detect if cursor is inside a string literal
-    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
     if not string_match:
         return []
 
@@ -1058,7 +1091,7 @@ def _get_getenv_completions(
         return []
 
     # Check if cursor is inside a string literal (matches opening quote + optional prefix)
-    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
     if not string_match:
         return []
 
@@ -1067,7 +1100,7 @@ def _get_getenv_completions(
     before_string = text_before_cursor[: string_match.start()]
 
     # Check for keyword argument (e.g., "key=") - only complete for 'key', not 'default'
-    keyword_match = re.search(r"(\w+)\s*=\s*$", before_string)
+    keyword_match = _RE_KEYWORD_ARG.search(before_string)
     if keyword_match and keyword_match.group(1) != "key":
         return []
 
@@ -1077,7 +1110,7 @@ def _get_getenv_completions(
         return []
 
     # Extract and validate the function name
-    func_match = re.search(r"([\w\.]+)\s*$", before_string[:func_paren_pos])
+    func_match = _RE_GETENV_FUNC.search(before_string[:func_paren_pos])
     if not func_match or not func_match.group(1).endswith("getenv"):
         return []
 
@@ -1087,9 +1120,9 @@ def _get_getenv_completions(
     if resolved is not os.getenv:
         # Try static analysis fallback
         if document is not None:
-            os_imports = _parse_os_imports(document.source)
+            os_imports = _get_os_imports(document)
             # Check if func_name is "<alias>.getenv" where alias maps to "os"
-            match = re.match(r"^(\w+)\.getenv$", func_name)
+            match = _RE_OS_ALIAS_GETENV.match(func_name)
             if not (match and os_imports.get(match.group(1)) == "os"):
                 return []
         else:
@@ -1170,7 +1203,7 @@ def _get_attribute_completions(
         return []
 
     # Extract the expression before the last dot
-    match = re.match(r".*?(\w[\w\.]*)\.(\w*)$", text_before_cursor)
+    match = _RE_ATTRIBUTE_ACCESS.match(text_before_cursor)
     if not match:
         return []
 
@@ -1302,10 +1335,10 @@ def _create_magic_completion_item(
     prefix = _CELL_MAGIC_PREFIX if magic_type == _MagicType.cell else _LINE_MAGIC_PREFIX
 
     # Determine insert_text - handle existing '%' characters
-    match = re.search(r"\s*([^\s]*)$", chars_before_cursor)
+    match = _RE_MAGIC_PREFIX.search(chars_before_cursor)
     text = match.group(1) if match else ""
 
-    match2 = re.match(r"^(%*)", text)
+    match2 = _RE_PERCENT_PREFIX.match(text)
     count = len(match2.group(1)) if match2 else 0
     pad_count = max(0, len(prefix) - count)
     insert_text = prefix[0] * pad_count + name
@@ -1502,7 +1535,7 @@ def _handle_signature_help(
 
     # Extract function name/expression
     func_expr = text_before_cursor[:func_end].rstrip()
-    match = re.search(r"([\w\.]+)$", func_expr)
+    match = _RE_FUNC_NAME.search(func_expr)
     if not match:
         return None
 
@@ -1535,7 +1568,7 @@ def _handle_signature_help(
         if doc:
             # First line of docstring often contains the signature
             first_line = doc.split("\n")[0]
-            # Match patterns like "print(value, ..., sep=' ', end='\n', ...)"
+            # Dynamic pattern using func name - can't pre-compile
             match = re.match(rf"^{re.escape(func_name.split('.')[-1])}\s*\(([^)]*)\)", first_line)
             if match:
                 sig_str = f"({match.group(1)})"
