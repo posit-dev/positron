@@ -447,6 +447,7 @@ jobs:
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
           ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
+          E2E_API_URL: https://connect.posit.it/e2e-test-insights-api
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
@@ -454,16 +455,6 @@ jobs:
           else
             GREP_ARG="--grep \"${PW_TAGS}\""
           fi
-
-          # Build the --shard argument if shards > 1
-          if [ "${{ inputs.shards }}" -gt "1" ]; then
-            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
-          else
-            SHARD_ARG=""
-          fi
-
-          echo "Final --grep argument: $GREP_ARG"
-          echo "Final --shard argument: $SHARD_ARG"
 
           export SKIP_BOOTSTRAP=true
           # Skip clone on qa-example-content if we already did the bootstrap test
@@ -473,7 +464,31 @@ jobs:
             export SKIP_CLONE=false
           fi
 
-          CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
+          # Use predictive sharding when shards > 1, otherwise run all tests
+          if [ "${{ inputs.shards }}" -gt "1" ]; then
+            # Extract browser from project name (e2e-windows -> windows)
+            BROWSER="${{ inputs.project }}"
+            BROWSER="${BROWSER#e2e-}"
+
+            echo "Using predictive sharding: shard ${{ matrix.shard }}/${{ inputs.shards }}"
+            echo "Browser filter: $BROWSER"
+
+            CMD="npx e2e-insights run-shard \
+              --shard-index=${{ matrix.shard }} \
+              --shard-total=${{ inputs.shards }} \
+              --repo=${{ github.repository }} \
+              --os=windows \
+              --browser=$BROWSER \
+              --branch=${{ github.head_ref || github.ref_name }} \
+              --project ${{ inputs.project }} \
+              --workers ${{ inputs.workers }} \
+              $GREP_ARG \
+              --repeat-each ${{ inputs.repeat_each }} \
+              --max-failures ${{ inputs.max_failures }}"
+          else
+            CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
+          fi
+
           echo "Running: $CMD"
 
           # Always run with || true when using blob reporter (merge-reports determines pass/fail)

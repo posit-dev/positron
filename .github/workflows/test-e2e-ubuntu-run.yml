@@ -297,22 +297,13 @@ jobs:
           PW_PROJECT_NAME: ${{ inputs.project }}
           GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
           ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
+          E2E_API_URL: https://connect.posit.it/e2e-test-insights-api
         run: |
           if [ -z "$PW_TAGS" ]; then
             GREP_ARG=""
           else
             GREP_ARG="--grep \"$PW_TAGS\""
           fi
-
-          # Build the --shard argument only if shards > 1
-          if [ "${{ inputs.shards }}" -gt "1" ]; then
-            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
-          else
-            SHARD_ARG=""
-          fi
-
-          echo "Final --grep argument: $GREP_ARG"
-          echo "Final --shard argument: $SHARD_ARG"
 
           if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
             echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
@@ -323,11 +314,36 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
+          # Use predictive sharding when shards > 1, otherwise run all tests
+          if [ "${{ inputs.shards }}" -gt "1" ]; then
+            # Extract browser from project name (e2e-electron -> electron, e2e-chromium -> chromium)
+            BROWSER="${{ inputs.project }}"
+            BROWSER="${BROWSER#e2e-}"
+
+            echo "Using predictive sharding: shard ${{ matrix.shard }}/${{ inputs.shards }}"
+            echo "Browser filter: $BROWSER"
+
+            CMD="npx e2e-insights run-shard \
+              --shard-index=${{ matrix.shard }} \
+              --shard-total=${{ inputs.shards }} \
+              --repo=${{ github.repository }} \
+              --os=ubuntu \
+              --browser=$BROWSER \
+              --branch=${{ github.head_ref || github.ref_name }} \
+              --project ${{ inputs.project }} \
+              --workers ${{ inputs.workers }} \
+              $GREP_ARG \
+              --repeat-each ${{ inputs.repeat_each }} \
+              --max-failures ${{ inputs.max_failures }}"
+          else
+            CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
+          fi
+
+          echo "Running: $CMD"
 
           # Don't fail the shard on test failures - let all shards complete and upload results
           # The merge-reports job will determine pass/fail based on the complete test results
-          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }} || true
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG $CMD || true
 
       - name: Upload Blob Report
         if: ${{ always() }}
