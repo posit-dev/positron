@@ -327,7 +327,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	private async _runPythonTasks() {
 		// Create the Python environment
 		if (this.pendingInitTasks.has(NewFolderTask.PythonEnvironment)) {
-			await this._createPythonEnvironment();
+			const success = await this._createPythonEnvironment();
+			if (!success) {
+				this._removePendingInitTask(NewFolderTask.Python);
+				throw new Error('Python environment creation failed');
+			}
 		}
 
 		// Add pyproject.toml file if requested
@@ -349,7 +353,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		// some UI in the New Folder Flow for the user to select the language/kernel and pass that
 		// metadata to the new folder configuration.
 		if (this.pendingInitTasks.has(NewFolderTask.PythonEnvironment)) {
-			await this._createPythonEnvironment();
+			const success = await this._createPythonEnvironment();
+			if (!success) {
+				this._removePendingInitTask(NewFolderTask.Jupyter);
+				throw new Error('Jupyter environment creation failed');
+			}
 		}
 
 		// Complete the Jupyter task
@@ -463,7 +471,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	 * Creates the Python environment.
 	 * Relies on extension ms-python.python
 	 */
-	private async _createPythonEnvironment() {
+	private async _createPythonEnvironment(): Promise<boolean> {
 		if (this._newFolderConfig) {
 			const provider = this._newFolderConfig.pythonEnvProviderId;
 			if (provider && provider.length > 0) {
@@ -482,7 +490,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					this._logService.error(message);
 					this._notificationService.warn(message);
 					this._removePendingInitTask(NewFolderTask.PythonEnvironment);
-					return;
+					return false;
 				}
 
 				// Ensure the Python interpreter path is available. This is the global Python
@@ -494,7 +502,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					this._logService.error(message);
 					this._notificationService.warn(message);
 					this._removePendingInitTask(NewFolderTask.PythonEnvironment);
-					return;
+					return false;
 				}
 
 				// Create the Python environment
@@ -548,7 +556,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					);
 					this._notificationService.warn(message);
 					this._removePendingInitTask(NewFolderTask.PythonEnvironment);
-					return;
+					return false;
 				}
 
 				// Set the runtime metadata for the new folder, whether it's undefined or not.
@@ -565,7 +573,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 
 				this._removePendingInitTask(NewFolderTask.PythonEnvironment);
 
-				return;
+				return true;
 			}
 		} else {
 			// This shouldn't occur.
@@ -573,8 +581,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			this._logService.error(message);
 			this._notificationService.warn(message);
 			this._removePendingInitTask(NewFolderTask.PythonEnvironment);
-			return;
+			return false;
 		}
+		return true;
 	}
 
 	/**
