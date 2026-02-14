@@ -313,7 +313,7 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          # Use predictive sharding CLI (infers browser from --project, handles fallback automatically)
+          # Use predictive sharding CLI
           CMD="npx e2e-insights run-shard \
             --shard-index=${{ matrix.shard }} \
             --shard-total=${{ inputs.shards }} \
