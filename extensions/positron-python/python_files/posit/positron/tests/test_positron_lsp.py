@@ -337,6 +337,10 @@ class TestAttributeAccessPattern:
         match = _RE_ATTRIBUTE_ACCESS.search("obj.")
         assert match and match.groups() == ("obj", "")
 
+    def test_deeply_chained(self):
+        match = _RE_ATTRIBUTE_ACCESS.search("a.b.c.d")
+        assert match and match.groups() == ("a.b.c", "d")
+
     def test_no_dot(self):
         match = _RE_ATTRIBUTE_ACCESS.search("nodot")
         assert match is None

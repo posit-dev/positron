@@ -60,6 +60,9 @@ _HELP_TOPIC = "positron/textDocument/helpTopic"
 # Compiled regex patterns for performance
 _RE_DICT_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$')
 _RE_WORD_SUFFIX = re.compile(r"(\w*)$")
+# Equivalent to re.match(r".*?(\w[\w\.]*)\.(\w*)$", text) — the non-greedy
+# .*? prefix in the original had no effect because group 1 is greedy and the
+# pattern is $-anchored, so .search() without the prefix matches identically.
 _RE_ATTRIBUTE_ACCESS = re.compile(r"(\w[\w\.]*)\.(\w*)$")
 _RE_FUNC_NAME = re.compile(r"([\w\.]+)$")
 _RE_KEYWORD_ARG = re.compile(r"(\w+)\s*=\s*$")
