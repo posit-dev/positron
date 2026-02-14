@@ -72,6 +72,8 @@ _RE_OS_ALIAS_GETENV = re.compile(r"^(\w+)\.getenv$")
 _RE_MAGIC_PREFIX = re.compile(r"\s*([^\s]*)$")
 _RE_PERCENT_PREFIX = re.compile(r"^(%*)")
 
+_MESSAGE_TYPE_CACHE_MAX = 128
+
 
 @enum.unique
 class _MagicType(str, enum.Enum):
@@ -240,14 +242,12 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
         self._messages_to_handle: list[Any] = []
         self._message_type_cache: dict[str, type | None] = {}
 
-    _MESSAGE_TYPE_CACHE_MAX = 128
-
     def get_message_type(self, method: str) -> type | None:
         """Override to include custom Positron LSP messages."""
         if method in self._message_type_cache:
             return self._message_type_cache[method]
         result = HelpTopicRequest if method == _HELP_TOPIC else super().get_message_type(method)
-        if len(self._message_type_cache) < self._MESSAGE_TYPE_CACHE_MAX:
+        if len(self._message_type_cache) < _MESSAGE_TYPE_CACHE_MAX:
             self._message_type_cache[method] = result
         return result
 
@@ -522,7 +522,9 @@ def _handle_completion(
     # Path completions in bare string literals don't require the shell, so
     # they're evaluated before the shell null check to remain available during
     # server startup. Skip when in dict key access or getenv context to avoid
-    # interfering with those completions.
+    # interfering with those completions. Note: when shell is None, getenv
+    # completions also return nothing — no completions is correct in that case
+    # since env var resolution requires the shell.
     dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
     if not dict_key_match and not _is_in_getenv_call(text_before_cursor):
         path_items = _get_path_completions(
