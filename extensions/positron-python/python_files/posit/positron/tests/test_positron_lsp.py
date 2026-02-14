@@ -936,6 +936,18 @@ class TestCompletions:
         assert len(completions) == 1
         assert completions[0].label == "readme.txt"
 
+    def test_path_completion_inside_non_getenv_function(self, tmp_path: Path) -> None:
+        """Path completions should work inside non-getenv function calls."""
+        file = tmp_path / "data.csv"
+        file.write_text("")
+
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, 'my_func("data"')
+        completions = self._completions(server, text_document, character=14)
+
+        assert len(completions) == 1
+        assert completions[0].label == "data.csv"
+
     def test_no_non_path_completions_without_shell(self) -> None:
         """Test that non-path completions return nothing when server.shell is None."""
         server = create_test_server(namespace={"foo": 1})
