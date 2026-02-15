@@ -64,15 +64,6 @@ runs:
       with:
         distro: ${{ inputs.distro }}
 
-    - name: Apply patches when cache hits
-      if: steps.restore-caches.outputs.cache-npm-core-hit == 'true'
-      shell: bash
-      run: |
-        echo "::group::🩹 Apply patches to cached node_modules"
-        echo "Cache hit - applying patches to cached node_modules"
-        npx patch-package
-        echo "::endgroup::"
-
     - name: Install node dependencies
       if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
           steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
