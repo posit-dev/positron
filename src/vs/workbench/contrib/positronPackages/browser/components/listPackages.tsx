@@ -235,7 +235,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									tooltip: localize('positronPackages.copyPackage', "Copy '{0}'", name),
 									class: undefined,
 									enabled: true,
-									run: () => services.clipboardService.writeText(`${name} ${version}`)
+									run: () => services.clipboardService.writeText(`${name} (${version})`)
 								},
 								{
 									id: 'copyAll',
@@ -243,7 +243,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
 									class: undefined,
 									enabled: true,
-									run: () => services.clipboardService.writeText(packages.map((pkg) => `${pkg.name} ${pkg.version}`).join('\n'))
+									run: () => services.clipboardService.writeText(packages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
 								},
 								new Separator(),
 								{
