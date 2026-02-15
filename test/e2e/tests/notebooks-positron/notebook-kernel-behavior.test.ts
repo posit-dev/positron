@@ -15,8 +15,12 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.SOFT_FAIL] // soft fail due to https://github.com/posit-dev/positron/issues/10546
 }, () => {
 
-	test('ensure notebook session states update correctly during start, restart, and shutdown', async function ({ app }) {
+	test('ensure notebook session states update correctly during start, restart, and shutdown', async function ({ app, sessions }) {
 		const { notebooksPositron } = app.workbench;
+
+		// delete all sessions to ensure no foreground session exists
+		// and no notebook kernel is automatically selected
+		await sessions.deleteAll();
 
 		// create new notebook
 		await notebooksPositron.newNotebook();
