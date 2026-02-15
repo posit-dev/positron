@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { web } from 'webpack';
 import { test, expect, tags } from '../_test.setup';
 import { join } from 'path';
 
