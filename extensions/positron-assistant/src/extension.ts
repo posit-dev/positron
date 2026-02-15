@@ -15,10 +15,12 @@ import { registerCopilotService } from './copilot.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { generateNotebookSuggestions, type NotebookSuggestionsResult } from './notebookSuggestions.js';
+import { generateGhostCellSuggestion, type GhostCellSuggestionResult } from './ghostCellSuggestions.js';
 import { initializeTokenTracking } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
+import { selectGhostCellModel } from './commands/ghostCellModelPicker.js';
 import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
@@ -74,6 +76,53 @@ function registerGenerateNotebookSuggestionsCommand(
 						log,
 						cancellationToken,
 						progressCallbackCommand
+					);
+				} finally {
+					// Only dispose if we created the token
+					tokenSource?.dispose();
+				}
+			}
+		)
+	);
+}
+
+function registerGenerateGhostCellSuggestionCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron-assistant.generateGhostCellSuggestion',
+			async (
+				notebookUri: string,
+				executedCellIndex: number,
+				progressCallbackCommand?: string,
+				skipConfigCheck?: boolean,
+				token?: vscode.CancellationToken
+			): Promise<GhostCellSuggestionResult | null> => {
+				// Create a token source only if no token is provided
+				let tokenSource: vscode.CancellationTokenSource | undefined;
+				const cancellationToken = token || (tokenSource = new vscode.CancellationTokenSource()).token;
+
+				// Progress callback handler that invokes the provided command
+				const onProgress = progressCallbackCommand
+					? (partial: Partial<GhostCellSuggestionResult>) => {
+						Promise.resolve(vscode.commands.executeCommand(progressCallbackCommand, partial)).catch(err => {
+							log.warn(`[ghost-cell] Progress callback failed: ${err}`);
+						});
+					}
+					: undefined;
+
+				try {
+					return await generateGhostCellSuggestion(
+						notebookUri,
+						executedCellIndex,
+						participantService,
+						log,
+						cancellationToken,
+						onProgress,
+						skipConfigCheck
 					);
 				} finally {
 					// Only dispose if we created the token
@@ -189,6 +238,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerConfigureProvidersCommand(context);
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
+	registerGenerateGhostCellSuggestionCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);
@@ -208,6 +258,11 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register chat commands
 	registerAssistantCommands();
+
+	// Register ghost cell model picker command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.selectGhostCellModel', selectGhostCellModel)
+	);
 
 	// Dispose cleanup
 	context.subscriptions.push({

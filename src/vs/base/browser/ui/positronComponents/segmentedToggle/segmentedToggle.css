@@ -1,0 +1,69 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.segmented-toggle {
+	display: flex;
+	font-size: 12px;
+	align-items: center;
+}
+
+.segmented-toggle .toggle-container {
+	height: 22px;
+	border: none;
+	display: grid;
+	padding: 0 .5px;
+	cursor: pointer;
+	border-radius: 6px;
+	align-items: center;
+	user-select: none;
+	grid-template-columns: [left] 1fr [right] 1fr [end];
+	background-color: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
+}
+
+.segmented-toggle .toggle-container:focus {
+	outline: none;
+}
+
+.segmented-toggle .toggle-container:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.segmented-toggle .toggle-container.disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.segmented-toggle .toggle-container .toggle-button {
+	display: flex;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 6px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid transparent;
+	white-space: nowrap;
+}
+
+.segmented-toggle .toggle-container .toggle-button:not(.highlighted):hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.segmented-toggle .toggle-container .toggle-button.highlighted {
+	background-color: var(--vscode-positronActionBar-background, var(--vscode-editor-background));
+	border: 1px solid var(--vscode-positronActionBar-toggleButtonHighlightedBorder, var(--vscode-contrastBorder, transparent));
+}
+
+.segmented-toggle .toggle-container .toggle-button.highlighted:hover {
+	background-color: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
+}
+
+.segmented-toggle .toggle-container .toggle-button.left {
+	grid-column: left / right;
+}
+
+.segmented-toggle .toggle-container .toggle-button.right {
+	grid-column: right / end;
+}

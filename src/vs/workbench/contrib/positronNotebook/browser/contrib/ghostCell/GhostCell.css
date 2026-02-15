@@ -1,0 +1,427 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.ghost-cell {
+	position: relative;
+	margin-left: 12px; /* Match .positron-notebook-cell margin */
+	/* Match spacing that AddCellButtons provides between live cells */
+	margin-bottom: calc(
+		var(--_positron-notebook-add-cell-buttons-height) +
+			var(--_positron-notebook-cell-gap)
+	);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+}
+
+/* Main cell container with dashed border */
+.ghost-cell-container {
+	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
+	border: 2px dashed var(--vscode-panel-border, var(--vscode-widget-border));
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	opacity: 0.7;
+	overflow: hidden;
+
+}
+
+.ghost-cell-container:hover,
+.ghost-cell-container:focus-within {
+	opacity: 0.9;
+	border-color: var(--vscode-focusBorder);
+}
+
+/* Header section with explanation, mode toggle, and actions */
+.ghost-cell-header {
+	display: flex;
+	align-items: center;
+	padding: 6px 12px;
+	background: var(--vscode-notifications-background);
+	border-bottom: 1px solid var(--vscode-widget-border);
+	gap: 8px;
+}
+
+.ghost-cell-info-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	padding: 0;
+	font-size: 12px;
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ghost-cell-info-button:hover {
+	color: var(--vscode-foreground);
+}
+
+.ghost-cell-info-button:focus {
+	outline: none;
+}
+
+.ghost-cell-info-button:focus-visible {
+	color: var(--vscode-foreground);
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+	border-radius: 2px;
+}
+
+.ghost-cell-explanation {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	min-width: 0;
+	flex: 1;
+}
+
+.ghost-cell-explanation-text {
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	opacity: 0.8;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ghost-cell-explanation.expanded .ghost-cell-explanation-text {
+	white-space: normal;
+	overflow: visible;
+}
+
+.ghost-cell-expand-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	padding: 0;
+	font-size: 11px;
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.ghost-cell-expand-button:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
+/* Accept split button - primary action styling */
+.ghost-cell-header .ghost-cell-accept {
+	border-color: var(--vscode-button-secondaryBackground);
+	flex-shrink: 0;
+}
+
+.ghost-cell-header .ghost-cell-accept .split-button-main {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.ghost-cell-header .ghost-cell-accept .split-button-main:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ghost-cell-header .ghost-cell-accept .split-button-dropdown {
+	border-left-color: var(--vscode-positronActionBar-selectBorder);
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+}
+
+.ghost-cell-header .ghost-cell-accept .split-button-dropdown:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Dismiss split button - secondary action styling */
+.ghost-cell-header .ghost-cell-dismiss {
+	opacity: 0.8;
+	flex-shrink: 0;
+}
+
+.ghost-cell-header .ghost-cell-dismiss:hover {
+	opacity: 1;
+}
+
+.ghost-cell-regenerate {
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 3px;
+	width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
+	opacity: 0.8;
+	transition: opacity 0.1s ease, background 0.1s ease;
+}
+
+.ghost-cell-regenerate:hover {
+	opacity: 1;
+	background: var(--vscode-positronActionBar-hoverBackground);
+}
+
+.ghost-cell-regenerate:focus {
+	outline: none;
+}
+
+.ghost-cell-regenerate:focus-visible {
+	opacity: 1;
+	background: var(--vscode-positronActionBar-hoverBackground);
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Code preview section */
+.ghost-cell-code-preview {
+	padding: 8px 16px;
+	min-height: 2em;
+	max-height: 12em; /* Allow more lines than deletion sentinel */
+	overflow: auto;
+	font-family: var(
+		--vscode-positronNotebook-text-output-font-family,
+		var(--monaco-monospace-font)
+	);
+	font-size: var(--vscode-positronNotebook-text-output-font-size);
+}
+
+.ghost-cell-code-text {
+	margin: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	color: var(--vscode-foreground);
+	opacity: 0.85;
+}
+
+/* Footer with info button and model indicator */
+.ghost-cell-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 12px 6px;
+	border-top: 1px solid var(--vscode-widget-border);
+	background: var(--vscode-notifications-background);
+}
+
+.ghost-cell-model-info {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.ghost-cell-model-indicator {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	opacity: 0.7;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 2px;
+	transition: opacity 0.1s ease, background 0.1s ease;
+}
+
+.ghost-cell-model-indicator:hover {
+	opacity: 1;
+	background: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
+	text-decoration: underline;
+}
+
+.ghost-cell-fallback-warning {
+	font-size: 12px;
+	color: var(--vscode-editorWarning-foreground);
+	cursor: help;
+}
+
+/* Opt-in prompt state */
+.ghost-cell-opt-in {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px 16px;
+}
+
+.ghost-cell-opt-in-content {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ghost-cell-opt-in-text {
+	color: var(--vscode-foreground);
+	font-size: 12px;
+}
+
+.ghost-cell-learn-more {
+	background: transparent;
+	border: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	padding: 0;
+	font-size: 12px;
+	text-decoration: underline;
+}
+
+.ghost-cell-learn-more:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+/* Override default toggle font size for compact ghost cell layout */
+.ghost-cell-mode-toggle.segmented-toggle {
+	font-size: 11px;
+	flex-shrink: 0;
+}
+
+.ghost-cell-opt-in-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.ghost-cell-opt-in-button {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	padding: 4px 12px;
+	border-radius: 2px;
+	font-size: 12px;
+}
+
+.ghost-cell-opt-in-button:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ghost-cell-opt-in-button.default {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.ghost-cell-opt-in-button.default:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+/* Awaiting-request state (pull mode) - single row layout */
+.ghost-cell-awaiting-request {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+}
+
+.ghost-cell-awaiting-text {
+	color: var(--vscode-foreground);
+	font-size: 12px;
+}
+
+.ghost-cell-spacer {
+	flex: 1;
+}
+
+.ghost-cell-get-suggestion {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	padding: 4px 12px;
+	border-radius: 2px;
+	font-size: 12px;
+}
+
+.ghost-cell-get-suggestion:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ghost-cell-get-suggestion.default {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.ghost-cell-get-suggestion.default:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+.ghost-cell-dismiss-button {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	padding: 4px 12px;
+	border-radius: 2px;
+	font-size: 12px;
+}
+
+.ghost-cell-dismiss-button:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Loading state */
+.ghost-cell-loading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+}
+
+.ghost-cell-loading-spinner {
+	font-size: 14px;
+	color: var(--vscode-progressBar-background);
+}
+
+.ghost-cell-loading-text {
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	opacity: 0.7;
+}
+
+/* Streaming state - show partial code */
+.ghost-cell-streaming .ghost-cell-code-preview {
+	opacity: 0.6;
+}
+
+.ghost-cell-streaming .ghost-cell-code-text::after {
+	content: '|';
+	animation: cursor-blink 1s step-end infinite;
+	color: var(--vscode-editorCursor-foreground);
+}
+
+@keyframes cursor-blink {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0; }
+}
+
+/* Error state */
+.ghost-cell-error {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+}
+
+.ghost-cell-error-icon {
+	font-size: 14px;
+	color: var(--vscode-errorForeground);
+}
+
+.ghost-cell-error-text {
+	color: var(--vscode-errorForeground);
+	font-size: 12px;
+	opacity: 0.9;
+}
+
+/* High contrast theme support */
+.hc-black .ghost-cell-container,
+.hc-light .ghost-cell-container {
+	border: 2px dashed var(--vscode-contrastBorder, var(--vscode-widget-border));
+	opacity: 0.9;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	.ghost-cell-streaming .ghost-cell-code-text::after {
+		animation: none;
+		opacity: 1;
+	}
+
+	.ghost-cell-loading-spinner {
+		animation: none !important;
+	}
+}
