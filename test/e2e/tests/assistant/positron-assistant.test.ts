@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { web } from 'webpack';
 import { test, expect, tags } from '../_test.setup';
 import { join } from 'path';
 
@@ -361,9 +362,9 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 	});
 
 	test.beforeEach('Clear chat', async function ({ app, settings }) {
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': true }, { reload: 'web' });
 		await app.workbench.assistant.clickNewChatButton();
-		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
+		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] }, { reload: 'web' });
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
@@ -382,14 +383,14 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 	});
 
 	test('Token usage is not displayed when setting is disabled', async function ({ app, settings }) {
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': false });
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': false }, { reload: 'web' });
 		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
 
 		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
 	});
 
 	test('Token usage is not displayed for non-supported providers', async function ({ app, settings }) {
-		await settings.set({ 'positron.assistant.approximateTokenCount': [] });
+		await settings.set({ 'positron.assistant.approximateTokenCount': [] }, { reload: 'web' });
 		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
 
 		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
@@ -399,16 +400,16 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
 		await app.workbench.assistant.verifyTokenUsageVisible();
 
-		await settings.set({ 'positron.assistant.approximateTokenCount': [] });
+		await settings.set({ 'positron.assistant.approximateTokenCount': [] }, { reload: 'web' });
 		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
 
-		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
+		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] }, { reload: 'web' });
 		await app.workbench.assistant.verifyTokenUsageVisible();
 
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': false });
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': false }, { reload: 'web' });
 		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
 
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': true }, { reload: 'web' });
 		await app.workbench.assistant.verifyTokenUsageVisible();
 	});
 
