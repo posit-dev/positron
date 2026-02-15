@@ -230,26 +230,6 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Setup AWS S3 Access for .last-run.json download
-        continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Download previous .last-run.json from S3
-        continue-on-error: true
-        run: |
-          mkdir -p blob-report
-          # Download project-specific .last-run.json
-          aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
-
-      - name: Restore AWS S3 Access to read-only role
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
       # - name: Log Shard Distribution Info
       #   run: |
       #     bash scripts/log-shard-info.sh "${{ inputs.project }}" "${{ matrix.shard }}" "${{ inputs.shards }}" "$PW_TAGS"
@@ -304,16 +284,6 @@ jobs:
             GREP_ARG="--grep \"$PW_TAGS\""
           fi
 
-          # Build the --shard argument only if shards > 1
-          if [ "${{ inputs.shards }}" -gt "1" ]; then
-            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
-          else
-            SHARD_ARG=""
-          fi
-
-          echo "Final --grep argument: $GREP_ARG"
-          echo "Final --shard argument: $SHARD_ARG"
-
           if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
             echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
             npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
@@ -323,11 +293,24 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
+          # Use predictive sharding CLI
+          CMD="npx e2e-insights run-shard \
+            --shard-index=${{ matrix.shard }} \
+            --shard-total=${{ inputs.shards }} \
+            --repo=${{ github.repository }} \
+            --os=ubuntu \
+            --branch=${{ github.head_ref || github.ref_name }} \
+            --project ${{ inputs.project }} \
+            --workers ${{ inputs.workers }} \
+            $GREP_ARG \
+            --repeat-each ${{ inputs.repeat_each }} \
+            --max-failures ${{ inputs.max_failures }}"
+
+          echo "Running: $CMD"
 
           # Don't fail the shard on test failures - let all shards complete and upload results
           # The merge-reports job will determine pass/fail based on the complete test results
-          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }} || true
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG $CMD || true
 
       - name: Upload Blob Report
         if: ${{ always() }}
@@ -372,24 +355,13 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Install jq for JSON parsing
-        run: |
-          # Install jq for parsing .last-run.json
-          sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Install Playwright and apply patch
+      - name: Install Playwright
         run: |
           # Create clean directory for merge dependencies
           mkdir -p playwright-merge
           cd playwright-merge
           npm init -y
-          # Install only what we need
-          # We need the patch to capture test durations in .last-run.json for better shard balancing
-          npm install @playwright/test@1.56.1 patch-package @midleman/github-actions-reporter
-          # Copy patch from repo and apply it
-          mkdir -p patches
-          cp ../patches/playwright+1.56.1.patch patches/
-          npx patch-package
+          npm install @playwright/test @midleman/github-actions-reporter
 
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
@@ -409,39 +381,15 @@ jobs:
           # Create output directory
           mkdir -p playwright-report
 
-          # Generate HTML report and GH Summary first
+          # Generate HTML report and GH Summary
           PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
             --reporter=@midleman/github-actions-reporter,html \
-            --last-run-file=playwright-report/.last-run-${{ inputs.project }}.json \
             ../all-blob-reports
 
           # Generate JSON report separately with explicit output path
           PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json npx playwright merge-reports \
             --reporter=json \
             ../all-blob-reports
-
-      - name: Verify generated reports
-        working-directory: playwright-merge
-        run: |
-          # List all generated files
-          echo "Generated report files:"
-          ls -laR playwright-report/
-
-          # Verify .last-run.json
-          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
-          if [ -f "$LAST_RUN_FILE" ]; then
-            FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
-            echo "✓ Generated $LAST_RUN_FILE ($FILE_SIZE)"
-            if command -v jq &> /dev/null; then
-              TEST_COUNT=$(jq '.testDurations | length' "$LAST_RUN_FILE")
-              TOTAL_DURATION=$(jq '[.testDurations[]] | add' "$LAST_RUN_FILE")
-              TOTAL_DURATION_SEC=$(echo "scale=1; $TOTAL_DURATION / 1000" | bc)
-              echo "  • Tests with duration data: $TEST_COUNT"
-              echo "  • Total test duration: ${TOTAL_DURATION_SEC}s"
-            fi
-          else
-            echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
-          fi
 
       - name: Upload HTML report to S3
         if: always()
@@ -450,26 +398,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
           working-directory: playwright-merge
-
-      - name: Setup AWS S3 Access for .last-run.json upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Upload .last-run.json to fixed S3 location
-        if: always()
-        working-directory: playwright-merge
-        run: |
-          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
-          if [ -f "$LAST_RUN_FILE" ]; then
-            # Upload project-specific .last-run.json to S3 (bucket uses IAM policies)
-            aws s3 cp "$LAST_RUN_FILE" s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json
-            echo "✓ Uploaded ${{ inputs.project }}-last-run.json to S3 for future runs"
-          else
-            echo "⚠ No $LAST_RUN_FILE to upload"
-          fi
 
       - name: Check test results
         if: always()
