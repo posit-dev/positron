@@ -352,8 +352,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	});
 });
 
-// Skipping web. See https://github.com/posit-dev/positron/issues/8568
-// Skippig all due to https://github.com/posit-dev/positron/issues/9402
+// Test suite for verifying token usage is displayed.
 test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
 		await app.workbench.assistant.openPositronAssistantChat();
