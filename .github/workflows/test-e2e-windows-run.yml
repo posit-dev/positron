@@ -442,7 +442,6 @@ jobs:
             --shard-total=${{ inputs.shards }} \
             --repo=${{ github.repository }} \
             --os=windows \
-            --branch=${{ github.head_ref || github.ref_name }} \
             --project ${{ inputs.project }} \
             --workers ${{ inputs.workers }} \
             $GREP_ARG \
