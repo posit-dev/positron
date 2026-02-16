@@ -22,7 +22,7 @@ import { PROVIDER_METADATA } from '../../providerMetadata.js';
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
 
-const POSIT_AUTH_PROVIDER_ID = 'positron-posit-ai';
+const POSIT_AUTH_PROVIDER_ID = 'posit-ai';
 
 interface PositModelsResponse {
 	chat: {
