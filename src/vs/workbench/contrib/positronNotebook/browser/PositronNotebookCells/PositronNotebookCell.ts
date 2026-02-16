@@ -14,7 +14,6 @@ import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCe
 import { CellDecorationManager } from './CellDecorationManager.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, IPositronNotebookRawCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
-import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
@@ -202,7 +201,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this._container;
 	}
 
-	attachEditor(editor: CodeEditorWidget): void {
+	attachEditor(editor: ICodeEditor): void {
 		this._editor.set(editor, undefined);
 	}
 
