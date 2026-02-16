@@ -298,7 +298,6 @@ jobs:
             --shard-index=${{ matrix.shard }} \
             --shard-total=${{ inputs.shards }} \
             --repo=${{ github.repository }} \
-            --os=ubuntu \
             --project ${{ inputs.project }} \
             --workers ${{ inputs.workers }} \
             $GREP_ARG \
