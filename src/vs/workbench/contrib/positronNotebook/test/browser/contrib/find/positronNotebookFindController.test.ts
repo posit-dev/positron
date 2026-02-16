@@ -10,8 +10,6 @@ import { DisposableStore } from '../../../../../../../base/common/lifecycle.js';
 import { timeout } from '../../../../../../../base/common/async.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
-import { IFileService } from '../../../../../../../platform/files/common/files.js';
-import { ITextModelService } from '../../../../../../../editor/common/services/resolverService.js';
 import { PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import {
 	withTestPositronNotebook,
@@ -67,14 +65,7 @@ suite('PositronNotebookFindController', () => {
 			async (notebook, instantiationService) => {
 				const cell = notebook.cells.get()[0];
 
-				// DEBUG: check resolution path
-				const fileService = instantiationService.get(IFileService);
-				const textModelService = instantiationService.get(ITextModelService);
-				console.log('fileService.hasProvider(cell.uri):', fileService.hasProvider(cell.uri));
-				console.log('textModelService.canHandleResource(cell.uri):', textModelService.canHandleResource(cell.uri));
-				console.log('fileService type:', fileService.constructor.name);
-
-				const editors = await attachTestEditorsToAllCells(notebook, instantiationService);
+				const editors = attachTestEditorsToAllCells(notebook, instantiationService);
 				disposables.add(editors[0]);
 				const editorModel = editors[0].getModel()!;
 
@@ -82,7 +73,7 @@ suite('PositronNotebookFindController', () => {
 				assert.strictEqual(cell.getContent(), editorModel.getValue(), 'Cell content should match editor model value');
 				assert.strictEqual(cell.model.textModel, editorModel, 'Cell model should be the editor model');
 				// eslint-disable-next-line local/code-no-any-casts
-				assert.strictEqual(cell.model.textBuffer, (editorModel as any)._textBuffer, 'Cell model should share text buffer with editor model');
+				assert.strictEqual(cell.model.textBuffer, (editorModel as any)._buffer, 'Cell model should share text buffer with editor model');
 			}
 		);
 	});
@@ -99,7 +90,7 @@ suite('PositronNotebookFindController', () => {
 				assert.ok(notebook.cells.get()[0].currentEditor === undefined, 'first cell should not have an editor');
 				assert.ok(notebook.cells.get()[1].currentEditor === undefined, 'second cell should not have an editor');
 
-				const editors = await attachTestEditorsToAllCells(notebook, instantiationService);
+				const editors = attachTestEditorsToAllCells(notebook, instantiationService);
 				editors.forEach(editor => disposables.add(editor));
 
 				// Verify that the editors were attached
@@ -128,7 +119,7 @@ suite('PositronNotebookFindController', () => {
 				const disposables = new DisposableStore();
 				try {
 					// Attach editors to all cells
-					const editors = await attachTestEditorsToAllCells(notebook, instantiationService);
+					const editors = attachTestEditorsToAllCells(notebook, instantiationService);
 					for (const editor of editors) {
 						disposables.add(editor);
 					}

@@ -3,14 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
-import { ICellDto2, NotebookData } from '../../../notebook/common/notebookCommon.js';
-import { INotebookSerializer, INotebookService } from '../../../notebook/common/notebookService.js';
+import { ICellDto2 } from '../../../notebook/common/notebookCommon.js';
+import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { MockNotebookCell } from '../../../notebook/test/browser/testNotebookEditor.js';
 import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
@@ -19,7 +17,7 @@ import { positronWorkbenchInstantiationService } from '../../../../test/browser/
 
 // Editor imports
 import { instantiateTestCodeEditor, ITestCodeEditor } from '../../../../../editor/test/browser/testCodeEditor.js';
-import { IModelDecoration } from '../../../../../editor/common/model.js';
+import { IModelDecoration, ITextBuffer, ITextBufferFactory } from '../../../../../editor/common/model.js';
 import { Selection } from '../../../../../editor/common/core/selection.js';
 
 // Editor services required for TestCodeEditor
@@ -34,40 +32,9 @@ import { ITreeSitterLibraryService } from '../../../../../editor/common/services
 import { TestTreeSitterLibraryService } from '../../../../../editor/test/common/services/testTreeSitterLibraryService.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { PositronNotebookCellGeneral } from '../../browser/PositronNotebookCells/PositronNotebookCell.js';
-import { INotebookEditorModelResolverService } from '../../../notebook/common/notebookEditorModelResolverService.js';
-import { CellContentProvider } from '../../../notebook/browser/notebook.contribution.js';
-import { NotebookModelResolverServiceImpl } from '../../../notebook/common/notebookEditorModelResolverServiceImpl.js';
-
-// ============================================================================
-// Test Notebook Serializer
-// ============================================================================
-
-/**
- * Minimal serializer that returns pre-configured cells.
- * Registered with NotebookService so that createNotebookTextModel() works,
- * which in turn makes the notebook discoverable by CellContentProvider.
- */
-class TestNotebookSerializer implements INotebookSerializer {
-	readonly options = {
-		transientCellMetadata: {},
-		transientDocumentMetadata: {},
-		cellContentMetadata: {},
-		transientOutputs: false,
-	};
-
-	constructor(private readonly _cells: ICellDto2[]) { }
-
-	async dataToNotebook(_data: VSBuffer): Promise<NotebookData> {
-		return { cells: this._cells, metadata: {} };
-	}
-
-	async notebookToData(_data: NotebookData): Promise<VSBuffer> {
-		return VSBuffer.fromString('');
-	}
-
-	async save(): Promise<never> { throw new Error('Not implemented'); }
-	async searchInNotebooks(): Promise<never> { throw new Error('Not implemented'); }
-}
+import { IModelService } from '../../../../../editor/common/services/model.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/modesRegistry.js';
 
 // ============================================================================
 // Instantiation Service
@@ -82,11 +49,6 @@ function positronNotebookInstantiationService(
 	disposables: DisposableStore
 ): TestInstantiationService {
 	const instantiationService = positronWorkbenchInstantiationService(disposables);
-
-	// Add notebook services required for cell editor-related tests
-	instantiationService.stub(INotebookEditorModelResolverService, disposables.add(instantiationService.createInstance(NotebookModelResolverServiceImpl)));
-	// Register content provider so cell TextModels share the NotebookCellTextModel's buffer
-	disposables.add(instantiationService.createInstance(CellContentProvider));
 
 	// Add editor services required for TestCodeEditor
 	instantiationService.stub(ICodeEditorService, disposables.add(instantiationService.createInstance(TestCodeEditorService)));
@@ -173,25 +135,21 @@ export async function withTestPositronNotebook<R = unknown>(
 		const scopedContextKeyService = instantiationService.get(IContextKeyService).createScoped(editorContainer);
 		notebook.attachView(editorContainer, scopedContextKeyService, notebookContainer, overlayContainer);
 
-		// Register the notebook type and a dummy serializer so NotebookService can
-		// create and track the model. This is required for CellContentProvider to
-		// resolve cell URIs — it looks up the notebook via
-		// NotebookService.getNotebookTextModel().
+		// Create the notebook text model directly
 		const cellDtos = cells.map((cell) => cellToDto(cell));
-		const notebookService = instantiationService.get(INotebookService);
-		const extensionData = { id: new ExtensionIdentifier('test-extension'), location: undefined };
-		disposables.add(notebookService.registerContributedNotebookType(viewType, {
-			providerDisplayName: 'Test',
-			displayName: 'Test Notebook',
-			filenamePattern: ['*.ipynb'],
-		}));
-		disposables.add(notebookService.registerNotebookSerializer(
+		const model = disposables.add(instantiationService.createInstance(
+			NotebookTextModel,
 			viewType,
-			extensionData,
-			new TestNotebookSerializer(cellDtos),
+			uri,
+			cellDtos,
+			{}, // metadata
+			{
+				transientCellMetadata: {},
+				transientDocumentMetadata: {},
+				cellContentMetadata: {},
+				transientOutputs: false,
+			}
 		));
-		const model = await notebookService.createNotebookTextModel(viewType, uri);
-		disposables.add(model);
 		notebook.setModel(model);
 
 		// Run the test callback
@@ -209,42 +167,45 @@ export async function withTestPositronNotebook<R = unknown>(
 
 /**
  * Attaches a test code editor to a notebook cell.
- * Creates a TextModel from the cell content and sets it on both the cell's
- * NotebookCellTextModel and the editor. This simulates the production behavior
- * where the text model is resolved when the cell editor is opened.
+ * Creates a TextModel directly from the cell's textBuffer, mirroring what
+ * CellContentProvider.provideTextContent() does in production (notebook.contribution.ts:411-425)
+ * but without going through the ITextModelService resolution chain which has
+ * test service wiring issues.
  *
  * @param cell The notebook cell to attach the editor to
  * @param instantiationService The instantiation service (from withTestPositronNotebook)
  * @returns The test code editor
  */
-export async function attachTestEditorToCell(
+export function attachTestEditorToCell(
 	cell: IPositronNotebookCell,
 	instantiationService: IInstantiationService,
-): Promise<ITestCodeEditor> {
-	// Create a text model from the cell's content
-	// This simulates what happens in production when resolveTextModel is called
-	// let textModel: ITextModel | null = cell.model.textModel ?? null;
-	// if (!textModel) {
-	// 	textModel = disposables.add(instantiateTextModel(
-	// 		instantiationService,
-	// 		cell.getContent(),
-	// 		cell.model.language,
-	// 		undefined,
-	// 		cell.uri
-	// 	));
-	// 	// Set the text model on the cell's NotebookCellTextModel
-	// 	// This is what production code does via ITextModelService.createModelReference
-	// 	// but we need to instantiate a test text model
-	// 	cell.model.textModel = textModel;
-	// }
-
+): ITestCodeEditor {
 	if (!(cell instanceof PositronNotebookCellGeneral)) {
 		throw new Error('attachTestEditorToCell only supports PositronNotebookCellGeneral cells');
 	}
-	const textModel = await cell.getTextEditorModel();
 
-	// Create the editor with the text model
+	// Create text model directly from cell's textBuffer.
+	const textModel = instantiationService.invokeFunction(accessor => {
+		const modelService = accessor.get(IModelService);
+		const languageService = accessor.get(ILanguageService);
+		const languageSelection = languageService.createById(
+			languageService.getLanguageIdByLanguageName(cell.model.language) ?? PLAINTEXT_LANGUAGE_ID
+		);
+
+		const bufferFactory: ITextBufferFactory = {
+			create: (_defaultEOL) => ({
+				textBuffer: cell.model.textBuffer as ITextBuffer,
+				disposable: Disposable.None,
+			}),
+			getFirstLineText: (limit: number) =>
+				cell.model.textBuffer.getLineContent(1).substring(0, limit),
+		};
+		return modelService.createModel(bufferFactory, languageSelection, cell.uri);
+		// NotebookTextModel.onModelAdded automatically sets cell.model.textModel = textModel
+	});
+
 	const editor = instantiateTestCodeEditor(instantiationService, textModel);
+	editor.registerDisposable(textModel);
 	cell.attachEditor(editor);
 	return editor;
 }
@@ -259,10 +220,10 @@ export async function attachTestEditorToCell(
 export function attachTestEditorsToAllCells(
 	notebook: IPositronNotebookInstance,
 	instantiationService: IInstantiationService,
-): Promise<ITestCodeEditor[]> {
-	return Promise.all(notebook.cells.get().map(cell =>
+): ITestCodeEditor[] {
+	return notebook.cells.get().map(cell =>
 		attachTestEditorToCell(cell, instantiationService)
-	));
+	);
 }
 
 // ============================================================================

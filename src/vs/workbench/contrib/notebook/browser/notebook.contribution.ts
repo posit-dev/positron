@@ -367,9 +367,7 @@ export class NotebookContribution extends Disposable implements IWorkbenchContri
 	}
 }
 
-// --- Start Positron ---
-export class CellContentProvider implements ITextModelContentProvider {
-	// --- End Positron ---
+class CellContentProvider implements ITextModelContentProvider {
 
 	static readonly ID = 'workbench.contrib.cellContentProvider';
 
