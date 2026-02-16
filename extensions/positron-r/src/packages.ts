@@ -3,54 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { format } from 'util';
 import { randomUUID } from 'crypto';
 import { RSession } from './session';
 import { EXTENSION_ROOT_DIR } from './constants';
 
-/** Path to the packages R scripts directory */
-const PACKAGES_SCRIPTS_DIR = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'packages');
-
-/** Cache for R script contents */
-const scriptCache = new Map<string, string>();
-
-/**
- * Read an R script file and cache it for reuse.
- * @param scriptName The name of the script file (without path)
- * @returns The script contents
- */
-function readScript(scriptName: string): string {
-	const cached = scriptCache.get(scriptName);
-	if (cached !== undefined) {
-		return cached;
-	}
-	const scriptPath = path.join(PACKAGES_SCRIPTS_DIR, scriptName);
-	const content = fs.readFileSync(scriptPath, 'utf-8');
-	scriptCache.set(scriptName, content);
-	return content;
-}
-
-/**
- * Format a package list as an R character vector.
- * @param packages Array of package names/specs
- * @returns R code for a character vector, e.g. c("pkg1", "pkg2")
- */
-function formatPackageVector(packages: string[]): string {
-	return `c(${packages.map(p => `"${p}"`).join(', ')})`;
-}
-
-/**
- * Format a string as an R string literal.
- * @param str The string to format
- * @returns R code for a string literal, e.g. "value"
- */
-function formatString(str: string): string {
-	return `"${str}"`;
-}
+/** Path to the packages R script */
+const PACKAGES_SCRIPT_PATH = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'packages.R');
 
 /**
  * R Package Manager
@@ -62,15 +23,25 @@ export class RPackageManager {
 	/** Whether the user has declined to install pak (session-scoped) */
 	private _pakDeclined: boolean = false;
 
+	/** Whether the packages.R script has been sourced in this session */
+	private _sourced: boolean = false;
+
 	constructor(private readonly _session: RSession) { }
+
+	/**
+	 * Reset the sourced state. Called when the R session restarts.
+	 */
+	resetSourcedState(): void {
+		this._sourced = false;
+	}
 
 	/**
 	 * Get list of installed packages from all libpaths.
 	 */
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+		await this._ensureSourced();
 		const hasPak = await this._ensurePakChecked();
-		const scriptName = hasPak ? 'list-packages-pak.R' : 'list-packages-base.R';
-		const code = readScript(scriptName);
+		const code = `.positron_list_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 
 		const result = await this._executeAndCapture(code);
 		if (!result || result.trim() === '') {
@@ -88,6 +59,8 @@ export class RPackageManager {
 			this._validatePackageName(pkg.split('@')[0]);
 		}
 
+		await this._ensureSourced();
+
 		// If we're installing pak, don't prompt to install pak
 		let hasPak: boolean;
 		if (packages.some((pkg) => pkg.split('@')[0] === 'pak')) {
@@ -96,21 +69,17 @@ export class RPackageManager {
 			hasPak = await this._ensurePak();
 		}
 
-		let scriptName: string;
 		let pkgVector: string;
 		if (hasPak) {
 			// pak supports "pkg@version" syntax directly
-			scriptName = 'install-packages-pak.R';
-			pkgVector = formatPackageVector(packages);
+			pkgVector = this._formatPackageVector(packages);
 		} else {
 			// base R: strip version suffix if present (not supported)
-			scriptName = 'install-packages-base.R';
 			const pkgNames = packages.map(p => p.split('@')[0]);
-			pkgVector = formatPackageVector(pkgNames);
+			pkgVector = this._formatPackageVector(pkgNames);
 		}
 
-		const script = readScript(scriptName);
-		const code = format(script, pkgVector);
+		const code = `.positron_install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -124,23 +93,20 @@ export class RPackageManager {
 			this._validatePackageName(pkg.split('@')[0]);
 		}
 
+		await this._ensureSourced();
 		const hasPak = await this._ensurePak();
 
-		let scriptName: string;
 		let pkgVector: string;
 		if (hasPak) {
 			// pak supports "pkg@version" syntax directly
-			scriptName = 'install-packages-pak.R';
-			pkgVector = formatPackageVector(packages);
+			pkgVector = this._formatPackageVector(packages);
 		} else {
 			// base R: strip version suffix if present (not supported)
-			scriptName = 'install-packages-base.R';
 			const pkgNames = packages.map(p => p.split('@')[0]);
-			pkgVector = formatPackageVector(pkgNames);
+			pkgVector = this._formatPackageVector(pkgNames);
 		}
 
-		const script = readScript(scriptName);
-		const code = format(script, pkgVector);
+		const code = `.positron_install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -148,10 +114,9 @@ export class RPackageManager {
 	 * Update all packages with available updates.
 	 */
 	async updateAllPackages(): Promise<void> {
+		await this._ensureSourced();
 		const hasPak = await this._ensurePak();
-		const scriptName = hasPak ? 'update-all-packages-pak.R' : 'update-all-packages-base.R';
-		const code = readScript(scriptName);
-
+		const code = `.positron_update_all_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -164,12 +129,10 @@ export class RPackageManager {
 			this._validatePackageName(pkg);
 		}
 
+		await this._ensureSourced();
 		const hasPak = await this._ensurePakChecked();
-		const scriptName = hasPak ? 'uninstall-packages-pak.R' : 'uninstall-packages-base.R';
-		const pkgVector = formatPackageVector(packages);
-
-		const script = readScript(scriptName);
-		const code = format(script, pkgVector);
+		const pkgVector = this._formatPackageVector(packages);
+		const code = `.positron_uninstall_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -177,13 +140,12 @@ export class RPackageManager {
 	 * Search repo for packages matching the query.
 	 */
 	async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+		await this._ensureSourced();
 		const hasPak = await this._ensurePakChecked();
 
 		// Sanitize query: remove quotes and backslashes that could break R string
 		const sanitizedQuery = query.replace(/["\\]/g, '');
-		const scriptName = hasPak ? 'search-packages-pak.R' : 'search-packages-base.R';
-		const script = readScript(scriptName);
-		const code = format(script, formatString(sanitizedQuery));
+		const code = `.positron_search_packages(${this._formatString(sanitizedQuery)}, method = "${hasPak ? 'pak' : 'base'}")`;
 
 		const result = await this._executeAndCapture(code);
 		if (!result || result.trim() === '') {
@@ -201,9 +163,8 @@ export class RPackageManager {
 	async searchPackageVersions(name: string): Promise<string[]> {
 		this._validatePackageName(name);
 
-		// Use R's configured repos (respects user settings and pak configuration)
-		const script = readScript('search-package-versions.R');
-		const code = format(script, formatString(name));
+		await this._ensureSourced();
+		const code = `.positron_search_package_versions(${this._formatString(name)})`;
 
 		try {
 			const result = await this._executeAndCapture(code);
@@ -220,6 +181,33 @@ export class RPackageManager {
 	// =========================================================================
 	// Private helper methods
 	// =========================================================================
+
+	/**
+	 * Ensure the packages.R script has been sourced in the R session.
+	 */
+	private async _ensureSourced(): Promise<void> {
+		if (this._sourced) {
+			return;
+		}
+		// Escape backslashes for Windows paths
+		const escapedPath = PACKAGES_SCRIPT_PATH.replace(/\\/g, '\\\\');
+		await this._executeAndCapture(`source("${escapedPath}")`);
+		this._sourced = true;
+	}
+
+	/**
+	 * Format a package list as an R character vector.
+	 */
+	private _formatPackageVector(packages: string[]): string {
+		return `c(${packages.map(p => `"${p}"`).join(', ')})`;
+	}
+
+	/**
+	 * Format a string as an R string literal.
+	 */
+	private _formatString(str: string): string {
+		return `"${str}"`;
+	}
 
 	/**
 	 * Execute R code and capture the output (for queries).
