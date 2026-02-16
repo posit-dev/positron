@@ -596,7 +596,7 @@ function isPositModelsResponse(data: unknown): data is PositModelsResponse {
  *
  * Allows other extensions to obtain Posit AI credentials via
  * `vscode.authentication.getSession()` without managing their own OAuth flow.
- * Delegates all authentication operations to PositLanguageModel.
+ * Delegates all authentication operations to PositModelProvider.
  */
 export class PositAuthProvider implements vscode.AuthenticationProvider {
 	private _didChangeSessions =
