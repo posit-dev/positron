@@ -381,6 +381,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				);
 			}
 			await this.deactivateServices('restarting session');
+			this._packageManager?.resetSourcedState();
 			return this._kernel.restart(workingDirectory);
 		} else {
 			throw new Error('Cannot restart; kernel not started');
