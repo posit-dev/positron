@@ -1,0 +1,77 @@
+name: 'Setup Workbench Docker'
+description: 'Start Docker Compose services and install Workbench in container'
+
+inputs:
+  install-mode:
+    description: 'Installation mode: "ci" for latest daily build or "ci-stable" for stable release'
+    required: false
+    default: 'ci'
+  wb-password:
+    description: 'Workbench password'
+    required: true
+  github-token:
+    description: 'GitHub token for authentication'
+    required: true
+  run-id:
+    description: 'GitHub run ID for Docker Compose project name'
+    required: true
+  custom-positron-tarball:
+    description: 'Optional path to custom Positron workbench tar.gz to install instead of downloading'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Start Docker Compose Services
+      shell: bash
+      run: |
+        docker compose \
+          -p "${{ inputs.run-id }}" \
+          -f dockerfiles/docker-compose.workbench.yml \
+          up -d
+
+    - name: Download and setup workbench scripts
+      shell: bash
+      run: |
+        # Download install-workbench.sh
+        curl -L -o install-workbench.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/install-workbench.sh
+
+        # Download positronDownload.sh
+        curl -L -o positronDownload.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/positronDownload.sh
+
+        # Download get-latest-wb-noble-url.sh
+        curl -L -o get-latest-wb-noble-url.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/get-latest-wb-noble-url.sh
+
+        # Copy scripts into the container
+        docker cp install-workbench.sh test:/tmp/install-workbench.sh
+        docker cp positronDownload.sh test:/tmp/positronDownload.sh
+        docker cp get-latest-wb-noble-url.sh test:/tmp/get-latest-wb-noble-url.sh
+
+        # Make scripts executable
+        docker exec test chmod +x /tmp/install-workbench.sh
+        docker exec test chmod +x /tmp/positronDownload.sh
+        docker exec test chmod +x /tmp/get-latest-wb-noble-url.sh
+
+    - name: Install Workbench in container
+      shell: bash
+      run: |
+        docker exec -e GITHUB_TOKEN="${{ inputs.github-token }}" -e ARCH_SUFFIX=amd64 -e WB_PASSWORD="${{ inputs.wb-password }}" test /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }}"
+
+    - name: Install custom Positron build (if provided)
+      if: inputs.custom-positron-tarball != ''
+      shell: bash
+      run: |
+        # Copy the custom workbench tar.gz into container
+        docker cp "${{ inputs.custom-positron-tarball }}" test:/tmp/positron-custom.tar.gz
+
+        # Extract and replace the Positron installation
+        docker exec test /bin/bash -c "
+          cd /tmp &&
+          tar -xzf positron-custom.tar.gz &&
+          # Remove the default Positron installation
+          rm -rf /usr/lib/rstudio-server/bin/positron &&
+          # Install our custom build
+          cp -r vscode-reh-web-linux-x64 /usr/lib/rstudio-server/bin/positron &&
+          chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron
+        "
