@@ -353,7 +353,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 });
 
 // Test suite for verifying token usage is displayed.
-test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.loginModelProvider('echo');
