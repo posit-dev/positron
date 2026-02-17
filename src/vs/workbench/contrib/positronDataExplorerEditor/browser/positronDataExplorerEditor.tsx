@@ -189,7 +189,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Notifies the React component container when focus changes.
 	 */
 	focusChanged(focused: boolean) {
-		this._isFocusedContextKey.set(focused)
+		this._isFocusedContextKey.set(focused);
 	}
 
 	/**
@@ -318,10 +318,17 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 		// Render the component, if necessary.
 		if (this._identifier && !this._positronReactRenderer) {
-			// Get the Positron data explorer instance.
-			const positronDataExplorerInstance = this._positronDataExplorerService.getInstance(
+			// Get the Positron data explorer instance, waiting for it if needed.
+			// This handles the race where the editor opens before the instance
+			// is registered (e.g., when opening from an inline notebook view).
+			const positronDataExplorerInstance = await this._positronDataExplorerService.getInstanceAsync(
 				this._identifier
 			);
+
+			// Check for cancellation or disposal after the async wait.
+			if (token.isCancellationRequested || this._store.isDisposed) {
+				return;
+			}
 
 			// Create the PositronReactRenderer.
 			this._positronReactRenderer = new PositronReactRenderer(this._positronDataExplorerContainer);
@@ -515,4 +522,4 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 const PLAINTEXT_EXTS = [
 	'.csv',
 	'.tsv'
-]
+];

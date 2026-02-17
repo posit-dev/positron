@@ -1,0 +1,99 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.inline-data-explorer-container {
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 4px;
+	overflow: hidden;
+	/* height is set via inline style from configuration */
+	margin: 4px 0;
+}
+
+.inline-data-explorer-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 8px;
+	height: 24px; /* Match .positron-notebook-code-cell-footer height */
+	background-color: var(--vscode-editorWidget-background);
+	border-bottom: 1px solid var(--vscode-panel-border);
+	flex-shrink: 0;
+}
+
+.inline-data-explorer-info {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.inline-data-explorer-title {
+	font-weight: 500;
+	color: var(--vscode-foreground);
+}
+
+.inline-data-explorer-shape {
+	font-size: 0.9em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.inline-data-explorer-open-button {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	border: none;
+	background-color: transparent;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	font-size: 12px;
+	border-radius: 2px;
+}
+
+.inline-data-explorer-open-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.inline-data-explorer-open-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.inline-data-explorer-content {
+	flex: 1;
+	overflow: hidden;
+	position: relative;
+}
+
+.inline-data-explorer-loading,
+.inline-data-explorer-disconnected,
+.inline-data-explorer-error {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	height: 100%;
+	min-height: 100px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.inline-data-explorer-error {
+	color: var(--vscode-errorForeground);
+}
+
+.inline-data-explorer-disconnected .codicon-warning {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.inline-data-explorer-error .codicon-error {
+	color: var(--vscode-errorForeground);
+}
+
+/* Ensure the data grid takes full space */
+.inline-data-explorer-content .positron-data-grid {
+	height: 100%;
+	width: 100%;
+}
