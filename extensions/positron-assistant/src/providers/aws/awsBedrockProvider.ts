@@ -279,8 +279,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 				provider: 'Amazon Bedrock',
 				profile,
 				region,
-				settingId: 'positron.assistant.providerVariables.bedrock',
-				documentationUrl: 'https://docs.posit.co/ide/server-pro/admin/authenticating_users/aws_credentials.html#amazon-bedrock-permissions'
 			});
 		}
 
@@ -329,7 +327,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 					provider: 'Amazon Bedrock',
 					profile,
 					region,
-					settingId: 'positron.assistant.providerVariables.bedrock',
 					setupInstructions: vscode.l10n.t(
 						'Set up credentials by running one of these commands in the terminal:\n\n' +
 						'- `aws configure --profile {0}`\n' +
