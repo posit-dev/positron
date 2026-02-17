@@ -6,6 +6,7 @@
 import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
 import assert from 'assert';
+import * as sinon from 'sinon';
 import { timeout } from '../../../../../../../base/common/async.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
@@ -812,11 +813,22 @@ suite('PositronNotebookFindController', () => {
 	// 7. Debounce and Reactive Updates
 	// ========================================================================
 	suite('Debounce and Reactive Updates', () => {
+		let clock: sinon.SinonFakeTimers;
 
-		test('content change triggers debounced recompute', async () => {
+		setup(() => {
+			clock = sinon.useFakeTimers();
+		});
+
+		teardown(() => {
+			clock.restore();
+		});
+
+		test('content change triggers debounced recompute', () => {
 			const notebook = createNotebook([['hello world', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
-			await reactiveSearch(controller, 'hello');
+			// Set up search — autorun fires synchronously when observables change
+			controller.start();
+			getFindInstance(controller).searchString.set('hello', undefined);
 			assert.strictEqual(getMatchCount(controller), 1);
 
 			// setValue() propagates through the event chain:
@@ -824,37 +836,41 @@ suite('PositronNotebookFindController', () => {
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('hello hello hello');
 
-			// After debounce settles (20ms), should recompute
-			await timeout(50);
+			// Matches haven't updated yet — debounce hasn't fired
+			assert.strictEqual(getMatchCount(controller), 1, 'Should not recompute before debounce fires');
+
+			// Advance past the 20ms debounce
+			clock.tick(25);
 			assert.strictEqual(getMatchCount(controller), 3, 'Should have recomputed after debounce');
 		});
 
-		test('search param change triggers immediate recompute', async () => {
+		test('search param change triggers immediate recompute', () => {
 			const notebook = createNotebook([['hello Hello HELLO', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
-			await reactiveSearch(controller, 'hello');
+			controller.start();
+			getFindInstance(controller).searchString.set('hello', undefined);
 			assert.strictEqual(getMatchCount(controller), 3, 'Case-insensitive finds all');
 
-			// Toggle matchCase - triggers immediate recompute via autorun (not debounced)
+			// Toggle matchCase — triggers immediate recompute via autorun (not debounced)
 			getFindInstance(controller).matchCase.set(true, undefined);
-			await timeout(0);
 			assert.strictEqual(getMatchCount(controller), 1, 'Case-sensitive finds only lowercase');
 		});
 
-		test('rapid content changes settle to correct final state', async () => {
+		test('rapid content changes settle to correct final state', () => {
 			const notebook = createNotebook([['initial', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
-			await reactiveSearch(controller, 'final');
+			controller.start();
+			getFindInstance(controller).searchString.set('final', undefined);
 			assert.strictEqual(getMatchCount(controller), 0);
 
-			// Rapid edits — each setValue() triggers the debounce scheduler via the event chain
+			// Rapid edits — each setValue() reschedules the debounce
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('first');
 			cell.model.textModel!.setValue('second');
 			cell.model.textModel!.setValue('final content');
 
-			// Wait for debounce to settle - only final state matters
-			await timeout(50);
+			// Advance past the 20ms debounce — only final state matters
+			clock.tick(25);
 			assert.strictEqual(getMatchCount(controller), 1, 'Should find "final" in final content');
 		});
 	});

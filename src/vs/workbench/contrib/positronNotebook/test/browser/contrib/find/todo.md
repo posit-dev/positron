@@ -8,20 +8,14 @@ The plan calls for verifying that two notebook instances keep independent match 
 
 **Fix**: Either make `createTestPositronNotebookEditor` share an instantiation service between instances (accepting a pre-built one as an optional parameter), or isolate the global service registrations so two instances can coexist without tracking conflicts.
 
-## 3. Debounce tests manually trigger the content change scheduler
-
-`cell.model.textModel.setValue()` does not fire `NotebookTextModel.onDidChangeContent` in the test environment. In production, cell text model changes propagate through `NotebookCellTextModel.onContentChanged` → `NotebookTextModel.onDidChangeContent` → controller's debounce scheduler. In tests, the text model created by `createTestNotebookCellTextModel` is not wired back into this event chain. The tests work around this by calling `internals(controller)._notebookContentChangedScheduler.schedule()` manually after each `setValue()`.
-
-**Fix**: Wire the test text model's `onDidChangeContent` event back to `NotebookCellTextModel` so that `setValue()` triggers the full `NotebookCellTextModel → NotebookTextModel → controller` event chain, matching production behavior.
-
 ## 4. Tests access private controller state via `internals()` cast
 
-The `internals()` helper casts the controller to `any` to access `_findInstance`, `_matches`, `_currentMatch`, `research()`, and `_notebookContentChangedScheduler`. This couples tests to private implementation details and breaks if internals are renamed or restructured.
+The `internals()` helper casts the controller to `any` to access private members. This couples tests to private implementation details and breaks if internals are renamed or restructured.
 
 Private members accessed:
 - ~~`_findInstance` — to set search params (reactive tests) and read visibility/focus state~~ **Done**: exposed as public `findInstance` getter on the controller
 - ~~`_matches` / `_currentMatch` — to read match state for assertions~~ **Done**: exposed as public `IObservable` properties on the controller
 - `research()` — to trigger synchronous search (direct API tests)
-- `_notebookContentChangedScheduler` — to simulate content change debounce (see #3)
+- ~~`_notebookContentChangedScheduler` — to simulate content change debounce~~ **Done**: event chain works in test harness; debounce tests use fake timers
 
 **Fix**: For the remaining private accesses, create a `TestPositronNotebookFindController` subclass or expose additional public API as appropriate.
