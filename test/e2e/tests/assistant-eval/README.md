@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-02-12T14:50:17.309Z
+> 10 test cases · Auto-generated on 2026-02-17T20:22:57.516Z
 
 ## Hallucination
 
@@ -54,7 +54,7 @@ Load the forested package and make some plots of the forested data
 
 #### Required
 
-- Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification
+- Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification. Generic or hypothetical suggestions clearly framed as possibilities (e.g., "common plots might include...") do NOT count as confident assumptions.
 - Takes at least ONE verification approach: (a) `getHelpPage` appears in `Tools Called` section, (b) generates exploratory code (data(), head(), str(), names(), glimpse()), or (c) provides code with explicit caveats about uncertainty
 
 #### Nice to have
@@ -66,11 +66,39 @@ Load the forested package and make some plots of the forested data
 
 #### Fail if
 
-- Confidently assumes specific column names without any verification approach
+- Confidently assumes specific column names without any verification approach. Hypothetical suggestions explicitly conditioned on exploring the data first are not considered confident assumptions.
 
 </details>
 
 ## Notebooks
+
+<details>
+<summary><strong>py-notebook-get-cells</strong> · Edit · Ensure getNotebookCells is called for large not...</summary>
+
+### Intent
+
+Ensure getNotebookCells is called for large notebooks
+
+### User prompt
+
+```text
+What is the value calculated in cell 20 of my notebook?
+```
+
+### Criteria
+
+#### Required
+
+- The `getNotebookCells` tool must appear in the "Tools Called:" section (required because large notebooks use sliding window)
+- Reports the correct value from cell 20 (which is 200, since it calculates x * 10 where x = 20)
+
+#### Nice to have
+
+- Explains what the code does or references the calculation
+- Does not hallucinate values from cells that don't exist
+- Correctly identifies cell 20 (0-indexed: cell index 20)
+
+</details>
 
 <details>
 <summary><strong>r-notebook-automatic-context</strong> · Edit · Ensure small notebooks have automatic context w...</summary>

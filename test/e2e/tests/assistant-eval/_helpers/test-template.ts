@@ -7,10 +7,21 @@ import { test as baseTest, expect, tags } from '../../_test.setup';
 import { EvalTestCase } from '../types';
 import { evaluateWithLLM } from './llm-grader';
 import { formatResultsHtml } from './format-results';
-import { getModelKeys, getModelConfig, initResults, saveResult, finalizeResults } from './eval-results';
+import { getModelKeys, getModelConfig } from './eval-results';
+import { recordAssistantEval, parseToolsFromResponse, type AssistantEvalInput } from '../../../utils/metrics/metric-assistant';
+import { type Application, type MultiLogger, type Sessions, type HotKeys, type TestTeardown } from '../../../infra';
+import { type Settings } from '../../../fixtures/test-setup/settings.fixtures';
 
 // Re-export for test files
 export { tags };
+
+/**
+ * Options for configuring eval tests.
+ */
+export interface EvalTestsOptions {
+	/** Category for metrics (e.g., 'notebooks', 'tools', 'hallucination'). Defaults to 'general'. */
+	category?: string;
+}
 
 /**
  * Sets up the eval test structure inside a test.describe block.
@@ -24,15 +35,16 @@ export { tags };
  * test.describe('Assistant Eval: Category', { tag: [tags.ASSISTANT_EVAL] }, () => {
  *   evalTests(test, [
  *     myTestCase,
- *   ]);
+ *   ], { category: 'notebooks' });
  * });
  */
 export function evalTests(
 	test: typeof baseTest,
-	testCases: EvalTestCase[]
+	testCases: EvalTestCase[],
+	options: EvalTestsOptions = {}
 ): void {
+	const { category = 'general' } = options;
 	test.beforeAll(async ({ assistant }) => {
-		initResults();
 		await assistant.openPositronAssistantChat();
 		await assistant.loginModelProvider('anthropic-api');
 	});
@@ -52,9 +64,9 @@ export function evalTests(
 			testCases.forEach((testCase) => {
 				test(`${testCase.id}: ${testCase.description}`,
 					{ tag: testCase.tags ?? [] },
-					async ({ app, sessions, hotKeys, cleanup, settings }) => {
-						await runEvalTest(testCase, modelKey, modelConfig.displayName, {
-							app, sessions, hotKeys, cleanup, settings
+					async ({ app, sessions, hotKeys, cleanup, settings, logger }) => {
+						await runEvalTest(testCase, modelKey, modelConfig.displayName, category, {
+							app, sessions, hotKeys, cleanup, settings, logger
 						});
 					}
 				);
@@ -62,35 +74,47 @@ export function evalTests(
 		});
 	});
 
-	test.afterAll(async ({ assistant }, testInfo) => {
-		const logPath = finalizeResults();
-		if (logPath) {
-			await testInfo.attach('evaluation-log.json', { path: logPath, contentType: 'application/json' });
-		}
+	test.afterAll(async ({ assistant }) => {
 		await assistant.logoutModelProvider('anthropic-api');
 	});
 }
 
 /**
- * Runs a single eval test case.
+ * Runs a single eval test case and records metrics.
  */
+interface RunEvalTestFixtures {
+	app: Application;
+	sessions: Sessions;
+	hotKeys: HotKeys;
+	cleanup: TestTeardown;
+	settings: Settings;
+	logger: MultiLogger;
+}
+
 async function runEvalTest(
 	testCase: EvalTestCase,
 	modelKey: string,
 	modelDisplayName: string,
-	fixtures: { app: any; sessions: any; hotKeys: any; cleanup: any; settings: any }
+	category: string,
+	fixtures: RunEvalTestFixtures
 ): Promise<void> {
-	const { app, sessions, hotKeys, cleanup, settings } = fixtures;
+	const { app, sessions, hotKeys, cleanup, settings, logger } = fixtures;
 
+	// Time the assistant response
+	const startTime = Date.now();
 	const response = await testCase.run({ app, sessions, hotKeys, cleanup, settings });
+	const responseDurationMs = Date.now() - startTime;
+
 	expect(response?.trim(), 'Expected a non-empty response from assistant').toBeTruthy();
 
+	// Evaluate the response using the LLM grader
 	const evaluation = await evaluateWithLLM({
 		response,
 		criteria: testCase.evaluationCriteria,
 		apiKey: process.env.ANTHROPIC_KEY,
 	});
 
+	// Attach results HTML to test report
 	const resultsHtml = formatResultsHtml({
 		testId: testCase.id,
 		description: testCase.description,
@@ -105,12 +129,25 @@ async function runEvalTest(
 		contentType: 'text/html',
 	});
 
-	saveResult({
-		id: `${modelKey}_${testCase.id}`,
+	// Record metric for dashboard/QueryChat
+	const metricInput: AssistantEvalInput = {
+		testId: testCase.id,
 		description: testCase.description,
-		model: modelDisplayName,
+		category,
+		prompt: testCase.prompt,
+		mode: testCase.mode,
+		language: testCase.language,
+		tags: testCase.tags?.map(t => String(t)) ?? [],
+		modelKey,
+		modelDisplayName,
 		response,
+		toolsCalled: parseToolsFromResponse(response),
 		grade: evaluation.grade,
-		explanation: evaluation.explanation,
-	});
+		gradeExplanation: evaluation.explanation,
+		requiredCriteriaCount: testCase.evaluationCriteria.required.length,
+		optionalCriteriaCount: testCase.evaluationCriteria.optional?.length ?? 0,
+		failIfCriteriaCount: testCase.evaluationCriteria.failIf?.length ?? 0,
+	};
+
+	await recordAssistantEval(metricInput, responseDurationMs, !!app.code.electronApp, logger);
 }

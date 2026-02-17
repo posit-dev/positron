@@ -20,12 +20,12 @@ import { EvalTestCase } from '../types';
 const prompt = 'What is the value calculated in cell 20 of my notebook?';
 const mode = 'Edit';
 
-export const rNotebookGetCells: EvalTestCase = {
-	id: 'r-notebook-get-cells',
+export const pyNotebookGetCells: EvalTestCase = {
+	id: 'py-notebook-get-cells',
 	description: 'Ensure getNotebookCells is called for large notebooks',
 	prompt,
 	mode,
-	language: 'R',
+	language: 'Python',
 	tags: [TestTags.POSITRON_NOTEBOOKS],
 
 	run: async ({ app, hotKeys, cleanup, settings }) => {
@@ -34,13 +34,13 @@ export const rNotebookGetCells: EvalTestCase = {
 		// Enable Positron notebooks
 		await notebooksPositron.enablePositronNotebooks(settings);
 
-		// Create a new notebook and select R kernel
+		// Create a new notebook and select Python kernel
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('R');
+		await notebooksPositron.kernel.select('Python');
 
 		// Create 21 cells (indices 0-20) so it's a "large" notebook
 		for (let i = 0; i < 21; i++) {
-			const code = `x <- ${i}; result_${i} <- x * 10; result_${i}`;
+			const code = `x = ${i}; result_${i} = x * 10; result_${i}`;
 			await notebooksPositron.addCodeToCell(i, code);
 			await notebooksPositron.runCodeAtIndex(i);
 			await notebooksPositron.expectExecutionOrder([{ index: i, order: i + 1 }]);

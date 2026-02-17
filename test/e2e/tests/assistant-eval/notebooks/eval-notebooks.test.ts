@@ -20,5 +20,5 @@ test.describe('Assistant Eval: Notebooks', { tag: [tags.ASSISTANT_EVAL, tags.POS
 		rNotebookEditCells,
 		rNotebookRunCells,
 		rNotebookCreate,
-	]);
+	], { category: 'notebooks' });
 });

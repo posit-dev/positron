@@ -14,5 +14,5 @@ test.describe('Assistant Eval: Hallucination', { tag: [tags.ASSISTANT_EVAL] }, (
 	evalTests(test, [
 		rForestedHallucination,
 		pythonNoExecutionHallucination,
-	]);
+	], { category: 'hallucination' });
 });

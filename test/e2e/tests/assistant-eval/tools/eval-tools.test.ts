@@ -14,5 +14,5 @@ test.describe('Assistant Eval: Tools', { tag: [tags.ASSISTANT_EVAL] }, () => {
 	evalTests(test, [
 		pythonEditFile,
 		pythonTableSummary,
-	]);
+	], { category: 'tools' });
 });
