@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -339,19 +339,64 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	/**
 	 * Update toolbar positions when cells move without content changes.
 	 * This is called from onDidParse to ensure toolbars stay in sync with cell positions.
+	 *
+	 * Cell IDs include the cell index, so when cells shift positions (e.g., a new
+	 * cell is inserted above), their IDs change even though content is identical.
+	 * This method reconciles the toolbar map by matching orphaned toolbars to their
+	 * new cell IDs via content hash, and disposes any truly orphaned toolbars.
 	 */
 	private _updateToolbarPositions(): void {
 		if (!this._quartoModel) {
 			return;
 		}
 
-		const totalCells = this._quartoModel.cells.length;
+		const cells = this._quartoModel.cells;
+		const totalCells = cells.length;
+
+		// Build a set of current cell IDs for quick lookup, and a map by
+		// content hash so we can match toolbars whose cell IDs changed
+		const currentCellIds = new Set<string>();
+		const cellsByHash = new Map<string, QuartoCodeCell>();
+		for (const cell of cells) {
+			currentCellIds.add(cell.id);
+			cellsByHash.set(cell.contentHash, cell);
+		}
+
+		// Collect re-mappings and orphans in a first pass, then apply them.
+		// We can't mutate the map while iterating it.
+		const remaps: { oldId: string; toolbar: QuartoCellToolbar; newCell: QuartoCodeCell }[] = [];
+		const orphans: string[] = [];
 
 		for (const [id, toolbar] of this._toolbars) {
-			const cell = this._quartoModel.getCellById(id);
-			if (cell) {
-				// Update the toolbar with fresh cell data (which has updated line numbers)
+			if (currentCellIds.has(id)) {
+				// ID still valid, just refresh position
+				const cell = this._quartoModel.getCellById(id)!;
 				toolbar.updateCell(cell, cell.index, totalCells);
+			} else {
+				// ID no longer in model, try to match by content hash
+				const matched = cellsByHash.get(toolbar.cell.contentHash);
+				if (matched && !this._toolbars.has(matched.id)) {
+					remaps.push({ oldId: id, toolbar, newCell: matched });
+				} else {
+					orphans.push(id);
+				}
+			}
+		}
+
+		// Apply re-mappings
+		for (const { oldId, toolbar, newCell } of remaps) {
+			this._toolbars.delete(oldId);
+			toolbar.updateCell(newCell, newCell.index, totalCells);
+			this._toolbars.set(newCell.id, toolbar);
+		}
+
+		// Dispose orphaned toolbars
+		for (const id of orphans) {
+			const toolbar = this._toolbars.get(id);
+			if (toolbar) {
+				this._logService.debug(`[QuartoCellToolbarController] Disposing orphaned toolbar ${id}`);
+				toolbar.dispose();
+				this._toolbars.delete(id);
 			}
 		}
 	}
