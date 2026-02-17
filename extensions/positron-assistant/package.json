@@ -24,6 +24,17 @@
     "languageModelSystem"
   ],
   "contributes": {
+    "authentication": [
+      {
+        "label": "Posit AI",
+        "id": "posit-ai",
+        "authorizationServerGlobs": [
+          "https://*.posit.co/*",
+          "https://*.posit.ai/*",
+          "https://*.posit.cloud/*"
+        ]
+      }
+    ],
     "chatParticipants": [
       {
         "id": "positron.assistant.chat",
