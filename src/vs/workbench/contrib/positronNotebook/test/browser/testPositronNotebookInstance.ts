@@ -66,6 +66,8 @@ export function positronNotebookInstantiationService(
 	return instantiationService;
 }
 
+let nextInstanceId = 0;
+
 /**
  * Converts a MockNotebookCell tuple to ICellDto2 format for NotebookTextModel.
  */
@@ -114,12 +116,14 @@ export function instantiateTestNotebookInstance(
 	instantiationService: TestInstantiationService,
 	disposables: DisposableStore,
 ): TestPositronNotebookInstance {
-	// Create the notebook instance
+	// Create the notebook instance with a unique ID and URI so multiple
+	// instances can coexist in the same ModelService without collisions.
+	const id = nextInstanceId++;
 	const viewType = 'jupyter-notebook';
-	const uri = URI.parse('test:///test/notebook.ipynb');
+	const uri = URI.parse(`test:///test/notebook-${id}.ipynb`);
 	const notebook = instantiationService.createInstance(
 		TestPositronNotebookInstance,
-		'test-unique-id',
+		`test-instance-${id}`,
 		uri,
 		viewType,
 		undefined, // creationOptions

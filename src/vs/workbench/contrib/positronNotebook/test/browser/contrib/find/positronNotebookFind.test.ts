@@ -7,6 +7,7 @@ import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
 import assert from 'assert';
 import * as sinon from 'sinon';
+import { DisposableStore } from '../../../../../../../base/common/lifecycle.js';
 import { transaction } from '../../../../../../../base/common/observable.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { IModelDecoration } from '../../../../../../../editor/common/model.js';
@@ -18,7 +19,7 @@ import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CurrentPositronCellMatch, PositronCellFindMatch, PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
-import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
+import { createTestPositronNotebookInstance, instantiateTestNotebookInstance, positronNotebookInstantiationService, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
 
 /** Gets the find instance, asserting it exists. */
 function getFindInstance(controller: PositronNotebookFindController): PositronFindInstance {
@@ -710,41 +711,87 @@ suite('PositronNotebookFindController', () => {
 		});
 	});
 
-	// Note: Multi-notebook-instance tests are not feasible in this test harness
-	// because creating 2 notebook instances causes disposable tracking conflicts
-	// in the shared workbench service layer. State isolation between instances is
-	// verified indirectly through the per-instance controller/decoration architecture
-	// and through single-instance lifecycle tests above.
 	suite('State Isolation', () => {
 
-		test('controller state is scoped to its notebook instance', () => {
-			const notebook = createNotebook([['hello', 'python', CellKind.Code]]);
-			const controller = getController(notebook);
+		/**
+		 * Creates two notebook instances that share a single instantiation
+		 * service so they can coexist without disposable-tracking conflicts.
+		 */
+		function createTwoNotebooks(
+			cellsA: [string, string, CellKind][],
+			cellsB: [string, string, CellKind][],
+		): [TestPositronNotebookInstance, TestPositronNotebookInstance] {
+			const serviceDisposables = disposables.add(new DisposableStore());
+			const service = positronNotebookInstantiationService(serviceDisposables);
+			const nb1 = disposables.add(instantiateTestNotebookInstance(cellsA, service, serviceDisposables));
+			const nb2 = disposables.add(instantiateTestNotebookInstance(cellsB, service, serviceDisposables));
+			return [nb1, nb2];
+		}
 
-			search(controller, 'hello');
-			assert.strictEqual(getMatchCount(controller), 1);
+		test('two notebooks maintain independent match state', () => {
+			const [nb1, nb2] = createTwoNotebooks(
+				[['hello', 'python', CellKind.Code]],
+				[['world', 'python', CellKind.Code]],
+			);
+			const ctrl1 = getController(nb1);
+			const ctrl2 = getController(nb2);
 
-			// Matches reference the correct cell from the notebook
-			assert.strictEqual(getMatches(controller)[0].cell, notebook.cells.get()[0]);
+			search(ctrl1, 'hello');
+			assert.strictEqual(getMatchCount(ctrl1), 1);
+			assert.strictEqual(ctrl2.findInstance, undefined, 'nb2 controller should have no find instance yet');
+
+			search(ctrl2, 'world');
+			assert.strictEqual(getMatchCount(ctrl2), 1);
+			assert.strictEqual(getMatchCount(ctrl1), 1, 'nb1 match count unchanged');
 		});
 
-		test('hiding and restarting find resets state cleanly', () => {
-			const notebook = createNotebook([['alpha beta', 'python', CellKind.Code]]);
-			const controller = getController(notebook);
+		test('matches reference cells from their own notebook', () => {
+			const [nb1, nb2] = createTwoNotebooks(
+				[['shared term', 'python', CellKind.Code]],
+				[['shared term', 'python', CellKind.Code]],
+			);
+			const ctrl1 = getController(nb1);
+			const ctrl2 = getController(nb2);
 
-			// First search
-			search(controller, 'alpha');
-			assert.strictEqual(getMatchCount(controller), 1);
+			search(ctrl1, 'shared');
+			search(ctrl2, 'shared');
 
-			// Hide clears state
-			controller.hide();
-			assert.strictEqual(getMatches(controller).length, 0);
-			assert.strictEqual(getCurrentMatch(controller), undefined);
+			assert.strictEqual(getMatches(ctrl1)[0].cell, nb1.cells.get()[0]);
+			assert.strictEqual(getMatches(ctrl2)[0].cell, nb2.cells.get()[0]);
+			assert.notStrictEqual(getMatches(ctrl1)[0].cell, getMatches(ctrl2)[0].cell);
+		});
 
-			// Second search - completely fresh results
-			search(controller, 'beta');
-			assert.strictEqual(getMatchCount(controller), 1);
-			assert.strictEqual(getMatches(controller)[0].cellRange.range.startColumn, 7);
+		test('decorations are independent across notebooks', () => {
+			const [nb1, nb2] = createTwoNotebooks(
+				[['aaa', 'python', CellKind.Code]],
+				[['bbb', 'python', CellKind.Code]],
+			);
+			const ctrl1 = getController(nb1);
+			const ctrl2 = getController(nb2);
+
+			search(ctrl1, 'aaa');
+			assert.ok(getFindMatchDecorations(nb1.cells.get()[0]).length > 0, 'nb1 should have decorations');
+			assert.strictEqual(getFindMatchDecorations(nb2.cells.get()[0]).length, 0, 'nb2 should have no decorations');
+
+			search(ctrl2, 'bbb');
+			assert.ok(getFindMatchDecorations(nb2.cells.get()[0]).length > 0, 'nb2 should now have decorations');
+			assert.ok(getFindMatchDecorations(nb1.cells.get()[0]).length > 0, 'nb1 decorations should be unchanged');
+		});
+
+		test('hiding find in one notebook does not affect the other', () => {
+			const [nb1, nb2] = createTwoNotebooks(
+				[['foo', 'python', CellKind.Code]],
+				[['foo', 'python', CellKind.Code]],
+			);
+			const ctrl1 = getController(nb1);
+			const ctrl2 = getController(nb2);
+
+			search(ctrl1, 'foo');
+			search(ctrl2, 'foo');
+
+			ctrl1.hide();
+			assert.strictEqual(getMatches(ctrl1).length, 0, 'nb1 matches should be cleared');
+			assert.strictEqual(getMatchCount(ctrl2), 1, 'nb2 matches should be unaffected');
 		});
 	});
 
