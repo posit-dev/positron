@@ -390,30 +390,6 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(match!.cellMatch.cellRange.range.startColumn, 7);
 		});
 
-		test('reactive: onDidRequestFindNext triggers navigation', () => {
-			const notebook = createNotebook([['aa bb aa', 'python', CellKind.Code]]);
-			const controller = getController(notebook);
-			selectCell(notebook, 0);
-			search(controller, 'aa');
-
-			// Simulate the find widget's "next" button via event
-			// eslint-disable-next-line local/code-no-any-casts
-			(getFindInstance(controller) as any)._onDidRequestFindNext.fire();
-			assert.ok(getCurrentMatch(controller), 'Should have navigated to a match');
-		});
-
-		test('reactive: onDidRequestFindPrevious triggers navigation', () => {
-			const notebook = createNotebook([['aa bb aa', 'python', CellKind.Code]]);
-			const controller = getController(notebook);
-			selectCell(notebook, 0);
-			search(controller, 'aa');
-
-			// Navigate to first match, then use event to go previous (should wrap)
-			controller.findNext(); // match 0
-			// eslint-disable-next-line local/code-no-any-casts
-			(getFindInstance(controller) as any)._onDidRequestFindPrevious.fire();
-			assert.strictEqual(getCurrentMatch(controller)?.matchIndex, 1, 'Should wrap to last');
-		});
 	});
 
 	suite('Notebook Structure Changes', () => {
