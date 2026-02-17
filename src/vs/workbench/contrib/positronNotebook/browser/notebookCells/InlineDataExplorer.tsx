@@ -19,6 +19,7 @@ import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNote
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
+import { JsonRpcErrorCode, PositronCommError } from '../../../../services/languageRuntime/common/positronBaseComm.js';
 
 // Height calculation constants (from inlineTableDataGridInstance.tsx constructor options)
 const HEADER_HEIGHT = 28;  // columnHeadersHeight
@@ -223,9 +224,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 			// fine -- the new editor tab was already created by the kernel.
 			// Only show an error for genuine MethodNotFound failures, which
 			// indicate the kernel doesn't support this method.
-			const isMethodNotFound = error && typeof error === 'object' &&
-				'code' in error && typeof (error as Record<string, unknown>).code === 'number' &&
-				(error as Record<string, unknown>).code === -32601;
+			const isMethodNotFound = (error as PositronCommError)?.code === JsonRpcErrorCode.MethodNotFound;
 			if (isMethodNotFound) {
 				services.notificationService.warn(
 					localize('openDataExplorerNotSupported', 'Opening a full Data Explorer from inline view is not supported by this kernel.')
