@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Databot', {
-	tag: [tags.ASSISTANT, tags.DATABOT, tags.WEB, tags.WIN],
+	tag: [tags.ASSISTANT, tags.DATABOT, tags.WEB, tags.WIN, tags.SOFT_FAIL],
 }, () => {
 
 	let pySessionId: string;

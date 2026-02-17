@@ -1,7 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+.activity-prompt {
+	padding-bottom: 10px;
+}
 
 .activity-prompt .prompt-line {
 	display: flex;
@@ -10,10 +14,21 @@
 }
 
 .activity-prompt .prompt-line .input-field {
-	padding-bottom: 10px;
 	flex-grow: 1;
 	border: none;
 	outline: 0 !important;
 	color: var(--vscode-positronConsole-foreground);
 	background: var(--vscode-positronConsole-background);
+}
+
+.activity-prompt .prompt-line .editor-input-container {
+	flex: 1;
+	height: 20px;
+	min-width: 100px;
+}
+
+.activity-prompt .prompt-line .editor-input-container .monaco-editor,
+.activity-prompt .prompt-line .editor-input-container .monaco-editor-background,
+.activity-prompt .prompt-line .editor-input-container .monaco-editor .margin {
+	background: transparent !important;
 }

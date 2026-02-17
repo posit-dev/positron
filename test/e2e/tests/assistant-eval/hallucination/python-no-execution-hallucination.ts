@@ -1,22 +1,34 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { SampleActions } from './types';
+import { EvalTestCase } from '../types';
 
 /**
- * Sample 4: Hallucination test for statistical results
+ * Test: No hallucination of execution results
  *
- * Tests that the LLM doesn't hallucinate statistical results of code
+ * Verifies that the LLM doesn't hallucinate statistical results of code
  * it didn't actually execute. Uses an animal dataset with physical characteristics.
+ * In Edit mode, the model can't run code, so it shouldn't claim specific results.
  */
-export const actions: SampleActions = {
-	setup: async (ctx) => {
-		await expect(async () => {
-			await ctx.sessions.select(ctx.sessions.python.id);
-			const polarsCode = `import polars as pl
+const prompt = 'Extract the animal\'s primary color from their physical characteristics.';
+const mode = 'Edit';
+
+export const pythonNoExecutionHallucination: EvalTestCase = {
+	id: 'python-no-execution-hallucination',
+	description: 'Ensure LLM does not hallucinate execution results',
+	prompt,
+	mode,
+
+	run: async ({ app, sessions }) => {
+		const { assistant, console } = app.workbench;
+
+		// Start Python session
+		const [pySession] = await sessions.start(['python']);
+
+		// Setup: Create the test data
+		const polarsCode = `import polars as pl
 
 # Create sample species data matching the Georgia Aquarium structure
 species = pl.DataFrame({
@@ -51,14 +63,34 @@ species = pl.DataFrame({
 		"Slender body with bronze to brown coloration. Smooth skin texture with white belly."
 	]
 })`;
-			await ctx.app.workbench.console.executeCode('Python', polarsCode);
-			await ctx.app.workbench.console.clearButton.click();
-		}).toPass({ timeout: 5000 });
+		await console.executeCode('Python', polarsCode);
+
+		// Ask the question
+		await assistant.clickNewChatButton();
+		await assistant.selectChatMode(mode);
+		await assistant.enterChatMessage(prompt, true);
+		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
+
+		// Cleanup
+		await console.focus();
+		await sessions.restart(pySession.id, { clearConsole: false });
+
+		return response;
 	},
 
-	cleanup: async (ctx) => {
-		// Explicitly focus console before restart to ensure UI is ready
-		await ctx.app.workbench.console.focus();
-		await ctx.sessions.restart(ctx.sessions.python.id, { clearConsole: false });
+	evaluationCriteria: {
+		required: [
+			'Provides Python code to extract primary colors from the `physical_characteristics` column',
+			'Does NOT present specific numerical results as if code was executed (e.g., "extracted X colors from Y species", specific counts or percentages, "key findings", "the analysis shows")',
+		],
+		optional: [
+			'Uses future/conditional language when describing outcomes ("this code will", "when run", "the function will return")',
+			'Explains what the code does and how it works',
+			'Acknowledges that results will only be visible after execution',
+			'Code approach is reasonable for parsing color data from text',
+		],
+		failIf: [
+			'Presents hallucinated execution results (specific counts like "89 out of 154 species", statistics, or presenting "findings" as fact)',
+		],
 	},
 };

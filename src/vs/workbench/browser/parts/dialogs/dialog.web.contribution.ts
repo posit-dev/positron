@@ -19,6 +19,9 @@ import { Lazy } from '../../../../base/common/lazy.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { createBrowserAboutDialogDetails } from '../../../../platform/dialogs/browser/dialog.js';
 import { IMarkdownRendererService } from '../../../../platform/markdown/browser/markdownRenderer.js';
+// --- Start Positron ---
+import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
+// --- End Positron ---
 
 export class DialogHandlerContribution extends Disposable implements IWorkbenchContribution {
 
@@ -39,6 +42,9 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 		@IClipboardService clipboardService: IClipboardService,
 		@IOpenerService openerService: IOpenerService,
 		@IMarkdownRendererService markdownRendererService: IMarkdownRendererService,
+		// --- Start Positron ---
+		@IRemoteAgentService private remoteAgentService: IRemoteAgentService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -70,7 +76,12 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 					const args = this.currentDialog.args.promptArgs;
 					result = await this.impl.value.prompt(args.prompt);
 				} else {
-					const aboutDialogDetails = createBrowserAboutDialogDetails(this.productService);
+					// --- Start Positron ---
+					// Fetch licensee info for the About dialog
+					const environment = await this.remoteAgentService.getEnvironment();
+					const licenseeInfo = environment?.positronLicenseeInfo;
+					const aboutDialogDetails = createBrowserAboutDialogDetails(this.productService, licenseeInfo);
+					// --- End Positron ---
 					await this.impl.value.about(aboutDialogDetails.title, aboutDialogDetails.details, aboutDialogDetails.detailsToCopy);
 				}
 			} catch (error) {

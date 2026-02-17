@@ -14,7 +14,7 @@ import { join } from 'path';
 import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage, Assistant } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import {
-	FileOperationsFixture, SettingsFixture, MetricsFixture,
+	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
@@ -406,11 +406,7 @@ export interface WorkerFixtures {
 	app: Application;
 	logsPath: string;
 	logger: MultiLogger;
-	settings: {
-		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		clear: () => Promise<void>;
-		remove: (settingsToRemove: string[]) => Promise<void>;
-	};
+	settings: Settings;
 	settingsFile: SettingsFile;
 	vsCodeSettings: SettingsFile;
 }
