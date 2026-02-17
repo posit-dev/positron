@@ -23,23 +23,22 @@ export class RPackageManager {
 	/** Whether the user has declined to install pak (session-scoped) */
 	private _pakDeclined: boolean = false;
 
-	/** Whether the packages.R script has been sourced in this session */
-	private _sourced: boolean = false;
-
 	constructor(private readonly _session: RSession) { }
 
 	/**
-	 * Reset the sourced state. Called when the R session restarts.
+	 * Source the packages.R script in the R session.
+	 * Called at session startup to make package management functions available.
 	 */
-	resetSourcedState(): void {
-		this._sourced = false;
+	async sourcePackagesScript(): Promise<void> {
+		// Escape backslashes for Windows paths
+		const escapedPath = PACKAGES_SCRIPT_PATH.replace(/\\/g, '\\\\');
+		await this._executeAndCapture(`source("${escapedPath}")`);
 	}
 
 	/**
 	 * Get list of installed packages from all libpaths.
 	 */
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-		await this._ensureSourced();
 		const hasPak = await this._ensurePakChecked();
 		const code = `.ps.packages.list_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 
@@ -59,7 +58,6 @@ export class RPackageManager {
 			this._validatePackageName(pkg.split('@')[0]);
 		}
 
-		await this._ensureSourced();
 
 		// If we're installing pak, don't prompt to install pak
 		let hasPak: boolean;
@@ -93,7 +91,6 @@ export class RPackageManager {
 			this._validatePackageName(pkg.split('@')[0]);
 		}
 
-		await this._ensureSourced();
 		const hasPak = await this._ensurePak();
 
 		let pkgVector: string;
@@ -114,7 +111,6 @@ export class RPackageManager {
 	 * Update all packages with available updates.
 	 */
 	async updateAllPackages(): Promise<void> {
-		await this._ensureSourced();
 		const hasPak = await this._ensurePak();
 		const code = `.ps.packages.update_all_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
@@ -129,7 +125,6 @@ export class RPackageManager {
 			this._validatePackageName(pkg);
 		}
 
-		await this._ensureSourced();
 		const hasPak = await this._ensurePakChecked();
 		const pkgVector = this._formatPackageVector(packages);
 		const code = `.ps.packages.uninstall_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
@@ -140,7 +135,6 @@ export class RPackageManager {
 	 * Search repo for packages matching the query.
 	 */
 	async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
-		await this._ensureSourced();
 		const hasPak = await this._ensurePakChecked();
 
 		// Sanitize query: remove quotes and backslashes that could break R string
@@ -163,7 +157,6 @@ export class RPackageManager {
 	async searchPackageVersions(name: string): Promise<string[]> {
 		this._validatePackageName(name);
 
-		await this._ensureSourced();
 		const code = `.ps.packages.search_package_versions(${this._formatString(name)})`;
 
 		try {
@@ -181,19 +174,6 @@ export class RPackageManager {
 	// =========================================================================
 	// Private helper methods
 	// =========================================================================
-
-	/**
-	 * Ensure the packages.R script has been sourced in the R session.
-	 */
-	private async _ensureSourced(): Promise<void> {
-		if (this._sourced) {
-			return;
-		}
-		// Escape backslashes for Windows paths
-		const escapedPath = PACKAGES_SCRIPT_PATH.replace(/\\/g, '\\\\');
-		await this._executeAndCapture(`source("${escapedPath}")`);
-		this._sourced = true;
-	}
 
 	/**
 	 * Format a package list as an R character vector.
