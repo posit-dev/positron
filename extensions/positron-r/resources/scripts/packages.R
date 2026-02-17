@@ -5,9 +5,9 @@
 
 # Package management functions for Positron.
 # These functions are sourced by the positron-r extension and called from TypeScript.
-# Function names use a leading dot to hide them from ls() output.
+# Function names use a .ps.packages prefix to namespace them and hide from ls() output.
 
-.positron_list_packages <- function(method = c("pak", "base")) {
+.ps.packages.list_packages <- function(method = c("pak", "base")) {
 	method <- match.arg(method)
 	switch(
 		method,
@@ -40,7 +40,7 @@
 	)
 }
 
-.positron_install_packages <- function(packages, method = c("pak", "base")) {
+.ps.packages.install_packages <- function(packages, method = c("pak", "base")) {
 	method <- match.arg(method)
 	switch(
 		method,
@@ -49,7 +49,7 @@
 	)
 }
 
-.positron_update_all_packages <- function(method = c("pak", "base")) {
+.ps.packages.update_all_packages <- function(method = c("pak", "base")) {
 	method <- match.arg(method)
 	switch(
 		method,
@@ -65,7 +65,7 @@
 	)
 }
 
-.positron_uninstall_packages <- function(packages, method = c("pak", "base")) {
+.ps.packages.uninstall_packages <- function(packages, method = c("pak", "base")) {
 	method <- match.arg(method)
 	switch(
 		method,
@@ -77,7 +77,7 @@
 	}
 }
 
-.positron_search_packages <- function(query, method = c("pak", "base")) {
+.ps.packages.search_packages <- function(query, method = c("pak", "base")) {
 	method <- match.arg(method)
 	switch(
 		method,
@@ -116,7 +116,7 @@
 	)
 }
 
-.positron_search_package_versions <- function(name) {
+.ps.packages.search_package_versions <- function(name) {
 	ap <- available.packages()
 	current <- if (name %in% rownames(ap)) ap[name, "Version"] else character(0)
 	cat(jsonlite::toJSON(current))

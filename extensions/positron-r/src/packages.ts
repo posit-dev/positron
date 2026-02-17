@@ -41,7 +41,7 @@ export class RPackageManager {
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
 		await this._ensureSourced();
 		const hasPak = await this._ensurePakChecked();
-		const code = `.positron_list_packages(method = "${hasPak ? 'pak' : 'base'}")`;
+		const code = `.ps.packages.list_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 
 		const result = await this._executeAndCapture(code);
 		if (!result || result.trim() === '') {
@@ -79,7 +79,7 @@ export class RPackageManager {
 			pkgVector = this._formatPackageVector(pkgNames);
 		}
 
-		const code = `.positron_install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
+		const code = `.ps.packages.install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -106,7 +106,7 @@ export class RPackageManager {
 			pkgVector = this._formatPackageVector(pkgNames);
 		}
 
-		const code = `.positron_install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
+		const code = `.ps.packages.install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -116,7 +116,7 @@ export class RPackageManager {
 	async updateAllPackages(): Promise<void> {
 		await this._ensureSourced();
 		const hasPak = await this._ensurePak();
-		const code = `.positron_update_all_packages(method = "${hasPak ? 'pak' : 'base'}")`;
+		const code = `.ps.packages.update_all_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -132,7 +132,7 @@ export class RPackageManager {
 		await this._ensureSourced();
 		const hasPak = await this._ensurePakChecked();
 		const pkgVector = this._formatPackageVector(packages);
-		const code = `.positron_uninstall_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
+		const code = `.ps.packages.uninstall_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -145,7 +145,7 @@ export class RPackageManager {
 
 		// Sanitize query: remove quotes and backslashes that could break R string
 		const sanitizedQuery = query.replace(/["\\]/g, '');
-		const code = `.positron_search_packages(${this._formatString(sanitizedQuery)}, method = "${hasPak ? 'pak' : 'base'}")`;
+		const code = `.ps.packages.search_packages(${this._formatString(sanitizedQuery)}, method = "${hasPak ? 'pak' : 'base'}")`;
 
 		const result = await this._executeAndCapture(code);
 		if (!result || result.trim() === '') {
@@ -164,7 +164,7 @@ export class RPackageManager {
 		this._validatePackageName(name);
 
 		await this._ensureSourced();
-		const code = `.positron_search_package_versions(${this._formatString(name)})`;
+		const code = `.ps.packages.search_package_versions(${this._formatString(name)})`;
 
 		try {
 			const result = await this._executeAndCapture(code);
