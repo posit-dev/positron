@@ -308,6 +308,37 @@ def test_register_table_with_variable_path(de_service: DataExplorerService):
     assert table_view.state.name == title
 
 
+def test_open_data_explorer(de_service: DataExplorerService):
+    test_df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    comm_id = guid()
+    de_service.register_table(test_df, "my_table", comm_id=comm_id)
+
+    # Send open_data_explorer RPC
+    comm = cast("DummyComm", de_service.comms[comm_id].comm)
+    comm.messages.clear()
+    request = json_rpc_request("open_data_explorer", comm_id=comm_id)
+    comm.handle_msg(request)
+
+    # The original comm should still exist
+    assert comm_id in de_service.comms
+
+    # A new comm should have been created (original + new = 2)
+    assert len(de_service.comms) == 2
+
+    # Find the new comm_id
+    new_comm_ids = [cid for cid in de_service.comms if cid != comm_id]
+    assert len(new_comm_ids) == 1
+    new_comm_id = new_comm_ids[0]
+
+    # New explorer should have independent state with the same data
+    new_table_view = de_service.table_views[new_comm_id]
+    assert new_table_view.table is test_df
+    assert new_table_view.state.name == "my_table"
+
+    # New explorer should not be associated with a variable path
+    assert new_comm_id not in de_service.comm_id_to_path
+
+
 def test_shutdown(de_service: DataExplorerService):
     test_df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
     de_service.register_table(test_df, "t1", comm_id=guid())
