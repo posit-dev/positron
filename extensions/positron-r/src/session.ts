@@ -17,7 +17,7 @@ import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
-import { PackageInstallRequest, RPackageManager } from './packages';
+import { RPackageManager } from './packages';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -682,7 +682,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * Install the list of packages.
 	 * @param packages Array of package install requests with name and optional version
 	 */
-	async installPackages(packages: PackageInstallRequest[]): Promise<void> {
+	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
 		if (!this._packageManager) {
 			throw new Error('Package manager not initialized');
 		}
@@ -693,7 +693,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * Update the list of packages.
 	 * @param packages Array of package install requests with name and optional version
 	 */
-	async updatePackages(packages: PackageInstallRequest[]): Promise<void> {
+	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
 		if (!this._packageManager) {
 			throw new Error('Package manager not initialized');
 		}

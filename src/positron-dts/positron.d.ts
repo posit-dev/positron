@@ -1105,7 +1105,7 @@ declare module 'positron' {
 	/**
 	 * Represents a package to install or update, with an optional version.
 	 */
-	export interface PackageInstallRequest {
+	export interface PackageSpec {
 		/** The package name */
 		name: string;
 		/** Optional version to install (if not specified, installs latest) */
@@ -1324,13 +1324,13 @@ declare module 'positron' {
 		 * Install the list of packages.
 		 * @param packages Array of package install requests with name and optional version
 		 */
-		installPackages?(packages: PackageInstallRequest[]): Thenable<void>;
+		installPackages?(packages: PackageSpec[]): Thenable<void>;
 
 		/**
 		 * Update the list of packages.
 		 * @param packages Array of package install requests with name and optional version
 		 */
-		updatePackages?(packages: PackageInstallRequest[]): Thenable<void>;
+		updatePackages?(packages: PackageSpec[]): Thenable<void>;
 
 		/**
 		 * Update all installed packages.

@@ -38,7 +38,7 @@ import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
-import { PackageInstallRequest, PipPackageManager } from './pipPackageManager';
+import { PipPackageManager } from './pipPackageManager';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -385,7 +385,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * Install one or more packages.
      * Supports specifying versions with == syntax (e.g., "package==1.0.0").
      */
-    async installPackages(packages: PackageInstallRequest[]): Promise<void> {
+    async installPackages(packages: positron.PackageSpec[]): Promise<void> {
         await this._pipPackageManager.installPackages(packages);
     }
 
@@ -400,7 +400,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * Update specific packages to latest versions.
      * Supports specifying versions with == syntax (e.g., "package==1.0.0").
      */
-    async updatePackages(packages: PackageInstallRequest[]): Promise<void> {
+    async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
         await this._pipPackageManager.updatePackages(packages);
     }
 

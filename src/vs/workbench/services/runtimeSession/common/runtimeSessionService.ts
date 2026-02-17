@@ -248,9 +248,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	updateSessionName(sessionName: string): void;
 
 	getPackages?: () => Promise<ILanguageRuntimePackage[]>;
-	installPackages?: (packages: IPackageInstallRequest[]) => Promise<void>;
+	installPackages?: (packages: IPackageSpec[]) => Promise<void>;
 	uninstallPackages?: (packageNames: string[]) => Promise<void>;
-	updatePackages?: (packages: IPackageInstallRequest[]) => Promise<void>;
+	updatePackages?: (packages: IPackageSpec[]) => Promise<void>;
 	updateAllPackages?: () => Promise<void>;
 
 	searchPackages?(query: string): Promise<ILanguageRuntimePackage[]>;
@@ -275,7 +275,7 @@ export interface ILanguageRuntimePackage {
 /**
  * Represents a package to install or update, with an optional version.
  */
-export interface IPackageInstallRequest {
+export interface IPackageSpec {
 	/** The package name */
 	name: string;
 	/** Optional version to install (if not specified, installs latest) */

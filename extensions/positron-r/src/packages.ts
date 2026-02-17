@@ -9,16 +9,6 @@ import { randomUUID } from 'crypto';
 import { RSession } from './session';
 
 /**
- * Represents a package to install or update, with an optional version.
- */
-export interface PackageInstallRequest {
-	/** The package name */
-	name: string;
-	/** Optional version to install (if not specified, installs latest) */
-	version?: string;
-}
-
-/**
  * R Package Manager
  *
  * Provides package management functionality for R sessions using pak as the
@@ -78,7 +68,7 @@ export class RPackageManager {
 	 * Install one or more packages.
 	 * @param packages Array of package install requests with name and optional version
 	 */
-	async installPackages(packages: PackageInstallRequest[]): Promise<void> {
+	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
 		// Validate package names
 		for (const pkg of packages) {
 			this._validatePackageName(pkg.name);
@@ -110,7 +100,7 @@ export class RPackageManager {
 	 * Update specific packages to latest versions.
 	 * @param packages Array of package install requests with name and optional version
 	 */
-	async updatePackages(packages: PackageInstallRequest[]): Promise<void> {
+	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
 		// Validate package names
 		for (const pkg of packages) {
 			this._validatePackageName(pkg.name);

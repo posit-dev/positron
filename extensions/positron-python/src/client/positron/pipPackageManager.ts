@@ -19,16 +19,6 @@ interface MessageEmitter {
 }
 
 /**
- * Represents a package to install or update, with an optional version.
- */
-export interface PackageInstallRequest {
-	/** The package name */
-	name: string;
-	/** Optional version to install (if not specified, installs latest) */
-	version?: string;
-}
-
-/**
  * Pip Package Manager
  *
  * Provides package management functionality for Python sessions using pip.
@@ -57,7 +47,7 @@ export class PipPackageManager {
 	 * Install one or more packages.
 	 * @param packages Array of package install requests with name and optional version
 	 */
-	async installPackages(packages: PackageInstallRequest[]): Promise<void> {
+	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
 		if (packages.length === 0) {
 			return;
 		}
@@ -90,7 +80,7 @@ export class PipPackageManager {
 	 * Update specific packages to latest versions.
 	 * @param packages Array of package install requests with name and optional version
 	 */
-	async updatePackages(packages: PackageInstallRequest[]): Promise<void> {
+	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
 		if (packages.length === 0) {
 			return;
 		}
@@ -160,7 +150,7 @@ export class PipPackageManager {
 	 * Format package install requests into pip package specifiers.
 	 * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0"
 	 */
-	private _formatPackageSpecs(packages: PackageInstallRequest[]): string[] {
+	private _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
 		return packages.map(pkg => pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name);
 	}
 

@@ -276,7 +276,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		return this._packages;
 	}
 
-	async installPackages(packages: positron.PackageInstallRequest[]): Promise<void> {
+	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
 		LOGGER.info(`Installing packages: ${packages.map(p => p.name).join(', ')}`);
 		await new Promise((resolve) => setTimeout(resolve, 1_000)); // fake delay
 		for (const pkg of packages) {
@@ -289,7 +289,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		}
 	}
 
-	async updatePackages(packages: positron.PackageInstallRequest[]): Promise<void> {
+	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
 		LOGGER.info(`Updating packages: ${packages.map(p => p.name).join(', ')}`);
 		await new Promise((resolve) => setTimeout(resolve, 1_000)); // fake delay
 

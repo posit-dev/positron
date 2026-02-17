@@ -5,15 +5,15 @@
 
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageInstallRequest } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
 	session: ILanguageRuntimeSession;
 	refreshPackages(): Promise<ILanguageRuntimePackage[]>;
-	installPackages(packages: IPackageInstallRequest[]): Promise<void>;
+	installPackages(packages: IPackageSpec[]): Promise<void>;
 	uninstallPackages(packageNames: string[]): Promise<void>;
-	updatePackages(packages: IPackageInstallRequest[]): Promise<void>;
+	updatePackages(packages: IPackageSpec[]): Promise<void>;
 	updateAllPackages(): Promise<void>;
 	searchPackages(name: string): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string): Promise<string[]>;
@@ -104,7 +104,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async installPackages(packages: IPackageInstallRequest[]): Promise<void> {
+	async installPackages(packages: IPackageSpec[]): Promise<void> {
 		const session = this._session;
 		if (!session.installPackages) {
 			throw new Error('Method not implemented.');
@@ -150,7 +150,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async updatePackages(packages: IPackageInstallRequest[]): Promise<void> {
+	async updatePackages(packages: IPackageSpec[]): Promise<void> {
 		const session = this._session;
 		if (!session.updatePackages) {
 			throw new Error('Method not implemented.');

@@ -722,7 +722,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return session.getPackages();
 	}
 
-	async $installPackages(handle: number, packages: positron.PackageInstallRequest[]): Promise<void> {
+	async $installPackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot install package from runtime: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -746,7 +746,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return session.uninstallPackages(packageNames);
 	}
 
-	async $updatePackages(handle: number, packages: positron.PackageInstallRequest[]): Promise<void> {
+	async $updatePackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot update packages from runtime: session handle '${handle}' not found or no longer valid.`);
 		}

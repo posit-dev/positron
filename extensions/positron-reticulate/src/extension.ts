@@ -939,7 +939,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.getPackages();
 	}
 
-	public async installPackages(packages: positron.PackageInstallRequest[]) {
+	public async installPackages(packages: positron.PackageSpec[]) {
 		if (!this.pythonSession.installPackages) {
 			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
 		}
@@ -947,7 +947,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.installPackages?.(packages);
 	}
 
-	public async updatePackages(packages: positron.PackageInstallRequest[]) {
+	public async updatePackages(packages: positron.PackageSpec[]) {
 		if (!this.pythonSession.updatePackages) {
 			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
 		}
