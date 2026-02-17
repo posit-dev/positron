@@ -55,6 +55,7 @@ Load the forested package and make some plots of the forested data
 #### Required
 
 - Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification. Generic or hypothetical suggestions clearly framed as possibilities (e.g., "common plots might include...") do NOT count as confident assumptions.
+- Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification. Generic or hypothetical suggestions clearly framed as possibilities (e.g., "common plots might include...") do NOT count as confident assumptions.
 - Takes at least ONE verification approach: (a) `getHelpPage` appears in `Tools Called` section, (b) generates exploratory code (data(), head(), str(), names(), glimpse()), or (c) provides code with explicit caveats about uncertainty
 
 #### Nice to have
@@ -66,6 +67,7 @@ Load the forested package and make some plots of the forested data
 
 #### Fail if
 
+- Confidently assumes specific column names without any verification approach. Hypothetical suggestions explicitly conditioned on exploring the data first are not considered confident assumptions.
 - Confidently assumes specific column names without any verification approach. Hypothetical suggestions explicitly conditioned on exploring the data first are not considered confident assumptions.
 
 </details>

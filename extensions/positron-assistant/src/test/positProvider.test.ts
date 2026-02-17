@@ -28,17 +28,18 @@ suite('PositModelProvider', () => {
 
 	setup(() => {
 		// Mock workspace configuration to provide OAuth parameters
+		const configValues: Record<string, any> = {
+			'authHost': 'https://auth.test.localhost',
+			'scope': 'openid profile email',
+			'clientId': 'test-client-id',
+			'baseUrl': 'https://api.test.localhost',
+			'useAnthropicSdk': true // Native SDK by default
+		};
 		const mockConfig = {
-			get: (key: string, defaultValue?: any) => {
-				const configValues: Record<string, any> = {
-					'authHost': 'https://auth.test.localhost',
-					'scope': 'openid profile email',
-					'clientId': 'test-client-id',
-					'baseUrl': 'https://api.test.localhost',
-					'useAnthropicSdk': true // Native SDK by default
-				};
-				return configValues[key] ?? defaultValue;
-			}
+			get: (key: string, defaultValue?: any) => configValues[key] ?? defaultValue,
+			inspect: (key: string) => configValues[key] !== undefined
+				? { globalValue: configValues[key] }
+				: undefined,
 		};
 
 		sinon.stub(vscode.workspace, 'getConfiguration').callsFake((section?: string) => {
