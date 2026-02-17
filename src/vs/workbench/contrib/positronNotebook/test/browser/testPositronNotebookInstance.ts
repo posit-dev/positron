@@ -14,13 +14,8 @@ import { MockNotebookCell } from '../../../notebook/test/browser/testNotebookEdi
 import { IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 import { positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
-
-// Editor imports
 import { instantiateTestCodeEditor } from '../../../../../editor/test/browser/testCodeEditor.js';
-import { IModelDecoration, ITextBuffer, ITextBufferFactory, ITextModel } from '../../../../../editor/common/model.js';
-import { Selection } from '../../../../../editor/common/core/selection.js';
-
-// Editor services required for TestCodeEditor
+import { ITextBuffer, ITextBufferFactory, ITextModel } from '../../../../../editor/common/model.js';
 import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
 import { TestCodeEditorService } from '../../../../../editor/test/browser/editorTestServices.js';
 import { IEditorWorkerService } from '../../../../../editor/common/services/editorWorker.js';
@@ -48,10 +43,6 @@ export class TestPositronNotebookInstance extends PositronNotebookInstance {
 	}
 }
 
-// ============================================================================
-// Instantiation Service
-// ============================================================================
-
 /**
  * Creates an instantiation service for Positron notebook tests.
  * Extends positronWorkbenchInstantiationService with editor services
@@ -71,10 +62,6 @@ function positronNotebookInstantiationService(
 
 	return instantiationService;
 }
-
-// ============================================================================
-// Notebook Test Harness
-// ============================================================================
 
 /**
  * Converts a MockNotebookCell tuple to ICellDto2 format for NotebookTextModel.
@@ -181,57 +168,4 @@ function createTestNotebookCellTextModel(accessor: ServicesAccessor, cell: IPosi
 			cell.model.textBuffer.getLineContent(1).substring(0, limit),
 	};
 	return modelService.createModel(bufferFactory, languageSelection, cell.uri);
-}
-
-// ============================================================================
-// Decoration Helpers
-// ============================================================================
-
-/**
- * Gets all decorations from a cell's text model.
- */
-export function getDecorations(cell: IPositronNotebookCell): IModelDecoration[] {
-	return cell.model.textModel?.getAllDecorations() ?? [];
-}
-
-/**
- * Gets find match decorations.
- */
-export function getFindMatchDecorations(cell: IPositronNotebookCell): IModelDecoration[] {
-	return getDecorations(cell).filter(d => d.options.className === 'findMatch');
-}
-
-/**
- * Gets the current find match decoration.
- */
-export function getCurrentFindMatchDecoration(cell: IPositronNotebookCell): IModelDecoration | undefined {
-	return getDecorations(cell).find(d => d.options.className === 'currentFindMatch');
-}
-
-// ============================================================================
-// Selection Helpers
-// ============================================================================
-
-/**
- * Converts a Selection to array: [startLine, startCol, endLine, endCol]
- */
-export function selectionToArray(selection: Selection): [number, number, number, number] {
-	return [
-		selection.startLineNumber,
-		selection.startColumn,
-		selection.endLineNumber,
-		selection.endColumn
-	];
-}
-
-/**
- * Gets the current selection from a cell's editor as an array.
- * Returns null if no editor or no selection.
- */
-export function getCellSelection(cell: IPositronNotebookCell): [number, number, number, number] | null {
-	const selection = cell.currentEditor?.getSelection();
-	if (!selection) {
-		return null;
-	}
-	return selectionToArray(selection);
 }

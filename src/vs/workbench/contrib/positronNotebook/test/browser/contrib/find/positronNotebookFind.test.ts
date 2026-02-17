@@ -9,24 +9,16 @@ import assert from 'assert';
 import * as sinon from 'sinon';
 import { transaction } from '../../../../../../../base/common/observable.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
-import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
-import { CurrentPositronCellMatch, PositronCellFindMatch, PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
-import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
+import { IModelDecoration } from '../../../../../../../editor/common/model.js';
+import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../../../editor/contrib/find/browser/findModel.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
-import {
-	createTestPositronNotebookEditor,
-	getCellSelection,
-	getCurrentFindMatchDecoration,
-	getFindMatchDecorations,
-	TestPositronNotebookInstance,
-} from '../../testPositronNotebookInstance.js';
-
-// ============================================================================
-// Test Helpers
-// ============================================================================
+import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
+import { IPositronNotebookCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { CurrentPositronCellMatch, PositronCellFindMatch, PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
+import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
+import { createTestPositronNotebookEditor, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
 
 /** Gets the find instance, asserting it exists. */
 function getFindInstance(controller: PositronNotebookFindController): PositronFindInstance {
@@ -56,36 +48,47 @@ function search(
 	return [...controller.matches.get()];
 }
 
-/** Read match count from find instance. */
 function getMatchCount(controller: PositronNotebookFindController): number {
 	return getFindInstance(controller).matchCount.get() ?? 0;
 }
 
-/** Read match index from find instance. */
 function getMatchIndex(controller: PositronNotebookFindController): number | undefined {
 	return getFindInstance(controller).matchIndex.get();
 }
 
-/** Read all matches from controller state. */
 function getMatches(controller: PositronNotebookFindController): PositronCellFindMatch[] {
 	return controller.matches.get();
 }
 
-/** Read current match from controller state. */
 function getCurrentMatch(controller: PositronNotebookFindController): CurrentPositronCellMatch | undefined {
 	return controller.currentMatch.get();
 }
 
-/** Select a cell to make it the active cell (required before navigation). */
 function selectCell(notebook: TestPositronNotebookInstance, cellIndex: number): void {
 	const cells = notebook.cells.get();
 	assert.ok(cellIndex < cells.length, `Cell index ${cellIndex} out of range (${cells.length} cells)`);
 	notebook.selectionStateMachine.selectCell(cells[cellIndex]);
 }
 
-// ============================================================================
-// Tests
-// ============================================================================
+function getDecorations(cell: IPositronNotebookCell): IModelDecoration[] {
+	return cell.model.textModel?.getAllDecorations() ?? [];
+}
+
+function getFindMatchDecorations(cell: IPositronNotebookCell): IModelDecoration[] {
+	return getDecorations(cell).filter(d => d.options.className === 'findMatch');
+}
+
+function getCurrentFindMatchDecoration(cell: IPositronNotebookCell): IModelDecoration | undefined {
+	return getDecorations(cell).find(d => d.options.className === 'currentFindMatch');
+}
+
+function getCellSelection(cell: IPositronNotebookCell): [number, number, number, number] | null {
+	const selection = cell.currentEditor?.getSelection();
+	if (!selection) {
+		return null;
+	}
+	return [selection.startLineNumber, selection.startColumn, selection.endLineNumber, selection.endColumn];
+}
 
 suite('PositronNotebookFindController', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -100,9 +103,6 @@ suite('PositronNotebookFindController', () => {
 		return controller;
 	}
 
-	// ========================================================================
-	// 1. Matching Logic
-	// ========================================================================
 	suite('Matching Logic', () => {
 
 		test('finds single match in one code cell', () => {
@@ -260,9 +260,6 @@ suite('PositronNotebookFindController', () => {
 		});
 	});
 
-	// ========================================================================
-	// 2. Navigation
-	// ========================================================================
 	suite('Navigation', () => {
 
 		test('findNext advances within same cell', () => {
@@ -419,9 +416,6 @@ suite('PositronNotebookFindController', () => {
 		});
 	});
 
-	// ========================================================================
-	// 3. Notebook Structure Changes
-	// ========================================================================
 	suite('Notebook Structure Changes', () => {
 		let clock: sinon.SinonFakeTimers;
 
@@ -544,9 +538,6 @@ suite('PositronNotebookFindController', () => {
 		});
 	});
 
-	// ========================================================================
-	// 4. Decorations
-	// ========================================================================
 	suite('Decorations', () => {
 
 		test('decorations applied for all matches', () => {
@@ -657,9 +648,6 @@ suite('PositronNotebookFindController', () => {
 		});
 	});
 
-	// ========================================================================
-	// 5. Focus and Visibility
-	// ========================================================================
 	suite('Focus and Visibility', () => {
 
 		test('starting find makes widget visible', () => {
@@ -746,9 +734,6 @@ suite('PositronNotebookFindController', () => {
 		});
 	});
 
-	// ========================================================================
-	// 6. State Isolation
-	// ========================================================================
 	// Note: Multi-notebook-instance tests are not feasible in this test harness
 	// because creating 2 notebook instances causes disposable tracking conflicts
 	// in the shared workbench service layer. State isolation between instances is
@@ -787,9 +772,6 @@ suite('PositronNotebookFindController', () => {
 		});
 	});
 
-	// ========================================================================
-	// 7. Debounce and Reactive Updates
-	// ========================================================================
 	suite('Debounce and Reactive Updates', () => {
 		let clock: sinon.SinonFakeTimers;
 
@@ -853,9 +835,6 @@ suite('PositronNotebookFindController', () => {
 		});
 	});
 
-	// ========================================================================
-	// 8. Command/Action Smoke
-	// ========================================================================
 	suite('Command/Action Smoke', () => {
 
 		test('start shows the widget', () => {
