@@ -19,3 +19,26 @@ The plan calls for verifying that two notebook instances keep independent match 
 `cell.model.textModel.setValue()` does not fire `NotebookTextModel.onDidChangeContent` in the test environment. In production, cell text model changes propagate through `NotebookCellTextModel.onContentChanged` → `NotebookTextModel.onDidChangeContent` → controller's debounce scheduler. In tests, the text model created by `createTestNotebookCellTextModel` is not wired back into this event chain. The tests work around this by calling `internals(controller)._notebookContentChangedScheduler.schedule()` manually after each `setValue()`.
 
 **Fix**: Wire the test text model's `onDidChangeContent` event back to `NotebookCellTextModel` so that `setValue()` triggers the full `NotebookCellTextModel → NotebookTextModel → controller` event chain, matching production behavior.
+
+## 4. Tests access private controller state via `internals()` cast
+
+The `internals()` helper casts the controller to `any` to access `_findInstance`, `_matches`, `_currentMatch`, `research()`, and `_notebookContentChangedScheduler`. This couples tests to private implementation details and breaks if internals are renamed or restructured.
+
+Private members accessed:
+- `_findInstance` — to set search params (reactive tests) and read visibility/focus state
+- `_matches` / `_currentMatch` — to read match state for assertions
+- `research()` — to trigger synchronous search (direct API tests)
+- `_notebookContentChangedScheduler` — to simulate content change debounce (see #3)
+
+**Fix**: Create a `TestPositronNotebookFindController` subclass that exposes the needed members, similar to how `TestPositronNotebookInstance` extends `PositronNotebookInstance`. For example:
+
+```typescript
+export class TestPositronNotebookFindController extends PositronNotebookFindController {
+    get findInstance() { return this._findInstance; }
+    get matches() { return this._matches; }
+    get currentMatch() { return this._currentMatch; }
+    doResearch(...args) { return this.research(...args); }
+}
+```
+
+Register this subclass in the test contribution registry instead of the production one, or provide a factory that returns the test subclass. This keeps the production class encapsulated while giving tests a stable, typed API.
