@@ -12,6 +12,9 @@ import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
 import { CurrentPositronCellMatch, PositronCellFindMatch, PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../../../editor/contrib/find/browser/findModel.js';
+import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
 import {
 	createTestPositronNotebookEditor,
 	getCellSelection,
@@ -206,14 +209,13 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(matches.length, 1, 'Should match literal "a.b" only');
 		});
 
-		test('wholeWord=true only matches full words', () => {
-			// wholeWord matching requires editor.wordSeparators to be configured.
-			// Use the text model's findMatches directly with explicit separators
-			// to verify the controller passes the right parameters.
+		test('wholeWord=true only matches full words', async () => {
 			const notebook = createNotebook([['cat catch category', 'python', CellKind.Code]]);
-			const cell = notebook.cells.get()[0];
-			const wordSeparators = '`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
-			const matches = cell.model.textModel!.findMatches('cat', null, false, false, wordSeparators, false);
+			const configService = notebook.testInstantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configService.setUserConfiguration('editor.wordSeparators', USUAL_WORD_SEPARATORS);
+			const controller = getController(notebook);
+
+			const matches = search(controller, 'cat', { wholeWord: true });
 			assert.strictEqual(matches.length, 1, 'Should match only standalone "cat"');
 		});
 

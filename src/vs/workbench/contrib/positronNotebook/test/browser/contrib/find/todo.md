@@ -2,13 +2,7 @@
 
 Workarounds in the test suite that should be fixed properly.
 
-## 1. wholeWord test bypasses the controller
-
-The `wholeWord=true only matches full words` test calls `cell.model.textModel.findMatches()` directly with hardcoded word separators instead of going through the controller's `research()` method. This is because `TestConfigurationService` doesn't have `editor.wordSeparators` configured, so the controller passes `null` for word separators, which disables whole-word matching entirely.
-
-**Fix**: Configure `editor.wordSeparators` in the test instantiation service (or in each test via the config service stub) so the controller's `research()` path works end-to-end with `wholeWord=true`.
-
-## 2. State isolation tests don't use multiple notebook instances
+## 1. State isolation tests don't use multiple notebook instances
 
 The plan calls for verifying that two notebook instances keep independent match state, decorations, and visibility. The current tests use single-instance lifecycle checks instead. Creating two `createTestPositronNotebookEditor` instances in the same test causes `DISPOSABLE is tracking error!` from disposable tracking conflicts in the shared workbench service layer (e.g., `TestFilesConfigurationService`, `LanguagesRegistry`).
 

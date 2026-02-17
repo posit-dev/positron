@@ -41,6 +41,8 @@ import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/mo
  * with the notebook's lifecycle.
  */
 export class TestPositronNotebookInstance extends PositronNotebookInstance {
+	testInstantiationService!: TestInstantiationService;
+
 	registerDisposable(disposable: IDisposable): void {
 		this._register(disposable);
 	}
@@ -114,6 +116,7 @@ export function createTestPositronNotebookEditor(
 		viewType,
 		undefined, // creationOptions
 	);
+	notebook.testInstantiationService = instantiationService;
 	notebook.registerDisposable(disposables);
 
 	// Attach view with DOM containers
