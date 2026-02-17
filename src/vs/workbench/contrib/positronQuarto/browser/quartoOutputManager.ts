@@ -28,7 +28,6 @@ import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_K
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
-import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOutputKind, PositronOutputLocation } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
 export const IQuartoOutputManager = createDecorator<IQuartoOutputManager>('quartoOutputManager');
@@ -914,33 +913,19 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 	/**
 	 * Open HTML content in the Viewer pane.
+	 * Uses openHtmlString to set the HTML directly on a webview, avoiding
+	 * temp files and proxy servers.
 	 */
-	private async _openHtmlInViewer(html: string, cellId: string): Promise<void> {
+	private _openHtmlInViewer(html: string, cellId: string): void {
 		if (!this._documentUri) {
 			return;
 		}
 
-		// Generate a filename for the temp HTML file
-		const docName = basename(this._documentUri);
-		const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
-		const cellIndex = cellId.split('-')[0];
-		const filename = `.positron-temp-${docNameWithoutExt}_cell${cellIndex}.html`;
-
-		// Write HTML to a temp file in the same directory as the document
-		const tempDir = dirname(this._documentUri);
-		const tempUri = tempDir.with({ path: `${tempDir.path}/${filename}` });
-
-		await this._fileService.writeFile(tempUri, VSBuffer.fromString(html));
-
-		// Open the temp file in the Viewer pane using openHtml
-		// openHtml uses the Positron Proxy extension to serve the file
-		// and displays it in the Viewer panel (not an editor tab)
 		const previewId = `quartoHtmlOutput.${cellId}`;
+		const docName = basename(this._documentUri);
+		const title = `Output - ${docName}`;
 
-		// Create extension description for the preview service
-		const extension = { id: new ExtensionIdentifier('positron.quarto') };
-
-		await this._previewService.openHtml(previewId, extension, tempUri.fsPath);
+		this._previewService.openHtmlString(previewId, html, title);
 	}
 
 	/**

@@ -2513,6 +2513,97 @@ test.describe('Quarto - Inline Output', {
 		expect(tabsAfter).toBeGreaterThan(tabsBefore);
 	});
 
+	test('Python - Verify HTML popout displays DataFrame in viewer without errors', async function ({ app, openFile }) {
+		// This test verifies that popping out HTML content (e.g., a pandas DataFrame)
+		// correctly displays the HTML in the Viewer pane. This test was written to
+		// reproduce a bug where the Viewer showed "Cannot GET /..." instead of the
+		// DataFrame, and a .positron-temp-*.html file was left in the project directory.
+		//
+		// NOTE: This test requires QA_REPO=feature/quarto-inline-output
+		// to be set, as the py_data_frame.qmd file only exists on that branch.
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'py_data_frame.qmd');
+
+		// Open the Quarto document with pandas DataFrame code
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell
+		// py_data_frame.qmd: frontmatter (1-4), blank line (5), cell starts at line 6
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('8');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the cell to generate DataFrame HTML output
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('15');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the output contains HTML (DataFrame renders as HTML table)
+		const htmlOutput = inlineOutput.locator('.quarto-output-html');
+		await expect(htmlOutput).toBeVisible({ timeout: 10000 });
+
+		// The popout button should be visible for HTML output
+		const popoutButton = inlineOutput.locator('.quarto-output-popout');
+		await expect(popoutButton).toBeVisible({ timeout: 10000 });
+
+		// Click the popout button to open in Viewer
+		await popoutButton.click();
+
+		// Wait for the Viewer panel to appear
+		const viewerPanel = page.locator('[id="workbench.panel.positronPreview"]');
+		await expect(viewerPanel).toBeVisible({ timeout: 10000 });
+
+		// Wait for the webview content to render
+		await page.waitForTimeout(3000);
+
+		// Verify the viewer contains the DataFrame data (e.g., "Alice", "Bob")
+		// The viewer webview has nested iframes: .webview > #active-frame > #preview-iframe
+		// The HTML content is rendered inside the preview-iframe via srcdoc.
+		const viewer = app.workbench.viewer;
+
+		// Navigate into the srcdoc iframe inside the viewer
+		// viewerFrame is .webview > #active-frame, then we go into #preview-iframe
+		const previewIframe = viewer.getViewerFrame().frameLocator('#preview-iframe');
+
+		await expect(async () => {
+			const body = previewIframe.locator('body');
+			await expect(body).toBeAttached({ timeout: 2000 });
+			const text = await body.textContent({ timeout: 2000 });
+			expect(text).toContain('Alice');
+		}).toPass({ timeout: 30000 });
+
+		// Verify no "Cannot GET" error
+		const body = previewIframe.locator('body');
+		const bodyText = await body.textContent();
+		expect(bodyText).not.toContain('Cannot GET');
+
+		// Verify no error notification was shown
+		const errorNotification = page.locator('.notifications-toasts').filter({ hasText: 'Failed to open' });
+		await expect(errorNotification).not.toBeVisible({ timeout: 1000 });
+	});
+
 	test('R - Verify long text output is truncated with "open in editor" link', async function ({ app, openFile, r }) {
 		// This test verifies the long output truncation feature:
 		// 1. When text output exceeds maxLines (default 40), only the last 40 lines are shown

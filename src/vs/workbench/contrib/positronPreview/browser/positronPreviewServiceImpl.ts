@@ -573,4 +573,67 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this.makeActivePreview(preview);
 		return preview;
 	}
+
+	/**
+	 * Opens an HTML string directly in the Viewer pane without writing to a
+	 * temp file. Creates a webview and renders the HTML inside an iframe using
+	 * the srcdoc attribute, which works consistently across Electron and
+	 * browser environments.
+	 */
+	public openHtmlString(previewId: string, html: string, title: string): PreviewWebview {
+		const webviewInitInfo: WebviewInitInfo = {
+			origin: DOM.getActiveWindow().origin,
+			providedViewType: POSITRON_PREVIEW_HTML_VIEW_TYPE,
+			title,
+			options: {
+				enableFindWidget: true,
+				retainContextWhenHidden: true,
+				customClasses: 'positron-preview-webview',
+			},
+			contentOptions: {
+				allowScripts: true,
+				allowForms: true,
+				enableCommandUris: false,
+				localResourceRoots: []
+			},
+			extension: undefined,
+		};
+
+		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		const overlay = this.createOverlayWebview(webview);
+
+		// Use srcdoc to render the HTML inline in an iframe. This is the same
+		// approach as loadUri (iframe wrapper), but uses srcdoc instead of src
+		// to avoid needing a URL/file. The srcdoc attribute sets the content
+		// directly, working in both Electron and browser environments.
+		const escapedHtml = html
+			.replace(/&/g, '&amp;')
+			.replace(/"/g, '&quot;');
+		overlay.webview.setHtml(`
+		<html>
+			<head>
+				<style>
+					html, body {
+						padding: 0;
+						margin: 0;
+						height: 100%;
+						min-height: 100%;
+					}
+					iframe {
+						width: 100%;
+						height: 100%;
+						border: none;
+						display: block;
+					}
+				</style>
+			</head>
+			<body>
+				<iframe id="preview-iframe" title="Preview Content" srcdoc="${escapedHtml}"></iframe>
+			</body>
+		</html>`);
+
+		const preview = new PreviewWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, previewId, title, overlay);
+		this.makeActivePreview(preview);
+		return preview;
+	}
 }

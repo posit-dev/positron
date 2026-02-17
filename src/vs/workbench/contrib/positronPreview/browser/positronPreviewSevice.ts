@@ -136,4 +136,14 @@ export interface IPositronPreviewService {
 	 * @param title The title for the preview.
 	 */
 	openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview;
+
+	/**
+	 * Opens an HTML string directly in the Viewer pane without writing to a
+	 * temp file. Creates a webview and sets the HTML content on it.
+	 *
+	 * @param previewId The unique ID for the preview.
+	 * @param html The HTML content to display.
+	 * @param title The title for the preview.
+	 */
+	openHtmlString(previewId: string, html: string, title: string): PreviewWebview;
 }
