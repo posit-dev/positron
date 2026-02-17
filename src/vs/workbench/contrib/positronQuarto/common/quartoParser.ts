@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { parse as parseYaml, YamlNode, YamlObjectNode } from '../../../../base/common/yaml.js';
 import {
 	QuartoNodeType,
 	QuartoSourceLocation,
@@ -41,53 +42,49 @@ function extractLabel(options: string): string | undefined {
 }
 
 /**
- * Simple YAML frontmatter parser.
- * Extracts jupyter kernel specification from frontmatter.
+ * Look up a property value by key in a YamlObjectNode.
+ */
+function getObjectProperty(node: YamlObjectNode, key: string): YamlNode | undefined {
+	for (const prop of node.properties) {
+		if (prop.key.value === key) {
+			return prop.value;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Parses YAML frontmatter and extracts the jupyter kernel specification.
+ * Handles both simple form (`jupyter: python3`) and complex form
+ * (`jupyter: { kernelspec: { name: ir } }`).
  */
 function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string } {
 	const result: { jupyterKernel?: string } = {};
 
-	// Look for jupyter: kernel_name or jupyter:\n  kernelspec:\n    name: kernel_name
-	const lines = frontmatterContent.split(/\r?\n/);
+	const root = parseYaml(frontmatterContent);
+	if (!root || root.type !== 'object') {
+		return result;
+	}
 
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
+	const jupyter = getObjectProperty(root, 'jupyter');
+	if (!jupyter) {
+		return result;
+	}
 
-		// Check for simple form: jupyter: python3
-		const simpleMatch = line.match(/^jupyter:\s*(\S+)\s*$/);
-		if (simpleMatch) {
-			result.jupyterKernel = simpleMatch[1];
-			break;
-		}
+	// Simple form: jupyter: python3
+	if (jupyter.type === 'string') {
+		result.jupyterKernel = jupyter.value;
+		return result;
+	}
 
-		// Check for complex form: jupyter:
-		if (/^jupyter:\s*$/.test(line)) {
-			// Look for kernelspec in subsequent lines
-			for (let j = i + 1; j < lines.length; j++) {
-				const subLine = lines[j];
-				// If we hit a non-indented line, stop searching
-				if (subLine.match(/^\S/)) {
-					break;
-				}
-				// Look for kernelspec:
-				if (/^\s+kernelspec:\s*$/.test(subLine)) {
-					// Look for name in subsequent lines
-					for (let k = j + 1; k < lines.length; k++) {
-						const kernelLine = lines[k];
-						// If we hit a line with less indentation, stop
-						if (kernelLine.match(/^\s{0,3}\S/)) {
-							break;
-						}
-						const nameMatch = kernelLine.match(/^\s+name:\s*(\S+)/);
-						if (nameMatch) {
-							result.jupyterKernel = nameMatch[1];
-							break;
-						}
-					}
-					break;
-				}
+	// Complex form: jupyter: { kernelspec: { name: kernel_name } }
+	if (jupyter.type === 'object') {
+		const kernelspec = getObjectProperty(jupyter, 'kernelspec');
+		if (kernelspec?.type === 'object') {
+			const name = getObjectProperty(kernelspec, 'name');
+			if (name?.type === 'string') {
+				result.jupyterKernel = name.value;
 			}
-			break;
 		}
 	}
 
