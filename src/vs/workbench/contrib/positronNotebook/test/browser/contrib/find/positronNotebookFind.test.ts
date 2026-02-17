@@ -812,16 +812,6 @@ suite('PositronNotebookFindController', () => {
 	// 7. Debounce and Reactive Updates
 	// ========================================================================
 	suite('Debounce and Reactive Updates', () => {
-		// Note: In the test environment, textModel.setValue() does not
-		// propagate to NotebookTextModel.onDidChangeContent because the
-		// cell text model resolution path differs from production.
-		// We simulate content change propagation by manually scheduling
-		// the controller's debounce scheduler after editing content.
-
-		/** Simulate the debounced content change that would fire in production. */
-		function triggerContentChangeDebounce(controller: PositronNotebookFindController): void {
-			internals(controller)._notebookContentChangedScheduler.schedule();
-		}
 
 		test('content change triggers debounced recompute', async () => {
 			const notebook = createNotebook([['hello world', 'python', CellKind.Code]]);
@@ -829,10 +819,10 @@ suite('PositronNotebookFindController', () => {
 			await reactiveSearch(controller, 'hello');
 			assert.strictEqual(getMatchCount(controller), 1);
 
-			// Modify cell content and trigger the debounce scheduler
+			// setValue() propagates through the event chain:
+			// TextModel → NotebookCellTextModel → NotebookTextModel → controller debounce
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('hello hello hello');
-			triggerContentChangeDebounce(controller);
 
 			// After debounce settles (20ms), should recompute
 			await timeout(50);
@@ -857,14 +847,11 @@ suite('PositronNotebookFindController', () => {
 			await reactiveSearch(controller, 'final');
 			assert.strictEqual(getMatchCount(controller), 0);
 
-			// Rapid edits with debounce scheduling after each
+			// Rapid edits — each setValue() triggers the debounce scheduler via the event chain
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('first');
-			triggerContentChangeDebounce(controller);
 			cell.model.textModel!.setValue('second');
-			triggerContentChangeDebounce(controller);
 			cell.model.textModel!.setValue('final content');
-			triggerContentChangeDebounce(controller);
 
 			// Wait for debounce to settle - only final state matters
 			await timeout(50);
