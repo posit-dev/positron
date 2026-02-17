@@ -78,11 +78,6 @@ class RefreshPackagesAction extends Action2 {
 			title: nls.localize2('refreshPackages', 'Refresh Packages'),
 			category: Categories.Developer,
 			f1: true,
-			menu: {
-				id: MenuId.MenubarFileMenu,
-				group: '1_newfolder',
-				order: 3,
-			},
 		});
 	}
 	override run(accessor: ServicesAccessor, ...args: unknown[]): Promise<ILanguageRuntimePackage[]> {
@@ -105,11 +100,6 @@ class InstallPackageAction extends Action2 {
 			title: nls.localize2('installPackage', 'Install Package'),
 			category: Categories.Developer,
 			f1: true,
-			menu: {
-				id: MenuId.MenubarFileMenu,
-				group: '1_newfolder',
-				order: 3,
-			},
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -172,11 +162,6 @@ class UninstallPackageAction extends Action2 {
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: Categories.Developer,
 			f1: true,
-			menu: {
-				id: MenuId.MenubarFileMenu,
-				group: '1_newfolder',
-				order: 3,
-			},
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
