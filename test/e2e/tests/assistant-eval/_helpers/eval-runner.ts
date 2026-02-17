@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test as baseTest, expect } from '../../_test.setup';
+import { test as baseTest, expect, tags } from '../../_test.setup';
 import { EvalTestCase } from '../types';
 import { evaluateWithLLM } from './llm-grader';
 import { formatResultsHtml } from './format-results';
@@ -11,6 +11,9 @@ import { getModelKeys, getModelConfig } from './eval-results';
 import { recordAssistantEval, parseToolsFromResponse, type AssistantEvalInput } from '../../../utils/metrics/metric-assistant';
 import { type Application, type MultiLogger, type Sessions, type HotKeys, type TestTeardown } from '../../../infra';
 import { type Settings } from '../../../fixtures/test-setup/settings.fixtures';
+
+// Re-export for test files
+export { tags };
 
 /**
  * Fixtures required for running eval tests.
@@ -95,32 +98,41 @@ export async function runEvalTest(
 }
 
 /**
- * Registers eval tests for all configured models and test cases.
- * Call this inside a test.describe block after setting up beforeAll/afterAll.
+ * Options for configuring eval tests.
+ */
+export interface EvalTestsOptions {
+	/** Category for metrics (e.g., 'notebooks', 'tools', 'hallucination'). Defaults to 'general'. */
+	category?: string;
+}
+
+/**
+ * Sets up eval tests inside a test.describe block.
+ * Handles assistant login/logout and registers tests for all configured models.
  *
  * @param test The Playwright test object
  * @param testCases Array of test cases to run
- * @param category Category for metrics (e.g., 'notebooks', 'tools', 'hallucination')
+ * @param options Configuration options
  *
  * @example
- * test.describe('Assistant Eval: Notebooks', { tag: [...] }, () => {
- *   test.beforeAll(async ({ assistant }) => {
- *     await assistant.openPositronAssistantChat();
- *     await assistant.loginModelProvider('anthropic-api');
- *   });
- *
- *   registerEvalTests(test, testCases, 'notebooks');
- *
- *   test.afterAll(async ({ assistant }) => {
- *     await assistant.logoutModelProvider('anthropic-api');
- *   });
+ * test.describe('Assistant Eval: Notebooks', { tag: [tags.ASSISTANT_EVAL] }, () => {
+ *   evalTests(test, [
+ *     rNotebookGetCells,
+ *     pyNotebookGetCells,
+ *   ], { category: 'notebooks' });
  * });
  */
-export function registerEvalTests(
+export function evalTests(
 	test: typeof baseTest,
 	testCases: EvalTestCase[],
-	category: string
+	options: EvalTestsOptions = {}
 ): void {
+	const { category = 'general' } = options;
+
+	test.beforeAll(async ({ assistant }) => {
+		await assistant.openPositronAssistantChat();
+		await assistant.loginModelProvider('anthropic-api');
+	});
+
 	getModelKeys().forEach((modelKey, index) => {
 		const modelConfig = getModelConfig(modelKey);
 
@@ -142,5 +154,9 @@ export function registerEvalTests(
 				);
 			});
 		});
+	});
+
+	test.afterAll(async ({ assistant }) => {
+		await assistant.logoutModelProvider('anthropic-api');
 	});
 }
