@@ -8,14 +8,10 @@ The plan calls for verifying that two notebook instances keep independent match 
 
 **Fix**: Either make `createTestPositronNotebookEditor` share an instantiation service between instances (accepting a pre-built one as an optional parameter), or isolate the global service registrations so two instances can coexist without tracking conflicts.
 
-## 4. Tests access private controller state via `internals()` cast
+## ~~4. Tests access private controller state via `internals()` cast~~ Done
 
-The `internals()` helper casts the controller to `any` to access private members. This couples tests to private implementation details and breaks if internals are renamed or restructured.
-
-Private members accessed:
-- ~~`_findInstance` — to set search params (reactive tests) and read visibility/focus state~~ **Done**: exposed as public `findInstance` getter on the controller
-- ~~`_matches` / `_currentMatch` — to read match state for assertions~~ **Done**: exposed as public `IObservable` properties on the controller
-- `research()` — to trigger synchronous search (direct API tests)
-- ~~`_notebookContentChangedScheduler` — to simulate content change debounce~~ **Done**: event chain works in test harness; debounce tests use fake timers
-
-**Fix**: For the remaining private accesses, create a `TestPositronNotebookFindController` subclass or expose additional public API as appropriate.
+All private accesses have been eliminated:
+- ~~`_findInstance`~~ **Done**: exposed as public `findInstance` getter on the controller
+- ~~`_matches` / `_currentMatch`~~ **Done**: exposed as public `IObservable` properties on the controller
+- ~~`research()`~~ **Done**: tests drive search via `findInstance` observables (in a transaction); structural/content change tests use fake timers to advance past the 20ms debounce
+- ~~`_notebookContentChangedScheduler`~~ **Done**: event chain works in test harness; debounce tests use fake timers

@@ -7,7 +7,7 @@ import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 
 import assert from 'assert';
 import * as sinon from 'sinon';
-import { timeout } from '../../../../../../../base/common/async.js';
+import { transaction } from '../../../../../../../base/common/observable.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
 import { CurrentPositronCellMatch, PositronCellFindMatch, PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
@@ -28,14 +28,6 @@ import {
 // Test Helpers
 // ============================================================================
 
-/**
- * Access private controller internals for testing.
- * Concentrated here to minimize as-any casts throughout tests.
- */
-function internals(controller: PositronNotebookFindController): any {
-	return controller;
-}
-
 /** Gets the find instance, asserting it exists. */
 function getFindInstance(controller: PositronNotebookFindController): PositronFindInstance {
 	const fi = controller.findInstance;
@@ -44,8 +36,9 @@ function getFindInstance(controller: PositronNotebookFindController): PositronFi
 }
 
 /**
- * Direct API: start find and perform a synchronous search.
- * Returns the matches array.
+ * Start find and perform a search via the reactive pipeline.
+ * Sets all search params in a single transaction so the autorun fires
+ * exactly once. Matches are available immediately after this returns.
  */
 function search(
 	controller: PositronNotebookFindController,
@@ -53,30 +46,14 @@ function search(
 	opts?: { isRegex?: boolean; matchCase?: boolean; wholeWord?: boolean },
 ): PositronCellFindMatch[] {
 	controller.start();
-	return internals(controller).research(
-		query,
-		opts?.isRegex ?? false,
-		opts?.matchCase ?? false,
-		opts?.wholeWord ?? false,
-	);
-}
-
-/**
- * Reactive: start find and set search string on the find instance.
- * Waits for the autorun to settle.
- */
-async function reactiveSearch(
-	controller: PositronNotebookFindController,
-	query: string,
-	opts?: { isRegex?: boolean; matchCase?: boolean; wholeWord?: boolean },
-): Promise<void> {
-	controller.start();
 	const fi = getFindInstance(controller);
-	if (opts?.isRegex !== undefined) { fi.isRegex.set(opts.isRegex, undefined); }
-	if (opts?.matchCase !== undefined) { fi.matchCase.set(opts.matchCase, undefined); }
-	if (opts?.wholeWord !== undefined) { fi.wholeWord.set(opts.wholeWord, undefined); }
-	fi.searchString.set(query, undefined);
-	await timeout(0);
+	transaction((tx) => {
+		if (opts?.isRegex !== undefined) { fi.isRegex.set(opts.isRegex, tx); }
+		if (opts?.matchCase !== undefined) { fi.matchCase.set(opts.matchCase, tx); }
+		if (opts?.wholeWord !== undefined) { fi.wholeWord.set(opts.wholeWord, tx); }
+		fi.searchString.set(query, tx);
+	});
+	return [...controller.matches.get()];
 }
 
 /** Read match count from find instance. */
@@ -258,29 +235,27 @@ suite('PositronNotebookFindController', () => {
 			);
 		});
 
-		test('reactive: query change triggers research', async () => {
+		test('reactive: query change triggers research', () => {
 			const notebook = createNotebook([['hello world', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
 
-			await reactiveSearch(controller, 'hello');
+			search(controller, 'hello');
 			assert.strictEqual(getMatchCount(controller), 1);
 
-			// Change query reactively
+			// Change query reactively — autorun fires synchronously
 			getFindInstance(controller).searchString.set('world', undefined);
-			await timeout(0);
 			assert.strictEqual(getMatchCount(controller), 1);
 		});
 
-		test('reactive: toggle change triggers research', async () => {
+		test('reactive: toggle change triggers research', () => {
 			const notebook = createNotebook([['Hello hello', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
 
-			await reactiveSearch(controller, 'hello');
+			search(controller, 'hello');
 			assert.strictEqual(getMatchCount(controller), 2, 'case-insensitive should find 2');
 
-			// Toggle matchCase reactively
+			// Toggle matchCase reactively — autorun fires synchronously
 			getFindInstance(controller).matchCase.set(true, undefined);
-			await timeout(0);
 			assert.strictEqual(getMatchCount(controller), 1, 'case-sensitive should find 1');
 		});
 	});
@@ -418,11 +393,11 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(match!.cellMatch.cellRange.range.startColumn, 7);
 		});
 
-		test('reactive: onDidRequestFindNext triggers navigation', async () => {
+		test('reactive: onDidRequestFindNext triggers navigation', () => {
 			const notebook = createNotebook([['aa bb aa', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
 			selectCell(notebook, 0);
-			await reactiveSearch(controller, 'aa');
+			search(controller, 'aa');
 
 			// Simulate the find widget's "next" button via event
 			// eslint-disable-next-line local/code-no-any-casts
@@ -430,11 +405,11 @@ suite('PositronNotebookFindController', () => {
 			assert.ok(getCurrentMatch(controller), 'Should have navigated to a match');
 		});
 
-		test('reactive: onDidRequestFindPrevious triggers navigation', async () => {
+		test('reactive: onDidRequestFindPrevious triggers navigation', () => {
 			const notebook = createNotebook([['aa bb aa', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
 			selectCell(notebook, 0);
-			await reactiveSearch(controller, 'aa');
+			search(controller, 'aa');
 
 			// Navigate to first match, then use event to go previous (should wrap)
 			controller.findNext(); // match 0
@@ -448,6 +423,15 @@ suite('PositronNotebookFindController', () => {
 	// 3. Notebook Structure Changes
 	// ========================================================================
 	suite('Notebook Structure Changes', () => {
+		let clock: sinon.SinonFakeTimers;
+
+		setup(() => {
+			clock = sinon.useFakeTimers();
+		});
+
+		teardown(() => {
+			clock.restore();
+		});
 
 		test('adding a cell with matching content recomputes matches', () => {
 			const notebook = createNotebook([['hello', 'python', CellKind.Code]]);
@@ -458,8 +442,8 @@ suite('PositronNotebookFindController', () => {
 			// Add a new cell with matching content
 			notebook.addCell(CellKind.Code, 1, false, 'hello again');
 
-			// Re-search (simulates what debounced recompute would do)
-			internals(controller).research('hello', false, false, false);
+			// Structural change triggers debounced recompute
+			clock.tick(25);
 			assert.strictEqual(getMatchCount(controller), 2);
 		});
 
@@ -477,8 +461,7 @@ suite('PositronNotebookFindController', () => {
 			const cells = notebook.cells.get();
 			notebook.deleteCell(cells[1]);
 
-			// Re-search
-			internals(controller).research('hello', false, false, false);
+			clock.tick(25);
 			assert.strictEqual(getMatchCount(controller), 1);
 		});
 
@@ -492,8 +475,7 @@ suite('PositronNotebookFindController', () => {
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('goodbye world');
 
-			// Re-search
-			internals(controller).research('hello', false, false, false);
+			clock.tick(25);
 			assert.strictEqual(getMatchCount(controller), 0);
 		});
 
@@ -507,8 +489,7 @@ suite('PositronNotebookFindController', () => {
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('hello hello');
 
-			// Re-search
-			internals(controller).research('hello', false, false, false);
+			clock.tick(25);
 			assert.strictEqual(getMatchCount(controller), 2);
 		});
 
@@ -531,8 +512,7 @@ suite('PositronNotebookFindController', () => {
 			const cells = notebook.cells.get();
 			notebook.deleteCell(cells[0]);
 
-			// Re-search to update matches
-			internals(controller).research('match', false, false, false);
+			clock.tick(25);
 			assert.strictEqual(getMatches(controller).length, 2);
 
 			// Navigation should work on new match set
@@ -554,7 +534,8 @@ suite('PositronNotebookFindController', () => {
 
 			// Delete first cell
 			notebook.deleteCell(cellsBefore[0]);
-			internals(controller).research('match', false, false, false);
+
+			clock.tick(25);
 
 			// Remaining cell still has decoration
 			const cellsAfter = notebook.cells.get();
@@ -632,8 +613,8 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 1);
 			assert.strictEqual(getFindMatchDecorations(cells[0])[0].range.startColumn, 1);
 
-			// Change search to match 'world'
-			internals(controller).research('world', false, false, false);
+			// Change search to match 'world' — autorun fires synchronously
+			getFindInstance(controller).searchString.set('world', undefined);
 			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 1);
 			assert.strictEqual(getFindMatchDecorations(cells[0])[0].range.startColumn, 7);
 		});
@@ -646,22 +627,21 @@ suite('PositronNotebookFindController', () => {
 			const cells = notebook.cells.get();
 			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 1);
 
-			// Empty the search
-			internals(controller).research('', false, false, false);
+			// Empty the search — autorun fires synchronously
+			getFindInstance(controller).searchString.set('', undefined);
 			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 0);
 		});
 
-		test('decorations clear when find is hidden', async () => {
+		test('decorations clear when find is hidden', () => {
 			const notebook = createNotebook([['hello world', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
-			await reactiveSearch(controller, 'hello');
+			search(controller, 'hello');
 
 			const cells = notebook.cells.get();
 			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 1);
 
-			// Hide find widget
+			// Hide find widget — autorun clears matches synchronously
 			controller.hide();
-			await timeout(0);
 			assert.strictEqual(getFindMatchDecorations(cells[0]).length, 0, 'Decorations should clear on hide');
 		});
 
@@ -713,14 +693,13 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(fi1, fi2, 'Should reuse same find instance');
 		});
 
-		test('hiding find clears matches and current match', async () => {
+		test('hiding find clears matches and current match', () => {
 			const notebook = createNotebook([['hello', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
-			await reactiveSearch(controller, 'hello');
+			search(controller, 'hello');
 			assert.strictEqual(getMatchCount(controller), 1);
 
 			controller.hide();
-			await timeout(0);
 			assert.strictEqual(getMatches(controller).length, 0);
 			assert.strictEqual(getCurrentMatch(controller), undefined);
 		});
@@ -788,22 +767,21 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(getMatches(controller)[0].cell, notebook.cells.get()[0]);
 		});
 
-		test('hiding and restarting find resets state cleanly', async () => {
+		test('hiding and restarting find resets state cleanly', () => {
 			const notebook = createNotebook([['alpha beta', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
 
 			// First search
-			await reactiveSearch(controller, 'alpha');
+			search(controller, 'alpha');
 			assert.strictEqual(getMatchCount(controller), 1);
 
 			// Hide clears state
 			controller.hide();
-			await timeout(0);
 			assert.strictEqual(getMatches(controller).length, 0);
 			assert.strictEqual(getCurrentMatch(controller), undefined);
 
 			// Second search - completely fresh results
-			await reactiveSearch(controller, 'beta');
+			search(controller, 'beta');
 			assert.strictEqual(getMatchCount(controller), 1);
 			assert.strictEqual(getMatches(controller)[0].cellRange.range.startColumn, 7);
 		});
