@@ -12,6 +12,7 @@ import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 import { ResultKind } from '../../keybinding/common/keybindingResolver.js';
 import { ILayoutService } from '../../layout/browser/layoutService.js';
 import { IProductService } from '../../product/common/productService.js';
+import { IPositronLicenseeInfo } from '../../remote/common/remoteAgentEnvironment.js';
 import { defaultButtonStyles, defaultCheckboxStyles, defaultInputBoxStyles, defaultDialogStyles } from '../../theme/browser/defaultStyles.js';
 
 const defaultDialogAllowableCommands = [
@@ -43,10 +44,12 @@ export function createWorkbenchDialogOptions(options: Partial<IDialogOptions>, k
 	};
 }
 
-export function createBrowserAboutDialogDetails(productService: IProductService): { title: string; details: string; detailsToCopy: string } {
+// --- Start Positron ---
+export function createBrowserAboutDialogDetails(productService: IProductService, licenseeInfo?: IPositronLicenseeInfo): { title: string; details: string; detailsToCopy: string } {
+	// --- End Positron ---
 	const detailString = (useAgo: boolean): string => {
-		return localize('aboutDetail',
-			// --- Start Positron ---
+		// --- Start Positron ---
+		let detail = localize('aboutDetail',
 			"{0} Version: {1} build {2}\nCode - OSS Version: {3}\nCommit: {4}\nDate: {5}\nBrowser: {6}",
 			productService.nameLong,
 			productService.positronVersion,
@@ -57,6 +60,12 @@ export function createBrowserAboutDialogDetails(productService: IProductService)
 			productService.date ? `${productService.date}${useAgo ? ' (' + fromNow(new Date(productService.date), true) + ')' : ''}` : 'Unknown',
 			navigator.userAgent
 		);
+		// --- Start Positron ---
+		if (licenseeInfo?.licensee) {
+			detail += '\n' + localize('aboutLicensee', "Licensed to: {0}", licenseeInfo.licensee);
+		}
+		return detail;
+		// --- End Positron ---
 	};
 
 	const details = detailString(true);

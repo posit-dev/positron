@@ -13,7 +13,8 @@ import {
 	DEFAULT_ANTHROPIC_MODEL_NAME,
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
 	fetchAnthropicModelsFromApi,
-	getAnthropicModelsFromConfig
+	getAnthropicModelsFromConfig,
+	handleVercelSdkRateLimitError
 } from './anthropicModelUtils.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
@@ -145,5 +146,20 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 			token,
 			{ toolResultExperimentalContent, anthropicCacheBreakpoint: true }
 		);
+	}
+
+	/**
+	 * Handles Anthropic-specific errors during stream processing.
+	 *
+	 * Checks for rate limit errors (429) and extracts the retry-after header
+	 * to provide a more helpful error message to the user.
+	 *
+	 * @param error - The error that occurred during streaming
+	 * @throws A transformed error with retry information if rate limited
+	 */
+	protected override handleStreamError(error: unknown): never {
+		// Check for rate limit error with retry-after header
+		handleVercelSdkRateLimitError(error, this.providerName);
+		throw error;
 	}
 }
