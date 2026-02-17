@@ -5,14 +5,14 @@
 
 import assert from 'assert';
 import { URI } from '../../../../../base/common/uri.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { Emitter, Event } from '../../../../../base/common/event.js';
-import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QuartoExecutionManager } from '../../browser/quartoExecutionManager.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
@@ -71,12 +71,12 @@ suite('QuartoExecutionManager', () => {
 		mockSession.setRuntimeState(RuntimeState.Ready);
 
 		// Create mock services
-		mockKernelManager = new MockKernelManager(mockSession);
+		mockKernelManager = disposables.add(new MockKernelManager(mockSession));
 		const mockDocumentModelService = new MockDocumentModelService();
 		const mockEditorService = new MockEditorService();
 		const mockEphemeralStateService = new MockEphemeralStateService();
 		const mockWorkspaceContextService = new MockWorkspaceContextService();
-		const mockConsoleService = new MockPositronConsoleService();
+		const mockConsoleService = new TestPositronConsoleService();
 		const mockRuntimeSessionService = new MockRuntimeSessionService();
 		const mockTerminalService = new MockTerminalService();
 
@@ -122,11 +122,9 @@ suite('QuartoExecutionManager', () => {
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
 
-			// Wait for execution to start
-			await new Promise(resolve => setTimeout(resolve, 50));
-
-			// Get the execution ID
-			const executionId = mockKernelManager.lastExecutionId!;
+			// Wait for the session's execute to fire (TestLanguageRuntimeSession
+			// transitions to Busy then fires onDidExecute on subsequent ticks)
+			const executionId = await mockKernelManager.waitForExecution();
 			assert.ok(executionId, 'Should have captured execution ID');
 
 			// Simulate a pandas DataFrame output that includes both HTML and plain text
@@ -190,11 +188,8 @@ suite('QuartoExecutionManager', () => {
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
 
-			// Wait for execution to start
-			await new Promise(resolve => setTimeout(resolve, 50));
-
-			// Get the execution ID
-			const executionId = mockKernelManager.lastExecutionId!;
+			// Wait for the session's execute to fire
+			const executionId = await mockKernelManager.waitForExecution();
 			assert.ok(executionId, 'Should have captured execution ID');
 
 			// Simulate a matplotlib plot output that includes both image and plain text
@@ -251,11 +246,8 @@ suite('QuartoExecutionManager', () => {
 			// Start execution
 			const executionPromise = executionManager.executeCell(documentUri, cell);
 
-			// Wait for execution to start
-			await new Promise(resolve => setTimeout(resolve, 50));
-
-			// Get the execution ID
-			const executionId = mockKernelManager.lastExecutionId!;
+			// Wait for the session's execute to fire
+			const executionId = await mockKernelManager.waitForExecution();
 			assert.ok(executionId, 'Should have captured execution ID');
 
 			// Simulate a simple text-only result (like from "2 + 3")
@@ -309,11 +301,8 @@ suite('QuartoExecutionManager', () => {
 			// Start execution (but don't await yet)
 			const executionPromise = executionManager.executeCell(documentUri, cell);
 
-			// Wait a tick for execution to start and listen for it
-			await new Promise(resolve => setTimeout(resolve, 50));
-
-			// Get the execution ID that was used
-			const executionId = mockKernelManager.lastExecutionId!;
+			// Wait for the session's execute to fire
+			const executionId = await mockKernelManager.waitForExecution();
 			assert.ok(executionId, 'Should have captured execution ID');
 
 			// Simulate stdout stream output (like from print("hello"))
@@ -324,7 +313,6 @@ suite('QuartoExecutionManager', () => {
 			});
 
 			// Simulate execute_result output (like from "2 + 3")
-			// This is the bug - execute_result messages are not being handled
 			mockSession.receiveResultMessage({
 				parent_id: executionId,
 				kind: RuntimeOutputKind.Text,
@@ -346,7 +334,6 @@ suite('QuartoExecutionManager', () => {
 			assert.strictEqual(outputsReceived[0].items[0].data, 'hello\n');
 
 			// The second output should be the execute_result output
-			// THIS IS THE BUG: Currently outputsReceived.length === 1, but should be 2
 			assert.strictEqual(outputsReceived.length, 2, 'Should receive two outputs (stream + execute_result)');
 			assert.strictEqual(outputsReceived[1].items[0].mime, 'text/plain');
 			assert.strictEqual(outputsReceived[1].items[0].data, '5');
@@ -373,21 +360,6 @@ suite('QuartoExecutionManager', () => {
 
 			const documentUri = URI.file('/test-line-tracking.qmd');
 
-			// Document AFTER editing (with 3 lines inserted before the cell)
-			// The cell is now at lines 8-10, code at line 9
-			const editedDocumentLines = [
-				'---',
-				'title: test',
-				'---',
-				'',
-				'Some added text',       // Line 5 - new
-				'More added text',       // Line 6 - new (where old code was!)
-				'Even more text',        // Line 7 - new
-				'```{python}',           // Line 8 - cell start (moved)
-				'x = 1',                 // Line 9 - code (moved)
-				'```',                   // Line 10 - cell end (moved)
-			];
-
 			// The CURRENT cell state in the model (after re-parsing)
 			// has updated line numbers
 			const currentCell: QuartoCodeCell = {
@@ -404,19 +376,38 @@ suite('QuartoExecutionManager', () => {
 			};
 
 			// Create mock model with CURRENT state (already re-parsed)
+			const editedDocumentLines = [
+				'---', 'title: test', '---', '',
+				'Some added text',       // Line 5 - new
+				'More added text',       // Line 6 - new (where old code was!)
+				'Even more text',        // Line 7 - new
+				'```{python}',           // Line 8 - cell start (moved)
+				'x = 1',                 // Line 9 - code (moved)
+				'```',                   // Line 10 - cell end (moved)
+			];
 			const mockModel = new MockQuartoDocumentModel([currentCell], editedDocumentLines);
 			const mockDocumentModelService = new MockDocumentModelService();
 			mockDocumentModelService.setMockModel(mockModel);
+
+			// Track what range getValueInRange is called with to verify
+			// the execution manager uses the CURRENT line numbers
+			let capturedRange: { startLineNumber: number; endLineNumber: number } | undefined;
+			const trackingEditorService = new MockEditorService();
+			trackingEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				capturedRange = { startLineNumber: r.startLineNumber, endLineNumber: r.endLineNumber };
+				return 'x = 1';
+			};
 
 			// Create execution manager with the mock model service
 			const executionManagerWithMock = new QuartoExecutionManager(
 				mockKernelManager as unknown as IQuartoKernelManager,
 				mockDocumentModelService as unknown as IQuartoDocumentModelService,
-				new MockEditorService() as unknown as IEditorService,
+				trackingEditorService as unknown as IEditorService,
 				new MockEphemeralStateService() as unknown as IEphemeralStateService,
 				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
 				logService,
-				new MockPositronConsoleService() as unknown as IPositronConsoleService,
+				new TestPositronConsoleService() as unknown as IPositronConsoleService,
 				new MockRuntimeSessionService() as unknown as IRuntimeSessionService,
 				new MockTerminalService() as unknown as ITerminalService,
 			);
@@ -441,11 +432,10 @@ suite('QuartoExecutionManager', () => {
 			// The fix should look up by ID and use current line numbers
 			const executionPromise = executionManagerWithMock.executeCell(documentUri, staleCellObject);
 
-			// Wait for execution to start
-			await new Promise(resolve => setTimeout(resolve, 50));
+			// Wait for the session's execute to fire
+			const executionId = await mockKernelManager.waitForExecution();
 
-			// Get the execution ID and complete the execution
-			const executionId = mockKernelManager.lastExecutionId!;
+			// Complete the execution
 			if (executionId) {
 				mockSession.receiveStateMessage({
 					parent_id: executionId,
@@ -457,17 +447,16 @@ suite('QuartoExecutionManager', () => {
 
 			// VERIFY: The execution manager should have looked up the cell by ID
 			// and used the CURRENT line numbers (9), not the stale ones (6).
-			//
-			// If the bug exists: lastRequestedCell.codeStartLine === 6 (stale)
-			// After the fix: lastRequestedCell.codeStartLine === 9 (current)
-			assert.ok(mockModel.lastRequestedCell, 'Should have requested cell code');
+			// We check the range passed to getValueInRange, which reflects the
+			// code range built from getCellById's result.
+			assert.ok(capturedRange, 'Should have called getValueInRange with a range');
 			assert.strictEqual(
-				mockModel.lastRequestedCell.codeStartLine,
+				capturedRange!.startLineNumber,
 				9,
 				'Should use CURRENT cell line numbers (9), not stale ones (6)'
 			);
 			assert.strictEqual(
-				mockModel.lastRequestedCell.codeEndLine,
+				capturedRange!.endLineNumber,
 				9,
 				'Should use CURRENT cell end line (9), not stale one (6)'
 			);
@@ -476,29 +465,57 @@ suite('QuartoExecutionManager', () => {
 });
 
 // Mock implementations
+//
+// These mocks are Quarto-specific and don't have shared test counterparts.
+// For shared test services, we use existing infrastructure:
+// - TestLanguageRuntimeSession (from runtimeSession/test)
+// - TestPositronConsoleService (from positronConsole/test)
 
-class MockKernelManager {
+/**
+ * Mock kernel manager that returns the TestLanguageRuntimeSession directly.
+ *
+ * Uses the session's built-in onDidExecute event to capture execution IDs,
+ * rather than wrapping the session with a fragile object spread.
+ */
+class MockKernelManager extends Disposable {
 	lastExecutionId?: string;
+	private _executionResolve?: (id: string) => void;
 
-	constructor(private readonly _session: TestLanguageRuntimeSession) { }
+	constructor(private readonly _session: TestLanguageRuntimeSession) {
+		super();
+		// Listen for executions via the session's built-in test event
+		this._register(_session.onDidExecute(id => {
+			this.lastExecutionId = id;
+			this._executionResolve?.(id);
+		}));
+	}
+
+	/**
+	 * Wait for the next execution to start. Returns the execution ID.
+	 */
+	waitForExecution(timeoutMs = 5000): Promise<string> {
+		if (this.lastExecutionId) {
+			const id = this.lastExecutionId;
+			this.lastExecutionId = undefined;
+			return Promise.resolve(id);
+		}
+		return new Promise<string>((resolve, reject) => {
+			const timer = setTimeout(() => {
+				this._executionResolve = undefined;
+				reject(new Error('Timed out waiting for execution'));
+			}, timeoutMs);
+			this._executionResolve = (id: string) => {
+				clearTimeout(timer);
+				this._executionResolve = undefined;
+				resolve(id);
+			};
+		});
+	}
 
 	async ensureKernelForDocument(_documentUri: URI, _token?: CancellationToken): Promise<ILanguageRuntimeSession | undefined> {
-		// Return a wrapped session that captures the execution ID
-		const session = this._session;
-		const self = this;
-
-		return {
-			...session,
-			execute(_code: string, id: string, _mode: unknown, _errorBehavior: unknown) {
-				self.lastExecutionId = id;
-				// Don't call the real execute - we just capture the ID
-			},
-			onDidReceiveRuntimeMessageOutput: session.onDidReceiveRuntimeMessageOutput,
-			onDidReceiveRuntimeMessageResult: session.onDidReceiveRuntimeMessageResult,
-			onDidReceiveRuntimeMessageStream: session.onDidReceiveRuntimeMessageStream,
-			onDidReceiveRuntimeMessageError: session.onDidReceiveRuntimeMessageError,
-			onDidReceiveRuntimeMessageState: session.onDidReceiveRuntimeMessageState,
-		} as unknown as ILanguageRuntimeSession;
+		// Return the real TestLanguageRuntimeSession directly.
+		// Its execute() method will fire onDidExecute with the execution ID.
+		return this._session;
 	}
 
 	interruptKernelForDocument(_documentUri: URI): void {
@@ -519,12 +536,9 @@ class MockDocumentModelService {
 		}
 		// Default mock that returns cell unchanged (for tests that don't need line tracking)
 		return {
-			getCellCode(cell: QuartoCodeCell): string {
-				return 'test code';
-			},
+			primaryLanguage: 'python',
+			cells: [] as QuartoCodeCell[],
 			getCellById(id: string): QuartoCodeCell | undefined {
-				// Return a dummy cell with the requested ID
-				// This allows the existing tests to work without needing to set up a full mock
 				return {
 					id,
 					index: 0,
@@ -549,7 +563,11 @@ class MockDocumentModelService {
 class MockQuartoDocumentModel {
 	private _cells: Map<string, QuartoCodeCell> = new Map();
 	private _documentLines: string[] = [];
-	lastRequestedCell: QuartoCodeCell | undefined;
+	readonly primaryLanguage = 'python';
+
+	get cells(): QuartoCodeCell[] {
+		return Array.from(this._cells.values());
+	}
 
 	constructor(cells: QuartoCodeCell[], documentLines: string[]) {
 		for (const cell of cells) {
@@ -558,39 +576,11 @@ class MockQuartoDocumentModel {
 		this._documentLines = documentLines;
 	}
 
-	/**
-	 * Update a cell's line numbers (simulates document edit + re-parse)
-	 */
-	updateCellLineNumbers(cellId: string, newStartLine: number, newEndLine: number, newCodeStartLine: number, newCodeEndLine: number): void {
-		const cell = this._cells.get(cellId);
-		if (cell) {
-			const updatedCell: QuartoCodeCell = {
-				...cell,
-				startLine: newStartLine,
-				endLine: newEndLine,
-				codeStartLine: newCodeStartLine,
-				codeEndLine: newCodeEndLine,
-			};
-			this._cells.set(cellId, updatedCell);
-		}
-	}
-
-	/**
-	 * Update the document content (simulates text being inserted)
-	 */
-	setDocumentLines(lines: string[]): void {
-		this._documentLines = lines;
-	}
-
 	getCellById(id: string): QuartoCodeCell | undefined {
 		return this._cells.get(id);
 	}
 
 	getCellCode(cell: QuartoCodeCell): string {
-		// Track which cell was passed to detect if stale cell data is being used
-		this.lastRequestedCell = cell;
-
-		// Read lines from document using the cell's line numbers
 		const lines: string[] = [];
 		for (let i = cell.codeStartLine; i <= cell.codeEndLine; i++) {
 			// documentLines is 0-indexed, cell lines are 1-indexed
@@ -603,13 +593,23 @@ class MockQuartoDocumentModel {
 }
 
 class MockEditorService {
+	getValueInRangeCallback?: (range: unknown) => string;
+
 	findEditors(_resource: unknown): unknown[] {
+		const self = this;
 		return [{
 			editor: {
 				resolve: async () => ({
 					textEditorModel: {
 						getValue: () => 'test code',
 						getLineContent: (_line: number) => 'test code',
+						getLineMaxColumn: (_line: number) => 100,
+						getValueInRange: (range: unknown) => {
+							if (self.getValueInRangeCallback) {
+								return self.getValueInRangeCallback(range);
+							}
+							return 'test code';
+						},
 					}
 				})
 			}
@@ -639,27 +639,12 @@ class MockWorkspaceContextService {
 	}
 }
 
-class MockPositronConsoleService {
-	private readonly _onDidExecuteCode = new Emitter<ILanguageRuntimeCodeExecutedEvent>();
-	readonly onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._onDidExecuteCode.event;
-
-	async executeCode(
-		_languageId: string,
-		_sessionId: string | undefined,
-		_code: string,
-		_attribution: unknown,
-		_focus: boolean,
-		_allowIncomplete?: boolean,
-		_mode?: unknown,
-		_errorBehavior?: unknown,
-		_executionId?: string
-	): Promise<string> {
-		return 'mock-session-id';
-	}
-}
-
 class MockRuntimeSessionService {
 	getSession(_sessionId: string): ILanguageRuntimeSession | undefined {
+		return undefined;
+	}
+
+	getConsoleSessionForLanguage(_languageId: string): ILanguageRuntimeSession | undefined {
 		return undefined;
 	}
 }
