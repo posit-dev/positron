@@ -1251,6 +1251,111 @@ test.describe('Quarto - Inline Output', {
 		}
 	});
 
+	test('Python - Verify interactive HTML widget persists correctly after close and reopen', async function ({ app, openFile, python }) {
+		// This test reproduces a bug where interactive HTML widgets (like Plotly)
+		// render correctly on first execution, but after closing and reopening
+		// the document tab they render as a blob of JSON instead of the interactive widget.
+		//
+		// The difference from the window reload test below is that this specifically
+		// tests the close-tab-reopen-file flow, which uses the in-memory cache
+		// rather than the disk cache.
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+		// to be set, as the interactive_plot.qmd file only exists on that branch.
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'interactive_plot.qmd');
+
+		// Open the Quarto document with the interactive Plotly widget
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell
+		// interactive_plot.qmd: frontmatter (1-4), blank line (5), cell starts at line 6
+		// Position at line 8 which is inside the cell
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('8');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll until output appears (includes kernel startup time)
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('15');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify output content is present
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// CRITICAL CHECK: The output should contain a webview container for the interactive widget
+		const webviewOrHtml = inlineOutput.locator('.quarto-output-webview-container, .quarto-output-html');
+		await expect(webviewOrHtml.first()).toBeVisible({ timeout: 30000 });
+
+		// Wait for the cache write debounce to complete before closing
+		await page.waitForTimeout(2000);
+
+		// Close the document tab
+		await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
+
+		// Wait for editor to close
+		await page.waitForTimeout(1000);
+
+		// Reopen the same file
+		await openFile(filePath);
+
+		// Wait for the editor to be ready again
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for cache service to load cached outputs
+		await page.waitForTimeout(2000);
+
+		// Scroll to where output should be and verify it's visible
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('15');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
+
+		// CRITICAL CHECK AFTER REOPEN: The output should STILL be rendered as HTML/webview,
+		// NOT as a JSON blob.
+		await expect(webviewOrHtml.first()).toBeVisible({ timeout: 30000 });
+
+		// Verify there's NO raw JSON blob after reopen (this is the bug we're testing for)
+		const stdoutAfterReopen = inlineOutput.locator('.quarto-output-stdout');
+		const stdoutCountAfterReopen = await stdoutAfterReopen.count();
+		if (stdoutCountAfterReopen > 0) {
+			const textAfterReopen = await stdoutAfterReopen.first().textContent();
+			// If stdout exists after reopen, it should NOT contain JSON from the plotly output
+			// This is the core assertion - the bug causes plotly JSON to render as text
+			expect(textAfterReopen).not.toContain('application/vnd.plotly');
+			expect(textAfterReopen).not.toContain('"data":');
+			expect(textAfterReopen).not.toContain('"layout":');
+		}
+	});
+
 	test('Python - Verify interactive HTML widget persists correctly after window reload', async function ({ app, openFile, python }) {
 		// This test reproduces a bug where interactive HTML widgets (like Plotly)
 		// render correctly on first execution, but after a window reload they

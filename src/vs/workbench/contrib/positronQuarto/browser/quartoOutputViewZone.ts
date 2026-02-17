@@ -1076,6 +1076,17 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (output.webviewMetadata?.webviewType && this._webviewService && this._session) {
 			// Render via webview for interactive/complex outputs
 			this._renderWebviewOutput(output, outputElement);
+		} else if (output.webviewMetadata?.webviewType && (!this._webviewService || !this._session)) {
+			// Output needs webview but session/service not available yet.
+			// Show a placeholder; setSession() will trigger re-render when session arrives.
+			const placeholder = document.createElement('div');
+			placeholder.className = 'quarto-output-webview-container';
+			placeholder.style.minHeight = '100px';
+			const loadingIndicator = document.createElement('div');
+			loadingIndicator.className = 'quarto-output-loading';
+			loadingIndicator.textContent = localize('loadingOutput', 'Loading output...');
+			placeholder.appendChild(loadingIndicator);
+			outputElement.appendChild(placeholder);
 		} else {
 			// Render items normally
 			for (const item of output.items) {
