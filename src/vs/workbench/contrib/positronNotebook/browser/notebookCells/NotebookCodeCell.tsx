@@ -26,7 +26,8 @@ import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { useCellOutputContextMenu } from './useCellOutputContextMenu.js';
+import { useCellContextMenu } from './useCellContextMenu.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 
 
@@ -37,7 +38,10 @@ interface CellOutputsSectionProps {
 
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
-	const { showCellOutputContextMenu } = useCellOutputContextMenu(cell);
+	const { showContextMenu } = useCellContextMenu({
+		cell,
+		menuId: MenuId.PositronNotebookCellOutputActionLeft,
+	});
 	const isSingleDataExplorer = outputs?.length === 1 &&
 		outputs[0].parsed.type === 'dataExplorer';
 
@@ -59,9 +63,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		if (outputs.length === 0) {
 			return;
 		}
-
-		event.preventDefault();
-		showCellOutputContextMenu({ x: event.clientX, y: event.clientY });
+		showContextMenu({ x: event.clientX, y: event.clientY });
 	};
 
 	return (
