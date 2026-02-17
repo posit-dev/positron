@@ -13,7 +13,7 @@ import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
 import path = require('path');
 import fs = require('fs');
-import { log } from './extension.js';
+import { log } from './log.js';
 import { CopilotService } from './copilot.js';
 import { PromptMetadataMode, PromptRenderer } from './promptRender.js';
 

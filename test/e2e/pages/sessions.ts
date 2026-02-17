@@ -764,7 +764,7 @@ export class Sessions {
 
 			// input the new name
 			await expect(sessionTab.getByRole('textbox')).toBeVisible();
-			await this.page.keyboard.type(newName);
+			await sessionTab.getByRole('textbox').fill(newName);
 			await this.page.keyboard.press('Enter');
 		});
 	}

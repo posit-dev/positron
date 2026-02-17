@@ -568,6 +568,40 @@ suite('ChatModelsViewModel', () => {
 		}
 	});
 
+	// --- Start Positron ---
+	// Helper function to add posit-ai vendor and model to an existing service
+	function addPositAiVendor(service: MockLanguageModelsService): void {
+		service.addVendor({
+			vendor: 'posit-ai',
+			displayName: 'Posit AI',
+			configuration: undefined,
+			managementCommand: undefined,
+			when: undefined
+		});
+
+		service.addModel('posit-ai', 'posit-ai-claude', {
+			extension: new ExtensionIdentifier('posit.ai'),
+			id: 'claude-sonnet-4-5',
+			name: 'Claude Sonnet 4.5',
+			family: 'claude',
+			version: '4.5',
+			vendor: 'posit-ai',
+			maxInputTokens: 100000,
+			maxOutputTokens: 4096,
+			modelPickerCategory: { label: 'Posit AI', order: 0 },
+			isUserSelectable: true,
+			capabilities: {
+				toolCalling: true,
+				vision: true,
+				agentMode: true
+			},
+			isDefaultForLocation: {
+				[ChatAgentLocation.Chat]: true
+			}
+		});
+	}
+	// --- End Positron ---
+
 	function createSingleVendorViewModel(includeSecondModel: boolean = true): { service: MockLanguageModelsService; viewModel: ChatModelsViewModel } {
 		const service = new MockLanguageModelsService();
 		service.addVendor({
@@ -669,11 +703,38 @@ suite('ChatModelsViewModel', () => {
 		assert.strictEqual(models[0].model.metadata.id, 'gpt-4o');
 	});
 
+	// --- Start Positron ---
+	/*
 	test('should always place copilot vendor at the top when multiple vendors exist', async () => {
-		// Test with default setup (copilot and openai)
-		let results = viewModel.filter('');
-		let vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
+	*/
+	test('should always place posit-ai vendor at the top', async () => {
+		addPositAiVendor(languageModelsService);
+		await viewModel.refresh();
+		// --- End Positron ---
+
+		const results = viewModel.filter('');
+
+		const vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
+		assert.ok(vendors.length >= 2);
+
+		// --- Start Positron ---
+		/*
+		// First vendor should always be copilot
 		assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'copilot');
+		*/
+		// First vendor should always be posit-ai
+		assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'posit-ai');
+		// --- End Positron ---
+	});
+
+	// --- Start Positron ---
+	/*
+	test('should maintain copilot at top with multiple vendors', async () => {
+	*/
+	test('should maintain posit-ai at top with multiple vendors', async () => {
+		addPositAiVendor(languageModelsService);
+		// --- End Positron ---
+
 
 		// Add more vendors to ensure sorting works correctly
 		languageModelsService.addVendor({
@@ -737,27 +798,55 @@ suite('ChatModelsViewModel', () => {
 		await viewModel.refresh();
 
 		// Test with all filters and searches
-		results = viewModel.filter('');
-		vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
+		let results = viewModel.filter('');
+		let vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
+		// --- Start Positron ---
+		/*
 		assert.strictEqual(vendors.length, 4);
 		assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'copilot');
 		// Other vendors should be alphabetically sorted: anthropic, azure, openai
 		assert.strictEqual(vendors[1].vendorEntry.vendor.vendor, 'anthropic');
 		assert.strictEqual(vendors[2].vendorEntry.vendor.vendor, 'azure');
 		assert.strictEqual(vendors[3].vendorEntry.vendor.vendor, 'openai');
+		*/
+		// Should have 5 vendors: posit-ai, copilot, openai, anthropic, azure
+		assert.strictEqual(vendors.length, 5);
+
+		// First vendor should always be posit-ai
+		assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'posit-ai');
+
+		// Other vendors should be alphabetically sorted: anthropic, azure, copilot, openai
+		assert.strictEqual(vendors[1].vendorEntry.vendor.vendor, 'anthropic');
+		assert.strictEqual(vendors[2].vendorEntry.vendor.vendor, 'azure');
+		assert.strictEqual(vendors[3].vendorEntry.vendor.vendor, 'copilot');
+		assert.strictEqual(vendors[4].vendorEntry.vendor.vendor, 'openai');
+		// --- End Positron ---
 
 		// Test with text search
-		results = viewModel.filter('GPT');
+		// --- Start Positron ---
+		// Change to Claude because Posit AI doesn't have a GPT model
+		results = viewModel.filter('Claude');
+		// --- End Positron ---
 		vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
 		if (vendors.length > 1) {
+			// --- Start Positron ---
+			/*
 			assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'copilot');
+			*/
+			assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'posit-ai');
+			// --- End Positron ---
 		}
 
 		// Test with capability filter
 		results = viewModel.filter('@capability:tools');
 		vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
 		if (vendors.length > 1) {
+			// --- Start Positron ---
+			/*
 			assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'copilot');
+			*/
+			assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'posit-ai');
+			// --- End Positron ---
 		}
 	});
 

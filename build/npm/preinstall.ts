@@ -51,6 +51,7 @@ if (process.platform === 'win32') {
 }
 
 installHeaders();
+installBuildDependencies();
 
 if (process.arch !== os.arch()) {
 	console.error(`\x1b[1;31m*** ARCHITECTURE MISMATCH: The node.js process is ${process.arch}, but your OS architecture is ${os.arch()}. ***\x1b[0;0m`);
@@ -143,6 +144,30 @@ function installHeaders() {
 			}
 		}
 	}
+}
+
+function installBuildDependencies() {
+	const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+	const buildDir = path.join(import.meta.dirname, '..', '..', 'build');
+
+	const env: NodeJS.ProcessEnv = { ...process.env };
+
+
+	// Target the current Node.js version for the build directory
+	env['npm_config_target'] = process.versions.node;
+	env['npm_config_arch'] = process.arch;
+
+	// Force node-gyp to use process.config on macOS
+	if (process.platform === 'darwin') {
+		env['npm_config_force_process_config'] = 'true';
+	}
+
+	console.log('Installing build dependencies...');
+	child_process.execSync(`${npm} ${process.env.npm_command || 'ci'}`, {
+		env,
+		cwd: buildDir,
+		stdio: 'inherit'
+	});
 }
 
 function getHeaderInfo(rcFile: string): { disturl: string; target: string } | undefined {

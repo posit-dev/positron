@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { PropsWithChildren, createContext, useContext } from 'react';
+import { PropsWithChildren, createContext, useContext } from 'react';
 
 // Other dependencies.
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';

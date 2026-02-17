@@ -418,8 +418,15 @@ export class ChatModelsViewModel extends Disposable {
 				};
 			}
 			result.sort((a, b) => {
+				// --- Start Positron ---
+				// Prioritize posit-ai vendor at the top
+				if (a.models[0]?.provider.vendor.vendor === 'posit-ai') { return -1; }
+				if (b.models[0]?.provider.vendor.vendor === 'posit-ai') { return 1; }
+				/*
 				if (a.models[0]?.provider.vendor.isDefault) { return -1; }
 				if (b.models[0]?.provider.vendor.isDefault) { return 1; }
+				*/
+				// --- End Positron ---
 				return a.group.label.localeCompare(b.group.label);
 			});
 		}
@@ -457,8 +464,15 @@ export class ChatModelsViewModel extends Disposable {
 
 	getVendors(): ILanguageModelProviderDescriptor[] {
 		return [...this.languageModelsService.getVendors()].sort((a, b) => {
-			if (a.isDefault) { return -1; }
-			if (b.isDefault) { return 1; }
+			// --- Start Positron ---
+			if (a.vendor === 'posit-ai') { return -1; }
+			if (b.vendor === 'posit-ai') { return 1; }
+			// Don't show Copilot at the top anymore
+			/*
+			if (a.vendor === 'copilot') { return -1; }
+			if (b.vendor === 'copilot') { return 1; }
+			*/
+			// --- End Positron ---
 			return a.displayName.localeCompare(b.displayName);
 		});
 	}

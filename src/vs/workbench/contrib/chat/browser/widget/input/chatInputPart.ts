@@ -130,6 +130,7 @@ import { RuntimeSessionContextAttachmentWidget } from '../../attachments/runtime
 import { RuntimeSessionAttachmentWidget } from '../../chatRuntimeAttachmentWidget.js';
 // eslint-disable-next-line no-duplicate-imports
 import { isResponseVM } from '../../../common/model/chatViewModel.js';
+import { IPositronAssistantConfigurationService } from '../../../../positronAssistant/common/interfaces/positronAssistantService.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -373,6 +374,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private chatSessionPickerContainer: HTMLElement | undefined;
 	private _lastSessionPickerAction: MenuItemAction | undefined;
 	private readonly _waitForPersistedLanguageModel: MutableDisposable<IDisposable> = this._register(new MutableDisposable<IDisposable>());
+	// --- Start Positron ---
+	private _onDidChangeModelList: Emitter<void> = this._register(new Emitter<void>());
+	// --- End Positron ---
 	private readonly _chatSessionOptionEmitters: Map<string, Emitter<IChatSessionProviderOptionItem>> = new Map();
 
 	/**
@@ -518,6 +522,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IViewDescriptorService private readonly viewDescriptorService: IViewDescriptorService,
+		// --- Start Positron ---
+		@IPositronAssistantConfigurationService private readonly positronAssistantConfigService: IPositronAssistantConfigurationService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -634,7 +641,26 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			if (!this.currentLanguageModel || selectedModelNotAvailable) {
 				this.setCurrentLanguageModelToDefault();
 			}
+
+			// --- Start Positron ---
+			// Fire event to notify model picker that the model list has changed
+			this._onDidChangeModelList.fire();
+			// --- End Positron ---
 		}));
+
+		// --- Start Positron ---
+		// Listen for provider enablement configuration changes
+		this._register(this.positronAssistantConfigService.onChangeEnabledProviders(() => {
+			// Provider filtering changed - notify UI
+			this._onDidChangeModelList.fire();
+
+			// May need to switch current model if it's no longer in enabled providers
+			const currentModel = this._currentLanguageModel.get();
+			if (currentModel && !this.positronAssistantConfigService.isProviderEnabled(currentModel.metadata.vendor)) {
+				this.setCurrentLanguageModelToDefault();
+			}
+		}));
+		// --- End Positron ---
 
 		this._register(this.onDidChangeCurrentChatMode(() => {
 			this.accessibilityService.alert(this._currentModeObservable.get().label.get());
@@ -740,7 +766,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			} else {
 				this._waitForPersistedLanguageModel.value = this.languageModelsService.onDidChangeLanguageModels(e => {
 					// --- Start Positron ---
-					// Also search for the model partially and by name.
+					// Also search for the model partially and by name, and only restore if the provider is enabled.
 					/*
 					const persistedModel = this.languageModelsService.lookupLanguageModel(persistedSelection);
 					*/
@@ -757,6 +783,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 								break;
 							}
 						}
+					}
+					// Don't restore the model if its provider is disabled
+					if (persistedModel && !this.positronAssistantConfigService.isProviderEnabled(persistedModel.vendor)) {
+						persistedModel = undefined;
 					}
 					// --- End Positron ---
 
@@ -1101,23 +1131,62 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return !!model.metadata.capabilities?.toolCalling;
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Helper to filter models for user-selectable, mode-supported, and provider-enabled models.
+	 */
+	private filterAvailableModels(models: ILanguageModelChatMetadataAndIdentifier[]): ILanguageModelChatMetadataAndIdentifier[] {
+		return models.filter(entry => {
+			// Must be from an enabled provider
+			if (!this.positronAssistantConfigService.isProviderEnabled(entry.metadata?.vendor)) {
+				return false;
+			}
+			// Must be user-selectable
+			if (!entry.metadata?.isUserSelectable) {
+				return false;
+			}
+			// Must be supported for the current mode/agent
+			if (!this.modelSupportedForDefaultAgent(entry)) {
+				return false;
+			}
+			// Must be supported for inline chat if we're in that context
+			if (!this.modelSupportedForInlineChat(entry)) {
+				return false;
+			}
+			return true;
+		});
+	}
+	// --- End Positron ---
+
 	private getModels(): ILanguageModelChatMetadataAndIdentifier[] {
 		const cachedModels = this.storageService.getObject<ILanguageModelChatMetadataAndIdentifier[]>(CachedLanguageModelsKey, StorageScope.APPLICATION, []);
 		let models = this.languageModelsService.getLanguageModelIds()
 			.map(modelId => ({ identifier: modelId, metadata: this.languageModelsService.lookupLanguageModel(modelId)! }));
 
 		// --- Start Positron ---
-		// Restrict models to the current provider.
-		models = models.filter(entry => entry.metadata?.isUserSelectable && this.modelSupportedForDefaultAgent(entry));
+		// Filter for user-selectable models that are supported in the current mode and enabled via config
+		models = this.filterAvailableModels(models);
 		// --- End Positron ---
 
 		if (models.length === 0 || models.some(m => m.metadata.isDefaultForLocation[this.location]) === false) {
+			// --- Start Positron ---
+			// Apply the same filtering to cached models before using them as fallback
+			/*
 			models = cachedModels;
+			*/
+			models = this.filterAvailableModels(cachedModels);
+			// --- End Positron ---
 		} else {
 			this.storageService.store(CachedLanguageModelsKey, models, StorageScope.APPLICATION, StorageTarget.MACHINE);
 		}
 		models.sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
+		// --- Start Positron ---
+		// Don't re-filter here - we already filtered above
+		/*
 		return models.filter(entry => entry.metadata?.isUserSelectable && this.modelSupportedForDefaultAgent(entry) && this.modelSupportedForInlineChat(entry));
+		*/
+		return models;
+		// --- End Positron ---
 	}
 
 	private setCurrentLanguageModelToDefault() {
@@ -2082,6 +2151,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 					const itemDelegate: IModelPickerDelegate = {
 						currentModel: this._currentLanguageModel,
+						// --- Start Positron ---
+						onDidChangeModelList: this._onDidChangeModelList.event,
+						// --- End Positron ---
 						setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
 							this._waitForPersistedLanguageModel.clear();
 							this.setCurrentLanguageModel(model);

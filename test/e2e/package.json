@@ -8,6 +8,7 @@
     "watch": "npm-run-all -lp watch-e2e"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
     "@aws-sdk/client-s3": "^3.722.0",
     "canvas": "^3.2.0",
     "mkdirp": "^1.0.4",

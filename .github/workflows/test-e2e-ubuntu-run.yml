@@ -38,16 +38,6 @@ on:
         description: "The name of the job as it will appear in the GitHub Actions UI."
         default: "e2e-ubuntu-run"
         type: string
-      currents_tags:
-        required: false
-        description: "The tags to use for Currents recording."
-        default: "@:ubuntu"
-        type: string
-      report_currents:
-        required: false
-        description: "Whether or not to report results to Currents."
-        type: boolean
-        default: true
       install_undetectable_interpreters:
         required: false
         description: "Whether or not to install undetectable interpreters."
@@ -145,7 +135,7 @@ jobs:
           submodules: recursive
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -242,7 +232,7 @@ jobs:
 
       - name: Setup AWS S3 Access for .last-run.json download
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -255,7 +245,7 @@ jobs:
           aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
 
       - name: Restore AWS S3 Access to read-only role
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -300,13 +290,8 @@ jobs:
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
           POSITRON_HIDDEN_R: 4.4.1
-          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
-          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
-          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
           PW_PROJECT_NAME: ${{ inputs.project }}
@@ -382,7 +367,7 @@ jobs:
           node-version: 20
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -468,7 +453,7 @@ jobs:
 
       - name: Setup AWS S3 Access for .last-run.json upload
         if: always()
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}

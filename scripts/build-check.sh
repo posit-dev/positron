@@ -4,8 +4,8 @@
 
 node scripts/deemon-status.mjs \
 	--name watch-client \
-	--begins "Starting compilation" \
-	--ends "Finished compilation" \
+	--begins "Starting compilation\.\.\." \
+	--ends "Finished compilation with" \
 	--command "npm run watch-client" &
 pid1=$!
 
@@ -17,8 +17,8 @@ node scripts/deemon-status.mjs \
 pid2=$!
 
 node scripts/deemon-status.mjs \
-	--begins 'Starting compilation' \
-	--ends 'Watching for file changes' \
+	--begins '\[watch-e2e\] \d+:\d+:\d+ [AP]M - (Starting compilation|File change detected\. Starting incremental compilation)' \
+	--ends '\[watch-e2e\] \d+:\d+:\d+ [AP]M - Found [0-9]+ errors?\. Watching for file changes' \
 	--command "npm run watch-e2e" &
 pid3=$!
 

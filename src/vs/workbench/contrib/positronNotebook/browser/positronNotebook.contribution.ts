@@ -52,6 +52,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
@@ -320,6 +321,9 @@ registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebook
 
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
+
+// Register the prompt that invites users to try the new notebook editor
+registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNotebookPromptContribution, WorkbenchPhase.AfterRestored);
 
 
 

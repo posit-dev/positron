@@ -22,6 +22,11 @@ import { ContextKeyExpression } from '../../../../../platform/contextkey/common/
 import { ILanguageModelsConfigurationService } from '../../common/languageModelsConfiguration.js';
 import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { TestSecretStorageService } from '../../../../../platform/secrets/test/common/testSecretStorageService.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+
+// --- Start Positron ---
+import { TestPositronAssistantConfigurationService } from '../../../../test/common/positronWorkbenchTestServices.js';
+// --- End Positron ---
 
 suite('LanguageModels', function () {
 
@@ -33,6 +38,14 @@ suite('LanguageModels', function () {
 	setup(function () {
 
 		languageModels = new LanguageModelsService(
+			// --- Start Positron ---
+			new TestConfigurationService({
+				'positron.assistant': {
+					filterModels: []
+				}
+			}),
+			new TestPositronAssistantConfigurationService(),
+			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					activationEvents.add(name);
@@ -241,6 +254,10 @@ suite('LanguageModels - When Clause', function () {
 		contextKeyService.createKey('testKey', true);
 
 		languageModelsWithWhen = new LanguageModelsService(
+			new TestConfigurationService(),
+			// --- Start Positron ---
+			new TestPositronAssistantConfigurationService(),
+			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
@@ -299,6 +316,10 @@ suite('LanguageModels - Model Picker Preferences Storage', function () {
 		storageService = new TestStorageService();
 
 		languageModelsService = new LanguageModelsService(
+			// --- Start Positron ---
+			new TestConfigurationService(),
+			new TestPositronAssistantConfigurationService(),
+			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
@@ -535,6 +556,10 @@ suite('LanguageModels - Model Change Events', function () {
 		storageService = new TestStorageService();
 
 		languageModelsService = new LanguageModelsService(
+			// --- Start Positron ---
+			new TestConfigurationService(),
+			new TestPositronAssistantConfigurationService(),
+			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
@@ -823,7 +848,7 @@ suite('LanguageModels - Model Change Events', function () {
 				// Use <= 2 because registerLanguageModelProvider triggers an
 				// extra _resolveAllLanguageModels call (Positron-specific).
 				if (callCount <= 2) {
-				// --- End Positron ---
+					// --- End Positron ---
 					// First calls return initial model
 					return [{
 						metadata: {
@@ -886,6 +911,10 @@ suite('LanguageModels - Vendor Change Events', function () {
 
 	setup(function () {
 		languageModelsService = new LanguageModelsService(
+			// --- Start Positron ---
+			new TestConfigurationService(),
+			new TestPositronAssistantConfigurationService(),
+			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();

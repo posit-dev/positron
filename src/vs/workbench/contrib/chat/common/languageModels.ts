@@ -34,6 +34,11 @@ import { ChatContextKeys } from './actions/chatContextKeys.js';
 import { ChatAgentLocation } from './constants.js';
 import { ILanguageModelsProviderGroup, ILanguageModelsConfigurationService } from './languageModelsConfiguration.js';
 
+// --- Start Positron ---
+import { IPositronAssistantConfigurationService } from '../../positronAssistant/common/interfaces/positronAssistantService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+// --- End Positron ---
+
 export const enum ChatMessageRole {
 	System,
 	User,
@@ -480,9 +485,15 @@ export class LanguageModelsService implements ILanguageModelsService {
 	readonly onDidChangeProviders = this._onDidChangeProviders.event;
 
 	private readonly _providerExtensions = new Map<string, ExtensionIdentifier>();
+	private readonly _currentProviderContextKey: IContextKey<string>;
+	private _isInitialSetup = true;
 	// --- End Positron ---
 
 	constructor(
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IPositronAssistantConfigurationService private readonly _positronAssistantConfigurationService: IPositronAssistantConfigurationService,
+		// --- End Positron ---
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
 		@IStorageService private readonly _storageService: IStorageService,
@@ -503,6 +514,21 @@ export class LanguageModelsService implements ILanguageModelsService {
 			const removedVendors: IUserFriendlyLanguageModel[] = [];
 
 			for (const extension of added) {
+				// --- Start Positron ---
+				// Only auto-set provider during initial setup or if the current provider becomes unavailable
+				if (!this._currentProvider && this._modelCache.size > 0 && this._isInitialSetup) {
+					const availableProviders = this.getLanguageModelProviders();
+					if (availableProviders.length > 0) {
+						this._currentProvider = availableProviders[0];
+						this._onDidChangeCurrentProvider.fire(availableProviders[0].id);
+						// Mark the end of initial setup after first provider is set
+						this._isInitialSetup = false;
+					}
+				}
+
+				// Clear vendor-to-extension mapping when reloading vendors
+				this._providerExtensions.clear();
+				// --- End Positron ---
 				for (const item of Iterable.wrap(extension.value)) {
 					if (this._vendors.has(item.vendor)) {
 						extension.collector.error(localize('vscode.extension.contributes.languageModels.vendorAlreadyRegistered', "The vendor '{0}' is already registered and cannot be registered twice", item.vendor));
@@ -535,6 +561,99 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 			this.deltaLanguageModelChatProviderDescriptors(addedVendors, removedVendors);
 		}));
+
+		// --- Start Positron ---
+		this._store.add(this._onDidChangeProviders.event((event) => {
+			this._logService.trace('[LM] onDidChangeProviders fired', event);
+			const currentProvider = this._currentProvider;
+
+			// Only auto-set provider during initial setup if there's no current provider
+			if (!currentProvider && event.added && event.added.length > 0 && this._isInitialSetup) {
+				// Set the first available enabled provider as current
+				const firstEnabledProvider = event.added.find(p => this._positronAssistantConfigurationService.isProviderEnabled(p));
+				if (firstEnabledProvider) {
+					// Create a proper provider object by looking up the vendor info
+					const vendorInfo = this._vendors.get(firstEnabledProvider);
+					if (vendorInfo) {
+						this._logService.trace('[LM] Auto-setting current provider during initial setup', firstEnabledProvider);
+						this.currentProvider = {
+							id: firstEnabledProvider,
+							displayName: vendorInfo.displayName
+						};
+						// Mark the end of initial setup after first provider is set
+						this._isInitialSetup = false;
+					}
+				}
+			} else if (currentProvider && event.removed && event.removed.includes(currentProvider.id)) {
+				// Only change provider if the current one was actually removed/disposed
+				this._logService.trace('[LM] Current provider was removed, switching to next available', currentProvider.id);
+				const availableProviders = this.getLanguageModelProviders();
+				if (availableProviders.length > 0) {
+					this.currentProvider = availableProviders[0];
+				} else {
+					this.currentProvider = undefined;
+				}
+			}
+
+			// Fire the public language model changed event
+			this._onLanguageModelChange.fire(this.currentProvider?.id || '');
+		}));
+
+		// Restore the current provider from storage, if it exists and is still enabled.
+		const storedCurrentProvider = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
+		if (storedCurrentProvider && this._positronAssistantConfigurationService.isProviderEnabled(storedCurrentProvider.id)) {
+			// Set privately to avoid writing to storage again.
+			this._currentProvider = storedCurrentProvider;
+			this._onDidChangeCurrentProvider.fire(storedCurrentProvider.id);
+			// Mark the end of initial setup since we have a stored provider
+			this._isInitialSetup = false;
+		}
+
+		// Listen for changes to model configuration. The initial filtering and configuration
+		// is done in the Positron Assistant extension when models are resolved.
+		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('positron.assistant.models.include')) {
+				this._logService.trace('[LM] Included models configuration changed, re-resolving language models');
+				this._reResolveLanguageModels();
+			} else if (e.affectsConfiguration('positron.assistant.models.overrides')) {
+				this._logService.trace('[LM] Model overrides configuration changed, re-resolving language models');
+				this._reResolveLanguageModels();
+			} else if (e.affectsConfiguration('positron.assistant.models.preference')) {
+				this._logService.trace('[LM] Model preference configuration changed, re-resolving language models');
+				this._reResolveLanguageModels();
+			}
+		}));
+
+		// Listen for changes to enabled providers and update model cache/current provider accordingly
+		this._store.add(this._positronAssistantConfigurationService.onChangeEnabledProviders(() => {
+			this._logService.trace('[LM] Enabled providers changed, updating model cache and current provider');
+
+			// Clear model cache for providers that are no longer enabled
+			const disabledVendors = Array.from(this._vendors.keys()).filter(v => !this._positronAssistantConfigurationService.isProviderEnabled(v));
+			for (const vendor of disabledVendors) {
+				this._clearModelCache(vendor);
+			}
+
+			// If current provider is no longer enabled, switch to next available or undefined
+			if (this._currentProvider && !this._positronAssistantConfigurationService.isProviderEnabled(this._currentProvider.id)) {
+				this._logService.trace('[LM] Current provider is no longer enabled, switching to next available', this._currentProvider.id);
+				const availableProviders = this.getLanguageModelProviders();
+				this.currentProvider = availableProviders.length > 0 ? availableProviders[0] : undefined;
+			}
+
+			// Fire events so UI can update
+			if (disabledVendors.length > 0) {
+				this._onDidChangeProviders.fire({ removed: disabledVendors });
+			}
+			this._onLanguageModelChange.fire(this._currentProvider?.id || '');
+		}));
+
+		// Track current provider in a context key
+		this._currentProviderContextKey = ChatContextKeys.chatCurrentProvider.bindTo(this._contextKeyService);
+		this._store.add(this.onDidChangeCurrentProvider(e => {
+			this._currentProviderContextKey.set(e || '');
+		}));
+		// --- End Positron ---
 	}
 
 	deltaLanguageModelChatProviderDescriptors(added: IUserFriendlyLanguageModel[], removed: IUserFriendlyLanguageModel[]): void {
@@ -690,6 +809,103 @@ export class LanguageModelsService implements ILanguageModelsService {
 		return Array.from(this._modelCache.keys());
 	}
 
+	// --- Start Positron ---
+	private _reResolveLanguageModels(): void {
+		// Re-resolve all registered providers to apply new configuration
+		const allVendors = Array.from(this._vendors.keys());
+		if (allVendors.length === 0) {
+			return;
+		}
+		const vendorPromises = allVendors.map(
+			vendor => this._resolveAllLanguageModels(vendor, true));
+
+		// After all are resolved, check if the current provider is still valid
+		Promise.all(vendorPromises).then(() => {
+			// if the current provider is no longer available, switch to another available provider
+			const currentProvider = this._currentProvider;
+			const availableProviders = this.getLanguageModelProviders();
+			if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
+				this._logService.trace('[LM] Current provider is no longer available, switching to next available', currentProvider.id);
+				if (availableProviders.length > 0) {
+					this.currentProvider = availableProviders[0];
+				} else {
+					this.currentProvider = undefined;
+				}
+			}
+		});
+	}
+
+	private getSelectedProviderStorageKey(): string {
+		return `chat.currentLanguageProvider`;
+	}
+
+	/**
+	 * Gets the available providers, including their display names. This is done by
+	 * using the current model cache to determine what providers are available.
+	 *
+	 * @returns The available providers with their display names
+	 */
+	getLanguageModelProviders(): IPositronChatProvider[] {
+		const seenProviderIds = new Set<string>();
+		const providers: IPositronChatProvider[] = [];
+
+		for (const model of this._modelCache.values()) {
+			if (seenProviderIds.has(model.vendor) ||
+				// Only consider user-selectable models.
+				!model.isUserSelectable) {
+				continue;
+			}
+
+			// --- Start Positron ---
+			// Filter out disabled providers
+			if (!this._positronAssistantConfigurationService.isProviderEnabled(model.vendor)) {
+				continue;
+			}
+			// --- End Positron ---
+
+			seenProviderIds.add(model.vendor);
+			// Use auth provider label if available, otherwise fall back to vendor display name or id
+			const vendorDescriptor = this._vendors.get(model.vendor);
+			const providerName = model.auth?.providerLabel ?? vendorDescriptor?.displayName;
+
+			providers.push({
+				displayName: providerName ?? model.vendor,
+				id: model.vendor
+			});
+		}
+
+		return providers;
+	}
+
+	getLanguageModelIdsForCurrentProvider() {
+		const currentProvider = this._currentProvider;
+		if (!currentProvider) {
+			return Array.from(this._modelCache.keys());
+		}
+		return Array.from(this._modelCache.entries())
+			.filter(([, model]) => model.vendor === currentProvider.id)
+			.map(([modelId,]) => modelId);
+	}
+
+	get currentProvider(): IPositronChatProvider | undefined {
+		return this._currentProvider;
+	}
+
+	set currentProvider(provider: IPositronChatProvider | undefined) {
+		this._logService.debug(`[LanguageModelsService] Setting current provider to ${provider?.id ?? 'undefined'}`);
+		this._currentProvider = provider;
+		this._onDidChangeCurrentProvider.fire(provider?.id);
+		this._storageService.store(this.getSelectedProviderStorageKey(), provider, StorageScope.APPLICATION, StorageTarget.USER);
+	}
+
+	/**
+	 * Get the extension identifier for a provider vendor.
+	 */
+	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined {
+		return this._providerExtensions.get(vendor);
+	}
+	// --- End Positron ---
+
 	lookupLanguageModel(modelIdentifier: string): ILanguageModelChatMetadata | undefined {
 		const model = this._modelCache.get(modelIdentifier);
 		if (model && this._modelPickerUserPreferences[modelIdentifier] !== undefined) {
@@ -708,6 +924,13 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 
 	private async _resolveAllLanguageModels(vendorId: string, silent: boolean): Promise<void> {
+		// --- Start Positron ---
+		// Skip resolving models for disabled providers
+		if (!this._positronAssistantConfigurationService.isProviderEnabled(vendorId)) {
+			this._logService.trace(`[LM] Skipping model resolution for disabled provider: ${vendorId}`);
+			return;
+		}
+		// --- End Positron ---
 
 		const vendor = this._vendors.get(vendorId);
 
@@ -812,17 +1035,40 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 
 	async selectLanguageModels(selector: ILanguageModelChatSelector): Promise<string[]> {
+		// --- Start Positron ---
+		// Early return if specific vendor requested but disabled
+		if (selector.vendor && !this._positronAssistantConfigurationService.isProviderEnabled(selector.vendor)) {
+			this._logService.trace('[LM] selectLanguageModels: Skipping disabled vendor', selector.vendor);
+			return [];
+		}
+		// --- End Positron ---
 
 		if (selector.vendor) {
 			await this._resolveAllLanguageModels(selector.vendor, true);
 		} else {
+			// --- Start Positron ---
+			/*
 			const allVendors = Array.from(this._vendors.keys());
+			await Promise.all(allVendors.map(vendor => this._resolveAllLanguageModels(vendor, true)));
+			*/
+			// Filter out disabled providers before resolving
+			const allVendors = Array.from(this._vendors.keys()).filter(vendor =>
+				this._positronAssistantConfigurationService.isProviderEnabled(vendor)
+			);
+			// --- End Positron ---
 			await Promise.all(allVendors.map(vendor => this._resolveAllLanguageModels(vendor, true)));
 		}
 
 		const result: string[] = [];
 
 		for (const [internalModelIdentifier, model] of this._modelCache) {
+			// --- Start Positron ---
+			// Skip models from disabled providers
+			if (!this._positronAssistantConfigurationService.isProviderEnabled(model.vendor)) {
+				continue;
+			}
+			// --- End Positron ---
+
 			if ((selector.vendor === undefined || model.vendor === selector.vendor)
 				&& (selector.family === undefined || model.family === selector.family)
 				&& (selector.version === undefined || model.version === selector.version)
@@ -847,10 +1093,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 		}
 
 		this._providers.set(vendor, provider);
-
-		if (this._hasStoredModelForVendor(vendor)) {
-			this._resolveAllLanguageModels(vendor, true);
-		}
 
 		// --- Start Positron ---
 		// Fire the provider change event after models are resolved so UI knows usable providers are available
@@ -1320,25 +1562,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 		await this.addLanguageModelsProviderGroup(name, vendor, configuration);
 	}
-
-	// --- Start Positron ---
-	get currentProvider(): IPositronChatProvider | undefined {
-		return this._currentProvider;
-	}
-
-	set currentProvider(provider: IPositronChatProvider | undefined) {
-		this._currentProvider = provider;
-		this._onDidChangeCurrentProvider.fire(provider?.id);
-	}
-
-	getLanguageModelProviders(): IPositronChatProvider[] {
-		return this.getVendors().map(v => ({ id: v.vendor, displayName: v.displayName }));
-	}
-
-	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined {
-		return this._providerExtensions.get(vendor);
-	}
-	// --- End Positron ---
 
 	dispose() {
 		this._store.dispose();

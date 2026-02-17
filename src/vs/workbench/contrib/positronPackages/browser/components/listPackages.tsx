@@ -9,6 +9,7 @@ import './listPackages.css';
 // React.
 import React, {
 	CSSProperties,
+	useCallback,
 	useEffect,
 	useRef,
 	useState,
@@ -269,6 +270,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		);
 	};
 
+	// Map selected item to package name
+	const getSelectedItemPackageName = useCallback((item: string | undefined) => {
+		return packages.find((pkg) => pkg.id === item)?.name;
+	}, [packages]);
+
 	return (
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 		<div
@@ -287,9 +293,19 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				selectedItem={selectedItem}
 				onInstallPackage={() => services.commandService.executeCommand('positronPackages.installPackage')}
 				onRefreshPackages={() => services.commandService.executeCommand('positronPackages.refreshPackages')}
-				onUninstallPackage={() => services.commandService.executeCommand('positronPackages.uninstallPackage', selectedItem)}
+				onUninstallPackage={() => {
+					const packageName = getSelectedItemPackageName(selectedItem);
+					if (packageName) {
+						services.commandService.executeCommand('positronPackages.uninstallPackage', packageName)
+					}
+				}}
 				onUpdateAllPackages={() => services.commandService.executeCommand('positronPackages.updateAllPackages')}
-				onUpdatePackage={() => services.commandService.executeCommand('positronPackages.updatePackage', selectedItem)}
+				onUpdatePackage={() => {
+					const packageName = getSelectedItemPackageName(selectedItem);
+					if (packageName) {
+						services.commandService.executeCommand('positronPackages.updatePackage', packageName)
+					}
+				}}
 			></ActionBar>
 			<div className='packages-list-container'>
 				<List

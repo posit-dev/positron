@@ -6,9 +6,6 @@
 // CSS.
 import './customContextMenu.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../base/common/platform.js';

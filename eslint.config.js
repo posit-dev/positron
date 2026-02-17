@@ -1997,6 +1997,7 @@ export default tseslint.config(
 						'@vscode/*',
 						'@parcel/*',
 						'@playwright/*',
+						'@anthropic-ai/*', // For LLM evaluation tests
 						'*' // node modules
 					]
 				},
@@ -2015,6 +2016,7 @@ export default tseslint.config(
 						'@parcel/*',
 						'playwright-core/**',
 						'@playwright/*',
+						'@anthropic-ai/*',
 						'*' // node modules
 					]
 				},

@@ -130,8 +130,6 @@ jobs:
       grep: ""
       project: "e2e-electron"
       display_name: "electron"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
@@ -153,8 +151,6 @@ jobs:
       grep: ""
       project: "e2e-windows"
       display_name: "windows"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
-      report_currents: false
       allow_soft_fail: false
       upload_logs: false
       shards: 4
@@ -172,8 +168,6 @@ jobs:
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/ubuntu' || 'chromium/ubuntu' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
@@ -195,8 +189,6 @@ jobs:
       grep: ""
       project: "e2e-electron"
       display_name: "electron (rhel)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/rhel' || 'electron/rhel' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
@@ -214,8 +206,6 @@ jobs:
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (rhel)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/rhel' || 'chromium/rhel' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
@@ -233,8 +223,6 @@ jobs:
       grep: ""
       project: "e2e-electron"
       display_name: "electron (suse)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/suse' || 'electron/suse' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
@@ -252,8 +240,6 @@ jobs:
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (suse)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/suse' || 'chromium/suse' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
@@ -271,8 +257,6 @@ jobs:
       grep: ""
       project: "e2e-electron"
       display_name: "electron (sles)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/sles' || 'electron/sles' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
@@ -290,8 +274,6 @@ jobs:
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (sles)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/sles' || 'chromium/sles' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
@@ -309,8 +291,6 @@ jobs:
       grep: ""
       project: "e2e-electron"
       display_name: "electron (debian)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/debian' || 'electron/debian' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
@@ -328,8 +308,6 @@ jobs:
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (debian)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/debian' || 'chromium/debian' }}
-      report_currents: false
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false

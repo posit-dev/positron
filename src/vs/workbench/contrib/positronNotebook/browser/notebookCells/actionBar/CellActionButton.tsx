@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
 import { CellSelectionType } from '../../selectionMachine.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';

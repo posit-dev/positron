@@ -112,5 +112,9 @@
     {
         "key": "cmd+l f",
         "command": "editor.action.formatDocument" // Format Document
-    }
+    },
+	{
+		"key": "ctrl+shift+g",
+		"command": "workbench.view.scm" // SCM View
+  	}
 ]

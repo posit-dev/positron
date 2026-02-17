@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './dataGridWaffle.css';
 
 // React.
-import React, { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
+import { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
 import { DataGridRow } from './dataGridRow.js';

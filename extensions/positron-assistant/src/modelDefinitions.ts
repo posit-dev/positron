@@ -1,11 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getEnabledProviders } from './config.js';
-import { log } from './extension.js';
+import { getSettingNameForProvider } from './providerMetadata.js';
 
 export interface ModelDefinition {
 	name: string;
@@ -16,35 +15,22 @@ export interface ModelDefinition {
 
 /**
  * Get custom models from VS Code settings for a specific provider.
+ *
+ * Reads from the individual provider setting (models.overrides.<settingName>).
+ * Legacy object-based settings are migrated on startup, so no fallback is needed.
  */
 export function getCustomModels(providerId: string): ModelDefinition[] {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
-	return customModels[providerId] || [];
-}
+	const settingName = getSettingNameForProvider(providerId);
 
-/**
- * Check whether the provider IDs in the custom models are valid providers.
- */
-export async function verifyProvidersInCustomModels() {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
-	const enabledProviders = await getEnabledProviders();
-
-	const invalidProviders = Object.keys(customModels)
-		// Note: 'copilot' is a special case, where we don't support customModels
-		.filter(providerId => !enabledProviders.includes(providerId) || providerId === 'copilot');
-	if (invalidProviders.length === 0) {
-		return;
+	if (settingName) {
+		const individualModels = config.get<ModelDefinition[]>(`models.overrides.${settingName}`);
+		if (individualModels && individualModels.length > 0) {
+			return individualModels;
+		}
 	}
 
-	const message = vscode.l10n.t('Custom models contain unsupported providers: {0}. Please review your configuration for \'positron.assistant.models.custom\'', invalidProviders.map(p => `'${p}'`).join(', '));
-	log.warn(message);
-	const settingsAction = vscode.l10n.t('Open Settings');
-	const selectedAction = await vscode.window.showWarningMessage(message, settingsAction);
-	if (selectedAction === settingsAction) {
-		await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.models.custom');
-	}
+	return [];
 }
 
 /**
