@@ -12,26 +12,46 @@ interface StatementRangeParams {
 	position: Position;
 }
 
-interface StatementRangeResponse {
-	range: Range;
-	code?: string;
+type StatementRangeResponse = StatementRange | StatementRangeRejection;
+
+interface StatementRange {
+	/**
+	 * The kind of statement range result. Always provided by Ark.
+	 */
+	readonly kind: 'success';
+
+	/**
+	 * The range of the statement at the given position.
+	 */
+	readonly range: Range;
+
+	/**
+	 * The code for this statement range, if different from the document contents at this range.
+	 */
+	readonly code?: string;
 }
 
-type StatementRangeError = StatementRangeParseError;
+type StatementRangeRejection = StatementRangeParseRejection;
 
-interface StatementRangeParseError {
+interface StatementRangeParseRejection {
+	/**
+	 * The kind of statement range result.
+	 */
+	readonly kind: 'rejection';
+
+	/**
+	 * The kind of rejection.
+	 */
+	readonly rejectionKind: 'parse';
+
 	/**
 	 * A 0-indexed line number where the parse error occurred.
 	 */
-	line: number;
-}
-
-const enum StatementRangeErrorCode {
-	Parse = 1,
+	readonly line: number;
 }
 
 export namespace StatementRangeRequest {
-	export const type: RequestType<StatementRangeParams, StatementRangeResponse | undefined, StatementRangeError> = new RequestType('positron/textDocument/statementRange');
+	export const type: RequestType<StatementRangeParams, StatementRangeResponse | undefined, any> = new RequestType('positron/textDocument/statementRange');
 }
 
 /**
@@ -59,32 +79,38 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 			position: this._client.code2ProtocolConverter.asPosition(position)
 		};
 
-		let data: StatementRangeResponse | undefined;
-
-		try {
-			data = await this._client.sendRequest(StatementRangeRequest.type, params, token);
-		} catch (err) {
-			// Try casting to known specific error type
-			if (err instanceof ResponseError && err.code === StatementRangeErrorCode.Parse) {
-				const errData = err.data as StatementRangeParseError;
-				return {
-					kind: 'rejection',
-					rejectionKind: 'parse',
-					line: errData.line,
-				} satisfies positron.StatementRangeParseRejection;
-			}
-
-			// Otherwise rethrow the arbitrary error
-			throw err;
-		}
+		let data = await this._client.sendRequest(StatementRangeRequest.type, params, token);
 
 		if (!data) {
 			return undefined;
 		}
 
-		const range = this._client.protocol2CodeConverter.asRange(data.range);
-		// Explicitly normalize non-strings to `undefined` (i.e. a possible `null`)
-		const code = typeof data.code === 'string' ? data.code : undefined;
-		return { range: range, code: code } satisfies positron.StatementRange;
+		switch (data.kind) {
+			case 'success': {
+				return {
+					kind: data.kind,
+					range: this._client.protocol2CodeConverter.asRange(data.range),
+					// Explicitly normalize non-strings to `undefined` (i.e. a possible `null`)
+					code: typeof data.code === 'string' ? data.code : undefined
+				} satisfies positron.StatementRange;
+			}
+			case 'rejection': {
+				switch (data.rejectionKind) {
+					case 'parse': return {
+						kind: data.kind,
+						rejectionKind: data.rejectionKind,
+						line: data.line
+					} satisfies positron.StatementRangeParseRejection;
+					default: {
+						// Unknown `rejectionKind`
+						return undefined;
+					}
+				}
+			}
+			default: {
+				// Unknown `kind`
+				return undefined;
+			}
+		}
 	}
 }
