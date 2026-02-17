@@ -37,7 +37,7 @@ function internals(controller: PositronNotebookFindController): any {
 
 /** Gets the find instance, asserting it exists. */
 function getFindInstance(controller: PositronNotebookFindController): PositronFindInstance {
-	const fi = internals(controller)._findInstance;
+	const fi = controller.findInstance;
 	assert.ok(fi, 'Find instance should exist (call controller.start() first)');
 	return fi;
 }
@@ -706,9 +706,9 @@ suite('PositronNotebookFindController', () => {
 			const controller = getController(notebook);
 
 			controller.start();
-			const fi1 = internals(controller)._findInstance;
+			const fi1 = controller.findInstance;
 			controller.start();
-			const fi2 = internals(controller)._findInstance;
+			const fi2 = controller.findInstance;
 			assert.strictEqual(fi1, fi2, 'Should reuse same find instance');
 		});
 
@@ -921,7 +921,7 @@ suite('PositronNotebookFindController', () => {
 
 			// Should not throw
 			controller.hide();
-			assert.strictEqual(internals(controller)._findInstance, undefined);
+			assert.strictEqual(controller.findInstance, undefined);
 		});
 	});
 });

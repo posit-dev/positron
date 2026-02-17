@@ -49,6 +49,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	private _findInstance: PositronFindInstance | undefined;
 
 	/**
+	 * The find instance, if it has been created.
+	 * Lazily created on the first call to `start()`.
+	 */
+	public get findInstance(): PositronFindInstance | undefined {
+		return this._findInstance;
+	}
+
+	/**
 	 * Tracks whether the find widget was visible before the view was detached.
 	 * Used to restore visibility when the view is reattached.
 	 */

@@ -19,7 +19,7 @@ The plan calls for verifying that two notebook instances keep independent match 
 The `internals()` helper casts the controller to `any` to access `_findInstance`, `_matches`, `_currentMatch`, `research()`, and `_notebookContentChangedScheduler`. This couples tests to private implementation details and breaks if internals are renamed or restructured.
 
 Private members accessed:
-- `_findInstance` — to set search params (reactive tests) and read visibility/focus state
+- ~~`_findInstance` — to set search params (reactive tests) and read visibility/focus state~~ **Done**: exposed as public `findInstance` getter on the controller
 - ~~`_matches` / `_currentMatch` — to read match state for assertions~~ **Done**: exposed as public `IObservable` properties on the controller
 - `research()` — to trigger synchronous search (direct API tests)
 - `_notebookContentChangedScheduler` — to simulate content change debounce (see #3)
