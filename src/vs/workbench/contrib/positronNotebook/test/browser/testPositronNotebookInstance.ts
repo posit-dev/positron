@@ -4,20 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { autorun } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ICellDto2 } from '../../../notebook/common/notebookCommon.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { MockNotebookCell } from '../../../notebook/test/browser/testNotebookEditor.js';
-import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 import { positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
 
 // Editor imports
-import { instantiateTestCodeEditor, ITestCodeEditor } from '../../../../../editor/test/browser/testCodeEditor.js';
-import { IModelDecoration, ITextBuffer, ITextBufferFactory } from '../../../../../editor/common/model.js';
+import { instantiateTestCodeEditor } from '../../../../../editor/test/browser/testCodeEditor.js';
+import { IModelDecoration, ITextBuffer, ITextBufferFactory, ITextModel } from '../../../../../editor/common/model.js';
 import { Selection } from '../../../../../editor/common/core/selection.js';
 
 // Editor services required for TestCodeEditor
@@ -31,58 +31,20 @@ import { LanguageFeaturesService } from '../../../../../editor/common/services/l
 import { ITreeSitterLibraryService } from '../../../../../editor/common/services/treeSitter/treeSitterLibraryService.js';
 import { TestTreeSitterLibraryService } from '../../../../../editor/test/common/services/testTreeSitterLibraryService.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { PositronNotebookCellGeneral } from '../../browser/PositronNotebookCells/PositronNotebookCell.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/modesRegistry.js';
 
-class TestPositronNotebookEditor extends Disposable {
-	constructor(
-		public readonly notebook: IPositronNotebookInstance,
-		public readonly instantiationService: IInstantiationService,
-	) {
-		super();
-	}
-
+/**
+ * Test subclass of PositronNotebookInstance that exposes disposable registration.
+ * This allows test infrastructure to register disposables (editors, text models, etc.)
+ * with the notebook's lifecycle.
+ */
+export class TestPositronNotebookInstance extends PositronNotebookInstance {
 	registerDisposable(disposable: IDisposable): void {
 		this._register(disposable);
 	}
-
-	// TODO: Could we automate when this is called?... e.g. when the cell goes into edit mode?
-	//       should this be handled in react today at all?
-	attachTestEditorToCell(
-		cell: IPositronNotebookCell,
-	): ITestCodeEditor {
-		if (!(cell instanceof PositronNotebookCellGeneral)) {
-			throw new Error('attachTestEditorToCell only supports PositronNotebookCellGeneral cells');
-		}
-
-		// Create text model directly from cell's textBuffer.
-		const textModel = this._register(this.instantiationService.invokeFunction(accessor => {
-			const modelService = accessor.get(IModelService);
-			const languageService = accessor.get(ILanguageService);
-			const languageSelection = languageService.createById(
-				languageService.getLanguageIdByLanguageName(cell.model.language) ?? PLAINTEXT_LANGUAGE_ID
-			);
-
-			const bufferFactory: ITextBufferFactory = {
-				create: (_defaultEOL) => ({
-					textBuffer: cell.model.textBuffer as ITextBuffer,
-					disposable: Disposable.None,
-				}),
-				getFirstLineText: (limit: number) =>
-					cell.model.textBuffer.getLineContent(1).substring(0, limit),
-			};
-			return modelService.createModel(bufferFactory, languageSelection, cell.uri);
-			// NotebookTextModel.onModelAdded automatically sets cell.model.textModel = textModel
-		}));
-
-		const editor = this._register(instantiateTestCodeEditor(this.instantiationService, textModel));
-		cell.attachEditor(editor);
-		return editor;
-	}
 }
-
 
 // ============================================================================
 // Instantiation Service
@@ -130,12 +92,13 @@ function cellToDto(cell: MockNotebookCell): ICellDto2 {
 
 /**
  * Test utility for creating a PositronNotebookInstance with test infrastructure.
+ * Editors are automatically attached to all cells (initial and dynamically added).
  *
  * @param cells Array of cell data in shorthand format
  */
 export function createTestPositronNotebookEditor(
 	cells: MockNotebookCell[],
-): TestPositronNotebookEditor {
+): TestPositronNotebookInstance {
 	const disposables = new DisposableStore();
 
 	// Use positronNotebookInstantiationService which includes editor services
@@ -144,16 +107,16 @@ export function createTestPositronNotebookEditor(
 	// Create the notebook instance
 	const viewType = 'jupyter-notebook';
 	const uri = URI.parse('test:///test/notebook.ipynb');
-	const notebook = disposables.add(PositronNotebookInstance.getOrCreate(
+	const notebook = instantiationService.createInstance(
+		TestPositronNotebookInstance,
 		'test-unique-id',
 		uri,
 		viewType,
 		undefined, // creationOptions
-		instantiationService
-	));
+	);
+	notebook.registerDisposable(disposables);
 
-	// TODO: This is copy pasted from PositronNotebookEditor.tsx -- can we directly create an editor instead?
-	//       or otherwise refactor to not need a dom node?...
+	// Attach view with DOM containers
 	const editorContainer = document.createElement('div');
 	const notebookContainer = document.createElement('div');
 	const overlayContainer = document.createElement('div');
@@ -179,10 +142,42 @@ export function createTestPositronNotebookEditor(
 	));
 	notebook.setModel(model);
 
-	const editor = new TestPositronNotebookEditor(notebook, instantiationService);
-	editor.registerDisposable(disposables);
+	// Auto-attach test editors to all cells (initial and dynamically added).
+	// This mirrors what React's CellEditorMonacoWidget does in production.
+	const attachedCells = new WeakSet<IPositronNotebookCell>();
+	notebook.registerDisposable(autorun(reader => {
+		const currentCells = notebook.cells.read(reader);
+		for (const cell of currentCells) {
+			if (!attachedCells.has(cell)) {
+				attachedCells.add(cell);
+				const textModel = disposables.add(instantiationService.invokeFunction(createTestNotebookCellTextModel, cell));
+				const editor = disposables.add(instantiateTestCodeEditor(instantiationService, textModel));
+				cell.attachEditor(editor);
+				// NotebookTextModel.onModelAdded automatically sets cell.model.textModel = textModel
+			}
+		}
+	}));
 
-	return editor;
+	return notebook;
+}
+
+function createTestNotebookCellTextModel(accessor: ServicesAccessor, cell: IPositronNotebookCell): ITextModel {
+	// Create text model directly from cell's textBuffer.
+	const modelService = accessor.get(IModelService);
+	const languageService = accessor.get(ILanguageService);
+	const languageSelection = languageService.createById(
+		languageService.getLanguageIdByLanguageName(cell.model.language) ?? PLAINTEXT_LANGUAGE_ID
+	);
+
+	const bufferFactory: ITextBufferFactory = {
+		create: (_defaultEOL) => ({
+			textBuffer: cell.model.textBuffer as ITextBuffer,
+			disposable: Disposable.None,
+		}),
+		getFirstLineText: (limit: number) =>
+			cell.model.textBuffer.getLineContent(1).substring(0, limit),
+	};
+	return modelService.createModel(bufferFactory, languageSelection, cell.uri);
 }
 
 // ============================================================================

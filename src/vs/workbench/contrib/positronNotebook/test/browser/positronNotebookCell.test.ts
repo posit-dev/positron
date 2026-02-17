@@ -6,23 +6,22 @@
 import * as assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { createTestPositronNotebookEditor } from './testPositronNotebookEditor.js';
+import { createTestPositronNotebookEditor } from './testPositronNotebookInstance.js';
 
 suite('PositronNotebookCell', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('attach test editor to test notebook cell', () => {
-		const editor = disposables.add(createTestPositronNotebookEditor(
+	test('cells have editors auto-attached', () => {
+		const notebook = disposables.add(createTestPositronNotebookEditor(
 			[['print("hello")', 'python', CellKind.Code]],
 		));
-		const { notebook } = editor;
 
 		const cell = notebook.cells.get()[0];
+		assert.ok(cell.currentEditor, 'Cell should have an auto-attached editor');
 
-		const cellEditor = editor.attachTestEditorToCell(cell);
-		const editorModel = cellEditor.getModel();
+		const editorModel = cell.currentEditor.getModel();
+		assert.ok(editorModel, 'Cell editor should have a model');
 
-		assert.strictEqual(cell.currentEditor, cellEditor, 'Cell should have the attached editor');
 		assert.strictEqual(cell.getContent(), editorModel.getValue(), 'Cell content should match editor model value');
 		assert.strictEqual(cell.model.textModel, editorModel, 'Cell model should be the editor model');
 		// eslint-disable-next-line local/code-no-any-casts

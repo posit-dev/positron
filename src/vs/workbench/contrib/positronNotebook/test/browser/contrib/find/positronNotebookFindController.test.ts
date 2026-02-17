@@ -14,13 +14,13 @@ import {
 	getFindMatchDecorations,
 	getCellSelection,
 	createTestPositronNotebookEditor,
-} from '../../testPositronNotebookEditor.js';
+} from '../../testPositronNotebookInstance.js';
 
 suite('PositronNotebookFindController', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('controller is instantiated with notebook instance', () => {
-		const { notebook } = disposables.add(createTestPositronNotebookEditor(
+		const notebook = disposables.add(createTestPositronNotebookEditor(
 			[
 				['print("hello world")', 'python', CellKind.Code],
 				['# Markdown cell', 'markdown', CellKind.Markup],
@@ -38,17 +38,13 @@ suite('PositronNotebookFindController', () => {
 	});
 
 	test('finds matches across cells with correct decorations', async () => {
-		const editor = disposables.add(createTestPositronNotebookEditor(
+		const notebook = disposables.add(createTestPositronNotebookEditor(
 			[
 				['match here', 'typescript', CellKind.Code],
 				['no hit', 'typescript', CellKind.Code],
 				['another match', 'typescript', CellKind.Code],
 			],
 		));
-		const { notebook } = editor;
-
-		// Attach editors to all cells
-		notebook.cells.get().forEach(cell => disposables.add(editor.attachTestEditorToCell(cell)));
 
 		// Start find and search
 		const controller = PositronNotebookFindController.get(notebook)!;

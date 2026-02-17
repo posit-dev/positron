@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 import * as assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { createTestPositronNotebookEditor } from './testPositronNotebookEditor.js';
+import { createTestPositronNotebookEditor } from './testPositronNotebookInstance.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 
 suite('PositronNotebookInstance', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('notebook has cells from notebook text model', () => {
-		const { notebook } = disposables.add(createTestPositronNotebookEditor(
+		const notebook = disposables.add(createTestPositronNotebookEditor(
 			[
 				['print("hello")', 'python', CellKind.Code],
 				['print("world")', 'python', CellKind.Code],
