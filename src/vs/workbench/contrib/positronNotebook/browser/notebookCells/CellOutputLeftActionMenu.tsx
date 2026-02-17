@@ -52,7 +52,7 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 		}
 
 		setIsMenuOpen(true);
-		showContextMenu(buttonRef.current, () => setIsMenuOpen(false));
+		showContextMenu(buttonRef.current, undefined, () => setIsMenuOpen(false));
 	};
 
 	// Don't render if the cell has no outputs
