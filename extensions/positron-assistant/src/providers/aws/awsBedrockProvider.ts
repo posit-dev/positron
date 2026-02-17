@@ -327,12 +327,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 					provider: 'Amazon Bedrock',
 					profile,
 					region,
-					setupInstructions: vscode.l10n.t(
-						'Set up credentials by running one of these commands in the terminal:\n\n' +
-						'- `aws configure --profile {0}`\n' +
-						'- `aws sso login --profile {0}`',
-						profile
-					)
 				});
 			}
 		}

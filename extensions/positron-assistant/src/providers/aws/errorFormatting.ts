@@ -39,7 +39,6 @@ export const ErrorTemplates = {
 		provider: string;
 		profile?: string;
 		region?: string;
-		setupInstructions: string;
 	}): string {
 		const profileContext = params.profile
 			? ` for profile '${params.profile}'`
@@ -48,14 +47,22 @@ export const ErrorTemplates = {
 			? ` in region '${params.region}'`
 			: '';
 
+		let awsArgs = '';
+		if (params.profile) {
+			awsArgs += ` --profile ${params.profile}`;
+		}
+		if (params.region) {
+			awsArgs += ` --region ${params.region}`;
+		}
+
 		return vscode.l10n.t(
 			'{0} authentication failed{1}{2}.\n\n' +
-			'{3}\n\n' +
-			'You can [choose a different profile or region]({4}) in Settings, or [open a terminal](command:workbench.action.terminal.new) to configure them manually.',
+			'To login, [open a terminal](command:workbench.action.terminal.new) and run `aws sso login {3}`.\n\n' +
+			'You can also [choose a different profile or region]({4}) in Settings.',
 			params.provider,
 			profileContext,
 			regionContext,
-			params.setupInstructions,
+			awsArgs,
 			createSettingsUri(AWS_PROVIDER_SETTING_ID)
 		);
 	},
