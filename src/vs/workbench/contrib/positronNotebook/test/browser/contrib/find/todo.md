@@ -26,19 +26,8 @@ The `internals()` helper casts the controller to `any` to access `_findInstance`
 
 Private members accessed:
 - `_findInstance` — to set search params (reactive tests) and read visibility/focus state
-- `_matches` / `_currentMatch` — to read match state for assertions
+- ~~`_matches` / `_currentMatch` — to read match state for assertions~~ **Done**: exposed as public `IObservable` properties on the controller
 - `research()` — to trigger synchronous search (direct API tests)
 - `_notebookContentChangedScheduler` — to simulate content change debounce (see #3)
 
-**Fix**: Create a `TestPositronNotebookFindController` subclass that exposes the needed members, similar to how `TestPositronNotebookInstance` extends `PositronNotebookInstance`. For example:
-
-```typescript
-export class TestPositronNotebookFindController extends PositronNotebookFindController {
-    get findInstance() { return this._findInstance; }
-    get matches() { return this._matches; }
-    get currentMatch() { return this._currentMatch; }
-    doResearch(...args) { return this.research(...args); }
-}
-```
-
-Register this subclass in the test contribution registry instead of the production one, or provide a factory that returns the test subclass. This keeps the production class encapsulated while giving tests a stable, typed API.
+**Fix**: For the remaining private accesses, create a `TestPositronNotebookFindController` subclass or expose additional public API as appropriate.

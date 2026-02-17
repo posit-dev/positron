@@ -85,14 +85,14 @@ function getMatchIndex(controller: PositronNotebookFindController): number | und
 	return getFindInstance(controller).matchIndex.get();
 }
 
-/** Read all matches from controller internal state. */
+/** Read all matches from controller state. */
 function getMatches(controller: PositronNotebookFindController): PositronCellFindMatch[] {
-	return internals(controller)._matches.get();
+	return controller.matches.get();
 }
 
-/** Read current match from controller internal state. */
+/** Read current match from controller state. */
 function getCurrentMatch(controller: PositronNotebookFindController): CurrentPositronCellMatch | undefined {
-	return internals(controller)._currentMatch.get();
+	return controller.currentMatch.get();
 }
 
 /** Select a cell to make it the active cell (required before navigation). */
