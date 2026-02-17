@@ -7,10 +7,10 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { createTestPositronNotebookEditor } from './testPositronNotebookEditor.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 
-suite('Test Positron Notebook Editor', () => {
+suite('PositronNotebookInstance', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('test notebook instance has cells from notebook text model', () => {
+	test('notebook has cells from notebook text model', () => {
 		const { notebook } = disposables.add(createTestPositronNotebookEditor(
 			[
 				['print("hello")', 'python', CellKind.Code],
