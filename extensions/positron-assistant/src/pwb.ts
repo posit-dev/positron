@@ -15,12 +15,21 @@ import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 export interface ManagedCredentialConfig {
 	/** Display name for the credential type shown to users */
 	readonly displayName: string;
-	/** Environment variable name that indicates managed credentials are available */
-	readonly envVar: string;
-	/** Validator function to confirm the env var value for managed credentials */
-	readonly validator: (value: string) => boolean;
+	/** Environment variable name that indicates managed credentials are available.
+	 *  Optional when authProvider is set. */
+	readonly envVar?: string;
+	/** Validator function to confirm the env var value for managed credentials.
+	 *  Required when envVar is set. */
+	readonly validator?: (value: string) => boolean;
 	/** Optional provider variable configuration key for VS Code settings */
 	readonly providerVariableKey?: string;
+	/** VS Code auth provider for token-based credentials (bearer tokens).
+	 *  When set, a successful getSession() is the availability signal
+	 *  instead of (or in addition to) the env var check. */
+	readonly authProvider?: {
+		readonly id: string;
+		readonly scopes: string[];
+	};
 }
 
 /**
@@ -41,6 +50,18 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
 	envVar: 'SNOWFLAKE_HOME',
 	providerVariableKey: 'snowflake',
 	validator: (value: string) => value.includes('posit-workbench'),
+};
+
+/**
+ * Azure OpenAI managed credentials configuration for Posit Workbench.
+ * Uses the VS Code auth provider instead of environment variables.
+ */
+export const AZURE_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
+	displayName: 'Azure OpenAI (Workbench)',
+	authProvider: {
+		id: 'posit-workbench',
+		scopes: ['azure-cognitiveservices'],
+	},
 };
 
 /**
@@ -74,27 +95,54 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 		return { configured: false };
 	}
 
-	// Check for managed credentials using the provided config
-	let tokenEnv = process.env[credentialConfig.envVar];
+	// Auth provider path: check for VS Code auth session availability
+	if (credentialConfig.authProvider) {
+		try {
+			const session = await vscode.authentication.getSession(
+				credentialConfig.authProvider.id,
+				credentialConfig.authProvider.scopes,
+				{ createIfNone: false, silent: true }
+			);
+			if (!session) {
+				log.debug(`[${displayName}] Auth provider session not available`);
+				return { configured: false };
+			}
 
-	// Also check provider variables if configured
-	if (!tokenEnv && credentialConfig.providerVariableKey) {
-		const configSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<Record<string, any>>(credentialConfig.providerVariableKey, {});
-		tokenEnv = configSettings[credentialConfig.envVar];
-		log.debug(`[${displayName}] Checked provider variables for ${credentialConfig.envVar}: ${tokenEnv ? 'found' : 'not found'}`);
+			log.info(`[${displayName}] Auto-configuring with auth provider credentials`);
+			return {
+				configured: true,
+				message: credentialConfig.displayName,
+			};
+		} catch (e) {
+			log.debug(`[${displayName}] Auth provider check failed: ${e instanceof Error ? e.message : String(e)}`);
+			return { configured: false };
+		}
 	}
 
-	if (!tokenEnv || !credentialConfig.validator(tokenEnv)) {
-		log.debug(`[${displayName}] Managed credentials not available: ${credentialConfig.envVar}=${tokenEnv ? 'set but invalid' : 'not set'}`);
-		return { configured: false };
+	// Env var path (existing behavior for AWS/Snowflake)
+	if (credentialConfig.envVar) {
+		let tokenEnv = process.env[credentialConfig.envVar];
+
+		// Also check provider variables if configured
+		if (!tokenEnv && credentialConfig.providerVariableKey) {
+			const configSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<Record<string, any>>(credentialConfig.providerVariableKey, {});
+			tokenEnv = configSettings[credentialConfig.envVar];
+			log.debug(`[${displayName}] Checked provider variables for ${credentialConfig.envVar}: ${tokenEnv ? 'found' : 'not found'}`);
+		}
+
+		if (!tokenEnv || !credentialConfig.validator?.(tokenEnv)) {
+			log.debug(`[${displayName}] Managed credentials not available: ${credentialConfig.envVar}=${tokenEnv ? 'set but invalid' : 'not set'}`);
+			return { configured: false };
+		}
+
+		log.info(`[${displayName}] Auto-configuring with managed credentials`);
+		return {
+			configured: true,
+			message: credentialConfig.displayName
+		};
 	}
 
-	log.info(`[${displayName}] Auto-configuring with managed credentials`);
-
-	return {
-		configured: true,
-		message: credentialConfig.displayName
-	};
+	return { configured: false };
 }
 
 /**

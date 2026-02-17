@@ -27,9 +27,11 @@ import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { resetAssistantState } from './reset.js';
 import { performSettingsMigrations } from './providerMigration.js';
-import { disposeModels, registerModels, registerModelsForProvider } from './modelRegistration';
+import { addAutoconfiguredModel, disposeModels, getAutoconfiguredModels, registerModelWithAPI, registerModels, registerModelsForProvider } from './modelRegistration';
+import { getModelProviders } from './providers/index.js';
 import { registerPositAuthProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_METADATA } from './providerMetadata.js';
+import { ModelConfig } from './configTypes.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -242,6 +244,66 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
 	await validateProvidersEnabled();
 }
 
+/**
+ * Registers a listener for deferred Azure autoconfigure.
+ * Handles the case where the Workbench extension activates after
+ * Positron Assistant's initial autoconfigure pass.
+ */
+function registerDeferredAzureAutoconfigure(context: vscode.ExtensionContext) {
+	log.debug('[Azure] Registering deferred autoconfigure listener for onDidChangeSessions');
+	context.subscriptions.push(
+		vscode.authentication.onDidChangeSessions(async (e) => {
+			log.debug(`[Azure] onDidChangeSessions fired for provider: ${e.provider.id}`);
+			if (e.provider.id !== 'posit-workbench') {
+				return;
+			}
+
+			// Skip if Azure is already autoconfigured
+			const existingModels = getAutoconfiguredModels();
+			if (existingModels.some(m => m.provider === PROVIDER_METADATA.azure.id)) {
+				return;
+			}
+
+			// Attempt deferred autoconfigure for Azure
+			const azureProvider = getModelProviders().find(
+				p => p.source.provider.id === PROVIDER_METADATA.azure.id
+			);
+			if (!azureProvider?.autoconfigure) {
+				return;
+			}
+
+			try {
+				const result = await azureProvider.autoconfigure();
+				if (!result.configured) {
+					return;
+				}
+
+				const modelConfig: ModelConfig = {
+					id: azureProvider.source.provider.id,
+					provider: azureProvider.source.provider.id,
+					type: positron.PositronLanguageModelType.Chat,
+					name: azureProvider.source.provider.displayName,
+					model: azureProvider.source.defaults.model,
+					apiKey: '', // Placeholder -- bearer token auth, not API key
+					toolCalls: azureProvider.source.defaults.toolCalls,
+					completions: azureProvider.source.defaults.completions,
+					autoconfigure: {
+						type: positron.ai.LanguageModelAutoconfigureType.Custom,
+						message: result.message,
+						signedIn: true,
+					},
+				};
+
+				await registerModelWithAPI(modelConfig, context);
+				addAutoconfiguredModel(modelConfig);
+				log.info('[Azure] Deferred autoconfigure succeeded after Workbench extension activated');
+			} catch (e) {
+				log.warn(`[Azure] Deferred autoconfigure registration failed: ${e instanceof Error ? e.message : String(e)}`);
+			}
+		})
+	);
+}
+
 function registerAssistant(context: vscode.ExtensionContext) {
 	// Register Posit AI authentication provider
 	registerPositAuthProvider(context);
@@ -257,6 +319,15 @@ function registerAssistant(context: vscode.ExtensionContext) {
 		.then(() => {
 			// After initialization, register models
 			return registerModels(context);
+		})
+		.then(() => {
+			// Register deferred autoconfigure for Workbench managed Azure credentials.
+			// The Workbench extension may activate after this extension's initial
+			// autoconfigure pass, so we listen for auth session changes.
+			registerDeferredAzureAutoconfigure(context);
+		})
+		.catch((e) => {
+			log.error(`[Azure] Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
 
 	// Track opened files for completion context
