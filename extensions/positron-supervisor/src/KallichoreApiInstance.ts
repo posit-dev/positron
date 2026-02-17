@@ -9,7 +9,6 @@ import { createHttpAgent } from './NamedPipeHttpAgent.js';
 import { KallichoreServerState } from './ServerState.js';
 import axios, { AxiosInstance } from 'axios';
 
-import * as http from 'http';
 import * as os from 'os';
 
 export enum KallichoreTransport {
@@ -87,6 +86,12 @@ export class KallichoreApiInstance {
 			// revisited in the future if we support remote connections.
 			proxy: false as const,
 
+			// Disable redirects. Kallichore is a local server that never
+			// redirects, and this bypasses the follow-redirects middleware
+			// in axios, avoiding extra buffering and potential write
+			// errors on the underlying socket.
+			maxRedirects: 0,
+
 			// Include the bearer token auth on each request
 			headers: {
 				Authorization: `Bearer ${state.bearer_token}`
@@ -95,21 +100,6 @@ export class KallichoreApiInstance {
 
 		let basePath = state.base_path;
 		let axiosInstance: AxiosInstance | undefined;
-
-		// Handle Unix domain socket connections on non-Windows platforms
-		// We need to create a custom HTTP agent with keepAlive disabled to ensure
-		// connections are properly closed after each request. This prevents
-		// "error shutting down connection" errors on the server side when using
-		// the default keep-alive behavior.
-		if (this._transport === KallichoreTransport.UnixSocket && state.socket_path) {
-			const httpAgent = new http.Agent({
-				keepAlive: false
-			});
-			axiosInstance = axios.create({
-				httpAgent: httpAgent,
-				...baseOptions
-			});
-		}
 
 		// Handle named pipe connections specially on Windows
 		if (this._transport === KallichoreTransport.NamedPipe && state.named_pipe && os.platform() === 'win32') {

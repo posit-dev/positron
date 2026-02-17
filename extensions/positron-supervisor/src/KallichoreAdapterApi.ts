@@ -993,9 +993,22 @@ export class KCApi implements PositronSupervisorApi {
 					}
 				}
 
-				// Rethrow the error for the caller to handle. Use a summary to
-				// unroll AggregateErrors.
-				throw new Error(summarizeError(err));
+				// Log the error; use a summary to unroll aggregate errors like
+				// AggregateError
+				const errorSummary = summarizeError(err);
+				this.log(`Failed to create session '${sessionMetadata.sessionId}': ${errorSummary}`);
+				if (err.stack) {
+					this.log(`Stack trace: ${err.stack}`);
+				}
+				if (err.cause) {
+					this.log(`Caused by: ${summarizeError(err.cause)}`);
+					if (err.cause.stack) {
+						this.log(`Stack trace: ${err.cause.stack}`);
+					}
+				}
+
+				// Rethrow the error for the caller to handle.
+				throw new Error(errorSummary);
 			}
 		}
 

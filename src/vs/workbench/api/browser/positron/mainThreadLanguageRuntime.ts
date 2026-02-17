@@ -711,10 +711,15 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				this._startupEmitter.fire(info);
 				resolve(info);
 			}).catch((err) => {
+				// Combine error details and stack trace if both are present
+				const errorDetails = `${err.details ? err.details : ''}${err.stack ? '\n\n' + err.stack : ''}`;
 				// Examine the error object to see what kind of failure it is
-				if (err.message && err.details) {
+				if (err.message && errorDetails) {
 					// We have an error message and details; use both
-					this._startupFailureEmitter.fire(err satisfies ILanguageRuntimeStartupFailure);
+					this._startupFailureEmitter.fire({
+						message: err.message,
+						details: errorDetails
+					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else if (err.message && err.errors) {
 					// There are multiple errors (AggregateError)
@@ -728,21 +733,21 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 					// We have a name and a message.
 					this._startupFailureEmitter.fire({
 						message: err.name,
-						details: err.message
+						details: err.message + (errorDetails ? '\n\n' + errorDetails : '')
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else if (err.message) {
 					// We only have a message.
 					this._startupFailureEmitter.fire({
 						message: err.message,
-						details: ''
+						details: errorDetails
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else {
 					// Not an error object, or it doesn't have a message; just use the string
 					this._startupFailureEmitter.fire({
 						message: err.toString(),
-						details: ''
+						details: errorDetails
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err);
 				}
