@@ -47,8 +47,11 @@ export class TestPositronNotebookInstance extends PositronNotebookInstance {
  * Creates an instantiation service for Positron notebook tests.
  * Extends positronWorkbenchInstantiationService with editor services
  * required for attaching TestCodeEditor instances to cells.
+ *
+ * Exported so that multi-instance tests can share a single service
+ * (avoiding disposable-tracking conflicts from duplicate global singletons).
  */
-function positronNotebookInstantiationService(
+export function positronNotebookInstantiationService(
 	disposables: DisposableStore
 ): TestInstantiationService {
 	const instantiationService = positronWorkbenchInstantiationService(disposables);
@@ -80,19 +83,37 @@ function cellToDto(cell: MockNotebookCell): ICellDto2 {
 }
 
 /**
- * Test utility for creating a PositronNotebookInstance with test infrastructure.
- * Editors are automatically attached to all cells (initial and dynamically added).
+ * Convenience function: creates both the instantiation service and the notebook
+ * instance. Use this for single-instance tests.
  *
- * @param cells Array of cell data in shorthand format
+ * For multi-instance tests (where two notebooks must coexist), create a shared
+ * service with {@link positronNotebookInstantiationService} and call
+ * {@link instantiateTestNotebookInstance} directly.
  */
-export function createTestPositronNotebookEditor(
+export function createTestPositronNotebookInstance(
 	cells: MockNotebookCell[],
 ): TestPositronNotebookInstance {
 	const disposables = new DisposableStore();
-
-	// Use positronNotebookInstantiationService which includes editor services
 	const instantiationService = positronNotebookInstantiationService(disposables);
+	const notebook = instantiateTestNotebookInstance(cells, instantiationService, disposables);
+	return notebook;
+}
 
+/**
+ * Lower-level factory: creates a PositronNotebookInstance using an existing
+ * instantiation service. Editors are automatically attached to all cells
+ * (initial and dynamically added).
+ *
+ * @param cells Array of cell data in shorthand format
+ * @param instantiationService Pre-built service (from {@link positronNotebookInstantiationService})
+ * @param disposables Store that owns service-lifetime disposables; the notebook
+ *                    takes ownership via {@link TestPositronNotebookInstance.registerDisposable}.
+ */
+export function instantiateTestNotebookInstance(
+	cells: MockNotebookCell[],
+	instantiationService: TestInstantiationService,
+	disposables: DisposableStore,
+): TestPositronNotebookInstance {
 	// Create the notebook instance
 	const viewType = 'jupyter-notebook';
 	const uri = URI.parse('test:///test/notebook.ipynb');

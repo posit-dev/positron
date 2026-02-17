@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
-import { createTestPositronNotebookEditor } from './testPositronNotebookInstance.js';
+import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 
 suite('PositronNotebookCell', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -14,7 +14,7 @@ suite('PositronNotebookCell', () => {
 	/** Tests to ensure that the test harness is correctly setup, useful for debugging */
 	suite('Test Harness', () => {
 		test('cells have editors auto-attached', () => {
-			const notebook = disposables.add(createTestPositronNotebookEditor(
+			const notebook = disposables.add(createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],
 			));
 
@@ -31,7 +31,7 @@ suite('PositronNotebookCell', () => {
 		});
 
 		test('setValue propagates through the content change event chain', () => {
-			const notebook = disposables.add(createTestPositronNotebookEditor(
+			const notebook = disposables.add(createTestPositronNotebookInstance(
 				[['original content', 'python', CellKind.Code]],
 			));
 

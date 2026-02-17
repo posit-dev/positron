@@ -18,7 +18,7 @@ import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CurrentPositronCellMatch, PositronCellFindMatch, PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
-import { createTestPositronNotebookEditor, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
+import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
 
 /** Gets the find instance, asserting it exists. */
 function getFindInstance(controller: PositronNotebookFindController): PositronFindInstance {
@@ -94,7 +94,7 @@ suite('PositronNotebookFindController', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	function createNotebook(cells: [string, string, CellKind][]): TestPositronNotebookInstance {
-		return disposables.add(createTestPositronNotebookEditor(cells));
+		return disposables.add(createTestPositronNotebookInstance(cells));
 	}
 
 	function getController(notebook: TestPositronNotebookInstance): PositronNotebookFindController {
