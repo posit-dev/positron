@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
@@ -35,6 +35,54 @@ import { PositronNotebookCellGeneral } from '../../browser/PositronNotebookCells
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/modesRegistry.js';
+
+class TestPositronNotebookEditor extends Disposable {
+	constructor(
+		public readonly notebook: IPositronNotebookInstance,
+		public readonly instantiationService: IInstantiationService,
+	) {
+		super();
+	}
+
+	registerDisposable(disposable: IDisposable): void {
+		this._register(disposable);
+	}
+
+	// TODO: Could we automate when this is called?... e.g. when the cell goes into edit mode?
+	//       should this be handled in react today at all?
+	attachTestEditorToCell(
+		cell: IPositronNotebookCell,
+	): ITestCodeEditor {
+		if (!(cell instanceof PositronNotebookCellGeneral)) {
+			throw new Error('attachTestEditorToCell only supports PositronNotebookCellGeneral cells');
+		}
+
+		// Create text model directly from cell's textBuffer.
+		const textModel = this._register(this.instantiationService.invokeFunction(accessor => {
+			const modelService = accessor.get(IModelService);
+			const languageService = accessor.get(ILanguageService);
+			const languageSelection = languageService.createById(
+				languageService.getLanguageIdByLanguageName(cell.model.language) ?? PLAINTEXT_LANGUAGE_ID
+			);
+
+			const bufferFactory: ITextBufferFactory = {
+				create: (_defaultEOL) => ({
+					textBuffer: cell.model.textBuffer as ITextBuffer,
+					disposable: Disposable.None,
+				}),
+				getFirstLineText: (limit: number) =>
+					cell.model.textBuffer.getLineContent(1).substring(0, limit),
+			};
+			return modelService.createModel(bufferFactory, languageSelection, cell.uri);
+			// NotebookTextModel.onModelAdded automatically sets cell.model.textModel = textModel
+		}));
+
+		const editor = this._register(instantiateTestCodeEditor(this.instantiationService, textModel));
+		cell.attachEditor(editor);
+		return editor;
+	}
+}
+
 
 // ============================================================================
 // Instantiation Service
@@ -84,146 +132,57 @@ function cellToDto(cell: MockNotebookCell): ICellDto2 {
  * Test utility for creating a PositronNotebookInstance with test infrastructure.
  *
  * @param cells Array of cell data in shorthand format
- * @param callback Test function that receives the notebook instance
- * @returns Result from the callback
- *
- * @example
- * ```typescript
- * await withTestPositronNotebook(
- *   [
- *     ['print("hello")', 'python', CellKind.Code],
- *     ['# Markdown', 'markdown', CellKind.Markup],
- *   ],
- *   async (notebook) => {
- *     const controller = PositronNotebookFindController.get(notebook);
- *     assert.ok(controller);
- *   }
- * );
- * ```
  */
-export async function withTestPositronNotebook<R = unknown>(
+export function createTestPositronNotebookEditor(
 	cells: MockNotebookCell[],
-	callback: (
-		notebook: IPositronNotebookInstance,
-		instantiationService: TestInstantiationService,
-	) => Promise<R> | R,
-): Promise<R> {
+): TestPositronNotebookEditor {
 	const disposables = new DisposableStore();
 
-	try {
-		// Use positronNotebookInstantiationService which includes editor services
-		const instantiationService = positronNotebookInstantiationService(disposables);
+	// Use positronNotebookInstantiationService which includes editor services
+	const instantiationService = positronNotebookInstantiationService(disposables);
 
-		// Create the notebook instance
-		const viewType = 'jupyter-notebook';
-		const uri = URI.parse('test:///test/notebook.ipynb');
-		const notebook = disposables.add(PositronNotebookInstance.getOrCreate(
-			'test-unique-id',
-			uri,
-			viewType,
-			undefined, // creationOptions
-			instantiationService
-		));
+	// Create the notebook instance
+	const viewType = 'jupyter-notebook';
+	const uri = URI.parse('test:///test/notebook.ipynb');
+	const notebook = disposables.add(PositronNotebookInstance.getOrCreate(
+		'test-unique-id',
+		uri,
+		viewType,
+		undefined, // creationOptions
+		instantiationService
+	));
 
-		// TODO: This is copy pasted from PositronNotebookEditor.tsx -- can we directly create an editor instead?
-		//       or otherwise refactor to not need a dom node?...
-		const editorContainer = document.createElement('div');
-		const notebookContainer = document.createElement('div');
-		const overlayContainer = document.createElement('div');
-		editorContainer.appendChild(notebookContainer);
-		editorContainer.appendChild(overlayContainer);
-		const scopedContextKeyService = instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		notebook.attachView(editorContainer, scopedContextKeyService, notebookContainer, overlayContainer);
+	// TODO: This is copy pasted from PositronNotebookEditor.tsx -- can we directly create an editor instead?
+	//       or otherwise refactor to not need a dom node?...
+	const editorContainer = document.createElement('div');
+	const notebookContainer = document.createElement('div');
+	const overlayContainer = document.createElement('div');
+	editorContainer.appendChild(notebookContainer);
+	editorContainer.appendChild(overlayContainer);
+	const scopedContextKeyService = instantiationService.get(IContextKeyService).createScoped(editorContainer);
+	notebook.attachView(editorContainer, scopedContextKeyService, notebookContainer, overlayContainer);
 
-		// Create the notebook text model directly
-		const cellDtos = cells.map((cell) => cellToDto(cell));
-		const model = disposables.add(instantiationService.createInstance(
-			NotebookTextModel,
-			viewType,
-			uri,
-			cellDtos,
-			{}, // metadata
-			{
-				transientCellMetadata: {},
-				transientDocumentMetadata: {},
-				cellContentMetadata: {},
-				transientOutputs: false,
-			}
-		));
-		notebook.setModel(model);
+	// Create the notebook text model directly
+	const cellDtos = cells.map((cell) => cellToDto(cell));
+	const model = disposables.add(instantiationService.createInstance(
+		NotebookTextModel,
+		viewType,
+		uri,
+		cellDtos,
+		{}, // metadata
+		{
+			transientCellMetadata: {},
+			transientDocumentMetadata: {},
+			cellContentMetadata: {},
+			transientOutputs: false,
+		}
+	));
+	notebook.setModel(model);
 
-		// Run the test callback
-		const result = await callback(notebook, instantiationService);
+	const editor = new TestPositronNotebookEditor(notebook, instantiationService);
+	editor.registerDisposable(disposables);
 
-		return result;
-	} finally {
-		disposables.dispose();
-	}
-}
-
-// ============================================================================
-// Test Code Editor Attachment
-// ============================================================================
-
-/**
- * Attaches a test code editor to a notebook cell.
- * Creates a TextModel directly from the cell's textBuffer, mirroring what
- * CellContentProvider.provideTextContent() does in production (notebook.contribution.ts:411-425)
- * but without going through the ITextModelService resolution chain which has
- * test service wiring issues.
- *
- * @param cell The notebook cell to attach the editor to
- * @param instantiationService The instantiation service (from withTestPositronNotebook)
- * @returns The test code editor
- */
-export function attachTestEditorToCell(
-	cell: IPositronNotebookCell,
-	instantiationService: IInstantiationService,
-): ITestCodeEditor {
-	if (!(cell instanceof PositronNotebookCellGeneral)) {
-		throw new Error('attachTestEditorToCell only supports PositronNotebookCellGeneral cells');
-	}
-
-	// Create text model directly from cell's textBuffer.
-	const textModel = instantiationService.invokeFunction(accessor => {
-		const modelService = accessor.get(IModelService);
-		const languageService = accessor.get(ILanguageService);
-		const languageSelection = languageService.createById(
-			languageService.getLanguageIdByLanguageName(cell.model.language) ?? PLAINTEXT_LANGUAGE_ID
-		);
-
-		const bufferFactory: ITextBufferFactory = {
-			create: (_defaultEOL) => ({
-				textBuffer: cell.model.textBuffer as ITextBuffer,
-				disposable: Disposable.None,
-			}),
-			getFirstLineText: (limit: number) =>
-				cell.model.textBuffer.getLineContent(1).substring(0, limit),
-		};
-		return modelService.createModel(bufferFactory, languageSelection, cell.uri);
-		// NotebookTextModel.onModelAdded automatically sets cell.model.textModel = textModel
-	});
-
-	const editor = instantiateTestCodeEditor(instantiationService, textModel);
-	editor.registerDisposable(textModel);
-	cell.attachEditor(editor);
 	return editor;
-}
-
-/**
- * Attaches test code editors to all cells in a notebook.
- *
- * @param notebook The notebook instance
- * @param instantiationService The instantiation service
- * @returns Array of test code editors, one per cell (in cell order)
- */
-export function attachTestEditorsToAllCells(
-	notebook: IPositronNotebookInstance,
-	instantiationService: IInstantiationService,
-): ITestCodeEditor[] {
-	return notebook.cells.get().map(cell =>
-		attachTestEditorToCell(cell, instantiationService)
-	);
 }
 
 // ============================================================================
