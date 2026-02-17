@@ -2045,13 +2045,18 @@ export interface StatementRangeProvider {
 	 * Provide the statement that contains the given position.
 	 */
 	provideStatementRange(model: model.ITextModel, position: Position, token: CancellationToken):
-		ProviderResult<IStatementRange | IStatementRangeError>;
+		ProviderResult<IStatementRange | IStatementRangeRejection>;
 }
 
 /**
  * The range of a statement, plus optionally the code for the range.
  */
 export interface IStatementRange {
+	/**
+	 * The kind of statement range result. If not provided, assumed to be a success.
+	 */
+	readonly kind?: 'success';
+
 	/**
 	 * The range of the statement at the given position.
 	 */
@@ -2064,13 +2069,18 @@ export interface IStatementRange {
 
 }
 
-export type IStatementRangeError = IStatementRangeParseError;
+export type IStatementRangeRejection = IStatementRangeParseRejection;
 
-export interface IStatementRangeParseError {
+export interface IStatementRangeParseRejection {
 	/**
-	 * The kind of error thrown.
+	 * The kind of statement range result.
 	 */
-	readonly error: 'parse';
+	readonly kind: 'rejection';
+
+	/**
+	 * The kind of rejection.
+	 */
+	readonly rejectionKind: 'parse';
 
 	/**
 	 * A 0-indexed line number where the parse error occurred.

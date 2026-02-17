@@ -52,7 +52,7 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 		document: vscode.TextDocument,
 		position: vscode.Position,
 		token: vscode.CancellationToken
-	): Promise<positron.StatementRange | positron.StatementRangeError | undefined> {
+	): Promise<positron.StatementRange | positron.StatementRangeRejection | undefined> {
 
 		const params: StatementRangeParams = {
 			textDocument: this._client.code2ProtocolConverter.asVersionedTextDocumentIdentifier(document),
@@ -68,9 +68,10 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 			if (err instanceof ResponseError && err.code === StatementRangeErrorCode.Parse) {
 				const errData = err.data as StatementRangeParseError;
 				return {
-					error: 'parse',
+					kind: 'rejection',
+					rejectionKind: 'parse',
 					line: errData.line,
-				} satisfies positron.StatementRangeParseError;
+				} satisfies positron.StatementRangeParseRejection;
 			}
 
 			// Otherwise rethrow the arbitrary error

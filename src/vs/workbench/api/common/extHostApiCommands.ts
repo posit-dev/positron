@@ -544,24 +544,30 @@ const newCommands: ApiCommand[] = [
 	new ApiCommand(
 		'vscode.executeStatementRangeProvider', '_executeStatementRangeProvider', 'Execute statement range provider.',
 		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
-		new ApiCommandResult<languages.IStatementRange | languages.IStatementRangeError, positron.StatementRange | positron.StatementRangeError | undefined>('A promise that resolves to a statement range or statement range error.', result => {
-			if ('error' in result) {
-				switch (result.error) {
-					case 'parse': return {
-						error: result.error,
-						line: result.line
-					} as positron.StatementRangeParseError;
-					default: {
-						// Unknown typed error variant
-						return undefined;
-					}
-				}
-			} else {
+		new ApiCommandResult<languages.IStatementRange | languages.IStatementRangeRejection, positron.StatementRange | positron.StatementRangeRejection | undefined>('A promise that resolves to a statement range or statement range rejection.', result => {
+			if (result.kind === undefined || result.kind === 'success') {
 				return {
 					range: typeConverters.Range.to(result.range),
 					code: result.code
-				} as positron.StatementRange;
+				} satisfies positron.StatementRange;
 			}
+
+			if (result.kind === 'rejection') {
+				switch (result.rejectionKind) {
+					case 'parse': return {
+						kind: result.kind,
+						rejectionKind: result.rejectionKind,
+						line: result.line
+					} satisfies positron.StatementRangeParseRejection;
+					default: {
+						// Unknown `rejectionKind`
+						return undefined;
+					}
+				}
+			}
+
+			// Unknown `kind`
+			return undefined;
 		})
 	),
 	// -- show help topic

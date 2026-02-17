@@ -1922,9 +1922,9 @@ class StatementRangeAdapter {
 	 * @param resource The URI of the document to search
 	 * @param pos The position to search at
 	 * @param token The cancellation token (currently unused)
-	 * @returns A promise that resolves to the statement range plus optionally the range's code
+	 * @returns A promise that resolves to the statement range plus optionally the range's code, or a rejection.
 	 */
-	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<languages.IStatementRange | languages.IStatementRangeError | undefined> {
+	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<languages.IStatementRange | languages.IStatementRangeRejection | undefined> {
 		const document = this._documents.getDocument(resource);
 		const position = typeConvert.Position.to(pos);
 
@@ -1934,27 +1934,33 @@ class StatementRangeAdapter {
 			return undefined;
 		}
 
-		if ('error' in result) {
-			switch (result.error) {
+		if (result.kind === undefined || result.kind === 'success') {
+			if (!Range.isRange(result.range)) {
+				return undefined;
+			}
+
+			return {
+				range: typeConvert.Range.from(result.range),
+				code: result.code,
+			} satisfies languages.IStatementRange;
+		}
+
+		if (result.kind === 'rejection') {
+			switch (result.rejectionKind) {
 				case 'parse': return {
-					error: result.error,
+					kind: result.kind,
+					rejectionKind: result.rejectionKind,
 					line: result.line
-				} as languages.IStatementRangeParseError;
+				} satisfies languages.IStatementRangeParseRejection;
 				default: {
-					// Unknown typed error variant
+					// Unknown `rejectionKind`
 					return undefined;
 				}
 			}
 		}
 
-		if (!Range.isRange(result.range)) {
-			return undefined;
-		}
-
-		return {
-			range: typeConvert.Range.from(result.range),
-			code: result.code,
-		} as languages.IStatementRange;
+		// Unknown `kind`
+		return undefined;
 	}
 }
 
@@ -2963,7 +2969,7 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 		return this._createDisposable(handle);
 	}
 
-	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<languages.IStatementRange | languages.IStatementRangeError | undefined> {
+	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<languages.IStatementRange | languages.IStatementRangeRejection | undefined> {
 		return this._withAdapter(handle, StatementRangeAdapter, adapter => adapter.provideStatementRange(URI.revive(resource), position, token), undefined, token);
 	}
 
