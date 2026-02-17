@@ -1699,13 +1699,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		if (newHeight !== this.heightInPx && this._zoneId) {
 			this.heightInPx = newHeight;
 
-			// Update the zone height
+			// Use layoutZone to update the height in-place without
+			// removing and re-adding the zone (which causes flicker)
 			this._editor.changeViewZones(accessor => {
-				accessor.removeZone(this._zoneId!);
-				this._zoneId = accessor.addZone(this);
+				accessor.layoutZone(this._zoneId!);
 			});
-			// Re-apply width after zone is re-added
-			this._applyWidth();
 		} else if (!this._zoneId) {
 			this.heightInPx = newHeight;
 		}
