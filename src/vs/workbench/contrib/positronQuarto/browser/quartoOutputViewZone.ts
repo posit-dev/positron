@@ -1679,6 +1679,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	private _updateHeight(): void {
+		// When Monaco scrolls the view zone off-screen, it sets display:none on
+		// our domNode. offsetHeight returns 0 in that state, which would
+		// incorrectly shrink the whitespace to MIN_VIEW_ZONE_HEIGHT. On the
+		// next scroll back, the whitespace would jump from 24px to the real
+		// height, causing a large scroll displacement. Skip measurement when
+		// the domNode is hidden to preserve the correct height.
+		if (!this.domNode.offsetHeight) {
+			return;
+		}
+
 		// Measure the styled container's height (content + padding + border, but not margin)
 		const styledHeight = this._styledContainer.offsetHeight;
 
