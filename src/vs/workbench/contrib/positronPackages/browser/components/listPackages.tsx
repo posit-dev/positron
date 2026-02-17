@@ -226,8 +226,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							getActions: () => [
 								{
 									id: 'copy',
-									label: localize('positronPackages.copyPackage', "Copy '{0}'", name),
-									tooltip: localize('positronPackages.copyPackage', "Copy '{0}'", name),
+									label: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
+									tooltip: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
 									class: undefined,
 									enabled: true,
 									run: () => services.clipboardService.writeText(`${name} (${version})`)
