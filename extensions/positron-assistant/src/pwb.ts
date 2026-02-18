@@ -95,28 +95,18 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 		return { configured: false };
 	}
 
-	// Auth provider path: check for VS Code auth session availability
+	// Auth provider path: on PWB with an auth provider configured, trust that
+	// the Workbench extension will supply tokens on demand. We skip the
+	// getSession() check here because VS Code's per-extension authorization
+	// layer may block silent session access before the user has approved it.
+	// The provider-specific autoconfigure (e.g. AzureModelProvider) performs
+	// additional validation (Workbench settings) before returning configured.
 	if (credentialConfig.authProvider) {
-		try {
-			const session = await vscode.authentication.getSession(
-				credentialConfig.authProvider.id,
-				credentialConfig.authProvider.scopes,
-				{ createIfNone: false, silent: true }
-			);
-			if (!session) {
-				log.debug(`[${displayName}] Auth provider session not available`);
-				return { configured: false };
-			}
-
-			log.info(`[${displayName}] Auto-configuring with auth provider credentials`);
-			return {
-				configured: true,
-				message: credentialConfig.displayName,
-			};
-		} catch (e) {
-			log.debug(`[${displayName}] Auth provider check failed: ${e instanceof Error ? e.message : String(e)}`);
-			return { configured: false };
-		}
+		log.info(`[${displayName}] Auto-configuring with auth provider credentials (on PWB)`);
+		return {
+			configured: true,
+			message: credentialConfig.displayName,
+		};
 	}
 
 	// Env var path (existing behavior for AWS/Snowflake)
