@@ -1428,10 +1428,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		editorContainer: HTMLElement
 	) {
 		this.detachView();
-		this.container.set(container, undefined);
 		this._scopedContextKeyService = scopedContextKeyService;
 		this._scopedInstantiationService.value = this._instantiationService.createChild(
 			new ServiceCollection([IContextKeyService, scopedContextKeyService]));
+		// Set container last -- contributions react to this observable, and they
+		// may need scopedContextKeyService to already be available.
+		this.container.set(container, undefined);
 		this._overlayContainer = overlayContainer;
 		this.contextManager.setContainer(editorContainer);
 
