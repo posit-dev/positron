@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -56,6 +56,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	// Runtime metadata for the new folder
 	private _runtimeMetadata: ILanguageRuntimeMetadata | undefined;
 
+	// Pending promise for _createPythonEnvironment. If a second caller
+	// arrives while creation is in progress, it awaits the same promise
+	// instead of silently failing.
+	private _pendingPythonEnvCreation: Promise<boolean> | undefined;
+
 	// Add a single log prefix for notebook-startup related messages
 	private readonly _nbLogPrefix = '[New folder notebook]';
 
@@ -109,8 +114,8 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		this._newFolderConfig = this._parseNewFolderConfig();
 
 		if (!this.isCurrentWindowNewFolder()) {
-			// If no new folder configuration is found, the new folder startup
-			// is complete
+			// This window is not the new folder window, so initialization is
+			// already complete.
 			this.initTasksComplete.open();
 		} else {
 			// If new folder configuration is found, save the runtime metadata.
@@ -238,27 +243,65 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	 * Runs tasks that require the extension service to be ready.
 	 */
 	private async _runExtensionTasks() {
-		// TODO: it would be nice to run these tasks in parallel!
+		// Map from FolderTemplate to the language NewFolderTask that sets it
+		// up. Used to skip file creation when the relevant language task
+		// fails. Git is intentionally absent - a Git init failure should not
+		// prevent file creation.
+		const templateToLanguageTask = new Map<FolderTemplate, NewFolderTask>([
+			[FolderTemplate.PythonProject, NewFolderTask.Python],
+			[FolderTemplate.JupyterNotebook, NewFolderTask.Jupyter],
+			[FolderTemplate.RProject, NewFolderTask.R],
+		]);
 
-		// First, create the new empty file since this is a quick task.
-		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
-			await this._runCreateNewFile();
-		}
-
-		// Next, run git init if needed.
+		// Collect environment tasks to run in parallel. We store the
+		// task enum value and a factory function so that all promises
+		// are created together at the `Promise.allSettled` call site.
+		const environmentTasks: { task: NewFolderTask; run: () => Promise<void> }[] = [];
 		if (this.pendingInitTasks.has(NewFolderTask.Git)) {
-			await this._runGitInit();
+			environmentTasks.push({ task: NewFolderTask.Git, run: () => this._runGitInit() });
 		}
-
-		// Next, run language-specific tasks which may take a bit more time.
-		if (this.pendingInitTasks.has(NewFolderTask.Python)) {
-			await this._runPythonTasks();
+		const hasPython = this.pendingInitTasks.has(NewFolderTask.Python);
+		const hasJupyter = this.pendingInitTasks.has(NewFolderTask.Jupyter);
+		if (hasPython && hasJupyter) {
+			this._logService.error(
+				'[New folder startup] Both Python and Jupyter tasks are pending; ' +
+				'only one language task per folder template is supported. Skipping Jupyter.'
+			);
+			this._removePendingInitTask(NewFolderTask.Jupyter);
 		}
-		if (this.pendingInitTasks.has(NewFolderTask.Jupyter)) {
-			await this._runJupyterTasks();
+		if (hasPython) {
+			environmentTasks.push({ task: NewFolderTask.Python, run: () => this._runPythonTasks() });
+		} else if (hasJupyter) {
+			environmentTasks.push({ task: NewFolderTask.Jupyter, run: () => this._runJupyterTasks() });
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
-			await this._runRTasks();
+			environmentTasks.push({ task: NewFolderTask.R, run: () => this._runRTasks() });
+		}
+
+		const results = await Promise.allSettled(environmentTasks.map(t => t.run()));
+		const failedTasks = new Set<NewFolderTask>();
+		for (let i = 0; i < results.length; i++) {
+			if (results[i].status === 'rejected') {
+				const { task } = environmentTasks[i];
+				failedTasks.add(task);
+				this._logService.error(`[New folder startup] ${task} task failed:`, (results[i] as PromiseRejectedResult).reason);
+			}
+		}
+
+		// Create the new file last because opening a language file triggers a
+		// language encounter; doing it after the environment tasks ensures the
+		// correct interpreter is affiliated. Skip file creation if the
+		// relevant language task failed, since the interpreter won't be set up.
+		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
+			const template = this._newFolderConfig?.folderTemplate as FolderTemplate | undefined;
+			const relevantTask = template !== undefined ? templateToLanguageTask.get(template) : undefined;
+			const languageTaskFailed = relevantTask !== undefined && failedTasks.has(relevantTask);
+			if (languageTaskFailed) {
+				this._logService.warn('[New folder startup] Skipping file creation because the language environment task failed');
+				this._removePendingInitTask(NewFolderTask.CreateNewFile);
+			} else {
+				await this._runCreateNewFile();
+			}
 		}
 	}
 
@@ -296,7 +339,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	private async _runPythonTasks() {
 		// Create the Python environment
 		if (this.pendingInitTasks.has(NewFolderTask.PythonEnvironment)) {
-			await this._createPythonEnvironment();
+			const success = await this._createPythonEnvironment();
+			if (!success) {
+				this._removePendingInitTask(NewFolderTask.Python);
+				throw new Error('Python environment creation failed');
+			}
 		}
 
 		// Add pyproject.toml file if requested
@@ -318,7 +365,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		// some UI in the New Folder Flow for the user to select the language/kernel and pass that
 		// metadata to the new folder configuration.
 		if (this.pendingInitTasks.has(NewFolderTask.PythonEnvironment)) {
-			await this._createPythonEnvironment();
+			const success = await this._createPythonEnvironment();
+			if (!success) {
+				this._removePendingInitTask(NewFolderTask.Jupyter);
+				throw new Error('Jupyter environment creation failed');
+			}
 		}
 
 		// Complete the Jupyter task
@@ -431,8 +482,28 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	/**
 	 * Creates the Python environment.
 	 * Relies on extension ms-python.python
+	 *
+	 * NOTE: This method writes to `_runtimeMetadata`. It is called by both
+	 * `_runPythonTasks` and `_runJupyterTasks`, which may run in parallel.
+	 * `_runExtensionTasks` enforces that only one of these tasks runs at a
+	 * time (Python OR Jupyter, never both). If a concurrent call arrives
+	 * anyway, it awaits the in-progress creation rather than failing.
 	 */
-	private async _createPythonEnvironment() {
+	private _createPythonEnvironment(): Promise<boolean> {
+		if (this._pendingPythonEnvCreation) {
+			this._logService.warn(
+				'[New folder startup] _createPythonEnvironment called concurrently; awaiting in-progress creation'
+			);
+			return this._pendingPythonEnvCreation;
+		}
+		this._pendingPythonEnvCreation = this._createPythonEnvironmentCore()
+			.finally(() => {
+				this._pendingPythonEnvCreation = undefined;
+			});
+		return this._pendingPythonEnvCreation;
+	}
+
+	private async _createPythonEnvironmentCore(): Promise<boolean> {
 		if (this._newFolderConfig) {
 			const provider = this._newFolderConfig.pythonEnvProviderId;
 			if (provider && provider.length > 0) {
@@ -451,7 +522,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					this._logService.error(message);
 					this._notificationService.warn(message);
 					this._removePendingInitTask(NewFolderTask.PythonEnvironment);
-					return;
+					return false;
 				}
 
 				// Ensure the Python interpreter path is available. This is the global Python
@@ -463,7 +534,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					this._logService.error(message);
 					this._notificationService.warn(message);
 					this._removePendingInitTask(NewFolderTask.PythonEnvironment);
-					return;
+					return false;
 				}
 
 				// Create the Python environment
@@ -517,7 +588,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					);
 					this._notificationService.warn(message);
 					this._removePendingInitTask(NewFolderTask.PythonEnvironment);
-					return;
+					return false;
 				}
 
 				// Set the runtime metadata for the new folder, whether it's undefined or not.
@@ -534,7 +605,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 
 				this._removePendingInitTask(NewFolderTask.PythonEnvironment);
 
-				return;
+				return true;
 			}
 		} else {
 			// This shouldn't occur.
@@ -542,8 +613,10 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			this._logService.error(message);
 			this._notificationService.warn(message);
 			this._removePendingInitTask(NewFolderTask.PythonEnvironment);
-			return;
+			return false;
 		}
+		// No provider configured - no environment was created.
+		return false;
 	}
 
 	/**
@@ -943,6 +1016,8 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 
 	async initNewFolder() {
 		if (!this.isCurrentWindowNewFolder()) {
+			// The constructor already opened the barrier for non-new-folder
+			// windows. Nothing else to do here.
 			return;
 		}
 		if (this._newFolderConfig) {
