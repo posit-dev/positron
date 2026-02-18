@@ -584,6 +584,17 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 				serverTaskCI
 			));
 			gulp.task(serverTask);
+
+			// --- Start Positron ---
+			// Fast rebuild task that skips extension compilation/downloading and
+			// TypeScript recompilation. Use after an initial full build to iterate
+			// quickly -- only re-bundles core source and repackages.
+			const serverTaskFast = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}-fast`, task.series(
+				minified ? minifyTask : bundleTask,
+				serverTaskCI
+			));
+			gulp.task(serverTaskFast);
+			// --- End Positron ---
 		});
 	});
 });

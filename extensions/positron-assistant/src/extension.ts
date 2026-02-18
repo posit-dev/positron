@@ -250,58 +250,74 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
  * Positron Assistant's initial autoconfigure pass.
  */
 function registerDeferredAzureAutoconfigure(context: vscode.ExtensionContext) {
-	log.debug('[Azure] Registering deferred autoconfigure listener for onDidChangeSessions');
-	context.subscriptions.push(
-		vscode.authentication.onDidChangeSessions(async (e) => {
-			log.debug(`[Azure] onDidChangeSessions fired for provider: ${e.provider.id}`);
-			if (e.provider.id !== 'posit-workbench') {
-				return;
-			}
+	// Skip if Azure is already autoconfigured from the initial pass.
+	const existingModels = getAutoconfiguredModels();
+	if (existingModels.some(m => m.provider === PROVIDER_METADATA.azure.id)) {
+		return;
+	}
 
-			// Skip if Azure is already autoconfigured
-			const existingModels = getAutoconfiguredModels();
-			if (existingModels.some(m => m.provider === PROVIDER_METADATA.azure.id)) {
-				return;
-			}
-
-			// Attempt deferred autoconfigure for Azure
-			const azureProvider = getModelProviders().find(
-				p => p.source.provider.id === PROVIDER_METADATA.azure.id
-			);
-			if (!azureProvider?.autoconfigure) {
-				return;
-			}
-
-			try {
-				const result = await azureProvider.autoconfigure();
-				if (!result.configured) {
-					return;
-				}
-
-				const modelConfig: ModelConfig = {
-					id: azureProvider.source.provider.id,
-					provider: azureProvider.source.provider.id,
-					type: positron.PositronLanguageModelType.Chat,
-					name: azureProvider.source.provider.displayName,
-					model: azureProvider.source.defaults.model,
-					apiKey: '', // Placeholder -- bearer token auth, not API key
-					toolCalls: azureProvider.source.defaults.toolCalls,
-					completions: azureProvider.source.defaults.completions,
-					autoconfigure: {
-						type: positron.ai.LanguageModelAutoconfigureType.Custom,
-						message: result.message,
-						signedIn: true,
-					},
-				};
-
-				await registerModelWithAPI(modelConfig, context);
-				addAutoconfiguredModel(modelConfig);
-				log.info('[Azure] Deferred autoconfigure succeeded after Workbench extension activated');
-			} catch (e) {
-				log.warn(`[Azure] Deferred autoconfigure registration failed: ${e instanceof Error ? e.message : String(e)}`);
-			}
-		})
+	const azureProvider = getModelProviders().find(
+		p => p.source.provider.id === PROVIDER_METADATA.azure.id
 	);
+	if (!azureProvider?.autoconfigure) {
+		return;
+	}
+
+	// The Workbench extension may not have fetched an Azure token yet when
+	// the initial autoconfigure runs. Retry with increasing delays to give
+	// the Workbench auth provider time to acquire the token.
+	const retryDelays = [10_000, 30_000];
+	let attempt = 0;
+
+	async function tryDeferredAutoconfigure() {
+		// Check again in case it was configured between retries.
+		const models = getAutoconfiguredModels();
+		if (models.some(m => m.provider === PROVIDER_METADATA.azure.id)) {
+			log.debug('[Azure] Already autoconfigured, skipping deferred retry');
+			return;
+		}
+
+		attempt++;
+		log.debug(`[Azure] Deferred autoconfigure attempt ${attempt}`);
+
+		try {
+			const result = await azureProvider.autoconfigure!();
+			if (!result.configured) {
+				if (attempt < retryDelays.length) {
+					log.debug(`[Azure] Deferred autoconfigure not ready, retrying in ${retryDelays[attempt] / 1000}s`);
+					setTimeout(tryDeferredAutoconfigure, retryDelays[attempt]);
+				} else {
+					log.debug('[Azure] Deferred autoconfigure exhausted retries');
+				}
+				return;
+			}
+
+			const modelConfig: ModelConfig = {
+				id: azureProvider.source.provider.id,
+				provider: azureProvider.source.provider.id,
+				type: positron.PositronLanguageModelType.Chat,
+				name: azureProvider.source.provider.displayName,
+				model: azureProvider.source.defaults.model,
+				apiKey: '', // Placeholder -- bearer token auth, not API key
+				toolCalls: azureProvider.source.defaults.toolCalls,
+				completions: azureProvider.source.defaults.completions,
+				autoconfigure: {
+					type: positron.ai.LanguageModelAutoconfigureType.Custom,
+					message: result.message,
+					signedIn: true,
+				},
+			};
+
+			await registerModelWithAPI(modelConfig, context);
+			addAutoconfiguredModel(modelConfig);
+			log.info('[Azure] Deferred autoconfigure succeeded');
+		} catch (e) {
+			log.warn(`[Azure] Deferred autoconfigure failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+	}
+
+	log.debug(`[Azure] Scheduling deferred autoconfigure retry in ${retryDelays[0] / 1000}s`);
+	setTimeout(tryDeferredAutoconfigure, retryDelays[0]);
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
