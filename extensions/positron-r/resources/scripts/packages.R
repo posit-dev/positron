@@ -7,6 +7,13 @@
 # These functions are sourced by the positron-r extension and called from TypeScript.
 # Function names use a .ps.packages prefix to namespace them and hide from ls() output.
 
+# Convert a data frame to a list of row objects for JSON serialization.
+# .ps.to_json() serializes data frames as column-major, but we need row-major
+# (array of objects) for the TypeScript consumer.
+.ps.packages.df_to_rows <- function(df) {
+	lapply(seq_len(nrow(df)), function(i) as.list(df[i, , drop = FALSE]))
+}
+
 .ps.packages.list_packages <- function(method = c("pak", "base")) {
 	method <- match.arg(method)
 	switch(
@@ -15,27 +22,23 @@
 			old_opt <- options(pak.no_extra_messages = TRUE)
 			on.exit(options(old_opt), add = TRUE)
 			pkgs <- pak::lib_status()
-			cat(jsonlite::toJSON(
-				data.frame(
-					id = paste0(pkgs$package, "-", pkgs$version),
-					name = pkgs$package,
-					displayName = pkgs$package,
-					version = as.character(pkgs$version)
-				),
-				auto_unbox = TRUE
-			))
+			df <- data.frame(
+				id = paste0(pkgs$package, "-", pkgs$version),
+				name = pkgs$package,
+				displayName = pkgs$package,
+				version = as.character(pkgs$version)
+			)
+			cat(.ps.to_json(.ps.packages.df_to_rows(df)))
 		},
 		base = {
 			ip <- installed.packages()
-			cat(jsonlite::toJSON(
-				data.frame(
-					id = paste0(ip[, "Package"], "-", ip[, "Version"]),
-					name = ip[, "Package"],
-					displayName = ip[, "Package"],
-					version = ip[, "Version"]
-				),
-				auto_unbox = TRUE
-			))
+			df <- data.frame(
+				id = paste0(ip[, "Package"], "-", ip[, "Version"]),
+				name = ip[, "Package"],
+				displayName = ip[, "Package"],
+				version = ip[, "Version"]
+			)
+			cat(.ps.to_json(.ps.packages.df_to_rows(df)))
 		}
 	)
 }
@@ -85,15 +88,13 @@
 			old_opt <- options(pak.no_extra_messages = TRUE)
 			on.exit(options(old_opt), add = TRUE)
 			pkgs <- pak::pkg_search(query, size = 100)
-			cat(jsonlite::toJSON(
-				data.frame(
-					id = pkgs$package,
-					name = pkgs$package,
-					displayName = pkgs$package,
-					version = "0"
-				),
-				auto_unbox = TRUE
-			))
+			df <- data.frame(
+				id = pkgs$package,
+				name = pkgs$package,
+				displayName = pkgs$package,
+				version = "0"
+			)
+			cat(.ps.to_json(.ps.packages.df_to_rows(df)))
 		},
 		base = {
 			query <- tolower(query)
@@ -103,15 +104,13 @@
 				,
 				drop = FALSE
 			]
-			cat(jsonlite::toJSON(
-				data.frame(
-					id = matches[, "Package"],
-					name = matches[, "Package"],
-					displayName = matches[, "Package"],
-					version = "0"
-				),
-				auto_unbox = TRUE
-			))
+			df <- data.frame(
+				id = matches[, "Package"],
+				name = matches[, "Package"],
+				displayName = matches[, "Package"],
+				version = "0"
+			)
+			cat(.ps.to_json(.ps.packages.df_to_rows(df)))
 		}
 	)
 }
@@ -119,5 +118,6 @@
 .ps.packages.search_package_versions <- function(name) {
 	ap <- available.packages()
 	current <- if (name %in% rownames(ap)) ap[name, "Version"] else character(0)
-	cat(jsonlite::toJSON(current))
+	# Wrap in as.list() to ensure it serializes as an array, not a scalar
+	cat(.ps.to_json(as.list(current)))
 }
