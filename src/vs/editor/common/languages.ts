@@ -2042,7 +2042,11 @@ export class FoldingRangeKind {
 // --- Start Positron ---
 export const enum StatementRangeKind {
 	Success = 'Success',
-	ParseError = 'ParseError',
+	Rejection = 'Rejection',
+}
+
+export const enum StatementRangeRejectionKind {
+	Parse = 'Parse',
 }
 
 export interface StatementRangeProvider {
@@ -2053,7 +2057,9 @@ export interface StatementRangeProvider {
 		ProviderResult<IStatementRange>;
 }
 
-export type IStatementRange = IStatementRangeSuccess | IStatementRangeParseError;
+export type IStatementRange = IStatementRangeSuccess | IStatementRangeRejection;
+
+export type IStatementRangeRejection = IStatementRangeParseRejection;
 
 /**
  * The range of a statement, plus optionally the code for the range.
@@ -2075,11 +2081,16 @@ export interface IStatementRangeSuccess {
 	readonly code?: string;
 }
 
-export interface IStatementRangeParseError {
+export interface IStatementRangeParseRejection {
 	/**
 	 * The kind of statement range result.
 	 */
-	readonly kind: StatementRangeKind.ParseError;
+	readonly kind: StatementRangeKind.Rejection;
+
+	/**
+	 * The kind of rejection.
+	 */
+	readonly rejectionKind: StatementRangeRejectionKind.Parse;
 
 	/**
 	 * A 0-indexed line number where the parse error occurred.

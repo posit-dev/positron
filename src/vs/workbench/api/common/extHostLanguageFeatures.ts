@@ -1923,7 +1923,7 @@ class StatementRangeAdapter {
 	 * @param resource The URI of the document to search
 	 * @param pos The position to search at
 	 * @param token The cancellation token (currently unused)
-	 * @returns A promise that resolves to the statement range, a parse error, or undefined.
+	 * @returns A promise that resolves to the statement range or undefined.
 	 */
 	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<languages.IStatementRange | undefined> {
 		const document = this._documents.getDocument(resource);
@@ -1935,10 +1935,11 @@ class StatementRangeAdapter {
 		} catch (err) {
 			if (err instanceof extHostTypes.StatementRangeError) {
 				switch (err.kind) {
-					case extHostTypes.StatementRangeErrorKind.ParseError: return {
-						kind: languages.StatementRangeKind.ParseError,
+					case extHostTypes.StatementRangeErrorKind.Parse: return {
+						kind: languages.StatementRangeKind.Rejection,
+						rejectionKind: languages.StatementRangeRejectionKind.Parse,
 						line: err.line,
-					} satisfies languages.IStatementRangeParseError;
+					} satisfies languages.IStatementRangeParseRejection;
 				}
 			}
 			throw err;

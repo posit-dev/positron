@@ -25,7 +25,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IStatementRange, IStatementRangeSuccess, StatementRangeKind, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
+import { IStatementRange, IStatementRangeSuccess, StatementRangeKind, StatementRangeRejectionKind, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
 import { toAction } from '../../../../base/common/actions.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
@@ -167,9 +167,9 @@ async function executeCodeInConsole(
 }
 
 /**
- * Show a notification for a statement range parse error, with an action to jump to the parse error line.
+ * Show a notification for a statement range parse rejection, with an action to jump to the parse error line.
  */
-function notifyStatementRangeParseError(
+function notifyStatementRangeParseRejection(
 	line: number | undefined,
 	uri: URI,
 	notificationService: INotificationService,
@@ -180,14 +180,14 @@ function notifyStatementRangeParseError(
 
 	if (line) {
 		message = localize(
-			'positron.executeCode.parseErrorAtLine',
+			'positron.executeCode.parseRejectionAtLine',
 			"Can't execute code due to a parse error near line {0}.",
 			line + 1
 		);
 
 		const action = toAction({
-			id: 'positron.executeCode.jumpToParseErrorLine',
-			label: localize('positron.executeCode.jumpToParseErrorLine', "Jump to line"),
+			id: 'positron.executeCode.jumpToParseRejectionLine',
+			label: localize('positron.executeCode.jumpToParseRejectionLine', "Jump to line"),
 			run: () => {
 				editorService.openEditor({
 					resource: uri,
@@ -201,7 +201,7 @@ function notifyStatementRangeParseError(
 		actions = [action];
 	} else {
 		message = localize(
-			'positron.executeCode.parseError',
+			'positron.executeCode.parseRejection',
 			"Can't execute code due to a parse error."
 		);
 	}
@@ -525,14 +525,19 @@ export function registerPositronConsoleActions() {
 
 							break;
 						}
-						case StatementRangeKind.ParseError: {
-							notifyStatementRangeParseError(
-								statementRange.line,
-								model.uri,
-								notificationService,
-								editorService
-							);
-							// Parse errors returned by a provider are critical issues.
+						case StatementRangeKind.Rejection: {
+							switch (statementRange.rejectionKind) {
+								case StatementRangeRejectionKind.Parse: {
+									notifyStatementRangeParseRejection(
+										statementRange.line,
+										model.uri,
+										notificationService,
+										editorService
+									);
+									break;
+								}
+							}
+							// Rejections returned by a provider are critical issues.
 							// We should not continue with a line-based approach after receiving one.
 							return undefined;
 						}
@@ -692,13 +697,18 @@ export function registerPositronConsoleActions() {
 							}
 							break;
 						}
-						case StatementRangeKind.ParseError: {
-							logService.warn(
-								nextStatementRange.line ?
-									`Can't advance due to a parse error on line ${nextStatementRange.line + 1}.` :
-									"Can't advance due to a parse error."
-							);
-							// Parse errors returned by a provider are critical issues.
+						case StatementRangeKind.Rejection: {
+							switch (nextStatementRange.rejectionKind) {
+								case StatementRangeRejectionKind.Parse: {
+									logService.warn(
+										nextStatementRange.line ?
+											`Can't advance due to a parse error on line ${nextStatementRange.line + 1}.` :
+											"Can't advance due to a parse error."
+									);
+									break;
+								}
+							}
+							// Rejections returned by a provider are critical issues.
 							// We should not advance the cursor after receiving one.
 							return undefined;
 						}

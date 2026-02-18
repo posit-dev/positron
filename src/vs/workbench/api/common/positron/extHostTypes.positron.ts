@@ -435,13 +435,13 @@ export enum PreviewSourceType {
 }
 
 export const enum StatementRangeErrorKind {
-	ParseError = 'ParseError',
+	Parse = 'Parse',
 }
 
 export class StatementRangeError extends Error {
 	static ParseError(line?: number): StatementRangeError {
 		const error = new StatementRangeError();
-		error.kind = StatementRangeErrorKind.ParseError;
+		error.kind = StatementRangeErrorKind.Parse;
 		error.line = line;
 		return error;
 	}

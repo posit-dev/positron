@@ -552,8 +552,11 @@ const newCommands: ApiCommand[] = [
 						range: typeConverters.Range.to(result.range),
 						code: result.code
 					} satisfies positron.StatementRange;
-				case languages.StatementRangeKind.ParseError:
-					throw extHostTypes.StatementRangeError.ParseError(result.line);
+				case languages.StatementRangeKind.Rejection:
+					switch (result.rejectionKind) {
+						case languages.StatementRangeRejectionKind.Parse:
+							throw extHostTypes.StatementRangeError.ParseError(result.line);
+					}
 			}
 		})
 	),
