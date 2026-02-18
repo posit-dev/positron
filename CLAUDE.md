@@ -49,12 +49,16 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 - `positron/` - Positron-specific code and assets
 - `build/` - Build configuration and scripts
 
-## Pre-commit Checks
+## Code Style
 
+- Use tabs for indentation in TypeScript/JavaScript, not spaces
+- Never use em-dashes, en-dashes, smart quotes, or other non-ASCII punctuation. Use ASCII hyphens and straight quotes
 - The pre-commit hook checks staged files for unicode, indentation, copyright headers, formatting, and eslint issues
 - To run manually: `npm run precommit` (all staged files) or `npm run precommit -- <file>` (specific file)
+- To auto-fix formatting issues in TypeScript/JavaScript files:
+  - Formatting: `node scripts/format.mts <file> [file2] ...`
+  - ESLint: `npx eslint --fix <file> [file2] ...`
 
 ## General
 
 - Use the `gh` CLI for GitHub interactions
-- Never use em-dashes, en-dashes, smart quotes, or other non-ASCII punctuation. Use ASCII hyphens and straight quotes
