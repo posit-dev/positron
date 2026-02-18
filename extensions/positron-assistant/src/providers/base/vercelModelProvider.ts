@@ -73,17 +73,6 @@ export abstract class VercelModelProvider extends ModelProvider {
 	protected usesChatCompletions: boolean = false;
 
 	/**
-	 * Current error context for tracking where errors occur.
-	 * Used to adjust error messages and notification behavior based on context.
-	 */
-	protected _errorContext: ErrorContext = {
-		isConnectionTest: false,
-		isChat: false,
-		isStartup: false
-	};
-
-
-	/**
 	 * Sends a test message to verify model connectivity.
 	 *
 	 * Uses Vercel AI SDK's `generateText` to send a simple test message
@@ -286,7 +275,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		requestId?: string
 	): Promise<void> {
 		// Set chat context for error handling
-		this._errorContext = {
+		const errorContext = {
 			isConnectionTest: false,
 			isChat: true,
 			isStartup: false,
@@ -303,34 +292,29 @@ export abstract class VercelModelProvider extends ModelProvider {
 			}
 		};
 
-		try {
-			for await (const part of result.fullStream) {
-				if (token.isCancellationRequested) {
-					break;
-				}
-
-				if (part.type === 'text-delta') {
-					accumulatedTextDeltas.push(part.text);
-					progress.report(new vscode.LanguageModelTextPart(part.text));
-				}
-
-				if (part.type === 'tool-call') {
-					flushAccumulatedTextDeltas();
-					this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with input: ${JSON.stringify(part.input)}`);
-					progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
-				}
-
-				if (part.type === 'error') {
-					flushAccumulatedTextDeltas();
-					this.logger.warn(`[${model.name}] RECV error`, part.error);
-					const errorMsg = await this.parseProviderError(part.error, this._errorContext) ||
-						(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
-					throw new Error(`[${model.name}] Error in chat response: ${errorMsg}`);
-				}
+		for await (const part of result.fullStream) {
+			if (token.isCancellationRequested) {
+				break;
 			}
-		} finally {
-			// Reset error context after handling stream
-			this._errorContext = { isConnectionTest: false, isChat: false, isStartup: false };
+
+			if (part.type === 'text-delta') {
+				accumulatedTextDeltas.push(part.text);
+				progress.report(new vscode.LanguageModelTextPart(part.text));
+			}
+
+			if (part.type === 'tool-call') {
+				flushAccumulatedTextDeltas();
+				this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with input: ${JSON.stringify(part.input)}`);
+				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
+			}
+
+			if (part.type === 'error') {
+				flushAccumulatedTextDeltas();
+				this.logger.warn(`[${model.name}] RECV error`, part.error);
+				const errorMsg = await this.parseProviderError(part.error, errorContext) ||
+					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
+				throw new Error(`[${model.name}] Error in chat response: ${errorMsg}`);
+			}
 		}
 
 		// Flush any remaining accumulated text deltas
