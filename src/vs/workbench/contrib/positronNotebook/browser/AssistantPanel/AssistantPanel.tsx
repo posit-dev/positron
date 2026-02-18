@@ -7,10 +7,12 @@
 import './AssistantPanel.css';
 
 // React.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
+import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -42,11 +44,11 @@ const actionsHeader = localize('assistantPanel.actions.header', 'Ask Assistant T
 const panelTitle = localize('assistantPanel.title', 'Positron Notebook Assistant');
 const settingsHeader = localize('assistantPanel.settings.header', 'Notebook Settings');
 const showDiffLabel = localize('assistantPanel.showDiff.label', 'Show edit diffs');
-const showDiffTooltip = localize('assistantPanel.showDiff.tooltip', 'When enabled, assistant edits appear as inline diffs so you can review changes before accepting them');
+const showDiffDescription = localize('assistantPanel.showDiff.tooltip', 'When enabled, assistant edits appear as inline diffs so you can review changes before accepting them');
 const autoFollowLabel = localize('assistantPanel.autoFollow.label', 'Auto-follow edits');
-const autoFollowTooltip = localize('assistantPanel.autoFollow.tooltip', 'When enabled, automatically scroll to cells modified by the AI assistant');
+const autoFollowDescription = localize('assistantPanel.autoFollow.tooltip', 'When enabled, automatically scroll to cells modified by the AI assistant');
 const ghostCellSuggestionsLabel = localize('assistantPanel.ghostCellSuggestions.label', 'Ghost cell suggestions');
-const ghostCellSuggestionsTooltip = localize('assistantPanel.ghostCellSuggestions.tooltip', 'When enabled, show AI-generated suggestions for the next cell after successful execution');
+const ghostCellSuggestionsDescription = localize('assistantPanel.ghostCellSuggestions.tooltip', 'When enabled, show AI-generated suggestions for the next cell after successful execution');
 const followGlobalLabel = localize('assistantPanel.followGlobal', 'follow global');
 const yesLabel = localize('assistantPanel.yes', 'yes');
 const noLabel = localize('assistantPanel.no', 'no');
@@ -147,7 +149,7 @@ const ErrorState = ({ message, onClose }: ErrorStateProps) => (
  */
 interface SettingToggleRowProps {
 	label: string;
-	tooltip: string;
+	description: string;
 	/** Whether the per-notebook override is active (undefined = follow global) */
 	overrideActive: boolean;
 	/** The effective value after resolving override vs global */
@@ -158,43 +160,92 @@ interface SettingToggleRowProps {
 
 /**
  * SettingToggleRow component.
- * Renders a settings row with label, info icon, follow-global checkbox, and yes/no toggle.
+ * Renders a settings row with label, follow-global checkbox, and yes/no toggle.
  */
 const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 	label,
-	tooltip,
+	description,
 	overrideActive,
 	effectiveValue,
 	onFollowGlobalChanged,
 	onToggle,
-}) => (
-	<div className='assistant-panel-setting-row'>
-		<span className='assistant-panel-setting-label'>
-			{label}
-			<span className='assistant-panel-setting-info codicon codicon-info' title={tooltip} />
-		</span>
-		<div className='assistant-panel-setting-controls'>
-			<label className='assistant-panel-follow-global-label'>
-				{followGlobalLabel}
-				<input
-					checked={!overrideActive}
-					className='assistant-panel-checkbox'
-					type='checkbox'
-					onChange={(e) => onFollowGlobalChanged(e.target.checked)}
+}) => {
+	const infoRef = useRef<HTMLSpanElement>(null);
+	const [showPopover, setShowPopover] = useState(false);
+	const hoverTimeoutRef = useRef<number | null>(null);
+
+	const clearHoverTimeout = useCallback(() => {
+		if (hoverTimeoutRef.current !== null) {
+			// Use clearTimeout directly -- infoRef.current may already be null on unmount
+			clearTimeout(hoverTimeoutRef.current);
+			hoverTimeoutRef.current = null;
+		}
+	}, []);
+
+	// Clean up pending timeout on unmount
+	useEffect(() => clearHoverTimeout, [clearHoverTimeout]);
+
+	const handleShowPopover = useCallback(() => {
+		if (infoRef.current) {
+			clearHoverTimeout();
+			const win = DOM.getWindow(infoRef.current);
+			hoverTimeoutRef.current = win.setTimeout(() => setShowPopover(true), 200);
+		}
+	}, [clearHoverTimeout]);
+
+	const handleHidePopover = useCallback(() => {
+		clearHoverTimeout();
+		setShowPopover(false);
+	}, [clearHoverTimeout]);
+
+	return (
+		<div className='assistant-panel-setting-row'>
+			<span className='assistant-panel-setting-label'>
+				{label}
+				<span
+					ref={infoRef}
+					aria-label={description}
+					className='assistant-panel-setting-info codicon codicon-info'
+					role='button'
+					tabIndex={0}
+					onBlur={handleHidePopover}
+					onFocus={handleShowPopover}
+					onMouseEnter={handleShowPopover}
+					onMouseLeave={handleHidePopover}
 				/>
-				<span className='assistant-panel-checkbox-indicator' />
-			</label>
-			<SegmentedToggle
-				ariaLabel={label}
-				disabled={!overrideActive}
-				leftActive={effectiveValue}
-				leftLabel={yesLabel}
-				rightLabel={noLabel}
-				onToggle={onToggle}
-			/>
+				{showPopover && infoRef.current && (
+					<Popover
+						anchorElement={infoRef.current}
+						className='assistant-panel-setting-popover'
+						onClose={() => setShowPopover(false)}
+					>
+						{description}
+					</Popover>
+				)}
+			</span>
+			<div className='assistant-panel-setting-controls'>
+				<label className='assistant-panel-follow-global-label'>
+					{followGlobalLabel}
+					<input
+						checked={!overrideActive}
+						className='assistant-panel-checkbox'
+						type='checkbox'
+						onChange={(e) => onFollowGlobalChanged(e.target.checked)}
+					/>
+					<span className='assistant-panel-checkbox-indicator' />
+				</label>
+				<SegmentedToggle
+					ariaLabel={label}
+					disabled={!overrideActive}
+					leftActive={effectiveValue}
+					leftLabel={yesLabel}
+					rightLabel={noLabel}
+					onToggle={onToggle}
+				/>
+			</div>
 		</div>
-	</div>
-);
+	);
+};
 
 /**
  * ReadyStateProps interface.
@@ -262,10 +313,10 @@ const ReadyState = ({
 			</div>
 			<div className='assistant-panel-settings-section'>
 				<SettingToggleRow
+					description={showDiffDescription}
 					effectiveValue={effectiveShowDiff}
 					label={showDiffLabel}
 					overrideActive={showDiffOverride !== undefined}
-					tooltip={showDiffTooltip}
 					onFollowGlobalChanged={(followGlobal) => {
 						if (followGlobal) {
 							onShowDiffChanged(undefined);
@@ -276,10 +327,10 @@ const ReadyState = ({
 					onToggle={() => onShowDiffChanged(effectiveShowDiff ? 'noDiff' : 'showDiff')}
 				/>
 				<SettingToggleRow
+					description={autoFollowDescription}
 					effectiveValue={effectiveAutoFollow}
 					label={autoFollowLabel}
 					overrideActive={autoFollowOverride !== undefined}
-					tooltip={autoFollowTooltip}
 					onFollowGlobalChanged={(followGlobal) => {
 						if (followGlobal) {
 							onAutoFollowChanged(undefined);
@@ -290,10 +341,10 @@ const ReadyState = ({
 					onToggle={() => onAutoFollowChanged(effectiveAutoFollow ? 'noAutoFollow' : 'autoFollow')}
 				/>
 				<SettingToggleRow
+					description={ghostCellSuggestionsDescription}
 					effectiveValue={effectiveGhostCellSuggestions}
 					label={ghostCellSuggestionsLabel}
 					overrideActive={ghostCellSuggestionsOverride !== undefined}
-					tooltip={ghostCellSuggestionsTooltip}
 					onFollowGlobalChanged={(followGlobal) => {
 						if (followGlobal) {
 							onGhostCellSuggestionsChanged(undefined);
