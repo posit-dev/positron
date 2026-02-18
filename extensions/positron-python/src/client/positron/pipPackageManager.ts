@@ -3,12 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
-import { randomUUID } from 'crypto';
-import { EnvironmentType, virtualEnvTypes } from '../pythonEnvironments/info';
-import { IInterpreterService } from '../interpreter/contracts';
+import { IPythonExecutionFactory, IPythonExecutionService } from '../common/process/types';
+import { ITerminalServiceFactory } from '../common/terminal/types.js';
 import { IServiceContainer } from '../ioc/types';
 
 /**
@@ -25,6 +24,8 @@ interface MessageEmitter {
  * Runs pip commands as subprocesses and streams output to the Positron Console.
  */
 export class PipPackageManager {
+    private _pythonService: IPythonExecutionService | undefined;
+
     constructor(
         private readonly _pythonPath: string,
         private readonly _messageEmitter: MessageEmitter,
@@ -36,8 +37,8 @@ export class PipPackageManager {
      */
     async isPipAvailable(): Promise<boolean> {
         try {
-            const result = await this._executePipCommand(['-m', 'pip', '--version'], { capture: true });
-            return result.exitCode === 0;
+            const pythonService = await this._getPythonService();
+            return pythonService.isModuleInstalled('pip');
         } catch {
             return false;
         }
@@ -56,9 +57,9 @@ export class PipPackageManager {
 
         const packageSpecs = this._formatPackageSpecs(packages);
         const flags = await this._getInstallFlags();
-        const args = ['-m', 'pip', 'install', ...flags, ...packageSpecs];
+        const args = ['install', ...flags, ...packageSpecs];
 
-        await this._executePipCommandWithOutput(args);
+        await this._executePipInTerminal(args);
     }
 
     /**
@@ -71,9 +72,9 @@ export class PipPackageManager {
 
         await this._ensurePip();
 
-        const args = ['-m', 'pip', 'uninstall', '-y', ...packages];
+        const args = ['uninstall', '-y', ...packages];
 
-        await this._executePipCommandWithOutput(args);
+        await this._executePipInTerminal(args);
     }
 
     /**
@@ -89,9 +90,9 @@ export class PipPackageManager {
 
         const packageSpecs = this._formatPackageSpecs(packages);
         const flags = await this._getInstallFlags();
-        const args = ['-m', 'pip', 'install', '--upgrade', ...flags, ...packageSpecs];
+        const args = ['install', '--upgrade', ...flags, ...packageSpecs];
 
-        await this._executePipCommandWithOutput(args);
+        await this._executePipInTerminal(args);
     }
 
     /**
@@ -102,14 +103,10 @@ export class PipPackageManager {
 
         // First, get list of outdated packages
         const proxyFlags = this._getProxyFlags();
-        const outdatedResult = await this._executePipCommand(
-            ['-m', 'pip', 'list', '--outdated', '--format=json', ...proxyFlags],
-            { capture: true }
-        );
 
-        if (outdatedResult.exitCode !== 0) {
-            throw new Error('Failed to get list of outdated packages');
-        }
+        const pythonService = await this._getPythonService();
+        const outdatedResult = await pythonService.execModule('pip',
+            ['list', '--outdated', '--format=json', ...proxyFlags], {});
 
         let outdatedPackages: Array<{ name: string }> = [];
         try {
@@ -125,14 +122,25 @@ export class PipPackageManager {
 
         const packageNames = outdatedPackages.map(pkg => pkg.name);
         const flags = await this._getInstallFlags();
-        const args = ['-m', 'pip', 'install', '--upgrade', ...flags, ...packageNames];
+        const args = ['install', '--upgrade', ...flags, ...packageNames];
 
-        await this._executePipCommandWithOutput(args);
+        await this._executePipInTerminal(args);
     }
 
     // =========================================================================
     // Private helper methods
     // =========================================================================
+
+    /**
+     * Get or create the Python execution service.
+     */
+    private async _getPythonService(): Promise<IPythonExecutionService> {
+        if (!this._pythonService) {
+            const factory = this._serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
+            this._pythonService = await factory.create({ pythonPath: this._pythonPath });
+        }
+        return this._pythonService;
+    }
 
     /**
      * Ensure pip is available, throwing an error if not.
@@ -169,111 +177,27 @@ export class PipPackageManager {
 
     /**
      * Get installation flags based on the Python environment type.
-     * Auto-detects when --user flag is needed.
      */
     private async _getInstallFlags(): Promise<string[]> {
         const flags: string[] = [...this._getProxyFlags()];
-
-        // Check if we need the --user flag for system Python
-        const interpreterService = this._serviceContainer.get<IInterpreterService>(IInterpreterService);
-        const interpreter = await interpreterService.getInterpreterDetails(this._pythonPath);
-
-        if (interpreter) {
-            // Don't use --user for virtual environments or conda environments
-            if (!virtualEnvTypes.includes(interpreter.envType) && interpreter.envType !== EnvironmentType.Conda) {
-                // For system Python (Unknown type), use --user flag
-                if (interpreter.envType === EnvironmentType.Unknown) {
-                    flags.push('--user');
-                }
-            }
-        }
-
         return flags;
     }
 
     /**
-     * Execute a pip command and stream output to the console.
+     * Execute a pip command in the terminal (visible to user).
      */
-    private async _executePipCommandWithOutput(args: string[]): Promise<void> {
-        const id = randomUUID();
-
-        // Emit the command being executed
-        this._emitMessage(`\x1b[90m$ python ${args.join(' ')}\x1b[0m\n`, id);
-
-        return new Promise<void>((resolve, reject) => {
-            const childProc = spawn(this._pythonPath, args, {
-                shell: false,
-            });
-
-            let stderrOutput = '';
-
-            childProc.stdout?.on('data', (data: Buffer) => {
-                this._emitMessage(data.toString(), id);
-            });
-
-            childProc.stderr?.on('data', (data: Buffer) => {
-                const text = data.toString();
-                stderrOutput += text;
-                this._emitMessage(text, id);
-            });
-
-            childProc.on('error', (error: Error) => {
-                reject(error);
-            });
-
-            childProc.on('close', (code: number | null) => {
-                // Emit idle state
-                this._emitState(positron.RuntimeOnlineState.Idle, id);
-
-                if (code === 0) {
-                    resolve();
-                } else {
-                    // Check for externally-managed-environment error
-                    if (stderrOutput.includes('externally-managed-environment')) {
-                        reject(new Error('externally-managed-environment: ' + stderrOutput));
-                    } else {
-                        reject(new Error(`pip command failed with exit code ${code}`));
-                    }
-                }
-            });
-        });
-    }
-
-    /**
-     * Execute a pip command and capture output (not streamed to console).
-     */
-    private async _executePipCommand(
-        args: string[],
-        _options: { capture: boolean }
-    ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-        return new Promise((resolve, reject) => {
-            const proc = spawn(this._pythonPath, args, {
-                shell: false,
-            });
-
-            let stdout = '';
-            let stderr = '';
-
-            proc.stdout?.on('data', (data: Buffer) => {
-                stdout += data.toString();
-            });
-
-            proc.stderr?.on('data', (data: Buffer) => {
-                stderr += data.toString();
-            });
-
-            proc.on('error', (error: Error) => {
-                reject(error);
-            });
-
-            proc.on('close', (code: number | null) => {
-                resolve({
-                    exitCode: code ?? 1,
-                    stdout,
-                    stderr,
-                });
-            });
-        });
+    private async _executePipInTerminal(args: string[]): Promise<void> {
+        const terminalService = this._serviceContainer
+            .get<ITerminalServiceFactory>(ITerminalServiceFactory)
+            .getTerminalService({});
+        // Ensure terminal is created and ready before sending command
+        await terminalService.show();
+        const tokenSource = new vscode.CancellationTokenSource();
+        try {
+            await terminalService.sendCommand(this._pythonPath, ['-m', 'pip', ...args], tokenSource.token);
+        } finally {
+            tokenSource.dispose();
+        }
     }
 
     /**
@@ -288,18 +212,5 @@ export class PipPackageManager {
             name: positron.LanguageRuntimeStreamName.Stdout,
             text,
         } as positron.LanguageRuntimeStream);
-    }
-
-    /**
-     * Emit a state change message.
-     */
-    private _emitState(state: positron.RuntimeOnlineState, parentId: string): void {
-        this._messageEmitter.fire({
-            id: randomUUID(),
-            parent_id: parentId,
-            when: new Date().toISOString(),
-            type: positron.LanguageRuntimeMessageType.State,
-            state,
-        } as positron.LanguageRuntimeState);
     }
 }
