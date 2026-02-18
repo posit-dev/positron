@@ -508,12 +508,9 @@ def _handle_completion(
     text_after_cursor = line[params.position.character :]
 
     # Check for parameter completion first (e.g., inside a function call like "f(")
-    param_items = _get_parameter_completions(server, text_before_cursor)
+    param_items, inside_function_call = _get_parameter_completions(server, text_before_cursor)
     if param_items:
         items.extend(param_items)
-
-    # Determine if we're inside a function call
-    inside_function_call = bool(param_items) or _is_inside_function_call(text_before_cursor)
 
     # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
@@ -573,55 +570,47 @@ def _handle_completion(
     return types.CompletionList(is_incomplete=False, items=items) if items else None
 
 
-def _is_inside_function_call(text_before_cursor: str) -> bool:
-    """Check if the cursor is inside a function call (after an opening parenthesis)."""
-    # Count unmatched opening parentheses
-    paren_depth = 0
-    for c in text_before_cursor:
-        if c == "(":
-            paren_depth += 1
-        elif c == ")":
-            paren_depth -= 1
-    return paren_depth > 0
-
-
 def _get_parameter_completions(
     server: PositronLanguageServer, text_before_cursor: str
-) -> list[types.CompletionItem]:
-    """Get parameter completions when inside a function call."""
+) -> tuple[list[types.CompletionItem], bool]:
+    """Get parameter completions when inside a function call.
+
+    Returns (items, inside_function_call) where inside_function_call
+    indicates whether the cursor is inside an enclosing parenthesis.
+    """
     if server.shell is None:
-        return []
+        return [], False
 
     # Find if we're inside a function call
     func_end = _find_enclosing_paren(text_before_cursor)
     if func_end < 0:
-        return []
+        return [], False
 
     # Extract function name/expression
     func_expr = text_before_cursor[:func_end].rstrip()
     match = re.search(r"([\w\.]+)$", func_expr)
     if not match:
-        return []
+        return [], True
 
     func_name = match.group(1)
 
     # Safely resolve the callable
     obj = _safe_resolve_expression(server.shell.user_ns, func_name)
     if obj is None or not callable(obj):
-        return []
+        return [], True
 
     # Parse arguments section to understand context
     args_text = text_before_cursor[func_end + 1 :]
 
     # Skip parameter completions if we're inside a string literal
     if _is_inside_string(args_text):
-        return []
+        return [], True
 
     # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
     # Pattern: look for "word=" at the end, possibly with a value started
     if re.search(r"\w+\s*=\s*[^\s,]*$", args_text) and not args_text.rstrip().endswith(","):
         # Cursor is positioned after "=" where a value should go, don't suggest parameters
-        return []
+        return [], True
 
     # Find all keyword arguments already provided (param=value)
     already_provided = set()
@@ -669,7 +658,7 @@ def _get_parameter_completions(
         # Can't get signature for this callable
         pass
 
-    return items
+    return items, True
 
 
 def _get_namespace_completions(
