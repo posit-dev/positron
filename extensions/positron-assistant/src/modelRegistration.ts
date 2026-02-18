@@ -135,6 +135,7 @@ export async function registerModels(context: vscode.ExtensionContext) {
 
 		// Add any configs that should automatically work when the right conditions are met
 		autoModelConfigs = await createAutomaticModelConfigs();
+		log.info(`[Model Registration] Autoconfigured models: ${autoModelConfigs.map(c => c.provider).join(', ') || '(none)'}`);
 		// we add in the config if we don't already have it configured
 		for (const config of autoModelConfigs) {
 			if (!modelConfigs.find(c => c.provider === config.provider)) {
@@ -152,9 +153,12 @@ export async function registerModels(context: vscode.ExtensionContext) {
 	}
 
 	const registeredModels: ModelConfig[] = [];
+	log.info(`[Model Registration] Registering ${modelConfigs.length} models: ${modelConfigs.map(c => c.provider).join(', ')}`);
 	for (const config of modelConfigs) {
 		try {
+			log.info(`[Model Registration] Registering ${config.provider}...`);
 			await registerModelWithAPI(config, context);
+			log.info(`[Model Registration] Successfully registered ${config.provider}`);
 			registeredModels.push(config);
 			if (autoModelConfigs.includes(config)) {
 				// In addition, track auto-configured models separately
@@ -166,6 +170,7 @@ export async function registerModels(context: vscode.ExtensionContext) {
 				addAutoconfiguredModel(config);
 			}
 		} catch (e) {
+			log.error(`[Model Registration] Failed to register ${config.provider}:`, e);
 			if (!(e instanceof AssistantError) || e.display) {
 				vscode.window.showErrorMessage(`${e}`);
 			}

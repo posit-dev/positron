@@ -271,10 +271,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Listen for configuration changes that affect model registration
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async (e) => {
-			// Enabled providers changed - re-register models
-			// This includes when Snowflake Cortex is enabled/disabled
-			if (e.affectsConfiguration('positron.assistant.enabledProviders')) {
-				log.info('[Assistant] Enabled providers changed, re-registering models');
+			// Individual provider enable settings (e.g., positron.assistant.provider.snowflakeCortex.enable)
+			if (e.affectsConfiguration('positron.assistant.provider')) {
+				log.info('[Assistant] Provider settings changed, re-registering models');
 				await registerModels(context);
 			}
 			// Snowflake provider variables changed (SNOWFLAKE_HOME, etc.)
