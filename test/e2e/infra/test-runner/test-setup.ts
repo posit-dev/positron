@@ -116,23 +116,27 @@ function prepareTestDataDirectory() {
 }
 
 export function getPositronVersion(testCodePath = process.env.BUILD || ''): PositronVersion | null {
-	if (!testCodePath) {
-		return null;
-	}
-
 	let productJsonPath;
-	switch (process.platform) {
-		case 'darwin':
-			productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
-			break;
-		case 'linux':
-			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
-			break;
-		case 'win32':
-			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
-			break;
-		default:
-			return null;
+
+	if (testCodePath) {
+		// Running against a build - look in the built app structure
+		switch (process.platform) {
+			case 'darwin':
+				productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
+				break;
+			case 'linux':
+				productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
+				break;
+			case 'win32':
+				productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
+				break;
+			default:
+				return null;
+		}
+	} else {
+		// Dev mode - fall back to source product.json
+		const root = join(__dirname, '..', '..', '..', '..');
+		productJsonPath = join(root, 'product.json');
 	}
 
 	try {
@@ -147,7 +151,8 @@ export function getPositronVersion(testCodePath = process.env.BUILD || ''): Posi
 			throw new Error('positronVersion not found in product.json.');
 		}
 
-		if (!buildNumber) {
+		if (!buildNumber && testCodePath) {
+			// Only warn if running against a build - dev builds may not have build number
 			console.error('positronBuildNumber not found in product.json.');
 		}
 
