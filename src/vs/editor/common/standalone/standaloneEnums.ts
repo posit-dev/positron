@@ -882,12 +882,12 @@ export enum SignatureHelpTriggerKind {
 }
 
 export enum StatementRangeKind {
-	Success = 'Success',
-	Rejection = 'Rejection'
+	Success = 'success',
+	Rejection = 'rejection'
 }
 
 export enum StatementRangeRejectionKind {
-	Parse = 'Parse'
+	Parse = 'parse'
 }
 
 /**

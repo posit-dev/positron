@@ -2041,12 +2041,12 @@ export class FoldingRangeKind {
 
 // --- Start Positron ---
 export const enum StatementRangeKind {
-	Success = 'Success',
-	Rejection = 'Rejection',
+	Success = 'success',
+	Rejection = 'rejection',
 }
 
 export const enum StatementRangeRejectionKind {
-	Parse = 'Parse',
+	Parse = 'parse',
 }
 
 export interface StatementRangeProvider {
