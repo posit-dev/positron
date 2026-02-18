@@ -1178,8 +1178,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 								} else {
 									return (
 										<HistoryEntry
-											historyItem={item}
 											fontInfo={props.fontInfo}
+											historyItem={item}
 											instantiationService={instantiationService}
 											isSelected={index === selectedIndex}
 											languageId={currentLanguage || ''}
