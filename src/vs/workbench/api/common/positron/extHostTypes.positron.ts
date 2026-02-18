@@ -435,7 +435,7 @@ export enum PreviewSourceType {
 }
 
 export const enum StatementRangeErrorKind {
-	Parse = 'Parse',
+	Parse = 'parse',
 }
 
 export class StatementRangeError extends Error {
