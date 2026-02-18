@@ -51,7 +51,7 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 ## Code Style
 
-- Use tabs for indentation, not spaces
+- Use tabs for indentation in TypeScript/JavaScript, not spaces
 - Never use em-dashes, en-dashes, smart quotes, or other non-ASCII punctuation. Use ASCII hyphens and straight quotes
 - The pre-commit hook checks staged files for unicode, indentation, copyright headers, formatting, and eslint issues
 - To run manually: `npm run precommit` (all staged files) or `npm run precommit -- <file>` (specific file)
