@@ -438,16 +438,24 @@ export const enum StatementRangeErrorKind {
 	Parse = 'parse',
 }
 
+export interface StatementRangeParseErrorData {
+	line?: number
+}
+
 export class StatementRangeError extends Error {
 	static ParseError(line?: number): StatementRangeError {
 		const error = new StatementRangeError();
 		error.kind = StatementRangeErrorKind.Parse;
-		error.line = line;
+		error.data = { line } satisfies StatementRangeParseErrorData;
 		return error;
 	}
 
+	getParseErrorData(): StatementRangeParseErrorData {
+		return this.data as StatementRangeParseErrorData;
+	}
+
 	kind!: StatementRangeErrorKind;
-	line: number | undefined;
+	private data!: unknown;
 
 	// Required `message` argument in constructor to satisfy `Error`
 	// constructor, but not used
