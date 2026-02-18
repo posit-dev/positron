@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import enum
+import json
 import logging
 import os
 import re
@@ -43,6 +44,7 @@ from .patch.holoviews import set_holoviews_extension
 from .patch.plotly import patch_plotly_browser_renderer
 from .plots import PlotsService
 from .session_mode import SessionMode
+from .third_party import is_pandas, is_polars
 from .ui import UiService
 from .utils import BackgroundJobQueue, JsonRecord, get_qualname, with_logging
 from .variables import VariablesService
@@ -227,9 +229,61 @@ original_showwarning = warnings.showwarning
 
 
 class PositronDisplayFormatter(DisplayFormatter):
+    parent: PositronShell
+
+    @property
+    def _kernel(self):
+        """Access kernel through parent shell."""
+        return self.parent.kernel if self.parent else None
+
     @traitlets.default("ipython_display_formatter")
     def _default_formatter(self):
         return PositronIPythonDisplayFormatter(parent=self)
+
+    def format(self, obj, include=None, exclude=None):
+        """Format an object for display, with special handling for dataframes in notebooks."""
+        # Get the standard format result first
+        format_dict, metadata = super().format(obj, include=include, exclude=exclude)
+
+        # Only add inline data explorer for notebook mode
+        if self._kernel is None or self._kernel.session_mode != SessionMode.NOTEBOOK:
+            return format_dict, metadata
+
+        # Check if this is a supported table type (DataFrame or Series)
+        if not (is_pandas(obj) or is_polars(obj)):
+            return format_dict, metadata
+
+        # Register the table with data explorer service and get comm_id
+        try:
+            # Generate a unique title for the inline display
+            rows, cols = _get_table_shape(obj)
+            source = _get_table_source(obj)
+            title = source
+
+            # Register without opening a full data explorer panel
+            comm_id = self._kernel.data_explorer_service.register_table(
+                obj,
+                title,
+                variable_path=None,  # No variable path for inline displays
+                inline_only=True,  # Prevent auto-opening full data explorer
+            )
+
+            # Add the custom MIME type with metadata for the inline data explorer
+            format_dict[POSITRON_DATA_EXPLORER_MIME] = json.dumps(
+                {
+                    "version": 1,
+                    "comm_id": comm_id,
+                    "shape": {"rows": rows, "columns": cols},
+                    "title": title,
+                    "source": source,
+                }
+            )
+
+        except Exception:
+            # If registration fails, just use the standard format
+            logger.debug("Failed to register table for inline data explorer", exc_info=True)
+
+        return format_dict, metadata
 
 
 class PositronIPythonDisplayFormatter(IPythonDisplayFormatter):
@@ -246,6 +300,30 @@ class PositronIPythonDisplayFormatter(IPythonDisplayFormatter):
         except AttributeError:
             pass
         return super().__call__(obj)
+
+
+# MIME type for inline data explorer in notebooks
+POSITRON_DATA_EXPLORER_MIME = "application/vnd.positron.dataExplorer+json"
+
+
+def _get_table_source(obj) -> str:
+    """Get the source library name for a table object."""
+    if is_pandas(obj):
+        return "pandas"
+    if is_polars(obj):
+        return "polars"
+    return "unknown"
+
+
+def _get_table_shape(obj) -> tuple[int, int]:
+    """Get the shape (rows, columns) of a table object."""
+    if hasattr(obj, "shape"):
+        shape = obj.shape
+        # Handle Series which has 1D shape
+        if len(shape) == 1:
+            return (shape[0], 1)
+        return (shape[0], shape[1])
+    return (0, 0)
 
 
 class PositronShell(ZMQInteractiveShell):

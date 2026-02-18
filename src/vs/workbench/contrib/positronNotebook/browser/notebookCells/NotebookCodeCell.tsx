@@ -6,12 +6,16 @@
 // CSS.
 import './NotebookCodeCell.css';
 
+// React.
+import React from 'react';
+
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -22,7 +26,9 @@ import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { useCellOutputContextMenu } from './useCellOutputContextMenu.js';
+import { useCellContextMenu } from './useCellContextMenu.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 
 
 interface CellOutputsSectionProps {
@@ -30,9 +36,14 @@ interface CellOutputsSectionProps {
 	outputs: NotebookCellOutputs[];
 }
 
-function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
+const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
-	const { showCellOutputContextMenu } = useCellOutputContextMenu(cell);
+	const { showContextMenu } = useCellContextMenu({
+		cell,
+		menuId: MenuId.PositronNotebookCellOutputActionLeft,
+	});
+	const isSingleDataExplorer = outputs?.length === 1 &&
+		outputs[0].parsed.type === 'dataExplorer';
 
 	const handleShowHiddenOutput = () => {
 		cell.expandOutput();
@@ -52,13 +63,15 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 		if (outputs.length === 0) {
 			return;
 		}
-
-		event.preventDefault();
-		showCellOutputContextMenu({ x: event.clientX, y: event.clientY });
+		showContextMenu({ x: event.clientX, y: event.clientY });
 	};
 
 	return (
-		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'}`}>
+		<div className={positronClassNames(
+			'positron-notebook-outputs-section',
+			{ 'no-outputs': outputs.length === 0 },
+			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
+		)}>
 			<CellOutputLeftActionMenu cell={cell} />
 			<section
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
@@ -85,9 +98,12 @@ function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 			</section>
 		</div>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Simple reference equality - outputs array is stable when nothing changes
+	return prevProps.outputs === nextProps.outputs;
+});
 
-export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
+export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
 	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
@@ -108,14 +124,17 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 
 		</NotebookCellWrapper>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Cell objects are stable references - only rerender if cell reference changes
+	return prevProps.cell === nextProps.cell;
+});
 
-function CellOutput(output: NotebookCellOutputs) {
+const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
 	if (output.preloadMessageResult) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed } = output;
+	const { parsed, outputs } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -132,9 +151,16 @@ function CellOutput(output: NotebookCellOutputs) {
 			return renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
+		case 'dataExplorer':
+			return <DataExplorerCellOutput outputs={outputs} parsed={parsed} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}
 			</div>;
 	}
-}
+}, (prevProps, nextProps) => {
+	// Reference equality on parsed is correct - new execution creates new parsed objects
+	return prevProps.outputId === nextProps.outputId &&
+		prevProps.parsed === nextProps.parsed;
+});
+

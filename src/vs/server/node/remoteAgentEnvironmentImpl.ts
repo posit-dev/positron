@@ -22,6 +22,9 @@ import { IExtensionHostStatusService } from './extensionHostStatusService.js';
 import { IUserDataProfilesService } from '../../platform/userDataProfile/common/userDataProfile.js';
 import { joinPath } from '../../base/common/resources.js';
 import { ILogService } from '../../platform/log/common/log.js';
+// --- Start Positron ---
+import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentEnvironment.js';
+// --- End Positron ---
 
 export class RemoteAgentEnvironmentChannel implements IServerChannel {
 
@@ -33,6 +36,9 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 		private readonly _userDataProfilesService: IUserDataProfilesService,
 		private readonly _extensionHostStatusService: IExtensionHostStatusService,
 		private readonly _logService: ILogService,
+		// --- Start Positron ---
+		private readonly _positronLicenseeInfo?: IPositronLicenseeInfo,
+		// --- End Positron ---
 	) {
 	}
 
@@ -129,7 +135,10 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 				all: [...this._userDataProfilesService.profiles].map(profile => ({ ...profile }))
 			},
 			isUnsupportedGlibc,
-			reconnectionGraceTime: this._environmentService.reconnectionGraceTime
+			reconnectionGraceTime: this._environmentService.reconnectionGraceTime,
+			// --- Start Positron ---
+			positronLicenseeInfo: this._positronLicenseeInfo
+			// --- End Positron ---
 		};
 	}
 
