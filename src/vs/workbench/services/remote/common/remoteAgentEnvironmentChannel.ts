@@ -25,6 +25,13 @@ export interface IGetExtensionHostExitInfoArguments {
 	reconnectionToken: string;
 }
 
+// --- Start Positron ---
+export interface IPositronLicenseeInfoDTO {
+	licensee?: string;
+	issuer?: string;
+}
+// --- End Positron ---
+
 export interface IRemoteAgentEnvironmentDTO {
 	pid: number;
 	connectionToken: string;
@@ -48,6 +55,9 @@ export interface IRemoteAgentEnvironmentDTO {
 	};
 	isUnsupportedGlibc: boolean;
 	reconnectionGraceTime?: number;
+	// --- Start Positron ---
+	positronLicenseeInfo?: IPositronLicenseeInfoDTO;
+	// --- End Positron ---
 }
 
 export class RemoteExtensionEnvironmentChannelClient {
@@ -82,7 +92,10 @@ export class RemoteExtensionEnvironmentChannelClient {
 			useHostProxy: data.useHostProxy,
 			profiles: revive(data.profiles),
 			isUnsupportedGlibc: data.isUnsupportedGlibc,
-			reconnectionGraceTime
+			reconnectionGraceTime,
+			// --- Start Positron ---
+			positronLicenseeInfo: data.positronLicenseeInfo
+			// --- End Positron ---
 		};
 	}
 

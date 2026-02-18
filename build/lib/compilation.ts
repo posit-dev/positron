@@ -366,15 +366,6 @@ const codiconSource = path.join(root, 'node_modules', '@vscode', 'codicons', 'di
 const codiconDest = path.join(root, 'src', 'vs', 'base', 'browser', 'ui', 'codicons', 'codicon', 'codicon.ttf');
 
 function copyCodiconsImpl() {
-	// --- Start Positron ---
-	// Positron maintains a custom codicon.ttf checked into git that includes
-	// Positron-specific icon glyphs (codepoints 0xF230-0xF297). Copying from
-	// the npm package would overwrite these with the standard font that lacks
-	// Positron icons. Skip the copy if the custom font already exists.
-	if (fs.existsSync(codiconDest)) {
-		return;
-	}
-	// --- End Positron ---
 	try {
 		if (fs.existsSync(codiconSource)) {
 			fs.mkdirSync(path.dirname(codiconDest), { recursive: true });

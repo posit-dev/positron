@@ -178,6 +178,7 @@ import './contrib/processExplorer/browser/processExplorer.web.contribution.js';
 
 // --- Start Positron ---
 import './contrib/positronPreview/browser/positronPreview.web.contribution.js';
+import './contrib/positronLicenseeInfo/browser/positronLicenseeInfo.contribution.js';
 // --- End Positron
 
 //#endregion

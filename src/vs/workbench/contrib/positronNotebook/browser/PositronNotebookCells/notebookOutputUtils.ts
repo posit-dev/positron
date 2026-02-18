@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { NotebookCellOutputItem } from './IPositronNotebookCell.js';
+import { isDataExplorerMimeType } from '../getOutputContents.js';
 
 /**
  * Get the priority of a mime type for sorting purposes
@@ -11,6 +12,11 @@ import { NotebookCellOutputItem } from './IPositronNotebookCell.js';
  * @returns A number representing the priority of the mime type. Lower numbers are higher priority.
  */
 function getMimeTypePriority(mime: string): number | null {
+	// Positron inline data explorer has highest priority
+	if (isDataExplorerMimeType(mime)) {
+		return 0;
+	}
+
 	if (mime.includes('application')) {
 		return 1;
 	}
@@ -37,7 +43,7 @@ function getMimeTypePriority(mime: string): number | null {
  * @returns The output item with the highest priority mime type. If there's a tie, the first one is
  * returned. If there's an unknown mime type we defer to ones we do know about.
  */
-export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], logWarning?: (msg: string) => void): NotebookCellOutputItem | undefined {
+export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): NotebookCellOutputItem | undefined {
 
 	if (outputItems.length === 0) {
 		return undefined;
@@ -62,9 +68,9 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], l
 	}
 
 	if (highestPriority === null) {
-		logWarning?.('Could not determine preferred output for notebook cell with mime types' +
-			outputItems.map(item => item.mime).join(', ')
-		);
+		// Unknown mime mixes can occur in normal notebook usage.
+		// We fall through to returning the first item, which is the
+		// best we can do for unrecognized mime types.
 	}
 
 	return preferredOutput;

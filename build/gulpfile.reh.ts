@@ -109,6 +109,9 @@ const serverResources = [
 const serverWithWebResourceIncludes = [
 	...serverResourceIncludes,
 	'out-build/vs/code/browser/workbench/*.html',
+	// --- Start Positron ---
+	'out-build/esm-package-dependencies/**',
+	// --- End Positron ---
 	...vscodeWebResourceIncludes
 ];
 
@@ -334,8 +337,11 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		// --- Start Positron ---
 
 		const bootstrapExtensions = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).bootstrapExtensions
+			// @ts-ignore
 			.filter(entry => !entry.platforms || new Set(entry.platforms).has(platform))
+			// @ts-ignore
 			.filter(entry => !entry.type || entry.type === type)
+			// @ts-ignore
 			.map(entry => entry.name);
 		const bootstrapExtensionPaths = [...bootstrapExtensions]
 			.map(name => `.build/extensions/bootstrap/${name}*.vsix`);
@@ -434,14 +440,6 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			node,
 			...web
 		);
-
-		// --- Start Positron ---
-		if (type === 'reh-web') {
-			// External modules (React, etc.)
-			const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname); }));
-			all = es.merge(all, moduleSources);
-		}
-		// --- End Positron ---
 
 		let result = all
 			.pipe(util.skipDirectories())

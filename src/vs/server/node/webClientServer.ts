@@ -423,6 +423,9 @@ export class WebClientServer {
 			// Assistant and Copilot Chat to work with Github authenticaiton out
 			// of the box)
 			trustedExtensionAuthAccess: this._productService.trustedExtensionAuthAccess,
+			// Pass defaultChatAgent so the DefaultAccountService can initialize
+			// (required by upstream VS Code 1.109+, not in the web dev fallback product config)
+			defaultChatAgent: this._productService.defaultChatAgent,
 			// --- End Positron ---
 		} satisfies Partial<IProductConfiguration>;
 
