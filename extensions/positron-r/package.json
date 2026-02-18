@@ -1078,7 +1078,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.227"
+      "ark": "feature/statement-range-error-2"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
