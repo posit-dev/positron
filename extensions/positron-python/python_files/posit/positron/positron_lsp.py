@@ -508,9 +508,12 @@ def _handle_completion(
     text_after_cursor = line[params.position.character :]
 
     # Check for parameter completion first (e.g., inside a function call like "f(")
-    param_items, inside_function_call = _get_parameter_completions(server, text_before_cursor)
-    if param_items:
-        items.extend(param_items)
+    if "(" in text_before_cursor:
+        param_items, inside_function_call = _get_parameter_completions(server, text_before_cursor)
+        if param_items:
+            items.extend(param_items)
+    else:
+        inside_function_call = False
 
     # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
