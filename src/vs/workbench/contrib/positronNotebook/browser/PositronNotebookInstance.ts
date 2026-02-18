@@ -905,7 +905,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cell The cell to reveal
 	 */
 	private async _revealCell(cell: IExtensionApiCellViewModel): Promise<void> {
-		await this._toPositronCell(cell).reveal();
+		await this._toPositronCell(cell).reveal({ reason: 'programmatic' });
 	}
 	//#endregion INotebookEditor
 

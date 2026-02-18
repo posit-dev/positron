@@ -194,7 +194,7 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 * @param options Reveal options controlling scroll behavior based on reason (keyboard navigation vs programmatic).
 	 * @returns Promise that resolves to true if the cell was successfully revealed, false otherwise.
 	 */
-	reveal(options?: ICellRevealOptions): Promise<boolean>;
+	reveal(options: ICellRevealOptions): Promise<boolean>;
 
 	/**
 	 * Temporarily highlight the cell with a flash animation to draw attention.

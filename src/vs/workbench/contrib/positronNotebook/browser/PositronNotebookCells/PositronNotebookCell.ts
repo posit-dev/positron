@@ -18,6 +18,13 @@ import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEdito
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
+import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
+import { ScrollType } from '../../../../../editor/common/editorCommon.js';
+import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { INotebookCellExecution, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
+import { IContextKeysCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
 /**
  * Minimum visibility ratio required for a cell to be considered visible in the viewport.
@@ -54,13 +61,6 @@ export interface ICellRevealOptions {
 	 */
 	direction?: CellNavigationDirection;
 }
-import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
-import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
-import { ScrollType } from '../../../../../editor/common/editorCommon.js';
-import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
-import { INotebookCellExecution, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
-import { IContextKeysCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	abstract readonly kind: CellKind;
@@ -312,8 +312,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	 */
 	private static _revealGenerationByInstance = new WeakMap<object, number>();
 
-	async reveal(options?: ICellRevealOptions): Promise<boolean> {
-		const resolvedOptions = options ?? { reason: 'programmatic' };
+	async reveal(options: ICellRevealOptions): Promise<boolean> {
+		const resolvedOptions = options;
 
 		// Capture per-notebook generation so we can bail if a newer reveal starts while we await
 		const genMap = PositronNotebookCellGeneral._revealGenerationByInstance;
@@ -399,7 +399,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 
 		// Scroll the cell into view
-		await this.reveal();
+		await this.reveal({ reason: 'programmatic' });
 
 		// Select the cell in edit mode
 		this.select(CellSelectionType.Edit);

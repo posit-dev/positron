@@ -769,7 +769,9 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		// Reveal the newly active cell
-		void nextCell.reveal({ reason: 'keyboardNavigation', direction });
+		nextCell.reveal({ reason: 'keyboardNavigation', direction }).catch(err => {
+			this._logService.error('SelectionMachine: Failed to reveal cell during keyboard navigation', err);
+		});
 	}
 
 	//#endregion Private Methods
