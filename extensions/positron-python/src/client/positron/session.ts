@@ -411,7 +411,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         await this._pipPackageManager.updateAllPackages();
     }
 
-
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);

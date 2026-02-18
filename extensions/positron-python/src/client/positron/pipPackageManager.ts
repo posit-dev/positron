@@ -30,7 +30,7 @@ export class PipPackageManager {
         private readonly _pythonPath: string,
         private readonly _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
-    ) { }
+    ) {}
 
     /**
      * Check if pip is available in the current Python environment.
@@ -105,8 +105,11 @@ export class PipPackageManager {
         const proxyFlags = this._getProxyFlags();
 
         const pythonService = await this._getPythonService();
-        const outdatedResult = await pythonService.execModule('pip',
-            ['list', '--outdated', '--format=json', ...proxyFlags], {});
+        const outdatedResult = await pythonService.execModule(
+            'pip',
+            ['list', '--outdated', '--format=json', ...proxyFlags],
+            {},
+        );
 
         let outdatedPackages: Array<{ name: string }> = [];
         try {
@@ -120,7 +123,7 @@ export class PipPackageManager {
             return;
         }
 
-        const packageNames = outdatedPackages.map(pkg => pkg.name);
+        const packageNames = outdatedPackages.map((pkg) => pkg.name);
         const flags = await this._getInstallFlags();
         const args = ['install', '--upgrade', ...flags, ...packageNames];
 
@@ -150,7 +153,7 @@ export class PipPackageManager {
         if (!hasPip) {
             throw new Error(
                 'pip is not available in this Python environment. ' +
-                'Please install pip to use package management features.'
+                    'Please install pip to use package management features.',
             );
         }
     }
@@ -160,9 +163,8 @@ export class PipPackageManager {
      * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0"
      */
     private _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
-        return packages.map(pkg => pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name);
+        return packages.map((pkg) => (pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name));
     }
-
 
     /**
      * Get proxy flags if a proxy is configured.
