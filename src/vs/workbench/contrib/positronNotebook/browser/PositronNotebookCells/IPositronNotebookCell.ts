@@ -8,7 +8,6 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { IObservable, IObservableSignal, ISettableObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../selectionMachine.js';
@@ -238,7 +237,7 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 *
 	 * @param editor Code editor widget associated with cell.
 	 */
-	attachEditor(editor: CodeEditorWidget): void;
+	attachEditor(editor: ICodeEditor): void;
 
 	/**
 	 * Detach the editor from the cell
