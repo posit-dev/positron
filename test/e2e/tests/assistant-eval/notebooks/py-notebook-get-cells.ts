@@ -14,10 +14,10 @@ import { EvalTestCase } from '../types';
  *           Cells outside the window require an explicit getNotebookCells tool call.
  *
  * This test creates a 21-cell notebook where each cell calculates `x * 10`.
- * Cell 0 is selected, so cell 20 is outside the automatic context window.
- * When asked about cell 20, the assistant MUST call getNotebookCells to fetch it.
+ * Cell index 0 is selected, so cell index 20 is outside the automatic context window.
+ * When asked about cell 21 (index 20), the assistant MUST call getNotebookCells to fetch it.
  */
-const prompt = 'What is the value calculated in cell 20 of my notebook?';
+const prompt = 'What is the value calculated in cell 21 (index 20) of my notebook?';
 const mode = 'Edit';
 
 export const pyNotebookGetCells: EvalTestCase = {
@@ -42,12 +42,10 @@ export const pyNotebookGetCells: EvalTestCase = {
 		for (let i = 0; i < 21; i++) {
 			const code = `x = ${i}; result_${i} = x * 10; result_${i}`;
 			await notebooksPositron.addCodeToCell(i, code);
-			await notebooksPositron.runCodeAtIndex(i);
-			await notebooksPositron.expectExecutionOrder([{ index: i, order: i + 1 }]);
 		}
 
 		// Select cell 0 so the sliding window is at the beginning
-		// This ensures cell 20 is outside the automatic context window
+		// This ensures cell index 20 is outside the automatic context window
 		await notebooksPositron.selectCellAtIndex(0);
 
 		// Ask the question
@@ -70,12 +68,12 @@ export const pyNotebookGetCells: EvalTestCase = {
 	evaluationCriteria: {
 		required: [
 			'The `getNotebookCells` tool must appear in the "Tools Called:" section (required because large notebooks use sliding window)',
-			'Reports the correct value from cell 20 (which is 200, since it calculates x * 10 where x = 20)',
+			'Reports the correct value from cell 21 (index 20), which is 200, since it calculates x * 10 where x = 20)',
 		],
 		optional: [
 			'Explains what the code does or references the calculation',
 			'Does not hallucinate values from cells that don\'t exist',
-			'Correctly identifies cell 20 (0-indexed: cell index 20)',
+			'Correctly identifies cell 21 (index 20)',
 		],
 	},
 };
