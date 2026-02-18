@@ -425,9 +425,10 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 	}
 
 	private _getPositronPerfMarks(): perf.PerformanceMark[] {
-		const allMarks = this._timerService.getPerformanceMarks();
-		const rendererMarks = allMarks.find(e => e[0] === 'renderer')?.[1] || [];
-		return rendererMarks.filter(m => m.name.startsWith('code/positron/'));
+		// Read marks directly from the performance API rather than from the
+		// timer service snapshot, which is captured early during startup and
+		// misses marks recorded after that point.
+		return perf.getMarks().filter(m => m.name.startsWith('code/positron/'));
 	}
 }
 

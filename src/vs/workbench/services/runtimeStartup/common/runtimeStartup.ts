@@ -171,7 +171,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				(phase) => {
 					this._logService.debug(`[Runtime startup] Phase changed to '${phase}'`);
-					this._startupPhase = phase;
+					this.setStartupPhase(phase);
 				}));
 
 
