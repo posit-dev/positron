@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-02-17T19:41:25.424Z
+> 9 test cases · Auto-generated on 2026-02-18T12:02:21.903Z
 
 ## Hallucination
 
@@ -71,6 +71,34 @@ Load the forested package and make some plots of the forested data
 </details>
 
 ## Notebooks
+
+<details>
+<summary><strong>py-notebook-get-cells</strong> · Edit · Ensure getNotebookCells is called for large not...</summary>
+
+### Intent
+
+Ensure getNotebookCells is called for large notebooks
+
+### User prompt
+
+```text
+What is the value calculated in cell 21 (index 20) of my notebook?
+```
+
+### Criteria
+
+#### Required
+
+- The `getNotebookCells` tool must appear in the "Tools Called:" section (required because large notebooks use sliding window)
+- Reports the correct value from cell 21 (index 20), which is 200, since it calculates x * 10 where x = 20)
+
+#### Nice to have
+
+- Explains what the code does or references the calculation
+- Does not hallucinate values from cells that don't exist
+- Correctly identifies cell 21 (index 20)
+
+</details>
 
 <details>
 <summary><strong>r-notebook-automatic-context</strong> · Edit · Ensure small notebooks have automatic context w...</summary>
@@ -159,34 +187,6 @@ Fix the error in cell 2 of my notebook.
 #### Fail if
 
 - Uses editFile instead of editNotebookCells (indicates the assistant did not correctly identify the notebook context)
-
-</details>
-
-<details>
-<summary><strong>r-notebook-get-cells</strong> · Edit · Ensure getNotebookCells is called for large not...</summary>
-
-### Intent
-
-Ensure getNotebookCells is called for large notebooks
-
-### User prompt
-
-```text
-What is the value calculated in cell 20 of my notebook?
-```
-
-### Criteria
-
-#### Required
-
-- The `getNotebookCells` tool must appear in the "Tools Called:" section (required because large notebooks use sliding window)
-- Reports the correct value from cell 20 (which is 200, since it calculates x * 10 where x = 20)
-
-#### Nice to have
-
-- Explains what the code does or references the calculation
-- Does not hallucinate values from cells that don't exist
-- Correctly identifies cell 20 (0-indexed: cell index 20)
 
 </details>
 

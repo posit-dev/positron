@@ -50,6 +50,28 @@ export type MetricResult<T> = {
 	duration_ms: number;
 };
 
+/**
+ * Input for recording assistant evaluation metrics.
+ */
+export type AssistantEvalMetricInput = {
+	testId: string;
+	description: string;
+	category: string;
+	prompt: string;
+	mode: 'Ask' | 'Edit' | 'Agent';
+	language?: 'R' | 'Python';
+	tags?: string[];
+	modelKey: string;
+	modelDisplayName: string;
+	response: string;
+	toolsCalled?: string[];
+	grade: 'C' | 'P' | 'I';
+	gradeExplanation: string;
+	requiredCriteriaCount?: number;
+	optionalCriteriaCount?: number;
+	failIfCriteriaCount?: number;
+};
+
 export type RecordMetric = {
 	dataExplorer: {
 		loadData: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<MetricResult<T>>;
@@ -59,6 +81,9 @@ export type RecordMetric = {
 	};
 	notebooks: {
 		runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
+	};
+	assistant: {
+		evalResponse: (input: AssistantEvalMetricInput, durationMs: number) => Promise<void>;
 	};
 };
 
@@ -110,6 +135,12 @@ export type MetricTargetType =
 	// Notebook cells
 	| 'cell.r'                // R notebook cell
 	| 'cell.python'           // Python notebook cell
+
+	// Assistant eval categories
+	| 'eval.notebooks'        // Notebook-related assistant evals
+	| 'eval.tools'            // Tool usage evals
+	| 'eval.hallucination'    // Hallucination detection evals
+	| 'eval.general';         // General assistant evals
 
 export interface BaseMetric {
 	branch?: GhBranch;
