@@ -358,13 +358,12 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		const table: Array<Array<string>> = [];
 		for (const runtime of runtimes) {
 			table.push([
-				runtime.runtimeId,
 				runtime.extensionId.value,
 				runtime.runtimeName,
 				runtime.runtimePath
 			]);
 		}
-		md.table(['Runtime ID', 'Extension', 'Name', 'Path'], table);
+		md.table(['Extension', 'Name', 'Path'], table);
 	}
 
 	private _addRestoredSessions(md: MarkdownBuilder): void {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -176,6 +176,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
+			perf.mark(`code/positron/runtimeSessionWillStart/${e.session.sessionId}`);
 			this._register(e.session.onDidEncounterStartupFailure(_exit => {
 				// Update the set of workspace sessions, removing the one that
 				// failed to start.
@@ -486,9 +487,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Convenience method for setting the startup phase.
 	 */
 	private setStartupPhase(phase: RuntimeStartupPhase): void {
+		const newPhase = this._startupPhase !== phase;
 		this._startupPhase = phase;
 		this._languageRuntimeService.setStartupPhase(phase);
-		perf.mark(`code/positron/runtimeStartupPhase/${phase}`);
+		if (newPhase) {
+			perf.mark(`code/positron/runtimeStartupPhase/${phase}`);
+		}
 	}
 
 	/**
@@ -1360,6 +1364,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					const valid = await this._runtimeSessionService.validateRuntimeSession(
 						session.runtimeMetadata,
 						session.metadata.sessionId);
+					perf.mark(`code/positron/runtimeSessionValidated/${session.metadata.sessionId}`);
 
 					this._logService.debug(
 						`[Runtime startup] Session ` +
