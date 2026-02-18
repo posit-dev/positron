@@ -27,7 +27,9 @@ export const platformOs = (() => {
 
 export const platformVersion = os.release();
 
-export const positronVersion = getPositronVersion();
+// Lazy getter - called at runtime when metrics are logged, not at module load time
+// This ensures process.env.BUILD is set by the time we need the version
+export const getPositronVersionLazy = () => getPositronVersion();
 
 //-----------------------
 // Base Metric Types
