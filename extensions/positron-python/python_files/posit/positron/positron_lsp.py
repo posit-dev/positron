@@ -32,6 +32,7 @@ import re
 import threading
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
 from ._vendor import attrs, cattrs
@@ -142,7 +143,8 @@ def _safe_resolve_expression(namespace: dict[str, Any], expr: str) -> Any | None
         return None
 
 
-def _parse_os_imports(source: str) -> dict[str, str]:
+@lru_cache(maxsize=32)
+def _parse_os_imports(source: str) -> MappingProxyType[str, str]:
     """
     Parse import statements to find os module imports.
 
@@ -150,10 +152,12 @@ def _parse_os_imports(source: str) -> dict[str, str]:
     Only supports `import os` and `import os as <alias>` forms.
     Does NOT support `from os import ...` (out of scope).
 
-    Returns empty dict if source is empty, invalid, or has no os imports.
+    Returns empty mapping if source is empty, invalid, or has no os imports.
+
+    The return value is immutable (MappingProxyType) since results are cached.
     """
     if not source or not source.strip():
-        return {}
+        return MappingProxyType({})
 
     imports: dict[str, str] = {}
 
@@ -166,7 +170,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
                     if alias.name == "os":
                         key = alias.asname or "os"
                         imports[key] = "os"
-        return imports
+        return MappingProxyType(imports)
     except SyntaxError:
         pass
 
@@ -188,7 +192,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
         except SyntaxError:
             continue
 
-    return imports
+    return MappingProxyType(imports)
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
