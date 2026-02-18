@@ -434,5 +434,28 @@ export enum PreviewSourceType {
 	Terminal = 'terminal',
 }
 
+export const enum StatementRangeErrorKind {
+	ParseError = 'ParseError',
+}
+
+export class StatementRangeError extends Error {
+	static ParseError(line?: number): StatementRangeError {
+		const error = new StatementRangeError();
+		error.kind = StatementRangeErrorKind.ParseError;
+		error.line = line;
+		return error;
+	}
+
+	kind!: StatementRangeErrorKind;
+	line: number | undefined;
+
+	// Required `message` argument in constructor to satisfy `Error`
+	// constructor, but not used
+	constructor(message?: string) {
+		super(message);
+		Object.setPrototypeOf(this, StatementRangeError.prototype);
+	}
+}
+
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 export { PlotRenderSettings, PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';

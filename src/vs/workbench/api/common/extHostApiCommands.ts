@@ -24,6 +24,7 @@ import * as search from '../../contrib/search/common/search.js';
 import type * as vscode from 'vscode';
 // --- Start Positron ---
 import type * as positron from 'positron';
+import * as extHostTypes from './positron/extHostTypes.positron.js';
 // --- End Positron ---
 
 //#region --- NEW world
@@ -544,30 +545,16 @@ const newCommands: ApiCommand[] = [
 	new ApiCommand(
 		'vscode.executeStatementRangeProvider', '_executeStatementRangeProvider', 'Execute statement range provider.',
 		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
-		new ApiCommandResult<languages.IStatementRange | languages.IStatementRangeRejection, positron.StatementRange | positron.StatementRangeRejection | undefined>('A promise that resolves to a statement range or statement range rejection.', result => {
-			if (result.kind === undefined || result.kind === 'success') {
-				return {
-					range: typeConverters.Range.to(result.range),
-					code: result.code
-				} satisfies positron.StatementRange;
+		new ApiCommandResult<languages.IStatementRange, positron.StatementRange>('A promise that resolves to a statement range.', result => {
+			switch (result.kind) {
+				case languages.StatementRangeKind.Success:
+					return {
+						range: typeConverters.Range.to(result.range),
+						code: result.code
+					} satisfies positron.StatementRange;
+				case languages.StatementRangeKind.ParseError:
+					throw extHostTypes.StatementRangeError.ParseError(result.line);
 			}
-
-			if (result.kind === 'rejection') {
-				switch (result.rejectionKind) {
-					case 'parse': return {
-						kind: result.kind,
-						rejectionKind: result.rejectionKind,
-						line: result.line
-					} satisfies positron.StatementRangeParseRejection;
-					default: {
-						// Unknown `rejectionKind`
-						return undefined;
-					}
-				}
-			}
-
-			// Unknown `kind`
-			return undefined;
 		})
 	),
 	// -- show help topic

@@ -25,7 +25,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IStatementRange, IStatementRangeRejection, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
+import { IStatementRange, IStatementRangeSuccess, StatementRangeKind, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
 import { toAction } from '../../../../base/common/actions.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
@@ -167,36 +167,50 @@ async function executeCodeInConsole(
 }
 
 /**
- * Show a notification for a statement range parse rejection, with an action to jump to the parse error line.
+ * Show a notification for a statement range parse error, with an action to jump to the parse error line.
  */
-function notifyStatementRangeParseRejection(
-	line: number,
+function notifyStatementRangeParseError(
+	line: number | undefined,
 	uri: URI,
 	notificationService: INotificationService,
 	editorService: IEditorService,
 ): void {
-	const action = toAction({
-		id: 'positron.executeCode.jumpToParseRejectionLine',
-		label: localize('positron.executeCode.jumpToParseRejectionLine', "Jump to line"),
-		run: () => {
-			editorService.openEditor({
-				resource: uri,
-				options: {
-					selection: { startLineNumber: line, startColumn: 1 },
-				}
-			});
-		}
-	});
+	let message = '';
+	let actions = undefined;
+
+	if (line) {
+		message = localize(
+			'positron.executeCode.parseErrorAtLine',
+			"Can't execute code due to a parse error near line {0}.",
+			line + 1
+		);
+
+		const action = toAction({
+			id: 'positron.executeCode.jumpToParseErrorLine',
+			label: localize('positron.executeCode.jumpToParseErrorLine', "Jump to line"),
+			run: () => {
+				editorService.openEditor({
+					resource: uri,
+					options: {
+						selection: { startLineNumber: line + 1, startColumn: 1 },
+					}
+				});
+			}
+		});
+
+		actions = [action];
+	} else {
+		message = localize(
+			'positron.executeCode.parseError',
+			"Can't execute code due to a parse error."
+		);
+	}
 
 	notificationService.notify({
 		severity: Severity.Info,
-		message: localize(
-			'positron.executeCode.parseRejection',
-			"Can't execute code due to a parse error near line {0}.",
-			line
-		),
+		message: message,
 		actions: {
-			primary: [action]
+			primary: actions
 		},
 		sticky: false
 	});
@@ -484,7 +498,7 @@ export function registerPositronConsoleActions() {
 			// which can be used to get the code to execute.
 			if (!isString(code) && statementRangeProviders.length > 0) {
 
-				let statementRange: IStatementRange | IStatementRangeRejection | null | undefined = undefined;
+				let statementRange: IStatementRange | null | undefined = undefined;
 				try {
 					// Just consult the first statement range provider if several are registered
 					statementRange = await statementRangeProviders[0].provideStatementRange(
@@ -496,30 +510,32 @@ export function registerPositronConsoleActions() {
 					logService.warn(`Failed to get statement range at ${position}: ${err}`);
 				}
 
-				if (statementRange && statementRange.kind === 'rejection') {
-					if (statementRange.rejectionKind === 'parse') {
-						notifyStatementRangeParseRejection(
-							statementRange.line + 1,
-							model.uri,
-							notificationService,
-							editorService
-						);
-					}
-
-					// Rejections returned by a provider are critical issues.
-					// We should not continue with a line-based after receiving one.
-					return undefined;
-				}
-
 				if (statementRange) {
-					// If a statement was found, get the code to execute. Always use whatever the
-					// range provider returns, even if it is an empty string, as it should have
-					// returned `undefined` if it didn't think it was important.
-					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
-					codeLocation = createCodeLocation(model, model.uri, statementRange.range);
+					switch (statementRange.kind) {
+						case StatementRangeKind.Success: {
+							// If a statement was found, get the code to execute. Always use whatever the
+							// range provider returns, even if it is an empty string, as it should have
+							// returned `undefined` if it didn't think it was important.
+							code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
+							codeLocation = createCodeLocation(model, model.uri, statementRange.range);
 
-					if (advance) {
-						nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
+							if (advance) {
+								nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
+							}
+
+							break;
+						}
+						case StatementRangeKind.ParseError: {
+							notifyStatementRangeParseError(
+								statementRange.line,
+								model.uri,
+								notificationService,
+								editorService
+							);
+							// Parse errors returned by a provider are critical issues.
+							// We should not continue with a line-based approach after receiving one.
+							return undefined;
+						}
 					}
 				} else {
 					// The statement range provider didn't return a range. This
@@ -605,7 +621,7 @@ export function registerPositronConsoleActions() {
 		async advanceStatement(
 			model: ITextModel,
 			editor: IEditor | undefined,
-			statementRange: IStatementRange,
+			statementRange: IStatementRangeSuccess,
 			provider: StatementRangeProvider,
 			logService: ILogService,
 		): Promise<Position | undefined> {
@@ -636,7 +652,7 @@ export function registerPositronConsoleActions() {
 				// Invoke the statement range provider again to
 				// find the appropriate boundary of the next statement.
 
-				let nextStatementRange: IStatementRange | IStatementRangeRejection | null | undefined = undefined;
+				let nextStatementRange: IStatementRange | null | undefined = undefined;
 				try {
 					nextStatementRange = await provider.provideStatementRange(
 						model,
@@ -647,40 +663,45 @@ export function registerPositronConsoleActions() {
 						`at position ${newPosition}: ${err}`);
 				}
 
-				if (nextStatementRange && nextStatementRange.kind === 'rejection') {
-					if (nextStatementRange.rejectionKind === 'parse') {
-						logService.warn(`Can't advance due to a parse error on line ${nextStatementRange.line + 1}.`);
-					}
-
-					// Rejections returned by a provider are critical issues.
-					// We should not advance the cursor after receiving one.
-					return undefined;
-				}
-
 				if (nextStatementRange) {
-					// If we found the next statement, determine exactly where to move
-					// the cursor to, maintaining the invariant that we should always
-					// step further down the page, never up, as this is too "jumpy".
-					// If for some reason the next statement doesn't meet this
-					// invariant, we don't use it and instead use the default
-					// `newPosition`.
-					const nextStatement = nextStatementRange.range;
-					if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
-						// If the next statement's start is after this statement's end,
-						// then move to the start of the next statement.
-						newPosition = new Position(
-							nextStatement.startLineNumber,
-							nextStatement.startColumn
-						);
-					} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
-						// If the above condition failed, but the next statement's end
-						// is after this statement's end, assume we are exiting some
-						// nested scope (like running an individual line of an R
-						// function) and move to the end of the next statement.
-						newPosition = new Position(
-							nextStatement.endLineNumber,
-							nextStatement.endColumn
-						);
+					switch (nextStatementRange.kind) {
+						case StatementRangeKind.Success: {
+							// If we found the next statement, determine exactly where to move
+							// the cursor to, maintaining the invariant that we should always
+							// step further down the page, never up, as this is too "jumpy".
+							// If for some reason the next statement doesn't meet this
+							// invariant, we don't use it and instead use the default
+							// `newPosition`.
+							const nextStatement = nextStatementRange.range;
+							if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
+								// If the next statement's start is after this statement's end,
+								// then move to the start of the next statement.
+								newPosition = new Position(
+									nextStatement.startLineNumber,
+									nextStatement.startColumn
+								);
+							} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
+								// If the above condition failed, but the next statement's end
+								// is after this statement's end, assume we are exiting some
+								// nested scope (like running an individual line of an R
+								// function) and move to the end of the next statement.
+								newPosition = new Position(
+									nextStatement.endLineNumber,
+									nextStatement.endColumn
+								);
+							}
+							break;
+						}
+						case StatementRangeKind.ParseError: {
+							logService.warn(
+								nextStatementRange.line ?
+									`Can't advance due to a parse error on line ${nextStatementRange.line + 1}.` :
+									"Can't advance due to a parse error."
+							);
+							// Parse errors returned by a provider are critical issues.
+							// We should not advance the cursor after receiving one.
+							return undefined;
+						}
 					}
 				}
 			}

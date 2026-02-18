@@ -8392,21 +8392,28 @@ declare namespace monaco.languages {
 		constructor(value: string);
 	}
 
+	export enum StatementRangeKind {
+		Success = 'Success',
+		ParseError = 'ParseError'
+	}
+
 	export interface StatementRangeProvider {
 		/**
 		 * Provide the statement that contains the given position.
 		 */
-		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IStatementRange | IStatementRangeRejection>;
+		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IStatementRange>;
 	}
+
+	export type IStatementRange = IStatementRangeSuccess | IStatementRangeParseError;
 
 	/**
 	 * The range of a statement, plus optionally the code for the range.
 	 */
-	export interface IStatementRange {
+	export interface IStatementRangeSuccess {
 		/**
-		 * The kind of statement range result. If not provided, assumed to be a success.
+		 * The kind of statement range result.
 		 */
-		readonly kind?: 'success';
+		readonly kind: StatementRangeKind.Success;
 		/**
 		 * The range of the statement at the given position.
 		 */
@@ -8417,21 +8424,19 @@ declare namespace monaco.languages {
 		readonly code?: string;
 	}
 
-	export type IStatementRangeRejection = IStatementRangeParseRejection;
-
-	export interface IStatementRangeParseRejection {
+	export interface IStatementRangeParseError {
 		/**
 		 * The kind of statement range result.
 		 */
-		readonly kind: 'rejection';
+		readonly kind: StatementRangeKind.ParseError;
 		/**
-		 * The kind of rejection.
+		 * An optional error message.
 		 */
-		readonly rejectionKind: 'parse';
+		readonly message?: string;
 		/**
 		 * A 0-indexed line number where the parse error occurred.
 		 */
-		readonly line: number;
+		readonly line?: number;
 	}
 
 	export interface HelpTopicProvider {

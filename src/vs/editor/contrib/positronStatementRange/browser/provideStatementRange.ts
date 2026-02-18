@@ -21,7 +21,7 @@ async function provideStatementRange(
 	model: ITextModel,
 	position: Position,
 	token: CancellationToken
-): Promise<languages.IStatementRange | languages.IStatementRangeRejection | undefined> {
+): Promise<languages.IStatementRange | undefined> {
 
 	const providers = registry.ordered(model);
 
@@ -29,7 +29,6 @@ async function provideStatementRange(
 		try {
 			const result = await provider.provideStatementRange(model, position, token);
 			if (result) {
-				// An `IStatementRange` or `IStatementRangeRejection` breaks out of the loop
 				return result;
 			}
 		} catch (err) {

@@ -843,6 +843,7 @@ export function createMonacoLanguagesAPI(): typeof monaco.languages {
 		HoverVerbosityAction: standaloneEnums.HoverVerbosityAction,
 		InlineCompletionEndOfLifeReasonKind: standaloneEnums.InlineCompletionEndOfLifeReasonKind,
 		InlineCompletionHintStyle: standaloneEnums.InlineCompletionHintStyle,
+		StatementRangeKind: standaloneEnums.StatementRangeKind,
 
 		// classes
 		FoldingRangeKind: languages.FoldingRangeKind,

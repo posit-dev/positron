@@ -1530,25 +1530,22 @@ declare module 'positron' {
 		 * cursor is within. If the cursor is not within a statement, return the
 		 * range of the next statement, if one exists.
 		 *
+		 * Throw a {@link StatementRangeError} to indicate a problem (e.g. a parse error).
+		 *
 		 * @param document The document in which the command was invoked.
 		 * @param position The position at which the command was invoked.
 		 * @param token A cancellation token.
-		 * @return The range of the statement at the given position, or a rejection.
+		 * @return The range of the statement at the given position.
 		 */
 		provideStatementRange(document: vscode.TextDocument,
 			position: vscode.Position,
-			token: vscode.CancellationToken): vscode.ProviderResult<StatementRange | StatementRangeRejection>;
+			token: vscode.CancellationToken): vscode.ProviderResult<StatementRange>;
 	}
 
 	/**
 	 * The range of a statement, plus optionally the code for the range.
 	 */
 	export interface StatementRange {
-		/**
-		 * The kind of statement range result. If not provided, assumed to be a success.
-		 */
-		readonly kind?: 'success';
-
 		/**
 		 * The range of the statement at the given position.
 		 */
@@ -1558,26 +1555,18 @@ declare module 'positron' {
 		 * The code for this statement range, if different from the document contents at this range.
 		 */
 		readonly code?: string;
-
 	}
 
-	export type StatementRangeRejection = StatementRangeParseRejection;
-
-	export interface StatementRangeParseRejection {
+	/**
+	 * An error thrown by a {@link StatementRangeProvider} to indicate a problem.
+	 */
+	export class StatementRangeError extends Error {
 		/**
-		 * The kind of statement range result.
+		 * Create a parse error indicating the document could not be parsed.
+		 *
+		 * @param line A 0-indexed line number where the parse error occurred.
 		 */
-		readonly kind: 'rejection';
-
-		/**
-		 * The kind of rejection.
-		 */
-		readonly rejectionKind: 'parse';
-
-		/**
-		 * A 0-indexed line number where the parse error occurred.
-		 */
-		readonly line: number;
+		static ParseError(line?: number): StatementRangeError;
 	}
 
 	export interface HelpTopicProvider {
