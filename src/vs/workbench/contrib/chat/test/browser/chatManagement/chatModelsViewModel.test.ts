@@ -158,6 +158,9 @@ class MockLanguageModelsService implements ILanguageModelsService {
 	getExtensionIdentifierForProvider(vendorId: string): ExtensionIdentifier | undefined {
 		return undefined;
 	}
+	getStoredProviderVendor(): string | undefined {
+		return undefined;
+	}
 	// --- End Positron ---
 
 	async addLanguageModelsProviderGroup(name: string, vendorId: string, configuration: IStringDictionary<unknown> | undefined): Promise<void> {

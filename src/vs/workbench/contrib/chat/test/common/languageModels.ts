@@ -85,6 +85,9 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 	getExtensionIdentifierForProvider(_vendor: string): ExtensionIdentifier | undefined {
 		return undefined;
 	}
+	getStoredProviderVendor(): string | undefined {
+		return undefined;
+	}
 	// --- End Positron ---
 
 	computeTokenLength(identifier: string, message: string | IChatMessage, token: CancellationToken): Promise<number> {

@@ -321,6 +321,9 @@ export interface ILanguageModelsService {
 
 	/** Get the extension identifier for a provider vendor. */
 	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined;
+
+	/** Get the stored provider vendor from persistent storage (even before provider metadata is loaded). */
+	getStoredProviderVendor(): string | undefined;
 	// --- End Positron ---
 
 	readonly onDidChangeLanguageModelVendors: Event<readonly string[]>;
@@ -513,6 +516,18 @@ export class LanguageModelsService implements ILanguageModelsService {
 			const addedVendors: IUserFriendlyLanguageModel[] = [];
 			const removedVendors: IUserFriendlyLanguageModel[] = [];
 
+			// --- Start Positron ---
+			// Rebuild vendor-to-extension mapping from ALL current extensions (not just
+			// the delta). The `added` parameter only contains extensions from the most
+			// recent registration phase, but `extensions` always has the complete set.
+			this._providerExtensions.clear();
+			for (const extension of extensions) {
+				for (const item of Iterable.wrap(extension.value)) {
+					this._providerExtensions.set(item.vendor, extension.description.identifier);
+				}
+			}
+			// --- End Positron ---
+
 			for (const extension of added) {
 				// --- Start Positron ---
 				// Only auto-set provider during initial setup or if the current provider becomes unavailable
@@ -525,9 +540,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 						this._isInitialSetup = false;
 					}
 				}
-
-				// Clear vendor-to-extension mapping when reloading vendors
-				this._providerExtensions.clear();
 				// --- End Positron ---
 				for (const item of Iterable.wrap(extension.value)) {
 					if (this._vendors.has(item.vendor)) {
@@ -543,19 +555,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 						continue;
 					}
 					addedVendors.push(item);
-					// --- Start Positron ---
-					// Track extension-to-vendor mapping for agent selection
-					this._providerExtensions.set(item.vendor, extension.description.identifier);
-					// --- End Positron ---
 				}
 			}
 
 			for (const extension of removed) {
 				for (const item of Iterable.wrap(extension.value)) {
 					removedVendors.push(item);
-					// --- Start Positron ---
-					this._providerExtensions.delete(item.vendor);
-					// --- End Positron ---
 				}
 			}
 
@@ -599,9 +604,14 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._onLanguageModelChange.fire(this.currentProvider?.id || '');
 		}));
 
-		// Restore the current provider from storage, if it exists and is still enabled.
+		// Restore the current provider from storage. We intentionally skip the
+		// isProviderEnabled() check here because provider metadata isn't registered
+		// yet at construction time (it requires the positron-assistant extension to
+		// activate first). The stored provider was valid when it was persisted; if
+		// it becomes disabled later, the onDidChangeConfiguration handler (below)
+		// will auto-switch to another available provider.
 		const storedCurrentProvider = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
-		if (storedCurrentProvider && this._positronAssistantConfigurationService.isProviderEnabled(storedCurrentProvider.id)) {
+		if (storedCurrentProvider) {
 			// Set privately to avoid writing to storage again.
 			this._currentProvider = storedCurrentProvider;
 			this._onDidChangeCurrentProvider.fire(storedCurrentProvider.id);
@@ -903,6 +913,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 	 */
 	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined {
 		return this._providerExtensions.get(vendor);
+	}
+
+	getStoredProviderVendor(): string | undefined {
+		const stored = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
+		return stored?.id;
 	}
 	// --- End Positron ---
 
