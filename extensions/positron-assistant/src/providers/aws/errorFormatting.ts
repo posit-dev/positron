@@ -58,7 +58,7 @@ export const ErrorTemplates = {
 		return vscode.l10n.t(
 			'{0} authentication failed{1}{2}.\n\n' +
 			'To login, [open a terminal](command:workbench.action.terminal.new) and run `aws sso login {3}`.\n\n' +
-			'You can also [choose a different profile or region]({4}) in Settings.',
+			'You can also [configure a different profile or region]({4}) in Settings.',
 			params.provider,
 			profileContext,
 			regionContext,
@@ -91,7 +91,7 @@ export const ErrorTemplates = {
 		return vscode.l10n.t(
 			'{0} authorization failed{1}{2}.\n\n' +
 			'Your AWS IAM role or user does not have the required Bedrock permissions. \n\n' +
-			'You can [choose a different profile or region]({3}) in Settings, or contact your administrator to grant the necessary permissions. See the [required permissions documentation]({4}) for details.',
+			'You can [configure a different profile or region]({3}) in Settings, or contact your administrator to grant the necessary permissions. See the [required permissions documentation]({4}) for details.',
 			params.provider,
 			profileContext,
 			regionContext,
