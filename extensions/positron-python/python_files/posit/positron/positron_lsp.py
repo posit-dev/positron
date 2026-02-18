@@ -1518,6 +1518,7 @@ def _handle_signature_help(
 
     # Get signature - handle builtins which may not have introspectable signatures
     sig_str = None
+    doc = None
     params_list = []
     try:
         sig = inspect.signature(obj)
@@ -1552,7 +1553,8 @@ def _handle_signature_help(
         if not sig_str:
             return None
 
-    doc = inspect.getdoc(obj)
+    if doc is None:
+        doc = inspect.getdoc(obj)
     signature_info = types.SignatureInformation(
         label=f"{func_name}{sig_str}",
         documentation=doc,
