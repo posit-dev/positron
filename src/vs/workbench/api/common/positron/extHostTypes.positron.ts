@@ -438,11 +438,19 @@ export const enum StatementRangeErrorKind {
 	Parse = 'parse',
 }
 
-export interface StatementRangeParseErrorData {
+interface StatementRangeParseErrorData {
 	line?: number
 }
 
+/**
+ * An error thrown by a {@link StatementRangeProvider} to indicate a problem.
+ */
 export class StatementRangeError extends Error {
+	/**
+	 * Create a parse error indicating the document could not be parsed.
+	 *
+	 * @param line A 0-indexed line number where the parse error occurred.
+	 */
 	static ParseError(line?: number): StatementRangeError {
 		const error = new StatementRangeError();
 		error.kind = StatementRangeErrorKind.Parse;
@@ -450,8 +458,14 @@ export class StatementRangeError extends Error {
 		return error;
 	}
 
-	getParseErrorData(): StatementRangeParseErrorData {
-		return this.data as StatementRangeParseErrorData;
+	/**
+	 * Retrieve the line for a {@link ParseError}.
+	 */
+	getParseErrorLine(): number | undefined {
+		if (this.kind != StatementRangeErrorKind.Parse) {
+			return undefined;
+		}
+		return (this.data as StatementRangeParseErrorData).line;
 	}
 
 	kind!: StatementRangeErrorKind;

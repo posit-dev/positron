@@ -1567,6 +1567,11 @@ declare module 'positron' {
 		 * @param line A 0-indexed line number where the parse error occurred.
 		 */
 		static ParseError(line?: number): StatementRangeError;
+
+		/**
+		 * Retrieve the line for a {@link ParseError}.
+		 */
+		getParseErrorLine(): number | undefined;
 	}
 
 	export interface HelpTopicProvider {

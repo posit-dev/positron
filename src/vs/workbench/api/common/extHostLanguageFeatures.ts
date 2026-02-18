@@ -1938,7 +1938,7 @@ class StatementRangeAdapter {
 					case extHostTypes.StatementRangeErrorKind.Parse: return {
 						kind: languages.StatementRangeKind.Rejection,
 						rejectionKind: languages.StatementRangeRejectionKind.Parse,
-						line: err.getParseErrorData().line,
+						line: err.getParseErrorLine(),
 					} satisfies languages.IStatementRangeParseRejection;
 				}
 			}
