@@ -29,8 +29,7 @@ Python language support for the Positron IDE. Fork of Microsoft's Python extensi
 - Before running commands, if a virtual environment exists at `extensions/positron-python/.venv`, activate it
 - **Check Python**: `./scripts/check-python-quality.sh`
 - **Fix Python**: `./scripts/fix-python-format.sh`
-- **Check TypeScript**: `npm run format-check`
-- **Fix TypeScript**: `npm run format-fix`
+- **Check/Fix TypeScript**: `npm run format-fix`
 
 ## Optional Dependencies
 
