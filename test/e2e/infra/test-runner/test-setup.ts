@@ -144,8 +144,9 @@ export function getPositronVersion(testCodePath = process.env.BUILD || ''): Posi
 		const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
 
 		// Return both version and build number properties
-		const positronVersion = productJson.positronVersion || null;
-		const buildNumber = productJson.positronBuildNumber || null;
+		// Use ?? instead of || to preserve 0 as a valid build number
+		const positronVersion = productJson.positronVersion ?? null;
+		const buildNumber = productJson.positronBuildNumber ?? null;
 
 		if (!positronVersion) {
 			throw new Error('positronVersion not found in product.json.');
