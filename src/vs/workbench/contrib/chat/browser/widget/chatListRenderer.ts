@@ -1479,6 +1479,9 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 					]
 				}
 			});
+			/*
+			return this.instantiationService.createInstance(ChatErrorContentPart, level, new MarkdownString(content.errorDetails.message), content, this.chatContentMarkdownRenderer);
+			*/
 			return this.instantiationService.createInstance(ChatErrorContentPart, level, errorMarkdown, content, this.chatContentMarkdownRenderer);
 			// --- End Positron ---
 		}
