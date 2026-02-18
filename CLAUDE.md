@@ -9,11 +9,13 @@ Positron is a next-generation data science IDE built on VS Code with first-class
 1. Check daemon status first: `npm run build-ps`
 2. Start missing daemons in the background if needed: `npm run build-start`
 3. Complete your task while the daemons compile in the background (30-60 seconds initial startup)
-4. Check errors from the latest TypeScript compilation cycle. **ALWAYS use this to check TypeScript compilation status**: `npm run build-check`
+4. Check errors from the latest TypeScript compilation cycle: `npm run build-check`
+	- Blocks until all daemons finish their current compilation cycle - do not `sleep` before it
+	- Prints the errors for the last compilation cycle - call once and read the full output
 
 Edge cases:
 
-- Restart build daemons to fix missing package errors after `npm install`: `npm run build-stop && npm run build-start && sleep 60 && npm run build-check`
+- Restart build daemons to fix missing package errors after `npm install`: `npm run build-stop && npm run build-start && npm run build-check`
 
 ## Upstream Compatibility
 
@@ -47,6 +49,12 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 - `positron/` - Positron-specific code and assets
 - `build/` - Build configuration and scripts
 
+## Pre-commit Checks
+
+- The pre-commit hook checks staged files for unicode, indentation, copyright headers, formatting, and eslint issues
+- To run manually: `npm run precommit` (all staged files) or `npm run precommit -- <file>` (specific file)
+
 ## General
 
 - Use the `gh` CLI for GitHub interactions
+- Never use em-dashes, en-dashes, smart quotes, or other non-ASCII punctuation. Use ASCII hyphens and straight quotes
