@@ -13,7 +13,7 @@ enum StatementRangeKind {
 }
 
 enum StatementRangeRejectionKind {
-	Parse = 'parse'
+	Syntax = 'syntax'
 }
 
 interface StatementRangeParams {
@@ -29,11 +29,11 @@ interface StatementRangeSuccess {
 	readonly code?: string;
 }
 
-type StatementRangeRejection = StatementRangeParseRejection;
+type StatementRangeRejection = StatementRangeSyntaxRejection;
 
-interface StatementRangeParseRejection {
+interface StatementRangeSyntaxRejection {
 	readonly kind: StatementRangeKind.Rejection;
-	readonly rejectionKind: StatementRangeRejectionKind.Parse;
+	readonly rejectionKind: StatementRangeRejectionKind.Syntax;
 	readonly line?: number;
 }
 
@@ -82,7 +82,7 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 			}
 			case StatementRangeKind.Rejection: {
 				switch (data.rejectionKind) {
-					case StatementRangeRejectionKind.Parse: {
+					case StatementRangeRejectionKind.Syntax: {
 						throw new positron.StatementRangeSyntaxError(data.line);
 					}
 				}

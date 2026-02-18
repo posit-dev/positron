@@ -554,7 +554,7 @@ const newCommands: ApiCommand[] = [
 					} satisfies positron.StatementRange;
 				case languages.StatementRangeKind.Rejection:
 					switch (result.rejectionKind) {
-						case languages.StatementRangeRejectionKind.Parse:
+						case languages.StatementRangeRejectionKind.Syntax:
 							throw new extHostTypes.StatementRangeSyntaxError(result.line);
 					}
 			}

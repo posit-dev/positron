@@ -167,9 +167,9 @@ async function executeCodeInConsole(
 }
 
 /**
- * Show a notification for a statement range parse rejection, with an action to jump to the parse error line.
+ * Show a notification for a statement range syntax rejection, with an action to jump to the syntax error line.
  */
-function notifyStatementRangeParseRejection(
+function notifyStatementRangeSyntaxRejection(
 	line: number | undefined,
 	uri: URI,
 	notificationService: INotificationService,
@@ -179,20 +179,22 @@ function notifyStatementRangeParseRejection(
 	let actions = undefined;
 
 	if (line) {
+		const lineOneIndexed = line + 1;
+
 		message = localize(
-			'positron.executeCode.parseRejectionAtLine',
-			"Can't execute code due to a parse error near line {0}.",
-			line + 1
+			'positron.executeCode.syntaxRejectionAtLine',
+			"Can't execute code due to a syntax error near line {0}.",
+			lineOneIndexed
 		);
 
 		const action = toAction({
-			id: 'positron.executeCode.jumpToParseRejectionLine',
-			label: localize('positron.executeCode.jumpToParseRejectionLine', "Jump to line"),
+			id: 'positron.executeCode.jumpToSyntaxRejectionLine',
+			label: localize('positron.executeCode.jumpToSyntaxRejectionLine', "Jump to line"),
 			run: () => {
 				editorService.openEditor({
 					resource: uri,
 					options: {
-						selection: { startLineNumber: line + 1, startColumn: 1 },
+						selection: { startLineNumber: lineOneIndexed, startColumn: 1 },
 					}
 				});
 			}
@@ -201,8 +203,8 @@ function notifyStatementRangeParseRejection(
 		actions = [action];
 	} else {
 		message = localize(
-			'positron.executeCode.parseRejection',
-			"Can't execute code due to a parse error."
+			'positron.executeCode.syntaxRejection',
+			"Can't execute code due to a syntax error."
 		);
 	}
 
@@ -527,8 +529,8 @@ export function registerPositronConsoleActions() {
 						}
 						case StatementRangeKind.Rejection: {
 							switch (statementRange.rejectionKind) {
-								case StatementRangeRejectionKind.Parse: {
-									notifyStatementRangeParseRejection(
+								case StatementRangeRejectionKind.Syntax: {
+									notifyStatementRangeSyntaxRejection(
 										statementRange.line,
 										model.uri,
 										notificationService,
@@ -699,11 +701,11 @@ export function registerPositronConsoleActions() {
 						}
 						case StatementRangeKind.Rejection: {
 							switch (nextStatementRange.rejectionKind) {
-								case StatementRangeRejectionKind.Parse: {
+								case StatementRangeRejectionKind.Syntax: {
 									logService.warn(
 										nextStatementRange.line ?
-											`Can't advance due to a parse error on line ${nextStatementRange.line + 1}.` :
-											"Can't advance due to a parse error."
+											`Can't advance due to a syntax error on line ${nextStatementRange.line + 1}.` :
+											"Can't advance due to a syntax error."
 									);
 									break;
 								}

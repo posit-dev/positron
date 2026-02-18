@@ -887,7 +887,7 @@ export enum StatementRangeKind {
 }
 
 export enum StatementRangeRejectionKind {
-	Parse = 'parse'
+	Syntax = 'syntax'
 }
 
 /**

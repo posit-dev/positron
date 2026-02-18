@@ -1936,9 +1936,9 @@ class StatementRangeAdapter {
 			if (err instanceof extHostTypes.StatementRangeSyntaxError) {
 				return {
 					kind: languages.StatementRangeKind.Rejection,
-					rejectionKind: languages.StatementRangeRejectionKind.Parse,
+					rejectionKind: languages.StatementRangeRejectionKind.Syntax,
 					line: err.line,
-				} satisfies languages.IStatementRangeParseRejection;
+				} satisfies languages.IStatementRangeSyntaxRejection;
 			}
 			throw err;
 		}

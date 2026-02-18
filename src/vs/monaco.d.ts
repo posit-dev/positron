@@ -8398,7 +8398,7 @@ declare namespace monaco.languages {
 	}
 
 	export enum StatementRangeRejectionKind {
-		Parse = 'parse'
+		Syntax = 'syntax'
 	}
 
 	export interface StatementRangeProvider {
@@ -8410,7 +8410,7 @@ declare namespace monaco.languages {
 
 	export type IStatementRange = IStatementRangeSuccess | IStatementRangeRejection;
 
-	export type IStatementRangeRejection = IStatementRangeParseRejection;
+	export type IStatementRangeRejection = IStatementRangeSyntaxRejection;
 
 	/**
 	 * The range of a statement, plus optionally the code for the range.
@@ -8430,7 +8430,7 @@ declare namespace monaco.languages {
 		readonly code?: string;
 	}
 
-	export interface IStatementRangeParseRejection {
+	export interface IStatementRangeSyntaxRejection {
 		/**
 		 * The kind of statement range result.
 		 */
@@ -8438,9 +8438,9 @@ declare namespace monaco.languages {
 		/**
 		 * The kind of rejection.
 		 */
-		readonly rejectionKind: StatementRangeRejectionKind.Parse;
+		readonly rejectionKind: StatementRangeRejectionKind.Syntax;
 		/**
-		 * A 0-indexed line number where the parse error occurred.
+		 * Zero indexed line number where the syntax error occurred.
 		 */
 		readonly line?: number;
 	}

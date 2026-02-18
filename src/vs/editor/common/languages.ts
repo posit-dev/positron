@@ -2046,7 +2046,7 @@ export const enum StatementRangeKind {
 }
 
 export const enum StatementRangeRejectionKind {
-	Parse = 'parse',
+	Syntax = 'syntax',
 }
 
 export interface StatementRangeProvider {
@@ -2059,7 +2059,7 @@ export interface StatementRangeProvider {
 
 export type IStatementRange = IStatementRangeSuccess | IStatementRangeRejection;
 
-export type IStatementRangeRejection = IStatementRangeParseRejection;
+export type IStatementRangeRejection = IStatementRangeSyntaxRejection;
 
 /**
  * The range of a statement, plus optionally the code for the range.
@@ -2081,7 +2081,7 @@ export interface IStatementRangeSuccess {
 	readonly code?: string;
 }
 
-export interface IStatementRangeParseRejection {
+export interface IStatementRangeSyntaxRejection {
 	/**
 	 * The kind of statement range result.
 	 */
@@ -2090,10 +2090,10 @@ export interface IStatementRangeParseRejection {
 	/**
 	 * The kind of rejection.
 	 */
-	readonly rejectionKind: StatementRangeRejectionKind.Parse;
+	readonly rejectionKind: StatementRangeRejectionKind.Syntax;
 
 	/**
-	 * A 0-indexed line number where the parse error occurred.
+	 * Zero indexed line number where the syntax error occurred.
 	 */
 	readonly line?: number;
 }
