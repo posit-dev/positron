@@ -27,15 +27,7 @@ export const platformOs = (() => {
 
 export const platformVersion = os.release();
 
-// Lazy getter with memoization - called at runtime when metrics are logged,
-// not at module load time. Caches result after first call.
-let _cachedVersion: ReturnType<typeof getPositronVersion> | undefined;
-export const getPositronVersionLazy = () => {
-	if (_cachedVersion === undefined) {
-		_cachedVersion = getPositronVersion();
-	}
-	return _cachedVersion;
-};
+export const positronVersion = getPositronVersion();
 
 //-----------------------
 // Base Metric Types

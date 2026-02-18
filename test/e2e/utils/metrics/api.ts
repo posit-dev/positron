@@ -13,7 +13,7 @@ import {
 	platformVersion,
 	MetricResponse,
 	MetricContext,
-	getPositronVersionLazy
+	positronVersion
 } from './metric-base.js';
 import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
 import { type AssistantMetricContext } from './metric-assistant.js';
@@ -106,7 +106,6 @@ function createMetricPayload(metric: PerfMetric, isElectronApp: boolean): Metric
 		spec_name
 	} = metric;
 
-	const positronVersion = getPositronVersionLazy();
 	return {
 		timestamp: new Date().toISOString(),
 		platform_os: platformOs,
