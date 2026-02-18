@@ -601,7 +601,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			) ?? true;
 
 			if (autoFollow) {
-				await cell.reveal();
+				await cell.reveal({ reason: 'programmatic' });
 			}
 		}
 	}

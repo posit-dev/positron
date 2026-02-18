@@ -12,9 +12,17 @@ import {
 	platformOs,
 	platformVersion,
 	MetricResponse,
+	MetricContext,
 	positronVersion
 } from './metric-base.js';
 import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
+import { type AssistantMetricContext } from './metric-assistant.js';
+
+/**
+ * Union of all valid metric context types.
+ * Add new context types here as they're created.
+ */
+export type AnyMetricContext = MetricContext | AssistantMetricContext;
 
 export type PerfMetric = {
 	feature_area: string;
@@ -23,7 +31,7 @@ export type PerfMetric = {
 	target_description?: string;
 	duration_ms: number;
 	status?: 'success' | 'error';
-	context_json?: any;
+	context_json?: AnyMetricContext;
 	spec_name?: string;
 };
 
