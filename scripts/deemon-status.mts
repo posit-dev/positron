@@ -2,29 +2,22 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-// @ts-check
 import { spawn } from 'node:child_process';
 
-/**
- * @typedef {{
- *   name: string;
- *   begins: RegExp;
- *   ends: RegExp;
- *   command: string[];
- * }} Options
- */
+interface Options {
+	name: string;
+	begins: RegExp;
+	ends: RegExp;
+	command: string[];
+}
 
-/** @typedef {'unknown' | 'compiling' | 'idle'} State */
+type State = 'unknown' | 'compiling' | 'idle';
 
 const DEEMON_READY = /\[deemon\] (Spawned|Attached to running) build daemon/;
 const DEEMON_MISSING = /\[deemon\] No daemon running/;
 const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
 
-/**
- * @param {string[]} args
- * @returns {Options}
- */
-function parseArgs(args) {
+function parseArgs(args: string[]): Options {
 	let name = '';
 	let begins = '';
 	let ends = '';
@@ -41,7 +34,7 @@ function parseArgs(args) {
 	}
 
 	if (!begins || !ends || !command) {
-		console.error(`Usage: deemon-status.mjs --name <name> --begins <regex> --ends <regex> --command <command>
+		console.error(`Usage: deemon-status.mts --name <name> --begins <regex> --ends <regex> --command <command>
 
 Monitors a deemon build daemon and reports compilation status.
 
@@ -52,7 +45,7 @@ Options:
 	--command  The build command to run via deemon (e.g., "npm run watch-client")
 
 Example:
-	./scripts/deemon-status.mjs \\
+	./scripts/deemon-status.mts \\
 		--name client \\
 		--begins "Starting compilation" \\
 		--ends "Finished compilation" \\
@@ -69,20 +62,11 @@ Example:
 	};
 }
 
-/**
- * @param {string} name
- * @param {string} msg
- * @returns {void}
- */
-function log(name, msg) {
+function log(name: string, msg: string): void {
 	console.log(name ? `[${name}] ${msg}` : msg);
 }
 
-/**
- * @param {string} str
- * @returns {string}
- */
-function stripAnsi(str) {
+function stripAnsi(str: string): string {
 	return str.replace(ANSI_ESCAPE, '');
 }
 
@@ -92,20 +76,17 @@ const child = spawn('npx', ['deemon', '--attach', '--', ...opts.command], {
 	stdio: ['ignore', 'pipe', 'pipe'],
 });
 
-let state = /** @type {State} */ ('unknown');
-/** @type {string[]} */
-let cycleLines = [];
-let replayDone = false;
-let idleAfterReplay = false;
-let noDaemon = false;
-/** @type {() => void} */
-let onIdle;
+// These variables are mutated inside callbacks (processLine/processData), but
+// TS control flow analysis doesn't track closure mutations, so it narrows
+// them to their initial literal types. The 'as' casts prevent that narrowing.
+let state = 'unknown' as State;
+let cycleLines: string[] = [];
+let replayDone = false as boolean;
+let idleAfterReplay = false as boolean;
+let noDaemon = false as boolean;
+let onIdle: () => void;
 
-/**
- * @param {string} raw
- * @returns {void}
- */
-const processLine = (raw) => {
+const processLine = (raw: string): void => {
 	if (raw.includes('[deemon]')) {
 		if (DEEMON_READY.test(raw)) {
 			replayDone = true;
@@ -149,11 +130,8 @@ const processLine = (raw) => {
 };
 
 let pending = '';
-/**
- * @param {Buffer} data
- * @returns {void}
- */
-const processData = (data) => {
+
+const processData = (data: Buffer): void => {
 	pending += data.toString();
 	const lines = pending.split('\n');
 	pending = lines.pop() || '';
@@ -162,8 +140,7 @@ const processData = (data) => {
 	}
 };
 
-/** @type {Promise<void>} */
-const done = new Promise((resolve) => {
+const done: Promise<void> = new Promise((resolve) => {
 	onIdle = () => {
 		child.kill();
 		resolve();
@@ -188,4 +165,3 @@ if (noDaemon) {
 	log(opts.name, 'Daemon stopped before reaching idle');
 	process.exit(1);
 }
-

@@ -3,21 +3,21 @@
 # Exits 0 if all daemons are idle, non-zero if any daemon fails.
 set -euo pipefail
 
-node scripts/deemon-status.mjs \
+node scripts/deemon-status.mts \
 	--name watch-client \
 	--begins "Starting compilation\.\.\." \
 	--ends "Finished compilation with" \
 	--command "npm run watch-client" &
 pid1=$!
 
-node scripts/deemon-status.mjs \
+node scripts/deemon-status.mts \
 	--name watch-extensions \
 	--begins "Starting compilation" \
 	--ends "Finished compilation" \
 	--command "npm run watch-extensions" &
 pid2=$!
 
-node scripts/deemon-status.mjs \
+node scripts/deemon-status.mts \
 	--begins '\[watch-e2e\] \d+:\d+:\d+ [AP]M - (Starting compilation|File change detected\. Starting incremental compilation)' \
 	--ends '\[watch-e2e\] \d+:\d+:\d+ [AP]M - Found [0-9]+ errors?\. Watching for file changes' \
 	--command "npm run watch-e2e" &
