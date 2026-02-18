@@ -132,25 +132,24 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 	}
 
 	/**
-	 * Gets a fresh access token from VS Code auth API.
-	 * The Workbench extension's auth provider handles caching and
-	 * proactive refresh via its timer.
+	 * Gets a fresh access token from the Workbench extension.
+	 * Uses a direct command to bypass VS Code's auth authorization layer,
+	 * which would otherwise require a user-facing approval prompt.
+	 * The Workbench extension handles token caching and proactive refresh.
 	 */
 	private async getAccessToken(): Promise<string> {
 		try {
-			const session = await vscode.authentication.getSession(
-				AUTH_PROVIDER_ID,
-				AUTH_SCOPES,
-				{ createIfNone: false, silent: true }
+			const token = await vscode.commands.executeCommand<string | undefined>(
+				'posit-workbench.getAzureOpenAIToken'
 			);
 
-			if (!session) {
+			if (!token) {
 				this.handleAuthError('No Azure credentials available. Contact your Workbench administrator.');
 				throw new Error('Azure OpenAI authentication unavailable.');
 			}
 
 			this._hasShownAuthError = false;
-			return session.accessToken;
+			return token;
 		} catch (e) {
 			if (e instanceof Error && e.message === 'Azure OpenAI authentication unavailable.') {
 				throw e;
