@@ -1035,7 +1035,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		if (state === positron.RuntimeState.Ready) {
 			await Promise.all([
 				this.startDap(),
-				this.setConsoleWidth()
+				this.setConsoleWidth(),
+				this._packageManager?.sourcePackagesScript()
 			]);
 		} else if (state === positron.RuntimeState.Exited) {
 			await Promise.all([

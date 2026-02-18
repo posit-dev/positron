@@ -11,6 +11,18 @@ import { validateWithManager } from './licenseManager.js';
 import { FileAccess } from '../../base/common/network.js';
 
 /**
+ * The result of validating a license.
+ */
+export interface ILicenseValidationResult {
+	/** Whether the license is valid. */
+	valid: boolean;
+	/** The licensee name, if validation was successful. */
+	licensee?: string;
+	/** The issuer name, if validation was successful. */
+	issuer?: string;
+}
+
+/**
  * This file validates Positron license keys. Positron requires a license key to
  * be provided in order to run in a hosted or managed environment.
  *
@@ -78,9 +90,9 @@ vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
  *
  * @param connectionToken The token to validate the license key against.
  * @param args The parsed command-line arguments.
- * @returns A promise that resolves to true if the license key is valid, or false if it is not.
+ * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<boolean> {
+export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<ILicenseValidationResult> {
 
 	// Check the command-line arguments for a license key.
 	if (args['license-key']) {
@@ -119,7 +131,7 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 	// We need at least one license key to proceed.
 	console.error('No license key provided. A license key is required to use Positron in a hosted environment. Provide a license key with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
 
-	return false;
+	return { valid: false };
 }
 
 /**
@@ -127,12 +139,12 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
  *
  * @param connectionToken The connection token.
  * @param licenseFile The path to the license file.
- * @returns True if the license file is valid, or false if it is not.
+ * @returns The license validation result.
  */
-export async function validateLicenseFile(connectionToken: string, licenseFile: string): Promise<boolean> {
+export async function validateLicenseFile(connectionToken: string, licenseFile: string): Promise<ILicenseValidationResult> {
 	if (!fs.existsSync(licenseFile)) {
 		console.error('License file does not exist: ', licenseFile);
-		return false;
+		return { valid: false };
 	}
 	// Read the contents of the license file into a string.
 	try {
@@ -148,13 +160,13 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 		} else {
 			// Unknown license format
 			console.error('Unrecognized license file format. Expected JSON license key or RSA license file.');
-			return false;
+			return { valid: false };
 		}
 	} catch (e) {
 		console.error('Error reading license file: ', licenseFile);
 		console.error(e);
 	}
-	return false;
+	return { valid: false };
 }
 
 /**
@@ -162,9 +174,9 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
  *
  * @param connectionToken The connection token.
  * @param license The license key.
- * @returns A promise that resolves to true if the license key is valid, or false if it is not.
+ * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicense(connectionToken: string, license: string): Promise<boolean> {
+export async function validateLicense(connectionToken: string, license: string): Promise<ILicenseValidationResult> {
 	// Parse the license key JSON.
 	let licenseKey: LicenseKey;
 	try {
@@ -172,19 +184,19 @@ export async function validateLicense(connectionToken: string, license: string):
 	} catch (e) {
 		console.error('Error parsing license key: ', license);
 		console.error(e);
-		return false;
+		return { valid: false };
 	}
 
 	// Validate fields.
 	if (!licenseKey.connection_token || !licenseKey.timestamp || !licenseKey.signature) {
 		console.error('Invalid license key (missing fields): ', license);
-		return false;
+		return { valid: false };
 	}
 
 	// Ensure that the license key is for the correct connection token.
 	if (licenseKey.connection_token !== connectionToken) {
 		console.error('Invalid license key; key is for token ', licenseKey.connection_token, ' but expected ', connectionToken);
-		return false;
+		return { valid: false };
 	}
 
 	// Ensure that the time stamps do not differ by more than 5 minutes.
@@ -192,7 +204,7 @@ export async function validateLicense(connectionToken: string, license: string):
 	const timestamp = new Date(licenseKey.timestamp);
 	if (Math.abs(now.getTime() - timestamp.getTime()) > 5 * 60 * 1000) {
 		console.error('Invalid license key; timestamp does not match current time: ', licenseKey.timestamp);
-		return false;
+		return { valid: false };
 	}
 
 	// Parse the public key.
@@ -204,7 +216,7 @@ export async function validateLicense(connectionToken: string, license: string):
 		});
 	} catch (e) {
 		console.error('Error parsing public key: ', e);
-		return false;
+		return { valid: false };
 	}
 
 	// Verify the signature.
@@ -216,9 +228,13 @@ export async function validateLicense(connectionToken: string, license: string):
 	const signature = Buffer.from(licenseKey.signature, 'base64');
 	if (!verifier.verify(publicKey, signature)) {
 		console.error('Invalid license key; signature is invalid: ', licenseKey.signature);
-		return false;
+		return { valid: false };
 	}
 
 	console.log('Successfully validated Positron license key.');
-	return true;
+	return {
+		valid: true,
+		licensee: licenseKey.licensee,
+		issuer: licenseKey.issuer
+	};
 }

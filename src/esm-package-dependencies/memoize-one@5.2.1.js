@@ -1,3 +1,0 @@
-/* eslint-disable */
-export * from "./memoize-one@5.2.1/es2022/memoize-one.mjs";
-export { default } from "./memoize-one@5.2.1/es2022/memoize-one.mjs";

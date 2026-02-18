@@ -5,7 +5,21 @@
 #
 # WHAT THIS DOES:
 # Creates a deterministic hash used as the cache key for npm-core cache.
-# When any core package-lock.json changes, the hash changes and cache invalidates.
+# The hash includes:
+# 1. All core package-lock.json files (dependency versions)
+# 2. Build scripts that affect postinstall behavior (what gets generated)
+#
+# When any of these change, the hash changes and cache invalidates.
+#
+# WHY INCLUDE BUILD SCRIPTS?
+# The postinstall script runs during `npm install` and generates artifacts
+# beyond just node_modules (e.g., ESM dependencies, compiled assets). When
+# the cache is restored, npm skips postinstall because deps appear installed,
+# but new/changed build steps won't run. Including these scripts in the hash
+# ensures cache invalidation when postinstall behavior changes.
+#
+# See: https://github.com/posit-dev/positron/pull/11873 for context on why
+# this was needed (ESM build step added to postinstall required manual bump).
 #
 # WHAT IS "CORE"?
 # Core = Non-extension directories that need npm install:
@@ -38,9 +52,10 @@
 set -euo pipefail
 
 # ============================================================================
-# SECTION 1: Generate Hash from dirs.ts
+# SECTION 1: Generate Hash from dirs.ts and build scripts
 # ============================================================================
-# Use Node.js to read dirs.ts and hash all core package-lock.json files.
+# Use Node.js to read dirs.ts and hash all core package-lock.json files
+# plus critical build scripts that affect postinstall behavior.
 # Why Node.js? dirs.ts is a TS module, easier to read with require().
 
 echo "Generating package-locks hash for npm-core cache..."
@@ -82,12 +97,29 @@ console.error('Hashing ' + lockFiles.length + ' package-lock.json files:');
 lockFiles.forEach(f => console.error('  → ' + f));
 
 // ----------------------------------------------------------------------------
-// Step 3: Hash all files together
+// Step 3: Collect build scripts that affect postinstall behavior
 // ----------------------------------------------------------------------------
-// Read each file and update the running hash
-// Sort order ensures deterministic hash
+// These scripts control what runs during npm install and what artifacts are
+// generated. Changes to these should invalidate the cache even if package-lock
+// files haven't changed.
+//
+// NOTE: If you add a new script that runs during install, add it here!
+const buildScripts = [
+  'build/npm/preinstall.ts',   // Preinstall script - installs build/ dependencies
+  'build/npm/postinstall.ts',  // Postinstall script - runs npm install in all dirs
+  'build/npm/dirs.ts',         // List of directories that get npm install
+].sort();
+
+console.error('');
+console.error('Hashing ' + buildScripts.length + ' build scripts:');
+buildScripts.forEach(f => console.error('  → ' + f));
+
+// ----------------------------------------------------------------------------
+// Step 4: Hash all files together
+// ----------------------------------------------------------------------------
+// Read each file and update the running hash. Sort order ensures deterministic hash.
 const hash = crypto.createHash('sha256');
-for (const file of lockFiles) {
+for (const file of [...lockFiles, ...buildScripts]) {
   hash.update(fs.readFileSync(file));
 }
 

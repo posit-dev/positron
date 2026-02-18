@@ -75,6 +75,10 @@ if echo "$PR_BODY" | grep -q "@:pyrefly"; then
 	echo "Found pyrefly tag in PR body. Setting to run pyrefly tests."
 	echo "pyrefly_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+if echo "$PR_BODY" | grep -q "@:workbench"; then
+	echo "Found workbench tag in PR body. Setting to run workbench tests."
+	echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then

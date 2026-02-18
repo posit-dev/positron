@@ -26,6 +26,12 @@ export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.assistant
 // Configuration key for showing diff view for assistant edits
 export const POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY = 'positron.assistant.notebook.showDiff';
 
+// Configuration key for enabling inline data explorer in notebook outputs
+export const POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY = 'positron.notebook.inlineDataExplorer.enabled';
+
+// Configuration key for inline data explorer max height
+export const POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY = 'positron.notebook.inlineDataExplorer.maxHeight';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -81,6 +87,26 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.assistant.notebook.showDiff',
 				'Show diff view for AI assistant edits to notebook cells. When disabled, changes are applied directly without requiring approval.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.notebook.inlineDataExplorer.enabled',
+				'Display DataFrames inline in notebook outputs. When enabled, pandas and polars DataFrames are displayed as interactive data grids instead of static HTML tables.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY]: {
+			type: 'number',
+			default: 300,
+			minimum: 100,
+			maximum: 800,
+			markdownDescription: localize(
+				'positron.notebook.inlineDataExplorer.maxHeight',
+				'Maximum height in pixels for inline data explorer in notebook outputs.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},

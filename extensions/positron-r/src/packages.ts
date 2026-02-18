@@ -3,10 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { RSession } from './session';
+import { EXTENSION_ROOT_DIR } from './constants';
+
+/** Path to the packages R script */
+const PACKAGES_SCRIPT_PATH = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'packages.R');
 
 /**
  * R Package Manager
@@ -21,41 +26,21 @@ export class RPackageManager {
 	constructor(private readonly _session: RSession) { }
 
 	/**
+	 * Source the packages.R script in the R session.
+	 * Called at session startup to make package management functions available.
+	 */
+	async sourcePackagesScript(): Promise<void> {
+		// Escape backslashes for Windows paths
+		const escapedPath = PACKAGES_SCRIPT_PATH.replace(/\\/g, '\\\\');
+		await this._executeAndCapture(`source("${escapedPath}")`);
+	}
+
+	/**
 	 * Get list of installed packages from all libpaths.
 	 */
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
 		const hasPak = await this._ensurePakChecked();
-
-		// R code is built using array.join() to avoid template literal indentation
-		// which fails the project's whitespace hygiene checks.
-		let code: string;
-		if (hasPak) {
-			code = [
-				'local({',
-				'old_opt <- options(pak.no_extra_messages = TRUE)',
-				'on.exit(options(old_opt), add = TRUE)',
-				'pkgs <- pak::lib_status()',
-				'cat(jsonlite::toJSON(data.frame(',
-				'id = paste0(pkgs$package, "-", pkgs$version),',
-				'name = pkgs$package,',
-				'displayName = pkgs$package,',
-				'version = as.character(pkgs$version)',
-				'), auto_unbox = TRUE))',
-				'})'
-			].join('\n');
-		} else {
-			code = [
-				'local({',
-				'ip <- installed.packages()',
-				'cat(jsonlite::toJSON(data.frame(',
-				'id = paste0(ip[, "Package"], "-", ip[, "Version"]),',
-				'name = ip[, "Package"],',
-				'displayName = ip[, "Package"],',
-				'version = ip[, "Version"]',
-				'), auto_unbox = TRUE))',
-				'})'
-			].join('\n');
-		}
+		const code = `.ps.packages.list_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 
 		const result = await this._executeAndCapture(code);
 		if (!result || result.trim() === '') {
@@ -74,6 +59,7 @@ export class RPackageManager {
 			this._validatePackageName(pkg.name);
 		}
 
+
 		// If we're installing pak, don't prompt to install pak
 		let hasPak: boolean;
 		if (packages.some((pkg) => pkg.name === 'pak')) {
@@ -82,17 +68,17 @@ export class RPackageManager {
 			hasPak = await this._ensurePak();
 		}
 
-		let code: string;
+		let pkgVector: string;
 		if (hasPak) {
 			// pak supports "pkg@version" syntax directly
-			const pkgList = packages.map(p => p.version ? `"${p.name}@${p.version}"` : `"${p.name}"`).join(', ');
-			code = `pak::pkg_install(c(${pkgList}), ask = FALSE)`;
+			pkgVector = this._formatPackageVector(packages.map(p => `${p.name}@${p.version}`));
 		} else {
-			// base R: version not supported
-			const pkgList = packages.map(p => `"${p.name}"`).join(', ');
-			code = `install.packages(c(${pkgList}))`;
+			// base R: strip version suffix if present (not supported)
+			const pkgNames = packages.map(p => p.name.split('@')[0]);
+			pkgVector = this._formatPackageVector(pkgNames);
 		}
 
+		const code = `.ps.packages.install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -108,17 +94,16 @@ export class RPackageManager {
 
 		const hasPak = await this._ensurePak();
 
-		let code: string;
+		let pkgVector: string;
 		if (hasPak) {
-			// pak supports "pkg@version" syntax directly
-			const pkgList = packages.map(p => p.version ? `"${p.name}@${p.version}"` : `"${p.name}"`).join(', ');
-			code = `pak::pkg_install(c(${pkgList}), ask = FALSE)`;
+			pkgVector = this._formatPackageVector(packages.map(p => `${p.name}@${p.version}`));
 		} else {
-			// base R: version not supported
-			const pkgList = packages.map(p => `"${p.name}"`).join(', ');
-			code = `install.packages(c(${pkgList}))`;
+			// base R: strip version suffix if present (not supported)
+			const pkgNames = packages.map(p => p.name.split('@')[0]);
+			pkgVector = this._formatPackageVector(pkgNames);
 		}
 
+		const code = `.ps.packages.install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -127,21 +112,7 @@ export class RPackageManager {
 	 */
 	async updateAllPackages(): Promise<void> {
 		const hasPak = await this._ensurePak();
-
-		let code: string;
-		if (hasPak) {
-			code = [
-				'local({',
-				'old_opt <- options(pak.no_extra_messages = TRUE)',
-				'on.exit(options(old_opt), add = TRUE)',
-				`outdated <- old.packages()[, "Package"]`,
-				'if (length(outdated) > 0) pak::pkg_install(outdated, ask = FALSE)',
-				'})'
-			].join('\n');
-		} else {
-			code = `update.packages(ask = FALSE)`;
-		}
-
+		const code = `.ps.packages.update_all_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -155,24 +126,8 @@ export class RPackageManager {
 		}
 
 		const hasPak = await this._ensurePakChecked();
-		const pkgList = packageNames.map(p => `"${p}"`).join(', ');
-
-		let remove: string;
-		if (hasPak) {
-			remove = `pak::pkg_remove(c(${pkgList}))`;
-		} else {
-			remove = `remove.packages(c(${pkgList}))`;
-		}
-
-		// Try to unload removed packages from the session (best effort)
-		const code = [
-			'local({',
-			remove,
-			`for (pkg in c(${pkgList})) {`,
-			'try(unloadNamespace(pkg), silent = TRUE)',
-			'}',
-			'})'
-		].join('\n');
+		const pkgVector = this._formatPackageVector(packageNames);
+		const code = `.ps.packages.uninstall_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
 
@@ -182,50 +137,15 @@ export class RPackageManager {
 	async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
 		const hasPak = await this._ensurePakChecked();
 
-		if (hasPak) {
-			// Use pak's search directly - it's fast and returns relevant results
-			// Sanitize query: remove quotes and backslashes that could break R string
-			const sanitizedQuery = query.replace(/["\\]/g, '');
-			const code = [
-				'local({',
-				'old_opt <- options(pak.no_extra_messages = TRUE)',
-				'on.exit(options(old_opt), add = TRUE)',
-				`pkgs <- pak::pkg_search("${sanitizedQuery}", size = 100)`,
-				'cat(jsonlite::toJSON(data.frame(',
-				'id = pkgs$package,',
-				'name = pkgs$package,',
-				'displayName = pkgs$package,',
-				'version = "0"',
-				'), auto_unbox = TRUE))',
-				'})'
-			].join('\n');
-			const result = await this._executeAndCapture(code);
-			if (!result || result.trim() === '') {
-				return [];
-			}
-			return JSON.parse(result);
-		} else {
-			// Base R: query available.packages() directly (R handles caching)
-			const sanitizedQuery = query.replace(/["\\]/g, '');
-			const code = [
-				'local({',
-				`query <- tolower("${sanitizedQuery}")`,
-				'ap <- available.packages()',
-				'matches <- ap[grepl(query, tolower(ap[, "Package"]), fixed = TRUE), , drop = FALSE]',
-				'cat(jsonlite::toJSON(data.frame(',
-				'id = matches[, "Package"],',
-				'name = matches[, "Package"],',
-				'displayName = matches[, "Package"],',
-				'version = "0"',
-				'), auto_unbox = TRUE))',
-				'})'
-			].join('\n');
-			const result = await this._executeAndCapture(code);
-			if (!result || result.trim() === '') {
-				return [];
-			}
-			return JSON.parse(result);
+		// Sanitize query: remove quotes and backslashes that could break R string
+		const sanitizedQuery = query.replace(/["\\]/g, '');
+		const code = `.ps.packages.search_packages(${this._formatString(sanitizedQuery)}, method = "${hasPak ? 'pak' : 'base'}")`;
+
+		const result = await this._executeAndCapture(code);
+		if (!result || result.trim() === '') {
+			return [];
 		}
+		return JSON.parse(result);
 	}
 
 	/**
@@ -237,15 +157,7 @@ export class RPackageManager {
 	async searchPackageVersions(name: string): Promise<string[]> {
 		this._validatePackageName(name);
 
-		// Use R's configured repos (respects user settings and pak configuration)
-		const code = [
-			'local({',
-			`pkg <- "${name}"`,
-			'ap <- available.packages()',
-			'current <- if (pkg %in% rownames(ap)) ap[pkg, "Version"] else character(0)',
-			'cat(jsonlite::toJSON(current))',
-			'})'
-		].join('\n');
+		const code = `.ps.packages.search_package_versions(${this._formatString(name)})`;
 
 		try {
 			const result = await this._executeAndCapture(code);
@@ -262,6 +174,20 @@ export class RPackageManager {
 	// =========================================================================
 	// Private helper methods
 	// =========================================================================
+
+	/**
+	 * Format a package list as an R character vector.
+	 */
+	private _formatPackageVector(packages: string[]): string {
+		return `c(${packages.map(p => `"${p}"`).join(', ')})`;
+	}
+
+	/**
+	 * Format a string as an R string literal.
+	 */
+	private _formatString(str: string): string {
+		return `"${str}"`;
+	}
 
 	/**
 	 * Execute R code and capture the output (for queries).
