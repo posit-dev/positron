@@ -53,6 +53,22 @@ export interface CallMethodParams {
 }
 
 /**
+ * Parameters for the EditorContextChanged method.
+ */
+export interface EditorContextChangedParams {
+	/**
+	 * The URI of the active document, or empty string if no editor is active
+	 */
+	document_uri: string;
+
+	/**
+	 * Whether this editor is the source of code being executed. When true,
+	 * the backend may temporarily add the file's directory to sys.path.
+	 */
+	is_execution_source: boolean;
+}
+
+/**
  * Editor metadata
  */
 export interface EditorContext {
@@ -963,7 +979,8 @@ export enum UiFrontendRequest {
 
 export enum UiBackendRequest {
 	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
-	CallMethod = 'call_method'
+	CallMethod = 'call_method',
+	EditorContextChanged = 'editor_context_changed'
 }
 
 export class PositronUiComm extends PositronBaseComm {
@@ -1016,6 +1033,26 @@ export class PositronUiComm extends PositronBaseComm {
 	 */
 	callMethod(method: string, params: Array<Param>): Promise<CallMethodResult> {
 		return super.performRpc('call_method', ['method', 'params'], [method, params]);
+	}
+
+	/**
+	 * Active editor context changed
+	 *
+	 * This notification is sent from the frontend to the backend when the
+	 * active text editor changes or when code is about to be executed from a
+	 * file. It provides the document URI and indicates whether this is the
+	 * source file for code execution.
+	 *
+	 * @param documentUri The URI of the active document, or empty string if
+	 * no editor is active
+	 * @param isExecutionSource Whether this editor is the source of code
+	 * being executed. When true, the backend may temporarily add the file's
+	 * directory to sys.path.
+	 *
+	 * @returns Unused response to notification
+	 */
+	editorContextChanged(documentUri: string, isExecutionSource: boolean): Promise<null> {
+		return super.performRpc('editor_context_changed', ['document_uri', 'is_execution_source'], [documentUri, isExecutionSource]);
 	}
 
 

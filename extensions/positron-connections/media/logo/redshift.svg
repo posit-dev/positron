@@ -1,0 +1,8 @@
+<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M40 5L10 22.5V57.5L40 75L70 57.5V22.5L40 5Z" fill="#205B99"/>
+<path d="M40 5L70 22.5V57.5L40 40V5Z" fill="#5294CF"/>
+<path d="M40 40L70 57.5L40 75V40Z" fill="#1A476F"/>
+<path d="M25 32L40 40L55 32L40 24L25 32Z" fill="#FFFFFF"/>
+<path d="M25 32V48L40 56V40L25 32Z" fill="#FFFFFF" fill-opacity="0.6"/>
+<path d="M55 32V48L40 56V40L55 32Z" fill="#FFFFFF" fill-opacity="0.8"/>
+</svg>

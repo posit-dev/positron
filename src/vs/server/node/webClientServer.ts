@@ -134,10 +134,12 @@ export class WebClientServer {
 			}
 		});
 
-		this._proxyServer.on('error', (err, req, res) => {
+		this._proxyServer.on('error', (err: Error, req: http.IncomingMessage, res: http.ServerResponse | unknown) => {
 			const message = `Could not proxy ${req.method} request to ${req.url}: ${err.message}`;
 			console.error(message);
-			res.end(message);
+			if (res && typeof (res as http.ServerResponse).end === 'function') {
+				(res as http.ServerResponse).end(message);
+			}
 		});
 		// --- End PWB ---
 	}
@@ -194,7 +196,7 @@ export class WebClientServer {
 	/**
 	 * Handle proxy requests for websockets
 	 */
-	async handleUpgrade(req: http.IncomingMessage, socket: any, upgradeHead: any, parsedUrl: string): Promise<void> {
+	async handleUpgrade(req: http.IncomingMessage, socket: unknown, upgradeHead: unknown, parsedUrl: string): Promise<void> {
 		const path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
 		return this._proxyServer.ws(req, socket, upgradeHead, {
 			ignorePath: true,

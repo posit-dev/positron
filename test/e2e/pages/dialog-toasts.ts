@@ -38,8 +38,8 @@ export class Toasts {
 		const count = await this.toastNotification.count();
 		for (let i = 0; i < count; i++) {
 			try {
-				await this.toastNotification.nth(i).hover();
-				await this.closeButton.nth(i).click();
+				await this.toastNotification.nth(i).hover({ timeout: 5000 });
+				await this.closeButton.nth(i).click({ timeout: 5000 });
 			} catch {
 				this.code.logger.log(`Toast ${i} already closed`);
 			}
@@ -52,7 +52,7 @@ export class Toasts {
 			await toast.hover();
 			await this.closeButton.filter({ hasText: message }).click();
 		} catch {
-			this.code.logger.log(`Toast "${message}" not found`);
+			this.code.logger.log('Toast "${message}" not found');
 		}
 	}
 

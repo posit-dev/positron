@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { observableFromEvent } from '../../../../../base/common/observable.js';
+import { ISettableObservable, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -21,6 +21,9 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	override kind: CellKind.Code = CellKind.Code;
 	private readonly _outputs;
 
+	// Output collapse state
+	private readonly _outputIsCollapsed: ISettableObservable<boolean>;
+
 	// Execution timing observables
 	lastExecutionDuration;
 	lastExecutionOrder;
@@ -35,6 +38,12 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
 	) {
 		super(cellModel, instance, _executionStateService, _textModelResolverService);
+
+		// Initialize output collapse state from cell model if available
+		this._outputIsCollapsed = observableValue<boolean>(
+			'outputIsCollapsed',
+			cellModel.collapseState?.outputCollapsed ?? false
+		);
 
 		this._outputs = observableFromEvent(this, this.model.onDidChangeOutputs, () => {
 			/** @description cellOutputs */
@@ -60,6 +69,22 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	override get outputs() {
 		return this._outputs;
+	}
+
+	get outputIsCollapsed(): ISettableObservable<boolean> {
+		return this._outputIsCollapsed;
+	}
+
+	collapseOutput(): void {
+		this._outputIsCollapsed.set(true, undefined);
+	}
+
+	expandOutput(): void {
+		this._outputIsCollapsed.set(false, undefined);
+	}
+
+	toggleOutputCollapse(): void {
+		this._outputIsCollapsed.set(!this._outputIsCollapsed.get(), undefined);
 	}
 
 	/**

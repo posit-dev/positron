@@ -11,10 +11,10 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 
 // Local imports
-import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage } from '../infra';
+import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage, Assistant } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import {
-	FileOperationsFixture, SettingsFixture, MetricsFixture,
+	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
@@ -28,18 +28,8 @@ let appFixtureFailed = false;
 let appFixtureScreenshot: Buffer | undefined;
 let renamedLogsPath = 'not-set';
 
-// Currents fixtures
-import {
-	CurrentsFixtures,
-	CurrentsWorkerFixtures,
-	fixtures as currentsFixtures
-	// eslint-disable-next-line local/code-import-patterns
-} from '@currents/playwright';
-
 // Test fixtures
-export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
-	...currentsFixtures.baseFixtures,
-	...currentsFixtures.actionFixtures,
+export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
 
 	envVars: [async ({ }, use, workerInfo) => {
@@ -140,6 +130,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
+
+	assistant: [
+		async ({ app }, use) => {
+			await use(app.workbench.assistant);
+		},
+		{ scope: 'test' }
+	],
 
 	sessions: [
 		async ({ app }, use) => {
@@ -377,6 +374,7 @@ export interface TestFixtures {
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
 	sessions: Sessions;
+	assistant: Assistant;
 	r: void;
 	python: void;
 	packages: PackageManager;
@@ -408,11 +406,7 @@ export interface WorkerFixtures {
 	app: Application;
 	logsPath: string;
 	logger: MultiLogger;
-	settings: {
-		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		clear: () => Promise<void>;
-		remove: (settingsToRemove: string[]) => Promise<void>;
-	};
+	settings: Settings;
 	settingsFile: SettingsFile;
 	vsCodeSettings: SettingsFile;
 }

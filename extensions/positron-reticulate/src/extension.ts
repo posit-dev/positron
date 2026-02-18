@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -560,21 +560,20 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 			// TODO: what more can we say here? And what actions can we suggest the use to take?
 			const informCreateVirtualEenv = async function () {
-				const selection = await vscode.window.showInformationMessage(vscode.l10n.t(`
-				Reticulate strongly recommends using a virtualenv.
-				`,
-					{
-						title: 'reticulate::virtualenv_create()',
-						execute: () => {
-							positron.runtime.executeCode(
-								'r',
-								'reticulate::virtualenv_create("r-reticulate", packages = c("numpy", "ipykernel"))',
-								true,
-								false
-							);
-						}
-					}
-				));
+				const createItem: vscode.MessageItem = { title: 'reticulate::virtualenv_create()' };
+				const selection = await vscode.window.showInformationMessage(
+					vscode.l10n.t('Reticulate strongly recommends using a virtualenv.'),
+					createItem
+				);
+
+				if (selection === createItem) {
+					positron.runtime.executeCode(
+						'r',
+						'reticulate::virtualenv_create("r-reticulate", packages = c("numpy", "ipykernel"))',
+						true,
+						false
+					);
+				}
 			};
 			// We don't need to await for that, just let they know what we recommend.
 			informCreateVirtualEenv();
@@ -930,6 +929,47 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	public updateSessionName(sessionName: string): void {
 		this.pythonSession.updateSessionName(sessionName);
+	}
+
+	public async getPackages() {
+		if (!this.pythonSession.getPackages) {
+			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
+		}
+
+		return this.pythonSession.getPackages();
+	}
+
+	public async installPackage(packages: string[]) {
+		if (!this.pythonSession.installPackages) {
+			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
+		}
+
+		return this.pythonSession.installPackages?.(packages);
+	}
+
+	public async updatePackages(packages: string[]) {
+		if (!this.pythonSession.updatePackages) {
+			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
+		}
+
+		return this.pythonSession.updatePackages?.(packages);
+	}
+
+	public async updateAllPackages() {
+		if (!this.pythonSession.updateAllPackages) {
+			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
+		}
+
+		return this.pythonSession.updateAllPackages?.();
+
+	}
+
+	public async uninstallPackages(packages: string[]) {
+		if (!this.pythonSession.uninstallPackages) {
+			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
+		}
+
+		return this.pythonSession.uninstallPackages?.(packages);
 	}
 }
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {

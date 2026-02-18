@@ -114,26 +114,6 @@ test.describe('Notebooks', {
 			}).toPass({ timeout: 15000 });
 		});
 
-		test.skip('Python - Ensure LSP works across cells', async function ({ app }) {
-			const { notebooks } = app.workbench;
-
-			await notebooks.insertNotebookCell('code');
-			await notebooks.addCodeToCellAtIndex(0, 'import torch');
-			await notebooks.insertNotebookCell('code');
-			await notebooks.addCodeToCellAtIndex(1, 'torch.rand(10)');
-
-			// toPass block seems to be needed on Ubuntu
-			await expect(async () => {
-				await app.workbench.notebooks.hoverCellText(1, 'torch');
-
-				const hoverTooltip = app.code.driver.page.getByRole('tooltip', {
-					name: /module torch/,
-				});
-
-				await expect(hoverTooltip).toBeVisible();
-				await expect(hoverTooltip).toContainText('The torch package contains');
-			}).toPass({ timeout: 60000 });
-		});
 	});
 
 	test.describe('R Notebooks', {

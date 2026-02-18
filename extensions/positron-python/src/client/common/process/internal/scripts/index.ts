@@ -38,6 +38,7 @@ export type InterpreterInfoJson = {
     is64Bit: boolean;
     // --- Start Positron ---
     implementation: string;
+    architecture?: string; // 'arm64' | 'x64' | 'x86' | string
     // --- End Positron ---
 };
 

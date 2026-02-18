@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './variableItem.css';
 
 // React.
-import React, { CSSProperties, MouseEvent, useEffect, useState } from 'react';
+import { CSSProperties, MouseEvent, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';

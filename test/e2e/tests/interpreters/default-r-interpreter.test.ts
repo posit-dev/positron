@@ -26,7 +26,12 @@ test.describe('Default Interpreters - R', {
 		// local debugging sample:
 		// await settings.set({'positron.r.interpreters.default': '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R'}, { reload: true });
 
-		const rPath = '/root/scratch/R-4.4.1/bin/R';
+		const hiddenRVersion = process.env.POSITRON_HIDDEN_R;
+		if (!hiddenRVersion) {
+			throw new Error('POSITRON_HIDDEN_R environment variable is not set');
+		}
+
+		const rPath = `/root/scratch/R-${hiddenRVersion}/bin/R`;
 
 		await settings.set({ 'positron.r.interpreters.default': rPath }, { reload: true });
 
@@ -42,6 +47,14 @@ test.describe('Default Interpreters - R', {
 
 		await runCommand('workbench.action.reloadWindow');
 
+		const hiddenRVersion = process.env.POSITRON_HIDDEN_R;
+		if (!hiddenRVersion) {
+			throw new Error('POSITRON_HIDDEN_R environment variable is not set');
+		}
+
+		// Escape dots for regex matching
+		const escapedVersion = hiddenRVersion.replace(/\./g, '\\.');
+
 		await expect(async () => {
 
 			try {
@@ -52,8 +65,8 @@ test.describe('Default Interpreters - R', {
 				// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
 
 				// hidden CI interpreter:
-				expect(name).toMatch(/R 4\.4\.1/);
-				expect(path).toMatch(/R-4\.4\.1\/bin\/R/);
+				expect(name).toMatch(new RegExp(`R ${escapedVersion}`));
+				expect(path).toMatch(new RegExp(`R-${escapedVersion}\\/bin\\/R`));
 
 			} catch (error) {
 				await runCommand('workbench.action.reloadWindow');

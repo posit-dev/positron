@@ -2,7 +2,7 @@
 /* eslint-disable no-else-return */
 /* eslint-disable class-methods-use-this */
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,7 +36,7 @@ import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
-import { IpykernelBundle } from './ipykernel';
+import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
@@ -336,6 +336,46 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        if (this._kernel) {
+            try {
+                return await this._kernel?.callMethod('getPackagesInstalled');
+            } catch (err) {
+                this._kernel?.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
+                throw err;
+            }
+        }
+
+        throw new Error(`Cannot get packages: kernel not started`);
+    }
+
+    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+        const response = await fetch('https://pypi.org/simple/', {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as {
+            projects: { name: string }[];
+        };
+
+        return json.projects
+            .map((x) => x.name)
+            .filter((x) => x.includes(query))
+            .map((x) => ({
+                id: x,
+                name: x,
+                displayName: x,
+                version: '0',
+            }));
+    }
+
+    async searchPackageVersions(name: string): Promise<string[]> {
+        const response = await fetch(`https://pypi.org/simple/${name}/`, {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as { versions: string[] };
+        return json.versions;
+    }
+
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);
@@ -350,8 +390,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         interpreter: PythonEnvironment,
         kernelSpec: JupyterKernelSpec,
     ): Promise<boolean> {
-        if (this._ipykernelBundle.disabledReason || !this._ipykernelBundle.paths) {
-            traceInfo(`Not using bundled ipykernel. Reason: ${this._ipykernelBundle.disabledReason}`);
+        // Re-evaluate the ipykernel bundle paths for this interpreter at runtime.
+        // This ensures we use the correct paths based on the interpreter's actual architecture,
+        // rather than relying on potentially stale cached metadata (which may have been created
+        // with different bundle paths before an update).
+        const ipykernelBundle = await getIpykernelBundle(interpreter, this.serviceContainer);
+
+        // Update the cached bundle for use by other methods (e.g., _isUninstallBundledPackageCommand)
+        this._ipykernelBundle = ipykernelBundle;
+
+        if (ipykernelBundle.disabledReason || !ipykernelBundle.paths) {
+            traceInfo(`Not using bundled ipykernel. Reason: ${ipykernelBundle.disabledReason}`);
             return false;
         }
 
@@ -359,7 +408,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (!kernelSpec?.env) {
             kernelSpec.env = {};
         }
-        for (const path of this._ipykernelBundle.paths) {
+        for (const path of ipykernelBundle.paths) {
             this._envVarsService.appendPythonPath(kernelSpec.env, path);
         }
 

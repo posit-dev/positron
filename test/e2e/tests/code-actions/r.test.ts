@@ -20,6 +20,32 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 	});
 
 
+	test('R - Can execute code in untitled file with Ctrl+Enter', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11533' }]
+	}, async ({ app, r, page }) => {
+		const { editors, quickaccess, quickInput, console } = app.workbench;
+
+		// Create a new untitled file
+		await editors.newUntitledFile();
+
+		// Change language mode to R
+		await quickaccess.runCommand('workbench.action.editor.changeLanguageMode', { keepOpen: true });
+		await quickInput.waitForQuickInputOpened();
+		await quickInput.type('R');
+		await quickInput.selectQuickInputElementContaining('R', { timeout: 5000 });
+		await quickInput.waitForQuickInputClosed();
+
+		// Type R code
+		await app.workbench.editor.type('1 + 1');
+
+		// Execute with Ctrl/Cmd+Enter
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+
+		// Verify the result appears in the console
+		await console.waitForConsoleContents('[1] 2');
+	});
+
+
 	test("R - Can insert a Roxygen skeleton", async function ({ app, r, openFile }) {
 
 		const fileName = 'supermarket-sales.r';

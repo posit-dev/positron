@@ -325,23 +325,24 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			// Keep the inner block unindented to avoid merge conflicts:
 			// prettier-ignore
 			if ((isSave && this.environmentService.isEnabledFileDownloads) || (!isSave && this.environmentService.isEnabledFileUploads)) {
-			if ((this.scheme !== Schemas.file) && this.options && this.options.availableFileSystems && (this.options.availableFileSystems.length > 1) && (this.options.availableFileSystems.indexOf(Schemas.file) > -1)) {
-				this.filePickBox.customButton = true;
-				this.filePickBox.customLabel = nls.localize('remoteFileDialog.local', 'Show Local');
-				let action;
-				if (isSave) {
-					action = SaveLocalFileCommand;
-				} else {
-					action = this.allowFileSelection ? (this.allowFolderSelection ? OpenLocalFileFolderCommand : OpenLocalFileCommand) : OpenLocalFolderCommand;
-				}
-				const keybinding = this.keybindingService.lookupKeybinding(action.ID);
-				if (keybinding) {
-					const label = keybinding.getLabel();
-					if (label) {
-						this.filePickBox.customHover = format('{0} ({1})', action.LABEL, label);
+				if ((this.scheme !== Schemas.file) && this.options && this.options.availableFileSystems && (this.options.availableFileSystems.length > 1) && (this.options.availableFileSystems.indexOf(Schemas.file) > -1)) {
+					this.filePickBox.customButton = true;
+					this.filePickBox.customLabel = nls.localize('remoteFileDialog.local', 'Show Local');
+					this.filePickBox.customButtonSecondary = true;
+					let action;
+					if (isSave) {
+						action = SaveLocalFileCommand;
+					} else {
+						action = this.allowFileSelection ? (this.allowFolderSelection ? OpenLocalFileFolderCommand : OpenLocalFileCommand) : OpenLocalFolderCommand;
+					}
+					const keybinding = this.keybindingService.lookupKeybinding(action.ID);
+					if (keybinding) {
+						const label = keybinding.getLabel();
+						if (label) {
+							this.filePickBox.customHover = format('{0} ({1})', action.LABEL, label);
+						}
 					}
 				}
-			}
 			}
 			// --- End PWB ---
 
@@ -833,6 +834,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		prompt.ok = true;
 		prompt.customButton = true;
 		prompt.customLabel = nls.localize('remoteFileDialog.cancel', 'Cancel');
+		prompt.customButtonSecondary = true;
 		prompt.value = this.pathFromUri(uri);
 
 		let isResolving = false;

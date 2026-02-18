@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -26,6 +26,7 @@ export enum TestTags {
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
+	DATABOT = '@:databot',
 	DATA_EXPLORER = '@:data-explorer',
 	DEBUG = '@:debug',
 	DUCK_DB = '@:duck-db',
@@ -33,7 +34,7 @@ export enum TestTags {
 	EXTENSIONS = '@:extensions',
 	HELP = '@:help',
 	HTML = '@:html',
-	INSPECT_AI = '@:inspect-ai',
+	ASSISTANT_EVAL = '@:assistant-eval',
 	INTERPRETER = '@:interpreter',
 	LAYOUTS = '@:layouts',
 	VIEWER = '@:viewer',
@@ -71,6 +72,8 @@ export enum TestTags {
 	RHEL_WEB = '@:rhel-web',
 	SUSE_ELECTRON = '@:suse-electron',
 	SUSE_WEB = '@:suse-web',
+	SLES_ELECTRON = '@:sles-electron',
+	SLES_WEB = '@:sles-web',
 	DEBIAN_ELECTRON = '@:debian-electron',
 	DEBIAN_WEB = '@:debian-web',
 	WEB = '@:web',

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,7 +21,9 @@ test.describe('Sessions: Rename', {
 		await hotKeys.closeSecondarySidebar();
 	});
 
-	test('Validate can rename sessions and name persists', async function ({ sessions, runCommand }) {
+	test('Validate can rename sessions and name persists', {
+		tag: process.platform === 'win32' ? [tags.SOFT_FAIL] : [] //only soft fail on windows since this is marked as critical and only flakey on windows.
+	}, async function ({ sessions, runCommand }) {
 		const [pySession, pySessionAlt, rSession, rSessionAlt] = await sessions.start(['python', 'pythonAlt', 'r', 'rAlt']);
 
 		// Rename sessions

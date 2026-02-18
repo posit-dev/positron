@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -613,12 +613,12 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			ref={entryRef}
 			className={`history-entry${isSelected ? ' selected' : ''}`}
 			style={styleWithoutHeight}
-			onContextMenu={handleContextMenu}
-			onDoubleClick={() => onToConsole()}
-			onKeyDown={onKeyDown}
 			onClick={(e) => {
 				onSelect();
 			}}
+			onContextMenu={handleContextMenu}
+			onDoubleClick={() => onToConsole()}
+			onKeyDown={onKeyDown}
 		>
 			<div className='history-entry-content'>
 				{/* Show "... N more lines" above if smart excerpt hides lines above */}

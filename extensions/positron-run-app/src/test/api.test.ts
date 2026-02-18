@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+import assert = require('assert');
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
@@ -64,7 +64,7 @@ suite('PositronRunApp', () => {
 
 		// Open the test app. Assumes that the tests are run in the ../test-workspace workspace.
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-		assert(workspaceFolder, 'This test should be run from the ../test-workspace workspace');
+		assert.ok(workspaceFolder, 'This test should be run from the ../test-workspace workspace');
 		uri = vscode.Uri.joinPath(workspaceFolder.uri, 'app.js');
 		await vscode.window.showTextDocument(uri);
 
@@ -111,7 +111,7 @@ suite('PositronRunApp', () => {
 
 		// Check that a terminal was created for the application.
 		const terminal = vscode.window.terminals.find((t) => t.name === runAppOptions.name);
-		assert(terminal, 'Terminal not found');
+		assert.ok(terminal, 'Terminal not found');
 	}
 
 	test('appLauncher: shell integration supported', async () => {
@@ -141,8 +141,8 @@ suite('PositronRunApp', () => {
 		// 1. Enabling shell integration.
 		// 2. Rerunning the app.
 		const showInformationMessageStub = sinon.stub(vscode.window, 'showInformationMessage');
-		showInformationMessageStub.onFirstCall().resolves('Enable Shell Integration' as any);
-		showInformationMessageStub.onSecondCall().resolves('Rerun Application' as any);
+		showInformationMessageStub.onFirstCall().resolves('Enable Shell Integration' as unknown as vscode.MessageItem);
+		showInformationMessageStub.onSecondCall().resolves('Rerun Application' as unknown as vscode.MessageItem);
 
 		// Stub positron.window.previewUrl and create a promise that resolves when its called with
 		// the expected URL.
@@ -157,10 +157,10 @@ suite('PositronRunApp', () => {
 
 		// Wait for the expected URL to be previewed.
 		const didPreviewExpectedUrl = await raceTimeout(didPreviewExpectedUrlPromise, 10_000);
-		assert(didPreviewExpectedUrl, 'Timed out waiting for URL preview');
+		assert.ok(didPreviewExpectedUrl, 'Timed out waiting for URL preview');
 
 		// Check that shell integration was enabled.
-		assert(
+		assert.ok(
 			vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').get('enabled'),
 			'Shell integration not enabled',
 		);
@@ -193,8 +193,8 @@ suite('PositronRunApp', () => {
 		// 1. Enabling shell integration.
 		// 2. Rerunning the app.
 		const showInformationMessageStub = sinon.stub(vscode.window, 'showInformationMessage');
-		showInformationMessageStub.onFirstCall().resolves('Enable Shell Integration' as any);
-		showInformationMessageStub.onSecondCall().resolves('Rerun Application' as any);
+		showInformationMessageStub.onFirstCall().resolves('Enable Shell Integration' as unknown as vscode.MessageItem);
+		showInformationMessageStub.onSecondCall().resolves('Rerun Application' as unknown as vscode.MessageItem);
 
 		// Stub positron.window.previewUrl and create a promise that resolves when its called with
 		// the expected URL.
@@ -209,7 +209,7 @@ suite('PositronRunApp', () => {
 
 		// Wait for the expected URL to be previewed.
 		const didPreviewExpectedUrl = await raceTimeout(didPreviewExpectedUrlPromise, 10_000);
-		assert(didPreviewExpectedUrl, 'Timed out waiting for URL preview');
+		assert.ok(didPreviewExpectedUrl, 'Timed out waiting for URL preview');
 
 		// Check that shell integration was enabled.
 		vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').get('enabled', false);

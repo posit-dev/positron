@@ -4,6 +4,7 @@
   "description": "Positron Notebook Helpers",
   "version": "1.0.0",
   "publisher": "positron",
+  "icon": "icon.png",
   "private": true,
   "engines": {
     "vscode": "^1.65.0"
@@ -23,6 +24,63 @@
       {
         "command": "positronNotebookHelpers.fetchRemoteImage",
         "title": "Fetch Remote Image"
+      },
+      {
+        "command": "positronNotebookHelpers.walkthrough.enableNotebook",
+        "title": "Enable the Positron Notebook Editor"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "positron.notebooks.welcome",
+        "title": "%walkthrough.notebooks.welcome.title%",
+        "description": "%walkthrough.notebooks.welcome.description%",
+        "steps": [
+          {
+            "id": "positron.notebooks.panesAndUI",
+            "title": "%walkthrough.notebooks.panesAndUI.title%",
+            "description": "%walkthrough.notebooks.panesAndUI.description%",
+            "media": {
+              "markdown": "resources/walkthroughs/panes-and-ui.md"
+            },
+            "completionEvents": [
+              "onCommand:workbench.action.customizeLayout"
+            ]
+          },
+          {
+            "id": "positron.notebooks.interpreter",
+            "title": "%walkthrough.notebooks.interpreter.title%",
+            "description": "%walkthrough.notebooks.interpreter.description%",
+            "media": {
+              "markdown": "resources/walkthroughs/interpreter.md"
+            },
+            "completionEvents": [
+              "onCommand:workbench.action.language.runtime.selectSession"
+            ]
+          },
+          {
+            "id": "positron.notebooks.aiAssistant",
+            "title": "%walkthrough.notebooks.aiAssistant.title%",
+            "description": "%walkthrough.notebooks.aiAssistant.description%",
+            "media": {
+              "markdown": "resources/walkthroughs/ai-assistant.md"
+            },
+            "completionEvents": [
+              "onCommand:workbench.action.chat.open"
+            ]
+          },
+          {
+            "id": "positron.notebooks.optIn",
+            "title": "%walkthrough.notebooks.optIn.title%",
+            "description": "%walkthrough.notebooks.optIn.description%",
+            "media": {
+              "markdown": "resources/walkthroughs/opt-in.md"
+            },
+            "completionEvents": [
+              "onSettingChanged:positron.notebook.enabled"
+            ]
+          }
+        ]
       }
     ]
   },

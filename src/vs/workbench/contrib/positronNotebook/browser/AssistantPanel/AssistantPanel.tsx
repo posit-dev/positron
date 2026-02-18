@@ -7,10 +7,12 @@
 import './AssistantPanel.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
+import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -26,14 +28,31 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { CancelablePromise } from '../../../../../base/common/async.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/editing/chatEditingService.js';
+import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../contrib/ghostCell/config.js';
+import { CellEditType } from '../../../notebook/common/notebookCommon.js';
+import { AssistantSettings, ShowDiffOverride, AutoFollowOverride, GhostCellSuggestionsOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
+import { SegmentedToggle } from '../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
 
 // Localized strings.
 const loadingText = localize('assistantPanel.loading', 'Preparing notebook assistant...');
 const closeButtonLabel = localize('assistantPanel.close', 'Close');
 const actionsHeader = localize('assistantPanel.actions.header', 'Ask Assistant To');
 const panelTitle = localize('assistantPanel.title', 'Positron Notebook Assistant');
-const settingsAriaLabel = localize('assistantPanel.settings.openLabel', 'Open Notebook AI Settings');
-const settingsTooltip = localize('assistantPanel.settings.openTooltip', 'Open Notebook AI Settings');
+const settingsHeader = localize('assistantPanel.settings.header', 'Notebook Settings');
+const showDiffLabel = localize('assistantPanel.showDiff.label', 'Show edit diffs');
+const showDiffDescription = localize('assistantPanel.showDiff.tooltip', 'When enabled, assistant edits appear as inline diffs so you can review changes before accepting them');
+const autoFollowLabel = localize('assistantPanel.autoFollow.label', 'Auto-follow edits');
+const autoFollowDescription = localize('assistantPanel.autoFollow.tooltip', 'When enabled, automatically scroll to cells modified by the AI assistant');
+const ghostCellSuggestionsLabel = localize('assistantPanel.ghostCellSuggestions.label', 'Ghost cell suggestions');
+const ghostCellSuggestionsDescription = localize('assistantPanel.ghostCellSuggestions.tooltip', 'When enabled, show AI-generated suggestions for the next cell after successful execution');
+const followGlobalLabel = localize('assistantPanel.followGlobal', 'follow global');
+const yesLabel = localize('assistantPanel.yes', 'yes');
+const noLabel = localize('assistantPanel.no', 'no');
+const openGlobalSettingsLabel = localize('assistantPanel.settings.openGlobal', 'Open global settings');
 
 /**
  * Panel state for tracking notebook availability
@@ -49,6 +68,24 @@ type PanelState = {
 };
 
 /**
+ * Positron Assistant Notebook Metadata Schema
+ * ===========================================
+ *
+ * Per-notebook assistant preferences are stored in notebook metadata at:
+ *   notebook.metadata.positron.assistant.*
+ *
+ * Schema and helper functions are defined in:
+ *   src/vs/workbench/contrib/positronNotebook/common/notebookAssistantMetadata.ts (workbench)
+ *   extensions/positron-assistant/src/notebookAssistantMetadata.ts (extension)
+ *
+ * When adding new settings:
+ *   1. Add the property to AssistantSettings interface in both modules
+ *   2. Add validation in getAssistantSettings() if needed
+ *   3. Add UI controls in the ReadyState component's settings section
+ *   4. Register global fallback in positronNotebookConfig.ts
+ */
+
+/**
  * AssistantPanelProps interface.
  * Services are passed directly as props (explicit dependency pattern).
  */
@@ -58,60 +95,14 @@ export interface AssistantPanelProps {
 	/** Promise that resolves to the notebook instance (used when initialNotebook is undefined) */
 	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined;
 	renderer: PositronModalReactRenderer;
+	chatEditingService: IChatEditingService;
 	commandService: ICommandService;
+	configurationService: IConfigurationService;
+	dialogService: IDialogService;
 	notificationService: INotificationService;
 	logService: ILogService;
 	preferencesService: IPreferencesService;
-	onActionSelected: (query: string, mode: ChatModeKind) => void;
-}
-
-/**
- * Hook to wait for notebook instance availability via promise.
- * If initialNotebook is provided, returns ready state immediately.
- * Otherwise awaits the notebookPromise.
- */
-function useWaitForNotebook(
-	initialNotebook: IPositronNotebookInstance | undefined,
-	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined,
-	logService: ILogService
-): PanelState {
-	const [state, setState] = useState<PanelState>(() =>
-		initialNotebook
-			? { status: 'ready', notebook: initialNotebook }
-			: { status: 'pending' }
-	);
-
-	useEffect(() => {
-		// If already ready or no promise to wait for, nothing to do
-		if (state.status === 'ready' || !notebookPromise) {
-			return;
-		}
-
-		let disposed = false;
-
-		notebookPromise
-			.then(notebook => {
-				if (!disposed) {
-					setState({ status: 'ready', notebook });
-				}
-			})
-			.catch(error => {
-				if (!disposed && !isCancellationError(error)) {
-					logService.error('Failed to get notebook instance:', error);
-					setState({
-						status: 'error',
-						message: error instanceof Error ? error.message : String(error)
-					});
-				}
-				// On cancellation, do nothing - component is likely unmounting
-			});
-
-		return () => {
-			disposed = true;
-		};
-	}, [notebookPromise, state.status, logService]);
-
-	return state;
+	onActionSelected: (query: string, mode: ChatModeKind) => void | Promise<void>;
 }
 
 /**
@@ -153,6 +144,110 @@ const ErrorState = ({ message, onClose }: ErrorStateProps) => (
 );
 
 /**
+ * Props for SettingToggleRow -- a single row in the settings section
+ * with a label, "follow global" checkbox, and yes/no toggle.
+ */
+interface SettingToggleRowProps {
+	label: string;
+	description: string;
+	/** Whether the per-notebook override is active (undefined = follow global) */
+	overrideActive: boolean;
+	/** The effective value after resolving override vs global */
+	effectiveValue: boolean;
+	onFollowGlobalChanged: (followGlobal: boolean) => void;
+	onToggle: () => void;
+}
+
+/**
+ * SettingToggleRow component.
+ * Renders a settings row with label, follow-global checkbox, and yes/no toggle.
+ */
+const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
+	label,
+	description,
+	overrideActive,
+	effectiveValue,
+	onFollowGlobalChanged,
+	onToggle,
+}) => {
+	const infoRef = useRef<HTMLSpanElement>(null);
+	const [showPopover, setShowPopover] = useState(false);
+	const hoverTimeoutRef = useRef<number | null>(null);
+
+	const clearHoverTimeout = useCallback(() => {
+		if (hoverTimeoutRef.current !== null) {
+			// Use clearTimeout directly -- infoRef.current may already be null on unmount
+			clearTimeout(hoverTimeoutRef.current);
+			hoverTimeoutRef.current = null;
+		}
+	}, []);
+
+	// Clean up pending timeout on unmount
+	useEffect(() => clearHoverTimeout, [clearHoverTimeout]);
+
+	const handleShowPopover = useCallback(() => {
+		if (infoRef.current) {
+			clearHoverTimeout();
+			const win = DOM.getWindow(infoRef.current);
+			hoverTimeoutRef.current = win.setTimeout(() => setShowPopover(true), 200);
+		}
+	}, [clearHoverTimeout]);
+
+	const handleHidePopover = useCallback(() => {
+		clearHoverTimeout();
+		setShowPopover(false);
+	}, [clearHoverTimeout]);
+
+	return (
+		<div className='assistant-panel-setting-row'>
+			<span className='assistant-panel-setting-label'>
+				{label}
+				<span
+					ref={infoRef}
+					aria-label={description}
+					className='assistant-panel-setting-info codicon codicon-info'
+					role='button'
+					tabIndex={0}
+					onBlur={handleHidePopover}
+					onFocus={handleShowPopover}
+					onMouseEnter={handleShowPopover}
+					onMouseLeave={handleHidePopover}
+				/>
+				{showPopover && infoRef.current && (
+					<Popover
+						anchorElement={infoRef.current}
+						className='assistant-panel-setting-popover'
+						onClose={() => setShowPopover(false)}
+					>
+						{description}
+					</Popover>
+				)}
+			</span>
+			<div className='assistant-panel-setting-controls'>
+				<label className='assistant-panel-follow-global-label'>
+					{followGlobalLabel}
+					<input
+						checked={!overrideActive}
+						className='assistant-panel-checkbox'
+						type='checkbox'
+						onChange={(e) => onFollowGlobalChanged(e.target.checked)}
+					/>
+					<span className='assistant-panel-checkbox-indicator' />
+				</label>
+				<SegmentedToggle
+					ariaLabel={label}
+					disabled={!overrideActive}
+					leftActive={effectiveValue}
+					leftLabel={yesLabel}
+					rightLabel={noLabel}
+					onToggle={onToggle}
+				/>
+			</div>
+		</div>
+	);
+};
+
+/**
  * ReadyStateProps interface.
  */
 interface ReadyStateProps {
@@ -162,6 +257,16 @@ interface ReadyStateProps {
 	commandService: ICommandService;
 	logService: ILogService;
 	notificationService: INotificationService;
+	showDiffOverride: ShowDiffOverride;
+	globalShowDiff: boolean;
+	onShowDiffChanged: (value: ShowDiffOverride) => void;
+	autoFollowOverride: AutoFollowOverride;
+	globalAutoFollow: boolean;
+	onAutoFollowChanged: (value: AutoFollowOverride) => void;
+	ghostCellSuggestionsOverride: GhostCellSuggestionsOverride;
+	globalGhostCellSuggestions: boolean;
+	onGhostCellSuggestionsChanged: (value: GhostCellSuggestionsOverride) => void;
+	onOpenSettings: () => void;
 	onActionSelected: (query: string, mode: ChatModeKind) => void;
 	onClose: () => void;
 }
@@ -177,28 +282,145 @@ const ReadyState = ({
 	commandService,
 	logService,
 	notificationService,
+	showDiffOverride,
+	globalShowDiff,
+	onShowDiffChanged,
+	autoFollowOverride,
+	globalAutoFollow,
+	onAutoFollowChanged,
+	ghostCellSuggestionsOverride,
+	globalGhostCellSuggestions,
+	onGhostCellSuggestionsChanged,
+	onOpenSettings,
 	onActionSelected,
 	onClose
-}: ReadyStateProps) => (
-	<>
-		<AssistantPanelContext
-			context={notebookContext}
-			isLoading={isLoadingContext}
-		/>
-		<div className='assistant-panel-section-divider' />
-		<div className='assistant-panel-section-header'>
-			{actionsHeader}
-		</div>
-		<AssistantPanelActions
-			commandService={commandService}
-			logService={logService}
-			notebook={notebook}
-			notificationService={notificationService}
-			onActionSelected={onActionSelected}
-			onClose={onClose}
-		/>
-	</>
-);
+}: ReadyStateProps) => {
+	// Effective value: use override if set, otherwise use global
+	const effectiveShowDiff = showDiffOverride !== undefined
+		? showDiffOverride === 'showDiff'
+		: globalShowDiff;
+	const effectiveAutoFollow = autoFollowOverride !== undefined
+		? autoFollowOverride === 'autoFollow'
+		: globalAutoFollow;
+	const effectiveGhostCellSuggestions = ghostCellSuggestionsOverride !== undefined
+		? ghostCellSuggestionsOverride === 'enabled'
+		: globalGhostCellSuggestions;
+
+	return (
+		<>
+			<div className='assistant-panel-section-header'>
+				{settingsHeader}
+			</div>
+			<div className='assistant-panel-settings-section'>
+				<SettingToggleRow
+					description={showDiffDescription}
+					effectiveValue={effectiveShowDiff}
+					label={showDiffLabel}
+					overrideActive={showDiffOverride !== undefined}
+					onFollowGlobalChanged={(followGlobal) => {
+						if (followGlobal) {
+							onShowDiffChanged(undefined);
+						} else {
+							onShowDiffChanged(globalShowDiff ? 'showDiff' : 'noDiff');
+						}
+					}}
+					onToggle={() => onShowDiffChanged(effectiveShowDiff ? 'noDiff' : 'showDiff')}
+				/>
+				<SettingToggleRow
+					description={autoFollowDescription}
+					effectiveValue={effectiveAutoFollow}
+					label={autoFollowLabel}
+					overrideActive={autoFollowOverride !== undefined}
+					onFollowGlobalChanged={(followGlobal) => {
+						if (followGlobal) {
+							onAutoFollowChanged(undefined);
+						} else {
+							onAutoFollowChanged(globalAutoFollow ? 'autoFollow' : 'noAutoFollow');
+						}
+					}}
+					onToggle={() => onAutoFollowChanged(effectiveAutoFollow ? 'noAutoFollow' : 'autoFollow')}
+				/>
+				<SettingToggleRow
+					description={ghostCellSuggestionsDescription}
+					effectiveValue={effectiveGhostCellSuggestions}
+					label={ghostCellSuggestionsLabel}
+					overrideActive={ghostCellSuggestionsOverride !== undefined}
+					onFollowGlobalChanged={(followGlobal) => {
+						if (followGlobal) {
+							onGhostCellSuggestionsChanged(undefined);
+						} else {
+							onGhostCellSuggestionsChanged(globalGhostCellSuggestions ? 'enabled' : 'disabled');
+						}
+					}}
+					onToggle={() => onGhostCellSuggestionsChanged(effectiveGhostCellSuggestions ? 'disabled' : 'enabled')}
+				/>
+
+				<button className='assistant-panel-settings-link' onClick={onOpenSettings}>
+					<span className='codicon codicon-gear' />
+					<span className='assistant-panel-settings-link-text'>{openGlobalSettingsLabel}</span>
+				</button>
+			</div>
+			<div className='assistant-panel-section-divider' />
+			<AssistantPanelContext
+				context={notebookContext}
+				isLoading={isLoadingContext}
+			/>
+			<div className='assistant-panel-section-divider' />
+			<div className='assistant-panel-section-header'>
+				{actionsHeader}
+			</div>
+			<AssistantPanelActions
+				commandService={commandService}
+				logService={logService}
+				notebook={notebook}
+				notificationService={notificationService}
+				onActionSelected={onActionSelected}
+				onClose={onClose}
+			/>
+		</>
+	);
+};
+
+// Localized strings for pending diffs confirmation dialog.
+const pendingDiffsTitle = localize('positronNotebook.assistant.pendingDiffs.title', 'Pending Edits');
+const pendingDiffsMessage = localize('positronNotebook.assistant.pendingDiffs.message',
+	'You have unconfirmed edits in this notebook. What would you like to do with them?');
+const acceptPendingLabel = localize('positronNotebook.assistant.acceptPending', 'Accept Pending Edits');
+const rejectPendingLabel = localize('positronNotebook.assistant.rejectPending', 'Reject Pending Edits');
+
+/**
+ * Show a confirmation dialog for pending diffs when changing the diff view setting.
+ * @returns 'accept' if user chose to accept, 'reject' if user chose to reject, 'cancel' if cancelled
+ */
+async function showPendingDiffsConfirmation(
+	entry: IModifiedFileEntry,
+	dialogService: IDialogService
+): Promise<'accept' | 'reject' | 'cancel'> {
+	const { result } = await dialogService.prompt({
+		title: pendingDiffsTitle,
+		message: pendingDiffsMessage,
+		type: 'info',
+		cancelButton: true,
+		buttons: [
+			{
+				label: acceptPendingLabel,
+				run: async () => {
+					await entry.accept();
+					return 'accept' as const;
+				}
+			},
+			{
+				label: rejectPendingLabel,
+				run: async () => {
+					await entry.reject();
+					return 'reject' as const;
+				}
+			}
+		],
+	});
+
+	return result ?? 'cancel';
+}
 
 /**
  * AssistantPanel component.
@@ -210,19 +432,81 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		initialNotebook,
 		notebookPromise,
 		renderer,
+		chatEditingService,
 		commandService,
+		configurationService,
+		dialogService,
 		notificationService,
 		logService,
 		preferencesService,
 		onActionSelected
 	} = props;
 
+	// Panel state for tracking notebook availability
+	const [panelState, setPanelState] = useState<PanelState>(() =>
+		initialNotebook
+			? { status: 'ready', notebook: initialNotebook }
+			: { status: 'pending' }
+	);
+
 	// Wait for notebook availability via promise
-	const panelState = useWaitForNotebook(initialNotebook, notebookPromise, logService);
+	useEffect(() => {
+		// If already ready or no promise to wait for, nothing to do
+		if (panelState.status === 'ready' || !notebookPromise) {
+			return;
+		}
+
+		let disposed = false;
+
+		notebookPromise
+			.then(notebook => {
+				if (!disposed) {
+					setPanelState({ status: 'ready', notebook });
+				}
+			})
+			.catch(error => {
+				if (!disposed && !isCancellationError(error)) {
+					logService.error('Failed to get notebook instance:', error);
+					setPanelState({
+						status: 'error',
+						message: error instanceof Error ? error.message : String(error)
+					});
+				}
+				// On cancellation, do nothing - component is likely unmounting
+			});
+
+		return () => {
+			disposed = true;
+		};
+	}, [notebookPromise, panelState.status, logService]);
 
 	// State for notebook context (only used when ready)
 	const [notebookContext, setNotebookContext] = useState<INotebookContextDTO | undefined>(undefined);
 	const [isLoadingContext, setIsLoadingContext] = useState(true);
+
+	// State for show diff setting
+	const [showDiffOverride, setShowDiffOverride] = useState<ShowDiffOverride>(undefined);
+	const globalShowDiff = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY) ?? true;
+
+	// State for auto-follow setting
+	const [autoFollowOverride, setAutoFollowOverride] = useState<AutoFollowOverride>(undefined);
+	const globalAutoFollow = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
+
+	// State for ghost cell suggestions setting
+	const [ghostCellSuggestionsOverride, setGhostCellSuggestionsOverride] = useState<GhostCellSuggestionsOverride>(undefined);
+	const globalGhostCellSuggestions = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY) ?? false;
+
+	// Load settings overrides from notebook metadata when notebook becomes available
+	useEffect(() => {
+		if (panelState.status !== 'ready') {
+			return;
+		}
+
+		const settings = getAssistantSettings(panelState.notebook.textModel?.metadata);
+		setShowDiffOverride(settings.showDiff);
+		setAutoFollowOverride(settings.autoFollow);
+		setGhostCellSuggestionsOverride(settings.ghostCellSuggestions);
+	}, [panelState]);
 
 	// Fetch notebook context when notebook becomes available
 	useEffect(() => {
@@ -262,6 +546,77 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		onActionSelected(query, mode);
 	};
 
+	/**
+	 * Helper to update notebook assistant settings in metadata and auto-save.
+	 * Must only be called when panelState.status === 'ready'.
+	 */
+	const updateNotebookSettings = (updates: Partial<AssistantSettings>): boolean => {
+		if (panelState.status !== 'ready') {
+			return false;
+		}
+
+		const textModel = panelState.notebook.textModel;
+		if (!textModel) {
+			logService.warn('Cannot update notebook metadata: no text model available');
+			return false;
+		}
+
+		const newMetadata = setAssistantSettings({ ...textModel.metadata }, updates);
+
+		textModel.applyEdits([{
+			editType: CellEditType.DocumentMetadata,
+			metadata: newMetadata
+		}], true, undefined, () => undefined, undefined, true);
+
+		commandService.executeCommand('workbench.action.files.save');
+		return true;
+	};
+
+	const handleShowDiffChanged = async (value: ShowDiffOverride) => {
+		if (panelState.status !== 'ready') {
+			return;
+		}
+
+		// Check for pending diffs in any editing session
+		let pendingEntry: IModifiedFileEntry | undefined;
+		for (const session of chatEditingService.editingSessionsObs.get()) {
+			const entry = session.getEntry(panelState.notebook.uri);
+			if (entry && entry.state.get() === ModifiedFileEntryState.Modified) {
+				pendingEntry = entry;
+				break;
+			}
+		}
+
+		if (pendingEntry) {
+			// Show confirmation dialog - if cancelled, don't change the setting
+			const action = await showPendingDiffsConfirmation(pendingEntry, dialogService);
+			if (action === 'cancel') {
+				return;
+			}
+		}
+
+		setShowDiffOverride(value);
+		updateNotebookSettings({ showDiff: value });
+	};
+
+	const handleAutoFollowChanged = (value: AutoFollowOverride) => {
+		if (panelState.status !== 'ready') {
+			return;
+		}
+
+		setAutoFollowOverride(value);
+		updateNotebookSettings({ autoFollow: value });
+	};
+
+	const handleGhostCellSuggestionsChanged = (value: GhostCellSuggestionsOverride) => {
+		if (panelState.status !== 'ready') {
+			return;
+		}
+
+		setGhostCellSuggestionsOverride(value);
+		updateNotebookSettings({ ghostCellSuggestions: value });
+	};
+
 	// Determine content based on state
 	const renderContent = () => {
 		switch (panelState.status) {
@@ -272,14 +627,24 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			case 'ready':
 				return (
 					<ReadyState
+						autoFollowOverride={autoFollowOverride}
 						commandService={commandService}
+						ghostCellSuggestionsOverride={ghostCellSuggestionsOverride}
+						globalAutoFollow={globalAutoFollow}
+						globalGhostCellSuggestions={globalGhostCellSuggestions}
+						globalShowDiff={globalShowDiff}
 						isLoadingContext={isLoadingContext}
 						logService={logService}
 						notebook={panelState.notebook}
 						notebookContext={notebookContext}
 						notificationService={notificationService}
+						showDiffOverride={showDiffOverride}
 						onActionSelected={handleActionSelected}
+						onAutoFollowChanged={handleAutoFollowChanged}
 						onClose={handleClose}
+						onGhostCellSuggestionsChanged={handleGhostCellSuggestionsChanged}
+						onOpenSettings={handleOpenSettings}
+						onShowDiffChanged={handleShowDiffChanged}
 					/>
 				);
 		}
@@ -294,12 +659,6 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			width={400}
 			onCancel={handleClose}
 		>
-			<button
-				aria-label={settingsAriaLabel}
-				className='assistant-panel-settings-icon codicon codicon-settings-gear'
-				title={settingsTooltip}
-				onClick={handleOpenSettings}
-			/>
 			<ContentArea>
 				<div className='assistant-panel-content'>
 					{renderContent()}

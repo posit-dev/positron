@@ -39,13 +39,26 @@ interface IVenvCommandArgs {
     stdin: string | undefined;
 }
 
-function generateCommandArgs(installInfo?: IPackageInstallSelection[], addGitIgnore?: boolean): IVenvCommandArgs {
+// --- Start Positron ---
+function generateCommandArgs(
+    installInfo?: IPackageInstallSelection[],
+    addGitIgnore?: boolean,
+    // custom venv naming
+    envName?: string,
+    // --- End Positron ---
+): IVenvCommandArgs {
     const command: string[] = [createVenvScript()];
     let stdin: string | undefined;
 
     if (addGitIgnore) {
         command.push('--git-ignore');
     }
+
+    // --- Start Positron ---
+    if (envName) {
+        command.push('--name', envName);
+    }
+    // --- End Positron ---
 
     if (installInfo) {
         if (installInfo.some((i) => i.installType === 'toml')) {
@@ -341,7 +354,9 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
             }
         }
 
-        const args = generateCommandArgs(installInfo, addGitIgnore);
+        // --- Start Positron ---
+        const args = generateCommandArgs(installInfo, addGitIgnore, options?.envName);
+        // --- End Positron ---
         const createEnvInternal = async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
             progress.report({
                 message: CreateEnv.statusStarting,

@@ -17,13 +17,13 @@ export function getFreeMemory(): string {
 }
 
 /**
- * Get load average and CPU usage information (Linux only)
+ * Get load average and CPU usage information (Unix-like systems)
  *
  * @returns The load average and CPU usage string, or a message indicating it's not available
  */
 export function getLoadAverageAndCpuUsage(): string {
-	if (process.platform !== 'linux') {
-		return 'Load average and CPU usage information is only available on Linux systems.';
+	if (process.platform === 'win32') {
+		return 'Load average and CPU usage information is not available on Windows.';
 	}
 
 	try {

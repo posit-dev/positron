@@ -2,7 +2,7 @@
     "name": "python",
     "displayName": "Python",
     "description": "Python Language Pack for Positron",
-    "version": "2025.99.0-dev",
+    "version": "2026.99.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true
     },
@@ -1005,7 +1005,8 @@
                 "editor.inlayHints.enabled": "offUnlessPressed"
             },
             "pyright.disableLanguageServices": true,
-            "pyright.disableOrganizeImports": true
+            "pyright.disableOrganizeImports": true,
+            "pyrefly.commentFoldingRanges": true
         },
         "debuggers": [
             {
@@ -2259,7 +2260,7 @@
     },
     "positron": {
         "externalDependencies": {
-            "pet": "2025.16"
+            "pet": "2026.0"
         }
     }
 }

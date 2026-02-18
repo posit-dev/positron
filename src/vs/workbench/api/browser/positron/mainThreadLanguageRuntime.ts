@@ -12,7 +12,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -51,7 +51,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
+import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState, LanguageRuntimePackage } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 
 /**
@@ -634,6 +634,34 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	async forceQuit(): Promise<void> {
 		// No check for state here; we can force quit the runtime at any time.
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
+	}
+
+	async getPackages(): Promise<LanguageRuntimePackage[]> {
+		return this._proxy.$getPackages(this.handle);
+	}
+
+	async installPackages(packages: string[]): Promise<void> {
+		return this._proxy.$installPackages(this.handle, packages);
+	}
+
+	async uninstallPackages(packages: string[]): Promise<void> {
+		return this._proxy.$uninstallPackages(this.handle, packages);
+	}
+
+	async updatePackages(packages: string[]): Promise<void> {
+		return this._proxy.$updatePackages(this.handle, packages);
+	}
+
+	async updateAllPackages(): Promise<void> {
+		return this._proxy.$updateAllPackages(this.handle);
+	}
+
+	async searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$searchPackages(this.handle, query);
+	}
+
+	async searchPackageVersions(name: string): Promise<string[]> {
+		return this._proxy.$searchPackageVersions(this.handle, name);
 	}
 
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
@@ -1611,6 +1639,19 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(session.dynState);
 	}
 
+	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined> {
+		let session;
+		if (sessionId) {
+			session = this.findSession(sessionId);
+		} else {
+			session = this._runtimeSessionService.foregroundSession;
+		}
+		if (session) {
+			return Promise.resolve(session.dynState.currentWorkingDirectory || undefined);
+		}
+		return Promise.resolve(undefined);
+	}
+
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown> {
 		const session = this.findSession(sessionId);
 		return session.callMethod(method, args);
@@ -1739,7 +1780,7 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$executeCode(languageId: string,
+	async $executeCode(languageId: string,
 		extensionId: string,
 		sessionId: string | undefined,
 		code: string,
@@ -1747,7 +1788,34 @@ export class MainThreadLanguageRuntime
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string): Promise<string> {
+		executionId?: string,
+		documentUri?: URI): Promise<string> {
+
+		// If a document URI is provided, notify the backend that code is being executed from a file.
+		// This allows the backend to temporarily add the file's directory to sys.path.
+		if (documentUri) {
+			// Revive the URI from the serialized form
+			const uri = URI.revive(documentUri);
+
+			// Determine which session(s) to notify:
+			// - If a specific sessionId is provided, only notify that session
+			// - Otherwise, only notify sessions matching the languageId
+			const activeSessions = this._runtimeSessionService.getActiveSessions();
+			for (const activeSession of activeSessions) {
+				const shouldNotify = sessionId
+					? activeSession.session.sessionId === sessionId
+					: activeSession.session.runtimeMetadata.languageId === languageId;
+
+				if (shouldNotify && activeSession.uiClient) {
+					try {
+						await activeSession.uiClient.editorContextChanged(uri.toString(), true);
+					} catch (err) {
+						// Log but don't fail the execution if notification fails
+						console.warn(`Failed to send editor context changed: ${err}`);
+					}
+				}
+			}
+		}
 
 		// Attribute this code to the extension that requested it.
 		const attribution: IConsoleCodeAttribution = {

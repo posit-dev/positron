@@ -11,118 +11,116 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Notebook Assistant Features', {
-	tag: [tags.POSITRON_NOTEBOOKS]
+test.describe('Notebook Assistant: Feature Toggle', {
+	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WIN]
 }, () => {
 
-	test('Notebook AI features hidden when assistant disabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+	test('Notebook AI features hidden when assistant disabled', async function ({ app, settings }) {
+		const { notebooksPositron } = app.workbench;
 
 		// Disable assistant features
-		await settings.set({
-			'positron.assistant.enable': false,
-		});
+		await settings.set({ 'positron.assistant.enable': false });
 
-		// Create a new notebook with a cell that produces an error
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
-		await notebooksPositron.kernel.select('Python');
+		// Create a new notebook
+		await notebooksPositron.createNewNotebook();
+		await notebooksPositron.kernel.select('R');
 
-		// Add a code cell with intentional error using proper pattern
+		// Add a code cell with intentional error
 		await notebooksPositron.addCodeToCell(0, 'invalid_function()', { run: true });
-
-		// Wait for execution to complete
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
+		await notebooksPositron.expectNotebookErrorVisible();
 
-		// Wait for error output to appear
-		await page.waitForSelector('.notebook-error', { timeout: 10000 });
-
-		// Verify Ask Assistant button is NOT visible in toolbar
-		const askAssistantButton = page.getByRole('button', { name: 'Ask Assistant', exact: true });
-		await expect(askAssistantButton).not.toBeVisible();
-
-		// Verify Fix/Explain buttons are NOT visible in error cell
-		const fixButton = page.getByRole('button', { name: /Ask assistant to fix/i });
-		const explainButton = page.getByRole('button', { name: /Ask assistant to explain/i });
-		await expect(fixButton).not.toBeVisible();
-		await expect(explainButton).not.toBeVisible();
+		// Verify assistant buttons are NOT visible
+		await notebooksPositron.expectAssistantButtonsVisible(false);
+		await notebooksPositron.expectErrorAssistantButtonsVisible(false);
 	});
 
-	test('Notebook AI features visible when assistant enabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron, assistant, quickaccess } = app.workbench;
+	test('Notebook AI features visible when assistant enabled', async function ({ app, settings }) {
+		const { notebooksPositron, assistant } = app.workbench;
 
-		// Enable assistant features (notebook mode requires master switch)
-		await settings.set({
-			'positron.assistant.enable': true,
-		});
-
-		// Configure and enable the echo model provider to set hasChatModels context key
-		// This is required because the Fix/Explain buttons only show when a chat model is available
-		await assistant.openPositronAssistantChat();
-		await quickaccess.runCommand('positron-assistant.configureModels');
-		await assistant.selectModelProvider('echo');
-		await assistant.clickSignInButton();
-		await assistant.clickCloseButton();
+		// Enable assistant and sign in to echo provider
+		await settings.set({ 'positron.assistant.enable': true });
+		await assistant.loginModelProvider('echo');
 
 		// Create a new notebook with a cell that produces an error
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
-		await notebooksPositron.kernel.select('Python');
+		await notebooksPositron.createNewNotebook();
+		await notebooksPositron.kernel.select('R');
 
-		// Add a code cell with intentional error using proper pattern
+		// Add a code cell with intentional error
 		await notebooksPositron.addCodeToCell(0, 'invalid_function()', { run: true });
-
-		// Wait for execution to complete
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
+		await notebooksPositron.expectNotebookErrorVisible();
 
-		// Wait for error output to appear
-		await page.waitForSelector('.notebook-error', { timeout: 10000 });
+		// Verify assistant buttons ARE visible
+		await notebooksPositron.expectAssistantButtonsVisible(true);
+		await notebooksPositron.expectErrorAssistantButtonsVisible(true);
+		await assistant.logoutModelProvider('echo');
+	});
+});
 
-		// Verify Ask Assistant button IS visible in toolbar
-		const askAssistantButton = page.getByRole('button', { name: 'Ask Assistant', exact: true });
-		await expect(askAssistantButton).toBeVisible();
+test.describe('Notebook Assistant: Interaction Flow', {
+	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WEB, tags.WIN]
+}, () => {
 
-		// Verify Fix/Explain buttons ARE visible in error cell
-		const fixButton = page.getByRole('button', { name: /Ask assistant to fix/i });
-		const explainButton = page.getByRole('button', { name: /Ask assistant to explain/i });
-		await expect(fixButton).toBeVisible();
-		await expect(explainButton).toBeVisible();
+	test.beforeAll(async function ({ assistant }) {
+		await assistant.loginModelProvider('echo');
 	});
 
-	test('Follow Assistant toggle only visible when both assistant settings enabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron, assistant, quickaccess, hotKeys } = app.workbench;
+	test.afterAll(async function ({ assistant }) {
+		await assistant.logoutModelProvider('echo');
+	});
 
-		// Test 1: Disable assistant - Follow Assistant should not be visible
-		await settings.set({
-			'positron.assistant.enable': false,
-		});
+	test('Fix error button opens chat and sends error context', async function ({ app }) {
+		const { notebooksPositron, assistant } = app.workbench;
 
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
+		// Create notebook
+		await notebooksPositron.createNewNotebook();
+		await notebooksPositron.kernel.select('Python');
 
-		// Follow Assistant has eye icon and toggles assistant auto-follow
-		const followAssistantDisabled = page.getByRole('button', { name: /[Ff]ollow.*[Aa]ssistant/i });
-		await expect(followAssistantDisabled).not.toBeVisible();
+		// Add a valid cell first
+		await notebooksPositron.addCodeToCell(0, 'x = 10', { run: true });
+		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 
-		// Close the notebook before changing settings
-		await hotKeys.closeAllEditors();
+		// Add a cell with an error and run it
+		await notebooksPositron.addCodeToCell(1, 'result = x + undefined_var', { run: true });
+		await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
+		await notebooksPositron.expectNotebookErrorVisible();
 
-		// Test 2: Enable assistant AND configure echo model (required for hasChatModels context key)
-		await settings.set({
-			'positron.assistant.enable': true,
-		});
+		// Click the Fix button and wait for response
+		await notebooksPositron.clickFixErrorButton();
+		await assistant.waitForResponseComplete();
 
-		// Configure and enable the echo model provider to set hasChatModels context key
-		await assistant.openPositronAssistantChat();
-		await quickaccess.runCommand('positron-assistant.configureModels');
-		await assistant.selectModelProvider('echo');
-		await assistant.clickSignInButton();
-		await assistant.clickCloseButton();
+		// Verify the chat panel is visible and received a response
+		await assistant.expectChatPanelVisible();
+		await assistant.expectChatResponseVisible();
 
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
+		// Verify the error context was sent
+		const responseText = await assistant.getChatResponseText(app.workspacePathOrFolder);
+		expect(responseText).toContain('undefined_var');
+	});
 
-		const followAssistantEnabled = page.getByRole('button', { name: /[Ff]ollow.*[Aa]ssistant/i });
-		await expect(followAssistantEnabled).toBeVisible();
+	test('Explain error button opens chat and sends error context', async function ({ app }) {
+		const { notebooksPositron, assistant } = app.workbench;
+
+		// Create notebook
+		await notebooksPositron.createNewNotebook();
+		await notebooksPositron.kernel.select('Python');
+
+		// Add a cell with an error and run it
+		await notebooksPositron.addCodeToCell(0, 'undefined_function()', { run: true });
+		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
+		await notebooksPositron.expectNotebookErrorVisible();
+
+		// Click the Explain button and wait for response
+		await notebooksPositron.clickExplainErrorButton();
+		await assistant.waitForResponseComplete();
+
+		// Verify the chat panel is visible and received a response
+		await assistant.expectChatPanelVisible();
+		await assistant.expectChatResponseVisible();
+
+		// Verify the error context was sent
+		const responseText = await assistant.getChatResponseText(app.workspacePathOrFolder);
+		expect(responseText).toContain('undefined_function');
 	});
 });

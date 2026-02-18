@@ -1,16 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import fancyLog from 'fancy-log';
-import { fetchUrls } from './fetch';
-import * as es from 'event-stream';
+import { fetchUrls } from './fetch.ts';
+import es from 'event-stream';
 import { Stream } from 'stream';
-import gulp = require('gulp');
-import util = require('./util');
-import rename = require('gulp-rename');
-import path = require('path');
+import gulp from 'gulp';
+import * as util from './util.ts';
+import rename from 'gulp-rename';
+import path from 'path';
+import unzip from 'gulp-unzip';
+import gunzip from 'gulp-gunzip';
+import untar from 'gulp-untar';
 
 /**
  * Get the base URL for the quarto download
@@ -29,7 +32,6 @@ function getBaseUrl(version: string): string {
  * @returns A stream
  */
 function getQuartoWindows(version: string): Stream {
-	const unzip = require('gulp-unzip');
 	const basename = `quarto-${version}-win`;
 	return fetchUrls([`${basename}.zip`], {
 		base: getBaseUrl(version),
@@ -46,9 +48,6 @@ function getQuartoWindows(version: string): Stream {
  * @returns A stream
  */
 function getQuartoMacOS(version: string): Stream {
-	const gunzip = require('gulp-gunzip');
-	const untar = require('gulp-untar');
-
 	return fetchUrls([`quarto-${version}-macos.tar.gz`], {
 		base: getBaseUrl(version),
 		verbose: true,
@@ -66,10 +65,6 @@ function getQuartoMacOS(version: string): Stream {
  * @returns A stream
  */
 function getQuartoLinux(version: string): Stream {
-	const gunzip = require('gulp-gunzip');
-	const untar = require('gulp-untar');
-	const rename = require('gulp-rename');
-
 	const basename = process.env['npm_config_arch'] === 'x64' ?
 		`quarto-${version}-linux-amd64` :
 		`quarto-${version}-linux-arm64`;
@@ -160,7 +155,7 @@ export function getQuartoBinaries(): Stream {
 		]));
 }
 
-if (require.main === module) {
+if (import.meta.main) {
 	getQuarto().then(() => process.exit(0)).catch(err => {
 		console.error(err);
 		process.exit(1);

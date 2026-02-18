@@ -12,6 +12,7 @@ import { QuickAccess } from './quickaccess.js';
 const DEBUG_TOOLBAR = '.debug-toolbar';
 const GLYPH_AREA = '.margin-view-overlays>:nth-child';
 const BREAKPOINT_GLYPH = '.monaco-editor .codicon-debug-breakpoint';
+const BREAKPOINT_GLYPH_UNVERIFIED = '.monaco-editor .codicon-debug-breakpoint-unverified';
 const STOP = `.debug-toolbar .action-label[aria-label*="Stop"]`;
 
 const VIEWLET = 'div[id="workbench.view.debug"]';
@@ -51,6 +52,47 @@ export class Debug {
 			await expect(this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
 			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
 			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible();
+		});
+	}
+
+	/**
+	 * Action: Set a breakpoint on a line and expect it to be initially unverified (gray)
+	 *
+	 * @param lineNumber The line number to set the breakpoint on
+	 * @param index The index of the breakpoint if multiple exist (default 0)
+	 */
+	async setUnverifiedBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
+		await test.step(`Debug: Set unverified breakpoint on line ${lineNumber}`, async () => {
+			await expect(this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
+			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
+			// For R breakpoints, initially expect the breakpoint to be unverified (gray)
+			await expect(
+				this.code.driver.page.locator(BREAKPOINT_GLYPH_UNVERIFIED).nth(index)
+					.or(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index))
+			).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: Wait for breakpoint to become verified (red)
+	 *
+	 * @param index The index of the breakpoint to check (default 0)
+	 * @param timeout Maximum time to wait for verification (default 30000ms)
+	 */
+	async expectBreakpointVerified(index = 0, timeout = 30000): Promise<void> {
+		await test.step(`Verify breakpoint ${index} is verified (red)`, async () => {
+			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Verify: Breakpoint is currently unverified (gray)
+	 *
+	 * @param index The index of the breakpoint to check (default 0)
+	 */
+	async expectBreakpointUnverified(index = 0): Promise<void> {
+		await test.step(`Verify breakpoint ${index} is unverified (gray)`, async () => {
+			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH_UNVERIFIED).nth(index)).toBeVisible();
 		});
 	}
 

@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:64
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:100
       options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -58,7 +58,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         with:
-          project: e2e-electron
+          identifier: e2e-electron
 
       - name: 🧪 Run Playwright Tests - Electron
         shell: bash

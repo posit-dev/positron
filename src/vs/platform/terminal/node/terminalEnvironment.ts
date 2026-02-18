@@ -17,7 +17,7 @@ import { deserializeEnvironmentVariableCollections } from '../common/environment
 import { MergedEnvironmentVariableCollection } from '../common/environmentVariableCollection.js';
 import { chmod, realpathSync, mkdirSync } from 'fs';
 import { promisify } from 'util';
-import type { SingleOrMany } from '../../../base/common/types.js';
+import { isString, SingleOrMany } from '../../../base/common/types.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
@@ -362,7 +362,7 @@ const shInteractiveArgs = ['-i', '--interactive'];
 const pwshImpliedArgs = ['-nol', '-nologo'];
 
 function arePwshLoginArgs(originalArgs: SingleOrMany<string>): boolean {
-	if (typeof originalArgs === 'string') {
+	if (isString(originalArgs)) {
 		return pwshLoginArgs.includes(originalArgs.toLowerCase());
 	} else {
 		return originalArgs.length === 1 && pwshLoginArgs.includes(originalArgs[0].toLowerCase()) ||
@@ -373,7 +373,7 @@ function arePwshLoginArgs(originalArgs: SingleOrMany<string>): boolean {
 }
 
 function arePwshImpliedArgs(originalArgs: SingleOrMany<string>): boolean {
-	if (typeof originalArgs === 'string') {
+	if (isString(originalArgs)) {
 		return pwshImpliedArgs.includes(originalArgs.toLowerCase());
 	} else {
 		return originalArgs.length === 0 || originalArgs?.length === 1 && pwshImpliedArgs.includes(originalArgs[0].toLowerCase());
@@ -381,9 +381,9 @@ function arePwshImpliedArgs(originalArgs: SingleOrMany<string>): boolean {
 }
 
 function areZshBashFishLoginArgs(originalArgs: SingleOrMany<string>): boolean {
-	if (typeof originalArgs !== 'string') {
+	if (!isString(originalArgs)) {
 		originalArgs = originalArgs.filter(arg => !shInteractiveArgs.includes(arg.toLowerCase()));
 	}
-	return originalArgs === 'string' && shLoginArgs.includes(originalArgs.toLowerCase())
-		|| typeof originalArgs !== 'string' && originalArgs.length === 1 && shLoginArgs.includes(originalArgs[0].toLowerCase());
+	return isString(originalArgs) && shLoginArgs.includes(originalArgs.toLowerCase())
+		|| !isString(originalArgs) && originalArgs.length === 1 && shLoginArgs.includes(originalArgs[0].toLowerCase());
 }

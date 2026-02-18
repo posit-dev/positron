@@ -1,23 +1,25 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { JSONTree } from '@vscode/prompt-tsx';
-import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PromptInstructionsReference, RuntimeSessionReference } from './types.js';
-import { log } from './extension.js';
+import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PromptInstructionsReference, RuntimeSessionReference, PositronAssistantToolName } from './types.js';
+import { log } from './log.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
  *
  * @param messages The messages to convert.
- * @param bedrockCacheBreakpoint Whether to use Bedrock cache breakpoints.
+ * @param usesChatCompletions Whether to apply chat completions endpoint transformations.
+ * @param cacheBreakpointProvider The provider to use for cache breakpoints, or undefined to disable.
  */
 export function toAIMessage(
 	messages: vscode.LanguageModelChatMessage2[],
-	bedrockCacheBreakpoint: boolean = false
+	usesChatCompletions: boolean = false,
+	cacheBreakpointProvider?: CacheBreakpointProvider
 ): ai.ModelMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
@@ -59,11 +61,10 @@ export function toAIMessage(
 					content: userContent
 				};
 
-				// If this is a cache breakpoint, note it in the message
-				// content. This is only used by the Bedrock provider.
-				if (cacheBreakpoint && bedrockCacheBreakpoint) {
+				// If this is a cache breakpoint, note it in the message content.
+				if (cacheBreakpoint) {
 					cacheBreakpoint = false;
-					markBedrockCacheBreakpoint(messageContent);
+					markCacheBreakpoint(messageContent, cacheBreakpointProvider);
 				}
 				aiMessages.push(messageContent);
 			}
@@ -75,12 +76,17 @@ export function toAIMessage(
 					if (!toolCall) {
 						log.warn(`[toAIMessage] Tool result with callId '${part.callId}' has no matching tool call in conversation history. Available tool calls: ${Object.keys(toolCalls).join(', ')}`);
 					}
-					const toolMessage = convertToolResultPartToAiToolMessage(part, toolCall);
-					if (cacheBreakpoint && bedrockCacheBreakpoint) {
-						cacheBreakpoint = false;
-						markBedrockCacheBreakpoint(toolMessage);
+
+					if (usesChatCompletions && toolCall?.name === PositronAssistantToolName.GetPlot) {
+						handleGetPlotToolResultForChatCompletions(part, toolCall, aiMessages);
+					} else {
+						const toolMessage = convertToolResultPartToAiToolMessage(part, toolCall);
+						if (cacheBreakpoint) {
+							cacheBreakpoint = false;
+							markCacheBreakpoint(toolMessage, cacheBreakpointProvider);
+						}
+						aiMessages.push(toolMessage);
 					}
-					aiMessages.push(toolMessage);
 				}
 			}
 
@@ -111,18 +117,14 @@ export function toAIMessage(
 				}
 			}
 			const aiMessage: ai.AssistantModelMessage = {
-
 				role: 'assistant',
-
 				content,
-
 			};
 
-			// If this is a cache breakpoint, note it in the message
-			// content. This is only used by the Bedrock provider.
-			if (cacheBreakpoint && bedrockCacheBreakpoint) {
+			// If this is a cache breakpoint, note it in the message content.
+			if (cacheBreakpoint) {
 				cacheBreakpoint = false;
-				markBedrockCacheBreakpoint(aiMessage);
+				markCacheBreakpoint(aiMessage, cacheBreakpointProvider);
 			}
 			aiMessages.push(aiMessage);
 		} else if (message.role === vscode.LanguageModelChatMessageRole.System) {
@@ -149,10 +151,7 @@ export function toAIMessage(
 		};
 
 		// Add a cache breakpoint for our combined system prompt.
-		// This is only used by the Bedrock provider.
-		if (bedrockCacheBreakpoint) {
-			markBedrockCacheBreakpoint(systemMessage);
-		}
+		markCacheBreakpoint(systemMessage, cacheBreakpointProvider);
 
 		aiMessages.unshift(systemMessage);
 	}
@@ -161,16 +160,58 @@ export function toAIMessage(
 	return aiMessages.filter((message) => message.content.length > 0);
 }
 
-export function markBedrockCacheBreakpoint(message: ai.ModelMessage): ai.ModelMessage {
-	log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
+/**
+ * Supported providers for prompt caching.
+ */
+export type CacheBreakpointProvider = 'bedrock' | 'anthropic' | 'posit';
+
+/**
+ * Mark a message with Anthropic-style cache control.
+ */
+function markAnthropicStyleCacheBreakpoint(message: ai.ModelMessage, providerName: string): ai.ModelMessage {
+	log.trace(`[vercel] Marking ${message.role} message as a ${providerName} cache breakpoint`);
 	message.providerOptions = {
-		bedrock: {
-			cachePoint: {
-				type: 'default',
+		anthropic: {
+			cacheControl: {
+				type: 'ephemeral',
 			}
 		}
 	};
 	return message;
+}
+
+/**
+ * Map of provider names to their cache breakpoint marker functions.
+ */
+const cacheBreakpointMarkers: Record<CacheBreakpointProvider, (message: ai.ModelMessage) => ai.ModelMessage> = {
+	bedrock: (message) => {
+		log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
+		message.providerOptions = {
+			bedrock: {
+				cachePoint: {
+					type: 'default',
+				}
+			}
+		};
+		return message;
+	},
+	anthropic: (message) => markAnthropicStyleCacheBreakpoint(message, 'Anthropic'),
+	posit: (message) => markAnthropicStyleCacheBreakpoint(message, 'Posit'),
+};
+
+/**
+ * Mark a message with a cache breakpoint for the specified provider.
+ *
+ * @param message The message to mark.
+ * @param provider The provider to use for the cache breakpoint, or undefined to skip.
+ */
+export function markCacheBreakpoint(
+	message: ai.ModelMessage,
+	provider?: CacheBreakpointProvider
+): void {
+	if (provider) {
+		cacheBreakpointMarkers[provider]?.(message);
+	}
 }
 
 /**
@@ -181,13 +222,6 @@ function convertToolResultPartToAiToolMessage(
 	part: vscode.LanguageModelToolResultPart,
 	toolCall: vscode.LanguageModelToolCallPart,
 ): ai.ToolModelMessage {
-	// If experimental content is enabled for tool calls,
-	// that means tool results can contain images.
-
-	type ToolResultOutput =
-		| { type: 'text'; value: string }
-		| { type: 'content'; value: Array<{ type: 'text'; text: string } | { type: 'media'; data: string; mediaType: string }> };
-
 	const toolMessage: ai.ToolModelMessage = {
 		role: 'tool',
 		content: [
@@ -477,19 +511,6 @@ function stringifyPromptNodeJSON(node: JSONTree.PromptNodeJSON, strs: string[]):
 	}
 }
 
-// This type definition is from Vercel AI, but the type is not exported.
-type ToolResultContent = Array<
-	| {
-		type: 'text';
-		text: string;
-	}
-	| {
-		type: 'image';
-		data: string;
-		mimeType?: string;
-	}
->;
-
 /** Whether a chat request is from an inline editor context. */
 export function isTextEditRequest(request: vscode.ChatRequest):
 	request is vscode.ChatRequest & { location2: vscode.ChatRequestEditorData } {
@@ -619,4 +640,63 @@ export function isAuthorizationError(error: any): boolean {
 	return authPatterns.some(pattern =>
 		message.toLowerCase().includes(pattern.toLowerCase())
 	);
+}
+
+/**
+ * Handle getPlot tool results for OpenAI-compatible providers (chat completions endpoint).
+ *
+ * This creates both:
+ * 1. A proper tool result message (maintains tool call/result semantics for the model)
+ * 2. A separate user message with the image (ensures image compatibility with chat completions)
+ */
+function handleGetPlotToolResultForChatCompletions(
+	part: vscode.LanguageModelToolResultPart | vscode.LanguageModelToolResultPart2,
+	toolCall: vscode.LanguageModelToolCallPart,
+	aiMessages: ai.ModelMessage[]
+): void {
+	log.debug(`[handleGetPlotToolResultForChatCompletions] Processing getPlot tool result for OpenAI-compatible provider`);
+
+	// 1. Add proper tool result message with clear indication that image follows
+	const imageDataParts = part.content.filter(isChatImagePart);
+	const hasImage = imageDataParts.length > 0;
+
+	const toolResultText = hasImage
+		? 'Retrieved. Image follows.'
+		: part.content
+			.filter(p => p instanceof vscode.LanguageModelTextPart)
+			.map(p => (p as vscode.LanguageModelTextPart).value)
+			.join('') || 'No plot available';
+
+	const toolMessage: ai.ToolModelMessage = {
+		role: 'tool',
+		content: [{
+			type: 'tool-result',
+			toolCallId: part.callId,
+			toolName: toolCall.name,
+			output: { type: 'text' as const, value: toolResultText }
+		}]
+	};
+	aiMessages.push(toolMessage);
+
+	// 2. Add separate user message with image content (for compatibility)
+	if (hasImage) {
+		const imageUserMessage: ai.UserModelMessage = {
+			role: 'user',
+			content: [
+				{
+					type: 'text',
+					text: 'Here is the current active plot:'
+				},
+				...imageDataParts.map(imagePart => ({
+					type: 'image' as const,
+					image: (imagePart as vscode.LanguageModelDataPart).data,
+					mediaType: (imagePart as vscode.LanguageModelDataPart).mimeType
+				}))
+			]
+		};
+		aiMessages.push(imageUserMessage);
+		log.debug(`[handleGetPlotToolResultForChatCompletions] Added tool result message and user image message`);
+	} else {
+		log.debug(`[handleGetPlotToolResultForChatCompletions] Added tool result message (no image data)`);
+	}
 }

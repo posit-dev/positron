@@ -8,6 +8,10 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { assertNoRpc, closeAllEditors, DeferredPromise, disposeAll } from '../utils';
 
+// --- Start Positron ---
+import * as positron from 'positron';
+// --- End Positron ---
+
 
 suite('lm', function () {
 
@@ -25,6 +29,13 @@ suite('lm', function () {
 
 	setup(function () {
 		disposables = [];
+		// --- Start Positron ---
+		positron.ai.registerProviderMetadata({
+			id: 'test-lm-vendor',
+			displayName: 'Test LM Vendor',
+			settingName: 'testLmVendor'
+		});
+		// --- End Positron ---
 	});
 
 	teardown(async function () {

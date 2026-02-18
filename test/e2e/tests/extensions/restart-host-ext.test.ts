@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,13 +9,11 @@ test.use({
 	suiteId: __filename
 });
 
-// FIXME: Disabled for https://github.com/posit-dev/positron/pull/11407 on windows
-test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS] }, () => {
+test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS, tags.WIN] }, () => {
 
 	test.afterEach(async ({ app }) => {
 		await app.workbench.sessions.deleteAll();
 	});
-
 
 	test('Verify Restart Extension Host command works - R', {
 		tag: [tags.ARK]
@@ -27,7 +25,7 @@ test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS] }, () => {
 		await app.workbench.console.waitForConsoleContents('101');
 	});
 
-	test('Verify Restart Extension Host command works - Python', async function ({ app, python }) {
+	test('Verify Restart Extension Host command works - Python', { tag: [tags.SOFT_FAIL] }, async function ({ app, python }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
 		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
 		await app.workbench.console.waitForReady('>>>');

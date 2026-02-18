@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -43,8 +43,8 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await hotKeys.resetWelcomeWalkthrough();
 			await hotKeys.reloadWindow();
 
-			await welcome.expectWalkthroughsToHaveCount(2);
-			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron']);
+			await welcome.expectWalkthroughsToHaveCount(3);
+			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Explore the Positron Notebook Editor in Alpha']);
 
 			await welcome.walkthroughSection.getByText('More...').click();
 			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
@@ -53,7 +53,8 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 				'Migrating from VSCode to Positron',
 				'Migrating from RStudio to Positron',
 				'Get Started with Jupyter Notebooks',
-				'Get Started with Posit Publisher'
+				'Get Started with Posit Publisher',
+				'Explore the Positron Notebook Editor in Alpha'
 			]);
 		});
 

@@ -6,11 +6,10 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
-import { processMessages, toAIMessage } from '../../utils';
-import { getProviderTimeoutMs } from '../../config';
-import { TokenUsage } from '../../tokens';
-import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
-import { getMaxTokens, createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
+import { CacheBreakpointProvider, processMessages, toAIMessage } from '../../utils';
+import { getProviderTimeoutMs } from '../../providerConfig.js';
+import { TokenUsage, recordRequestTokenUsage, recordTokenUsage } from '../../tokens';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 
@@ -61,6 +60,16 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * Provider-specific options like temperature, top_p, etc.
 	 */
 	protected aiOptions: Record<string, any> = {};
+
+	/**
+	 * Whether this provider uses the older /v1/chat/completions endpoint,
+	 * as opposed to the newer /v1/responses endpoint.
+	 *
+	 * This affects how certain features are handled, such as tool result
+	 * formatting (e.g., image support).
+	 */
+	protected usesChatCompletions: boolean = false;
+
 
 	/**
 	 * Sends a test message to verify model connectivity.
@@ -130,6 +139,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		providerOptions?: {
 			toolResultExperimentalContent?: boolean;
 			bedrockCacheBreakpoint?: boolean;
+			anthropicCacheBreakpoint?: boolean;
 		}
 	): Promise<void> {
 		const aiModel = this.aiProvider(model.id);
@@ -153,12 +163,19 @@ export abstract class VercelModelProvider extends ModelProvider {
 		}
 
 		// Extract provider-specific options
-		const { bedrockCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
+		const { bedrockCacheBreakpoint = false, anthropicCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
+
+		// Determine which cache breakpoint provider to use (if any)
+		const cacheBreakpointProvider: CacheBreakpointProvider | undefined =
+			bedrockCacheBreakpoint ? 'bedrock' :
+				anthropicCacheBreakpoint ? 'anthropic' :
+					undefined;
 
 		// Convert all messages to the Vercel AI format
 		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
-			toolResultExperimentalContent
+			this.usesChatCompletions,
+			cacheBreakpointProvider
 		);
 
 		// Set up tools if provided
@@ -169,7 +186,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = options.modelOptions?.requestId;
 
-		this.logger.info(`[vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
+		this.logger.debug(`[vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 		this.logger.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 
 		// Stream the response
@@ -180,7 +197,26 @@ export abstract class VercelModelProvider extends ModelProvider {
 			abortSignal: signal,
 		});
 
-		await this.handleStreamResponse(result, model, progress, token, requestId);
+		try {
+			await this.handleStreamResponse(result, model, progress, token, requestId);
+		} catch (error) {
+			// Allow subclasses to handle provider-specific errors
+			this.handleStreamError(error);
+		}
+	}
+
+	/**
+	 * Handles errors that occur during stream processing.
+	 *
+	 * Subclasses can override this method to handle provider-specific errors
+	 * (e.g., rate limiting with retry-after headers). The default implementation
+	 * simply re-throws the error.
+	 *
+	 * @param error - The error that occurred during streaming
+	 * @throws The original error or a transformed error with additional context
+	 */
+	protected handleStreamError(error: unknown): never {
+		throw error;
 	}
 
 	/**
@@ -349,15 +385,61 @@ export abstract class VercelModelProvider extends ModelProvider {
 			this.logger.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
 		}
 
+		// Handle Anthropic-specific usage (cache tokens are directly on metadata.anthropic, not nested under usage)
+		if (metadata && metadata.anthropic) {
+			const anthropicMeta = metadata.anthropic as Record<string, any>;
+			tokens.inputTokens += anthropicMeta.cacheCreationInputTokens || anthropicMeta.usage?.cache_creation_input_tokens || 0;
+			tokens.cachedTokens += anthropicMeta.cacheReadInputTokens || anthropicMeta.usage?.cache_read_input_tokens || 0;
+
+			this.logger.debug(`[${model.name}]: Anthropic usage: ${JSON.stringify(anthropicMeta, null, 2)}`);
+		}
+
 		if (requestId) {
 			recordRequestTokenUsage(requestId, this.providerId, tokens);
 		}
 
-		if (this._context) {
-			recordTokenUsage(this._context, this.providerId, tokens);
-		}
+		recordTokenUsage(this.providerId, tokens);
 
 		this.logger.info(`[vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
+	}
+
+	/**
+	 * Parses provider errors to extract user-friendly messages.
+	 *
+	 * Overrides the base implementation to handle Vercel AI SDK-specific errors,
+	 * particularly RetryError which wraps the actual API error when maxRetries
+	 * is exceeded.
+	 *
+	 * @param error - The error object from the provider
+	 * @returns A user-friendly error message, or undefined if not specifically handled
+	 */
+	override async parseProviderError(error: any): Promise<string | undefined> {
+		// Handle RetryError - the Vercel SDK wraps retried errors in this type
+		// when maxRetries is exceeded. Extract the lastError for processing.
+		if (ai.RetryError.isInstance(error) && error.lastError) {
+			if (ai.APICallError.isInstance(error.lastError)) {
+				const lastError = error.lastError;
+
+				// Check for rate limit error (429) with retry-after header
+				if (lastError.statusCode === 429) {
+					const retryAfter = lastError.responseHeaders?.['retry-after'];
+					if (retryAfter) {
+						return `Rate limit exceeded. Please retry after ${retryAfter} seconds.`;
+					}
+					return 'Rate limit exceeded. Please try again later.';
+				}
+
+				// Try to get the message from the parsed data on the lastError
+				const errorData = lastError.data as { error?: { message?: string } } | undefined;
+				if (errorData?.error?.message) {
+					return errorData.error.message;
+				}
+			}
+			// Delegate to base class with the unwrapped error
+			return super.parseProviderError(error.lastError);
+		}
+
+		return super.parseProviderError(error);
 	}
 
 	/**

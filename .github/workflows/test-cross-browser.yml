@@ -53,7 +53,6 @@ jobs:
     with:
       display_name: "firefox"
       project: "e2e-firefox"
-      report_currents: false
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
@@ -67,7 +66,6 @@ jobs:
     with:
       display_name: "webkit"
       project: "e2e-webkit"
-      report_currents: false
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
@@ -81,7 +79,6 @@ jobs:
     with:
       display_name: "edge"
       project: "e2e-edge"
-      report_currents: false
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'

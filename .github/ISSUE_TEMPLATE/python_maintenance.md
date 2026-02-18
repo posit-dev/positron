@@ -16,3 +16,5 @@ about: Checklist for performing monthly maintenance for positron-python
 - [ ] Update `python_files/posit/uv.lock` by running `uv lock` in the `python_files/posit` folder
 - [ ] Run `scripts/pip-compile-ipykernel.py` to update `python_files/ipykernel_requirements/{py3,cp3,cpx}-requirements.txt`
 - [ ] Follow the instructions in `python_files/positron_requirements/requirements.in` to update `python_files/positron_requirements/requirements.txt`
+
+Note: leave `python_files/jedilsp_requirements` as-is, this is an upstream file.

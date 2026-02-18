@@ -1,13 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 
 // Other dependencies.
-import { localize } from '../../../../../../nls.js';
 import { showCustomContextMenu } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
@@ -15,24 +14,34 @@ import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/ac
 import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
+import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 
 interface NotebookCellMoreActionsMenuProps {
+	ariaLabel: string;
+	cell: IPositronNotebookCell;
 	hoverManager?: IHoverManager;
-	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
+	instance: IPositronNotebookInstance;
+	isMenuOpen: boolean;
+	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][];
+	setIsMenuOpen: (isOpen: boolean) => void;
 }
-
-const moreCellActions = localize('moreCellActions', 'More Cell Actions');
 
 /**
  * More actions dropdown menu component for notebook cells.
  * Encapsulates all dropdown menu logic including state management and menu display.
  */
 export function NotebookCellMoreActionsMenu({
+	ariaLabel,
+	cell,
 	hoverManager,
+	instance,
+	isMenuOpen,
 	menuActions,
+	setIsMenuOpen,
 }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
-	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
 	const showMoreActionsMenu = () => {
 
 		if (!buttonRef.current) {
@@ -40,7 +49,7 @@ export function NotebookCellMoreActionsMenu({
 		}
 
 		try {
-			const entries = buildMoreActionsMenuItems(menuActions);
+			const entries = buildMoreActionsMenuItems(cell, menuActions, instance);
 
 			setIsMenuOpen(true);
 
@@ -66,9 +75,9 @@ export function NotebookCellMoreActionsMenu({
 			ref={buttonRef}
 			aria-expanded={isMenuOpen}
 			aria-haspopup='menu'
-			ariaLabel={moreCellActions}
+			ariaLabel={ariaLabel}
 			hoverManager={hoverManager}
-			tooltip={moreCellActions}
+			tooltip={ariaLabel}
 			onPressed={showMoreActionsMenu}
 		>
 			<Icon className='button-icon' icon={Codicon.ellipsis} />

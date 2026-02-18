@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
-import { log } from '../extension.js';
+import { log } from '../log.js';
 
 interface CreateNotebookInput {
 	language: 'python' | 'r';

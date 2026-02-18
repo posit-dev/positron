@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -34,10 +34,10 @@ import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
-import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
+import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
-import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
+import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
 
@@ -93,9 +93,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer, sessionId): Thenable<Record<string, unknown>> {
+			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId);
+				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,
@@ -269,17 +269,78 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		/**
+		 * Resolves abstract base references to actual URIs for the path formatter.
+		 *
+		 * - 'workspace': Resolves to the first workspace folder
+		 * - 'session': Resolves to the working directory of the foreground session,
+		 *    or a specific session if sessionId is provided. Note that this is
+		 *  likely to require knowledge of homeUri, because working directory
+		 *  reported by the runtime probably uses the `~` shorthand
+		 *  (would be nice to fix this!).
+		 * - 'home': Requires homeUri to be provided by the caller
+		 * - vscode.Uri: Used as-is
+		 */
+		async function resolveRelativeBases(
+			relativeTo: positron.paths.RelativeBase | positron.paths.RelativeBase[] | undefined,
+			sessionId: string | undefined,
+			homeUri: vscode.Uri | undefined
+		): Promise<ResolvedBase[]> {
+			if (!relativeTo) {
+				return [];
+			}
+
+			const bases: ResolvedBase[] = [];
+			const items = Array.isArray(relativeTo) ? relativeTo : [relativeTo];
+
+			for (const item of items) {
+				if (typeof item === 'string') {
+					if (item === 'workspace') {
+						const workspaceFolders = extHostWorkspace.getWorkspaceFolders();
+						if (workspaceFolders && workspaceFolders.length > 0) {
+							bases.push({ uri: URI.from(workspaceFolders[0].uri) });
+						}
+					} else if (item === 'session') {
+						let workingDir = await extHostLanguageRuntime.getSessionWorkingDirectory(sessionId);
+						if (workingDir) {
+							// Expand ~ to actual home directory path
+							if (workingDir.startsWith('~/') && homeUri) {
+								workingDir = homeUri.fsPath + workingDir.slice(1);
+							}
+							bases.push({ uri: URI.file(workingDir) });
+						}
+					} else if (item === 'home') {
+						if (homeUri) {
+							bases.push({ uri: URI.from(homeUri), prefix: '~/' });
+						}
+					}
+				} else {
+					// It's a vscode.Uri - convert to internal URI
+					bases.push({ uri: URI.from(item) });
+				}
+			}
+
+			return bases;
+		}
+
 		const paths: typeof positron.paths = {
+			/**
+			 * Format a file path for use in code.
+			 */
+			async formatPathForCode(
+				filePath: string,
+				options?: positron.paths.FormatPathForCodeOptions
+			): Promise<string> {
+				const resolved = await resolveRelativeBases(options?.relativeTo, options?.sessionId, options?.homeUri);
+				return formatPathForCode(filePath, resolved);
+			},
+
 			/**
 			 * Extract file paths from files on the clipboard.
 			 */
 			async extractClipboardFilePaths(
 				dataTransfer: vscode.DataTransfer,
-				options?: {
-					preferRelative?: boolean;
-					baseUri?: vscode.Uri;
-					homeUri?: vscode.Uri;
-				}
+				options?: positron.paths.FormatPathForCodeOptions
 			): Promise<string[] | null> {
 				// Get URI list data from VS Code DataTransfer
 				const uriListItem = dataTransfer.get('text/uri-list');
@@ -293,25 +354,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 						return null;
 					}
 
-					// Provide workspace fallback if no baseUri specified
-					let resolvedOptions = options;
-					if (options?.preferRelative && !options.baseUri) {
-						const workspaceFolders = extHostWorkspace.getWorkspaceFolders();
-						if (workspaceFolders && workspaceFolders.length > 0) {
-							resolvedOptions = {
-								...options,
-								baseUri: workspaceFolders[0].uri
-							};
-						}
-					}
-
-					const convertOptions = resolvedOptions ? {
-						...resolvedOptions,
-						baseUri: resolvedOptions.baseUri ? URI.from(resolvedOptions.baseUri) : undefined,
-						homeUri: resolvedOptions.homeUri ? URI.from(resolvedOptions.homeUri) : undefined
-					} : undefined;
-
-					return convertClipboardFiles(uriListData, convertOptions);
+					// Default to workspace-relative for clipboard paths
+					const relativeTo = options?.relativeTo ?? ['workspace', 'home'];
+					const resolved = await resolveRelativeBases(relativeTo, options?.sessionId, options?.homeUri);
+					return convertClipboardFiles(uriListData, resolved);
 				} catch {
 					return null;
 				}
@@ -322,8 +368,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
-			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Thenable<void> {
-				return extHostAiFeatures.showLanguageModelConfig(sources, onAction);
+			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
+				return extHostAiFeatures.showLanguageModelConfig(sources, onAction, options);
 			},
 			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
 				return extHostAiFeatures.registerChatAgent(extension, agentData);
@@ -335,11 +381,11 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getPositronChatContext(request: vscode.ChatRequest): Thenable<positron.ai.ChatContext> {
 				return extHostAiFeatures.getPositronChatContext(request);
 			},
-			getSupportedProviders(): Thenable<string[]> {
-				return extHostAiFeatures.getSupportedProviders();
-			},
 			getChatExport(): Thenable<object | undefined> {
 				return extHostAiFeatures.getChatExport();
+			},
+			registerProviderMetadata(metadata: { id: string; displayName: string; settingName: string }): void {
+				return extHostAiFeatures.registerProviderMetadata(metadata);
 			},
 			addLanguageModelConfig(source: IPositronLanguageModelSource): void {
 				return extHostAiFeatures.addLanguageModelConfig(source);
@@ -361,6 +407,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			setCurrentProvider(id: string): Promise<positron.ai.ChatProvider | undefined> {
 				return extHostAiFeatures.setCurrentProvider(id);
+			},
+			getEnabledProviders(): Thenable<string[]> {
+				return extHostAiFeatures.getEnabledProviders();
 			},
 			LanguageModelAutoconfigureType: extHostTypes.LanguageModelAutoconfigureType
 		};

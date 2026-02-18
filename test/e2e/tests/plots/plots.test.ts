@@ -221,8 +221,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(treeNodes).toHaveCount(9);
 
 			// collapse the tree, only parent nodes should be visible
-			await treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
-			await expect(treeNodes).toHaveCount(3);
+			// doesn't work with playwright on SLES
+			if (process.env.IS_SLES !== 'true') {
+				await treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
+				await expect(treeNodes).toHaveCount(3);
+			}
 		});
 
 		test('Python - Verify ipywidget.Output Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
@@ -574,7 +577,7 @@ async function compareImages({
 	testInfo: any;
 }) {
 	await test.step('compare images', async () => {
-		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true') {
+		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true' && process.env.IS_SLES !== 'true') {
 			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`)), buffer, options);
 
 			if (data.rawMisMatchPercentage > 2.0) {

@@ -91,7 +91,9 @@ else {
 				'https://github.com/posit-dev/positron',
 				'https://positron.posit.co',
 				'https://github.com/login/device',
-				'https://posit.co'
+				'https://posit.co',
+				'https://login.posit.cloud',
+				'https://login.staging.posit.cloud'
 			]
 			// --- End Positron ---
 		});

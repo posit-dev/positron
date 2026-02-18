@@ -441,6 +441,13 @@
 			}
 		},
 		{
+			"name": "open_data_explorer",
+			"summary": "Open a full data explorer for the same data",
+			"description": "Creates a new, independent data explorer comm for the same underlying data. The new comm has its own state (filters, sorts). Used when promoting an inline notebook data explorer to a full data explorer panel.",
+			"params": [],
+			"result": {}
+		},
+		{
 			"name": "get_state",
 			"summary": "Get the state",
 			"description": "Request the current backend state (table metadata, explorer state, and features)",

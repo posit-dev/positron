@@ -126,14 +126,32 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	insertMarkdownCellBelow(): void;
 
 	/**
+	 * Insert a new raw cell above this cell
+	 */
+	insertRawCellAbove(): void;
+
+	/**
+	 * Insert a new raw cell below this cell
+	 */
+	insertRawCellBelow(): void;
+
+	/**
 	 * Type guard for checking if cell is a markdown cell
 	 */
 	isMarkdownCell(): this is IPositronNotebookMarkdownCell;
 
 	/**
-	 * Type guard for checking if cell is a code cell
+	 * Type guard for checking if cell is a code cell.
+	 * Note: Returns false for raw cells. Use isRawCell() to check for raw cells.
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
+
+	/**
+	 * Type guard for checking if cell is a raw cell.
+	 * Raw cells are stored as code cells with language='raw' in the underlying VS Code model,
+	 * but we expose them as a distinct type in our API.
+	 */
+	isRawCell(): this is IPositronNotebookRawCell;
 
 	/**
 	 * Check if this cell is the last cell in the notebook
@@ -241,6 +259,11 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	readonly outputs: IObservable<NotebookCellOutputs[]>;
 
 	/**
+	 * Whether the cell outputs are collapsed
+	 */
+	readonly outputIsCollapsed: ISettableObservable<boolean>;
+
+	/**
 	 * Duration of the last execution in milliseconds
 	 */
 	readonly lastExecutionDuration: IObservable<number | undefined>;
@@ -259,8 +282,31 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Timestamp when the last execution ended
 	 */
 	readonly lastRunEndTime: IObservable<number | undefined>;
+
+	/**
+	 * Collapse the cell outputs
+	 */
+	collapseOutput(): void;
+
+	/**
+	 * Expand the cell outputs
+	 */
+	expandOutput(): void;
+
+	/**
+	 * Toggle the collapse state of cell outputs
+	 */
+	toggleOutputCollapse(): void;
 }
 
+
+/**
+ * Interface for raw cells. Raw cells are stored as code cells with language='raw'
+ * in the underlying VS Code model, but we expose them as a distinct type in our API.
+ */
+export interface IPositronNotebookRawCell extends IPositronNotebookCell {
+	readonly kind: CellKind.Code;
+}
 
 
 /**
@@ -308,6 +354,18 @@ export type ParsedTextOutput = {
 };
 
 /**
+ * Parsed output for inline data explorer
+ */
+export interface ParsedDataExplorerOutput {
+	type: 'dataExplorer';
+	commId: string;
+	shape: { rows: number; columns: number };
+	title: string;
+	version: number;
+	source?: 'pandas' | 'polars' | 'unknown';
+}
+
+/**
  * Contents from cell outputs parsed for React components to display
  */
 export type ParsedOutput = ParsedTextOutput |
@@ -330,7 +388,8 @@ export type ParsedOutput = ParsedTextOutput |
 {
 	type: 'unknown';
 	content: string;
-};
+} |
+	ParsedDataExplorerOutput;
 
 
 export interface NotebookCellOutputs {

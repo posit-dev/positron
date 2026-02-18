@@ -14,6 +14,8 @@ permissions:
 jobs:
   RequireCLA:
     runs-on: ubuntu-latest
+    # Only run for PR events or comments on PRs (not comments on issues)
+    if: github.event_name == 'pull_request_target' || github.event.issue.pull_request
     steps:
       - name: "Strip whitespace from comment body"
         id: strip_whitespace

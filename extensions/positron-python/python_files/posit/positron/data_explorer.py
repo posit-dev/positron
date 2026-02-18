@@ -54,6 +54,7 @@ from .data_explorer_comm import (
     ConvertToCodeFeatures,
     ConvertToCodeParams,
     DataExplorerBackendMessageContent,
+    DataExplorerBackendRequest,
     DataExplorerFrontendEvent,
     DataSelectionCellIndices,
     DataSelectionCellRange,
@@ -2936,6 +2937,7 @@ class DataExplorerService:
         comm_id=None,
         *,
         sql_string: str | None = None,
+        inline_only: bool = False,
     ):
         """
         Set up a new comm and data explorer table query wrapper to handle requests and manage state.
@@ -2958,6 +2960,9 @@ class DataExplorerService:
             If the data explorer was opened from a SQL query result,
             this is the SQL string that was executed to produce the
             result. This is used for code generation.
+        inline_only : bool, default False
+            If True, the data explorer is for inline display only and
+            should not automatically open the full data explorer panel.
 
         Returns
         -------
@@ -2973,7 +2978,7 @@ class DataExplorerService:
         base_comm = comm.create_comm(
             target_name=self.comm_target,
             comm_id=comm_id,
-            data={"title": title},
+            data={"title": title, "inline_only": inline_only},
         )
 
         def close_callback(_):
@@ -3140,6 +3145,13 @@ class DataExplorerService:
         comm = self.comms[comm_id]
         table = self.table_views[comm_id]
 
+        # open_data_explorer is a service-level operation (creates a new comm),
+        # not a table-view operation, so handle it before the generic dispatch.
+        if request.method == DataExplorerBackendRequest.OpenDataExplorer:
+            self._open_data_explorer(comm_id)
+            comm.send_result(None)
+            return
+
         # GetState is the only method that doesn't have params
         result = getattr(table, request.method.value)(getattr(request, "params", None))
 
@@ -3155,6 +3167,18 @@ class DataExplorerService:
                 assert isinstance(result, dict)
 
         comm.send_result(result)
+
+    def _open_data_explorer(self, source_comm_id: str) -> None:
+        """Open a new, independent data explorer for the same underlying data."""
+        table_view = self.table_views.get(source_comm_id)
+        if table_view is None:
+            raise KeyError(f"No table view found for comm_id: {source_comm_id}")
+        self.register_table(
+            table_view.table,
+            table_view.state.name,
+            variable_path=None,
+            inline_only=False,
+        )
 
 
 def _get_column_profiles(table_view, schema, query_types, format_options):

@@ -1,68 +1,76 @@
 name: "Generate Report Directory & Send to GH Summary"
 description: "Generates a unique REPORT_DIR/REPORT_URL and optionally appends to GitHub Step summary"
+
+# Usage:
+#   For sharded workflows - pass the same identifier to all shards + merge job:
+#     - uses: ./.github/actions/gen-report-dir
+#       with:
+#         identifier: ${{ inputs.project }}  # e.g., "e2e-electron"
+#
+#   For non-sharded workflows - omit identifier to auto-use github.job:
+#     - uses: ./.github/actions/gen-report-dir
+#
+# Outputs (set as environment variables):
+#   REPORT_DIR  - Directory name (e.g., "playwright-report-123456-1-electron-ubuntu")
+#   REPORT_URL  - Full URL (e.g., "https://...cloudfront.net/playwright-report-.../index.html")
+
 inputs:
   bucket-url:
     description: "Base URL of the S3 bucket or CDN for the report"
     required: false
     default: "https://d38p2avprg8il3.cloudfront.net"
-  project:
-    description: "Playwright project name (e.g., e2e-electron, e2e-chromium)"
-    required: true
+  identifier:
+    description: "Report identifier. For sharded workflows, pass the same value to all shards. Defaults to github.job."
+    required: false
+    default: "${{ github.job }}"
   skip-summary:
     description: "Skip writing to GitHub Step Summary (use when setting URL before tests)"
     required: false
     default: "false"
+
 runs:
   using: "composite"
   steps:
     - name: Generate REPORT_DIR
       shell: bash
       run: |
-        # Strip "e2e-" prefix from project name to avoid GitHub secret masking issues
-        # (GitHub masks "e2e" as "***" which breaks URLs)
-        # e.g., "e2e-electron" → "electron", "***-electron" → "electron"
-        PROJECT=$(echo "${{ inputs.project }}" | sed -e 's/^\*\*\*-//' -e 's/^e2e-//')
-        echo "Project: $PROJECT"
+        # Format: playwright-report-{run_id}-{run_attempt}-{identifier}-{os}
 
-        # Detect distro suffix (only for Linux)
-        # Format: {project}[-{distro}]
-        # - Linux: electron-ubuntu, electron-rhel, etc.
-        # - Windows/Mac: electron, windows, etc.
-        DISTRO_SUFFIX=""
-        if [[ "$RUNNER_OS" == "Linux" ]] && [[ -f /etc/os-release ]]; then
-          # Parse Linux distro from os-release
-          OS_ID=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
-          OS_ID_LIKE=$(grep "^ID_LIKE=" /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
-          case "$OS_ID" in
-            ubuntu) DISTRO="ubuntu" ;;
-            debian) DISTRO="debian" ;;
-            rhel|rocky|centos|fedora|almalinux) DISTRO="rhel" ;;
-            opensuse|opensuse-leap|opensuse-tumbleweed|sles) DISTRO="suse" ;;
-            *)
-              # Check ID_LIKE for derivatives
-              if [[ "$OS_ID_LIKE" == *"ubuntu"* ]]; then DISTRO="ubuntu"
-              elif [[ "$OS_ID_LIKE" == *"debian"* ]]; then DISTRO="debian"
-              elif [[ "$OS_ID_LIKE" == *"rhel"* || "$OS_ID_LIKE" == *"centos"* || "$OS_ID_LIKE" == *"fedora"* ]]; then DISTRO="rhel"
-              elif [[ "$OS_ID_LIKE" == *"suse"* || "$OS_ID_LIKE" == *"opensuse"* ]]; then DISTRO="suse"
-              else DISTRO="linux"
-              fi
-              ;;
-          esac
-          DISTRO_SUFFIX="-${DISTRO}"
-        fi
+        # 1. Process identifier - strip "e2e-" prefix to avoid GitHub secret masking issues
+        IDENTIFIER=$(echo "${{ inputs.identifier }}" | sed -e 's/^\*\*\*-//' -e 's/^e2e-//')
+        echo "Identifier: $IDENTIFIER"
 
-        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${PROJECT}${DISTRO_SUFFIX}"
+        # 2. Detect OS/distro
+        case "$RUNNER_OS" in
+          Windows) OS_SUFFIX="windows" ;;
+          macOS)   OS_SUFFIX="macos" ;;
+          Linux)
+            if [[ -f /etc/os-release ]]; then
+              OS_ID=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
+              case "$OS_ID" in
+                ubuntu|debian) OS_SUFFIX="$OS_ID" ;;
+                rhel|rocky|centos|fedora|almalinux) OS_SUFFIX="rhel" ;;
+                opensuse|opensuse-leap|opensuse-tumbleweed) OS_SUFFIX="opensuse" ;;
+                sles) OS_SUFFIX="sles" ;;
+                *) OS_SUFFIX="linux" ;;
+              esac
+            else
+              OS_SUFFIX="linux"
+            fi
+            ;;
+          *) OS_SUFFIX="unknown" ;;
+        esac
+        echo "OS: $OS_SUFFIX"
 
-        # Export REPORT_DIR for downstream steps
-        echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
-        echo "Generated REPORT_DIR: $REPORT_DIR"
-
-        # Generate the REPORT_URL
+        # 3. Build report directory and URL
+        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${IDENTIFIER}-${OS_SUFFIX}"
         REPORT_URL="${{ inputs.bucket-url }}/$REPORT_DIR/index.html"
-        echo "Report URL: $REPORT_URL"
-        echo "REPORT_URL=$REPORT_URL" >> $GITHUB_ENV
 
-        # Optionally append REPORT_URL to the GitHub Step summary
+        echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
+        echo "REPORT_URL=$REPORT_URL" >> $GITHUB_ENV
+        echo "Generated: $REPORT_DIR"
+
+        # 4. Optionally append to GitHub Step Summary
         if [[ "${{ inputs.skip-summary }}" != "true" ]]; then
           echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY
         fi
