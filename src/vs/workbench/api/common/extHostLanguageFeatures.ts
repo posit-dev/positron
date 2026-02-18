@@ -1937,7 +1937,6 @@ class StatementRangeAdapter {
 				switch (err.kind) {
 					case extHostTypes.StatementRangeErrorKind.ParseError: return {
 						kind: languages.StatementRangeKind.ParseError,
-						message: err.message || undefined,
 						line: err.line,
 					} satisfies languages.IStatementRangeParseError;
 				}

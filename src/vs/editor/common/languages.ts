@@ -2082,11 +2082,6 @@ export interface IStatementRangeParseError {
 	readonly kind: StatementRangeKind.ParseError;
 
 	/**
-	 * An optional error message.
-	 */
-	readonly message?: string;
-
-	/**
 	 * A 0-indexed line number where the parse error occurred.
 	 */
 	readonly line?: number;
