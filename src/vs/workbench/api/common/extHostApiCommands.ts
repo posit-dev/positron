@@ -555,7 +555,7 @@ const newCommands: ApiCommand[] = [
 				case languages.StatementRangeKind.Rejection:
 					switch (result.rejectionKind) {
 						case languages.StatementRangeRejectionKind.Parse:
-							throw extHostTypes.StatementRangeError.ParseError(result.line);
+							throw new extHostTypes.StatementRangeSyntaxError(result.line);
 					}
 			}
 		})

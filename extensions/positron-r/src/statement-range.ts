@@ -83,7 +83,7 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 			case StatementRangeKind.Rejection: {
 				switch (data.rejectionKind) {
 					case StatementRangeRejectionKind.Parse: {
-						throw positron.StatementRangeError.ParseError(data.line);
+						throw new positron.StatementRangeSyntaxError(data.line);
 					}
 				}
 			}

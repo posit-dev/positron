@@ -1933,14 +1933,12 @@ class StatementRangeAdapter {
 		try {
 			result = await this._provider.provideStatementRange(document, position, token);
 		} catch (err) {
-			if (err instanceof extHostTypes.StatementRangeError) {
-				switch (err.kind) {
-					case extHostTypes.StatementRangeErrorKind.Parse: return {
-						kind: languages.StatementRangeKind.Rejection,
-						rejectionKind: languages.StatementRangeRejectionKind.Parse,
-						line: err.getParseErrorLine(),
-					} satisfies languages.IStatementRangeParseRejection;
-				}
+			if (err instanceof extHostTypes.StatementRangeSyntaxError) {
+				return {
+					kind: languages.StatementRangeKind.Rejection,
+					rejectionKind: languages.StatementRangeRejectionKind.Parse,
+					line: err.line,
+				} satisfies languages.IStatementRangeParseRejection;
 			}
 			throw err;
 		}

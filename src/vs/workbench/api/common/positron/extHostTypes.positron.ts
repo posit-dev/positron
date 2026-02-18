@@ -434,48 +434,25 @@ export enum PreviewSourceType {
 	Terminal = 'terminal',
 }
 
-export const enum StatementRangeErrorKind {
-	Parse = 'parse',
-}
-
-interface StatementRangeParseErrorData {
-	line?: number
-}
-
 /**
- * An error thrown by a {@link StatementRangeProvider} to indicate a problem.
+ * An error thrown by a {@link StatementRangeProvider} to indicate that a statement range
+ * cannot be provided due to a syntax error in the document.
  */
-export class StatementRangeError extends Error {
+export class StatementRangeSyntaxError extends Error {
 	/**
-	 * Create a parse error indicating the document could not be parsed.
+	 * Zero indexed line number where the syntax error occurred.
+	 */
+	readonly line?: number;
+
+	/**
+	 * Creates a new statement range syntax error.
 	 *
-	 * @param line A 0-indexed line number where the parse error occurred.
+	 * @param line Zero indexed line number where the syntax error occurred.
 	 */
-	static ParseError(line?: number): StatementRangeError {
-		const error = new StatementRangeError();
-		error.kind = StatementRangeErrorKind.Parse;
-		error.data = { line } satisfies StatementRangeParseErrorData;
-		return error;
-	}
-
-	/**
-	 * Retrieve the line for a {@link ParseError}.
-	 */
-	getParseErrorLine(): number | undefined {
-		if (this.kind != StatementRangeErrorKind.Parse) {
-			return undefined;
-		}
-		return (this.data as StatementRangeParseErrorData).line;
-	}
-
-	kind!: StatementRangeErrorKind;
-	private data!: unknown;
-
-	// Required `message` argument in constructor to satisfy `Error`
-	// constructor, but not used
-	constructor(message?: string) {
-		super(message);
-		Object.setPrototypeOf(this, StatementRangeError.prototype);
+	constructor(line?: number) {
+		super();
+		Object.setPrototypeOf(this, StatementRangeSyntaxError.prototype);
+		this.line = line;
 	}
 }
 
