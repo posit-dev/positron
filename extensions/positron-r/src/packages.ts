@@ -32,7 +32,12 @@ export class RPackageManager {
 	async sourcePackagesScript(): Promise<void> {
 		// Escape backslashes for Windows paths
 		const escapedPath = PACKAGES_SCRIPT_PATH.replace(/\\/g, '\\\\');
-		await this._executeAndCapture(`source("${escapedPath}")`);
+		// Use Silent mode and suppress all R output to avoid showing internal
+		// implementation details to the user
+		await this._executeAndCapture(
+			`source("${escapedPath}", echo = FALSE, print.eval = FALSE, verbose = FALSE)`,
+			positron.RuntimeCodeExecutionMode.Silent
+		);
 	}
 
 	/**
@@ -191,9 +196,12 @@ export class RPackageManager {
 
 	/**
 	 * Execute R code and capture the output (for queries).
-	 * Uses Silent mode so output doesn't appear in console.
+	 * Uses Transient mode by default so output doesn't appear in history.
 	 */
-	private async _executeAndCapture(code: string): Promise<string> {
+	private async _executeAndCapture(
+		code: string,
+		mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Transient
+	): Promise<string> {
 		const id = randomUUID();
 		let output = '';
 
@@ -238,7 +246,7 @@ export class RPackageManager {
 		this._session.execute(
 			code,
 			id,
-			positron.RuntimeCodeExecutionMode.Transient,
+			mode,
 			positron.RuntimeErrorBehavior.Stop
 		);
 
