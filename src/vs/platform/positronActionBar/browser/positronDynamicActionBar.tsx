@@ -19,19 +19,26 @@ import { usePositronActionBarContext } from './positronActionBarContext.js';
 import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
 import { CustomContextMenuSeparator } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
-import { CustomContextMenuEntry, showCustomContextMenu } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
+import { CustomContextMenuEntry, CustomContextMenuSubmenu, CustomContextMenuSubmenuOptions, showCustomContextMenu } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenuItem.js';
 
 /**
  * Constants.
  */
 export const DEFAULT_ACTION_BAR_BUTTON_WIDTH = 24;
+export const DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH = 36;
 export const DEFAULT_ACTION_BAR_SEPARATOR_WIDTH = 7;
 
 /**
  * OverflowContextMenuItem interface.
  */
 export interface OverflowContextMenuItem extends CustomContextMenuItemOptions {
+}
+
+/**
+ * OverflowContextMenuSubmenu interface.
+ */
+export interface OverflowContextMenuSubmenu extends CustomContextMenuSubmenuOptions {
 }
 
 /**
@@ -63,6 +70,12 @@ export interface DynamicActionBarAction {
 	 * The overflow custom context menu item.
 	 */
 	overflowContextMenuItem?: OverflowContextMenuItem;
+
+	/**
+	 * The overflow custom context menu submenu. Use this for actions that
+	 * should appear as a submenu in the overflow menu.
+	 */
+	overflowContextMenuSubmenu?: OverflowContextMenuSubmenu;
 }
 
 /**
@@ -245,6 +258,16 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		}
 
 		/**
+		 * Checks if an action has an overflow menu entry (either item or submenu).
+		 * This means this action is allowed to overflow into the overflow menu if we run out of space.
+		 *
+		 * @param action The action to check.
+		 * @returns True if the action has an overflow menu entry.
+		 */
+		const hasOverflowEntry = (action: DynamicActionBarAction) =>
+			action.overflowContextMenuItem || action.overflowContextMenuSubmenu;
+
+		/**
 		 * Lays out the specified actions.
 		 * @param actions The actions to layout.
 		 * @param gridEntries The grid entries.
@@ -253,7 +276,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		const layoutActions = (actions: DynamicActionBarAction[], gridEntries: GridEntry[], overflowActions: DynamicActionBarAction[]) => {
 			// Handle overflowing.
 			if (overflowing) {
-				overflowActions.push(...actions.filter(action => action.overflowContextMenuItem));
+				overflowActions.push(...actions.filter(hasOverflowEntry));
 				return;
 			}
 
@@ -278,7 +301,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 				// Handle overflowing.
 				if (separatorWidth + width > layoutWidth) {
 					overflowing = true;
-					overflowActions.push(...actions.slice(i).filter(action => action.overflowContextMenuItem));
+					overflowActions.push(...actions.slice(i).filter(hasOverflowEntry));
 					return;
 				}
 
@@ -357,6 +380,19 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 		// If there are overflow actions, add the overflow button.
 		if (overflowActions.length) {
+			/**
+			 * Creates a custom context menu entry from an overflow action.
+			 *
+			 * @param overflowAction The overflow action.
+			 * @returns The custom context menu entry.
+			 */
+			const createOverflowEntry = (overflowAction: DynamicActionBarAction): CustomContextMenuEntry => {
+				if (overflowAction.overflowContextMenuSubmenu) {
+					return new CustomContextMenuSubmenu(overflowAction.overflowContextMenuSubmenu);
+				}
+				return new CustomContextMenuItem(overflowAction.overflowContextMenuItem!);
+			};
+
 			rightGridColumns.push(`${DEFAULT_ACTION_BAR_BUTTON_WIDTH}px`);
 			rightGridElements.push(
 				<div style={{ display: 'flex', width: `${DEFAULT_ACTION_BAR_BUTTON_WIDTH}px` }}>
@@ -371,9 +407,9 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 							const customContextMenuEntries: CustomContextMenuEntry[] = [];
 
 							// Build the left custom context menu entries for the overflow context menu
-							leftOverflowActions.filter(overflowAction => overflowAction.overflowContextMenuItem).forEach((overflowAction, index, overflowActions) => {
+							leftOverflowActions.filter(hasOverflowEntry).forEach((overflowAction, index, overflowActions) => {
 								// Add the custom context menu entry.
-								customContextMenuEntries.push(new CustomContextMenuItem(overflowAction.overflowContextMenuItem!));
+								customContextMenuEntries.push(createOverflowEntry(overflowAction));
 
 								// Add the custom context menu separator, if needed.
 								if (overflowAction.separator && index < overflowActions.length - 1) {
@@ -382,14 +418,14 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 							});
 
 							// Build the right custom context menu entries for the overflow context menu
-							rightOverflowActions.filter(overflowAction => overflowAction.overflowContextMenuItem).forEach((overflowAction, index, overflowActions) => {
+							rightOverflowActions.filter(hasOverflowEntry).forEach((overflowAction, index, overflowActions) => {
 								// Add a separator between the left custom context menu entries and the right custom context menu entries.
 								if (!index && customContextMenuEntries.length) {
 									customContextMenuEntries.push(new CustomContextMenuSeparator());
 								}
 
 								// Add the custom context menu entry.
-								customContextMenuEntries.push(new CustomContextMenuItem(overflowAction.overflowContextMenuItem!));
+								customContextMenuEntries.push(createOverflowEntry(overflowAction));
 
 								// Add the custom context menu separator, if needed.
 								if (overflowAction.separator && index < overflowActions.length - 1) {
@@ -398,7 +434,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 							});
 
 							// Show the custom context.
-							await showCustomContextMenu({
+							showCustomContextMenu({
 								anchorElement: refOverflowButton.current,
 								popupPosition: 'auto',
 								popupAlignment: 'auto',
