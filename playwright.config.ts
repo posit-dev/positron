@@ -31,8 +31,8 @@ const projectName = process.env.PW_PROJECT_NAME || 'default';
 const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
-	'**/inspect-ai/**',
 	'**/remote-ssh/**',
+	'**/assistant-eval/**',
 ];
 
 export default defineConfig<CustomTestOptions>({
@@ -82,6 +82,20 @@ export default defineConfig<CustomTestOptions>({
 	projects: [
 		{
 			name: 'e2e-electron',
+			testIgnore: process.env.ALLOW_PYREFLY === 'true'
+				? [
+					'example.test.ts',
+					'**/workbench/**',
+					'**/remote-ssh/**',
+					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+				]
+				: [
+					'example.test.ts',
+					'**/workbench/**',
+					'**/remote-ssh/**',
+					'**/lsp/**',
+					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+				],
 			use: {
 				artifactDir: 'e2e-electron'
 			},
@@ -151,22 +165,10 @@ export default defineConfig<CustomTestOptions>({
 			grepInvert: /@:web-only|@:interpreter/
 		},
 		{
-			name: 'inspect-ai',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/remote-ssh/**'
-			],
-			use: {
-				artifactDir: 'inspect-ai',
-			},
-			grep: /@:inspect-ai/
-		},
-		{
 			name: 'e2e-workbench',
 			testIgnore: [
 				'example.test.ts',
-				'**/inspect-ai/**',
+				'**/assistant-eval/**',
 				'**/remote-ssh/**'
 			],
 			use: {
@@ -182,7 +184,7 @@ export default defineConfig<CustomTestOptions>({
 			name: 'e2e-remote-ssh',
 			testIgnore: [
 				'example.test.ts',
-				'**/inspect-ai/**',
+				'**/assistant-eval/**',
 				'**/workbench/**',
 			],
 			use: {

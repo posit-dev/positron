@@ -47,10 +47,7 @@
 	<script>
 		const importMap = { imports: {} };
 		const addModule = (packageName) => {
-			const packageNamePath = packageName.split("/");
-			const module = `esm-package-dependencies/${
-				packageNamePath[packageNamePath.length - 1]
-			}.js`;
+			const module = `esm-package-dependencies/${packageName}.js`;
 			const url = new URL(module, globalThis._VSCODE_FILE_ROOT).href;
 
 			importMap.imports[packageName] = url;

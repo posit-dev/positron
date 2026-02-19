@@ -34,7 +34,7 @@ export enum TestTags {
 	EXTENSIONS = '@:extensions',
 	HELP = '@:help',
 	HTML = '@:html',
-	INSPECT_AI = '@:inspect-ai',
+	ASSISTANT_EVAL = '@:assistant-eval',
 	INTERPRETER = '@:interpreter',
 	LAYOUTS = '@:layouts',
 	VIEWER = '@:viewer',

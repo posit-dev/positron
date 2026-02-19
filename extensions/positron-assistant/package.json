@@ -24,6 +24,17 @@
     "languageModelSystem"
   ],
   "contributes": {
+    "authentication": [
+      {
+        "label": "Posit AI",
+        "id": "posit-ai",
+        "authorizationServerGlobs": [
+          "https://*.posit.co/*",
+          "https://*.posit.ai/*",
+          "https://*.posit.cloud/*"
+        ]
+      }
+    ],
     "chatParticipants": [
       {
         "id": "positron.assistant.chat",
@@ -208,6 +219,12 @@
       {
         "command": "positron-assistant.resetState",
         "title": "%commands.resetState.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.selectGhostCellModel",
+        "title": "%commands.selectGhostCellModel.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
       }
