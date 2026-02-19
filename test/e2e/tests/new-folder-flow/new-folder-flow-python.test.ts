@@ -13,7 +13,6 @@ test.use({
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 test.describe('New Folder Flow: Python Project', {
-	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9999' }],
 	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB]
 }, () => {
 	const folderTemplate = FolderTemplate.PYTHON_PROJECT;
