@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import * as ai from 'ai';
 import { createAmazonBedrock, AmazonBedrockProvider } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { AttributedAwsCredentialIdentity, AwsCredentialIdentityProvider, AwsSdkCredentialsFeatures } from '@aws-sdk/types';
 import {
 	BedrockClient,
 	FoundationModelSummary,
@@ -79,6 +80,12 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	private _lastError?: Error;
 
 	/**
+	 * The AWS credential source features detected from the credential provider.
+	 * Used to determine which credential type was used for enhanced error messages.
+	 */
+	private _credentialSource?: AwsSdkCredentialsFeatures;
+
+	/**
 	 * Supported Bedrock model providers.
 	 * Currently only Anthropic models are supported.
 	 */
@@ -143,6 +150,23 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	}
 
 	/**
+	 * Retrieves the credential source features from the AWS SDK credential chain.
+	 * @param credentialProvider The AWS credential identity provider
+	 * @returns The credential source features or undefined if not available
+	 */
+	private async getCredentialSource(
+		credentialProvider: AwsCredentialIdentityProvider
+	): Promise<AwsSdkCredentialsFeatures | undefined> {
+		try {
+			const credentials = await credentialProvider() as AttributedAwsCredentialIdentity;
+			return credentials.$source;
+		} catch (error) {
+			// If we can't resolve credentials, return undefined
+			return undefined;
+		}
+	}
+
+	/**
 	 * Initializes the AWS Bedrock provider with credentials and region settings.
 	 */
 	protected override initializeProvider() {
@@ -174,6 +198,15 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		} else {
 			this._inferenceProfileRegion = AWSModelProvider.deriveInferenceProfileRegion(region);
 		}
+
+		// Detect and store credential source for error handling
+		this.getCredentialSource(credentials).then(credentialSource => {
+			this._credentialSource = credentialSource;
+			if (credentialSource) {
+				this.logger.debug(`AWS credentials loaded with source features: ${JSON.stringify(Object.keys(credentialSource))}`);
+			}
+		});
+
 		this.logger.info(
 			`Using AWS region: ${region}, profile: ${profile}, ` +
 			`inference profile region: ${this._inferenceProfileRegion}`
@@ -279,6 +312,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 				provider: 'Amazon Bedrock',
 				profile,
 				region,
+				credentialSource: this._credentialSource
 			});
 		}
 
@@ -323,10 +357,12 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 				}
 			} else {
 				// Generic credentials error - provide helpful context about which profile was used
+				// The error template now handles credential-type-specific guidance
 				return ErrorTemplates.authenticationError({
 					provider: 'Amazon Bedrock',
 					profile,
 					region,
+					credentialSource: this._credentialSource
 				});
 			}
 		}
