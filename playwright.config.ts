@@ -51,6 +51,11 @@ export default defineConfig<CustomTestOptions>({
 	retries: process.env.CI ? 1 : 0,
 	workers: 3,
 	timeout: 2 * 60 * 1000,
+	// --- Start Positron ---
+	// Increase worker teardown timeout to accommodate cleanup of child processes (kernels, extension host)
+	// Default is 120000ms (2 minutes), increase to 3 minutes for macOS CI
+	teardownTimeout: 3 * 60 * 1000,
+	// --- End Positron ---
 	reportSlowTests: {
 		max: 10,
 		threshold: 60 * 1000, // 1 minute

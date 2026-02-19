@@ -388,11 +388,51 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 	// Force garbage collection and give extra time for handles to drain before worker teardown
 	// This helps prevent "Worker teardown timeout of 120000ms exceeded" errors
 	try {
+		// Force close any remaining child process handles
+		// eslint-disable-next-line local/code-no-any-casts
+		const handles = (process as any)._getActiveHandles?.() ?? [];
+		for (const handle of handles) {
+			try {
+				// Close ChildProcess stdio streams which keep the event loop alive
+				if (handle?.constructor?.name === 'ChildProcess') {
+					if (handle.stdin && !handle.stdin.destroyed) {
+						handle.stdin.destroy();
+					}
+					if (handle.stdout && !handle.stdout.destroyed) {
+						handle.stdout.destroy();
+					}
+					if (handle.stderr && !handle.stderr.destroyed) {
+						handle.stderr.destroy();
+					}
+					// Force kill if still running
+					if (handle.pid) {
+						try {
+							process.kill(handle.pid, 'SIGKILL');
+						} catch {
+							// Process may already be dead
+						}
+					}
+				}
+				// Force close Sockets
+				else if (handle?.constructor?.name === 'Socket' && typeof handle.destroy === 'function') {
+					handle.destroy();
+				}
+				// Force close Pipes
+				else if (handle?.constructor?.name === 'Pipe' && typeof handle.close === 'function') {
+					handle.close();
+				}
+			} catch (err) {
+				// Ignore errors from force-closing handles
+			}
+		}
+
+		// Force garbage collection if available
 		if (global.gc) {
 			global.gc();
 		}
-		// Wait for any pending handle cleanup to complete
-		await new Promise(resolve => setTimeout(resolve, 3000));
+
+		// Wait for forced handle cleanup to complete
+		await new Promise(resolve => setTimeout(resolve, 2000));
 	} catch (error) {
 		console.log(`Error during final cleanup: ${error}`);
 	}
