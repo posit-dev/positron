@@ -288,10 +288,30 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				// Evaluate the entries now to ensure things like the checked state is up to date when submenu opens.
 				entries: options.entries(),
 				onClose: () => {
-					// When submenu closes, focus returns to parent menu item.
+					// When submenu closes, focus returns to parent menu item that opened the submenu.
 					buttonRef.current?.focus();
 				}
 			});
+		};
+
+		/**
+		 * Handles keyboard events for submenu navigation.
+		 * ArrowRight opens the submenu, and ArrowLeft is handled by the parent menu to close the submenu.
+		 *
+		 * @param e The keyboard event.
+		 */
+		const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+			// Do nothing if the submenu item is disabled.
+			if (options.disabled) {
+				return;
+			}
+
+			// Arrow Right opens the submenu.
+			if (e.key === 'ArrowRight') {
+				e.preventDefault();
+				e.stopPropagation();
+				openSubmenu();
+			}
 		};
 
 		// Render.
@@ -301,6 +321,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				ariaHaspopup='menu'
 				className='custom-context-menu-item'
 				disabled={options.disabled}
+				onKeyDown={handleKeyDown}
 				onPressed={openSubmenu}
 			>
 				{options.icon &&
@@ -337,6 +358,21 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		);
 	};
 
+	/**
+	 * Handles keyboard events for the custom context menu.
+	 *
+	 * ArrowLeft support added to allow closing submenus which are context menus themselves.
+	 * Without this, once a submenu is open, the user would have to use the mouse to close
+	 * the submenu.
+	 */
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			e.stopPropagation();
+			dismiss();
+		}
+	};
+
 	// Render.
 	return (
 		<PositronModalPopup
@@ -350,7 +386,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 			renderer={props.renderer}
 			width={props.width}
 		>
-			<div className='custom-context-menu-items' role='menu'>
+			<div className='custom-context-menu-items' role='menu' onKeyDown={handleKeyDown}>
 				{props.entries.map((entry, index) => {
 					if (entry instanceof CustomContextMenuItem) {
 						return <MenuItem key={index} {...entry.options} />;
