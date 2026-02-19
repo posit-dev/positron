@@ -65,10 +65,23 @@ species = pl.DataFrame({
 })`;
 		await console.executeCode('Python', polarsCode);
 
-		// Ask the question
+		// Ask the question (don't wait for response - assistant may create a file)
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(prompt, true);
+		await assistant.enterChatMessage(
+			prompt,
+			false // Don't wait - we may need to interact with Keep button
+		);
+
+		// Handle the Keep button if the assistant creates a file
+		try {
+			await assistant.clickKeepButton();
+			await assistant.waitForResponseComplete();
+		} catch (error) {
+			// Keep button didn't appear or wasn't clickable - that's OK
+			await assistant.expectResponseComplete();
+		}
+
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
