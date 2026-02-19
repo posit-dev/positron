@@ -59,67 +59,77 @@ _SHELL_PREFIX = "!"
 # Custom LSP method for help topic requests
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 
+# Pre-compiled regex patterns used throughout the LSP server
+_RE_STATEMENT_SPLIT = re.compile(r"[;\n]")
+"""Split source code by statement separators (semicolons or newlines)"""
 
-class _Patterns:
-    """Pre-compiled regex patterns used throughout the LSP server."""
+_RE_DICT_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$')
+"""Dict/DataFrame subscript access: e.g. `obj["key` or `a.b['prefix`
 
-    # Split source code by statement separators (semicolons or newlines)
-    STATEMENT_SPLIT = re.compile(r"[;\n]")
+Groups: (1) expression, (2) quote char, (3) optional key prefix"""
 
-    # Dict/DataFrame subscript access: e.g. `obj["key` or `a.b['prefix`
-    # Groups: (1) expression, (2) quote char, (3) optional key prefix
-    DICT_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$')
+_RE_DOTTED_IDENTIFIER = re.compile(r"([\w\.]+)$")
+"""Trailing dotted identifier: e.g. `os.path.join`
 
-    # Trailing dotted identifier: e.g. `os.path.join`
-    # Group: (1) dotted name
-    DOTTED_IDENTIFIER = re.compile(r"([\w\.]+)$")
+Group: (1) dotted name"""
 
-    # Keyword argument with value started: e.g. `x=1` or `x=val` at end
-    KWARG_VALUE = re.compile(r"\w+\s*=\s*[^\s,]*$")
+_RE_KWARG_VALUE = re.compile(r"\w+\s*=\s*[^\s,]*$")
+"""Keyword argument with value started: e.g. `x=1` or `x=val` at end"""
 
-    # Keyword argument name before `=`: e.g. `key=`
-    # Group: (1) parameter name
-    KWARG_NAME = re.compile(r"(\w+)\s*=")
+_RE_KWARG_NAME = re.compile(r"(\w+)\s*=")
+"""Keyword argument name before `=`: e.g. `key=`
 
-    # Partial parameter name at start or after comma: e.g. `, par`
-    # Group: (1) partial name
-    PARTIAL_PARAM = re.compile(r"(?:^|,\s*)(\w+)$")
+Group: (1) parameter name"""
 
-    # Trailing word characters (partial identifier being typed)
-    # Group: (1) word prefix, possibly empty
-    TRAILING_WORD = re.compile(r"(\w*)$")
+_RE_PARTIAL_PARAM = re.compile(r"(?:^|,\s*)(\w+)$")
+"""Partial parameter name at start or after comma: e.g. `, par`
 
-    # Static detection of `<alias>.environ`
-    # Group: (1) alias name
-    ALIAS_ENVIRON = re.compile(r"^(\w+)\.environ$")
+Group: (1) partial name"""
 
-    # Cursor inside a string literal: opening quote with optional content
-    # Groups: (1) quote char, (2) optional string content
-    STRING_LITERAL = re.compile(r'(["\'])([^"\']*)?$')
+_RE_TRAILING_WORD = re.compile(r"(\w*)$")
+"""Trailing word characters (partial identifier being typed)
 
-    # Keyword argument `name=` at end with no value started
-    # Group: (1) keyword name
-    KWARG_TRAILING = re.compile(r"(\w+)\s*=\s*$")
+Group: (1) word prefix, possibly empty"""
 
-    # Trailing dotted identifier with optional trailing whitespace
-    # Group: (1) dotted name
-    DOTTED_IDENTIFIER_WS = re.compile(r"([\w\.]+)\s*$")
+_RE_ALIAS_ENVIRON = re.compile(r"^(\w+)\.environ$")
+"""Static detection of `<alias>.environ`
 
-    # Static detection of `<alias>.getenv`
-    # Group: (1) alias name
-    ALIAS_GETENV = re.compile(r"^(\w+)\.getenv$")
+Group: (1) alias name"""
 
-    # Attribute access at end of line: `expr.attr_prefix`
-    # Groups: (1) base expression, (2) attribute prefix
-    ATTRIBUTE_ACCESS = re.compile(r".*?(\w[\w\.]*)\.(\w*)$")
+_RE_STRING_LITERAL = re.compile(r'(["\'])([^"\']*)?$')
+"""Cursor inside a string literal: opening quote with optional content
 
-    # Trailing non-whitespace token (last word including special chars)
-    # Group: (1) token
-    TRAILING_TOKEN = re.compile(r"\s*([^\s]*)$")
+Groups: (1) quote char, (2) optional string content"""
 
-    # Leading percent signs for magic commands
-    # Group: (1) percent characters
-    LEADING_PERCENT = re.compile(r"^(%*)")
+_RE_KWARG_TRAILING = re.compile(r"(\w+)\s*=\s*$")
+"""Keyword argument `name=` at end with no value started
+
+Group: (1) keyword name"""
+
+_RE_DOTTED_IDENTIFIER_WS = re.compile(r"([\w\.]+)\s*$")
+"""Trailing dotted identifier with optional trailing whitespace
+
+Group: (1) dotted name"""
+
+_RE_ALIAS_GETENV = re.compile(r"^(\w+)\.getenv$")
+"""Static detection of `<alias>.getenv`
+
+Group: (1) alias name"""
+
+_RE_ATTRIBUTE_ACCESS = re.compile(r".*?(\w[\w\.]*)\.(\w*)$")
+"""Attribute access at end of line: `expr.attr_prefix`
+
+Groups: (1) base expression, (2) attribute prefix"""
+
+_RE_TRAILING_TOKEN = re.compile(r"\s*([^\s]*)$")
+"""Trailing non-whitespace token (last word including special chars)
+
+Group: (1) token"""
+
+_RE_LEADING_PERCENT = re.compile(r"^(%*)")
+"""Leading percent signs for magic commands
+
+Group: (1) percent characters"""
 
 
 @enum.unique
@@ -239,7 +249,7 @@ def _parse_os_imports(source: str) -> MappingProxyType[str, str]:
     # If whole source fails to parse (e.g., incomplete code during typing),
     # try to extract and parse just the import statements
     # Split by common statement separators and try each part
-    for part in _Patterns.STATEMENT_SPLIT.split(source):
+    for part in _RE_STATEMENT_SPLIT.split(source):
         part = part.strip()
         if not part.startswith("import "):
             continue
@@ -579,7 +589,7 @@ def _handle_completion(
 
     # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
-    dict_key_match = _Patterns.DICT_KEY_ACCESS.search(text_before_cursor)
+    dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
     if dict_key_match:
         quote_char = dict_key_match.group(2)
         # Check if there's already a closing quote after cursor
@@ -653,7 +663,7 @@ def _get_parameter_completions(
 
     # Extract function name/expression
     func_expr = text_before_cursor[:func_end].rstrip()
-    match = _Patterns.DOTTED_IDENTIFIER.search(func_expr)
+    match = _RE_DOTTED_IDENTIFIER.search(func_expr)
     if not match:
         return [], True
 
@@ -673,14 +683,14 @@ def _get_parameter_completions(
 
     # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
     # Pattern: look for "word=" at the end, possibly with a value started
-    if _Patterns.KWARG_VALUE.search(args_text) and not args_text.rstrip().endswith(","):
+    if _RE_KWARG_VALUE.search(args_text) and not args_text.rstrip().endswith(","):
         # Cursor is positioned after "=" where a value should go, don't suggest parameters
         return [], True
 
     # Find all keyword arguments already provided (param=value)
     already_provided = set()
     # Match keyword arguments: word followed by = (but not at the very end being typed)
-    for match in _Patterns.KWARG_NAME.finditer(args_text):
+    for match in _RE_KWARG_NAME.finditer(args_text):
         param_name = match.group(1)
         # Only add to already_provided if it's followed by something (value or comma)
         # and not being currently typed
@@ -690,7 +700,7 @@ def _get_parameter_completions(
 
     # Check if we're currently typing a partial parameter name
     # Look for a partial word at the end that doesn't have "=" after it
-    partial_match = _Patterns.PARTIAL_PARAM.search(args_text)
+    partial_match = _RE_PARTIAL_PARAM.search(args_text)
     partial_prefix = partial_match.group(1) if partial_match else ""
 
     items = []
@@ -743,7 +753,7 @@ def _get_namespace_completions(
 
     items = []
     # Get the partial word being typed
-    match = _Patterns.TRAILING_WORD.search(text_before_cursor)
+    match = _RE_TRAILING_WORD.search(text_before_cursor)
     prefix = match.group(1) if match else ""
 
     for name, obj in server.shell.user_ns.items():
@@ -787,7 +797,7 @@ def _get_dict_key_completions(
         if document is not None:
             os_imports = _parse_os_imports(document.source)
             # Check if expr is "<alias>.environ" where alias maps to "os"
-            match = _Patterns.ALIAS_ENVIRON.match(expr)
+            match = _RE_ALIAS_ENVIRON.match(expr)
             if match and os_imports.get(match.group(1)) == "os":
                 return _make_env_var_completions(
                     prefix, quote_char, has_closing_quote=has_closing_quote
@@ -1042,7 +1052,7 @@ def _get_path_completions(
         List of completion items for matching filesystem paths
     """
     # Detect if cursor is inside a string literal
-    string_match = _Patterns.STRING_LITERAL.search(text_before_cursor)
+    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
     if not string_match:
         return []
 
@@ -1116,7 +1126,7 @@ def _get_getenv_completions(
         return []
 
     # Check if cursor is inside a string literal (matches opening quote + optional prefix)
-    string_match = _Patterns.STRING_LITERAL.search(text_before_cursor)
+    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
     if not string_match:
         return []
 
@@ -1125,7 +1135,7 @@ def _get_getenv_completions(
     before_string = text_before_cursor[: string_match.start()]
 
     # Check for keyword argument (e.g., "key=") - only complete for 'key', not 'default'
-    keyword_match = _Patterns.KWARG_TRAILING.search(before_string)
+    keyword_match = _RE_KWARG_TRAILING.search(before_string)
     if keyword_match and keyword_match.group(1) != "key":
         return []
 
@@ -1135,7 +1145,7 @@ def _get_getenv_completions(
         return []
 
     # Extract and validate the function name
-    func_match = _Patterns.DOTTED_IDENTIFIER_WS.search(before_string[:func_paren_pos])
+    func_match = _RE_DOTTED_IDENTIFIER_WS.search(before_string[:func_paren_pos])
     if not func_match or not func_match.group(1).endswith("getenv"):
         return []
 
@@ -1147,7 +1157,7 @@ def _get_getenv_completions(
         if document is not None:
             os_imports = _parse_os_imports(document.source)
             # Check if func_name is "<alias>.getenv" where alias maps to "os"
-            match = _Patterns.ALIAS_GETENV.match(func_name)
+            match = _RE_ALIAS_GETENV.match(func_name)
             if not (match and os_imports.get(match.group(1)) == "os"):
                 return []
         else:
@@ -1228,7 +1238,7 @@ def _get_attribute_completions(
         return []
 
     # Extract the expression before the last dot
-    match = _Patterns.ATTRIBUTE_ACCESS.match(text_before_cursor)
+    match = _RE_ATTRIBUTE_ACCESS.match(text_before_cursor)
     if not match:
         return []
 
@@ -1360,10 +1370,10 @@ def _create_magic_completion_item(
     prefix = _CELL_MAGIC_PREFIX if magic_type == _MagicType.cell else _LINE_MAGIC_PREFIX
 
     # Determine insert_text - handle existing '%' characters
-    match = _Patterns.TRAILING_TOKEN.search(chars_before_cursor)
+    match = _RE_TRAILING_TOKEN.search(chars_before_cursor)
     text = match.group(1) if match else ""
 
-    match2 = _Patterns.LEADING_PERCENT.match(text)
+    match2 = _RE_LEADING_PERCENT.match(text)
     count = len(match2.group(1)) if match2 else 0
     pad_count = max(0, len(prefix) - count)
     insert_text = prefix[0] * pad_count + name
@@ -1560,7 +1570,7 @@ def _handle_signature_help(
 
     # Extract function name/expression
     func_expr = text_before_cursor[:func_end].rstrip()
-    match = _Patterns.DOTTED_IDENTIFIER.search(func_expr)
+    match = _RE_DOTTED_IDENTIFIER.search(func_expr)
     if not match:
         return None
 

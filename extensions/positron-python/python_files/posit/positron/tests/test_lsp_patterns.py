@@ -3,11 +3,27 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-"""Tests for pre-compiled regex patterns in _Patterns."""
+"""Tests for pre-compiled regex patterns in the LSP server."""
 
 import pytest
 
-from positron.positron_lsp import _Patterns
+from positron.positron_lsp import (
+    _RE_ALIAS_ENVIRON,
+    _RE_ALIAS_GETENV,
+    _RE_ATTRIBUTE_ACCESS,
+    _RE_DICT_KEY_ACCESS,
+    _RE_DOTTED_IDENTIFIER,
+    _RE_DOTTED_IDENTIFIER_WS,
+    _RE_KWARG_NAME,
+    _RE_KWARG_TRAILING,
+    _RE_KWARG_VALUE,
+    _RE_LEADING_PERCENT,
+    _RE_PARTIAL_PARAM,
+    _RE_STATEMENT_SPLIT,
+    _RE_STRING_LITERAL,
+    _RE_TRAILING_TOKEN,
+    _RE_TRAILING_WORD,
+)
 
 
 class TestStatementSplit:
@@ -26,7 +42,7 @@ class TestStatementSplit:
         ],
     )
     def test_split(self, source: str, expected: list[str]) -> None:
-        assert _Patterns.STATEMENT_SPLIT.split(source) == expected
+        assert _RE_STATEMENT_SPLIT.split(source) == expected
 
 
 class TestDictKeyAccess:
@@ -45,7 +61,7 @@ class TestDictKeyAccess:
         ],
     )
     def test_match(self, text: str, expr: str, quote: str, prefix: str) -> None:
-        m = _Patterns.DICT_KEY_ACCESS.search(text)
+        m = _RE_DICT_KEY_ACCESS.search(text)
         assert m is not None
         assert m.group(1) == expr
         assert m.group(2) == quote
@@ -63,7 +79,7 @@ class TestDictKeyAccess:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.DICT_KEY_ACCESS.search(text) is None
+        assert _RE_DICT_KEY_ACCESS.search(text) is None
 
 
 class TestDottedIdentifier:
@@ -80,7 +96,7 @@ class TestDottedIdentifier:
         ],
     )
     def test_match(self, text: str, expected: str) -> None:
-        m = _Patterns.DOTTED_IDENTIFIER.search(text)
+        m = _RE_DOTTED_IDENTIFIER.search(text)
         assert m is not None
         assert m.group(1) == expected
 
@@ -94,7 +110,7 @@ class TestDottedIdentifier:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.DOTTED_IDENTIFIER.search(text) is None
+        assert _RE_DOTTED_IDENTIFIER.search(text) is None
 
 
 class TestKwargValue:
@@ -112,7 +128,7 @@ class TestKwargValue:
         ],
     )
     def test_match(self, text: str) -> None:
-        assert _Patterns.KWARG_VALUE.search(text) is not None
+        assert _RE_KWARG_VALUE.search(text) is not None
 
     @pytest.mark.parametrize(
         "text",
@@ -125,7 +141,7 @@ class TestKwargValue:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.KWARG_VALUE.search(text) is None
+        assert _RE_KWARG_VALUE.search(text) is None
 
 
 class TestKwargName:
@@ -141,7 +157,7 @@ class TestKwargName:
         ],
     )
     def test_finditer(self, text: str, names: list[str]) -> None:
-        matches = list(_Patterns.KWARG_NAME.finditer(text))
+        matches = list(_RE_KWARG_NAME.finditer(text))
         assert [m.group(1) for m in matches] == names
 
     @pytest.mark.parametrize(
@@ -153,7 +169,7 @@ class TestKwargName:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert list(_Patterns.KWARG_NAME.finditer(text)) == []
+        assert list(_RE_KWARG_NAME.finditer(text)) == []
 
 
 class TestPartialParam:
@@ -170,7 +186,7 @@ class TestPartialParam:
         ],
     )
     def test_match(self, text: str, expected: str) -> None:
-        m = _Patterns.PARTIAL_PARAM.search(text)
+        m = _RE_PARTIAL_PARAM.search(text)
         assert m is not None
         assert m.group(1) == expected
 
@@ -185,7 +201,7 @@ class TestPartialParam:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.PARTIAL_PARAM.search(text) is None
+        assert _RE_PARTIAL_PARAM.search(text) is None
 
 
 class TestTrailingWord:
@@ -203,7 +219,7 @@ class TestTrailingWord:
         ],
     )
     def test_match(self, text: str, expected: str) -> None:
-        m = _Patterns.TRAILING_WORD.search(text)
+        m = _RE_TRAILING_WORD.search(text)
         assert m is not None
         assert m.group(1) == expected
 
@@ -220,7 +236,7 @@ class TestAliasEnviron:
         ],
     )
     def test_match(self, text: str, alias: str) -> None:
-        m = _Patterns.ALIAS_ENVIRON.match(text)
+        m = _RE_ALIAS_ENVIRON.match(text)
         assert m is not None
         assert m.group(1) == alias
 
@@ -236,7 +252,7 @@ class TestAliasEnviron:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.ALIAS_ENVIRON.match(text) is None
+        assert _RE_ALIAS_ENVIRON.match(text) is None
 
 
 class TestStringLiteral:
@@ -255,7 +271,7 @@ class TestStringLiteral:
         ],
     )
     def test_match(self, text: str, quote: str, content: str) -> None:
-        m = _Patterns.STRING_LITERAL.search(text)
+        m = _RE_STRING_LITERAL.search(text)
         assert m is not None
         assert m.group(1) == quote
         assert m.group(2) == content
@@ -269,7 +285,7 @@ class TestStringLiteral:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.STRING_LITERAL.search(text) is None
+        assert _RE_STRING_LITERAL.search(text) is None
 
     @pytest.mark.parametrize(
         "text",
@@ -286,7 +302,7 @@ class TestStringLiteral:
         This is expected — callers use additional context (text_after_cursor)
         to determine whether the string is already closed.
         """
-        assert _Patterns.STRING_LITERAL.search(text) is not None
+        assert _RE_STRING_LITERAL.search(text) is not None
 
 
 class TestKwargTrailing:
@@ -303,7 +319,7 @@ class TestKwargTrailing:
         ],
     )
     def test_match(self, text: str, name: str) -> None:
-        m = _Patterns.KWARG_TRAILING.search(text)
+        m = _RE_KWARG_TRAILING.search(text)
         assert m is not None
         assert m.group(1) == name
 
@@ -318,7 +334,7 @@ class TestKwargTrailing:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.KWARG_TRAILING.search(text) is None
+        assert _RE_KWARG_TRAILING.search(text) is None
 
 
 class TestDottedIdentifierWs:
@@ -335,7 +351,7 @@ class TestDottedIdentifierWs:
         ],
     )
     def test_match(self, text: str, expected: str) -> None:
-        m = _Patterns.DOTTED_IDENTIFIER_WS.search(text)
+        m = _RE_DOTTED_IDENTIFIER_WS.search(text)
         assert m is not None
         assert m.group(1) == expected
 
@@ -347,7 +363,7 @@ class TestDottedIdentifierWs:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.DOTTED_IDENTIFIER_WS.search(text) is None
+        assert _RE_DOTTED_IDENTIFIER_WS.search(text) is None
 
 
 class TestAliasGetenv:
@@ -362,7 +378,7 @@ class TestAliasGetenv:
         ],
     )
     def test_match(self, text: str, alias: str) -> None:
-        m = _Patterns.ALIAS_GETENV.match(text)
+        m = _RE_ALIAS_GETENV.match(text)
         assert m is not None
         assert m.group(1) == alias
 
@@ -378,7 +394,7 @@ class TestAliasGetenv:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.ALIAS_GETENV.match(text) is None
+        assert _RE_ALIAS_GETENV.match(text) is None
 
 
 class TestAttributeAccess:
@@ -395,7 +411,7 @@ class TestAttributeAccess:
         ],
     )
     def test_match(self, text: str, base: str, attr: str) -> None:
-        m = _Patterns.ATTRIBUTE_ACCESS.match(text)
+        m = _RE_ATTRIBUTE_ACCESS.match(text)
         assert m is not None
         assert m.group(1) == base
         assert m.group(2) == attr
@@ -409,7 +425,7 @@ class TestAttributeAccess:
         ],
     )
     def test_no_match(self, text: str) -> None:
-        assert _Patterns.ATTRIBUTE_ACCESS.match(text) is None
+        assert _RE_ATTRIBUTE_ACCESS.match(text) is None
 
 
 class TestTrailingToken:
@@ -426,7 +442,7 @@ class TestTrailingToken:
         ],
     )
     def test_match(self, text: str, expected: str) -> None:
-        m = _Patterns.TRAILING_TOKEN.search(text)
+        m = _RE_TRAILING_TOKEN.search(text)
         assert m is not None
         assert m.group(1) == expected
 
@@ -445,6 +461,6 @@ class TestLeadingPercent:
         ],
     )
     def test_match(self, text: str, expected: str) -> None:
-        m = _Patterns.LEADING_PERCENT.match(text)
+        m = _RE_LEADING_PERCENT.match(text)
         assert m is not None
         assert m.group(1) == expected
