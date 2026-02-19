@@ -240,6 +240,8 @@ export class Code {
 						case 2: {
 							this.logger.log('Smoke test exit(): proactively killing process tree after 1s');
 							await this.killProcessTree(pid);
+							// Give child process handles time to drain
+							await this.wait(1000);
 							break;
 						}
 						// --- End Positron ---
