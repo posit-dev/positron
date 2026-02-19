@@ -441,7 +441,13 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 	return (
 		<>
 			<div ref={refExemplar} className='exemplar' />
-			<div ref={refActionBar} className={classNames} style={style} onKeyDown={keyDownHandler}>
+			<div
+				ref={refActionBar}
+				className={classNames}
+				role='toolbar'
+				style={style}
+				onKeyDown={keyDownHandler}
+			>
 				{gridComponents}
 			</div>
 		</>
