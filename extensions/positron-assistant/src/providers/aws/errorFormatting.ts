@@ -35,10 +35,8 @@ function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures): strin
 	// Check in priority order (most specific first)
 	if (source.CREDENTIALS_ENV_VARS) {
 		return 'environment variables';
-	} else if (source.CREDENTIALS_SSO) {
+	} else if (source.CREDENTIALS_SSO || source.CREDENTIALS_SSO_LEGACY) {
 		return 'SSO';
-	} else if (source.CREDENTIALS_SSO_LEGACY) {
-		return 'SSO (legacy)';
 	} else if (source.CREDENTIALS_IMDS) {
 		return 'EC2 instance metadata';
 	} else if (source.CREDENTIALS_PROFILE_PROCESS) {
