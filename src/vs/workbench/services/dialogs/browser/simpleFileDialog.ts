@@ -43,9 +43,10 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 
-// --- Start PWB: disable file downloads ---
+// --- Start Positron ---
 import { IBrowserWorkbenchEnvironmentService } from '../../environment/browser/environmentService.js';
-// --- End PWB ---
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+// --- End Positron ---
 
 export namespace OpenLocalFileCommand {
 	export const ID = 'workbench.action.files.openLocalFile';
@@ -151,9 +152,10 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		@IFileDialogService private readonly fileDialogService: IFileDialogService,
 		@IModelService private readonly modelService: IModelService,
 		@ILanguageService private readonly languageService: ILanguageService,
-		// --- Start PWB: disable file downloads ---
+		// --- Start Positron ---
 		@IBrowserWorkbenchEnvironmentService protected readonly environmentService: IBrowserWorkbenchEnvironmentService,
-		// --- End PWB ---
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- End Positron ---
 		@IRemoteAgentService private readonly remoteAgentService: IRemoteAgentService,
 		@IPathService protected readonly pathService: IPathService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
@@ -320,11 +322,13 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			this.filePickBox.placeholder = nls.localize('remoteFileDialog.placeholder', "Folder path");
 			this.filePickBox.ok = true;
 			this.filePickBox.okLabel = typeof this.options.openLabel === 'string' ? this.options.openLabel : this.options.openLabel?.withoutMnemonic;
-			// --- Start PWB: disable file downloads ---
-			// We just wrapped the whole block in this outer if statement.
+			// --- Start Positron ---
+			// Combine CLI flags with user settings using "most restrictive wins" logic.
 			// Keep the inner block unindented to avoid merge conflicts:
 			// prettier-ignore
-			if ((isSave && this.environmentService.isEnabledFileDownloads) || (!isSave && this.environmentService.isEnabledFileUploads)) {
+			const isDownloadEnabled = (this.environmentService.isEnabledFileDownloads) && (this.configurationService.getValue<boolean>('positron.fileTransfers.enableDownloads') ?? true);
+			const isUploadEnabled = (this.environmentService.isEnabledFileUploads) && (this.configurationService.getValue<boolean>('positron.fileTransfers.enableUploads') ?? true);
+			if ((isSave && isDownloadEnabled) || (!isSave && isUploadEnabled)) {
 				if ((this.scheme !== Schemas.file) && this.options && this.options.availableFileSystems && (this.options.availableFileSystems.length > 1) && (this.options.availableFileSystems.indexOf(Schemas.file) > -1)) {
 					this.filePickBox.customButton = true;
 					this.filePickBox.customLabel = nls.localize('remoteFileDialog.local', 'Show Local');
@@ -344,7 +348,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 					}
 				}
 			}
-			// --- End PWB ---
+			// --- End Positron ---
 
 			this.setButtons();
 			this._register(this.filePickBox.onDidTriggerButton(e => {

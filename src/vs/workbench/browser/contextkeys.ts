@@ -13,6 +13,11 @@ import { IConfigurationService } from '../../platform/configuration/common/confi
 // Remove unused import
 // import { IWorkbenchEnvironmentService } from '../services/environment/common/environmentService.js';
 // --- End PWB ---
+// --- Start Positron ---
+import { Registry } from '../../platform/registry/common/platform.js';
+import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../platform/configuration/common/configurationRegistry.js';
+import { localize } from '../../nls.js';
+// --- End Positron ---
 import { WorkbenchState, IWorkspaceContextService, isTemporaryWorkspace } from '../../platform/workspace/common/workspace.js';
 import { IWorkbenchLayoutService, Parts, positionToString } from '../services/layout/browser/layoutService.js';
 import { getRemoteName } from '../../platform/remote/common/remoteHosts.js';
@@ -83,6 +88,8 @@ export class WorkbenchContextKeysHandler extends Disposable {
 
 	// --- Start Positron ---
 	private positronTopActionBarVisibleContext: IContextKey<boolean>;
+	private isEnabledFileDownloadsKey: IContextKey<boolean>;
+	private isEnabledFileUploadsKey: IContextKey<boolean>;
 	// --- End Positron ---
 
 	constructor(
@@ -230,10 +237,13 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		this.auxiliaryBarMaximizedContext = AuxiliaryBarMaximizedContext.bindTo(this.contextKeyService);
 		this.auxiliaryBarMaximizedContext.set(this.layoutService.isAuxiliaryBarMaximized());
 
-		// --- Start PWB: disable file downloads ---
-		IsEnabledFileDownloads.bindTo(this.contextKeyService).set(this.environmentService.isEnabledFileDownloads ?? true);
-		IsEnabledFileUploads.bindTo(this.contextKeyService).set(this.environmentService.isEnabledFileUploads ?? true);
-		// --- End PWB ---
+		// --- Start Positron ---
+		// Combine CLI flags with user settings using "most restrictive wins" logic:
+		// disabled if EITHER the CLI flag says disable OR the setting says disable.
+		this.isEnabledFileDownloadsKey = IsEnabledFileDownloads.bindTo(this.contextKeyService);
+		this.isEnabledFileUploadsKey = IsEnabledFileUploads.bindTo(this.contextKeyService);
+		this.updateFileTransferKeys();
+		// --- End Positron ---
 
 		this.registerListeners();
 	}
@@ -264,6 +274,13 @@ export class WorkbenchContextKeysHandler extends Disposable {
 			if (e.affectsConfiguration('workbench.editor.openSideBySideDirection')) {
 				this.updateSplitEditorsVerticallyContext();
 			}
+
+			// --- Start Positron ---
+			if (e.affectsConfiguration('positron.fileTransfers.enableDownloads') ||
+				e.affectsConfiguration('positron.fileTransfers.enableUploads')) {
+				this.updateFileTransferKeys();
+			}
+			// --- End Positron ---
 		}));
 
 		this._register(this.layoutService.onDidChangeZenMode(enabled => this.inZenModeContext.set(enabled)));
@@ -378,4 +395,46 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		this.temporaryWorkspaceContext.set(isTemporaryWorkspace(this.contextService.getWorkspace()));
 		// --- End Positron ---
 	}
+
+	// --- Start Positron ---
+	private updateFileTransferKeys(): void {
+		const cliDownloads = this.environmentService.isEnabledFileDownloads ?? true;
+		const settingDownloads = this.configurationService.getValue<boolean>('positron.fileTransfers.enableDownloads') ?? true;
+		this.isEnabledFileDownloadsKey.set(cliDownloads && settingDownloads);
+
+		const cliUploads = this.environmentService.isEnabledFileUploads ?? true;
+		const settingUploads = this.configurationService.getValue<boolean>('positron.fileTransfers.enableUploads') ?? true;
+		this.isEnabledFileUploadsKey.set(cliUploads && settingUploads);
+	}
+	// --- End Positron ---
 }
+
+// --- Start Positron ---
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+	.registerConfiguration({
+		id: 'positron.fileTransfers',
+		order: 100,
+		title: localize('fileTransfersConfigurationTitle', "File Transfers"),
+		type: 'object',
+		properties: {
+			'positron.fileTransfers.enableDownloads': {
+				type: 'boolean',
+				default: true,
+				description: localize(
+					'positron.fileTransfers.enableDownloads',
+					"Enable file downloads via the browser UI. When false, download actions are hidden. If the server was started with --disable-file-downloads, downloads are disabled regardless of this setting."
+				),
+				restricted: true,
+			},
+			'positron.fileTransfers.enableUploads': {
+				type: 'boolean',
+				default: true,
+				description: localize(
+					'positron.fileTransfers.enableUploads',
+					"Enable file uploads via the browser UI. When false, upload actions are hidden. If the server was started with --disable-file-uploads, uploads are disabled regardless of this setting."
+				),
+				restricted: true,
+			},
+		}
+	});
+// --- End Positron ---
