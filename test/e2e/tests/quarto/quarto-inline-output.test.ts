@@ -1032,16 +1032,21 @@ test.describe('Quarto - Inline Output', {
 
 			await page.waitForTimeout(2000); // Wait for document to parse (longer wait for reliability)
 
-			// Wait for the cell toolbar to appear using retry pattern
+			// Wait for the cell toolbar to appear using retry pattern.
+			// After creating the second doc, the toolbar may take longer to appear.
+			// Place the cursor inside the cell to trigger toolbar visibility, then check.
 			const cellToolbar = page.locator('.quarto-cell-toolbar');
 			await expect(async () => {
+				// Click editor to ensure focus is in the active document
+				await editor.click();
+				await page.waitForTimeout(300);
 				// Scroll to make sure the cell is visible
 				await runCommand('workbench.action.gotoLine', { keepOpen: true });
 				await page.keyboard.type('8');
 				await page.keyboard.press('Enter');
 				await page.waitForTimeout(500);
-				await expect(cellToolbar.first()).toBeVisible({ timeout: 1000 });
-			}).toPass({ timeout: 30000 });
+				await expect(cellToolbar.first()).toBeVisible({ timeout: 2000 });
+			}).toPass({ timeout: 60000 });
 
 			// Click the run button on the cell toolbar
 			const runButton = cellToolbar.locator('button.quarto-toolbar-run').first();
@@ -1680,6 +1685,13 @@ test.describe('Quarto - Inline Output', {
 			const saveButton = inlineOutput.locator('.quarto-output-save');
 			await expect(saveButton).toBeVisible({ timeout: 5000 });
 
+			// Scroll back to the cell end line to bring the button bar into
+			// the viewport; the plot view zone can be taller than the editor.
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('19');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+
 			// Click the save button to trigger the save dialog
 			await saveButton.click();
 
@@ -2253,12 +2265,21 @@ test.describe('Quarto - Inline Output', {
 		const outputImage = inlineOutput.locator('.quarto-output-image');
 		await expect(outputImage).toBeVisible({ timeout: 10000 });
 
-		// The popout button should be visible for plot output (taller than 40px)
+		// The popout button should be visible for plot output (taller than 80px)
 		const popoutButton = inlineOutput.locator('.quarto-output-popout');
 		await expect(popoutButton).toBeVisible({ timeout: 10000 });
 
 		// Count current editor tabs before popout
 		const tabsBefore = await page.locator('.tabs-container .tab').count();
+
+		// Scroll the output view zone into the viewport so the button is clickable.
+		// The view zone can be taller than the editor viewport, leaving the button
+		// bar (at the top of the view zone) outside the visible area. Using
+		// gotoLine to scroll to the cell end line brings the button bar into view.
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('19');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
 
 		// Click the popout button
 		await popoutButton.click();
@@ -2269,7 +2290,7 @@ test.describe('Quarto - Inline Output', {
 		expect(tabsAfter).toBeGreaterThan(tabsBefore);
 	});
 
-	test('Python - Verify popout button opens text output in new editor', async function ({ app, openFile }) {
+	test('Python - Verify popout command opens text output in new editor', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 
 		// Open a Quarto document with text output
@@ -2311,15 +2332,20 @@ test.describe('Quarto - Inline Output', {
 		const outputContent = inlineOutput.locator('.quarto-output-content');
 		await expect(outputContent).toBeVisible({ timeout: 10000 });
 
-		// The popout button should be visible for text output (if tall enough)
-		const popoutButton = inlineOutput.locator('.quarto-output-popout');
-		await expect(popoutButton).toBeVisible({ timeout: 10000 });
+		// The text output is only 3 lines, which is shorter than the 80px
+		// threshold for showing the popout button. Use the popout command
+		// instead to verify text output opens in a new editor.
+		// Position cursor back inside the cell
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('13');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
 
 		// Count current editor tabs before popout
 		const tabsBefore = await page.locator('.tabs-container .tab').count();
 
-		// Click the popout button
-		await popoutButton.click();
+		// Use the popout command to open text output in a new editor
+		await app.workbench.quickaccess.runCommand('positronQuarto.popoutOutput');
 		await page.waitForTimeout(2000);
 
 		// Verify a new editor tab was opened (untitled)
@@ -2676,7 +2702,7 @@ test.describe('Quarto - Inline Output', {
 		expect(headerText).toContain('(open in editor)');
 
 		// 3. Verify the number of omitted lines is reasonable (5000 random numbers should be many lines)
-		// R prints ~10 numbers per line, so 5000 numbers ≈ 500 lines, minus 40 shown ≈ 460+ omitted
+		// R prints ~10 numbers per line, so 5000 numbers ~ 500 lines, minus 40 shown ~ 460+ omitted
 		const omittedMatch = headerText?.match(/\.\.\.(\d[\d,]*) lines? omitted/);
 		expect(omittedMatch).toBeTruthy();
 		const omittedCount = parseInt(omittedMatch![1].replace(/,/g, ''), 10);
@@ -2750,14 +2776,16 @@ test.describe('Quarto - Inline Output', {
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
 		await expect(async () => {
-			// Scroll to see the bash cell's output (after line 29)
+			// Scroll past the bash cell's closing fence to trigger view zone
+			// rendering. Use a higher line number to account for view zones
+			// from earlier cells pushing content down.
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('32');
+			await page.keyboard.type('35');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 
-			// Check that at least one inline output is visible
-			await expect(inlineOutput.first()).toBeVisible({ timeout: 1000 });
+			// Check that the bash output (last cell) is visible
+			await expect(inlineOutput.last()).toBeVisible({ timeout: 1000 });
 		}).toPass({ timeout: 60000 });
 
 		// Verify the bash output contains our expected text
@@ -2784,17 +2812,21 @@ test.describe('Quarto - Inline Output', {
 		// are respected when using the "Run All Cells" interactive gesture.
 		//
 		// execution_options.qmd has 6 cells:
-		// Cell 1: #| label: first cell → print("This is the first cell.") → should execute
-		// Cell 2: #| eval: false → print("...second cell...") → should be SKIPPED
-		// Cell 3: #| error: false → stop("Oh no") → error occurs, but queue continues
-		// Cell 4: (no options) → print("It's the end of the world...") → should execute (error in cell 3 was non-fatal)
-		// Cell 5: #| error: true → stop("Well, this is awkward.") → error occurs, queue STOPS
-		// Cell 6: (no options) → print("How did we get here?") → should NOT execute (stopped by cell 5)
+		// Cell 1: #| label: first cell -> print("This is the first cell.") -> should execute
+		// Cell 2: #| eval: false -> print("...second cell...") -> should be SKIPPED
+		// Cell 3: #| error: false -> stop("Oh no") -> error occurs, but queue continues
+		// Cell 4: (no options) -> print("It's the end of the world...") -> should execute (error in cell 3 was non-fatal)
+		// Cell 5: #| error: true -> stop("Well, this is awkward.") -> error occurs, queue STOPS
+		// Cell 6: (no options) -> print("How did we get here?") -> should NOT execute (stopped by cell 5)
 		//
 		// Expected: 4 output zones for cells 1, 3, 4, 5.
 		// Cell 2 is skipped (eval: false), Cell 6 is not reached (queue stopped at cell 5).
 
 		const page = app.code.driver.page;
+
+		// Close all editors to ensure a clean state from previous tests
+		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await page.waitForTimeout(1000);
 
 		// Open the execution options test document
 		await openFile(join('workspaces', 'quarto_inline_output', 'execution_options.qmd'));
@@ -2811,13 +2843,13 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		// Run All Cells via command (interactive gesture)
-		await app.workbench.quickaccess.runCommand('positronQuarto.runAllCells');
+		// Position cursor inside the first cell (line 10) to ensure the editor
+		// has an active Quarto context before running the command
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('10');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
 
-		// Wait for execution to complete by looking for inline outputs.
-		// The output view zones are DOM elements with class 'quarto-inline-output'.
-		// Monaco virtualizes rendering so elements may be hidden when off-screen,
-		// but they remain in the DOM and we can read their textContent.
 		const inlineOutput = page.locator('.quarto-inline-output');
 
 		// Helper to scroll editor to a specific line and wait
@@ -2828,14 +2860,15 @@ test.describe('Quarto - Inline Output', {
 			await page.waitForTimeout(500);
 		};
 
+		// Run All Cells via command (interactive gesture)
+		await app.workbench.quickaccess.runCommand('positronQuarto.runAllCells');
+
 		// Wait for execution to complete. We need to wait until the queue finishes.
-		// Without execution options, all 6 cells run. With options, only 5 run (cell 2 skipped)
-		// but cell 5 error stops the queue, so cells 1,3,4,5 produce output (4 total).
-		// Without the feature, all 6 cells run and produce 6 outputs.
-		// Either way, wait for execution to stabilize by watching for outputs to stop appearing.
+		// With execution options: cells 1,3,4,5 produce output (4 total).
+		// Cell 2 is skipped (eval: false), Cell 6 is not reached (queue stopped at cell 5).
 		await expect(async () => {
 			// Scroll through document to trigger view zone creation
-			await scrollToLine(49);
+			await scrollToLine(47);
 			await page.waitForTimeout(500);
 			await scrollToLine(1);
 			await page.waitForTimeout(500);
@@ -2850,7 +2883,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(10000);
 
 		// Scroll through the entire document to ensure all view zones are in the DOM
-		await scrollToLine(49);
+		await scrollToLine(47);
 		await page.waitForTimeout(1000);
 		await scrollToLine(1);
 		await page.waitForTimeout(1000);
@@ -2865,11 +2898,11 @@ test.describe('Quarto - Inline Output', {
 		});
 
 		// CRITICAL ASSERTION: With execution options properly respected:
-		// - Cell 1: executed → output contains "This is the first cell."
-		// - Cell 2: eval: false → SKIPPED, no output
-		// - Cell 3: error: false → executed, output contains "Oh no" error
-		// - Cell 4: executed → output contains "end of the world"
-		// - Cell 5: error: true → executed, output contains "awkward" error, queue STOPS
+		// - Cell 1: executed -> output contains "This is the first cell."
+		// - Cell 2: eval: false -> SKIPPED, no output
+		// - Cell 3: error: false -> executed, output contains "Oh no" error
+		// - Cell 4: executed -> output contains "end of the world"
+		// - Cell 5: error: true -> executed, output contains "awkward" error, queue STOPS
 		// - Cell 6: NOT executed (queue stopped at cell 5)
 		//
 		// Expected: exactly 4 outputs

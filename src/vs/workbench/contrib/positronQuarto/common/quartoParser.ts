@@ -205,7 +205,7 @@ export function kernelToLanguageId(kernelName: string): string | undefined {
 	if (kernelLower.includes('python')) {
 		return 'python';
 	}
-	if (kernelLower === 'ir' || kernelLower === 'r') {
+	if (kernelLower === 'ir' || kernelLower === 'r' || kernelLower === 'ark') {
 		return 'r';
 	}
 	if (kernelLower.includes('julia')) {

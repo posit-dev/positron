@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { parseQuarto } from '../../common/quartoParser.js';
+import { kernelToLanguageId, parseQuarto } from '../../common/quartoParser.js';
 import { QuartoCodeBlock, QuartoNodeType, QuartoRawBlock } from '../../common/quartoTypes.js';
 
 suite('parseQuartoDocument', () => {
@@ -68,6 +68,28 @@ suite('parseQuartoDocument', () => {
 			const result = parseQuarto(content);
 			assert.ok(result.frontmatter);
 			assert.strictEqual(result.frontmatter.jupyterKernel, undefined);
+		});
+	});
+
+	suite('kernelToLanguageId', () => {
+		test('maps python3 to python', () => {
+			assert.strictEqual(kernelToLanguageId('python3'), 'python');
+		});
+
+		test('maps ir to r', () => {
+			assert.strictEqual(kernelToLanguageId('ir'), 'r');
+		});
+
+		test('maps ark to r', () => {
+			assert.strictEqual(kernelToLanguageId('ark'), 'r');
+		});
+
+		test('maps r to r', () => {
+			assert.strictEqual(kernelToLanguageId('r'), 'r');
+		});
+
+		test('returns undefined for unknown kernel', () => {
+			assert.strictEqual(kernelToLanguageId('unknown'), undefined);
 		});
 	});
 
