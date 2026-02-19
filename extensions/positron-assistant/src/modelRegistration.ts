@@ -190,6 +190,63 @@ export async function registerModels(context: vscode.ExtensionContext) {
 }
 
 /**
+ * Re-register models for a specific provider only.
+ * This is more efficient than registerModels(), but only one provider's state changes.
+ *
+ * @param context The extension context
+ * @param providerId The provider ID to re-register (e.g., 'snowflake-cortex')
+ */
+export async function registerModelsForProvider(context: vscode.ExtensionContext, providerId: string) {
+	// Dispose only models for this provider
+	disposeModels(providerId);
+	// Also remove from autoconfigured models list
+	removeAutoconfiguredModel(providerId);
+
+	try {
+		// Check if this provider is enabled
+		const enabledProviders = await positron.ai.getEnabledProviders();
+		const isEnabled = enabledProviders.length === 0 || enabledProviders.includes(providerId);
+
+		if (!isEnabled) {
+			log.info(`[Model Registration] Provider ${providerId} is disabled, skipping registration`);
+			return;
+		}
+
+		// Get stored model configurations for this provider
+		let modelConfigs = await getModelConfigurations(context);
+		modelConfigs = modelConfigs.filter(config => config.provider === providerId);
+
+		// Also check auto-configured models for this provider
+		const autoModelConfigs = await createAutomaticModelConfigs();
+		for (const config of autoModelConfigs) {
+			if (config.provider === providerId && !modelConfigs.find(c => c.provider === config.provider)) {
+				modelConfigs.push(config);
+			}
+		}
+
+		// Register models for this provider
+		for (const config of modelConfigs) {
+			try {
+				await registerModelWithAPI(config, context);
+				if (autoModelConfigs.includes(config)) {
+					addAutoconfiguredModel(config);
+				}
+				log.info(`[Model Registration] Re-registered model for provider: ${providerId}`);
+			} catch (e) {
+				if (!(e instanceof AssistantError) || e.display) {
+					vscode.window.showErrorMessage(`${e}`);
+				}
+			}
+		}
+	} catch (e) {
+		if (!(e instanceof AssistantError) || e.display) {
+			const failedMessage = vscode.l10n.t('Positron Assistant: Failed to re-register models for provider {0}.', providerId);
+			vscode.window.showErrorMessage(`${failedMessage} ${e}`);
+		}
+	}
+}
+
+/**
  * Registers the language model with the language model API.
  *
  * @param modelConfig the language model's config
