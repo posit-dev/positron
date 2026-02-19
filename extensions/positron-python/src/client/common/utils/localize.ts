@@ -209,6 +209,12 @@ export namespace Interpreters {
     export const terminalEnvVarCollectionPrompt = l10n.t(
         '{0} environment was successfully activated, even though {1} indicator may not be present in the terminal prompt. [Learn more](https://aka.ms/vscodePythonTerminalActivation).',
     );
+    export const shellIntegrationEnvVarCollectionDescription = l10n.t(
+        'Enables `python.terminal.shellIntegration.enabled` by modifying `PYTHONSTARTUP` and `PYTHON_BASIC_REPL`',
+    );
+    export const shellIntegrationDisabledEnvVarCollectionDescription = l10n.t(
+        'Disables `python.terminal.shellIntegration.enabled` by unsetting `PYTHONSTARTUP` and `PYTHON_BASIC_REPL`',
+    );
     export const terminalDeactivateProgress = l10n.t('Editing {0}...');
     export const restartingTerminal = l10n.t('Restarting terminal and deactivating...');
     export const terminalDeactivatePrompt = l10n.t(
@@ -549,6 +555,18 @@ export namespace CreateEnv {
             'You may have installed Python packages into your global environment, which can cause conflicts between package versions. Would you like to create a virtual environment with these packages to isolate your dependencies?',
         );
     }
+}
+
+export namespace PythonLocator {
+    export const startupFailedNotification = l10n.t(
+        'Python Locator failed to start. Python environment discovery may not work correctly.',
+    );
+    export const windowsRuntimeMissing = l10n.t(
+        'Missing Windows runtime dependencies detected. The Python Locator requires the Microsoft Visual C++ Redistributable. This is often missing on clean Windows installations.',
+    );
+    export const windowsStartupFailed = l10n.t(
+        'Python Locator failed to start on Windows. This might be due to missing system dependencies such as the Microsoft Visual C++ Redistributable.',
+    );
 }
 
 // --- Start Positron ---
