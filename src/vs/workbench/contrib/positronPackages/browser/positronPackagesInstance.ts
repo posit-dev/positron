@@ -12,6 +12,8 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
 	session: ILanguageRuntimeSession;
+	attachRuntime(): void;
+	detachRuntime(): void;
 	refreshPackages(): Promise<ILanguageRuntimePackage[]>;
 	installPackages(packages: string[]): Promise<void>;
 	uninstallPackages(packages: string[]): Promise<void>;
@@ -63,9 +65,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 		this._session = session;
 		this._logService = logService;
-
-		// Attach to the runtime to listen for state changes
-		this.attachRuntime();
 	}
 
 	readonly onDidRefreshPackagesInstance = this._onDidRefreshPackagesInstance.event;
@@ -228,7 +227,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	/**
 	 * Attaches to the runtime to listen for state changes and trigger initial refresh.
 	 */
-	private attachRuntime(): void {
+	attachRuntime(): void {
 		// Add the onDidChangeRuntimeState event handler to refresh packages when ready
 		this._runtimeDisposableStore.add(
 			this._session.onDidChangeRuntimeState(async runtimeState => {
@@ -259,7 +258,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	/**
 	 * Detaches from the runtime and cleans up disposables.
 	 */
-	private detachRuntime(): void {
+	detachRuntime(): void {
 		// Clear all disposables associated with the attached runtime.
 		// We use clear() instead of dispose() to not mark the store as disposed.
 		this._runtimeDisposableStore.clear();
