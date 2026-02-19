@@ -53,16 +53,22 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 	// Azure OpenAI models -- common deployments; admins can override via models.overrides.azure
 	['azure', [
 		{
+			name: 'Model Router',
+			identifier: 'model-router',
+			maxInputTokens: 128_000,
+			maxOutputTokens: 16_384,
+		},
+		{
 			name: 'GPT-4o',
 			identifier: 'gpt-4o',
 			maxInputTokens: 128_000,
 			maxOutputTokens: 16_384,
 		},
 		{
-			name: 'GPT-4o mini',
-			identifier: 'gpt-4o-mini',
-			maxInputTokens: 128_000,
-			maxOutputTokens: 16_384,
+			name: 'GPT-5 mini',
+			identifier: 'gpt-5-mini',
+			maxInputTokens: 272_000,
+			maxOutputTokens: 128_000,
 		},
 	]],
 	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api#model-availability

@@ -5,11 +5,12 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { createAzure, AzureOpenAIProvider } from '@ai-sdk/azure';
+import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 import { autoconfigureWithManagedCredentials, AZURE_MANAGED_CREDENTIALS } from '../../pwb.js';
+import { createOpenAICompatibleFetch } from '../../openai-fetch-utils.js';
 import { log } from '../../log.js';
 
 /** Auth provider constants -- contract with the Workbench VS Code extension. */
@@ -18,6 +19,10 @@ const AUTH_SCOPES = ['azure-cognitiveservices'];
 
 /**
  * Azure OpenAI Service model provider implementation.
+ *
+ * Uses the OpenAI v1 API (`{endpoint}/openai/v1/chat/completions`) which is
+ * compatible with both `.openai.azure.com` and `.services.ai.azure.com` endpoints.
+ * The model is specified in the request body (no deployment-based URLs or api-version).
  *
  * Supports two authentication paths within a single class:
  * - **API key** (manual): User configures via settings UI
@@ -29,17 +34,23 @@ const AUTH_SCOPES = ['azure-cognitiveservices'];
  * @see {@link VercelModelProvider} for base class documentation
  */
 export class AzureModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
-	protected declare aiProvider: AzureOpenAIProvider;
+	protected declare aiProvider: OpenAIProvider;
 	private _hasShownAuthError = false;
+
+	/**
+	 * Since the v1 API uses `/chat/completions`, set this flag for correct
+	 * tool result formatting.
+	 */
+	protected override usesChatCompletions = true;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: PROVIDER_METADATA.azure,
-		supportedOptions: ['resourceName', 'apiKey', 'toolCalls'],
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'GPT 4o',
-			model: 'gpt-4o',
-			resourceName: undefined,
+			name: 'Model Router',
+			model: 'model-router',
+			baseUrl: undefined,
 			toolCalls: true,
 			autoconfigure: {
 				type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -59,6 +70,21 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 	}
 
 	/**
+	 * Gets the base URL for the Azure OpenAI v1 API.
+	 *
+	 * In managed mode, constructs from the Workbench endpoint setting.
+	 * In manual mode, uses the user-provided baseUrl.
+	 */
+	get baseUrl(): string {
+		if (this.isWorkbenchManaged) {
+			const wbConfig = AzureModelProvider.getWorkbenchConfig();
+			return `${wbConfig.endpoint.replace(/\/+$/, '')}/openai/v1`;
+		}
+		// Manual mode: user provides full base URL
+		return (this._config.baseUrl ?? '').replace(/\/+$/, '');
+	}
+
+	/**
 	 * Autoconfigures using Workbench managed credentials.
 	 * Returns { configured: false } when not on PWB, credentials unavailable,
 	 * or Workbench Azure settings are not configured.
@@ -73,10 +99,10 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 			return result;
 		}
 
-		// Validate that Workbench Azure settings exist before advertising as configured.
+		// Validate that Workbench Azure endpoint exists before advertising as configured.
 		const wbConfig = AzureModelProvider.getWorkbenchConfig();
-		if (!wbConfig.resourceName || !wbConfig.deploymentName) {
-			log.debug('[Azure] Workbench Azure settings not configured, skipping autoconfigure');
+		if (!wbConfig.endpoint) {
+			log.debug('[Azure] Workbench endpoint not configured, skipping autoconfigure');
 			return { configured: false };
 		}
 
@@ -86,49 +112,60 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 	/**
 	 * Reads Azure OpenAI config from the Workbench extension's VS Code settings.
 	 * Only used in Workbench managed mode.
+	 *
+	 * Supports both the new `endpoint` setting and the deprecated `resourceName`
+	 * setting (which constructs an endpoint URL automatically).
 	 */
 	private static getWorkbenchConfig() {
 		const config = vscode.workspace.getConfiguration('positWorkbench.azure.openai');
+		const endpoint = config.get<string>('endpoint', '');
+		const resourceName = config.get<string>('resourceName', '');
 		return {
-			resourceName: config.get<string>('resourceName', ''),
-			deploymentName: config.get<string>('deploymentName', ''),
-			apiVersion: config.get<string>('apiVersion', '2024-10-21'),
+			endpoint: endpoint || (resourceName ? `https://${resourceName}.openai.azure.com` : ''),
 		};
 	}
 
 	protected override initializeProvider() {
 		if (this.isWorkbenchManaged) {
-			// Bearer token path: read config from Workbench settings.
-			const wbConfig = AzureModelProvider.getWorkbenchConfig();
-
-			// Use deploymentName as the model ID when autoconfigured
-			this._config.model = wbConfig.deploymentName;
-
-			this.aiProvider = createAzure({
-				resourceName: wbConfig.resourceName,
-				apiKey: '_', // Placeholder -- replaced by bearer token in authFetch
-				apiVersion: wbConfig.apiVersion,
-				fetch: this.authFetch.bind(this),
+			// Bearer token path: use OpenAI SDK with composed auth + compatibility fetch
+			const baseProvider = createOpenAI({
+				apiKey: '_', // Placeholder, replaced by bearer token in managed fetch
+				baseURL: this.baseUrl,
+				fetch: this.createManagedFetch(),
 			});
+
+			// Route to .chat() for /v1/chat/completions endpoint
+			const chatWrapper = ((modelId: string) => baseProvider.chat(modelId)) as OpenAIProvider;
+			Object.assign(chatWrapper, baseProvider);
+			this.aiProvider = chatWrapper;
 		} else {
-			// API key path: existing behavior
-			this.aiProvider = createAzure({
+			// API key path: standard OpenAI-compatible setup
+			const baseProvider = createOpenAI({
 				apiKey: this._config.apiKey,
-				resourceName: this._config.resourceName,
+				baseURL: this.baseUrl,
+				fetch: createOpenAICompatibleFetch(this.providerName),
 			});
+
+			// Route to .chat() for /v1/chat/completions endpoint
+			const chatWrapper = ((modelId: string) => baseProvider.chat(modelId)) as OpenAIProvider;
+			Object.assign(chatWrapper, baseProvider);
+			this.aiProvider = chatWrapper;
 		}
 	}
 
 	/**
-	 * Custom fetch that replaces the `api-key` header with a Bearer token
-	 * from VS Code auth API. Only used in Workbench managed mode.
+	 * Creates a fetch function that composes bearer token injection with
+	 * the OpenAI-compatible fetch wrapper (which handles request/response fixes).
+	 * Only used in Workbench managed mode.
 	 */
-	private async authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-		const token = await this.getAccessToken();
-		const headers = new Headers(init?.headers);
-		headers.delete('api-key');
-		headers.set('Authorization', `Bearer ${token}`);
-		return fetch(input, { ...init, headers });
+	private createManagedFetch(): (input: RequestInfo, init?: RequestInit) => Promise<Response> {
+		const compatibleFetch = createOpenAICompatibleFetch(this.providerName);
+		return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+			const token = await this.getAccessToken();
+			const headers = new Headers(init?.headers);
+			headers.set('Authorization', `Bearer ${token}`);
+			return compatibleFetch(input, { ...init, headers });
+		};
 	}
 
 	/**
