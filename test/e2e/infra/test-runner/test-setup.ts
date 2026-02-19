@@ -138,6 +138,11 @@ function getVersionFromScript(): PositronVersion | null {
 		const buildOutput = execSync(`node "${scriptPath}" --build`).toString().trim();
 		const buildNumber = parseInt(buildOutput, 10);
 
+		if (!positronVersion) {
+			console.warn('Version script returned empty version');
+			return null;
+		}
+
 		return {
 			positronVersion,
 			buildNumber: Number.isNaN(buildNumber) ? 0 : buildNumber
@@ -171,7 +176,7 @@ function getVersionFromBuild(testCodePath: string): PositronVersion | null {
 	try {
 		const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
 		const positronVersion = productJson.positronVersion ?? null;
-		const buildNumber = productJson.positronBuildNumber ?? null;
+		const buildNumber = productJson.positronBuildNumber ?? 0;
 
 		if (!positronVersion) {
 			throw new Error('positronVersion not found in product.json.');
@@ -184,4 +189,4 @@ function getVersionFromBuild(testCodePath: string): PositronVersion | null {
 	}
 }
 
-type PositronVersion = { positronVersion: string | null; buildNumber: number | null };
+type PositronVersion = { positronVersion: string; buildNumber: number };
