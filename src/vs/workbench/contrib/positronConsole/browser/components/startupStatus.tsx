@@ -19,7 +19,7 @@ import { IRuntimeAutoStartEvent } from '../../../../services/runtimeStartup/comm
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Load localized copy for control.
-const initalizing = localize('positron.console.initializing', "Starting up");
+const initalizing = localize('positron.console.initializing', "Waiting for extensions");
 const awaitingTrust = localize('positron.console.awaitingTrust', "Consoles cannot start until the workspace is trusted");
 const newFolderTasks = localize('positron.console.newFolderTasks', "Setting up workspace");
 const reconnecting = localize('positron.console.reconnecting', "Reconnecting");

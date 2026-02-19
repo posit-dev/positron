@@ -97,6 +97,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// across all extension hosts.
 	private readonly _discoveryCompleteByExtHostId = new Map<number, boolean>();
 
+	// The set of extensions that have already been activated. Used to avoid
+	// redundant activation calls across the many code paths that can trigger
+	// extension activation.
+	private readonly _activatedExtensions = new Set<string>();
+
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
@@ -1217,6 +1222,34 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Activates a single extension if it has not already been activated by this
+	 * service. Emits a performance marker on first activation.
+	 *
+	 * @param extensionId The extension to activate.
+	 * @param languageId The language ID triggering the activation.
+	 */
+	private async activateExtension(extensionId: ExtensionIdentifier, languageId: string): Promise<void> {
+		const key = extensionId.value;
+		if (this._activatedExtensions.has(key)) {
+			return;
+		}
+		this._logService.debug(`[Runtime startup] Activating extension ${key} for language ID ${languageId}`);
+		try {
+			await this._extensionService.activateById(extensionId,
+				{
+					extensionId: extensionId,
+					activationEvent: `onLanguageRuntime:${languageId}`,
+					startup: false
+				});
+			this._activatedExtensions.add(key);
+			perf.mark(`code/positron/runtimeStartup/extensionActivated/${key}`);
+		} catch (e) {
+			this._logService.debug(
+				`[Runtime startup] Error activating extension ${key}: ${e}`);
+		}
+	}
+
+	/**
 	 * Activates the extensions that provide language runtimes for the given
 	 * language IDs.
 	 *
@@ -1226,18 +1259,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const activationPromises = languageIds.map(
 			async (languageId) => {
 				for (const extension of this._languagePacks.get(languageId) || []) {
-					this._logService.debug(`[Runtime startup] Activating extension ${extension.value} for language ID ${languageId}`);
-					try {
-						await this._extensionService.activateById(extension,
-							{
-								extensionId: extension,
-								activationEvent: `onLanguageRuntime:${languageId}`,
-								startup: false
-							});
-					} catch (e) {
-						this._logService.debug(
-							`[Runtime startup] Error activating extension ${extension.value}: ${e}`);
-					}
+					await this.activateExtension(extension, languageId);
 				}
 			});
 		await Promise.all(activationPromises);
@@ -1325,25 +1347,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		});
 
 		// Activate any extensions needed for the sessions that are persistent on the machine.
-		const activatedExtensions: Array<ExtensionIdentifier> = [];
-		await Promise.all(sessions.filter(async session =>
+		// We need the extension to be active so that we can ask it to validate
+		// the session before connecting to it.
+		await Promise.all(sessions.filter(session =>
 			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine
 		).map(async session => {
-			// If we haven't already activated the extension, activate it now.
-			// We need the extension to be active so that we can ask it to
-			// validate the session before connecting to it.
-			if (activatedExtensions.indexOf(session.runtimeMetadata.extensionId) === -1) {
-				this._logService.debug(`[Runtime startup] Activating extension ` +
-					`${session.runtimeMetadata.extensionId.value} for persisted session ` +
-					`${session.sessionName} (${session.metadata.sessionId})`);
-				activatedExtensions.push(session.runtimeMetadata.extensionId);
-				return this._extensionService.activateById(session.runtimeMetadata.extensionId,
-					{
-						extensionId: session.runtimeMetadata.extensionId,
-						activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
-						startup: false
-					});
-			}
+			await this.activateExtension(
+				session.runtimeMetadata.extensionId,
+				session.runtimeMetadata.languageId);
 		}));
 
 		// Before reconnecting, validate any sessions that need it.
@@ -1416,17 +1427,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			const marker =
 				`[Reconnect ${session.metadata.sessionId} (${idx + 1}/${sessions.length})]`;
 
-			// Activate the extension that provides the runtime. Note that this
-			// waits for the extension service to signal the extension but does
-			// not wait for the extension to activate.
-			if (!activatedExtensions.includes(session.runtimeMetadata.extensionId)) {
-				await this._extensionService.activateById(session.runtimeMetadata.extensionId,
-					{
-						extensionId: session.runtimeMetadata.extensionId,
-						activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
-						startup: false
-					});
-			}
+			// Activate the extension that provides the runtime if it hasn't
+			// been activated already (e.g. workspace-local sessions that
+			// weren't covered by the machine-session activation above).
+			await this.activateExtension(
+				session.runtimeMetadata.extensionId,
+				session.runtimeMetadata.languageId);
 
 			this._logService.debug(`${marker}: Restoring session for ` +
 				`${session.sessionName}`);
