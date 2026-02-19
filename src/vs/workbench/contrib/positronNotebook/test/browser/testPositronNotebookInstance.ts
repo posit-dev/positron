@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -36,11 +36,7 @@ import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/mo
  * with the notebook's lifecycle.
  */
 export class TestPositronNotebookInstance extends PositronNotebookInstance {
-	testInstantiationService!: TestInstantiationService;
-
-	registerDisposable(disposable: IDisposable): void {
-		this._register(disposable);
-	}
+	instantiationService!: TestInstantiationService;
 }
 
 /**
@@ -52,7 +48,7 @@ export class TestPositronNotebookInstance extends PositronNotebookInstance {
  * (avoiding disposable-tracking conflicts from duplicate global singletons).
  */
 export function positronNotebookInstantiationService(
-	disposables: DisposableStore
+	disposables: Pick<DisposableStore, 'add'>,
 ): TestInstantiationService {
 	const instantiationService = positronWorkbenchInstantiationService(disposables);
 
@@ -94,8 +90,8 @@ function cellToDto(cell: MockNotebookCell): ICellDto2 {
  */
 export function createTestPositronNotebookInstance(
 	cells: MockNotebookCell[],
+	disposables: Pick<DisposableStore, 'add'>,
 ): TestPositronNotebookInstance {
-	const disposables = new DisposableStore();
 	const instantiationService = positronNotebookInstantiationService(disposables);
 	const notebook = instantiateTestNotebookInstance(cells, instantiationService, disposables);
 	return notebook;
@@ -114,22 +110,21 @@ export function createTestPositronNotebookInstance(
 export function instantiateTestNotebookInstance(
 	cells: MockNotebookCell[],
 	instantiationService: TestInstantiationService,
-	disposables: DisposableStore,
+	disposables: Pick<DisposableStore, 'add'>,
 ): TestPositronNotebookInstance {
 	// Create the notebook instance with a unique ID and URI so multiple
 	// instances can coexist in the same ModelService without collisions.
 	const id = nextInstanceId++;
 	const viewType = 'jupyter-notebook';
 	const uri = URI.parse(`test:///test/notebook-${id}.ipynb`);
-	const notebook = instantiationService.createInstance(
+	const notebook = disposables.add(instantiationService.createInstance(
 		TestPositronNotebookInstance,
 		`test-instance-${id}`,
 		uri,
 		viewType,
 		undefined, // creationOptions
-	);
-	notebook.testInstantiationService = instantiationService;
-	notebook.registerDisposable(disposables);
+	));
+	notebook.instantiationService = instantiationService;
 
 	// Attach view with DOM containers
 	const editorContainer = document.createElement('div');
@@ -160,7 +155,7 @@ export function instantiateTestNotebookInstance(
 	// Auto-attach test editors to all cells (initial and dynamically added).
 	// This mirrors what React's CellEditorMonacoWidget does in production.
 	const attachedCells = new WeakSet<IPositronNotebookCell>();
-	notebook.registerDisposable(autorun(reader => {
+	disposables.add(autorun(reader => {
 		const currentCells = notebook.cells.read(reader);
 		for (const cell of currentCells) {
 			if (!attachedCells.has(cell)) {

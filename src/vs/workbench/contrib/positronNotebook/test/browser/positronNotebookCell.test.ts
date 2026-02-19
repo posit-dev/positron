@@ -14,9 +14,9 @@ suite('PositronNotebookCell', () => {
 	/** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 	suite('Test Harness', () => {
 		test('cells have editors auto-attached', () => {
-			const notebook = disposables.add(createTestPositronNotebookInstance(
-				[['print("hello")', 'python', CellKind.Code]],
-			));
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]], disposables
+			);
 
 			const cell = notebook.cells.get()[0];
 			assert.ok(cell.currentEditor, 'Cell should have an auto-attached editor');
@@ -29,9 +29,9 @@ suite('PositronNotebookCell', () => {
 		});
 
 		test('setValue propagates through the content change event chain', () => {
-			const notebook = disposables.add(createTestPositronNotebookInstance(
-				[['original content', 'python', CellKind.Code]],
-			));
+			const notebook = createTestPositronNotebookInstance(
+				[['original content', 'python', CellKind.Code]], disposables
+			);
 
 			const cell = notebook.cells.get()[0];
 			const notebookModel = notebook.textModel!;

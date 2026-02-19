@@ -13,12 +13,13 @@ suite('PositronNotebookInstance', () => {
 	/** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 	suite('Test Harness', () => {
 		test('notebook has cells from notebook text model', () => {
-			const notebook = disposables.add(createTestPositronNotebookInstance(
+			const notebook = createTestPositronNotebookInstance(
 				[
 					['print("hello")', 'python', CellKind.Code],
 					['print("world")', 'python', CellKind.Code],
 				],
-			));
+				disposables,
+			);
 
 			const cells = notebook.cells.get();
 			assert.strictEqual(cells.length, 2, 'Unexpected number of cells in notebook');
