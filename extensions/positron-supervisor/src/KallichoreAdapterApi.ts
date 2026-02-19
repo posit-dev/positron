@@ -428,10 +428,10 @@ export class KCApi implements PositronSupervisorApi {
 			}
 
 			// If we're running detached, and the terminal closes without an
-			// exit code, don't treat it as a failure since the server process
-			// can outlive the terminal.
+			// error code (or with a "successful" exit), don't treat it as a
+			// failure since the server process can outlive the terminal.
 			if (shutdownTimeout !== 'immediately') {
-				if (!(this._terminal.exitStatus && this._terminal.exitStatus.code)) {
+				if (this._terminal.exitStatus?.code === undefined || this._terminal.exitStatus?.code === 0) {
 					this.log(`Supervisor terminal closed (` +
 						this.describeExitReason(this._terminal.exitStatus?.reason) +
 						`) during startup; ignoring because shutdownTimeout is set ` +
