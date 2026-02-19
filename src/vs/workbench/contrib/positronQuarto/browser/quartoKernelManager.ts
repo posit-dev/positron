@@ -123,6 +123,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 	private readonly _documentKernels = new ResourceMap<DocumentKernelInfo>();
 
+	/** Pending cleanup timeouts, tracked so they can be cancelled on dispose */
+	private readonly _pendingCleanupTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
 	/** Retry delays in milliseconds for exponential backoff */
 	private readonly _retryDelays = [1000, 2000, 5000];
 
@@ -148,7 +151,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			// (the latter handles untitled documents that don't have a .qmd extension)
 			if (uri && (isQuartoOrRmdFile(uri.path) || this._documentKernels.has(uri))) {
 				// Delay cleanup slightly to handle editor tabs being moved
-				setTimeout(() => {
+				const handle = setTimeout(() => {
+					this._pendingCleanupTimeouts.delete(handle);
 					// Check if the document is still open in any editor
 					const stillOpen = this._editorService.findEditors(uri).length > 0;
 					if (!stillOpen) {
@@ -156,6 +160,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 						this.shutdownKernelForDocument(uri);
 					}
 				}, 100);
+				this._pendingCleanupTimeouts.add(handle);
 			}
 		}));
 
@@ -1016,6 +1021,12 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	}
 
 	override dispose(): void {
+		// Cancel all pending cleanup timeouts
+		for (const handle of this._pendingCleanupTimeouts) {
+			clearTimeout(handle);
+		}
+		this._pendingCleanupTimeouts.clear();
+
 		// Shutdown all sessions
 		for (const [, info] of this._documentKernels) {
 			info.startupCancellation?.cancel();

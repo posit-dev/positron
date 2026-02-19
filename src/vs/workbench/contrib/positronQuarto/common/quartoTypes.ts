@@ -238,8 +238,10 @@ export interface IQuartoDocumentModel extends IDisposable {
 
 	/**
 	 * Find cell by content hash (for cache matching).
+	 * When multiple cells have the same content hash, preferIndex can be used
+	 * to disambiguate by preferring the cell at the given index.
 	 */
-	findCellByContentHash(hash: string): QuartoCodeCell | undefined;
+	findCellByContentHash(hash: string, preferIndex?: number): QuartoCodeCell | undefined;
 
 	/**
 	 * Get code content for a cell.

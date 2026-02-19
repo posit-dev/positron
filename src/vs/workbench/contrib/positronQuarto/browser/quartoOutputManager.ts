@@ -619,8 +619,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			let restoredCount = 0;
 
 			for (const cachedCell of cachedDoc.cells) {
-				// Find the cell by content hash (validates cell hasn't changed)
-				const cell = quartoModel.findCellByContentHash(cachedCell.contentHash);
+				// Find the cell by content hash (validates cell hasn't changed).
+				// Extract index from the cached cell ID (format: "{index}-{hash}-{label}")
+				// to disambiguate when multiple cells have the same content hash.
+				const cachedIndex = parseInt(cachedCell.cellId, 10);
+				const preferIndex = isNaN(cachedIndex) ? undefined : cachedIndex;
+				const cell = quartoModel.findCellByContentHash(cachedCell.contentHash, preferIndex);
 				if (!cell) {
 					// Cell content has changed - skip stale output
 					this._logService.debug('[QuartoOutputContribution] Skipping stale cached output for cell', cachedCell.cellId);
@@ -1233,7 +1237,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				// Cell ID not found - check if the cell just moved (ID changed due to index shift)
 				const contentHash = this._contentHashByCellId.get(cellId);
 				if (contentHash) {
-					const movedCell = quartoModel.findCellByContentHash(contentHash);
+					const oldIndex = parseInt(cellId, 10);
+					const movedCell = quartoModel.findCellByContentHash(contentHash, isNaN(oldIndex) ? undefined : oldIndex);
 					if (movedCell) {
 						// Cell moved! Remap to new ID and update position
 						this._logService.debug('[QuartoOutputContribution] Cell moved from', cellId, 'to', movedCell.id);

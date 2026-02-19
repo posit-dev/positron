@@ -19,7 +19,6 @@ import { QuartoOutputManagerService, QuartoOutputContribution, IQuartoOutputMana
 import { QuartoOutputCacheService } from './quartoOutputCacheService.js';
 import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { QuartoExecutionDecorations } from './quartoExecutionDecorations.js';
-import { QuartoMultiLanguageWarning } from './quartoMultiLanguageWarning.js';
 import { QuartoCellToolbarController } from './quartoCellToolbarController.js';
 import { QuartoImagePreviewContribution } from './quartoImagePreview.js';
 import {
@@ -57,7 +56,6 @@ registerSingleton(IQuartoOutputManager, QuartoOutputManagerService, Instantiatio
 // Register editor contributions
 registerEditorContribution(QuartoExecutionDecorations.ID, QuartoExecutionDecorations, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoOutputContribution.ID, QuartoOutputContribution, EditorContributionInstantiation.AfterFirstRender);
-registerEditorContribution(QuartoMultiLanguageWarning.ID, QuartoMultiLanguageWarning, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoCellToolbarController.ID, QuartoCellToolbarController, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoImagePreviewContribution.ID, QuartoImagePreviewContribution, EditorContributionInstantiation.AfterFirstRender);
 

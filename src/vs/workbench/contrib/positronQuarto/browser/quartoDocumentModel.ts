@@ -126,8 +126,20 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		return this._cells[index];
 	}
 
-	findCellByContentHash(hash: string): QuartoCodeCell | undefined {
-		return this._cells.find(cell => cell.contentHash === hash);
+	findCellByContentHash(hash: string, preferIndex?: number): QuartoCodeCell | undefined {
+		const matches = this._cells.filter(cell => cell.contentHash === hash);
+		if (matches.length === 0) {
+			return undefined;
+		}
+		// When multiple cells have the same content hash (e.g., duplicate cells in
+		// teaching materials), prefer the one at the expected index if provided.
+		if (preferIndex !== undefined) {
+			const indexMatch = matches.find(cell => cell.index === preferIndex);
+			if (indexMatch) {
+				return indexMatch;
+			}
+		}
+		return matches[0];
 	}
 
 	getCellCode(cell: QuartoCodeCell): string {

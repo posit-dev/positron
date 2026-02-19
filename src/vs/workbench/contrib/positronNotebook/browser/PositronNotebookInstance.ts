@@ -131,7 +131,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	static getOrCreate(
 		id: string,
 		uri: URI,
-		viewType: 'jupyter-notebook',
+		viewType: string,
 		creationOptions: INotebookEditorCreationOptions | undefined,
 		instantiationService: IInstantiationService,
 	): PositronNotebookInstance {
@@ -463,7 +463,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	constructor(
 		public readonly id: string,
 		public readonly uri: URI,
-		public readonly viewType: 'jupyter-notebook',
+		public readonly viewType: string,
 		private _creationOptions: INotebookEditorCreationOptions | undefined,
 		@ICommandService private readonly _commandService: ICommandService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,

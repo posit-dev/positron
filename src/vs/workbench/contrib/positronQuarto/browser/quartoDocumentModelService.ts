@@ -66,11 +66,12 @@ export class QuartoDocumentModelService extends Disposable implements IQuartoDoc
 			model = new QuartoDocumentModel(textModel, this._logService);
 			this._models.set(key, model);
 
-			// Listen for model disposal to clean up
-			textModel.onWillDispose(() => {
+			// Listen for model disposal to clean up.
+			// Track the listener so it's cleaned up if the service is disposed first.
+			this._register(textModel.onWillDispose(() => {
 				this._logService.debug(`[QuartoDocumentModelService] Text model disposed, cleaning up ${key}`);
 				this._models.deleteAndDispose(key);
-			});
+			}));
 		}
 
 		return model;

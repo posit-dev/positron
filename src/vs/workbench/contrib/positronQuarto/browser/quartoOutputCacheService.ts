@@ -476,6 +476,39 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 					});
 				}
 			}
+
+			// Calculate total size
+			let totalSize = fileStats.reduce((sum, f) => sum + f.size, 0);
+
+			if (totalSize <= DEFAULT_CACHE_CONFIG.maxCacheSize) {
+				this._logService.debug(
+					'[QuartoOutputCacheService] Cache size within limits:',
+					totalSize, 'bytes,', fileStats.length, 'files'
+				);
+				return;
+			}
+
+			// Sort by mtime ascending (oldest first) so we evict oldest files first
+			fileStats.sort((a, b) => a.mtime - b.mtime);
+
+			let filesDeleted = 0;
+			for (const file of fileStats) {
+				if (totalSize <= DEFAULT_CACHE_CONFIG.maxCacheSize) {
+					break;
+				}
+				try {
+					await this._fileService.del(file.uri);
+					totalSize -= file.size;
+					filesDeleted++;
+				} catch (e) {
+					this._logService.warn('[QuartoOutputCacheService] Failed to evict cache file:', file.name, e);
+				}
+			}
+
+			this._logService.debug(
+				'[QuartoOutputCacheService] Cache cleanup complete: evicted',
+				filesDeleted, 'files, remaining size:', totalSize, 'bytes'
+			);
 		} catch (error) {
 			this._logService.warn('[QuartoOutputCacheService] Cache cleanup failed:', error);
 		}

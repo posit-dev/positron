@@ -271,6 +271,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		// For each range, find the Quarto cell that it corresponds to.
 		for (const range of cellRanges) {
 			const midpointLine = Math.ceil((range.startLineNumber + range.endLineNumber) / 2);
+			let found = false;
 			for (const quartoCell of quartoCells) {
 				// Consider: does not currently support partial execution (we
 				// just use guess from the range)
@@ -278,16 +279,18 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					midpointLine <= quartoCell.codeEndLine
 				) {
 					cellsToExecute.push(quartoCell);
+					found = true;
 					break;
 				}
 			}
 
-			// If we got this far, then none of the Quarto cells in the document
-			// appear to match the requested range.
-			this._logService.warn(
-				`Skipping execution request for cell at ${JSON.stringify(range)} ` +
-				`in document ${documentUri.toString()} because no cell was found ` +
-				`in that range.`);
+			if (!found) {
+				// None of the Quarto cells in the document match the requested range.
+				this._logService.warn(
+					`Skipping execution request for cell at ${JSON.stringify(range)} ` +
+					`in document ${documentUri.toString()} because no cell was found ` +
+					`in that range.`);
+			}
 		}
 
 		// Now that we have QuartoCodeCells, proceed with execution
@@ -543,146 +546,96 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return false; // No error, just cancelled
 		}
 
-		// Track if an error occurred during execution
-		let hadError = false;
+		return this._withExecutionTracking(
+			documentUri, cell, codeRange, '',
+			async (tracker) => {
+				let hadError = false;
+				const { execution, deferred, disposables, cts } = tracker;
+				const executionId = execution.executionId;
 
-		// Create execution tracker
-		const executionId = `${QUARTO_EXEC_PREFIX}-${generateUuid()}`;
-		const cts = new CancellationTokenSource(token);
-		const deferred = new DeferredPromise<void>();
-		const disposables = new DisposableStore();
+				// Set up message handlers, passing options for error tracking
+				this._setupMessageHandlers(tracker, session, documentUri, () => {
+					hadError = true;
+				});
 
-		const tracker: ExecutionTracker = {
-			execution: {
-				cellId: cell.id,
-				state: CellExecutionState.Running,
-				executionId,
-				startTime: Date.now(),
-				documentUri,
-			},
-			cts,
-			deferred,
-			outputSize: 0,
-			outputCount: 0,
-			disposables,
-		};
+				// Get just the code in the specified range
+				const code = await this._getCodeInRange(documentUri, codeRange);
+				if (!code) {
+					throw new Error('Could not get code in range');
+				}
 
-		this._executionTrackers.set(cell.id, tracker);
+				// Execute the code
+				this._logService.debug(`[QuartoExecutionManager] Executing inline code in cell ${cell.id} with execution ID ${executionId}`);
+				session.execute(
+					code,
+					executionId,
+					RuntimeCodeExecutionMode.Interactive,
+					RuntimeErrorBehavior.Continue
+				);
 
-		// Remove this range from the queued ranges (it's now running)
-		this._removeFromQueuedRanges(cell.id, codeRange);
-
-		// Track the running range for decorations BEFORE firing state change
-		// This ensures decorations can read the range when handling the state change event
-		this._runningRanges.set(cell.id, codeRange);
-
-		// Update state to running
-		this._runningCells.set(documentUri, cell.id);
-		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
-
-		// Clear previous outputs for this cell
-		this._outputsByCell.delete(cell.id);
-
-		try {
-			// Set up message handlers, passing options for error tracking
-			this._setupMessageHandlers(tracker, session, documentUri, () => {
-				hadError = true;
-			});
-
-			// Get just the code in the specified range
-			const code = await this._getCodeInRange(documentUri, codeRange);
-			if (!code) {
-				throw new Error('Could not get code in range');
-			}
-
-			// Execute the code
-			this._logService.debug(`[QuartoExecutionManager] Executing inline code in cell ${cell.id} with execution ID ${executionId}`);
-			session.execute(
-				code,
-				executionId,
-				RuntimeCodeExecutionMode.Interactive,
-				RuntimeErrorBehavior.Continue
-			);
-
-			// Fire the event signaling code execution.
-			const event: ILanguageRuntimeCodeExecutedEvent = {
-				executionId: executionId,
-				sessionId: session.sessionId,
-				attribution: {
-					source: CodeAttributionSource.Notebook,
-					metadata: {
-						cell: {
-							uri: cell.id,
-							notebook: {
-								uri: documentUri,
+				// Fire the event signaling code execution.
+				const event: ILanguageRuntimeCodeExecutedEvent = {
+					executionId,
+					sessionId: session.sessionId,
+					attribution: {
+						source: CodeAttributionSource.Notebook,
+						metadata: {
+							cell: {
+								uri: cell.id,
+								notebook: {
+									uri: documentUri,
+								},
 							},
 						},
 					},
-				},
-				code,
-				languageId: cell.language,
-				runtimeName: session.runtimeMetadata.runtimeName,
-				errorBehavior: RuntimeErrorBehavior.Continue,
-				mode: RuntimeCodeExecutionMode.Interactive,
-			};
-			this._onDidExecuteCode.fire(event);
+					code,
+					languageId: cell.language,
+					runtimeName: session.runtimeMetadata.runtimeName,
+					errorBehavior: RuntimeErrorBehavior.Continue,
+					mode: RuntimeCodeExecutionMode.Interactive,
+				};
+				this._onDidExecuteCode.fire(event);
 
-			// Set up timeout
-			const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;
-			let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+				// Set up timeout
+				const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;
+				let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
-			if (timeoutMs > 0) {
-				timeoutHandle = setTimeout(() => {
-					this._logService.warn(`[QuartoExecutionManager] Execution timeout for cell ${cell.id}`);
-					tracker.cts.cancel();
-					deferred.error(new Error('Execution timeout'));
-				}, timeoutMs);
+				if (timeoutMs > 0) {
+					timeoutHandle = setTimeout(() => {
+						this._logService.warn(`[QuartoExecutionManager] Execution timeout for cell ${cell.id}`);
+						cts.cancel();
+						deferred.error(new Error('Execution timeout'));
+					}, timeoutMs);
 
-				disposables.add(toDisposable(() => {
-					if (timeoutHandle) {
-						clearTimeout(timeoutHandle);
-					}
-				}));
-			}
+					disposables.add(toDisposable(() => {
+						if (timeoutHandle) {
+							clearTimeout(timeoutHandle);
+						}
+					}));
+				}
 
-			// Wait for completion
-			await Promise.race([
-				deferred.p,
-				new Promise<void>((_, reject) => {
-					const cancellationListener = cts.token.onCancellationRequested(() => {
-						reject(new Error('Execution cancelled'));
-					});
-					disposables.add(cancellationListener);
-				}),
-			]);
+				// Wait for completion
+				await Promise.race([
+					deferred.p,
+					new Promise<void>((_, reject) => {
+						const cancellationListener = cts.token.onCancellationRequested(() => {
+							reject(new Error('Execution cancelled'));
+						});
+						disposables.add(cancellationListener);
+					}),
+				]);
 
-			// Update state to completed or error based on whether runtime errors occurred
-			if (hadError) {
-				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-			} else {
-				this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
-			}
+				// Update state to completed or error based on whether runtime errors occurred
+				if (hadError) {
+					this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+				} else {
+					this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+				}
 
-		} catch (error) {
-			hadError = true;
-			if (cts.token.isCancellationRequested) {
-				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
-				hadError = false; // Cancellation is not an error
-			} else {
-				this._logService.error(`[QuartoExecutionManager] Execution failed for cell ${cell.id}:`, error);
-				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-			}
-		} finally {
-			// Clean up
-			this._runningCells.delete(documentUri);
-			this._executionTrackers.delete(cell.id);
-			this._runningRanges.delete(cell.id);
-			disposables.dispose();
-			cts.dispose();
-			await this._persistQueueState(documentUri);
-		}
-
-		return hadError;
+				return hadError;
+			},
+			{ trackRunningCell: true, persistQueueState: true }
+		);
 	}
 
 	/**
@@ -702,136 +655,84 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			`[QuartoExecutionManager] Executing ${cell.language} code via console (non-primary language)`
 		);
 
-		// Track if an error occurred during execution
-		let hadError = false;
+		return this._withExecutionTracking(
+			documentUri, cell, codeRange, 'console',
+			async (tracker) => {
+				let hadError = false;
+				const { execution, deferred, disposables, cts } = tracker;
+				const executionId = execution.executionId;
 
-		// Remove this range from the queued ranges (it's now running)
-		this._removeFromQueuedRanges(cell.id, codeRange);
+				// Get just the code in the specified range
+				const code = await this._getCodeInRange(documentUri, codeRange);
+				if (!code) {
+					throw new Error('Could not get code in range');
+				}
 
-		// Track the running range for decorations BEFORE firing state change
-		this._runningRanges.set(cell.id, codeRange);
+				// Set up message handlers BEFORE executing to avoid race conditions.
+				// If a session already exists, set up handlers on it directly.
+				// If not, listen for the new session to start so we capture it immediately.
+				const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(cell.language);
+				if (existingSession) {
+					this._setupMessageHandlers(tracker, existingSession, documentUri, () => {
+						hadError = true;
+					});
+				} else {
+					// Listen for the session to start so we can set up handlers
+					// before any messages arrive
+					disposables.add(this._runtimeSessionService.onDidStartRuntime(session => {
+						if (session.runtimeMetadata.languageId === cell.language) {
+							this._setupMessageHandlers(tracker, session, documentUri, () => {
+								hadError = true;
+							});
+						}
+					}));
+				}
 
-		// Update state to running
-		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
-
-		// Clear previous outputs for this cell
-		this._outputsByCell.delete(cell.id);
-
-		// Generate our own execution ID so we can listen for outputs
-		const executionId = `${QUARTO_EXEC_PREFIX}-console-${generateUuid()}`;
-
-		// Create a tracker for this execution
-		const cts = new CancellationTokenSource(token);
-		const deferred = new DeferredPromise<void>();
-		const disposables = new DisposableStore();
-
-		const tracker: ExecutionTracker = {
-			execution: {
-				cellId: cell.id,
-				state: CellExecutionState.Running,
-				executionId,
-				startTime: Date.now(),
-				documentUri,
-			},
-			cts,
-			deferred,
-			outputSize: 0,
-			outputCount: 0,
-			disposables,
-		};
-
-		this._executionTrackers.set(cell.id, tracker);
-
-		try {
-			// Get just the code in the specified range
-			const code = await this._getCodeInRange(documentUri, codeRange);
-			if (!code) {
-				throw new Error('Could not get code in range');
-			}
-
-			// Try to get the existing console session for this language BEFORE executing.
-			// If one exists, we can set up message handlers before execution starts.
-			// This avoids the race condition where execution starts before handlers are set up.
-			const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(cell.language);
-			if (existingSession) {
-				this._setupConsoleMessageHandlers(tracker, existingSession, documentUri, () => {
-					hadError = true;
-				});
-			}
-
-			// Execute via console service with our execution ID
-			// This will create/start the session if needed and return the session ID
-			const sessionId = await this._consoleService.executeCode(
-				cell.language,
-				undefined,
-				code,
-				{
-					source: CodeAttributionSource.Notebook,
-					metadata: {
-						cell: {
-							uri: cell.id,
-							notebook: {
-								uri: documentUri,
+				// Execute via console service with our execution ID
+				// This will create/start the session if needed and return the session ID
+				await this._consoleService.executeCode(
+					cell.language,
+					undefined,
+					code,
+					{
+						source: CodeAttributionSource.Notebook,
+						metadata: {
+							cell: {
+								uri: cell.id,
+								notebook: {
+									uri: documentUri,
+								},
 							},
 						},
 					},
-				},
-				false, // focus
-				false, // allowIncomplete
-				RuntimeCodeExecutionMode.Interactive,
-				RuntimeErrorBehavior.Continue,
-				executionId,
-			);
-
-			// If we didn't have an existing session, a new one was created.
-			// Set up handlers now - since the session is new, it won't have executed yet.
-			if (!existingSession) {
-				const newSession = this._runtimeSessionService.getSession(sessionId);
-				if (newSession) {
-					this._setupConsoleMessageHandlers(tracker, newSession, documentUri, () => {
-						hadError = true;
-					});
-				}
-			}
-
-			// Wait for execution to complete
-			await Promise.race([
-				deferred.p,
-				new Promise<void>((_, reject) => {
-					const cancellationListener = cts.token.onCancellationRequested(() => {
-						reject(new Error('Execution cancelled'));
-					});
-					disposables.add(cancellationListener);
-				}),
-			]);
-
-			// Mark as completed or error based on runtime errors
-			if (hadError) {
-				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-			} else {
-				this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
-			}
-		} catch (error) {
-			hadError = true;
-			if (cts.token.isCancellationRequested) {
-				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
-				hadError = false; // Cancellation is not an error
-			} else {
-				this._logService.error(
-					`[QuartoExecutionManager] Console execution failed for cell ${cell.id}:`,
-					error
+					false, // focus
+					false, // allowIncomplete
+					RuntimeCodeExecutionMode.Interactive,
+					RuntimeErrorBehavior.Continue,
+					executionId,
 				);
-				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-			}
-		} finally {
-			// Clean up
-			this._runningRanges.delete(cell.id);
-			this._executionTrackers.delete(cell.id);
-			disposables.dispose();
-			cts.dispose();
-		}
 
-		return hadError;
+				// Wait for execution to complete
+				await Promise.race([
+					deferred.p,
+					new Promise<void>((_, reject) => {
+						const cancellationListener = cts.token.onCancellationRequested(() => {
+							reject(new Error('Execution cancelled'));
+						});
+						disposables.add(cancellationListener);
+					}),
+				]);
+
+				// Mark as completed or error based on runtime errors
+				if (hadError) {
+					this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+				} else {
+					this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+				}
+
+				return hadError;
+			}
+		);
 	}
 
 	/**
@@ -850,111 +751,56 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			`[QuartoExecutionManager] Executing ${cell.language} code via terminal`
 		);
 
-		// Track if an error occurred during execution
-		let hadError = false;
+		return this._withExecutionTracking(
+			documentUri, cell, codeRange, 'terminal',
+			async (tracker) => {
+				const { disposables } = tracker;
 
-		// Remove this range from the queued ranges (it's now running)
-		this._removeFromQueuedRanges(cell.id, codeRange);
+				// Get just the code in the specified range
+				const code = await this._getCodeInRange(documentUri, codeRange);
+				if (!code) {
+					throw new Error('Could not get code in range');
+				}
 
-		// Track the running range for decorations BEFORE firing state change
-		this._runningRanges.set(cell.id, codeRange);
+				// Get or create terminal
+				const terminal = await this._terminalService.getActiveOrCreateInstance();
 
-		// Update state to running
-		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
+				// Ensure xterm is available
+				const xterm = await terminal.xtermReadyPromise;
+				if (!xterm) {
+					throw new Error('Xterm is not available');
+				}
 
-		// Clear previous outputs for this cell
-		this._outputsByCell.delete(cell.id);
+				// Check for command detection capability (shell integration)
+				const commandDetection = terminal.capabilities?.get(TerminalCapability.CommandDetection);
 
-		// Generate execution ID
-		const executionId = `${QUARTO_EXEC_PREFIX}-terminal-${generateUuid()}`;
+				// Register start marker before executing
+				const startMarker = xterm.raw.registerMarker();
+				disposables.add({ dispose: () => startMarker?.dispose() });
 
-		// Create a tracker for this execution
-		const cts = new CancellationTokenSource(token);
-		const deferred = new DeferredPromise<void>();
-		const disposables = new DisposableStore();
+				let exitCode: number | undefined;
+				if (commandDetection) {
+					// Rich execution: use shell integration
+					exitCode = await this._executeTerminalWithShellIntegration(
+						terminal, commandDetection, code, tracker, documentUri, xterm, startMarker, disposables
+					);
+				} else {
+					// Fallback: use idle detection without shell integration
+					exitCode = await this._executeTerminalWithoutShellIntegration(
+						terminal, code, tracker, documentUri, xterm, startMarker, disposables
+					);
+				}
 
-		const tracker: ExecutionTracker = {
-			execution: {
-				cellId: cell.id,
-				state: CellExecutionState.Running,
-				executionId,
-				startTime: Date.now(),
-				documentUri,
-			},
-			cts,
-			deferred,
-			outputSize: 0,
-			outputCount: 0,
-			disposables,
-		};
-
-		this._executionTrackers.set(cell.id, tracker);
-
-		let exitCode: number | undefined;
-
-		try {
-			// Get just the code in the specified range
-			const code = await this._getCodeInRange(documentUri, codeRange);
-			if (!code) {
-				throw new Error('Could not get code in range');
+				// Set final state based on exit code
+				if (exitCode !== undefined && exitCode !== 0) {
+					this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+					return true; // hadError
+				} else {
+					this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+					return false;
+				}
 			}
-
-			// Get or create terminal
-			const terminal = await this._terminalService.getActiveOrCreateInstance();
-
-			// Ensure xterm is available
-			const xterm = await terminal.xtermReadyPromise;
-			if (!xterm) {
-				throw new Error('Xterm is not available');
-			}
-
-			// Check for command detection capability (shell integration)
-			const commandDetection = terminal.capabilities?.get(TerminalCapability.CommandDetection);
-
-			// Register start marker before executing
-			const startMarker = xterm.raw.registerMarker();
-			disposables.add({ dispose: () => startMarker?.dispose() });
-
-			if (commandDetection) {
-				// Rich execution: use shell integration
-				exitCode = await this._executeTerminalWithShellIntegration(
-					terminal, commandDetection, code, tracker, documentUri, xterm, startMarker, disposables
-				);
-			} else {
-				// Fallback: use idle detection without shell integration
-				exitCode = await this._executeTerminalWithoutShellIntegration(
-					terminal, code, tracker, documentUri, xterm, startMarker, disposables
-				);
-			}
-
-			// Set final state based on exit code
-			if (exitCode !== undefined && exitCode !== 0) {
-				hadError = true;
-				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-			} else {
-				this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
-			}
-		} catch (error) {
-			hadError = true;
-			if (cts.token.isCancellationRequested) {
-				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
-				hadError = false; // Cancellation is not an error
-			} else {
-				this._logService.error(
-					`[QuartoExecutionManager] Terminal execution failed for cell ${cell.id}:`,
-					error
-				);
-				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
-			}
-		} finally {
-			// Clean up
-			this._runningRanges.delete(cell.id);
-			this._executionTrackers.delete(cell.id);
-			disposables.dispose();
-			cts.dispose();
-		}
-
-		return hadError;
+		);
 	}
 
 	/**
@@ -1419,79 +1265,95 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Set up message handlers for console session output.
-	 * Similar to _setupMessageHandlers but for console sessions.
-	 * @param tracker Execution tracker
-	 * @param session Runtime session
-	 * @param documentUri Document URI
-	 * @param onError Optional callback invoked when an error message is received
+	 * Set up execution tracking for a cell and run the provided execution function.
+	 * Handles the common boilerplate of creating a tracker, updating state,
+	 * managing running ranges, and cleaning up on completion.
+	 *
+	 * @param documentUri URI of the document
+	 * @param cell Cell being executed
+	 * @param codeRange Range of code being executed
+	 * @param executionIdSuffix Suffix for the execution ID (e.g., '', 'console', 'terminal')
+	 * @param executeFn Function that performs the actual execution. Receives the tracker
+	 *                  and should return true if an error occurred.
+	 * @param options Additional options for tracking behavior
+	 * @returns true if an error occurred during execution, false otherwise
 	 */
-	private _setupConsoleMessageHandlers(
-		tracker: ExecutionTracker,
-		session: ILanguageRuntimeSession,
+	private async _withExecutionTracking(
 		documentUri: URI,
-		onError?: () => void
-	): void {
-		const { execution, deferred, disposables } = tracker;
-		const executionId = execution.executionId;
+		cell: QuartoCodeCell,
+		codeRange: Range,
+		executionIdSuffix: string,
+		executeFn: (tracker: ExecutionTracker) => Promise<boolean>,
+		options?: { trackRunningCell?: boolean; persistQueueState?: boolean }
+	): Promise<boolean> {
+		let hadError = false;
 
-		// Handle output messages (display_data)
-		disposables.add(session.onDidReceiveRuntimeMessageOutput(message => {
-			if (message.parent_id !== executionId) {
-				return;
-			}
-			const webMessage = message as ILanguageRuntimeMessageWebOutput;
-			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
-		}));
+		const idPart = executionIdSuffix ? `-${executionIdSuffix}` : '';
+		const executionId = `${QUARTO_EXEC_PREFIX}${idPart}-${generateUuid()}`;
+		const cts = new CancellationTokenSource();
+		const deferred = new DeferredPromise<void>();
+		const disposables = new DisposableStore();
 
-		// Handle result messages (execute_result)
-		disposables.add(session.onDidReceiveRuntimeMessageResult(message => {
-			if (message.parent_id !== executionId) {
-				return;
-			}
-			const webMessage = message as ILanguageRuntimeMessageWebOutput;
-			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
-		}));
+		const tracker: ExecutionTracker = {
+			execution: {
+				cellId: cell.id,
+				state: CellExecutionState.Running,
+				executionId,
+				startTime: Date.now(),
+				documentUri,
+			},
+			cts,
+			deferred,
+			outputSize: 0,
+			outputCount: 0,
+			disposables,
+		};
 
-		// Handle stream messages (stdout/stderr)
-		disposables.add(session.onDidReceiveRuntimeMessageStream(message => {
-			if (message.parent_id !== executionId) {
-				return;
-			}
-			const mime = message.name === 'stderr' ? 'application/vnd.code.notebook.stderr' : 'application/vnd.code.notebook.stdout';
-			this._addOutput(tracker, documentUri, [{
-				mime,
-				data: message.text,
-			}]);
-		}));
+		this._executionTrackers.set(cell.id, tracker);
 
-		// Handle error messages
-		disposables.add(session.onDidReceiveRuntimeMessageError(message => {
-			if (message.parent_id !== executionId) {
-				return;
-			}
-			// Notify caller that an error occurred
-			onError?.();
-			this._addOutput(tracker, documentUri, [{
-				mime: 'application/vnd.code.notebook.error',
-				data: JSON.stringify({
-					name: message.name,
-					message: message.message,
-					stack: message.traceback.join('\n'),
-				}),
-			}]);
-		}));
+		// Remove this range from the queued ranges (it's now running)
+		this._removeFromQueuedRanges(cell.id, codeRange);
 
-		// Handle state messages (completion detection)
-		disposables.add(session.onDidReceiveRuntimeMessageState(message => {
-			if (message.parent_id !== executionId) {
-				return;
+		// Track the running range for decorations BEFORE firing state change
+		this._runningRanges.set(cell.id, codeRange);
+
+		// Optionally track running cell at document level
+		if (options?.trackRunningCell) {
+			this._runningCells.set(documentUri, cell.id);
+		}
+
+		// Update state to running
+		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
+
+		// Clear previous outputs for this cell
+		this._outputsByCell.delete(cell.id);
+
+		try {
+			hadError = await executeFn(tracker);
+		} catch (error) {
+			hadError = true;
+			if (cts.token.isCancellationRequested) {
+				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
+				hadError = false; // Cancellation is not an error
+			} else {
+				this._logService.error(`[QuartoExecutionManager] Execution failed for cell ${cell.id}:`, error);
+				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
 			}
-			if (message.state === RuntimeOnlineState.Idle) {
-				this._logService.debug(`[QuartoExecutionManager] Console execution completed for ${executionId}`);
-				deferred.complete();
+		} finally {
+			// Clean up
+			if (options?.trackRunningCell) {
+				this._runningCells.delete(documentUri);
 			}
-		}));
+			this._runningRanges.delete(cell.id);
+			this._executionTrackers.delete(cell.id);
+			disposables.dispose();
+			cts.dispose();
+			if (options?.persistQueueState) {
+				await this._persistQueueState(documentUri);
+			}
+		}
+
+		return hadError;
 	}
 
 	/**
@@ -1707,7 +1569,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 */
 	private _setupMessageHandlers(
 		tracker: ExecutionTracker,
-		session: import('../../../services/runtimeSession/common/runtimeSessionService.js').ILanguageRuntimeSession,
+		session: ILanguageRuntimeSession,
 		documentUri: URI,
 		onError?: () => void
 	): void {
