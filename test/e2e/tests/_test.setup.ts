@@ -362,6 +362,27 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		appFixtureFailed = false;
 		appFixtureScreenshot = undefined;
 	}
+
+	// Dump active handles/requests to help debug worker teardown timeouts
+	// Enable with ENABLE_DIAGNOSTIC_LOGGING=true
+	if (process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
+		try {
+			// Using unofficial Node.js internal APIs for debugging teardown timeouts
+			// eslint-disable-next-line local/code-no-any-casts
+			const handles = (process as any)._getActiveHandles?.() ?? [];
+			// eslint-disable-next-line local/code-no-any-casts
+			const requests = (process as any)._getActiveRequests?.() ?? [];
+			console.log(`\n[afterAll] Active handles=${handles.length} requests=${requests.length}`);
+			for (const h of handles) {
+				console.log('  handle:', h?.constructor?.name ?? typeof h);
+			}
+			for (const r of requests) {
+				console.log('  request:', r?.constructor?.name ?? typeof r);
+			}
+		} catch (error) {
+			console.log(`Error dumping handles: ${error}`);
+		}
+	}
 });
 
 export { playwrightExpect as expect };
