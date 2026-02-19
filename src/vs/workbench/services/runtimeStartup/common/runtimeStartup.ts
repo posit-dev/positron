@@ -568,15 +568,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// If this is a new folder, wait for it to initialize the folder
 		// before proceeding, and then store the new folder runtime metadata.
 		// as the affiliated runtime for this workspace.
-		await this._newFolderService.initTasksComplete.wait();
-		const newRuntime = this._newFolderService.newFolderRuntimeMetadata;
-		if (newRuntime) {
-			const newAffiliation: IAffiliatedRuntimeMetadata = {
-				metadata: newRuntime,
-				lastUsed: Date.now(),
-				lastStarted: Date.now()
-			};
-			this.saveAffiliatedRuntime(newAffiliation);
+		if (!this._newFolderService.initTasksComplete.isOpen()) {
+			perf.mark('code/positron/newFolderInitTasks');
+			await this._newFolderService.initTasksComplete.wait();
+			const newRuntime = this._newFolderService.newFolderRuntimeMetadata;
+			if (newRuntime) {
+				const newAffiliation: IAffiliatedRuntimeMetadata = {
+					metadata: newRuntime,
+					lastUsed: Date.now(),
+					lastStarted: Date.now()
+				};
+				this.saveAffiliatedRuntime(newAffiliation);
+			}
 		}
 
 		const disabledLanguages = new Array<string>();

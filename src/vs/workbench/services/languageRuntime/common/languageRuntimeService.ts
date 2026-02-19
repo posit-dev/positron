@@ -719,21 +719,28 @@ export enum RuntimeStartupPhase {
 	Reconnecting = 'reconnecting',
 
 	/**
-	 * Phase 4: Positron is starting any runtimes that are affiliated with the
+	 * Phase 4: Positron is setting up new runtimes for the workspace. We only
+	 * enter this phase when starting up a workspace for the first time via the
+	 * New Folder templates. This sets up affilated runtimes for the workspace.
+	 */
+	NewFolderTasks = 'newFolderTasks',
+
+	/**
+	 * Phase 5: Positron is starting any runtimes that are affiliated with the
 	 * workspace. We enter this phase on a fresh start of Positron, when no
 	 * existing sessions are running.
 	 */
 	Starting = 'starting',
 
 	/**
-	 * Phase 5: Positron is discovering all the runtimes on the machine. This
+	 * Phase 6: Positron is discovering all the runtimes on the machine. This
 	 * can take a while, but does precede startup for workspaces that have no
 	 * affiliated runtimes (so we don't know what to start yet).
 	 */
 	Discovering = 'discovering',
 
 	/**
-	 * Phase 6: Startup is complete. In this phase, we start any runtimes
+	 * Phase 7: Startup is complete. In this phase, we start any runtimes
 	 * recommended by extensions if nothing was started in previous phases.
 	 */
 	Complete = 'complete',

@@ -21,6 +21,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 // Load localized copy for control.
 const initalizing = localize('positron.console.initializing', "Starting up");
 const awaitingTrust = localize('positron.console.awaitingTrust', "Consoles cannot start until the workspace is trusted");
+const newFolderTasks = localize('positron.console.newFolderTasks', "Setting up workspace");
 const reconnecting = localize('positron.console.reconnecting', "Reconnecting");
 const starting = localize('positron.console.starting', "Starting");
 const discoveringIntrepreters = localize('positron.console.discoveringInterpreters', "Discovering interpreters");
@@ -107,6 +108,9 @@ export const StartupStatus = () => {
 			}
 			{startupPhase === RuntimeStartupPhase.AwaitingTrust &&
 				<div className='awaiting'>{awaitingTrust}...</div>
+			}
+			{startupPhase === RuntimeStartupPhase.NewFolderTasks &&
+				<div className='new-folder-tasks'>{newFolderTasks}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.Starting && !runtimeStartupEvent &&
 				<div className='starting'>{starting}...</div>
