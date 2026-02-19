@@ -117,57 +117,64 @@ function prepareTestDataDirectory() {
 }
 
 export function getPositronVersion(testCodePath = process.env.BUILD || ''): PositronVersion | null {
+	// Dev mode - use version script directly
+	if (!testCodePath) {
+		return getVersionFromScript();
+	}
+
+	// Running against a build - read from built app's product.json
+	return getVersionFromBuild(testCodePath);
+}
+
+/**
+ * Get version info from the version script (dev mode)
+ */
+function getVersionFromScript(): PositronVersion | null {
+	const root = join(__dirname, '..', '..', '..', '..');
+	const scriptPath = join(root, 'versions', 'show-version.cjs');
+
+	try {
+		const positronVersion = execSync(`node "${scriptPath}" --version`).toString().trim();
+		const buildOutput = execSync(`node "${scriptPath}" --build`).toString().trim();
+		const buildNumber = parseInt(buildOutput, 10);
+
+		return {
+			positronVersion,
+			buildNumber: Number.isNaN(buildNumber) ? 0 : buildNumber
+		};
+	} catch (e) {
+		console.warn('Failed to get version from script:', e);
+		return null;
+	}
+}
+
+/**
+ * Get version info from a built application's product.json
+ */
+function getVersionFromBuild(testCodePath: string): PositronVersion | null {
 	let productJsonPath;
 
-	if (testCodePath) {
-		// Running against a build - look in the built app structure
-		switch (process.platform) {
-			case 'darwin':
-				productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
-				break;
-			case 'linux':
-				productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
-				break;
-			case 'win32':
-				productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
-				break;
-			default:
-				return null;
-		}
-	} else {
-		// Dev mode - fall back to source product.json
-		const root = join(__dirname, '..', '..', '..', '..');
-		productJsonPath = join(root, 'product.json');
+	switch (process.platform) {
+		case 'darwin':
+			productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
+			break;
+		case 'linux':
+			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
+			break;
+		case 'win32':
+			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
+			break;
+		default:
+			return null;
 	}
 
 	try {
-		// Read and parse the JSON file
 		const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
-
-		// Return both version and build number properties
-		// Use ?? instead of || to preserve 0 as a valid build number
 		const positronVersion = productJson.positronVersion ?? null;
-		let buildNumber = productJson.positronBuildNumber ?? null;
+		const buildNumber = productJson.positronBuildNumber ?? null;
 
 		if (!positronVersion) {
 			throw new Error('positronVersion not found in product.json.');
-		}
-
-		// If running from source (no testCodePath) and build number is 0,
-		// get the real build number from the version script
-		if (!testCodePath && (buildNumber === 0 || buildNumber === null)) {
-			try {
-				const root = join(__dirname, '..', '..', '..', '..');
-				buildNumber = parseInt(
-					execSync(`node ${join(root, 'versions/show-version.cjs')} --build`)
-						.toString()
-						.trim(),
-					10
-				);
-			} catch {
-				// Fall back to 0 if script fails
-				buildNumber = 0;
-			}
 		}
 
 		return { positronVersion, buildNumber };
