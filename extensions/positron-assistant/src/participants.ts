@@ -429,7 +429,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// Add the visible region prompt.
 					const rangeAttachmentNode = xml.node('attachment', visibleText, {
 						filePath: path,
-						description: 'Visible region of the active file',
+						description: 'Range within the active file selected by the user',
 						language: document.languageId,
 						startLine: value.range.start.line + 1,
 						endLine: value.range.end.line + 1,
