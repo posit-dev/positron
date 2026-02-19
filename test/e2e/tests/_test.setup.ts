@@ -383,6 +383,20 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 			console.log(`Error dumping handles: ${error}`);
 		}
 	}
+
+	// --- Start Positron ---
+	// Force garbage collection and give extra time for handles to drain before worker teardown
+	// This helps prevent "Worker teardown timeout of 120000ms exceeded" errors
+	try {
+		if (global.gc) {
+			global.gc();
+		}
+		// Wait for any pending handle cleanup to complete
+		await new Promise(resolve => setTimeout(resolve, 3000));
+	} catch (error) {
+		console.log(`Error during final cleanup: ${error}`);
+	}
+	// --- End Positron ---
 });
 
 export { playwrightExpect as expect };
