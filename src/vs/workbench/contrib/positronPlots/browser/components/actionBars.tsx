@@ -29,6 +29,7 @@ import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PlotCodeMenuButton } from './plotCodeMenuButton.js';
+import { DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -141,6 +142,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		services.commandService.executeCommand(PlotsGalleryInNewWindowAction.ID);
 	};
 
+	const leftActions: DynamicActionBarAction[] = [];
+	const rightActions: DynamicActionBarAction[] = [];
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -241,6 +245,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						/>
 					</ActionBarRegion>
 				</PositronActionBar>
+				<PositronDynamicActionBar
+					borderBottom={true}
+					borderTop={true}
+					leftActions={leftActions}
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+					rightActions={rightActions}
+				/>
 			</div>
 		</PositronActionBarContextProvider>
 	);
