@@ -8,4 +8,8 @@
 	margin-left: 12px;
 
 	border-radius: var(--vscode-positronNotebook-cell-radius);
+
+	/* Ensure the action bar (which overlaps above the cell by half its height)
+	 * is not clipped when scrollIntoView aligns the cell to the viewport top. */
+	scroll-margin-top: var(--vscode-positronNotebook-action-bar-inset);
 }

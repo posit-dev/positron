@@ -60,6 +60,9 @@ export interface EvalTestCase {
 	/** Chat mode used for the test */
 	mode: 'Ask' | 'Edit' | 'Agent';
 
+	/** Primary language used in the test (for metrics) */
+	language?: 'R' | 'Python';
+
 	/** Tags for filtering - uses standard TestTags from the test infrastructure */
 	tags?: TestTags[];
 

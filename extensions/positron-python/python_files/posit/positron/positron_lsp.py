@@ -32,6 +32,7 @@ import re
 import threading
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
 from ._vendor import attrs, cattrs
@@ -204,7 +205,8 @@ def _safe_resolve_expression(namespace: dict[str, Any], expr: str) -> Any | None
         return None
 
 
-def _parse_os_imports(source: str) -> dict[str, str]:
+@lru_cache(maxsize=32)
+def _parse_os_imports(source: str) -> MappingProxyType[str, str]:
     """
     Parse import statements to find os module imports.
 
@@ -212,10 +214,12 @@ def _parse_os_imports(source: str) -> dict[str, str]:
     Only supports `import os` and `import os as <alias>` forms.
     Does NOT support `from os import ...` (out of scope).
 
-    Returns empty dict if source is empty, invalid, or has no os imports.
+    Returns empty mapping if source is empty, invalid, or has no os imports.
+
+    The return value is immutable (MappingProxyType) since results are cached.
     """
     if not source or not source.strip():
-        return {}
+        return MappingProxyType({})
 
     imports: dict[str, str] = {}
 
@@ -228,7 +232,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
                     if alias.name == "os":
                         key = alias.asname or "os"
                         imports[key] = "os"
-        return imports
+        return MappingProxyType(imports)
     except SyntaxError:
         pass
 
@@ -250,7 +254,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
         except SyntaxError:
             continue
 
-    return imports
+    return MappingProxyType(imports)
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -566,12 +570,12 @@ def _handle_completion(
     text_after_cursor = line[params.position.character :]
 
     # Check for parameter completion first (e.g., inside a function call like "f(")
-    param_items = _get_parameter_completions(server, text_before_cursor)
-    if param_items:
-        items.extend(param_items)
-
-    # Determine if we're inside a function call
-    inside_function_call = bool(param_items) or _is_inside_function_call(text_before_cursor)
+    if "(" in text_before_cursor:
+        param_items, inside_function_call = _get_parameter_completions(server, text_before_cursor)
+        if param_items:
+            items.extend(param_items)
+    else:
+        inside_function_call = False
 
     # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
@@ -631,55 +635,47 @@ def _handle_completion(
     return types.CompletionList(is_incomplete=False, items=items) if items else None
 
 
-def _is_inside_function_call(text_before_cursor: str) -> bool:
-    """Check if the cursor is inside a function call (after an opening parenthesis)."""
-    # Count unmatched opening parentheses
-    paren_depth = 0
-    for c in text_before_cursor:
-        if c == "(":
-            paren_depth += 1
-        elif c == ")":
-            paren_depth -= 1
-    return paren_depth > 0
-
-
 def _get_parameter_completions(
     server: PositronLanguageServer, text_before_cursor: str
-) -> list[types.CompletionItem]:
-    """Get parameter completions when inside a function call."""
+) -> tuple[list[types.CompletionItem], bool]:
+    """Get parameter completions when inside a function call.
+
+    Returns (items, inside_function_call) where inside_function_call
+    indicates whether the cursor is inside an enclosing parenthesis.
+    """
     if server.shell is None:
-        return []
+        return [], False
 
     # Find if we're inside a function call
     func_end = _find_enclosing_paren(text_before_cursor)
     if func_end < 0:
-        return []
+        return [], False
 
     # Extract function name/expression
     func_expr = text_before_cursor[:func_end].rstrip()
     match = _Patterns.DOTTED_IDENTIFIER.search(func_expr)
     if not match:
-        return []
+        return [], True
 
     func_name = match.group(1)
 
     # Safely resolve the callable
     obj = _safe_resolve_expression(server.shell.user_ns, func_name)
     if obj is None or not callable(obj):
-        return []
+        return [], True
 
     # Parse arguments section to understand context
     args_text = text_before_cursor[func_end + 1 :]
 
     # Skip parameter completions if we're inside a string literal
     if _is_inside_string(args_text):
-        return []
+        return [], True
 
     # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
     # Pattern: look for "word=" at the end, possibly with a value started
     if _Patterns.KWARG_VALUE.search(args_text) and not args_text.rstrip().endswith(","):
         # Cursor is positioned after "=" where a value should go, don't suggest parameters
-        return []
+        return [], True
 
     # Find all keyword arguments already provided (param=value)
     already_provided = set()
@@ -727,7 +723,7 @@ def _get_parameter_completions(
         # Can't get signature for this callable
         pass
 
-    return items
+    return items, True
 
 
 def _get_namespace_completions(
@@ -1580,6 +1576,7 @@ def _handle_signature_help(
 
     # Get signature - handle builtins which may not have introspectable signatures
     sig_str = None
+    doc = None
     params_list = []
     try:
         sig = inspect.signature(obj)
@@ -1614,7 +1611,8 @@ def _handle_signature_help(
         if not sig_str:
             return None
 
-    doc = inspect.getdoc(obj)
+    if doc is None:
+        doc = inspect.getdoc(obj)
     signature_info = types.SignatureInformation(
         label=f"{func_name}{sig_str}",
         documentation=doc,
