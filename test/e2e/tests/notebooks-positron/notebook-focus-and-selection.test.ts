@@ -216,6 +216,48 @@ test.describe('Notebook Focus and Selection', {
 		await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: true, isActive: true });
 	});
 
+	test('Multi-select + Shift+Enter runs all selected code cells', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create notebook with 3 code cells containing executable Python
+		await notebooksPositron.newNotebook({ codeCells: 3 });
+		await notebooksPositron.kernel.select('Python');
+
+		// Put executable code in each cell
+		await notebooksPositron.selectCellAtIndex(0);
+		await keyboard.press('Enter');
+		await keyboard.type('1 + 1');
+
+		await notebooksPositron.selectCellAtIndex(1);
+		await keyboard.press('Enter');
+		await keyboard.type('2 + 2');
+
+		await notebooksPositron.selectCellAtIndex(2);
+		await keyboard.press('Enter');
+		await keyboard.type('3 + 3');
+
+		// Multi-select all 3 cells: select cell 0, then Shift+ArrowDown twice
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+		await keyboard.press('Shift+ArrowDown');
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellsToBeSelected([0, 1, 2]);
+
+		// Press Shift+Enter to run all selected cells
+		await keyboard.press('Shift+Enter');
+
+		// Verify all 3 cells got execution order badges
+		await notebooksPositron.expectExecutionOrder([
+			{ index: 0, order: 1 },
+			{ index: 1, order: 2 },
+			{ index: 2, order: 3 },
+		]);
+
+		// Verify multi-selection is preserved
+		await notebooksPositron.expectCellsToBeSelected([0, 1, 2]);
+		await notebooksPositron.expectNoActiveSpinners();
+	});
+
 	test('Multi-select and insert cell above/below becomes the active cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
