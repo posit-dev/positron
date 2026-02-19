@@ -258,15 +258,17 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	private async _runExtensionTasks() {
 		// TODO: it would be nice to run these tasks in parallel!
 
-		// Run git init first if needed.
+		// First, create the new empty file since this is a quick task.
+		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
+			await this._runCreateNewFile();
+		}
+
+		// Next, run git init if needed.
 		if (this.pendingInitTasks.has(NewFolderTask.Git)) {
 			await this._runGitInit();
 		}
 
-		// Run language-specific tasks (e.g. creating venvs) before opening
-		// any files. Opening a language file triggers implicit runtime
-		// auto-start via onDidRequestRichLanguageFeatures, so the
-		// environment must exist first.
+		// Next, run language-specific tasks which may take a bit more time.
 		if (this.pendingInitTasks.has(NewFolderTask.Python)) {
 			await this._runPythonTasks();
 		}
@@ -275,11 +277,6 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
 			await this._runRTasks();
-		}
-
-		// Create the new file last, after the environment is ready.
-		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
-			await this._runCreateNewFile();
 		}
 	}
 

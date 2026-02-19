@@ -78,7 +78,9 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 						`[RuntimeNotebookKernelService] Processing deferred kernel selection for ${kernelId}`
 					);
 					this._pendingKernelSelections.delete(notebookUri);
-					await kernel.ensureSessionStarted(notebookUri, 'Deferred kernel selection after runtime registration');
+					if (!this._runtimeSessionService.implicitStartupSuppressed) {
+						await kernel.ensureSessionStarted(notebookUri, 'Deferred kernel selection after runtime registration');
+					}
 				}
 			}
 		}));
