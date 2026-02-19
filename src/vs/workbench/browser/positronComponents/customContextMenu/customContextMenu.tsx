@@ -6,6 +6,9 @@
 // CSS.
 import './customContextMenu.css';
 
+// React.
+import React, { useRef } from 'react';
+
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
@@ -21,7 +24,45 @@ import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '
 /**
  * CustomContextMenuEntry type.
  */
-export type CustomContextMenuEntry = CustomContextMenuItem | CustomContextMenuSeparator;
+export type CustomContextMenuEntry = CustomContextMenuItem | CustomContextMenuSeparator | CustomContextMenuSubmenu;
+
+/**
+ * CustomContextMenuSubmenuOptions interface.
+ */
+export interface CustomContextMenuSubmenuOptions {
+	/**
+	 * Optional icon to display before the label.
+	 */
+	readonly icon?: string;
+
+	/**
+	 * The label text for the submenu item.
+	 */
+	readonly label: string;
+
+	/**
+	 * Whether the submenu item is disabled.
+	 */
+	readonly disabled?: boolean;
+
+	/**
+	 * Function that returns the entries to display in the submenu. Evaluated when the submenu
+	 * is opened to ensure properties like checked state are up to date in the submenu when it opens.
+	 */
+	readonly entries: () => CustomContextMenuEntry[];
+}
+
+/**
+ * CustomContextMenuSubmenu class.
+ */
+export class CustomContextMenuSubmenu {
+	/**
+	 * Constructor.
+	 * @param options A CustomContextMenuSubmenuOptions that contains the submenu options.
+	 */
+	constructor(readonly options: CustomContextMenuSubmenuOptions) {
+	}
+}
 
 /**
  * CustomContextMenuProps interface.
@@ -209,6 +250,93 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		);
 	};
 
+	/**
+	 * MenuSubmenuItem component.
+	 *
+	 * A component that renders a menu item that opens a submenu when hovered or clicked.
+	 * The submenu is another custom context menu that is positioned relative to the parent menu item.
+	 *
+	 * @param options A CustomContextMenuSubmenuOptions that contains the options.
+	 * @returns The rendered component.
+	 */
+	const MenuSubmenuItem = (options: CustomContextMenuSubmenuOptions) => {
+		// Reference to the submenu item that will be used to position the actual submenu popup.
+		const buttonRef = useRef<HTMLButtonElement>(null);
+
+		/**
+		 * Opens the submenu (another custom context menu) positioned relative to this menu item.
+		 */
+		const openSubmenu = () => {
+			if (options.disabled || !buttonRef.current) {
+				return;
+			}
+
+			// Get the anchor point to position the submenu to the top right of the parent menu item.
+			const rect = buttonRef.current.getBoundingClientRect();
+			const anchorPoint: AnchorPoint = {
+				clientX: rect.right,
+				clientY: rect.top
+			};
+
+			// Show the submenu by creating a new custom context menu instance.
+			// Use 'auto' positioning to let the popup system determine the best placement.
+			showCustomContextMenu({
+				anchorElement: buttonRef.current,
+				anchorPoint,
+				popupPosition: 'auto',
+				popupAlignment: 'auto',
+				// Evaluate the entries now to ensure things like the checked state is up to date when submenu opens.
+				entries: options.entries(),
+				onClose: () => {
+					// When submenu closes, focus returns to parent menu item.
+					buttonRef.current?.focus();
+				}
+			});
+		};
+
+		// Render.
+		return (
+			<Button
+				ref={buttonRef}
+				ariaHaspopup='menu'
+				className='custom-context-menu-item'
+				disabled={options.disabled}
+				onPressed={openSubmenu}
+			>
+				{options.icon &&
+					<div
+						aria-hidden='true'
+						className={positronClassNames(
+							'icon',
+							'codicon',
+							`codicon-${options.icon}`,
+							{ 'disabled': options.disabled }
+						)}
+					/>
+				}
+
+				<div
+					className={positronClassNames(
+						'title',
+						{ 'disabled': options.disabled }
+					)}
+				>
+					{options.label}
+				</div>
+
+				<div
+					aria-hidden='true'
+					className={positronClassNames(
+						'submenu-indicator',
+						'codicon',
+						'codicon-chevron-right',
+						{ 'disabled': options.disabled }
+					)}
+				/>
+			</Button>
+		);
+	};
+
 	// Render.
 	return (
 		<PositronModalPopup
@@ -228,6 +356,8 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 						return <MenuItem key={index} {...entry.options} />;
 					} else if (entry instanceof CustomContextMenuSeparator) {
 						return <MenuSeparator key={index} />;
+					} else if (entry instanceof CustomContextMenuSubmenu) {
+						return <MenuSubmenuItem key={index} {...entry.options} />;
 					} else {
 						// This indicates a bug.
 						return null;
