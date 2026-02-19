@@ -287,35 +287,10 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Register chat commands
 	registerAssistantCommands();
 
-	// Listen for configuration changes to enabledProviders
-	// This allows Snowflake and other providers to be enabled/disabled without reloading
-	// Listen for configuration changes that affect model registration
-	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(async (e) => {
-			// Individual provider enable settings (e.g., positron.assistant.provider.snowflakeCortex.enable)
-			if (e.affectsConfiguration('positron.assistant.provider')) {
-				log.info('[Assistant] Provider settings changed, re-registering models');
-				await registerModels(context);
-			}
-			// Snowflake provider variables changed (SNOWFLAKE_HOME, etc.)
-			if (e.affectsConfiguration('positron.assistant.providerVariables.snowflake')) {
-				log.info('[Assistant] Snowflake provider variables changed, re-registering models');
-				await registerModels(context);
-			}
-		})
-	);
-
-	// Listen for authentication session changes (for OAuth-based providers)
-	// Note: This does NOT fire for file-based credentials like Snowflake's connections.toml
-	context.subscriptions.push(
-		vscode.authentication.onDidChangeSessions(async () => {
-			log.info('[Assistant] Authentication sessions changed, re-registering models');
-			await registerModels(context);
-		})
 	// Register ghost cell model picker command
 	context.subscriptions.push(
-			vscode.commands.registerCommand('positron-assistant.selectGhostCellModel', selectGhostCellModel)
-		);
+		vscode.commands.registerCommand('positron-assistant.selectGhostCellModel', selectGhostCellModel)
+	);
 
 	// Listener for configuration changes so that models can be registered without a reload
 	// Note: Snowflake uses file-based credentials (connections.toml), handled via
