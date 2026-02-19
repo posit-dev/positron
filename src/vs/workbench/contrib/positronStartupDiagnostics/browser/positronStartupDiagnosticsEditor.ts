@@ -27,7 +27,6 @@ import { ICustomEditorLabelService } from '../../../services/editor/common/custo
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import * as perf from '../../../../base/common/performance.js';
 
 export class PositronStartupDiagnosticsContrib {
@@ -114,7 +113,6 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService
 	) { }
 
 	provideTextContent(resource: URI): Promise<ITextModel> {
@@ -142,8 +140,6 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.heading(1, 'Positron Runtime Startup Diagnostics');
 				md.blank();
 				this._addSystemInfo(md);
-				md.blank();
-				this._addWorkspaceInfo(md);
 				md.blank();
 				this._addActiveRuntimes(md);
 				md.blank();
@@ -178,40 +174,6 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			md.li(`Memory(System): ${(metrics.totalmem / (ByteSize.GB)).toFixed(2)} GB (${(metrics.freemem / (ByteSize.GB)).toFixed(2)}GB free)`);
 		}
 		md.li(`Initial Startup: ${metrics.initialStartup}`);
-	}
-
-	private _addWorkspaceInfo(md: MarkdownBuilder): void {
-		md.heading(2, 'Workspace Information');
-
-		const workbenchState = this._workspaceContextService.getWorkbenchState();
-		let workspaceType: string;
-		switch (workbenchState) {
-			case WorkbenchState.EMPTY:
-				workspaceType = 'Empty (no folder open)';
-				break;
-			case WorkbenchState.FOLDER:
-				workspaceType = 'Single Folder';
-				break;
-			case WorkbenchState.WORKSPACE:
-				workspaceType = 'Multi-Root Workspace';
-				break;
-			default:
-				workspaceType = 'Unknown';
-		}
-
-		md.li(`Workspace Type: ${workspaceType}`);
-
-		const workspace = this._workspaceContextService.getWorkspace();
-		if (workspace.folders.length > 0) {
-			if (workspace.folders.length === 1) {
-				md.li(`Workspace Path: ${workspace.folders[0].uri.fsPath}`);
-			} else {
-				md.li(`Workspace Folders:`);
-				for (const folder of workspace.folders) {
-					md.li(`  - ${folder.uri.fsPath}`);
-				}
-			}
-		}
 	}
 
 	private _addActiveRuntimes(md: MarkdownBuilder): void {
