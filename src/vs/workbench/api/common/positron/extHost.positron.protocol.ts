@@ -11,10 +11,10 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, RuntimeSessionMetadata, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
@@ -102,9 +102,9 @@ export interface ExtHostLanguageRuntimeShape {
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
 	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void;
 	$getPackages(handle: number): Promise<LanguageRuntimePackage[]>;
-	$installPackages(handle: number, packages: string[]): Promise<void>;
-	$uninstallPackages(handle: number, packages: string[]): Promise<void>;
-	$updatePackages(handle: number, packages: string[]): Promise<void>;
+	$installPackages(handle: number, packages: PackageSpec[]): Promise<void>;
+	$uninstallPackages(handle: number, packageNames: string[]): Promise<void>;
+	$updatePackages(handle: number, packages: PackageSpec[]): Promise<void>;
 	$updateAllPackages(handle: number): Promise<void>;
 	$searchPackages(handle: number, query: string): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string): Promise<string[]>;
@@ -172,9 +172,9 @@ export interface MainThreadAiFeaturesShape {
 	$getCurrentPlotUri(): Promise<string | undefined>;
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
 	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;
-	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void>;
-	$getSupportedProviders(): Thenable<string[]>;
+	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[], options?: IShowLanguageModelConfigOptions): Thenable<void>;
 	$getChatExport(): Thenable<object | undefined>;
+	$registerProviderMetadata(metadata: IPositronProviderMetadata): void;
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
@@ -182,6 +182,7 @@ export interface MainThreadAiFeaturesShape {
 	$getCurrentChatMode(): Thenable<string | undefined>;
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
+	$getEnabledProviders(): Thenable<string[]>;
 }
 
 export interface ExtHostAiFeaturesShape {

@@ -9,7 +9,7 @@ import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js'
 import { isEqual } from '../../../../base/common/resources.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
 import { PositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
@@ -165,7 +165,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		throw new Error('No active session found.');
 	}
 
-	async installPackages(packages: string[]): Promise<void> {
+	async installPackages(packages: IPackageSpec[]): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
 			return await instance.installPackages(packages);
@@ -174,16 +174,16 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		throw new Error('No active session found.');
 	}
 
-	async uninstallPackages(packages: string[]): Promise<void> {
+	async uninstallPackages(packageNames: string[]): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.uninstallPackages(packages);
+			return await instance.uninstallPackages(packageNames);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async updatePackages(packages: string[]): Promise<void> {
+	async updatePackages(packages: IPackageSpec[]): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
 			return await instance.updatePackages(packages);

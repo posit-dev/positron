@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -57,7 +57,7 @@ export interface DynamicActionBarAction {
 	/**
 	 * The component to be rendered for the action bar.
 	 */
-	component: JSX.Element | (() => JSX.Element);
+	component: React.JSX.Element | (() => React.JSX.Element);
 
 	/**
 	 * The overflow custom context menu item.
@@ -81,11 +81,11 @@ interface CommonPositronDynamicActionBarProps {
 type NestedPositronDynamicActionBarProps = | {
 	nestedActionBar?: true;
 	borderTop?: never;
-	borderBottom?: never
+	borderBottom?: never;
 } | {
 	nestedActionBar?: false | undefined;
 	borderTop?: boolean;
-	borderBottom?: boolean
+	borderBottom?: boolean;
 };
 
 /**
@@ -211,7 +211,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 	// If the exemplar is available, we can calculate widths and construct the grid.
 	const gridColumns: string[] = [];
-	const gridComponents: JSX.Element[] = [];
+	const gridComponents: React.JSX.Element[] = [];
 	if (refExemplar.current) {
 		// Get the exemplar window and style.
 		const exemplarWindow = DOM.getWindow(refExemplar.current);
@@ -239,7 +239,10 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		let overflowing = layoutWidth === 0;
 
 		// Grid entry interface.
-		interface GridEntry { width: number; action: DynamicActionBarAction; }
+		interface GridEntry {
+			width: number;
+			action: DynamicActionBarAction;
+		}
 
 		/**
 		 * Lays out the specified actions.
@@ -288,7 +291,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 				// Set the append separator flag for the next iteration.
 				appendSeparator = action.separator;
 			}
-		}
+		};
 
 		// Layout the right actions.
 		const rightGridEntries: GridEntry[] = [];
@@ -308,10 +311,10 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		 * @param gridEntries The grid entries.
 		 * @returns
 		 */
-		const layoutGridEntries = (gridEntries: GridEntry[]): [gridColumns: string[], gridElements: JSX.Element[]] => {
+		const layoutGridEntries = (gridEntries: GridEntry[]): [gridColumns: string[], gridElements: React.JSX.Element[]] => {
 			// Create the grid columns and grid elements.
 			const gridColumns: string[] = [];
-			const gridElements: JSX.Element[] = [];
+			const gridElements: React.JSX.Element[] = [];
 
 			// Layout the grid entries.
 			let appendSeparator = false;

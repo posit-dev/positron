@@ -10,11 +10,22 @@ import 'mocha';
 import { ChatContext, ChatRequest, ChatRequestTurn, ChatRequestTurn2, ChatResult, Disposable, env, Event, EventEmitter, chat, commands, lm, UIKind } from 'vscode';
 import { DeferredPromise, asPromise, assertNoRpc, closeAllEditors, delay, disposeAll } from '../utils';
 
+// --- Start Positron ---
+import * as positron from 'positron';
+// --- End Positron ---
+
 suite('chat', () => {
 
 	let disposables: Disposable[] = [];
 	setup(() => {
 		disposables = [];
+		// --- Start Positron ---
+		positron.ai.registerProviderMetadata({
+			id: 'test-lm-vendor',
+			displayName: 'Test LM Vendor',
+			settingName: 'testLmVendor'
+		});
+		// --- End Positron ---
 
 		// Register a dummy default model which is required for a participant request to go through
 		disposables.push(lm.registerLanguageModelChatProvider('test-lm-vendor', {

@@ -34,10 +34,10 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		cellModel: NotebookCellTextModel,
 		private instance: PositronNotebookInstance,
 		@INotebookExecutionStateService _executionStateService: INotebookExecutionStateService,
-		@ITextModelService _textModelResolverService: ITextModelService,
+		@ITextModelService _textModelService: ITextModelService,
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
 	) {
-		super(cellModel, instance, _executionStateService, _textModelResolverService);
+		super(cellModel, instance, _executionStateService, _textModelService);
 
 		// Initialize output collapse state from cell model if available
 		this._outputIsCollapsed = observableValue<boolean>(

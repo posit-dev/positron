@@ -40,6 +40,8 @@ pwb-version
 /blob-report/
 /playwright/.cache/
 /test-logs/
+test/e2e/tests/assistant-eval/_logs/
+test/e2e/tests/assistant-eval/_results/
 .venv
 .env.e2e*
 !.env.e2e*.example

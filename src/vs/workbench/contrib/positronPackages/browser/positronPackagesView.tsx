@@ -25,7 +25,6 @@ import { PositronViewPane } from '../../../browser/positronViewPane/positronView
 import { IViewDescriptorService } from '../../../common/views.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { PositronPackages } from './positronPackages.js';
-import * as React from 'react';
 
 export class PositronPackagesView
 	extends PositronViewPane

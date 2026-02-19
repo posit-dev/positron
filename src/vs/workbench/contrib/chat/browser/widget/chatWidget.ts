@@ -88,6 +88,7 @@ import { IAgentSessionsService } from '../agentSessions/agentSessionsService.js'
 // --- Start Positron ---
 import './media/positronChat.css';
 import { ILanguageModelsService } from '../../common/languageModels.js';
+import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -382,6 +383,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@ILanguageModelToolsService private readonly toolsService: ILanguageModelToolsService,
 		// --- Start Positron ---
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		@IPositronAssistantConfigurationService private readonly positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		// --- End Positron ---
 		@IChatModeService private readonly chatModeService: IChatModeService,
 		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService,
@@ -474,6 +476,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				this.onDidChangeItems();
 			}
 		}));
+
+		// --- Start Positron ---
+		// Refresh welcome message when current provider changes (e.g., after authentication or provider disabled)
+		// This handles the transition between "Set Up" and "Welcome" states
+		this._register(this.languageModelsService.onDidChangeCurrentProvider(() => {
+			this.renderWelcomeViewContentIfNeeded();
+		}));
+		// --- End Positron ---
 
 		this._register(autorun(r => {
 			const viewModel = viewModelObs.read(r);
@@ -662,10 +672,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		// --- Start Positron ---
 		// Don't show the input part if the assistant is disabled
 		if (!this.configurationService.getValue('positron.assistant.enable')) {
-			const input = this.container.querySelector('.interactive-input-part') as HTMLElement;
-			if (input) {
-				dom.hide(input);
-			}
+			dom.hide(this.inputPart.element);
 		}
 		// --- End Positron ---
 
@@ -977,10 +984,21 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
 			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistantSetting)`;
 		} else if (!this.languageModelsService.currentProvider) {
+			// No provider is configured/authenticated - show appropriate setup message
+			const hasEnabledProviders = this.positronAssistantConfigurationService.getEnabledProviders().length > 0;
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
-			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
-			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant, you must first select and authenticate with a language model provider.");
-			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
+
+			if (hasEnabledProviders) {
+				// Providers are enabled but user needs to sign in
+				const signInMessage = localize('positronAssistant.signInMessage', "Sign in to a provider");
+				welcomeText = localize('positronAssistant.signInSetupMessage', "To start using Positron Assistant, sign in to a provider.");
+				welcomeText += `\n\n[${signInMessage}](command:positron-assistant.configureProviders)`;
+			} else {
+				// No providers enabled - need to enable first
+				const enableProviderMessage = localize('positronAssistant.enableProviderMessage', "Enable a provider");
+				welcomeText = localize('positronAssistant.enableSetupMessage', "To start using Positron Assistant, enable a provider in Settings.");
+				welcomeText += `\n\n[${enableProviderMessage}](command:workbench.action.openSettings?%22positron.assistant.provider%20enable%22)`;
+			}
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
 			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './actionBar.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -456,7 +456,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 		separator: true,
 		component: <ConsoleInstanceInfoButton />,
-	})
+	});
 
 
 	// Toggle trace action.
@@ -479,7 +479,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				label: positronToggleTrace,
 				onSelected: toggleTraceHandler
 			}
-		})
+		});
 	}
 
 	// Toggle word wrap action.
@@ -501,7 +501,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			label: positronToggleWordWrap,
 			onSelected: toggleWordWrapHandler
 		}
-	})
+	});
 
 	// Open in editor action.
 	rightActions.push({

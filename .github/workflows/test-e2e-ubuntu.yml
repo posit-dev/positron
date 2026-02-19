@@ -28,16 +28,6 @@ on:
         description: "The name of the job as it will appear in the GitHub Actions UI."
         default: "e2e-linux"
         type: string
-      currents_tags:
-        required: false
-        description: "The tags to use for Currents recording."
-        default: "@ubuntu"
-        type: string
-      report_currents:
-        required: false
-        description: "Whether or not to report results to Currents."
-        type: boolean
-        default: true
       install_undetectable_interpreters:
         required: false
         description: "Whether or not to install undetectable interpreters."
@@ -265,13 +255,8 @@ jobs:
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
           POSITRON_HIDDEN_R: 4.4.1
-          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
-          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
-          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
           PW_JSON_FILE: test-results/ubuntu.json

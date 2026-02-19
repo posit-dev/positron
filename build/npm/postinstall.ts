@@ -7,9 +7,11 @@ import * as fs from 'fs';
 import path from 'path';
 import * as os from 'os';
 import * as child_process from 'child_process';
+import { createRequire } from 'module';
 import { dirs } from './dirs.ts';
-import gulp from 'gulp';
-import mergeJson from 'gulp-merge-json';
+// --- Start Positron ---
+import { buildESMPackageDependencies } from './build-esm-package-dependencies.ts';
+// --- End Positron ---
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const root = path.dirname(path.dirname(import.meta.dirname));
@@ -188,8 +190,8 @@ for (const dir of dirs) {
 // --- Start Positron ---
 /**
  * Async version of npmInstall for parallel execution
- * @param {string} dir
- * @param {*} [opts]
+ * @param dir
+ * @param [opts]
  */
 function npmInstallAsync(dir: string, opts?: any) {
 	return new Promise<void>((resolve, reject) => {
@@ -233,10 +235,10 @@ function npmInstallAsync(dir: string, opts?: any) {
 
 /**
  * Run npm installs in parallel with concurrency limit
- * @param {Array<{dir: string, opts: any}>} tasks
- * @param {number} concurrency
+ * @param tasks
+ * @param concurrency
  */
-async function runBatch(tasks: Array<{ dir: string, opts: any }>, concurrency: number) {
+async function runBatch(tasks: Array<{ dir: string; opts: any }>, concurrency: number) {
 	const results: Promise<string>[] = [];
 	const executing: Promise<void>[] = [];
 
@@ -262,9 +264,13 @@ async function runBatch(tasks: Array<{ dir: string, opts: any }>, concurrency: n
  * is run in the `remote/reh-web` directory.
  */
 function generateRehWebPackageJson() {
-	// Note: this is a local require because this dependency is only available once the `build`
-	// directory has `npm install` executed in it (see for loop below -- `npm install` will be
-	// executed for `build` a while before `remote/reh-web` due to the array order of `dirs`).
+	// Note: these are dynamic imports because these dependencies are only available once the
+	// `build` directory has `npm install` executed in it (see for loop below -- `npm install`
+	// will be executed for `build` a while before `remote/reh-web` due to the array order of
+	// `dirs`).
+	const require = createRequire(import.meta.url);
+	const gulp = require('gulp');
+	const mergeJson = require('gulp-merge-json');
 
 	const remoteDir = path.join(import.meta.dirname, '..', '..', 'remote');
 	const packageJsonDirPath = path.join(remoteDir, 'reh-web');
@@ -340,8 +346,8 @@ if (true) {
 		const parentTasks = [];
 		const nestedTasks = [];
 
-		for (let dir of dirs) {
-			if (dir === '') continue;
+		for (const dir of dirs) {
+			if (dir === '') { continue; }
 
 			let opts;
 			if (dir === 'build') {
@@ -400,12 +406,17 @@ if (true) {
 
 			child_process.execSync('git config pull.rebase merges');
 			child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+
+			// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
+			console.log('Building ESM package dependencies...');
+			buildESMPackageDependencies('.build/esm-package-dependencies');
+			console.log('ESM package dependencies built successfully.');
 		})().catch((err) => {
 			console.error('Parallel installation failed:', err);
 			process.exit(1);
 		});
 	} else {
-		for (let dir of dirs) {
+		for (const dir of dirs) {
 
 			if (dir === '') {
 				// already executed in root
@@ -419,7 +430,7 @@ if (true) {
 					env: {
 						...process.env
 					},
-				}
+				};
 				if (process.env!['CC']) { opts.env!['CC'] = 'gcc'; }
 				if (process.env!['CXX']) { opts.env!['CXX'] = 'g++'; }
 				if (process.env!['CXXFLAGS']) { opts.env!['CXXFLAGS'] = ''; }
@@ -438,7 +449,7 @@ if (true) {
 					env: {
 						...process.env
 					},
-				}
+				};
 				if (process.env!['VSCODE_REMOTE_CC']) {
 					opts.env!['CC'] = process.env!['VSCODE_REMOTE_CC'];
 				} else {
@@ -484,6 +495,11 @@ if (true) {
 
 			npmInstall(dir, opts);
 		}
+
+		// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
+		console.log('Building ESM package dependencies...');
+		buildESMPackageDependencies('.build/esm-package-dependencies');
+		console.log('ESM package dependencies built successfully.');
 	}
 }
 

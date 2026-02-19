@@ -6,6 +6,7 @@
 // Notebook editor extensions
 import './contrib/find/positronNotebookFind.contribution.js';
 import './contrib/assistant/positronNotebookAssistant.contribution.js';
+import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
@@ -41,7 +42,7 @@ import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
-import { getActiveCell, SelectionState } from './selectionMachine.js';
+import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
@@ -52,6 +53,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
@@ -320,6 +322,9 @@ registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebook
 
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
+
+// Register the prompt that invites users to try the new notebook editor
+registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNotebookPromptContribution, WorkbenchPhase.AfterRestored);
 
 
 
@@ -1038,8 +1043,20 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const state = notebook.selectionStateMachine.state.get();
+
+		// When multiple cells are selected, run all selected code cells
+		// and keep the multi-selection intact.
+		if (state.type === SelectionState.MultiSelection) {
+			const codeCells = getSelectedCells(state)
+				.filter(cell => cell.isCodeCell())
+				.sort((a, b) => a.index - b.index);
+			if (codeCells.length > 0) {
+				await notebook.runCells(codeCells);
+			}
+			return;
+		}
 
 		// Get the active cell
 		const cell = getActiveCell(state);

@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as yaml from 'yaml';
 import { MARKDOWN_DIR } from './constants';
-import { log } from './extension.js';
+import { log } from './log.js';
 import { SerializedNotebookContext } from './tools/notebookUtils.js';
 import * as xml from './xml.js';
 

@@ -8,13 +8,15 @@ import * as positron from 'positron';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAnthropic, AnthropicProvider } from '@ai-sdk/anthropic';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
 import {
 	DEFAULT_ANTHROPIC_MODEL_NAME,
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
 	fetchAnthropicModelsFromApi,
-	getAnthropicModelsFromConfig
+	getAnthropicModelsFromConfig,
+	handleVercelSdkRateLimitError
 } from './anthropicModelUtils.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Anthropic Claude model provider implementation.
@@ -65,13 +67,7 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	 */
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
-			// use 'anthropic-api' instead to make it possible to differentiate
-			// the two.
-			id: 'anthropic-api',
-			displayName: 'Anthropic'
-		},
+		provider: PROVIDER_METADATA.anthropic,
 		supportedOptions: ['apiKey', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
@@ -150,5 +146,20 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 			token,
 			{ toolResultExperimentalContent, anthropicCacheBreakpoint: true }
 		);
+	}
+
+	/**
+	 * Handles Anthropic-specific errors during stream processing.
+	 *
+	 * Checks for rate limit errors (429) and extracts the retry-after header
+	 * to provide a more helpful error message to the user.
+	 *
+	 * @param error - The error that occurred during streaming
+	 * @throws A transformed error with retry information if rate limited
+	 */
+	protected override handleStreamError(error: unknown): never {
+		// Check for rate limit error with retry-after header
+		handleVercelSdkRateLimitError(error, this.providerName);
+		throw error;
 	}
 }

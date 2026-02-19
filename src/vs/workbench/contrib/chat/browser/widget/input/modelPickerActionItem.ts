@@ -31,6 +31,9 @@ import { getProviderIcon } from './providerIcons.js';
 
 export interface IModelPickerDelegate {
 	readonly onDidChangeModel: Event<ILanguageModelChatMetadataAndIdentifier>;
+	// --- Start Positron ---
+	readonly onDidChangeModelList: Event<void>;
+	// --- End Positron ---
 	getCurrentModel(): ILanguageModelChatMetadataAndIdentifier | undefined;
 	setModel(model: ILanguageModelChatMetadataAndIdentifier): void;
 	getModels(): ILanguageModelChatMetadataAndIdentifier[];
@@ -103,9 +106,17 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 			// Sort vendors for consistent ordering
 			const sortedVendors = Array.from(modelsByVendor.entries())
 				.sort((a, b) => {
+					// --- Start Positron ---
+					// Prioritize Posit AI, then alphabetically
+					if (a[0] === 'posit-ai') { return -1; }
+					if (b[0] === 'posit-ai') { return 1; }
+					// Don't show Copilot at the top anymore
+					/*
 					// Prioritize Copilot, then alphabetically
 					if (a[0] === 'copilot') { return -1; }
 					if (b[0] === 'copilot') { return 1; }
+					*/
+					// --- End Positron ---
 					return a[0].localeCompare(b[0]);
 				});
 
@@ -233,7 +244,7 @@ function getModelPickerActionBarActionProvider(commandService: ICommandService, 
 				tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
 				class: undefined,
 				run: () => {
-					const commandId = 'positron-assistant.configureModels';
+					const commandId = 'positron-assistant.configureProviders';
 					commandService.executeCommand(commandId);
 				}
 			});
@@ -285,6 +296,18 @@ export class ModelPickerActionItem extends ActionWidgetDropdownActionViewItem {
 				this.renderLabel(this.element);
 			}
 		}));
+
+		// --- Start Positron ---
+		// Listen for model list changes (e.g., when provider settings change)
+		this._register(delegate.onDidChangeModelList(() => {
+			// Update the label in case the current model changed
+			if (this.element) {
+				this.renderLabel(this.element);
+			}
+			// Note: The dropdown will automatically get fresh models from getModels()
+			// when it's opened, so no need to force refresh here
+		}));
+		// --- End Positron ---
 	}
 
 	protected override getHoverContents(): IManagedHoverContent | undefined {

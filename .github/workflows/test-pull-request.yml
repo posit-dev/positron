@@ -28,6 +28,7 @@ jobs:
       debian_electron_tag_found: ${{ steps.pr-tags.outputs.debian_electron_tag_found }}
       debian_web_tag_found: ${{ steps.pr-tags.outputs.debian_web_tag_found }}
       pyrefly_tag_found: ${{ steps.pr-tags.outputs.pyrefly_tag_found }}
+      workbench_tag_found: ${{ steps.pr-tags.outputs.workbench_tag_found }}
 
     steps:
       - uses: actions/checkout@v6
@@ -46,8 +47,6 @@ jobs:
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron"
-      currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
@@ -64,8 +63,6 @@ jobs:
       save_cache: true
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "windows"
-      currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
@@ -79,8 +76,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium"
       project: "e2e-chromium"
-      currents_tags: "pull-request,chromium/ubuntu,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
@@ -95,8 +90,6 @@ jobs:
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (RHEL)"
-      currents_tags: "pull-request,electron/rhel,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
@@ -112,8 +105,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (RHEL)"
       project: "e2e-chromium"
-      currents_tags: "pull-request,chromium/rhel,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
@@ -128,8 +119,6 @@ jobs:
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (SUSE)"
-      currents_tags: "pull-request,electron/suse,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
@@ -145,8 +134,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (SUSE)"
       project: "e2e-chromium"
-      currents_tags: "pull-request,chromium/suse,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
@@ -161,8 +148,6 @@ jobs:
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (SLES)"
-      currents_tags: "pull-request,electron/sles,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
@@ -178,8 +163,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (SLES)"
       project: "e2e-chromium"
-      currents_tags: "pull-request,chromium/sles,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
@@ -194,8 +177,6 @@ jobs:
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (Debian)"
-      currents_tags: "pull-request,electron/debian,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
@@ -211,8 +192,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (Debian)"
       project: "e2e-chromium"
-      currents_tags: "pull-request,chromium/debian,${{ needs.pr-tags.outputs.tags }}"
-      report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
@@ -224,6 +203,26 @@ jobs:
     if: ${{ needs.pr-tags.outputs.pyrefly_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-pyrefly.yml
+    secrets: inherit
+
+  build-workbench:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' }}
+    name: build
+    uses: ./.github/workflows/build-workbench-linux.yml
+    secrets: inherit
+
+  e2e-workbench:
+    needs: [pr-tags, build-workbench]
+    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "workbench"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   unit-tests:

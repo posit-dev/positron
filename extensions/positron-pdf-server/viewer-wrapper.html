@@ -1,0 +1,33 @@
+<!--
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+-->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<script>
+		// Read theme from URL parameter and set preferences before redirecting.
+		const params = new URLSearchParams(window.location.search);
+		const theme = params.get('theme') || '0';
+		const file = params.get('file');
+		try {
+			const prefs = JSON.parse(localStorage.getItem('pdfjs.preferences') || '{}');
+			prefs.viewerCssTheme = parseInt(theme, 10);
+			// There seems to be an oddity where the sidebar will open by default if the PDF has an outline. Force it to be hidden on load.
+			prefs.sidebarViewOnLoad = 0; // 0 = hidden, 1 = thumbnails, 2 = outline
+			localStorage.setItem('pdfjs.preferences', JSON.stringify(prefs));
+		} catch (e) {
+			console.error('Could not set PDF.js preferences:', e);
+		}
+
+		// Redirect to the actual viewer.
+		const viewerUrl = `pdfjs/web/viewer.html?file=${encodeURIComponent(file)}`;
+		window.location.replace(viewerUrl);
+	</script>
+</head>
+<body>
+</body>
+</html>
