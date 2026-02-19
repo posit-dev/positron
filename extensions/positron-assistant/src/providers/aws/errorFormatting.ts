@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { ErrorContext } from '../base/errorContext';
 import { AwsSdkCredentialsFeatures } from '@aws-sdk/types';
+import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb.js';
 
 export { ErrorContext };
 
@@ -48,10 +49,12 @@ function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures): strin
 		return 'SSO profile';
 	} else if (source.CREDENTIALS_PROFILE) {
 		return 'shared credentials file';
-	} else if (source.CREDENTIALS_PROFILE_STS_WEB_ID_TOKEN) {
+	} else if (source.CREDENTIALS_PROFILE_STS_WEB_ID_TOKEN || source.CREDENTIALS_ENV_VARS_STS_WEB_ID_TOKEN) {
+		// Managed credentials can come from either profile or environment variable sources, so we check the value to determine if it's a managed credential type
+		if (autoconfigureWithManagedCredentials(AWS_MANAGED_CREDENTIALS, 'bedrock', 'Amazon Bedrock')) {
+			return 'managed credentials';
+		}
 		return 'web identity token';
-	} else if (source.CREDENTIALS_ENV_VARS_STS_WEB_ID_TOKEN) {
-		return 'web identity token (env)';
 	}
 
 	return undefined;
