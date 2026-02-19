@@ -176,12 +176,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
-			perf.mark(`code/positron/runtimeSessionWillStart/${e.session.sessionId}`);
 			this._register(e.session.onDidEncounterStartupFailure(_exit => {
 				// Update the set of workspace sessions, removing the one that
 				// failed to start.
 				this.saveWorkspaceSessions(e.session.metadata.sessionId);
 			}));
+			perf.mark(`code/positron/runtimeSessionWillStart/${e.session.sessionId}`);
 		}));
 
 		this._register(this._runtimeSessionService.onDidFailStartRuntime(e => {
