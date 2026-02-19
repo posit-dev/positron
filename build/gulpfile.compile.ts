@@ -30,9 +30,19 @@ function makeCompileBuildTask(disableMangle: boolean) {
 }
 
 // Local/PR compile, including nls and inline sources in sourcemaps, minification, no mangling
-export const compileBuildWithoutManglingTask = task.define('compile-build-without-mangling', task.series(compilation.copyCodiconsTask, makeCompileBuildTask(true)));
+// --- Start Positron ---
+// Remove copy codicons since we maintain a custom codicon.ttf in the repo that includes
+// Positron-specific icons. Copying from the npm package would overwrite these with the
+// standard font that lacks Positron icons.
+export const compileBuildWithoutManglingTask = task.define('compile-build-without-mangling', makeCompileBuildTask(true));
+// --- End Positron ---
 gulp.task(compileBuildWithoutManglingTask);
 
 // CI compile, including nls and inline sources in sourcemaps, mangling, minification, for build
-export const compileBuildWithManglingTask = task.define('compile-build-with-mangling', task.series(compilation.copyCodiconsTask, makeCompileBuildTask(false)));
+// --- Start Positron ---
+// Remove copy codicons since we maintain a custom codicon.ttf in the repo that includes
+// Positron-specific icons. Copying from the npm package would overwrite these with the
+// standard font that lacks Positron icons.
+export const compileBuildWithManglingTask = task.define('compile-build-with-mangling', makeCompileBuildTask(false));
+// --- End Positron ---
 gulp.task(compileBuildWithManglingTask);
