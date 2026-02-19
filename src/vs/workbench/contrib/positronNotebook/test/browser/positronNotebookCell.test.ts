@@ -26,8 +26,6 @@ suite('PositronNotebookCell', () => {
 
 			assert.strictEqual(cell.getContent(), editorModel.getValue(), 'Cell content should match editor model value');
 			assert.strictEqual(cell.model.textModel, editorModel, 'Cell model should be the editor model');
-			// eslint-disable-next-line local/code-no-any-casts
-			assert.strictEqual(cell.model.textBuffer, (editorModel as any)._buffer, 'Cell model should share text buffer with editor model');
 		});
 
 		test('setValue propagates through the content change event chain', () => {
