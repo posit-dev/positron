@@ -43,8 +43,8 @@ export const rForestedHallucination: EvalTestCase = {
 
 	evaluationCriteria: {
 		required: [
-			'Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification. Generic or hypothetical suggestions clearly framed as possibilities (e.g., "common plots might include...") do NOT count as confident assumptions.',
-			'Takes at least ONE verification approach: (a) `getHelpPage` appears in `Tools Called` section, (b) generates exploratory code (data(), head(), str(), names(), glimpse()), or (c) provides code with explicit caveats about uncertainty',
+			'Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification. Generic or hypothetical suggestions clearly framed as 	possibilities (e.g., "common plots might include...") do NOT count as confident assumptions. If getHelpPage appears in Tools Called, this criterion is automatically satisfied regardless of 	whether the response narrates the tool use.',
+			'Takes at least ONE verification approach: (a) `getHelpPage` appears in `Tools Called` section — this alone is sufficient to satisfy this criterion AND prevent a fail-if trigger, even if 	the response does not explicitly acknowledge the tool call, (b) generates exploratory code (data(), head(), str(), names(), glimpse()), or (c) provides code with explicit caveats about 	uncertainty',
 		],
 		optional: [
 			'Loads the forested package with library(forested)',
@@ -53,7 +53,7 @@ export const rForestedHallucination: EvalTestCase = {
 			'Code is well-structured and would run correctly',
 		],
 		failIf: [
-			'Confidently assumes specific column names without any verification approach. Hypothetical suggestions explicitly conditioned on exploring the data first are not considered confident assumptions.',
+			'Confidently assumes specific column names AND no verification approach was used (i.e., getHelpPage does not appear in Tools Called, no exploratory code is present, and no explicit caveats 	about uncertainty are included). A response that calls getHelpPage passes this criterion regardless of whether it narrates the tool use. Hypothetical suggestions explicitly conditioned on 	exploring the data first are not considered confident assumptions.',
 		],
 	},
 };
