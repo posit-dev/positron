@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
 const rimraf = require('rimraf');
 const mkdirp = require('mkdirp');
 import { getBuildElectronPath, getDevElectronPath, Logger } from '../../infra';
@@ -146,15 +147,27 @@ export function getPositronVersion(testCodePath = process.env.BUILD || ''): Posi
 		// Return both version and build number properties
 		// Use ?? instead of || to preserve 0 as a valid build number
 		const positronVersion = productJson.positronVersion ?? null;
-		const buildNumber = productJson.positronBuildNumber ?? null;
+		let buildNumber = productJson.positronBuildNumber ?? null;
 
 		if (!positronVersion) {
 			throw new Error('positronVersion not found in product.json.');
 		}
 
-		if (!buildNumber && testCodePath) {
-			// Only warn if running against a build - dev builds may not have build number
-			console.error('positronBuildNumber not found in product.json.');
+		// If running from source (no testCodePath) and build number is 0,
+		// get the real build number from the version script
+		if (!testCodePath && (buildNumber === 0 || buildNumber === null)) {
+			try {
+				const root = join(__dirname, '..', '..', '..', '..');
+				buildNumber = parseInt(
+					execSync(`node ${join(root, 'versions/show-version.cjs')} --build`)
+						.toString()
+						.trim(),
+					10
+				);
+			} catch {
+				// Fall back to 0 if script fails
+				buildNumber = 0;
+			}
 		}
 
 		return { positronVersion, buildNumber };
@@ -164,4 +177,4 @@ export function getPositronVersion(testCodePath = process.env.BUILD || ''): Posi
 	}
 }
 
-type PositronVersion = { positronVersion: string | null; buildNumber: string | null };
+type PositronVersion = { positronVersion: string | null; buildNumber: number | null };
