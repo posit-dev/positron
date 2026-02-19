@@ -1363,6 +1363,7 @@ registerAction2(class extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellContext,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 40,
+				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,

@@ -1456,9 +1456,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const splitCells = segments.map((source, i) => ({
 			cellKind: cell.kind,
 			language: cellModel.language,
-			mime: undefined,
+			mime: cellModel.mime,
 			outputs: i === 0 ? cellModel.outputs : [],
 			metadata: i === 0 ? cellModel.metadata : undefined,
+			internalMetadata: i === 0 ? cellModel.internalMetadata : undefined,
+			collapseState: i === 0 ? cellModel.collapseState : undefined,
 			source
 		}));
 
@@ -1549,9 +1551,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			cells: [{
 				cellKind: firstKind,
 				language: firstCellModel.language,
-				mime: undefined,
+				mime: firstCellModel.mime,
 				outputs: firstCellModel.outputs,
 				metadata: firstCellModel.metadata,
+				internalMetadata: firstCellModel.internalMetadata,
+				collapseState: firstCellModel.collapseState,
 				source: mergedContent
 			}]
 		});
@@ -1634,9 +1638,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				cells: [{
 					cellKind: aboveCell.kind,
 					language: aboveCellModel.language,
-					mime: undefined,
+					mime: aboveCellModel.mime,
 					outputs: aboveCellModel.outputs,
 					metadata: aboveCellModel.metadata,
+					internalMetadata: aboveCellModel.internalMetadata,
+					collapseState: aboveCellModel.collapseState,
 					source: mergedContent
 				}]
 			}
@@ -1718,9 +1724,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				cells: [{
 					cellKind: activeCell.kind,
 					language: activeCellModel.language,
-					mime: undefined,
+					mime: activeCellModel.mime,
 					outputs: activeCellModel.outputs,
 					metadata: activeCellModel.metadata,
+					internalMetadata: activeCellModel.internalMetadata,
+					collapseState: activeCellModel.collapseState,
 					source: mergedContent
 				}]
 			}
