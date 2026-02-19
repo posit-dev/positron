@@ -46,7 +46,7 @@ export interface OverflowContextMenuSubmenu extends CustomContextMenuSubmenuOpti
  */
 export interface DynamicActionBarAction {
 	/**
-	 * The fixed width of the action.
+	 * he fixed width of the action from any icons and padding (but not including text labels).
 	 */
 	fixedWidth: number;
 
@@ -67,7 +67,8 @@ export interface DynamicActionBarAction {
 	component: React.JSX.Element | (() => React.JSX.Element);
 
 	/**
-	 * The overflow custom context menu item.
+	 * The overflow custom context menu item. Use this for simple actions that
+	 * should appear as a single menu item in the overflow menu.
 	 */
 	overflowContextMenuItem?: OverflowContextMenuItem;
 
@@ -247,7 +248,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		 */
 		const measureTextWidth = (text: string) => Math.ceil(canvasRenderingContext2D.measureText(text).width);
 
-		// Setup layout conditions.
+		// Calculate the layout width available. We subtract DEFAULT_ACTION_BAR_BUTTON_WIDTH to account for the overflow menu button.
 		let layoutWidth = Math.max(width - (props.paddingLeft ?? 0) - (props.paddingRight ?? 0), 0) - DEFAULT_ACTION_BAR_BUTTON_WIDTH;
 		let overflowing = layoutWidth === 0;
 
