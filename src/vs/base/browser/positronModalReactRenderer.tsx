@@ -143,7 +143,9 @@ export class PositronModalReactRenderer extends Disposable {
 		super.dispose();
 
 		// Return focus to the last focused element.
-		this._lastFocusedElement?.focus();
+		// Use preventScroll to avoid unwanted scrolling when focus is restored
+		// (e.g., inline data explorer in notebooks scrolling the notebook container).
+		this._lastFocusedElement?.focus({ preventScroll: true });
 
 		// If this renderer was rendered, dispose it.
 		if (this._overlay && this._root) {

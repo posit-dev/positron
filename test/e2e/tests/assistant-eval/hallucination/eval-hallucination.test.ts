@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test } from '../../_test.setup';
-import { evalTests, tags } from '../_helpers/test-template';
+import { evalTests, tags } from '../_helpers/eval-runner';
 import { rForestedHallucination } from './r-forested-hallucination';
 import { pythonNoExecutionHallucination } from './python-no-execution-hallucination';
 
@@ -14,5 +14,5 @@ test.describe('Assistant Eval: Hallucination', { tag: [tags.ASSISTANT_EVAL] }, (
 	evalTests(test, [
 		rForestedHallucination,
 		pythonNoExecutionHallucination,
-	]);
+	], { category: 'hallucination' });
 });

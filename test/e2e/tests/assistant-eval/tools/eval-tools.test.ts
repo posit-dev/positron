@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test } from '../../_test.setup';
-import { tags, evalTests } from '../_helpers/test-template';
+import { evalTests, tags } from '../_helpers/eval-runner';
 import { pythonEditFile } from './python-edit-file';
 import { pythonTableSummary } from './python-table-summary';
 
@@ -14,5 +14,5 @@ test.describe('Assistant Eval: Tools', { tag: [tags.ASSISTANT_EVAL] }, () => {
 	evalTests(test, [
 		pythonEditFile,
 		pythonTableSummary,
-	]);
+	], { category: 'tools' });
 });
