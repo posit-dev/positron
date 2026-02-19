@@ -680,8 +680,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	/**
 	 * Install the list of packages.
+	 * @param packages Array of package install requests with name and optional version
 	 */
-	async installPackages(packages: string[]): Promise<void> {
+	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
 		if (!this._packageManager) {
 			throw new Error('Package manager not initialized');
 		}
@@ -689,9 +690,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
-	 * Update the list of packages. Package names can optionally include version if split using an '@'.
+	 * Update the list of packages.
+	 * @param packages Array of package install requests with name and optional version
 	 */
-	async updatePackages(packages: string[]): Promise<void> {
+	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
 		if (!this._packageManager) {
 			throw new Error('Package manager not initialized');
 		}
@@ -711,11 +713,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/**
 	 * Uninstall the list of packages.
 	 */
-	async uninstallPackages(packages: string[]): Promise<void> {
+	async uninstallPackages(packageNames: string[]): Promise<void> {
 		if (!this._packageManager) {
 			throw new Error('Package manager not initialized');
 		}
-		await this._packageManager.uninstallPackages(packages);
+		await this._packageManager.uninstallPackages(packageNames);
 	}
 
 	/**

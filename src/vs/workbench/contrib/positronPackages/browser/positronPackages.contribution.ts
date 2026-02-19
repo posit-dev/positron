@@ -128,7 +128,7 @@ class InstallPackageAction extends Action2 {
 					delay: 500
 				}, async (_progress) => {
 					try {
-						await service.installPackages([`${pkg}@${version}`]);
+						await service.installPackages([{ name: pkg, version }]);
 					} catch (e) {
 						notifications.notify({
 							severity: Severity.Error,
@@ -268,7 +268,7 @@ class UpdatePackageAction extends Action2 {
 					delay: 500
 				}, async (_progress) => {
 					try {
-						await service.updatePackages([`${pkg}@${version}`]);
+						await service.updatePackages([{ name: pkg, version }]);
 					} catch (e) {
 						notifications.notify({
 							severity: Severity.Error,
