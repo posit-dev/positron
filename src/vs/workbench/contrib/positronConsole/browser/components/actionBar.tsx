@@ -456,7 +456,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 		separator: true,
 		component: <ConsoleInstanceInfoButton />,
-	})
+	});
 
 
 	// Toggle trace action.
@@ -479,7 +479,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				label: positronToggleTrace,
 				onSelected: toggleTraceHandler
 			}
-		})
+		});
 	}
 
 	// Toggle word wrap action.
@@ -501,7 +501,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			label: positronToggleWordWrap,
 			onSelected: toggleWordWrapHandler
 		}
-	})
+	});
 
 	// Open in editor action.
 	rightActions.push({
