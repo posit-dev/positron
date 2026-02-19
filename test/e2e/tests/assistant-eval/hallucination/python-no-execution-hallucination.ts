@@ -79,6 +79,7 @@ species = pl.DataFrame({
 			await assistant.waitForResponseComplete();
 		} catch (error) {
 			// Keep button didn't appear or wasn't clickable - that's OK
+			await assistant.expectResponseComplete();
 		}
 
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
