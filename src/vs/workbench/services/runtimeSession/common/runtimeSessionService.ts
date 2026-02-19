@@ -619,6 +619,14 @@ export interface IRuntimeSessionService {
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
 	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
+
+	/**
+	 * When true, suppresses implicit runtime auto-start triggered by
+	 * opening files with a matching language ID. Used during new folder
+	 * initialization to prevent starting the wrong runtime before the
+	 * intended environment is ready.
+	 */
+	implicitStartupSuppressed: boolean;
 }
 
 export { RuntimeClientType };

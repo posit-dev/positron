@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -86,6 +86,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			this.onDidChangeNewFolderStartupPhase((phase) => {
 				switch (phase) {
 					case NewFolderStartupPhase.RuntimeStartup:
+						this._runtimeSessionService.implicitStartupSuppressed = false;
 						this.initTasksComplete.open();
 						break;
 					case NewFolderStartupPhase.PostInitialization:
@@ -94,6 +95,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					case NewFolderStartupPhase.Complete:
 						// Open both the init and post-init task barriers because some new folders
 						// do not have a runtime startup phase (e.g. Empty Project).
+						this._runtimeSessionService.implicitStartupSuppressed = false;
 						this.initTasksComplete.open();
 						this.postInitTasksComplete.open();
 						break;
@@ -116,6 +118,10 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			// If new folder configuration is found, save the runtime metadata.
 			// This metadata will be overwritten if a new environment is created.
 			this._runtimeMetadata = this._newFolderConfig?.runtimeMetadata;
+
+			// Suppress implicit auto-start to prevent starting the wrong
+			// runtime before the new folder's environment is ready.
+			this._runtimeSessionService.implicitStartupSuppressed = true;
 		}
 
 		// Initialize the pending tasks observable.
@@ -212,7 +218,19 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			undefined
 		);
 		if (this._newFolderConfig) {
-			await this._runExtensionTasks();
+			try {
+				await this._runExtensionTasks();
+			} catch (error) {
+				this._logService.error(
+					'[New folder startup] Error running extension tasks:',
+					error
+				);
+				this._startupPhase.set(
+					NewFolderStartupPhase.Complete,
+					undefined
+				);
+				return;
+			}
 
 			// For folders that do not require a runtime startup phase, we set the startup phase to Complete.
 			if (this._newFolderConfig.folderTemplate === FolderTemplate.EmptyProject ||
@@ -240,17 +258,15 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	private async _runExtensionTasks() {
 		// TODO: it would be nice to run these tasks in parallel!
 
-		// First, create the new empty file since this is a quick task.
-		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
-			await this._runCreateNewFile();
-		}
-
-		// Next, run git init if needed.
+		// Run git init first if needed.
 		if (this.pendingInitTasks.has(NewFolderTask.Git)) {
 			await this._runGitInit();
 		}
 
-		// Next, run language-specific tasks which may take a bit more time.
+		// Run language-specific tasks (e.g. creating venvs) before opening
+		// any files. Opening a language file triggers implicit runtime
+		// auto-start via onDidRequestRichLanguageFeatures, so the
+		// environment must exist first.
 		if (this.pendingInitTasks.has(NewFolderTask.Python)) {
 			await this._runPythonTasks();
 		}
@@ -259,6 +275,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
 			await this._runRTasks();
+		}
+
+		// Create the new file last, after the environment is ready.
+		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
+			await this._runCreateNewFile();
 		}
 	}
 
