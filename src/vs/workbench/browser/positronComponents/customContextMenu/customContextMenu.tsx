@@ -114,7 +114,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	const services = usePositronReactServicesContext();
 
 	/**
-	 * Dismisses the  modal popup.
+	 * Dismisses the modal popup.
 	 */
 	const dismiss = () => {
 		props.renderer.dispose();
@@ -122,15 +122,23 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 
 	/**
 	 * MenuSeparator component.
+	 *
+	 * A component that renders a separator line between menu items.
+	 * It is used to visually group related menu items together.
+	 *
 	 * @returns The rendered component.
 	 */
 	const MenuSeparator = () => {
 		// Render.
-		return <div className='custom-context-menu-separator' />;
+		return <div className='custom-context-menu-separator' role='separator' />;
 	};
 
 	/**
 	 * MenuItem component.
+	 *
+	 * A component that renders a single menu item in the context menu.
+	 * It can display an optional icon, a label, and an optional checkmark for checkable items.
+	 *
 	 * @param options A CustomContextMenuItemOptions that contains the options.
 	 * @returns The rendered component.
 	 */
@@ -214,7 +222,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 			renderer={props.renderer}
 			width={props.width}
 		>
-			<div className='custom-context-menu-items'>
+			<div className='custom-context-menu-items' role='menu'>
 				{props.entries.map((entry, index) => {
 					if (entry instanceof CustomContextMenuItem) {
 						return <MenuItem key={index} {...entry.options} />;
