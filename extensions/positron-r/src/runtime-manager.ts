@@ -15,6 +15,7 @@ import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { dirname } from 'path';
 import { getEnvironmentModulesApi } from './provider-module.js';
+import { setupArkJupyterKernel } from './kernel';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -130,7 +131,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		const collection = this._context.environmentVariableCollection;
 
 		const metadataExtra = metadata.extraRuntimeData as RMetadataExtra;
-		if (!metadataExtra || !metadataExtra.scriptpath) {
+		if (!metadataExtra) {
 			return;
 		}
 
@@ -138,11 +139,20 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// of the R runtime, if needed. Note that our 'scriptpath' is the full
 		// path to the Rscript binary (foo/bar/Rscript), but Quarto expects the
 		// directory (foo/bar)
-		const currentQuartoR = collection.get('QUARTO_R');
-		const scriptPath = dirname(metadataExtra.scriptpath);
-		if (currentQuartoR?.value !== scriptPath) {
-			collection.replace('QUARTO_R', scriptPath);
-			LOGGER.debug(`Updated QUARTO_R environment variable to ${scriptPath}`);
+		if (metadataExtra.scriptpath) {
+			const currentQuartoR = collection.get('QUARTO_R');
+			const scriptPath = dirname(metadataExtra.scriptpath);
+			if (currentQuartoR?.value !== scriptPath) {
+				collection.replace('QUARTO_R', scriptPath);
+				LOGGER.debug(`Updated QUARTO_R environment variable to ${scriptPath}`);
+			}
+		}
+
+		// Update the ark Jupyter kernel spec with this R's environment.
+		// This ensures that when Quarto launches ark via Jupyter, it will use
+		// the same R installation as the active Positron console.
+		if (metadataExtra.homepath) {
+			setupArkJupyterKernel(this._context, metadataExtra.homepath);
 		}
 	}
 

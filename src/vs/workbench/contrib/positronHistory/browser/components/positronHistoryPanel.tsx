@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -419,7 +419,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				if (index === 0) {
 					return true;
 				}
-				return entry.input !== arr[index - 1].input
+				return entry.input !== arr[index - 1].input;
 			});
 
 			// Apply search filter
@@ -1178,8 +1178,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 								} else {
 									return (
 										<HistoryEntry
-											historyItem={item}
 											fontInfo={props.fontInfo}
+											historyItem={item}
 											instantiationService={instantiationService}
 											isSelected={index === selectedIndex}
 											languageId={currentLanguage || ''}

@@ -1537,6 +1537,7 @@ export enum DataExplorerBackendRequest {
 	SetSortColumns = 'set_sort_columns',
 	GetColumnProfiles = 'get_column_profiles',
 	SetDatasetImportOptions = 'set_dataset_import_options',
+	OpenDataExplorer = 'open_data_explorer',
 	GetState = 'get_state'
 }
 
@@ -1737,6 +1738,18 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	setDatasetImportOptions(options: DatasetImportOptions): Promise<SetDatasetImportOptionsResult> {
 		return super.performRpc('set_dataset_import_options', ['options'], [options]);
+	}
+
+	/**
+	 * Open a full data explorer for the same data
+	 *
+	 * Creates a new, independent data explorer comm for the same underlying
+	 * data. The new comm has its own state (filters, sorts). Used when
+	 * promoting an inline notebook data explorer to a full data explorer
+	 * panel.
+	 */
+	openDataExplorer(): Promise<void> {
+		return super.performRpc('open_data_explorer', [], []);
 	}
 
 	/**

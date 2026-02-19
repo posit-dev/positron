@@ -8,7 +8,7 @@ import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../.
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { autorun, observableSignal, observableValue, transaction } from '../../../../../../base/common/observable.js';
+import { autorun, IObservable, observableSignal, observableValue, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
@@ -54,15 +54,17 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	private _wasVisibleBeforeDetach = false;
 
+	private readonly _matches = observableValue<PositronCellFindMatch[]>('positronNotebookFindControllerMatches', []);
 	/**
 	 * Ordered list of all matches across all notebook cells.
 	 */
-	private readonly _matches = observableValue<PositronCellFindMatch[]>('positronNotebookFindControllerMatches', []);
+	public readonly matches: IObservable<PositronCellFindMatch[]> = this._matches;
 
+	private readonly _currentMatch = observableValue<CurrentPositronCellMatch | undefined>('positronNotebookFindControllerCurrentMatchIndex', undefined);
 	/**
 	 * The current match and its index in the matches array.
 	 */
-	private readonly _currentMatch = observableValue<CurrentPositronCellMatch | undefined>('positronNotebookFindControllerCurrentMatchIndex', undefined);
+	public readonly currentMatch: IObservable<CurrentPositronCellMatch | undefined> = this._currentMatch;
 
 	private readonly _debouncedNotebookContentChanged = observableSignal('positronNotebookContentChanged');
 	private readonly _notebookContentChangedScheduler = this._register(new RunOnceScheduler(() => {
@@ -113,6 +115,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {
 		return notebook.getContribution<PositronNotebookFindController>(PositronNotebookFindController.ID);
+	}
+
+	/**
+	 * The find instance, if it has been created.
+	 * Lazily created on the first call to `start()`.
+	 */
+	public get findInstance(): PositronFindInstance | undefined {
+		return this._findInstance;
 	}
 
 	/**

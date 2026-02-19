@@ -15,13 +15,16 @@ import {
 	ListInferenceProfilesCommand
 } from '@aws-sdk/client-bedrock';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig, getStoredModels, expandConfigToSource } from '../../config';
+import { getStoredModels, expandConfigToSource } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
-import { registerModelWithAPI, AssistantError } from '../../extension';
+import { AssistantError } from '../../errors';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
+import { registerModelWithAPI } from '../../modelRegistration';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Environment variables for AWS Bedrock configuration.
@@ -119,10 +122,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'amazon-bedrock',
-			displayName: 'Amazon Bedrock'
-		},
+		provider: PROVIDER_METADATA.amazonBedrock,
 		supportedOptions: ['toolCalls', 'autoconfigure'],
 		defaults: {
 			name: 'Claude 4 Sonnet Bedrock',
@@ -160,8 +160,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		};
 
 		const region = AWS_REGION ?? 'us-east-1';
-		const profile = AWS_PROFILE ?? 'default';
-		const credentials = fromNodeProviderChain({ profile });
+		// Only use profile if explicitly configured; omit for OIDC/environment credentials
+		const profile = AWS_PROFILE;
+		const credentials = fromNodeProviderChain(profile ? { profile } : {});
 
 		const inferenceProfileRegion = vscode.workspace
 			.getConfiguration('positron.assistant.bedrock')
@@ -173,7 +174,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			this._inferenceProfileRegion = AWSModelProvider.deriveInferenceProfileRegion(region);
 		}
 		this.logger.info(
-			`Using AWS region: ${region}, profile: ${profile}, ` +
+			`Using AWS region: ${region}, profile: ${profile ?? '(not set, using default)'}, ` +
 			`inference profile region: ${this._inferenceProfileRegion}`
 		);
 
@@ -185,7 +186,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 		// Initialize Bedrock SDK client for model listing
 		this.bedrockClient = new BedrockClient({
-			profile,
+			...(profile && { profile }),
 			region,
 			credentials: credentials
 		});
@@ -271,9 +272,10 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						throw new AssistantError(message, false);
 					} else {
 						// We are in a chat response, so we should return an error to display in the chat pane
+						const profileArg = this.bedrockClient.config.profile ? ` --profile ${this.bedrockClient.config.profile}` : '';
 						throw new Error(
 							vscode.l10n.t(
-								`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`
+								`AWS login required. Please run \`aws sso login${profileArg} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`
 							)
 						);
 					}
@@ -300,13 +302,17 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			? await this.bedrockClient.config.region()
 			: this.bedrockClient.config.region;
 
+		// Build the SSO login command, only including --profile if explicitly configured
+		const profileArg = profile ? ` --profile ${profile}` : '';
+		const ssoCommand = `aws sso login${profileArg} --region ${region}`;
+
 		// Execute the AWS SSO login command as a native task
 		const taskExecution = await vscode.tasks.executeTask(new vscode.Task(
 			{ type: 'shell' },
 			vscode.TaskScope.Workspace,
 			'AWS SSO Login',
 			'AWS',
-			new vscode.ShellExecution(`aws sso login --profile ${profile} --region ${region}`)
+			new vscode.ShellExecution(ssoCommand)
 		));
 
 		const result = new Promise<boolean>((resolve) => {

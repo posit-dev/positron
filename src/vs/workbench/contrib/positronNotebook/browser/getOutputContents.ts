@@ -3,11 +3,27 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { localize } from '../../../../nls.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
-import { ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { ParsedDataExplorerOutput, ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
+
+/**
+ * MIME type for Positron inline data explorer
+ */
+export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+json';
+
+/**
+ * Case-insensitive check for the data explorer MIME type. Needed because
+ * MIME types are case-insensitive per RFC 2045, and VS Code's
+ * normalizeMimeType lowercases the type/subtype when loading notebooks from
+ * disk, while live kernel execution preserves the original casing.
+ */
+export function isDataExplorerMimeType(mime: string): boolean {
+	return mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase();
+}
 
 type CellOutputInfo = { id: string; content: string };
 
@@ -122,6 +138,23 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 		return { type: 'text', content: message };
 	}
 
+	// Handle Positron inline data explorer MIME type
+	if (isDataExplorerMimeType(mime)) {
+		try {
+			const payload = JSON.parse(message);
+			return {
+				type: 'dataExplorer',
+				commId: payload.comm_id,
+				shape: payload.shape,
+				title: payload.title,
+				version: payload.version,
+				source: payload.source,
+			} satisfies ParsedDataExplorerOutput;
+		} catch {
+			// Fall through to unknown if parsing fails
+		}
+	}
+
 	if (mime === 'text/html') {
 		return { type: 'html', content: message };
 	}
@@ -133,7 +166,7 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 	if (mime === 'image/png') {
 		return {
 			type: 'image',
-			dataUrl: `data:image/png;base64,${uint8ToBase64(data.buffer)}`
+			dataUrl: `data:image/png;base64,${encodeBase64(VSBuffer.wrap(data.buffer))}`
 		};
 	}
 
@@ -141,21 +174,4 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 		type: 'unknown',
 		content: localize('cellExecutionUnknownMimeType', 'Can\'t handle mime type "{0}" yet', mime)
 	};
-}
-
-
-/**
- * Convert a Uint8Array to a base64 encoded string.
- * @param u8 Uint8Array to convert to base64
- * @returns The base64 encoded string
- */
-function uint8ToBase64(u8: Uint8Array) {
-	const output = new Array(u8.length);
-
-	for (let i = 0, length = u8.length; i < length; i++) {
-		output[i] = String.fromCharCode(u8[i]);
-	}
-
-	// btoa() is deprecated but there doesn't seem to be a better way to do this
-	return btoa(output.join(''));
 }

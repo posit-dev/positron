@@ -7,18 +7,23 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelProvider } from '../base/modelProvider';
-import { getProviderTimeoutMs, ModelConfig } from '../../config';
+import { getProviderTimeoutMs } from '../../providerConfig.js';
+import { ModelConfig } from '../../configTypes.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
-import { recordTokenUsage, recordRequestTokenUsage, log } from '../../extension.js';
-import { TokenUsage } from '../../tokens.js';
+import { log } from '../../log.js';
+import { TokenUsage, recordTokenUsage, recordRequestTokenUsage } from '../../tokens.js';
+import { getAllModelDefinitions } from '../../modelDefinitions.js';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 import { LanguageModelDataPartMimeType } from '../../types.js';
 import { ModelProviderLogger } from '../base/modelProviderLogger.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 import {
 	DEFAULT_ANTHROPIC_MODEL_NAME,
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
 	fetchAnthropicModelsFromApi,
-	getAnthropicModelsFromConfig
+	getAnthropicModelsFromConfig,
+	handleNativeSdkRateLimitError
 } from './anthropicModelUtils.js';
 
 // Re-export for consumers that import from this file
@@ -67,13 +72,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
-			// use 'anthropic-api' instead to make it possible to differentiate
-			// the two.
-			id: 'anthropic-api',
-			displayName: 'Anthropic'
-		},
+		provider: PROVIDER_METADATA.anthropic,
 		supportedOptions: ['apiKey', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
@@ -228,6 +227,10 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		} catch (error) {
 			if (error instanceof Anthropic.APIError) {
 				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
+
+				// Check for rate limit error with retry-after header
+				handleNativeSdkRateLimitError(error, this.providerName);
+
 				let data: any;
 				try {
 					data = JSON.parse(error.message);
@@ -235,7 +238,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 					// Ignore JSON parse errors.
 				}
 				if (data?.error?.type === 'overloaded_error') {
-					throw new Error(`[${this.providerName}] Anthropic's API is temporarily overloaded.`);
+					throw new Error(`[${this.providerName}] API is temporarily overloaded.`);
 				}
 			} else if (error instanceof Anthropic.AnthropicError) {
 				this.logger.warn(`Error in messages.stream [${stream.request_id}]: ${error.message}`);
@@ -258,9 +261,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		}
 
 		// Record token usage
-		if (message.usage && this._context) {
+		if (message.usage) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.providerId, tokens);
+			recordTokenUsage(this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
@@ -276,7 +279,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 			try {
 				const data = JSON.parse(error.message);
 				if (data?.error?.type === 'overloaded_error') {
-					return `Anthropic's API is temporarily overloaded.`;
+					return `API is temporarily overloaded.`;
 				}
 			} catch { /* ignore */ }
 		} else if (error instanceof Anthropic.AnthropicError) {

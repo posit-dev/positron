@@ -5,7 +5,7 @@
 
 import { Event } from '../../../../../base/common/event.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
 
 // Create the decorator for the Positron packages service (used in dependency injection).
@@ -38,11 +38,11 @@ export interface IPositronPackagesService {
 	 */
 	refreshPackages(): Promise<ILanguageRuntimePackage[]>;
 
-	installPackages(packages: string[]): Promise<void>;
+	installPackages(packages: IPackageSpec[]): Promise<void>;
 
-	uninstallPackages(packages: string[]): Promise<void>;
+	uninstallPackages(packageNames: string[]): Promise<void>;
 
-	updatePackages(packages: string[]): Promise<void>;
+	updatePackages(packages: IPackageSpec[]): Promise<void>;
 
 	updateAllPackages(): Promise<void>;
 

@@ -14,7 +14,7 @@ import { join } from 'path';
 import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage, Assistant } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import {
-	FileOperationsFixture, SettingsFixture, MetricsFixture,
+	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
@@ -362,6 +362,27 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		appFixtureFailed = false;
 		appFixtureScreenshot = undefined;
 	}
+
+	// Dump active handles/requests to help debug worker teardown timeouts
+	// Enable with ENABLE_DIAGNOSTIC_LOGGING=true
+	if (process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
+		try {
+			// Using unofficial Node.js internal APIs for debugging teardown timeouts
+			// eslint-disable-next-line local/code-no-any-casts
+			const handles = (process as any)._getActiveHandles?.() ?? [];
+			// eslint-disable-next-line local/code-no-any-casts
+			const requests = (process as any)._getActiveRequests?.() ?? [];
+			console.log(`\n[afterAll] Active handles=${handles.length} requests=${requests.length}`);
+			for (const h of handles) {
+				console.log('  handle:', h?.constructor?.name ?? typeof h);
+			}
+			for (const r of requests) {
+				console.log('  request:', r?.constructor?.name ?? typeof r);
+			}
+		} catch (error) {
+			console.log(`Error dumping handles: ${error}`);
+		}
+	}
 });
 
 export { playwrightExpect as expect };
@@ -406,11 +427,7 @@ export interface WorkerFixtures {
 	app: Application;
 	logsPath: string;
 	logger: MultiLogger;
-	settings: {
-		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		clear: () => Promise<void>;
-		remove: (settingsToRemove: string[]) => Promise<void>;
-	};
+	settings: Settings;
 	settingsFile: SettingsFile;
 	vsCodeSettings: SettingsFile;
 }

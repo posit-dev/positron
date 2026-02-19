@@ -1103,6 +1103,16 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Represents a package to install or update, with an optional version.
+	 */
+	export interface PackageSpec {
+		/** The package name */
+		name: string;
+		/** Optional version to install (if not specified, installs latest) */
+		version?: string;
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1312,13 +1322,15 @@ declare module 'positron' {
 
 		/**
 		 * Install the list of packages.
+		 * @param packages Array of package install requests with name and optional version
 		 */
-		installPackages?(packages: string[]): Thenable<void>;
+		installPackages?(packages: PackageSpec[]): Thenable<void>;
 
 		/**
-		 * Update the list of packages. Package names can optionally include version if split using an '@'.
+		 * Update the list of packages.
+		 * @param packages Array of package install requests with name and optional version
 		 */
-		updatePackages?(packages: string[]): Thenable<void>;
+		updatePackages?(packages: PackageSpec[]): Thenable<void>;
 
 		/**
 		 * Update all installed packages.
@@ -1328,7 +1340,7 @@ declare module 'positron' {
 		/**
 		 * Uninstall the list of packages.
 		 */
-		uninstallPackages?(packages: string[]): Thenable<void>;
+		uninstallPackages?(packageNames: string[]): Thenable<void>;
 
 		/**
 		 * Search a repository for packages matching the query.
@@ -2372,11 +2384,34 @@ declare module 'positron' {
 		export function registerChatAgent(agentData: ChatAgentData): Thenable<vscode.Disposable>;
 
 		/**
+		 * Metadata about a language model provider used for configuration.
+		 * Registered during extension activation, independent of sign-in state.
+		 */
+		export interface ProviderMetadata {
+			/**
+			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot').
+			 * Used internally to distinguish between provider implementations.
+			 */
+			id: string;
+			/**
+			 * Display name shown in the UI (e.g., 'Anthropic', 'OpenAI', 'GitHub Copilot').
+			 * Appears in settings, model selection dialogs, and provider lists.
+			 */
+			displayName: string;
+			/**
+			 * Setting name for user configuration in camelCase format (e.g., 'anthropic', 'openAI', 'gitHubCopilot').
+			 * Corresponds to `positron.assistant.provider.<settingName>.enable` in settings.json if visible in Settings UI.
+			 * Positron's Assistant Service automatically reads this from registered providers.
+			 */
+			settingName: string;
+		}
+
+		/**
 		 * Positron Language Model source, used for user configuration of language models.
 		 */
 		export interface LanguageModelSource {
 			type: PositronLanguageModelType;
-			provider: { id: string; displayName: string };
+			provider: ProviderMetadata;
 			supportedOptions: Exclude<{
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
@@ -2466,12 +2501,21 @@ declare module 'positron' {
 			edits: vscode.TextEdit[];
 		}): void;
 
-		export function getSupportedProviders(): Thenable<string[]>;
-
 		/**
 		 * Get the chat export as a JSON object (IExportableChatData).
 		 */
 		export function getChatExport(): Thenable<object | undefined>;
+
+		/**
+		 * Options for showing the language model configuration modal.
+		 */
+		export interface ShowLanguageModelConfigOptions {
+			/**
+			 * Optional provider ID to pre-select in the dialog.
+			 * If provided and valid, the modal will open with this provider selected.
+			 */
+			preselectedProviderId?: string;
+		}
 
 		/**
 		 * Show a modal dialog for language model configuration.
@@ -2479,7 +2523,17 @@ declare module 'positron' {
 		export function showLanguageModelConfig(
 			sources: LanguageModelSource[],
 			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
+			options?: ShowLanguageModelConfigOptions,
 		): Thenable<void>;
+
+		/**
+		 * Registers provider metadata with the core service.
+		 * This allows the core to check provider enable settings without requiring sign-in.
+		 * Should be called during extension activation for all available providers.
+		 *
+		 * @param metadata Provider identification and settings information
+		 */
+		export function registerProviderMetadata(metadata: ProviderMetadata): void;
 
 		/**
 		 * Adds the model to the service's known configurations and notifies its listeners.
@@ -2537,6 +2591,16 @@ declare module 'positron' {
 		 * Set the current language chat provider.
 		 */
 		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
+
+		/**
+		 * Gets the list of enabled provider IDs from user configuration.
+		 *
+		 * Reads from individual provider enable settings ('positron.assistant.provider.<name>.enable')
+		 * and the deprecated 'positron.assistant.enabledProviders' array setting for backward compatibility.
+		 *
+		 * @returns A Thenable that resolves to an array of enabled provider IDs
+		 */
+		export function getEnabledProviders(): Thenable<string[]>;
 
 		/**
 		 * Checks if completions are enabled for the given file.

@@ -6,9 +6,10 @@
 import { URI } from '../../../../base/common/uri.js';
 import { IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * PositronDataExplorerEditorInput class.
@@ -39,9 +40,9 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	 */
 	constructor(
 		readonly resource: URI,
-		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService
+		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
+		@ILogService private readonly _logService: ILogService
 	) {
-		// Call the base class's constructor.
 		super();
 	}
 
@@ -49,16 +50,14 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
-		// Dispose of the data explorer client instance.
+		// Dispose the client when this editor tab closes (sole owner)
 		const identifier = PositronDataExplorerUri.parse(this.resource);
 		if (identifier) {
 			const instance = this._positronDataExplorerService.getInstance(identifier);
-			if (instance) {
-				instance.dataExplorerClientInstance.dispose();
-			}
+			instance?.dataExplorerClientInstance.dispose();
+		} else {
+			this._logService.warn(`PositronDataExplorerEditorInput: failed to parse URI on dispose, client instance may leak: ${this.resource.toString()}`);
 		}
-
-		// Call the base class's dispose method.
 		super.dispose();
 	}
 

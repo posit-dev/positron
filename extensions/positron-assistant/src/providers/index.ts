@@ -13,7 +13,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { ModelConfig } from '../config';
+import { ModelConfig } from '../configTypes.js';
 
 // Import provider classes for use in utility functions
 import { ErrorModelProvider } from './test/errorProvider';
@@ -24,11 +24,7 @@ import { AnthropicModelProvider } from './anthropic/anthropicProvider';
 import { AnthropicAIModelProvider } from './anthropic/anthropicVercelProvider';
 import { AzureModelProvider } from './azure/azureProvider';
 import { GoogleModelProvider } from './google/googleProvider';
-import { VertexModelProvider } from './google/vertexProvider';
 import { SnowflakeModelProvider } from './snowflake/snowflakeProvider';
-import { MistralModelProvider } from './mistral/mistralProvider';
-import { OllamaModelProvider } from './ollama/ollamaProvider';
-import { OpenRouterModelProvider } from './openrouter/openrouterProvider';
 import { AWSModelProvider } from './aws/awsBedrockProvider';
 import { PositModelProvider } from './posit/positProvider';
 import { ModelProvider } from './base/modelProvider.js';
@@ -104,7 +100,6 @@ async function resolveAutoconfigureCredentials(model: ConcreteModelProviderConst
  */
 export function getModelProviders(): ConcreteModelProviderConstructor[] {
 	const testProviders = [
-		AWSModelProvider,
 		EchoModelProvider,
 		ErrorModelProvider,
 	];
@@ -116,17 +111,14 @@ export function getModelProviders(): ConcreteModelProviderConstructor[] {
 	const providers = [
 		...testProviders,
 		anthropicClass,
+		AWSModelProvider,
 		AzureModelProvider,
 		CopilotModelProvider,
 		GoogleModelProvider,
-		MistralModelProvider,
-		OllamaModelProvider,
 		OpenAIModelProvider,
 		OpenAICompatibleModelProvider,
-		OpenRouterModelProvider,
 		PositModelProvider,
 		SnowflakeModelProvider,
-		VertexModelProvider,
 	];
 	return providers;
 }
@@ -180,4 +172,3 @@ export function newLanguageModelChatProvider(config: ModelConfig, context: vscod
 	return new providerClass(config, context);
 }
 
-export { AutoconfigureResult };

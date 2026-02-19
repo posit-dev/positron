@@ -94,7 +94,7 @@ permissions:
 jobs:
   e2e-windows-run:
     name: ${{ inputs.display_name || 'e2e-windows-run' }}-${{ matrix.shard }}
-    timeout-minutes: 120
+    timeout-minutes: 150
     runs-on: windows-latest-8x
     strategy:
       fail-fast: false
@@ -155,12 +155,6 @@ jobs:
         if: ${{ !inputs.skip_cache }}
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
-
-      - name: Apply patches when cache hits
-        if: steps.restore-caches.outputs.cache-npm-core-hit == 'true'
-        run: |
-          echo "Cache hit - applying patches to cached node_modules"
-          npx patch-package
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
@@ -265,24 +259,25 @@ jobs:
         id: cache-python
         uses: actions/cache/restore@v5
         with:
-          path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
+          path: ${{ runner.temp }}\uv-cache
+          key: ${{ runner.os }}-uv-${{ steps.download-python-reqs.outputs.requirements-hash }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            ${{ runner.os }}-uv-
 
       - name: Install python dependencies
+        env:
+          UV_CACHE_DIR: ${{ runner.temp }}\uv-cache
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install trcli
+          uv pip install --system -r requirements.txt
+          uv pip install --system trcli
 
       - name: Save Python packages cache
         if: ${{ matrix.shard == 1 && steps.cache-python.outputs.cache-hit != 'true' }}
         continue-on-error: true
         uses: actions/cache/save@v5
         with:
-          path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
+          path: ${{ runner.temp }}\uv-cache
+          key: ${{ runner.os }}-uv-${{ steps.download-python-reqs.outputs.requirements-hash }}
 
       # Alternate python version
       - name: Install Python 3.13.0
@@ -292,10 +287,11 @@ jobs:
 
       # Ensure Python 3.13.0 is used and only install ipykernel
       - name: Install ipykernel for Python 3.13.0
+        env:
+          UV_CACHE_DIR: ${{ runner.temp }}\uv-cache
         run: |
           python --version  # Verify it's 3.13.0
-          python -m pip install --upgrade pip
-          python -m pip install ipykernel
+          uv pip install --system ipykernel
 
       # Install rig (R Installation Manager)
       - name: Install rig
@@ -360,28 +356,7 @@ jobs:
           tinytex: true
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Setup AWS S3 Access for .last-run.json download
-        continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Download previous .last-run.json from S3
-        continue-on-error: true
-        shell: bash
-        run: |
-          mkdir -p blob-report
-          # Download project-specific .last-run.json
-          aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
-
-      - name: Restore AWS S3 Access to read-only role
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -453,16 +428,6 @@ jobs:
             GREP_ARG="--grep \"${PW_TAGS}\""
           fi
 
-          # Build the --shard argument if shards > 1
-          if [ "${{ inputs.shards }}" -gt "1" ]; then
-            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
-          else
-            SHARD_ARG=""
-          fi
-
-          echo "Final --grep argument: $GREP_ARG"
-          echo "Final --shard argument: $SHARD_ARG"
-
           export SKIP_BOOTSTRAP=true
           # Skip clone on qa-example-content if we already did the bootstrap test
           if [ "${{ inputs.skip_extension_tests }}" != "true" ]; then
@@ -471,7 +436,17 @@ jobs:
             export SKIP_CLONE=false
           fi
 
-          CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
+          # Use predictive sharding CLI
+          CMD="npx e2e-insights run-shard \
+            --shard-index=${{ matrix.shard }} \
+            --shard-total=${{ inputs.shards }} \
+            --repo=${{ github.repository }} \
+            --project ${{ inputs.project }} \
+            --workers ${{ inputs.workers }} \
+            $GREP_ARG \
+            --repeat-each ${{ inputs.repeat_each }} \
+            --max-failures ${{ inputs.max_failures }}"
+
           echo "Running: $CMD"
 
           # Always run with || true when using blob reporter (merge-reports determines pass/fail)
@@ -517,25 +492,19 @@ jobs:
           node-version: 20
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Install Playwright and apply patch
+      - name: Install Playwright
         shell: bash
         run: |
           # Create clean directory for merge dependencies
           mkdir -p playwright-merge
           cd playwright-merge
           npm init -y
-          # Install only what we need for merging
-          # We need the patch to capture test durations in .last-run.json for better shard balancing
-          npm install @playwright/test@1.56.1 patch-package @midleman/github-actions-reporter
-          # Copy patch from repo and apply it
-          mkdir -p patches
-          cp ../patches/playwright+1.56.1.patch patches/
-          npx patch-package
+          npm install @playwright/test @midleman/github-actions-reporter
 
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
@@ -560,30 +529,12 @@ jobs:
           # Merge all blob reports and generate HTML report
           env PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
             --reporter=@midleman/github-actions-reporter,html \
-            --last-run-file=playwright-report/.last-run-${{ inputs.project }}.json \
             ../all-blob-reports
 
           # Generate JSON report separately with explicit output path
           PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json npx playwright merge-reports \
             --reporter=json \
             ../all-blob-reports
-
-      - name: Verify generated reports
-        shell: bash
-        working-directory: playwright-merge
-        run: |
-          # List all generated files
-          echo "Generated report files:"
-          ls -laR playwright-report/
-
-          # Verify .last-run.json
-          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
-          if [ -f "$LAST_RUN_FILE" ]; then
-            FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
-            echo "✓ Generated $LAST_RUN_FILE ($FILE_SIZE)"
-          else
-            echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
-          fi
 
       - name: Upload HTML report to S3
         if: always()
@@ -592,27 +543,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
           working-directory: playwright-merge
-
-      - name: Setup AWS S3 Access for .last-run.json upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Upload .last-run.json to fixed S3 location
-        if: always()
-        shell: bash
-        working-directory: playwright-merge
-        run: |
-          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
-          if [ -f "$LAST_RUN_FILE" ]; then
-            # Upload project-specific .last-run.json to S3 (bucket uses IAM policies)
-            aws s3 cp "$LAST_RUN_FILE" s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json
-            echo "✓ Uploaded ${{ inputs.project }}-last-run.json to S3 for future runs"
-          else
-            echo "⚠ No $LAST_RUN_FILE to upload"
-          fi
 
       - name: Check test results
         if: always()

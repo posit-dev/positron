@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as React from 'react';
+
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import Claude from '../icons/claude.js';
@@ -24,7 +26,7 @@ interface LanguageModelButtonProps {
 /**
  * LanguageModelButton component.
  */
-export const LanguageModelButton = (props: LanguageModelButtonProps) => {
+export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageModelButtonProps>((props, ref) => {
 	return (
 		<Button
 			className={positronClassNames(
@@ -34,7 +36,7 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 			)}
 			disabled={props.disabled}
 			onPressed={props.onClick}>
-			<div id={`${props.identifier}-provider-button`}>
+			<div ref={ref} id={`${props.identifier}-provider-button`}>
 				<VerticalStack>
 					<LanguageModelIcon provider={props.identifier} />
 					{props.displayName}
@@ -42,7 +44,7 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 			</div>
 		</Button>
 	);
-};
+});
 
 export const LanguageModelIcon = (props: { provider: string }) => {
 	function getIcon() {
@@ -72,4 +74,4 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 		}
 	}
 	return getIcon();
-}
+};
