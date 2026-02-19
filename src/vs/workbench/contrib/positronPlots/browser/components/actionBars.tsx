@@ -29,7 +29,7 @@ import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PlotCodeMenuButton } from './plotCodeMenuButton.js';
-import { DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
+import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -144,6 +144,61 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	const leftActions: DynamicActionBarAction[] = [];
 	const rightActions: DynamicActionBarAction[] = [];
+
+	// Dark filter menu button.
+	if (enableDarkFilter) {
+		rightActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			separator: true,
+			component: <DarkFilterMenuButton />
+		});
+	}
+
+	// Gallery in new window button.
+	if (props.displayLocation === PlotsDisplayLocation.MainWindow) {
+		// Add separator if dark filter wasn't added (it has separator: true).
+		const needsSeparator = !enableDarkFilter;
+		rightActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: needsSeparator,
+			component: (
+				<ActionBarButton
+					align='right'
+					ariaLabel={openPlotsGalleryInNewWindow}
+					icon={ThemeIcon.fromId('window')}
+					tooltip={openPlotsGalleryInNewWindow}
+					onPressed={openGalleryInNewWindowHandler}
+				/>
+			),
+			overflowContextMenuItem: {
+				icon: 'window',
+				label: openPlotsGalleryInNewWindow,
+				onSelected: openGalleryInNewWindowHandler
+			}
+		});
+	}
+
+	// Clear all plots button.
+	rightActions.push({
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+		separator: false,
+		component: (
+			<ActionBarButton
+				align='right'
+				ariaLabel={clearAllPlots}
+				disabled={noPlots}
+				icon={ThemeIcon.fromId('clear-all')}
+				tooltip={clearAllPlots}
+				onPressed={clearAllPlotsHandler}
+			/>
+		),
+		overflowContextMenuItem: {
+			icon: 'clear-all',
+			label: clearAllPlots,
+			disabled: noPlots,
+			onSelected: clearAllPlotsHandler
+		}
+	});
 
 	// Render.
 	return (
