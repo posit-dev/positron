@@ -5,6 +5,7 @@
 
 import { Application, TestTags, Sessions, HotKeys, TestTeardown } from '../../infra';
 import { Settings } from '../../fixtures/test-setup/settings.fixtures';
+import { EnterChatMessageResult } from '../../pages/positronAssistant';
 
 /**
  * Playwright fixtures passed to test case run functions.
@@ -44,6 +45,16 @@ export interface EvaluationResult {
 }
 
 /**
+ * Result returned by an eval test case's run function.
+ */
+export interface RunResult {
+	/** The response text from the assistant */
+	response: string;
+	/** Timing information for the LLM response (excludes setup/cleanup) */
+	timing: EnterChatMessageResult;
+}
+
+/**
  * A single evaluation test case.
  * Uses the same fixtures pattern as other Playwright tests.
  */
@@ -70,8 +81,12 @@ export interface EvalTestCase {
 	 * The test function - reads like a test from top to bottom.
 	 * Uses standard Playwright fixtures, just like other tests.
 	 * Each test is responsible for starting its own sessions if needed.
+	 *
+	 * Returns a RunResult containing the response text and timing information.
+	 * Use `assistant.enterChatMessageAndWait()` to get accurate timing that
+	 * excludes setup/cleanup and button interaction overhead.
 	 */
-	run: (fixtures: TestFixtures) => Promise<string>;
+	run: (fixtures: TestFixtures) => Promise<RunResult>;
 
 	/** Criteria for evaluating the LLM response */
 	evaluationCriteria: EvaluationCriteria;

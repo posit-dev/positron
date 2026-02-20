@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { TestTags } from '../../../infra';
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 
 /**
  * Test: getNotebookCells tool (large notebook)
@@ -28,7 +28,7 @@ export const pyNotebookGetCells: EvalTestCase = {
 	language: 'Python',
 	tags: [TestTags.POSITRON_NOTEBOOKS],
 
-	run: async ({ app, hotKeys, cleanup, settings }) => {
+	run: async ({ app, hotKeys, cleanup, settings }): Promise<RunResult> => {
 		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
@@ -48,21 +48,17 @@ export const pyNotebookGetCells: EvalTestCase = {
 		// This ensures cell index 20 is outside the automatic context window
 		await notebooksPositron.selectCellAtIndex(0);
 
-		// Ask the question
+		// Send the message and wait for response (handles Keep/Allow buttons automatically)
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(prompt, false);
-
-		// Allow tools and get response
-		await assistant.clickAllowButton();
-		await assistant.expectResponseComplete();
+		const timing = await assistant.enterChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
 		await cleanup.discardAllChanges();
 
-		return response;
+		return { response, timing };
 	},
 
 	evaluationCriteria: {

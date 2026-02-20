@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { TestTags } from '../../../infra';
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 
 /**
  * Test: editNotebookCells tool
@@ -27,7 +27,7 @@ export const rNotebookEditCells: EvalTestCase = {
 	mode,
 	tags: [TestTags.POSITRON_NOTEBOOKS],
 
-	run: async ({ app, hotKeys, cleanup, settings }) => {
+	run: async ({ app, hotKeys, cleanup, settings }): Promise<RunResult> => {
 		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
@@ -48,29 +48,17 @@ export const rNotebookEditCells: EvalTestCase = {
 		await notebooksPositron.runCodeAtIndex(1);
 		await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
 
-		// Ask the question
+		// Send the message and wait for response (handles Keep/Allow buttons automatically)
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(prompt, false);
-
-		// In Edit mode, the assistant needs permission to use tools like editNotebookCells
-		await assistant.clickAllowButton();
-		await assistant.waitForResponseComplete();
-
-		// If the assistant suggests edits, accept them
-		try {
-			await assistant.clickKeepButton();
-		} catch {
-			// Keep button didn't appear or wasn't clickable - that's OK
-		}
-
+		const timing = await assistant.enterChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
 		await cleanup.discardAllChanges();
 
-		return response;
+		return { response, timing };
 	},
 
 	evaluationCriteria: {
