@@ -20,7 +20,8 @@ import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common
 import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { applyFontInfo } from '../../../../editor/browser/config/domFontInfo.js';
-import { ANSIOutput, ANSIOutputLine, ANSIOutputRun, ANSIColor, ANSIStyle } from '../../../../base/common/ansiOutput.js';
+import { ANSIOutput, ANSIOutputLine, ANSIOutputRun } from '../../../../base/common/ansiOutput.js';
+import { computeAnsiStyles, resolveAnsiColor } from '../../../../base/common/ansiStyles.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -1230,24 +1231,25 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		span.textContent = run.text;
 
 		if (run.format) {
-			// Apply styles
+			// Apply styles.
 			if (run.format.styles) {
-				for (const style of run.format.styles) {
-					this._applyAnsiStyle(span, style);
+				const css = computeAnsiStyles(run.format.styles);
+				for (const key of Object.keys(css)) {
+					span.style.setProperty(key, css[key]);
 				}
 			}
 
-			// Apply foreground color
+			// Apply foreground color.
 			if (run.format.foregroundColor) {
-				const color = this._resolveAnsiColor(run.format.foregroundColor, 'foreground');
+				const color = resolveAnsiColor(run.format.foregroundColor);
 				if (color) {
 					span.style.color = color;
 				}
 			}
 
-			// Apply background color
+			// Apply background color.
 			if (run.format.backgroundColor) {
-				const color = this._resolveAnsiColor(run.format.backgroundColor, 'background');
+				const color = resolveAnsiColor(run.format.backgroundColor);
 				if (color) {
 					span.style.backgroundColor = color;
 				}
@@ -1255,72 +1257,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 
 		return span;
-	}
-
-	/**
-	 * Apply an ANSI style to an element.
-	 */
-	private _applyAnsiStyle(element: HTMLElement, style: ANSIStyle): void {
-		switch (style) {
-			case ANSIStyle.Bold:
-				element.style.fontWeight = 'bold';
-				break;
-			case ANSIStyle.Dim:
-				element.style.fontWeight = 'lighter';
-				break;
-			case ANSIStyle.Italic:
-				element.style.fontStyle = 'italic';
-				break;
-			case ANSIStyle.Underlined:
-				element.style.textDecoration = 'underline';
-				break;
-			case ANSIStyle.DoubleUnderlined:
-				element.style.textDecoration = 'underline double';
-				break;
-			case ANSIStyle.CrossedOut:
-				element.style.textDecoration = 'line-through';
-				break;
-			case ANSIStyle.Hidden:
-				element.style.visibility = 'hidden';
-				break;
-		}
-	}
-
-	/**
-	 * Resolve an ANSI color to a CSS color value.
-	 */
-	private _resolveAnsiColor(color: ANSIColor | string, type: 'foreground' | 'background'): string | undefined {
-		// If it's a string starting with #, it's an RGB color
-		if (typeof color === 'string' && color.startsWith('#')) {
-			return color;
-		}
-
-		// Map ANSI colors to CSS variables
-		switch (color) {
-			case ANSIColor.Black:
-			case ANSIColor.Red:
-			case ANSIColor.Green:
-			case ANSIColor.Yellow:
-			case ANSIColor.Blue:
-			case ANSIColor.Magenta:
-			case ANSIColor.Cyan:
-			case ANSIColor.White:
-			case ANSIColor.BrightBlack:
-			case ANSIColor.BrightRed:
-			case ANSIColor.BrightGreen:
-			case ANSIColor.BrightYellow:
-			case ANSIColor.BrightBlue:
-			case ANSIColor.BrightMagenta:
-			case ANSIColor.BrightCyan:
-			case ANSIColor.BrightWhite:
-				return `var(--vscode-positronConsole-${color})`;
-			default:
-				// Unknown color type
-				if (typeof color === 'string') {
-					return color;
-				}
-				return undefined;
-		}
 	}
 
 	private _renderError(data: string): HTMLElement {
