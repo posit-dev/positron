@@ -93,8 +93,8 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
-			name: 'Claude Opus 4',
-			identifier: 'claude-4-opus',
+			name: 'Claude Opus 4.6',
+			identifier: 'claude-opus-4-6',
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
