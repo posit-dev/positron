@@ -22,7 +22,7 @@ import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../../../positronDataGrid
 const SEARCH_DEBOUNCE_TIMEOUT = 500;
 
 export interface SummaryRowActionBarProps {
-	instance: TableSummaryDataGridInstance
+	instance: TableSummaryDataGridInstance;
 }
 
 export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
@@ -138,4 +138,4 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 			</PositronActionBarContextProvider>
 		</div>
 	);
-}
+};

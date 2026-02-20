@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test as baseTest, expect, tags } from '../../_test.setup';
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 import { evaluateWithLLM } from './llm-grader';
 import { formatResultsHtml } from './format-results';
 import { getModelKeys, getModelConfig } from './eval-results';
@@ -45,10 +45,12 @@ export async function runEvalTest(
 ): Promise<void> {
 	const { app, sessions, hotKeys, cleanup, settings, logger } = fixtures;
 
-	// Time the assistant response
-	const startTime = Date.now();
-	const response = await testCase.run({ app, sessions, hotKeys, cleanup, settings });
-	const responseDurationMs = Date.now() - startTime;
+	// Run the test and get response with timing
+	const result: RunResult = await testCase.run({ app, sessions, hotKeys, cleanup, settings });
+	const { response, timing } = result;
+
+	// Use llmResponseMs which excludes button interaction time
+	const responseDurationMs = timing.llmResponseMs;
 
 	expect(response?.trim(), 'Expected a non-empty response from assistant').toBeTruthy();
 

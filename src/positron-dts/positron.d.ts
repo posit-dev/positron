@@ -1103,6 +1103,16 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Represents a package to install or update, with an optional version.
+	 */
+	export interface PackageSpec {
+		/** The package name */
+		name: string;
+		/** Optional version to install (if not specified, installs latest) */
+		version?: string;
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1312,13 +1322,15 @@ declare module 'positron' {
 
 		/**
 		 * Install the list of packages.
+		 * @param packages Array of package install requests with name and optional version
 		 */
-		installPackages?(packages: string[]): Thenable<void>;
+		installPackages?(packages: PackageSpec[]): Thenable<void>;
 
 		/**
-		 * Update the list of packages. Package names can optionally include version if split using an '@'.
+		 * Update the list of packages.
+		 * @param packages Array of package install requests with name and optional version
 		 */
-		updatePackages?(packages: string[]): Thenable<void>;
+		updatePackages?(packages: PackageSpec[]): Thenable<void>;
 
 		/**
 		 * Update all installed packages.
@@ -1328,7 +1340,7 @@ declare module 'positron' {
 		/**
 		 * Uninstall the list of packages.
 		 */
-		uninstallPackages?(packages: string[]): Thenable<void>;
+		uninstallPackages?(packageNames: string[]): Thenable<void>;
 
 		/**
 		 * Search a repository for packages matching the query.

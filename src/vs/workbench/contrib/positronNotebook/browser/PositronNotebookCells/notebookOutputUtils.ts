@@ -27,6 +27,7 @@ function getMimeTypePriority(mime: string): number | null {
 		case 'text/markdown':
 			return 2.5;
 		case 'image/png':
+		case 'image/svg+xml':
 			return 3;
 		case 'text/plain':
 			return 4;

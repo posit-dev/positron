@@ -14,6 +14,7 @@ import {
 } from './snowflakeAuth';
 import { autoconfigureWithManagedCredentials, SNOWFLAKE_MANAGED_CREDENTIALS } from '../../pwb';
 import { OpenAICompatibleModelProvider } from '../openai/openaiCompatibleProvider.js';
+import { IS_RUNNING_ON_PWB } from '../../constants.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
@@ -37,6 +38,10 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using Snowflake credentials', signedIn: false },
 		}
 	};
+
+	protected override get customHeaders() {
+		return { 'User-Agent': IS_RUNNING_ON_PWB ? 'posit_workbench_positron' : 'posit_positron' };
+	}
 
 	/**
 	 * Gets the base URL for the Snowflake Cortex API.
