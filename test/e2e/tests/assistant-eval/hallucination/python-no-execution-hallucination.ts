@@ -75,10 +75,9 @@ species = pl.DataFrame({
 
 		// Handle the Keep button if the assistant creates a file
 		try {
-			await assistant.clickKeepButton();
 			await assistant.waitForResponseComplete();
 		} catch (error) {
-			// Keep button didn't appear or wasn't clickable - that's OK
+			await assistant.clickKeepButton(20000);
 			await assistant.expectResponseComplete();
 		}
 
