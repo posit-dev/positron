@@ -172,7 +172,7 @@ mockedVSCode.LogLevel = vscodeMocks.LogLevel;
 (mockedVSCode as any).LSPCancellationError = vscodeMocks.vscMockExtHostedTypes.LSPCancellationError;
 mockedVSCode.TestRunProfileKind = vscodeMocks.TestRunProfileKind;
 (mockedVSCode as any).TestCoverageCount = class TestCoverageCount {
-    constructor(public covered: number, public total: number) { }
+    constructor(public covered: number, public total: number) {}
 };
 (mockedVSCode as any).FileCoverage = class FileCoverage {
     constructor(
@@ -180,10 +180,10 @@ mockedVSCode.TestRunProfileKind = vscodeMocks.TestRunProfileKind;
         public statementCoverage: any,
         public branchCoverage?: any,
         public declarationCoverage?: any,
-    ) { }
+    ) {}
 };
 (mockedVSCode as any).StatementCoverage = class StatementCoverage {
-    constructor(public executed: number | boolean, public location: any, public branches?: any) { }
+    constructor(public executed: number | boolean, public location: any, public branches?: any) {}
 };
 // --- Start Positron ---
 mockedPositron.LanguageRuntimeSessionMode = positronMocks.LanguageRuntimeSessionMode;
@@ -206,7 +206,7 @@ function createMockTestController(): vscode.TestController {
             replace: () => undefined,
             delete: () => undefined,
             size: 0,
-            [Symbol.iterator]: function* () { },
+            [Symbol.iterator]: function* () {},
         },
         createRunProfile: () => disposable,
         createTestItem: () => ({} as TestItem),
