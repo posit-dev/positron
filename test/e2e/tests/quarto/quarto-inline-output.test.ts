@@ -1045,9 +1045,10 @@ test.describe('Quarto - Inline Output', {
 				await expect(cellToolbar.first()).toBeVisible({ timeout: 2000 });
 			}).toPass({ timeout: 60000 });
 
-			// Click the run button on the cell toolbar
+			// Click the run button on the cell toolbar using force to bypass
+			// any action bar overlays that may intercept pointer events
 			const runButton = cellToolbar.locator('button.quarto-toolbar-run').first();
-			await runButton.click();
+			await runButton.click({ force: true });
 
 			// Wait for inline output to appear
 			const inlineOutput = page.locator('.quarto-inline-output');
@@ -2392,8 +2393,15 @@ test.describe('Quarto - Inline Output', {
 		const popoutButton = inlineOutput.locator('.quarto-output-popout');
 		await expect(popoutButton).toBeVisible({ timeout: 10000 });
 
-		// Click the popout button
-		await popoutButton.click();
+		// Position cursor back inside the cell so the popout command knows which cell to act on
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('8');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Use the popout command instead of clicking the button directly,
+		// because the button can be obscured by the editor's action bar overlay
+		await app.workbench.quickaccess.runCommand('positronQuarto.popoutOutput');
 
 		// Wait for the Viewer panel to appear and have content
 		// The Viewer panel has id 'workbench.panel.positronPreview' and appears in the auxiliary bar
