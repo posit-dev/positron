@@ -8,6 +8,12 @@ import { promisify } from 'util';
 import treeKill from 'tree-kill';
 import { Logger } from './logger';
 
+// --- Start Positron ---
+// Type treeKill properly to accept signal parameter
+type TreeKillFunction = (pid: number, signal?: string | number) => void;
+const treeKillAsync = promisify<number, string | number | undefined, void>(treeKill as TreeKillFunction);
+// --- End Positron ---
+
 export async function teardown(p: ChildProcess, logger: Logger, retryCount = 3): Promise<void> {
 	const pid = p.pid;
 	if (typeof pid !== 'number') {
@@ -26,7 +32,7 @@ export async function teardown(p: ChildProcess, logger: Logger, retryCount = 3):
 
 		try {
 			// --- Start Positron ---
-			return await promisify(treeKill)(pid, signal);
+			return await treeKillAsync(pid, signal);
 			// --- End Positron ---
 		} catch (error) {
 			try {
