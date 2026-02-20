@@ -373,11 +373,49 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 			// eslint-disable-next-line local/code-no-any-casts
 			const requests = (process as any)._getActiveRequests?.() ?? [];
 			console.log(`\n[afterAll] Active handles=${handles.length} requests=${requests.length}`);
+
+			// Detailed handle inspection
 			for (const h of handles) {
-				console.log('  handle:', h?.constructor?.name ?? typeof h);
+				const type = h?.constructor?.name ?? typeof h;
+				console.log(`  handle: ${type}`);
+
+				// ChildProcess details
+				if (type === 'ChildProcess') {
+					console.log(`    - pid: ${h.pid}, killed: ${h.killed}, exitCode: ${h.exitCode}`);
+					if (h.spawnargs) {
+						console.log(`    - command: ${h.spawnargs.slice(0, 3).join(' ')}`);
+					}
+				}
+
+				// Socket/Pipe details
+				if (type === 'Socket' || type === 'Pipe') {
+					console.log(`    - readable: ${h.readable}, writable: ${h.writable}, destroyed: ${h.destroyed}`);
+					if (h._handle) {
+						console.log(`    - has _handle: true, reading: ${h._handle.reading}`);
+					}
+				}
 			}
+
+			// Detailed request inspection - WriteWrap is the smoking gun!
 			for (const r of requests) {
-				console.log('  request:', r?.constructor?.name ?? typeof r);
+				const type = r?.constructor?.name ?? typeof r;
+				console.log(`  request: ${type}`);
+
+				// WriteWrap details - pending write operations
+				if (type === 'WriteWrap') {
+					try {
+						// Try to get the handle this write is associated with
+						if (r.handle) {
+							console.log(`    - handle type: ${r.handle?.constructor?.name}`);
+							console.log(`    - handle destroyed: ${r.handle?.destroyed}`);
+						}
+						if (r.async) {
+							console.log(`    - async: ${r.async}`);
+						}
+					} catch {
+						// Ignore errors accessing internal properties
+					}
+				}
 			}
 		} catch (error) {
 			console.log(`Error dumping handles: ${error}`);
