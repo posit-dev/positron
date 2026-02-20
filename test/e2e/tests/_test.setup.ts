@@ -384,17 +384,28 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		}
 	}
 
-	// --- Start Positron ---
-	// Force garbage collection and give extra time for handles to drain before worker teardown
+	// Give handles time to drain naturally before worker teardown
 	// This helps prevent "Worker teardown timeout of 120000ms exceeded" errors
 	try {
-		// Force close any remaining child process handles
+		// Force garbage collection if available
+		if (global.gc) {
+			global.gc();
+		}
+
+		// Wait for handles to drain naturally
+		await new Promise(resolve => setTimeout(resolve, 3000));
+
+		// Only if we still have problematic handles after waiting, try selective cleanup
 		// eslint-disable-next-line local/code-no-any-casts
-		const handles = (process as any)._getActiveHandles?.() ?? [];
-		for (const handle of handles) {
-			try {
-				// Close ChildProcess stdio streams which keep the event loop alive
-				if (handle?.constructor?.name === 'ChildProcess') {
+		const remainingHandles = (process as any)._getActiveHandles?.() ?? [];
+		const childProcessHandles = remainingHandles.filter((h: any) => h?.constructor?.name === 'ChildProcess');
+
+		// Only force-close if we have more than 2 ChildProcess handles (indicating orphaned processes)
+		if (childProcessHandles.length > 2) {
+			console.log(`[afterAll] Detected ${childProcessHandles.length} ChildProcess handles, attempting cleanup...`);
+			for (const handle of childProcessHandles) {
+				try {
+					// Only close stdio streams, don't kill processes
 					if (handle.stdin && !handle.stdin.destroyed) {
 						handle.stdin.destroy();
 					}
@@ -404,39 +415,16 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 					if (handle.stderr && !handle.stderr.destroyed) {
 						handle.stderr.destroy();
 					}
-					// Force kill if still running
-					if (handle.pid) {
-						try {
-							process.kill(handle.pid, 'SIGKILL');
-						} catch {
-							// Process may already be dead
-						}
-					}
+				} catch (err) {
+					// Ignore errors from closing stdio
 				}
-				// Force close Sockets
-				else if (handle?.constructor?.name === 'Socket' && typeof handle.destroy === 'function') {
-					handle.destroy();
-				}
-				// Force close Pipes
-				else if (handle?.constructor?.name === 'Pipe' && typeof handle.close === 'function') {
-					handle.close();
-				}
-			} catch (err) {
-				// Ignore errors from force-closing handles
 			}
+			// Give streams time to close
+			await new Promise(resolve => setTimeout(resolve, 1000));
 		}
-
-		// Force garbage collection if available
-		if (global.gc) {
-			global.gc();
-		}
-
-		// Wait for forced handle cleanup to complete
-		await new Promise(resolve => setTimeout(resolve, 2000));
 	} catch (error) {
 		console.log(`Error during final cleanup: ${error}`);
 	}
-	// --- End Positron ---
 });
 
 export { playwrightExpect as expect };
