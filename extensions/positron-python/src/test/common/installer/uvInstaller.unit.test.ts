@@ -680,4 +680,123 @@ version = "0.1.0"`;
             });
         });
     });
+
+    suite('http.proxy support', () => {
+        function setupWithProxy(proxyUrl: string) {
+            const getConfigStub = workspaceService.getConfiguration as sinon.SinonStub;
+            getConfigStub.reset();
+
+            const httpGet = sinon.stub();
+            httpGet.withArgs('proxy', '').returns(proxyUrl);
+            getConfigStub.withArgs('http').returns({ get: httpGet });
+
+            // Default for any other section (shouldn't be needed, but safe)
+            getConfigStub.callsFake((_section: string) => ({
+                get: sinon.stub().returns(''),
+            }));
+        }
+
+        function setupInterpreter(pythonPath: string, _resource?: Uri) {
+            const settings: IPythonSettings = { pythonPath } as IPythonSettings;
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves({ path: pythonPath });
+        }
+
+        test('Should set HTTP_PROXY and HTTPS_PROXY when http.proxy is configured', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const proxyUrl = 'http://proxy.example.com:8080';
+
+            setupInterpreter(pythonPath);
+            setupWithProxy(proxyUrl);
+
+            const result = await uvInstaller.getExecutionInfo('numpy', resource);
+
+            expect(result.envVars).to.deep.equal({
+                HTTP_PROXY: proxyUrl,
+                HTTPS_PROXY: proxyUrl,
+            });
+        });
+
+        test('Should not include envVars when http.proxy is empty', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+
+            setupInterpreter(pythonPath);
+            setupWithProxy('');
+
+            const result = await uvInstaller.getExecutionInfo('numpy', resource);
+
+            expect(result.envVars).to.be.undefined;
+        });
+
+        test('Should not include envVars with default mock (no proxy configured)', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+
+            setupInterpreter(pythonPath);
+            // Use the default mock from setup() which returns '' for all config gets
+
+            const result = await uvInstaller.getExecutionInfo('numpy', resource);
+
+            expect(result.envVars).to.be.undefined;
+        });
+
+        test('Should include envVars alongside correct args for pip install', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const proxyUrl = 'http://corp-proxy:3128';
+
+            setupInterpreter(pythonPath);
+            setupWithProxy(proxyUrl);
+
+            const result = await uvInstaller.getExecutionInfo('pandas', resource);
+
+            expect(result).to.deep.equal({
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, 'pandas'],
+                execPath: 'uv',
+                envVars: {
+                    HTTP_PROXY: proxyUrl,
+                    HTTPS_PROXY: proxyUrl,
+                },
+            });
+        });
+
+        test('Should include envVars alongside correct args for uv add', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const proxyUrl = 'https://secure-proxy.internal:443';
+
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
+
+            const pyprojectContent = `[project]\nname = "test-project"\nversion = "0.1.0"`;
+
+            setupInterpreter(pythonPath);
+            setupWithProxy(proxyUrl);
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
+            (fileSystem.fileExists as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(true)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt'))
+                .resolves(false);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(pyprojectContent);
+
+            const result = await uvInstaller.getExecutionInfo('numpy', resource);
+
+            expect(result).to.deep.equal({
+                args: ['add', '--active', '--upgrade', '--python', pythonPath, 'numpy'],
+                execPath: 'uv',
+                envVars: {
+                    HTTP_PROXY: proxyUrl,
+                    HTTPS_PROXY: proxyUrl,
+                },
+            });
+        });
+    });
 });
