@@ -14,13 +14,18 @@ import { localize } from '../../../../../nls.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
-import { SizingPolicyMenuButton } from './sizingPolicyMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { DarkFilter, PlotsDisplayLocation, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { IAction } from '../../../../../base/common/actions.js';
+import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
+import { showSetPlotSizeModalDialog } from '../modalDialogs/setPlotSizeModalDialog.js';
+import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
+import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { disposableTimeout } from '../../../../../base/common/async.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
@@ -59,6 +64,11 @@ const zoomLevelLabels = new Map<ZoomLevel, string>([
 	[ZoomLevel.OneHundred, localize('positronZoomActual', '100%')],
 	[ZoomLevel.TwoHundred, localize('positronZoomDouble', '200%')],
 ]);
+// sizing policy localized strings
+const sizingPolicyLabel = localize('positron.sizingPolicy', "Sizing");
+const sizingPolicyTooltip = localize('positronSizingPolicyTooltip', "Set how the plot's shape and size are determined");
+const newCustomPolicyLabel = localize('positronNewCustomSize', "New Custom Size...");
+const changeCustomPolicyLabel = localize('positronChangeCustomSize', "Change Custom Size...");
 
 /**
  * ActionBarsProps interface.
@@ -89,6 +99,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const disableRight = noPlots || positronPlotsContext.selectedInstanceIndex >=
 		positronPlotsContext.positronPlotInstances.length - 1;
 	const selectedPlot = positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex];
+	const plotClientForPolicy = selectedPlot instanceof PlotClientInstance ? selectedPlot : undefined;
+
+	// State for sizing policy label.
+	const [activePolicyLabel, setActivePolicyLabel] = useState(() =>
+		plotClientForPolicy?.sizingPolicy.getName(plotClientForPolicy) ?? ''
+	);
 
 	// Only show the sizing policy controls when Positron is in control of the
 	// sizing (i.e. don't show it on static plots)
@@ -168,6 +184,52 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		return () => disposableStore.dispose();
 	}, [services.positronPlotsService]);
 
+	// Track sizing policy changes.
+	useEffect(() => {
+		if (!plotClientForPolicy) {
+			return;
+		}
+
+		const disposables = new DisposableStore();
+
+		const attachPolicy = (policy: IPositronPlotSizingPolicy) => {
+			const policyDisposables = new DisposableStore();
+
+			// If the intrinsic policy is active and the plot's intrinsic size has not been received,
+			// debounce the active policy label update to avoid flickering.
+			let debounceTimeout: IDisposable | undefined;
+			if (policy instanceof PlotSizingPolicyIntrinsic && !plotClientForPolicy.receivedIntrinsicSize) {
+				debounceTimeout = disposableTimeout(() => {
+					setActivePolicyLabel(policy.getName(plotClientForPolicy));
+				}, 250, policyDisposables);
+			} else {
+				setActivePolicyLabel(policy.getName(plotClientForPolicy));
+			}
+
+			if (policy instanceof PlotSizingPolicyIntrinsic) {
+				// Update the active policy label when the selected policy's name changes.
+				policyDisposables.add(plotClientForPolicy.onDidSetIntrinsicSize(() => {
+					debounceTimeout?.dispose();
+					setActivePolicyLabel(policy.getName(plotClientForPolicy));
+				}));
+			}
+
+			return policyDisposables;
+		};
+
+		let policyDisposables = attachPolicy(services.positronPlotsService.selectedSizingPolicy);
+
+		// Update the active policy label when the selected policy changes.
+		disposables.add(plotClientForPolicy.onDidChangeSizingPolicy(policy => {
+			policyDisposables.dispose();
+			policyDisposables = attachPolicy(policy);
+		}));
+		return () => {
+			disposables.dispose();
+			policyDisposables.dispose();
+		};
+	}, [plotClientForPolicy, services.positronPlotsService.selectedSizingPolicy]);
+
 	const labelForDarkFilter = (filter: DarkFilter): string => {
 		switch (filter) {
 			case DarkFilter.On: return darkFilterLabel;
@@ -245,6 +307,108 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		disabled: !action.enabled,
 		onSelected: () => action.run()
 	}));
+
+	// Sizing policy actions builder.
+	const sizingPolicyActions = (): IAction[] => {
+		if (!plotClientForPolicy) {
+			return [];
+		}
+
+		const selectedPolicy = services.positronPlotsService.selectedSizingPolicy;
+
+		// Build the actions for all sizing policies except the custom policy.
+		const actions: IAction[] = [];
+		services.positronPlotsService.sizingPolicies.forEach(policy => {
+			if (policy.id !== PlotSizingPolicyCustom.ID) {
+				// Only enable the intrinsic policy if the plot's intrinsic size is known.
+				const enabled = policy instanceof PlotSizingPolicyIntrinsic ?
+					!!plotClientForPolicy.intrinsicSize : true;
+
+				actions.push({
+					id: policy.id,
+					label: policy.getName(plotClientForPolicy),
+					tooltip: '',
+					class: undefined,
+					enabled,
+					checked: policy.id === selectedPolicy.id,
+					run: () => {
+						plotClientForPolicy.sizingPolicy = policy;
+					}
+				});
+			}
+		});
+
+		// Add a separator and the custom policy, if it exists.
+		actions.push(new Separator());
+		const customPolicy = services.positronPlotsService.sizingPolicies.find(
+			policy => policy.id === PlotSizingPolicyCustom.ID) as PlotSizingPolicyCustom;
+		if (customPolicy) {
+			actions.push({
+				id: customPolicy.id,
+				label: customPolicy.getName(plotClientForPolicy),
+				tooltip: '',
+				class: undefined,
+				enabled: true,
+				checked: customPolicy.id === selectedPolicy.id,
+				run: () => {
+					plotClientForPolicy.sizingPolicy = customPolicy;
+				}
+			});
+		}
+
+		actions.push({
+			id: 'custom',
+			label: customPolicy ? changeCustomPolicyLabel : newCustomPolicyLabel,
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => {
+				showSetPlotSizeModalDialog(
+					customPolicy ? customPolicy.size : undefined,
+					result => {
+						if (result === null) {
+							// The user clicked the delete button; this results in a special `null`
+							// value that signals that the custom policy should be deleted.
+							services.positronPlotsService.clearCustomPlotSize();
+						} else if (result) {
+							if (result.size.width < 100 || result.size.height < 100) {
+								// The user entered a size that's too small. Plots drawn at this
+								// size would be too small to be useful, so we show an error
+								// message.
+								services.notificationService.error(
+									localize(
+										'positronPlotSizeTooSmall',
+										"The custom plot size {0}x{1} is invalid. The size must be at least 100x100.",
+										result.size.width,
+										result.size.height
+									)
+								);
+							} else {
+								// The user entered a valid size; set the custom policy.
+								services.positronPlotsService.setCustomPlotSize(result.size);
+								plotClientForPolicy.sizingPolicy = new PlotSizingPolicyCustom(result.size);
+							}
+						}
+					}
+				);
+			}
+		});
+
+		return actions;
+	};
+
+	// A function that converts the sizing policy IAction[] to CustomContextMenuItem[] for the overflow menu.
+	const sizingPolicyOverflowEntries = () => sizingPolicyActions().map(action => {
+		if (action instanceof Separator) {
+			return new CustomContextMenuSeparator();
+		}
+		return new CustomContextMenuItem({
+			label: action.label,
+			checked: action.checked,
+			disabled: !action.enabled,
+			onSelected: () => action.run()
+		});
+	});
 
 	const leftActions: DynamicActionBarAction[] = [];
 	// Previous plot button.
@@ -344,7 +508,20 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		leftActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
 			separator: false,
-			component: <SizingPolicyMenuButton plotClient={selectedPlot} />
+			text: activePolicyLabel,
+			component: (
+				<ActionBarMenuButton
+					actions={sizingPolicyActions}
+					icon={ThemeIcon.fromId('symbol-ruler')}
+					label={activePolicyLabel}
+					tooltip={sizingPolicyTooltip}
+				/>
+			),
+			overflowContextMenuSubmenu: {
+				icon: 'symbol-ruler',
+				label: sizingPolicyLabel,
+				entries: sizingPolicyOverflowEntries
+			}
 		});
 	}
 
