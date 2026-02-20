@@ -15,10 +15,9 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { SizingPolicyMenuButton } from './sizingPolicyMenuButton.js';
-import { ZoomPlotMenuButton } from './zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
-import { DarkFilter, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, PlotsDisplayLocation, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
@@ -50,6 +49,16 @@ const darkFilterNoneLabel = localize('positron.darkFilterNone', "No Filter");
 const darkFilterFollowThemeLabel = localize('positron.darkFilterFollowTheme', "Follow Theme");
 const darkFilterTooltip = localize('positronDarkFilterTooltip', "Set whether a dark filter is applied to plots.");
 const openDarkFilterSettings = localize('positron.openDarkFilterSettings', "Change Default in Settings...");
+// zoom localized strings
+const zoomLabel = localize('positron.zoom', "Zoom");
+const zoomPlotTooltip = localize('positronZoomPlotTooltip', "Set the plot zoom");
+const zoomLevelLabels = new Map<ZoomLevel, string>([
+	[ZoomLevel.Fit, localize('positronZoomFit', 'Fit')],
+	[ZoomLevel.Fifty, localize('positronZoomFifty', '50%')],
+	[ZoomLevel.SeventyFive, localize('positronZoomSeventyFive', '75%')],
+	[ZoomLevel.OneHundred, localize('positronZoomActual', '100%')],
+	[ZoomLevel.TwoHundred, localize('positronZoomDouble', '200%')],
+]);
 
 /**
  * ActionBarsProps interface.
@@ -140,6 +149,28 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		onSelected: () => action.run()
 	}));
 
+	// Zoom actions builder.
+	const zoomActions = (): IAction[] => {
+		const zoomLevels = [ZoomLevel.Fit, ZoomLevel.Fifty, ZoomLevel.SeventyFive, ZoomLevel.OneHundred, ZoomLevel.TwoHundred];
+		return zoomLevels.map(level => ({
+			id: ZoomLevel[level],
+			label: zoomLevelLabels.get(level) || ZoomLevel[level],
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			checked: props.zoomLevel === level,
+			run: () => props.zoomHandler(level)
+		}));
+	};
+
+	// A function that converts the zoom IAction[] to CustomContextMenuItem[] for the overflow menu.
+	const zoomOverflowEntries = () => zoomActions().map(action => new CustomContextMenuItem({
+		label: action.label,
+		checked: action.checked,
+		disabled: !action.enabled,
+		onSelected: () => action.run()
+	}));
+
 	// Do we have any plots?
 	const noPlots = positronPlotsContext.positronPlotInstances.length === 0;
 	const hasPlots = !noPlots;
@@ -199,9 +230,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	};
 
-	const zoomPlotHandler = (zoomLevel: number) => {
-		props.zoomHandler(zoomLevel);
-	};
 	const savePlotHandler = () => {
 		services.commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.VIEW);
 	};
@@ -290,15 +318,24 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Zoom plot menu button.
 	if (enableZoomPlot) {
+		const zoomLevelLabel = zoomLevelLabels.get(props.zoomLevel) || ZoomLevel[props.zoomLevel];
 		leftActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
 			separator: false,
+			text: zoomLevelLabel,
 			component: (
-				<ZoomPlotMenuButton
-					actionHandler={zoomPlotHandler}
-					zoomLevel={props.zoomLevel}
+				<ActionBarMenuButton
+					actions={zoomActions}
+					icon={ThemeIcon.fromId('positron-size-to-fit')}
+					label={zoomLevelLabel}
+					tooltip={zoomPlotTooltip}
 				/>
-			)
+			),
+			overflowContextMenuSubmenu: {
+				icon: 'positron-size-to-fit',
+				label: zoomLabel,
+				entries: zoomOverflowEntries
+			}
 		});
 	}
 
