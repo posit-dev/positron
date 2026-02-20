@@ -395,32 +395,24 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		// Wait for handles to drain naturally
 		await new Promise(resolve => setTimeout(resolve, 3000));
 
-		// Only if we still have problematic handles after waiting, try selective cleanup
+		// Unref all handles to allow worker teardown even if they're still active
+		// This tells Node.js: "don't keep the event loop alive for these handles"
 		// eslint-disable-next-line local/code-no-any-casts
 		const remainingHandles = (process as any)._getActiveHandles?.() ?? [];
-		const childProcessHandles = remainingHandles.filter((h: any) => h?.constructor?.name === 'ChildProcess');
+		if (remainingHandles.length > 0 && process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
+			console.log(`[afterAll] Unreferencing ${remainingHandles.length} remaining handles...`);
+		}
 
-		// Only force-close if we have more than 2 ChildProcess handles (indicating orphaned processes)
-		if (childProcessHandles.length > 2) {
-			console.log(`[afterAll] Detected ${childProcessHandles.length} ChildProcess handles, attempting cleanup...`);
-			for (const handle of childProcessHandles) {
-				try {
-					// Only close stdio streams, don't kill processes
-					if (handle.stdin && !handle.stdin.destroyed) {
-						handle.stdin.destroy();
-					}
-					if (handle.stdout && !handle.stdout.destroyed) {
-						handle.stdout.destroy();
-					}
-					if (handle.stderr && !handle.stderr.destroyed) {
-						handle.stderr.destroy();
-					}
-				} catch (err) {
-					// Ignore errors from closing stdio
+		for (const handle of remainingHandles) {
+			try {
+				// Call unref() on any handle that supports it
+				// This allows the event loop to exit even if the handle is still active
+				if (typeof handle?.unref === 'function') {
+					handle.unref();
 				}
+			} catch (err) {
+				// Ignore errors from unref
 			}
-			// Give streams time to close
-			await new Promise(resolve => setTimeout(resolve, 1000));
 		}
 	} catch (error) {
 		console.log(`Error during final cleanup: ${error}`);
