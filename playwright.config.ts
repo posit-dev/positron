@@ -51,9 +51,9 @@ export default defineConfig<CustomTestOptions>({
 	retries: process.env.CI ? 1 : 0,
 	workers: 3,
 	timeout: 2 * 60 * 1000,
-	// Increase worker teardown timeout to accommodate cleanup of child processes (kernels, extension host)
-	// Default is 120000ms (2 minutes), increase to 3 minutes for macOS CI
-	teardownTimeout: 3 * 60 * 1000,
+	// Increase worker teardown timeout for macOS CI to accommodate cleanup of child processes (kernels, extension host)
+	// Default is 120000ms (2 minutes), increase to 3 minutes only on macOS CI where we see teardown timeouts
+	teardownTimeout: (process.platform === 'darwin' && process.env.CI) ? 3 * 60 * 1000 : 2 * 60 * 1000,
 	reportSlowTests: {
 		max: 10,
 		threshold: 60 * 1000, // 1 minute
