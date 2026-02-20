@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -143,8 +143,7 @@ test.describe('Quarto - Inline Output', {
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
 		}).toPass({ timeout: 120000 });
 
-		// CRITICAL: Verify there is exactly ONE output view zone, not duplicates
-		// The bug caused outputs to appear multiple times when multiple qmd files were opened
+		// Verify there is exactly ONE output view zone, not duplicates
 		const outputCount = await inlineOutput.count();
 		expect(outputCount).toBe(1);
 
@@ -357,9 +356,7 @@ test.describe('Quarto - Inline Output', {
 		// Wait for the floating toolbar to appear again (cursor is in cell)
 		await expect(toolbar.first()).toBeVisible({ timeout: 5000 });
 
-		// CRITICAL: Click the run button again after editing the cell
-		// This is where the bug would manifest - the toolbar would use the old cell ID
-		// and fail with "Cell not found" error
+		// Click the run button again after editing the cell
 		await runButton.first().click();
 
 		// Wait for execution to complete and verify output was updated
@@ -640,9 +637,9 @@ test.describe('Quarto - Inline Output', {
 			return selection ? selection.toString().trim() : '';
 		});
 
-		// CRITICAL: Verify that text was actually selected via click and drag
-		// The bug caused no text to be selected because Monaco intercepted mouse events
+		// Verify that text was actually selected via click and drag
 		expect(selectedText.length).toBeGreaterThan(0);
+
 		// Verify the selection contains text from the output (could be from any line)
 		// The output has: "Hello World...", "This is additional text...", "Line three..."
 		const containsOutputText = selectedText.includes('World') ||
@@ -720,7 +717,7 @@ test.describe('Quarto - Inline Output', {
 		await expect(editor).toBeVisible({ timeout: 60000 });
 		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
 
-		// CRITICAL: The kernel status should still show the runtime name, not "No Kernel"
+		// The kernel status should still show the runtime name, not "No Kernel"
 		// This verifies that the QuartoKernelManager correctly reattaches to the existing session
 		// Use a retry pattern since session restoration may take some time after reload
 		const kernelLabelAfterReload = kernelStatusWidget.locator('.kernel-label');
@@ -1153,7 +1150,7 @@ test.describe('Quarto - Inline Output', {
 
 		const pid1After = await getPidFromCurrentDoc();
 
-		// Step 7: CRITICAL ASSERTIONS - Each document should have its original kernel
+		// Step 7: Each document should have its original kernel
 		expect(pid1After).toBe(pid1Before);
 		expect(pid2After).toBe(pid2Before);
 
@@ -1221,8 +1218,8 @@ test.describe('Quarto - Inline Output', {
 		const outputContent = inlineOutput.locator('.quarto-output-content');
 		await expect(outputContent).toBeVisible({ timeout: 10000 });
 
-		// CRITICAL CHECK: The output should contain EITHER an HTML table OR plain text,
-		// but NOT both. The bug causes both to appear.
+		// CHECK: The output should contain EITHER an HTML table OR plain text,
+		// but NOT both.
 
 		// Count the number of output items in the view zone
 		const outputItems = inlineOutput.locator('.quarto-output-item');
@@ -1313,7 +1310,7 @@ test.describe('Quarto - Inline Output', {
 		const outputContent = inlineOutput.locator('.quarto-output-content');
 		await expect(outputContent).toBeVisible({ timeout: 10000 });
 
-		// CRITICAL CHECK: The output should contain a webview container for the interactive widget
+		// The output should contain a webview container for the interactive widget
 		const webviewOrHtml = inlineOutput.locator('.quarto-output-webview-container, .quarto-output-html');
 		await expect(webviewOrHtml.first()).toBeVisible({ timeout: 30000 });
 
@@ -1344,8 +1341,7 @@ test.describe('Quarto - Inline Output', {
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
 		}).toPass({ timeout: 30000 });
 
-		// CRITICAL CHECK AFTER REOPEN: The output should STILL be rendered as HTML/webview,
-		// NOT as a JSON blob.
+		// Verify that the output is still rendered as HTML/webview after reopen
 		await expect(webviewOrHtml.first()).toBeVisible({ timeout: 30000 });
 
 		// Verify there's NO raw JSON blob after reopen (this is the bug we're testing for)
@@ -1421,7 +1417,7 @@ test.describe('Quarto - Inline Output', {
 		const outputContent = inlineOutput.locator('.quarto-output-content');
 		await expect(outputContent).toBeVisible({ timeout: 10000 });
 
-		// CRITICAL CHECK: The output should contain a webview container for the interactive widget,
+		// The output should contain a webview container for the interactive widget,
 		// NOT a text rendering with JSON content.
 		// Look for either the webview container or HTML output class
 		const webviewOrHtml = inlineOutput.locator('.quarto-output-webview-container, .quarto-output-html');
@@ -1461,7 +1457,7 @@ test.describe('Quarto - Inline Output', {
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
-			// CRITICAL CHECK AFTER RELOAD: The output should STILL be rendered as HTML/webview,
+			// The output should STILL be rendered as HTML/webview,
 			// NOT as a JSON blob.
 			await expect(webviewOrHtml.first()).toBeVisible({ timeout: 1000 });
 		}).toPass({ timeout: 30000 });
@@ -1591,8 +1587,7 @@ test.describe('Quarto - Inline Output', {
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(300);
 
-		// CRITICAL: Run the current cell (should be the second cell)
-		// With the bug, this would execute wrong code because cell metadata has stale line numbers
+		// Run the current cell (should be the second cell)
 		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for execution to complete
@@ -1604,7 +1599,7 @@ test.describe('Quarto - Inline Output', {
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
-		// CRITICAL ASSERTION: The second cell's output should still be visible and valid
+		// The second cell's output should still be visible and valid
 		// With the bug, we might see:
 		// - An error (trying to execute markdown as Python)
 		// - Wrong output (executing different code)
@@ -1785,8 +1780,6 @@ test.describe('Quarto - Inline Output', {
 		// Verify output content is present
 		const outputContent = inlineOutput.locator('.quarto-output-content');
 		await expect(outputContent).toBeVisible({ timeout: 10000 });
-
-		// CRITICAL ASSERTIONS:
 
 		// 1. Verify there is exactly ONE output item (not two)
 		// The bug causes two items: one from stderr stream, one from error message
