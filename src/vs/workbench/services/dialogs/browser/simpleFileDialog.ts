@@ -326,8 +326,8 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			// Combine CLI flags with user settings using "most restrictive wins" logic.
 			// Keep the inner block unindented to avoid merge conflicts:
 			// prettier-ignore
-			const isDownloadEnabled = (this.environmentService.isEnabledFileDownloads) && (this.configurationService.getValue<boolean>('positron.fileTransfers.enableDownloads') ?? true);
-			const isUploadEnabled = (this.environmentService.isEnabledFileUploads) && (this.configurationService.getValue<boolean>('positron.fileTransfers.enableUploads') ?? true);
+			const isDownloadEnabled = (this.environmentService.isEnabledFileDownloads) && (this.configurationService.getValue<boolean>('files.enableDownloads') ?? true);
+			const isUploadEnabled = (this.environmentService.isEnabledFileUploads) && (this.configurationService.getValue<boolean>('files.enableUploads') ?? true);
 			if ((isSave && isDownloadEnabled) || (!isSave && isUploadEnabled)) {
 				if ((this.scheme !== Schemas.file) && this.options && this.options.availableFileSystems && (this.options.availableFileSystems.length > 1) && (this.options.availableFileSystems.indexOf(Schemas.file) > -1)) {
 					this.filePickBox.customButton = true;

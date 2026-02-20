@@ -13,11 +13,6 @@ import { IConfigurationService } from '../../platform/configuration/common/confi
 // Remove unused import
 // import { IWorkbenchEnvironmentService } from '../services/environment/common/environmentService.js';
 // --- End PWB ---
-// --- Start Positron ---
-import { Registry } from '../../platform/registry/common/platform.js';
-import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../platform/configuration/common/configurationRegistry.js';
-import { localize } from '../../nls.js';
-// --- End Positron ---
 import { WorkbenchState, IWorkspaceContextService, isTemporaryWorkspace } from '../../platform/workspace/common/workspace.js';
 import { IWorkbenchLayoutService, Parts, positionToString } from '../services/layout/browser/layoutService.js';
 import { getRemoteName } from '../../platform/remote/common/remoteHosts.js';
@@ -276,8 +271,8 @@ export class WorkbenchContextKeysHandler extends Disposable {
 			}
 
 			// --- Start Positron ---
-			if (e.affectsConfiguration('positron.fileTransfers.enableDownloads') ||
-				e.affectsConfiguration('positron.fileTransfers.enableUploads')) {
+			if (e.affectsConfiguration('files.enableDownloads') ||
+				e.affectsConfiguration('files.enableUploads')) {
 				this.updateFileTransferKeys();
 			}
 			// --- End Positron ---
@@ -399,42 +394,12 @@ export class WorkbenchContextKeysHandler extends Disposable {
 	// --- Start Positron ---
 	private updateFileTransferKeys(): void {
 		const cliDownloads = this.environmentService.isEnabledFileDownloads ?? true;
-		const settingDownloads = this.configurationService.getValue<boolean>('positron.fileTransfers.enableDownloads') ?? true;
+		const settingDownloads = this.configurationService.getValue<boolean>('files.enableDownloads') ?? true;
 		this.isEnabledFileDownloadsKey.set(cliDownloads && settingDownloads);
 
 		const cliUploads = this.environmentService.isEnabledFileUploads ?? true;
-		const settingUploads = this.configurationService.getValue<boolean>('positron.fileTransfers.enableUploads') ?? true;
+		const settingUploads = this.configurationService.getValue<boolean>('files.enableUploads') ?? true;
 		this.isEnabledFileUploadsKey.set(cliUploads && settingUploads);
 	}
 	// --- End Positron ---
 }
-
-// --- Start Positron ---
-Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
-	.registerConfiguration({
-		id: 'positron.fileTransfers',
-		order: 100,
-		title: localize('fileTransfersConfigurationTitle', "File Transfers"),
-		type: 'object',
-		properties: {
-			'positron.fileTransfers.enableDownloads': {
-				type: 'boolean',
-				default: true,
-				description: localize(
-					'positron.fileTransfers.enableDownloads',
-					"Enable file downloads via the browser UI. When false, download actions are hidden. If the server was started with --disable-file-downloads, downloads are disabled regardless of this setting."
-				),
-				restricted: true,
-			},
-			'positron.fileTransfers.enableUploads': {
-				type: 'boolean',
-				default: true,
-				description: localize(
-					'positron.fileTransfers.enableUploads',
-					"Enable file uploads via the browser UI. When false, upload actions are hidden. If the server was started with --disable-file-uploads, uploads are disabled regardless of this setting."
-				),
-				restricted: true,
-			},
-		}
-	});
-// --- End Positron ---

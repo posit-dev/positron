@@ -1832,7 +1832,7 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 				// --- Start Positron ---
 				// Combine CLI flag with user setting using "most restrictive wins" logic
 				const cliUploads = this.environmentService.isEnabledFileUploads;
-				const settingUploads = this.configurationService.getValue<boolean>('positron.fileTransfers.enableUploads') ?? true;
+				const settingUploads = this.configurationService.getValue<boolean>('files.enableUploads') ?? true;
 				if (cliUploads && settingUploads) {
 					// Use local file import when supported
 					if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
