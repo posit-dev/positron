@@ -203,6 +203,15 @@ export class Code {
 	}
 
 	async exit(): Promise<void> {
+		// --- Start Positron ---
+		// On macOS, kill the process tree BEFORE driver.close() to prevent orphaned children
+		// If we wait for the process to exit naturally, children get reparented and we can't kill them
+		if (process.platform === 'darwin' && this.mainProcess?.pid) {
+			this.logger.log('Smoke test exit(): proactively killing process tree on macOS before close');
+			await this.killProcessTree(this.mainProcess.pid);
+		}
+		// --- End Positron ---
+
 		return measureAndLog(() => new Promise<void>(resolve => {
 			// If no main process (external server mode), just close the driver
 			if (!this.mainProcess) {
