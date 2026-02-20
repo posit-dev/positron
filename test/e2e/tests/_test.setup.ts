@@ -367,53 +367,84 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 	// Enable with ENABLE_DIAGNOSTIC_LOGGING=true
 	if (process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
 		try {
-			// Using unofficial Node.js internal APIs for debugging teardown timeouts
+			const util = require('util');
+
+			function summarizeHandle(h: any) {
+				const name = h?.constructor?.name ?? typeof h;
+
+				if (name === 'ChildProcess') {
+					return {
+						type: name,
+						pid: h.pid,
+						spawnfile: h.spawnfile,
+						spawnargs: h.spawnargs,
+						connected: h.connected,
+						killed: h.killed,
+						exitCode: h.exitCode,
+						signalCode: h.signalCode,
+					};
+				}
+
+				if (name === 'Socket') {
+					return {
+						type: name,
+						local: `${h.localAddress ?? ''}:${h.localPort ?? ''}`,
+						remote: `${h.remoteAddress ?? ''}:${h.remotePort ?? ''}`,
+						bytesWritten: h.bytesWritten,
+						bytesRead: h.bytesRead,
+						destroyed: h.destroyed,
+						pending: h.pending,
+					};
+				}
+
+				if (name === 'Pipe') {
+					return {
+						type: name,
+						fd: h.fd,
+					};
+				}
+
+				// default: show a shallow inspection
+				return {
+					type: name,
+					info: util.inspect(h, { depth: 1, maxArrayLength: 10 }),
+				};
+			}
+
 			// eslint-disable-next-line local/code-no-any-casts
 			const handles = (process as any)._getActiveHandles?.() ?? [];
 			// eslint-disable-next-line local/code-no-any-casts
 			const requests = (process as any)._getActiveRequests?.() ?? [];
 			console.log(`\n[afterAll] Active handles=${handles.length} requests=${requests.length}`);
 
-			// Detailed handle inspection
 			for (const h of handles) {
-				const type = h?.constructor?.name ?? typeof h;
-				console.log(`  handle: ${type}`);
-
-				// ChildProcess details
-				if (type === 'ChildProcess') {
-					console.log(`    - pid: ${h.pid}, killed: ${h.killed}, exitCode: ${h.exitCode}`);
-					if (h.spawnargs) {
-						console.log(`    - command: ${h.spawnargs.slice(0, 3).join(' ')}`);
-					}
-				}
-
-				// Socket/Pipe details
-				if (type === 'Socket' || type === 'Pipe') {
-					console.log(`    - readable: ${h.readable}, writable: ${h.writable}, destroyed: ${h.destroyed}`);
-					if (h._handle) {
-						console.log(`    - has _handle: true, reading: ${h._handle.reading}`);
-					}
-				}
+				console.log(' handle:', summarizeHandle(h));
 			}
 
-			// Detailed request inspection - WriteWrap is the smoking gun!
+			// Group requests by type for cleaner output
+			const byType = new Map<string, number>();
+			const writeWraps: any[] = [];
 			for (const r of requests) {
-				const type = r?.constructor?.name ?? typeof r;
-				console.log(`  request: ${type}`);
+				const t = r?.constructor?.name ?? typeof r;
+				byType.set(t, (byType.get(t) ?? 0) + 1);
 
-				// WriteWrap details - pending write operations
-				if (type === 'WriteWrap') {
+				// Collect WriteWrap samples for detailed inspection
+				if (t === 'WriteWrap' && writeWraps.length < 3) {
+					writeWraps.push(r);
+				}
+			}
+			console.log(' requestsByType:', Object.fromEntries(byType));
+
+			// Show detailed info for first few WriteWrap requests (the smoking gun)
+			if (writeWraps.length > 0) {
+				console.log(' WriteWrap samples (first 3):');
+				for (const w of writeWraps) {
 					try {
-						// Try to get the handle this write is associated with
-						if (r.handle) {
-							console.log(`    - handle type: ${r.handle?.constructor?.name}`);
-							console.log(`    - handle destroyed: ${r.handle?.destroyed}`);
-						}
-						if (r.async) {
-							console.log(`    - async: ${r.async}`);
-						}
+						const handleType = w.handle?.constructor?.name ?? 'unknown';
+						const handleDestroyed = w.handle?.destroyed ?? 'unknown';
+						console.log(`   - handle: ${handleType}, destroyed: ${handleDestroyed}`);
 					} catch {
-						// Ignore errors accessing internal properties
+						console.log('   - (unable to inspect)');
 					}
 				}
 			}
