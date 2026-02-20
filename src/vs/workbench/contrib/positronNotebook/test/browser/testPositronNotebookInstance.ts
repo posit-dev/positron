@@ -75,19 +75,17 @@ export type TestCellInput = MockNotebookCell | ICellDto2;
  * Converts a TestCellInput to ICellDto2 format for NotebookTextModel.
  */
 function cellToDto(cell: TestCellInput): ICellDto2 {
-	if (Array.isArray(cell)) {
-		const [source, language, cellKind, outputs, metadata] = cell;
-		return {
-			source,
-			mime: undefined,
-			language,
-			cellKind,
-			outputs: outputs || [],
-			metadata: metadata || {},
-			internalMetadata: {},
-		};
-	}
-	return cell;
+	if (!Array.isArray(cell)) { return cell; }
+	const [source, language, cellKind, outputs, metadata] = cell;
+	return {
+		source,
+		mime: undefined,
+		language,
+		cellKind,
+		outputs: outputs || [],
+		metadata: metadata || {},
+		internalMetadata: {},
+	};
 }
 
 /**
