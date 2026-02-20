@@ -19,6 +19,7 @@ export namespace MarkedSuperSubExtension {
 		type: 'superscript' | 'subscript';
 		raw: string;
 		text: string;
+		tokens: marked.Token[];
 	}
 
 	// Match ^text^ for superscript. Text cannot contain ^ or newlines or spaces at boundaries.
@@ -44,19 +45,23 @@ export namespace MarkedSuperSubExtension {
 			start(src: string) {
 				return src.indexOf('^');
 			},
-			tokenizer(src: string) {
+			tokenizer(this: { lexer: marked.Lexer }, src: string) {
 				const match = src.match(superscriptRule);
 				if (match) {
-					return {
+					const token: SuperSubToken = {
 						type: 'superscript',
 						raw: match[0],
 						text: match[1],
+						tokens: [],
 					};
+					this.lexer.inline(token.text, token.tokens);
+					return token;
 				}
 				return undefined;
 			},
+			childTokens: ['tokens'],
 			renderer(token: marked.Tokens.Generic) {
-				return `<sup>${token.text}</sup>`;
+				return `<sup>${this.parser.parseInline(token.tokens ?? [])}</sup>`;
 			},
 		};
 	}
@@ -82,19 +87,23 @@ export namespace MarkedSuperSubExtension {
 				}
 				return -1;
 			},
-			tokenizer(src: string) {
+			tokenizer(this: { lexer: marked.Lexer }, src: string) {
 				const match = src.match(subscriptRule);
 				if (match) {
-					return {
+					const token: SuperSubToken = {
 						type: 'subscript',
 						raw: match[0],
 						text: match[1],
+						tokens: [],
 					};
+					this.lexer.inline(token.text, token.tokens);
+					return token;
 				}
 				return undefined;
 			},
+			childTokens: ['tokens'],
 			renderer(token: marked.Tokens.Generic) {
-				return `<sub>${token.text}</sub>`;
+				return `<sub>${this.parser.parseInline(token.tokens ?? [])}</sub>`;
 			},
 		};
 	}

@@ -339,9 +339,9 @@ export class TokenMarkdownRenderer {
 				return this.renderDel(token as marked.Tokens.Del, key);
 			// Custom superscript/subscript tokens
 			case 'superscript':
-				return <sup key={key}>{(token as MarkedSuperSubExtension.SuperSubToken).text}</sup>;
+				return <sup key={key}>{this.renderInlineTokens((token as MarkedSuperSubExtension.SuperSubToken).tokens)}</sup>;
 			case 'subscript':
-				return <sub key={key}>{(token as MarkedSuperSubExtension.SuperSubToken).text}</sub>;
+				return <sub key={key}>{this.renderInlineTokens((token as MarkedSuperSubExtension.SuperSubToken).tokens)}</sub>;
 			// Custom KaTeX tokens
 			case 'inlineKatex':
 			case 'blockKatex':
@@ -528,13 +528,15 @@ export class TokenMarkdownRenderer {
 	/**
 	 * Extracts plain text from tokens (used for generating heading IDs)
 	 */
-	private extractTextFromTokens(tokens: marked.Token[]): string {
+	private extractTextFromTokens(tokens: (marked.Token | MarkedSuperSubExtension.SuperSubToken)[]): string {
 		const parts: string[] = [];
 		for (const token of tokens) {
 			if (token.type === 'text') {
-				parts.push(token.text);
+				parts.push((token as marked.Tokens.Text).text);
 			} else if (token.type === 'code' || token.type === 'codespan') {
 				parts.push((token as marked.Tokens.Code | marked.Tokens.Codespan).text);
+			} else if (token.type === 'superscript' || token.type === 'subscript') {
+				parts.push((token as MarkedSuperSubExtension.SuperSubToken).text);
 			} else if ('tokens' in token && Array.isArray(token.tokens)) {
 				parts.push(this.extractTextFromTokens(token.tokens));
 			}
