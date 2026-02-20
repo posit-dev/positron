@@ -17,7 +17,11 @@ import { IContextKeyService } from '../../../../../../platform/contextkey/common
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../../../services/chat/common/chatEntitlementService.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
+// --- Start Positron ---
+/*
 import { DEFAULT_MODEL_PICKER_CATEGORY } from '../../../common/widget/input/modelPickerWidget.js';
+*/
+// --- End Positron ---
 import { IActionProvider } from '../../../../../../base/browser/ui/dropdown/dropdown.js';
 import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
 import { IProductService } from '../../../../../../platform/product/common/productService.js';
@@ -60,7 +64,9 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 			const models = delegate.getModels();
 			const actions: IActionWidgetDropdownAction[] = [];
 
+			// Disable fake "Auto" entry since it won't work with Positron Assistant
 			// --- Start CodeOSS ---
+			/*
 			if (models.length === 0) {
 				// Show a fake "Auto" entry when no models are available
 				return [{
@@ -74,6 +80,7 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 					run: () => { }
 				} satisfies IActionWidgetDropdownAction];
 			}
+			*/
 			// --- End CodeOSS ---
 
 			// Group models by vendor
@@ -277,7 +284,10 @@ export class ModelPickerActionItem extends ActionWidgetDropdownActionViewItem {
 		// Modify the original action with a different label and make it show the current model
 		const actionWithLabel: IAction = {
 			...action,
-			label: currentModel?.metadata.name ?? localize('chat.modelPicker.auto', "Auto"),
+			// --- Start Positron ---
+			// Change "Auto" to "Pick Model"
+			label: currentModel?.metadata.name ?? localize('chat.modelPicker.label', "Pick Model"),
+			// --- End Positron ---
 			run: () => { }
 		};
 
@@ -300,6 +310,8 @@ export class ModelPickerActionItem extends ActionWidgetDropdownActionViewItem {
 		// --- Start Positron ---
 		// Listen for model list changes (e.g., when provider settings change)
 		this._register(delegate.onDidChangeModelList(() => {
+			// Sync current model from delegate in case it was cleared
+			this.currentModel = delegate.getCurrentModel();
 			// Update the label in case the current model changed
 			if (this.element) {
 				this.renderLabel(this.element);
@@ -344,7 +356,10 @@ export class ModelPickerActionItem extends ActionWidgetDropdownActionViewItem {
 			domChildren.push(iconElement);
 		}
 
-		domChildren.push(dom.$('span.chat-model-label', undefined, name ?? localize('chat.modelPicker.auto', "Auto")));
+		// --- Start Positron ---
+		// Change "Auto" to "Pick Model"
+		domChildren.push(dom.$('span.chat-model-label', undefined, name ?? localize('chat.modelPicker.label', "Pick Model")));
+		// --- End Positron ---
 		domChildren.push(...renderLabelWithIcons(`$(chevron-down)`));
 
 		dom.reset(element, ...domChildren);

@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { join } from 'path';
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 
 /**
  * Test: getTableSummary tool usage
@@ -22,7 +22,7 @@ export const pythonTableSummary: EvalTestCase = {
 	prompt,
 	mode,
 
-	run: async ({ app, sessions, hotKeys, cleanup }) => {
+	run: async ({ app, sessions, hotKeys, cleanup }): Promise<RunResult> => {
 		const { assistant, console, quickaccess } = app.workbench;
 
 		// Start Python session
@@ -39,7 +39,7 @@ export const pythonTableSummary: EvalTestCase = {
 		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(prompt, true);
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
@@ -48,7 +48,7 @@ export const pythonTableSummary: EvalTestCase = {
 		await sessions.restart(pySession.id);
 		await cleanup.discardAllChanges();
 
-		return response;
+		return { response, timing };
 	},
 
 	evaluationCriteria: {

@@ -65,9 +65,17 @@ export function positronNotebookInstantiationService(
 let nextInstanceId = 0;
 
 /**
- * Converts a MockNotebookCell tuple to ICellDto2 format for NotebookTextModel.
+ * A cell input that is either a MockNotebookCell tuple or a full ICellDto2 object.
+ * Use ICellDto2 when you need to set fields that the tuple format does not
+ * support, such as `mime`, `internalMetadata`, or `collapseState`.
  */
-function cellToDto(cell: MockNotebookCell): ICellDto2 {
+export type TestCellInput = MockNotebookCell | ICellDto2;
+
+/**
+ * Converts a TestCellInput to ICellDto2 format for NotebookTextModel.
+ */
+function cellToDto(cell: TestCellInput): ICellDto2 {
+	if (!Array.isArray(cell)) { return cell; }
 	const [source, language, cellKind, outputs, metadata] = cell;
 	return {
 		source,
@@ -89,7 +97,7 @@ function cellToDto(cell: MockNotebookCell): ICellDto2 {
  * {@link instantiateTestNotebookInstance} directly.
  */
 export function createTestPositronNotebookInstance(
-	cells: MockNotebookCell[],
+	cells: TestCellInput[],
 	disposables: Pick<DisposableStore, 'add'>,
 ): TestPositronNotebookInstance {
 	const instantiationService = positronNotebookInstantiationService(disposables);
@@ -108,7 +116,7 @@ export function createTestPositronNotebookInstance(
  *                    takes ownership via {@link TestPositronNotebookInstance.registerDisposable}.
  */
 export function instantiateTestNotebookInstance(
-	cells: MockNotebookCell[],
+	cells: TestCellInput[],
 	instantiationService: TestInstantiationService,
 	disposables: Pick<DisposableStore, 'add'>,
 ): TestPositronNotebookInstance {

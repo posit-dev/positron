@@ -170,6 +170,13 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 		};
 	}
 
+	if (mime === 'image/svg+xml') {
+		return {
+			type: 'image',
+			dataUrl: `data:image/svg+xml,${encodeURIComponent(message)}`
+		};
+	}
+
 	return {
 		type: 'unknown',
 		content: localize('cellExecutionUnknownMimeType', 'Can\'t handle mime type "{0}" yet', mime)

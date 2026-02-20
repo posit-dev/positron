@@ -153,7 +153,9 @@ export async function getSnowflakeConnectionOptions(): Promise<SnowflakeConnecti
 	// Try each path in order until we find a valid connections file
 	for (const pathToTry of pathsToTry) {
 		try {
-			if (fs.existsSync(pathToTry)) {
+			const exists = fs.existsSync(pathToTry);
+			traceInfo(`Checking path: ${pathToTry} - ${exists ? 'found' : 'not found'}`);
+			if (exists) {
 				traceInfo(`Loading Snowflake connections from: ${pathToTry}`);
 				const content = fs.readFileSync(pathToTry, 'utf8');
 				const rawConnections = toml.parse(content);

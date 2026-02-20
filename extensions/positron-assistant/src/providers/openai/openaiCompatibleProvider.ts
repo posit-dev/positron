@@ -76,6 +76,14 @@ export class OpenAICompatibleModelProvider extends OpenAIModelProvider implement
 	}
 
 	/**
+	 * Returns custom headers to include in API requests.
+	 * Subclasses can override to add provider-specific headers (e.g. User-Agent).
+	 */
+	protected get customHeaders(): Record<string, string> | undefined {
+		return undefined;
+	}
+
+	/**
 	 * Initializes the OpenAI-compatible provider with chat wrapper.
 	 *
 	 * Creates an OpenAI provider that uses the `/v1/chat/completions` endpoint
@@ -90,6 +98,7 @@ export class OpenAICompatibleModelProvider extends OpenAIModelProvider implement
 		const baseProvider = createOpenAI({
 			apiKey: this._config.apiKey,
 			baseURL: this.baseUrl,
+			headers: this.customHeaders,
 			fetch: createOpenAICompatibleFetch(this.providerName)
 		});
 
