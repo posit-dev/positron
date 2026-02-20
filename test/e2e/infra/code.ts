@@ -295,6 +295,20 @@ export class Code {
 			const processStub: Pick<cp.ChildProcess, 'pid'> = { pid };
 			// Use teardown which calls treeKill to kill entire process tree
 			await teardown(processStub as cp.ChildProcess, this.logger);
+
+			// Verify the process is actually dead on macOS (where Electron processes can be stubborn)
+			if (process.platform === 'darwin') {
+				await this.wait(500);
+				try {
+					process.kill(pid, 0); // throws if process doesn't exist
+					// Process still exists! Force kill with SIGKILL
+					this.logger.log(`Smoke test killProcessTree(): Process ${pid} survived SIGTERM, using SIGKILL`);
+					process.kill(pid, 'SIGKILL');
+					await this.wait(500);
+				} catch {
+					// Process is dead, good
+				}
+			}
 			this.logger.log('Smoke test killProcessTree(): Process tree killed successfully');
 
 			// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
