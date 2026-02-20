@@ -50,7 +50,6 @@ import { IPosition } from '../../../../editor/common/core/position.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } from './positronNotebookExtensions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
@@ -483,7 +482,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IHoverService private readonly _hoverService: IHoverService,
-		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		super();
 
@@ -1495,28 +1493,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Joins all currently selected cells into a single cell.
-	 * All cells must be the same kind (code or markdown).
+	 * Uses the first cell's type for the merged result.
+	 * When only one cell is selected, joins with the cell below (Jupyter behavior).
 	 */
 	joinSelectedCells(): void {
 		this._assertTextModel();
 
 		const selectedCells = getSelectedCells(this.selectionStateMachine.state.get());
+
+		// With a single cell selected, merge with the cell below (Jupyter behavior)
 		if (selectedCells.length <= 1) {
+			this.joinCellBelow();
 			return;
 		}
 
 		// Sort by index in document order
 		const sortedCells = [...selectedCells].sort((a, b) => a.index - b.index);
-
-		// Validate all cells are the same kind
-		const firstKind = sortedCells[0].kind;
-		if (!sortedCells.every(c => c.kind === firstKind)) {
-			this._notificationService.notify({
-				severity: Severity.Warning,
-				message: localize('joinCells.mixedKinds', "Cannot join cells of different types. All selected cells must be the same type (code or markdown)."),
-			});
-			return;
-		}
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -1549,7 +1541,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			index: firstCell.index,
 			count: 1,
 			cells: [{
-				cellKind: firstKind,
+				cellKind: firstCell.kind,
 				language: firstCellModel.language,
 				mime: firstCellModel.mime,
 				outputs: firstCellModel.outputs,
@@ -1601,7 +1593,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Joins the active cell with its neighbor in the given direction.
-	 * The kept cell (lower index) preserves its metadata, outputs, and state.
+	 * The active cell's type is used for the merged result (Jupyter behavior).
+	 * The merged cell is placed at the lower index position.
 	 */
 	private _joinCellWithNeighbor(direction: 'above' | 'below'): void {
 		this._assertTextModel();
@@ -1622,27 +1615,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const neighborIndex = direction === 'above' ? cellIndex - 1 : cellIndex + 1;
-		const neighborCell = allCells[neighborIndex];
-
-		if (activeCell.kind !== neighborCell.kind) {
-			this._notificationService.notify({
-				severity: Severity.Warning,
-				message: localize('joinCells.differentKinds', "Cannot join cells of different types."),
-			});
-			return;
-		}
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 
-		// The kept cell is always at the lower index; it preserves metadata and outputs
+		// The merged cell is placed at the lower index, but uses the active cell's type
 		const keepIndex = Math.min(cellIndex, neighborIndex);
 		const deleteIndex = Math.max(cellIndex, neighborIndex);
 		const keepCell = allCells[keepIndex];
 		const otherCell = allCells[deleteIndex];
 
+		const activeCellModel = textModel.cells[cellIndex];
 		const keepCellModel = textModel.cells[keepIndex];
-		if (!keepCellModel) {
+		if (!activeCellModel || !keepCellModel) {
 			return;
 		}
 
@@ -1657,19 +1642,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				count: 1,
 				cells: []
 			},
-			// Replace the kept cell with merged content
+			// Replace the kept cell with merged content, using active cell's type
 			{
 				editType: CellEditType.Replace,
 				index: keepIndex,
 				count: 1,
 				cells: [{
-					cellKind: keepCell.kind,
-					language: keepCellModel.language,
-					mime: keepCellModel.mime,
-					outputs: keepCellModel.outputs,
-					metadata: keepCellModel.metadata,
-					internalMetadata: keepCellModel.internalMetadata,
-					collapseState: keepCellModel.collapseState,
+					cellKind: activeCell.kind,
+					language: activeCellModel.language,
+					mime: activeCellModel.mime,
+					outputs: activeCellModel.outputs,
+					metadata: activeCellModel.metadata,
+					internalMetadata: activeCellModel.internalMetadata,
+					collapseState: activeCellModel.collapseState,
 					source: mergedContent
 				}]
 			}

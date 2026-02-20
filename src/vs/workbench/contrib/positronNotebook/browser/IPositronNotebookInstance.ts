@@ -324,19 +324,20 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 
 	/**
 	 * Joins all currently selected cells into a single cell.
-	 * All cells must be the same kind (code or markdown).
+	 * Uses the first cell's type for the merged result.
+	 * When only one cell is selected, joins with the cell below (Jupyter behavior).
 	 */
 	joinSelectedCells(): void;
 
 	/**
 	 * Joins the active cell with the cell above it.
-	 * Both cells must be the same kind.
+	 * Uses the active cell's type for the merged result.
 	 */
 	joinCellAbove(): void;
 
 	/**
 	 * Joins the active cell with the cell below it.
-	 * Both cells must be the same kind.
+	 * Uses the active cell's type for the merged result.
 	 */
 	joinCellBelow(): void;
 

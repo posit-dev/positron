@@ -1368,7 +1368,7 @@ registerAction2(class extends NotebookAction2 {
 			keybinding: {
 				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Backslash)
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Minus
 			}
 		});
 	}
