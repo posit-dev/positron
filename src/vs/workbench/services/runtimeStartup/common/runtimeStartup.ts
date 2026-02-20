@@ -1346,12 +1346,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			newSession: false
 		});
 
-		// Activate any extensions needed for the sessions that are persistent on the machine.
-		// We need the extension to be active so that we can ask it to validate
-		// the session before connecting to it.
-		await Promise.all(sessions.filter(session =>
-			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine
-		).map(async session => {
+		// Activate any extensions needed for the sessions we want to reconnect
+		// to. We need the extension to be active so that we can ask it to
+		// validate the session before connecting to it.
+		// Note: we activate extensions for *all* sessions here, not just
+		// machine-persistent ones, because activateById() returns before the
+		// extension has fully registered its session managers. Pre-activating
+		// all extensions ensures managers are ready by the time we attempt to
+		// reconnect below.
+		await Promise.all(sessions.map(async session => {
 			await this.activateExtension(
 				session.runtimeMetadata.extensionId,
 				session.runtimeMetadata.languageId);
