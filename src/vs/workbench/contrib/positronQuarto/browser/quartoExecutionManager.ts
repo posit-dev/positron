@@ -554,7 +554,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 			if (primaryLanguage && cellLanguage !== primaryLanguage) {
 				// Non-primary language: execute via console service
-				return this._executeRangeViaConsole(documentUri, cell, codeRange, token);
+				return this._executeRangeViaConsole(documentUri, cell, codeRange, options, token);
 			}
 		}
 
@@ -591,11 +591,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 				// Execute the code
 				this._logService.debug(`[QuartoExecutionManager] Executing inline code in cell ${cell.id} with execution ID ${executionId}`);
+				const errorBehavior = options.error
+					? RuntimeErrorBehavior.Stop
+					: RuntimeErrorBehavior.Continue;
 				session.execute(
 					code,
 					executionId,
 					RuntimeCodeExecutionMode.Interactive,
-					RuntimeErrorBehavior.Continue
+					errorBehavior
 				);
 
 				// Fire the event signaling code execution.
@@ -616,7 +619,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					code,
 					languageId: cell.language,
 					runtimeName: session.runtimeMetadata.runtimeName,
-					errorBehavior: RuntimeErrorBehavior.Continue,
+					errorBehavior,
 					mode: RuntimeCodeExecutionMode.Interactive,
 				};
 				this._onDidExecuteCode.fire(event);
@@ -674,6 +677,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		documentUri: URI,
 		cell: QuartoCodeCell,
 		codeRange: Range,
+		options: QuartoCellExecutionOptions = DEFAULT_CELL_EXECUTION_OPTIONS,
 		token?: CancellationToken
 	): Promise<boolean> {
 		this._logService.debug(
@@ -715,6 +719,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 				// Execute via console service with our execution ID
 				// This will create/start the session if needed and return the session ID
+				const errorBehavior = options.error
+					? RuntimeErrorBehavior.Stop
+					: RuntimeErrorBehavior.Continue;
 				await this._consoleService.executeCode(
 					cell.language,
 					undefined,
@@ -733,7 +740,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					false, // focus
 					false, // allowIncomplete
 					RuntimeCodeExecutionMode.Interactive,
-					RuntimeErrorBehavior.Continue,
+					errorBehavior,
 					executionId,
 				);
 

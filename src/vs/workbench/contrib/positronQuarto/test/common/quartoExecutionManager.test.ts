@@ -11,7 +11,7 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
-import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { QuartoExecutionManager } from '../../browser/quartoExecutionManager.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
@@ -59,6 +59,10 @@ suite('QuartoExecutionManager', () => {
 	let executionManager: QuartoExecutionManager;
 	let mockSession: TestLanguageRuntimeSession;
 	let mockKernelManager: MockKernelManager;
+	let mockDocumentModelService: MockDocumentModelService;
+	let mockEditorService: MockEditorService;
+	let mockConsoleService: RecordingConsoleService;
+	let mockRuntimeSessionService: MockRuntimeSessionService;
 
 	setup(() => {
 		// Create mock session
@@ -72,12 +76,12 @@ suite('QuartoExecutionManager', () => {
 
 		// Create mock services
 		mockKernelManager = disposables.add(new MockKernelManager(mockSession));
-		const mockDocumentModelService = new MockDocumentModelService();
-		const mockEditorService = new MockEditorService();
+		mockDocumentModelService = new MockDocumentModelService();
+		mockEditorService = new MockEditorService();
 		const mockEphemeralStateService = new MockEphemeralStateService();
 		const mockWorkspaceContextService = new MockWorkspaceContextService();
-		const mockConsoleService = new TestPositronConsoleService();
-		const mockRuntimeSessionService = new MockRuntimeSessionService();
+		mockConsoleService = new RecordingConsoleService();
+		mockRuntimeSessionService = new MockRuntimeSessionService();
 		const mockTerminalService = new MockTerminalService();
 
 		// Create execution manager
@@ -93,6 +97,75 @@ suite('QuartoExecutionManager', () => {
 			mockTerminalService as unknown as ITerminalService,
 		);
 		disposables.add(executionManager);
+	});
+
+	suite('Execution Options', () => {
+		test('uses RuntimeErrorBehavior.Stop by default for inline execution', async () => {
+			const documentUri = URI.file('/test-error-default.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-error-default',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 3,
+				codeStartLine: 2,
+				codeEndLine: 2,
+				label: undefined,
+				options: '',
+				contentHash: 'error-default',
+			};
+
+			let executedErrorBehavior: RuntimeErrorBehavior | undefined;
+			const executionListener = executionManager.onDidExecuteCode(event => {
+				executedErrorBehavior = event.errorBehavior;
+			});
+			disposables.add(executionListener);
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			const executionId = await mockKernelManager.waitForExecution();
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+
+			assert.strictEqual(executedErrorBehavior, RuntimeErrorBehavior.Stop);
+		});
+
+		test('uses RuntimeErrorBehavior.Continue for console execution when error: false', async () => {
+			const documentUri = URI.file('/test-console-error-false.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-console-error-false',
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'console-error-false',
+			};
+
+			const mockModel = new MockQuartoDocumentModel(
+				[cell],
+				['```{r}', '#| error: false', 'x <- 1', '```']
+			);
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = () => '#| error: false\nx <- 1';
+			mockRuntimeSessionService.setConsoleSessionForLanguage('r', mockSession);
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			const executionId = await mockConsoleService.waitForExecution();
+
+			assert.strictEqual(mockConsoleService.lastErrorBehavior, RuntimeErrorBehavior.Continue);
+
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+		});
 	});
 
 	suite('Output Handling', () => {
@@ -523,6 +596,38 @@ class MockKernelManager extends Disposable {
 	}
 }
 
+class RecordingConsoleService extends TestPositronConsoleService {
+	lastErrorBehavior: RuntimeErrorBehavior | undefined;
+	lastExecutionId: string | undefined;
+	private _executionResolve?: (id: string) => void;
+
+	override async executeCode(...args: Parameters<TestPositronConsoleService['executeCode']>): Promise<string> {
+		this.lastErrorBehavior = args[7];
+		this.lastExecutionId = args[8];
+		if (this.lastExecutionId) {
+			this._executionResolve?.(this.lastExecutionId);
+		}
+		return super.executeCode(...args);
+	}
+
+	waitForExecution(timeoutMs = 5000): Promise<string> {
+		if (this.lastExecutionId) {
+			return Promise.resolve(this.lastExecutionId);
+		}
+		return new Promise<string>((resolve, reject) => {
+			const timer = setTimeout(() => {
+				this._executionResolve = undefined;
+				reject(new Error('Timed out waiting for console execution'));
+			}, timeoutMs);
+			this._executionResolve = (id: string) => {
+				clearTimeout(timer);
+				this._executionResolve = undefined;
+				resolve(id);
+			};
+		});
+	}
+}
+
 class MockDocumentModelService {
 	private _mockModel: MockQuartoDocumentModel | undefined;
 
@@ -640,12 +745,22 @@ class MockWorkspaceContextService {
 }
 
 class MockRuntimeSessionService {
+	private readonly _consoleSessions = new Map<string, ILanguageRuntimeSession>();
+
 	getSession(_sessionId: string): ILanguageRuntimeSession | undefined {
 		return undefined;
 	}
 
-	getConsoleSessionForLanguage(_languageId: string): ILanguageRuntimeSession | undefined {
-		return undefined;
+	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined {
+		return this._consoleSessions.get(languageId);
+	}
+
+	setConsoleSessionForLanguage(languageId: string, session: ILanguageRuntimeSession): void {
+		this._consoleSessions.set(languageId, session);
+	}
+
+	onDidStartRuntime(): { dispose(): void } {
+		return { dispose() { } };
 	}
 }
 
