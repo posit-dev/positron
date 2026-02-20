@@ -23,11 +23,12 @@ import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
 import { AssistantError } from '../../errors';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
-import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
+import { autoconfigureWithManagedCredentials, hasManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
-import { ErrorTemplates, ErrorContext } from './errorFormatting';
+import { ErrorTemplates } from './errorFormatting';
 import { registerModelWithAPI } from '../../modelRegistration';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
+import { ErrorContext } from '../base/errorContext.js';
 
 /**
  * Environment variables for AWS Bedrock configuration.
@@ -64,11 +65,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	 */
 	inferenceProfiles: InferenceProfileSummary[] = [];
 
-	/**
-	 * Flag indicating if we're currently resolving the connection.
-	 * Used to adjust error handling for SSO login prompts.
-	 */
-	private _resolvingConnection: boolean = false;
 
 	/**
 	 * The preferred inference profile region.
@@ -83,10 +79,17 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	private _lastError?: Error;
 
 	/**
-	 * The AWS credential source features detected from the credential provider.
+	 * Promise that resolves to the AWS credential source features from the credential provider.
+	 * Stored as a promise to avoid race conditions with async credential detection.
 	 * Used to determine which credential type was used for enhanced error messages.
 	 */
-	private _credentialSource?: AwsSdkCredentialsFeatures;
+	private _credentialSourcePromise?: Promise<AwsSdkCredentialsFeatures | undefined>;
+
+	/**
+	 * Cached result of whether managed credentials are available.
+	 * Computed once in initializeProvider to avoid repeated checks on every error.
+	 */
+	private _isManagedCredential: boolean = false;
 
 	/**
 	 * Supported Bedrock model providers.
@@ -200,13 +203,17 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			this._inferenceProfileRegion = AWSModelProvider.deriveInferenceProfileRegion(region);
 		}
 
-		// Detect and store credential source for error handling
-		this.getCredentialSource(credentials).then(credentialSource => {
-			this._credentialSource = credentialSource;
+		// Detect and store credential source promise for error handling
+		// Store as promise to avoid race conditions if errors occur before resolution
+		this._credentialSourcePromise = this.getCredentialSource(credentials).then(credentialSource => {
 			if (credentialSource) {
 				this.logger.debug(`AWS credentials loaded with source features: ${JSON.stringify(Object.keys(credentialSource))}`);
 			}
+			return credentialSource;
 		});
+
+		// Cache managed credential state once to avoid repeated checks per error
+		this._isManagedCredential = hasManagedCredentials(AWS_MANAGED_CREDENTIALS);
 
 		this.logger.info(
 			`Using AWS region: ${region}, profile: ${profile ?? '(not set, using default)'}, ` +
@@ -297,23 +304,27 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		}
 
 		// Get AWS profile and region for better error messages
-		const profile = this.bedrockClient.config.profile || 'default';
+		const profile = this.bedrockClient.config.profile || undefined;
 		const region = typeof this.bedrockClient.config.region === 'function'
 			? await this.bedrockClient.config.region()
 			: this.bedrockClient.config.region || 'us-east-1';
 
+		// Await credential source to avoid race condition
+		const credentialSource = await this._credentialSourcePromise;
+
 		// Determine if we're in a connection test (used for SSO login handling)
-		const isConnectionTest = context?.isConnectionTest ?? this._resolvingConnection;
+		const isConnectionTest = context?.isConnectionTest ?? false;
 
 		// Handle IAM authorization errors
 		if (name === 'AccessDeniedException' || name === 'UnauthorizedException' ||
-			message.includes('not authorized to perform')) {
+			error?.statusCode === 403 || message.includes('not authorized to perform')) {
 
 			return ErrorTemplates.permissionError({
 				provider: 'Amazon Bedrock',
 				profile,
 				region,
-				credentialSource: this._credentialSource
+				credentialSource,
+				isManagedCredential: this._isManagedCredential
 			});
 		}
 
@@ -347,11 +358,11 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						throw new AssistantError(message, false);
 					} else {
 						// We are in a chat response, so we should return an error to display in the chat pane
-						const profileArg = this.bedrockClient.config.profile ? ` --profile ${this.bedrockClient.config.profile}` : '';
+						const profileArg = profile ? ` --profile ${this.bedrockClient.config.profile}` : '';
 						throw new Error(
 							vscode.l10n.t(
-								'AWS login required. Please run `aws sso login --profile {0} --region {1}` in the terminal, and retry this request.',
-								profile,
+								'AWS login required. Please run `aws sso login{0} --region {1}` in the terminal, and retry this request.',
+								profileArg,
 								region
 							)
 						);
@@ -364,7 +375,8 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 					provider: 'Amazon Bedrock',
 					profile,
 					region,
-					credentialSource: this._credentialSource
+					credentialSource,
+					isManagedCredential: this._isManagedCredential
 				});
 			}
 		}
@@ -448,15 +460,12 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	override async resolveConnection(token: vscode.CancellationToken) {
 		this.logger.debug('Resolving connection by fetching available models...');
 
-		// Set connection test context for error handling
+		// Set context to indicate we're in a connection test (used for error handling)
 		const connectionTestContext: ErrorContext = {
 			isConnectionTest: true,
 			isChat: false,
 			isStartup: false
 		};
-
-		// Keep _resolvingConnection for backward compatibility
-		this._resolvingConnection = true;
 
 		try {
 			await this.resolveModels(token);
@@ -468,8 +477,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			if (parsedError) {
 				return new Error(parsedError);
 			}
-		} finally {
-			this._resolvingConnection = false;
 		}
 
 		return undefined;

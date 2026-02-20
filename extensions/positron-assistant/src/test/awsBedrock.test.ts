@@ -7,8 +7,8 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import { AWSModelProvider } from '../providers/aws/awsBedrockProvider';
 import { BedrockClient } from '@aws-sdk/client-bedrock';
-import { ModelConfig } from '../config';
-import { ErrorContext } from '../providers/aws/errorFormatting';
+import { ModelConfig } from '../configTypes';
+import { ErrorContext } from '../providers/base/errorContext';
 import { AttributedAwsCredentialIdentity } from '@aws-sdk/types';
 
 suite('AWSModelProvider', () => {
@@ -65,7 +65,7 @@ suite('AWSModelProvider', () => {
 		test('handles generic CredentialsProviderError with profile and region context', async () => {
 			// Set SSO credential source to test SSO-specific guidance
 			// eslint-disable-next-line local/code-no-any-casts
-			(provider as any)._credentialSource = { CREDENTIALS_SSO: 's' };
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
 
 			const error = new Error('Could not load credentials');
 			error.name = 'CredentialsProviderError';
@@ -152,14 +152,14 @@ suite('AWSModelProvider', () => {
 			error.name = 'UnauthorizedError';
 			error.statusCode = 401;
 
-			// The base class should handle this and throw an AuthenticationError
-			try {
-				await provider.parseProviderError(error);
-				assert.fail('Expected error to be thrown');
-			} catch (err) {
-				// We expect the base class to throw an authentication error
-				assert.ok(err, 'Expected error to be thrown by base class');
-			}
+			// A 401 error should return an authentication error message with profile/region context
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('authentication failed') || result.includes('authorization failed'),
+				'Expected authentication/authorization failure message');
+			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
+			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
 		});
 
 		test('handles IAM AccessDeniedException with documentation link', async () => {
@@ -276,7 +276,7 @@ suite('AWSModelProvider', () => {
 		test('credentials error uses authentication template', async () => {
 			// Set SSO credential source to test SSO-specific guidance
 			// eslint-disable-next-line local/code-no-any-casts
-			(provider as any)._credentialSource = { CREDENTIALS_SSO: 's' };
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
 
 			const error = new Error('Could not load credentials');
 			error.name = 'CredentialsProviderError';
@@ -295,7 +295,7 @@ suite('AWSModelProvider', () => {
 		test('includes credential type in error messages when available', async () => {
 			// Set a credential source on the provider
 			// eslint-disable-next-line local/code-no-any-casts
-			(provider as any)._credentialSource = { CREDENTIALS_SSO: 's' };
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
 
 			const error = new Error('Access denied');
 			error.name = 'AccessDeniedException';
@@ -308,7 +308,7 @@ suite('AWSModelProvider', () => {
 
 		test('includes credential-specific guidance for environment variables', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
-			(provider as any)._credentialSource = { CREDENTIALS_ENV_VARS: 'g' };
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_ENV_VARS: 'g' });
 
 			const error = new Error('Could not load credentials');
 			error.name = 'CredentialsProviderError';
@@ -325,7 +325,7 @@ suite('AWSModelProvider', () => {
 
 		test('includes credential-specific guidance for shared credentials file', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
-			(provider as any)._credentialSource = { CREDENTIALS_PROFILE: 'n' };
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_PROFILE: 'n' });
 
 			const error = new Error('Could not load credentials');
 			error.name = 'CredentialsProviderError';
@@ -341,7 +341,7 @@ suite('AWSModelProvider', () => {
 
 		test('includes credential-specific guidance for EC2 instance metadata', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
-			(provider as any)._credentialSource = { CREDENTIALS_IMDS: '0' };
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_IMDS: '0' });
 
 			const error = new Error('Could not load credentials');
 			error.name = 'CredentialsProviderError';
@@ -355,7 +355,7 @@ suite('AWSModelProvider', () => {
 
 		test('includes credential-specific guidance for credential process', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
-			(provider as any)._credentialSource = { CREDENTIALS_PROCESS: 'w' };
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_PROCESS: 'w' });
 
 			const error = new Error('Could not load credentials');
 			error.name = 'CredentialsProviderError';

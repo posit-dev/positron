@@ -4,16 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ErrorContext } from '../base/errorContext';
 import { AwsSdkCredentialsFeatures } from '@aws-sdk/types';
-import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb.js';
-
-export { ErrorContext };
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 // URL to documentation on required AWS permissions for Bedrock - used in permission error messages
+// Note: This links to the latest version of docs, which may not match the user's Workbench version
+// TODO: Consider implementing version-aware documentation links or automated URL testing
 const AWS_PERMISSIONS_DOC_URL = 'https://docs.posit.co/ide/server-pro/admin/authenticating_users/aws_credentials.html#amazon-bedrock-permissions';
-// Setting ID for AWS provider variables - used in settings links in error messages
-const AWS_PROVIDER_SETTING_ID = 'positron.assistant.providerVariables.bedrock';
+
+// Setting ID for the Amazon Bedrock provider variables - used in settings links in error messages.
+// This is always defined on the amazonBedrock entry in PROVIDER_METADATA.
+const BEDROCK_PROVIDER_SETTING_NAME = PROVIDER_METADATA.amazonBedrock.providerVariablesSettingName!;
 
 function createSettingsUri(
 	settingId: string
@@ -25,9 +26,10 @@ function createSettingsUri(
 /**
  * Converts AWS SDK credential source features to a human-readable string.
  * @param source The credential source features from AWS SDK
+ * @param isManagedCredential Whether the credentials are managed credentials (detected by caller)
  * @returns A human-readable description of the credential type
  */
-function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures): string | undefined {
+function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures, isManagedCredential?: boolean): string | undefined {
 	if (!source) {
 		return undefined;
 	}
@@ -48,8 +50,8 @@ function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures): strin
 	} else if (source.CREDENTIALS_PROFILE) {
 		return 'shared credentials file';
 	} else if (source.CREDENTIALS_PROFILE_STS_WEB_ID_TOKEN || source.CREDENTIALS_ENV_VARS_STS_WEB_ID_TOKEN) {
-		// Managed credentials can come from either profile or environment variable sources, so we check the value to determine if it's a managed credential type
-		if (autoconfigureWithManagedCredentials(AWS_MANAGED_CREDENTIALS, 'bedrock', 'Amazon Bedrock')) {
+		// Managed credentials can come from either profile or environment variable sources
+		if (isManagedCredential) {
 			return 'managed credentials';
 		}
 		return 'web identity token';
@@ -83,7 +85,7 @@ export const ErrorTemplates = {
 	 * @param params.profile - Optional profile name (for AWS)
 	 * @param params.region - Optional region (for AWS)
 	 * @param params.credentialSource - Optional credential source features from AWS SDK
-	 * @param params.setupInstructions - Instructions for setting up credentials
+	 * @param params.isManagedCredential - Whether the credentials are managed credentials
 	 * @returns Formatted error message with markdown
 	 */
 	authenticationError(params: {
@@ -91,6 +93,7 @@ export const ErrorTemplates = {
 		profile?: string;
 		region?: string;
 		credentialSource?: AwsSdkCredentialsFeatures;
+		isManagedCredential?: boolean;
 	}): string {
 		const profileContext = params.profile
 			? ` for profile '${params.profile}'`
@@ -99,7 +102,7 @@ export const ErrorTemplates = {
 			? ` in region '${params.region}'`
 			: '';
 
-		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource);
+		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource, params.isManagedCredential);
 		const credentialContext = credentialTypeDesc
 			? ` using ${credentialTypeDesc}`
 			: '';
@@ -157,7 +160,7 @@ export const ErrorTemplates = {
 			regionContext,
 			credentialContext,
 			loginGuidance,
-			createSettingsUri(AWS_PROVIDER_SETTING_ID)
+			createSettingsUri(BEDROCK_PROVIDER_SETTING_NAME)
 		);
 	},
 
@@ -169,6 +172,7 @@ export const ErrorTemplates = {
 	 * @param params.profile - Optional profile name (for AWS)
 	 * @param params.region - Optional region (for AWS)
 	 * @param params.credentialSource - Optional credential source features from AWS SDK
+	 * @param params.isManagedCredential - Whether the credentials are managed credentials
 	 * @returns Formatted error message with markdown
 	 */
 	permissionError(params: {
@@ -176,6 +180,7 @@ export const ErrorTemplates = {
 		profile?: string;
 		region?: string;
 		credentialSource?: AwsSdkCredentialsFeatures;
+		isManagedCredential?: boolean;
 	}): string {
 		const profileContext = params.profile
 			? ` for profile '${params.profile}'`
@@ -184,7 +189,7 @@ export const ErrorTemplates = {
 			? ` in region '${params.region}'`
 			: '';
 
-		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource);
+		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource, params.isManagedCredential);
 		const credentialContext = credentialTypeDesc
 			? ` using ${credentialTypeDesc}`
 			: '';
@@ -197,7 +202,7 @@ export const ErrorTemplates = {
 			profileContext,
 			regionContext,
 			credentialContext,
-			createSettingsUri(AWS_PROVIDER_SETTING_ID),
+			createSettingsUri(BEDROCK_PROVIDER_SETTING_NAME),
 			AWS_PERMISSIONS_DOC_URL
 		);
 	},

@@ -96,3 +96,26 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 		message: credentialConfig.displayName
 	};
 }
+
+/**
+ * Checks whether managed credentials are available for the given credential
+ * configuration on Posit Workbench. This is a pure check with no side effects.
+ *
+ * @param credentialConfig - The credential configuration to check
+ * @returns Whether managed credentials are available and valid
+ */
+export function hasManagedCredentials(credentialConfig: ManagedCredentialConfig): boolean {
+	if (!IS_RUNNING_ON_PWB) {
+		return false;
+	}
+
+	let tokenEnv = process.env[credentialConfig.envVar];
+
+	if (!tokenEnv && credentialConfig.providerVariableKey) {
+		const configSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables')
+			.get<Record<string, any>>(credentialConfig.providerVariableKey, {});
+		tokenEnv = configSettings[credentialConfig.envVar];
+	}
+
+	return !!tokenEnv && credentialConfig.validator(tokenEnv);
+}
