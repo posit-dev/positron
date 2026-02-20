@@ -290,7 +290,16 @@
 		"publisherUrl": ""
 	},
 	"linkProtectionTrustedDomains": [
-		"https://open-vsx.org"
+		"https://open-vsx.org",
+		"https://github.com/posit-dev/positron",
+		"https://positron.posit.co",
+		"https://github.com/login/device",
+		"https://login.posit.cloud",
+		"https://connect.posit.cloud",
+		"https://login.staging.posit.cloud",
+		"https://staging.connect.posit.cloud",
+		"https://posit.co",
+		"https://support.posit.co"
 	],
 	"defaultChatAgent": {
 		"extensionId": "positron.positron-assistant",
