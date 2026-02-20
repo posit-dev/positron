@@ -325,11 +325,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// - The runtime has implicit startup behavior.
 			// - There's no runtime affiliated with the current workspace for this
 			//   language (if there is, we want that runtime to start, not this one)
+			// - Implicit startup is not suppressed (e.g. during new folder init)
 			else if (this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
 				this._startupPhase === RuntimeStartupPhase.Complete &&
 				!this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId) &&
 				runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
-				!this.getAffiliatedRuntimeMetadata(runtime.languageId)) {
+				!this.getAffiliatedRuntimeMetadata(runtime.languageId) &&
+				!this._runtimeSessionService.implicitStartupSuppressed) {
 
 				this.autoStartRuntime(runtime,
 					`A file with the language ID ${runtime.languageId} was open ` +

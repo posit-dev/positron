@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../common/process/types';
-import { ITerminalServiceFactory } from '../common/terminal/types.js';
+import { ITerminalServiceFactory } from '../common/terminal/types';
 import { IServiceContainer } from '../ioc/types';
 
 /**

@@ -685,6 +685,7 @@ export class Assistant {
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.pressSequentially(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+		// It can take a moment for the loading locator to become visible. Wait for it to ensure the message was registered and response is starting.
 		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
 	}
 
@@ -719,8 +720,12 @@ export class Assistant {
 		// Wait for loading to start
 		await loadingResponse.waitFor({ state: 'visible' });
 
-		let keepClicks = 0;
-		let allowClicks = 0;
+		// Button configs for Keep/Allow handling
+		const buttons = [
+			{ locator: keepButton, name: 'keep' as const },
+			{ locator: allowButton, name: 'allow' as const },
+		];
+		const clicks = { keep: 0, allow: 0 };
 		let buttonInteractionMs = 0;
 		const deadline = Date.now() + timeout;
 
@@ -730,32 +735,22 @@ export class Assistant {
 				throw new Error(`Response did not complete within ${timeout}ms`);
 			}
 
-			// Check if a button is visible AND enabled (non-blocking)
-			// Buttons can be visible but disabled (aria-disabled="true"), so we must check both
-			const keepClickable = await keepButton.isVisible().catch(() => false) &&
-				await keepButton.isEnabled().catch(() => false);
-			const allowClickable = await allowButton.isVisible().catch(() => false) &&
-				await allowButton.isEnabled().catch(() => false);
-
-			if (keepClickable) {
-				const buttonStart = Date.now();
-				await keepButton.click();
-				buttonInteractionMs += Date.now() - buttonStart;
-				keepClicks++;
-				// Wait a moment for UI to update
-				await page.waitForTimeout(100);
-				continue;
+			// Check each button - click if visible and enabled
+			let buttonClicked = false;
+			for (const btn of buttons) {
+				const isClickable = await btn.locator.isVisible().catch(() => false) &&
+					await btn.locator.isEnabled().catch(() => false);
+				if (isClickable) {
+					const buttonStart = Date.now();
+					await btn.locator.click();
+					await page.waitForTimeout(100);
+					buttonInteractionMs += Date.now() - buttonStart;
+					clicks[btn.name]++;
+					buttonClicked = true;
+					break;
+				}
 			}
-
-			if (allowClickable) {
-				const buttonStart = Date.now();
-				await allowButton.click();
-				buttonInteractionMs += Date.now() - buttonStart;
-				allowClicks++;
-				// Wait a moment for UI to update
-				await page.waitForTimeout(100);
-				continue;
-			}
+			if (buttonClicked) continue;
 
 			// No clickable buttons, wait a short interval before checking again
 			await page.waitForTimeout(200);
@@ -766,15 +761,15 @@ export class Assistant {
 		return {
 			llmResponseMs: totalMs - buttonInteractionMs,
 			totalMs,
-			keepClicks,
-			allowClicks,
+			keepClicks: clicks.keep,
+			allowClicks: clicks.allow,
 		};
 	}
 
 	/**
 	 * Waits for the chat response to complete by waiting for the loading state to disappear.
-	 * Use this when a message was sent by some other means (e.g., clicking a button)
-	 * and you just need to wait for the response.
+	 * This can be called independently when a message has already been sent and we need to
+	 * wait for the response to finish.
 	 * @param timeout The maximum time to wait for the response to complete (default: 60000ms)
 	 */
 	async waitForResponseComplete(timeout: number = 60000) {
