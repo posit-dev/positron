@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -528,7 +528,7 @@ export class TokenMarkdownRenderer {
 	/**
 	 * Extracts plain text from tokens (used for generating heading IDs)
 	 */
-	private extractTextFromTokens(tokens: (marked.Token | MarkedSuperSubExtension.SuperSubToken)[]): string {
+	private extractTextFromTokens(tokens: ExtendedToken[]): string {
 		const parts: string[] = [];
 		for (const token of tokens) {
 			if (token.type === 'text') {
