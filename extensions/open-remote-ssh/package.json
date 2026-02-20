@@ -12,7 +12,7 @@
 		"url": "https://github.com/jeanp413/open-remote-ssh/issues"
 	},
 	"engines": {
-		"vscode": "^1.70.2"
+		"vscode": "^1.91.0"
 	},
 	"extensionKind": [
 		"ui"
@@ -28,12 +28,7 @@
 	],
 	"api": "none",
 	"activationEvents": [
-		"onCommand:openremotessh.openEmptyWindow",
-		"onCommand:openremotessh.openEmptyWindowInCurrentWindow",
-		"onCommand:openremotessh.openConfigFile",
-		"onCommand:openremotessh.showLog",
-		"onResolveRemoteAuthority:ssh-remote",
-		"onView:sshHosts"
+		"onResolveRemoteAuthority:ssh-remote"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
