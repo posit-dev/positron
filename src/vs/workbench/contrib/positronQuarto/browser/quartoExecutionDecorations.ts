@@ -7,7 +7,6 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IModelDeltaDecoration, IModelDecorationOptions, OverviewRulerLane, TrackedRangeStickiness } from '../../../../editor/common/model.js';
 import { Range } from '../../../../editor/common/core/range.js';
-import { registerColor } from '../../../../platform/theme/common/colorRegistry.js';
 import { localize } from '../../../../nls.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { CellExecutionState, IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -18,33 +17,7 @@ import { IEditorContribution, IEditorDecorationsCollection } from '../../../../e
 
 // Import CSS
 import './media/quartoExecutionDecorations.css';
-
-/**
- * Theme color for queued execution gutter marker.
- */
-export const quartoExecutionQueued = registerColor(
-	'editorGutter.quartoQueuedBackground',
-	{ dark: '#1B81A8', light: '#2090D3', hcDark: '#1B81A8', hcLight: '#2090D3' },
-	localize('quartoQueuedBackground', 'Gutter color for queued Quarto cell execution')
-);
-
-/**
- * Theme color for running execution gutter marker.
- */
-export const quartoExecutionRunning = registerColor(
-	'editorGutter.quartoRunningBackground',
-	{ dark: '#487E02', light: '#48985D', hcDark: '#487E02', hcLight: '#48985D' },
-	localize('quartoRunningBackground', 'Gutter color for running Quarto cell execution')
-);
-
-/**
- * Theme color for error execution gutter marker.
- */
-export const quartoExecutionError = registerColor(
-	'editorGutter.quartoErrorBackground',
-	{ dark: '#B52A2A', light: '#D32F2F', hcDark: '#B52A2A', hcLight: '#D32F2F' },
-	localize('quartoErrorBackground', 'Gutter color for Quarto cell execution errors')
-);
+import { cellStatusIconError, cellStatusIconSuccess } from '../../notebook/browser/notebookEditorWidget.js';
 
 /**
  * Decoration options for queued cells - first line of multi-line cell.
@@ -79,7 +52,7 @@ const queuedLastDecorationOptions: IModelDecorationOptions = {
 	stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
 	overviewRuler: {
 		// Use the same color as running, but with hollow gutter decoration
-		color: themeColorFromId(quartoExecutionRunning),
+		color: themeColorFromId(cellStatusIconSuccess),
 		position: OverviewRulerLane.Full,
 	},
 };
@@ -95,7 +68,7 @@ const queuedSingleDecorationOptions: IModelDecorationOptions = {
 	stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
 	overviewRuler: {
 		// Use the same color as running, but with hollow gutter decoration
-		color: themeColorFromId(quartoExecutionRunning),
+		color: themeColorFromId(cellStatusIconSuccess),
 		position: OverviewRulerLane.Full,
 	},
 };
@@ -112,7 +85,7 @@ const RUNNING_DELAY_VARIANTS = 10;
  */
 function createRunningDecorationOptions(isError: boolean): IModelDecorationOptions[] {
 	const prefix = isError ? 'error-' : '';
-	const color = isError ? quartoExecutionError : quartoExecutionRunning;
+	const color = isError ? cellStatusIconError : cellStatusIconSuccess;
 	const tooltip = isError
 		? localize('quartoErrorRunning', 'Executing with error')
 		: localize('quartoRunning', 'Currently executing');
