@@ -536,7 +536,12 @@ export class TokenMarkdownRenderer {
 			} else if (token.type === 'code' || token.type === 'codespan') {
 				parts.push((token as marked.Tokens.Code | marked.Tokens.Codespan).text);
 			} else if (token.type === 'superscript' || token.type === 'subscript') {
-				parts.push((token as MarkedSuperSubExtension.SuperSubToken).text);
+				const supSubToken = token as MarkedSuperSubExtension.SuperSubToken;
+				if (supSubToken.tokens && supSubToken.tokens.length > 0) {
+					parts.push(this.extractTextFromTokens(supSubToken.tokens));
+				} else {
+					parts.push(supSubToken.text);
+				}
 			} else if ('tokens' in token && Array.isArray(token.tokens)) {
 				parts.push(this.extractTextFromTokens(token.tokens));
 			}

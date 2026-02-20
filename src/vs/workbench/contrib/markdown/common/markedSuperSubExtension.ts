@@ -22,12 +22,12 @@ export namespace MarkedSuperSubExtension {
 		tokens: marked.Token[];
 	}
 
-	// Match ^text^ for superscript. Text cannot contain ^ or newlines or spaces at boundaries.
-	const superscriptRule = /^\^(?!\^)(\S(?:[^^]*?\S)?)\^(?!\^)/;
+	// Match ^text^ for superscript. Text cannot contain ^, newlines, or spaces at boundaries.
+	const superscriptRule = /^\^(?!\^)(\S(?:[^^\n]*?\S)?)\^(?!\^)/;
 
-	// Match ~text~ for subscript. Text cannot contain ~ or newlines or spaces at boundaries.
+	// Match ~text~ for subscript. Text cannot contain ~, newlines, or spaces at boundaries.
 	// Must not match ~~text~~ (which is strikethrough).
-	const subscriptRule = /^~(?!~)(\S(?:[^~]*?\S)?)~(?!~)/;
+	const subscriptRule = /^~(?!~)(\S(?:[^~\n]*?\S)?)~(?!~)/;
 
 	export function extension(): marked.MarkedExtension {
 		return {
