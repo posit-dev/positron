@@ -22,6 +22,7 @@ import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../..
 import { importAMDNodeModule } from '../../../../amdX.js';
 import { convertDomChildrenToReact } from './domToReact.js';
 import { MarkedKatexExtension } from '../../markdown/common/markedKatexExtension.js';
+import { MarkedSuperSubExtension } from '../../markdown/common/markedSuperSubExtension.js';
 
 /**
  * Decodes HTML entities in a string
@@ -67,7 +68,7 @@ function decodeHtmlEntities(text: string): string {
  * KatexToken is created by MarkedKatexExtension.ts which
  * parses LaTeX math expressions and creates these tokens.
  */
-type ExtendedToken = marked.Token | MarkedKatexExtension.KatexToken;
+type ExtendedToken = marked.Token | MarkedKatexExtension.KatexToken | MarkedSuperSubExtension.SuperSubToken;
 
 /**
  * Component that renders LaTeX expressions.
@@ -336,6 +337,11 @@ export class TokenMarkdownRenderer {
 				return <code key={key}>{decodeHtmlEntities((token as marked.Tokens.Codespan).text)}</code>;
 			case 'del':
 				return this.renderDel(token as marked.Tokens.Del, key);
+			// Custom superscript/subscript tokens
+			case 'superscript':
+				return <sup key={key}>{(token as MarkedSuperSubExtension.SuperSubToken).text}</sup>;
+			case 'subscript':
+				return <sub key={key}>{(token as MarkedSuperSubExtension.SuperSubToken).text}</sub>;
 			// Custom KaTeX tokens
 			case 'inlineKatex':
 			case 'blockKatex':
@@ -565,8 +571,10 @@ export async function renderNotebookMarkdown(
 		{ throwOnError: false }
 	);
 
-	// Create Marked instance with KaTeX extension which handles LaTeX
-	const markedInstance = new marked.Marked().use(katexExtension);
+	// Create Marked instance with KaTeX and superscript/subscript extensions
+	const markedInstance = new marked.Marked()
+		.use(katexExtension)
+		.use(MarkedSuperSubExtension.extension());
 
 	// Tokenize markdown (KaTeX extension creates custom tokens)
 	const tokens = markedInstance.lexer(content) as ExtendedToken[];
