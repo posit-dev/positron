@@ -30,7 +30,7 @@ import { ILanguageRuntimeService } from '../../../services/languageRuntime/commo
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import * as perf from '../../../../base/common/performance.js';
 
-export class PositronStartupDiagnosticsContrib {
+export class PositronStartupDiagnosticsContrib implements IDisposable {
 
 	static get() {
 		return getWorkbenchContribution<PositronStartupDiagnosticsContrib>(PositronStartupDiagnosticsContrib.ID);

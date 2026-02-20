@@ -1758,17 +1758,13 @@ export class MainThreadLanguageRuntime
 
 	/**
 	 * Emit a performance mark for a given extension. This is used to track the
-	 * the timing of startup actions that happen in extensions.
+	 * timing of startup actions that happen in extensions.
 	 *
 	 * @param extensionId The ID of the extension emitting the performance mark
 	 * @param name The name of the performance mark
-	 * @param timestamp An optional timestamp for the performance mark; if not
-	 * provided, the current time will be used
 	 */
-	$emitPerfMark(extensionId: string, name: string, timestamp?: number): void {
-		perf.mark(`code/positron/${extensionId}/${name}`, {
-			startTime: timestamp ? timestamp - performance.timeOrigin : undefined
-		});
+	$emitPerfMark(extensionId: string, name: string): void {
+		perf.mark(`code/positron/${extensionId}/${name}`);
 	}
 
 	async querySessionTables(instance: IPositronVariablesInstance, accessKeys: Array<Array<string>>, queryTypes: Array<string>):

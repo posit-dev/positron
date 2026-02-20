@@ -212,13 +212,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._firstRuntimeReady = true;
 					perf.mark('code/positron/firstRuntimeReady');
 				} else {
-					// Listen for future state changes
-					this._register(session.onDidChangeRuntimeState((newState) => {
+					// Listen for future state changes; dispose the listener
+					// once the first runtime is ready to avoid accumulating
+					// listeners across sessions.
+					const listener = session.onDidChangeRuntimeState((newState) => {
 						if (!this._firstRuntimeReady && newState === RuntimeState.Ready) {
 							this._firstRuntimeReady = true;
 							perf.mark('code/positron/firstRuntimeReady');
 						}
-					}));
+						if (this._firstRuntimeReady) {
+							listener.dispose();
+						}
+					});
+					this._register(listener);
 				}
 			}
 

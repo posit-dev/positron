@@ -167,9 +167,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				 */
 				return extHostLanguageRuntime.registerClientInstance(clientInstanceId);
 			},
-			emitPerfMark(name: string, timestamp?: number): void {
+			emitPerfMark(name: string): void {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.emitPerfMark(extensionId, name, timestamp);
+				return extHostLanguageRuntime.emitPerfMark(extensionId, name);
 			},
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;

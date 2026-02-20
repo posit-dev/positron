@@ -1176,10 +1176,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * correlate performance events across the extension host and main thread.
 	 *
 	 * @param name The name of the performance mark
-	 * @param timestamp The timestamp of the performance mark, or undefined to use the current time
 	 */
-	public emitPerfMark(extensionId: string, name: string, timestamp?: number): void {
-		this._proxy.$emitPerfMark(extensionId, name, timestamp ?? Date.now());
+	public emitPerfMark(extensionId: string, name: string): void {
+		this._proxy.$emitPerfMark(extensionId, name);
 	}
 
 	public getRegisteredRuntimes(): Promise<positron.LanguageRuntimeMetadata[]> {

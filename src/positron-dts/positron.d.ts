@@ -2134,13 +2134,11 @@ declare module 'positron' {
 
 		/**
 		 * Emit a performance mark that can be used for telemetry and
-		 * performance monitoring. The timestamp is optional and defaults to the
-		 * current time if not provided.
+		 * performance monitoring. The mark is recorded at the current time.
 		 *
 		 * @param name The name of the performance mark.
-		 * @param timestamp The timestamp of the performance mark.
 		 */
-		export function emitPerfMark(name: string, timestamp?: number): void;
+		export function emitPerfMark(name: string): void;
 
 		/**
 		 * An event that fires when a new runtime is registered.
