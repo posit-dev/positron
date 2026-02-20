@@ -44,6 +44,7 @@ configurationRegistry.registerConfiguration({
 				'Show AI-generated suggestions for the next cell after successful cell execution. A ghost cell with a suggested next step will appear after a brief delay.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY]: {
 			type: 'number',
@@ -55,6 +56,7 @@ configurationRegistry.registerConfiguration({
 				'Time in milliseconds to wait after cell execution before showing ghost cell suggestions. A shorter delay shows suggestions faster but may trigger unnecessary requests if you quickly execute multiple cells. A longer delay reduces requests but delays suggestions.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY]: {
 			type: 'boolean',
@@ -64,6 +66,7 @@ configurationRegistry.registerConfiguration({
 				'When enabled, suggestions appear automatically after cell execution. When disabled, a placeholder appears and you can request a suggestion by clicking "Get Suggestion" or pressing Cmd/Ctrl+Shift+G.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY]: {
 			type: 'array',
@@ -74,6 +77,7 @@ configurationRegistry.registerConfiguration({
 				'Model patterns for ghost cell suggestions. [Select a model](command:positron-assistant.selectGhostCellModel) or specify patterns manually. Patterns are tried in order until a match is found (case-insensitive partial matching). Falls back to the current chat session model, then the provider\'s model, then the first available model.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY]: {
 			type: 'number',
@@ -85,6 +89,7 @@ configurationRegistry.registerConfiguration({
 				'Maximum number of session variables to include in ghost cell suggestion context. Variables are prioritized by relevance (DataFrames and tables first, then collections and scalars). Set to 0 to disable variable context.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
 		},
 	},
 });
