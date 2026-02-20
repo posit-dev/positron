@@ -4,11 +4,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, test, chromium, Browser, BrowserContext, Page } from '@playwright/test';
+import { expect, test, chromium, Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
 import { Modals } from './dialog-modals.js';
+
+/**
+ * Fills an input element's value using evaluate() instead of Playwright's
+ * fill() to prevent the value from being recorded in Playwright trace files.
+ * Use this for sensitive values like API keys and passwords.
+ */
+async function fillSecretValue(locator: Locator, value: string): Promise<void> {
+	await locator.evaluate((el: HTMLInputElement, val) => {
+		// Use the native HTMLInputElement prototype setter to bypass React's
+		// internal value tracking. Setting el.value directly uses React's
+		// overridden setter which doesn't trigger change detection.
+		const nativeSetter = Object.getOwnPropertyDescriptor(
+			window.HTMLInputElement.prototype, 'value'
+		)?.set;
+		if (nativeSetter) {
+			nativeSetter.call(el, val);
+		} else {
+			el.value = val;
+		}
+		el.dispatchEvent(new Event('input', { bubbles: true }));
+	}, value);
+}
 
 // Positron modal dialog selectors (used by Posit AI)
 const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
@@ -443,7 +465,7 @@ export class Assistant {
 	async enterApiKey(apiKey: string) {
 		await this.code.driver.page.locator(APIKEY_RADIO).check();
 		const apiKeyInput = this.code.driver.page.locator(APIKEY_INPUT);
-		await apiKeyInput.fill(apiKey);
+		await fillSecretValue(apiKeyInput, apiKey);
 	}
 
 	async clickSignInButton() {
@@ -639,7 +661,7 @@ export class Assistant {
 
 		// Step 2: Enter password and click Log in
 		await expect(page.locator(POSIT_PASSWORD_FIELD)).toBeVisible({ timeout: 15000 });
-		await page.locator(POSIT_PASSWORD_FIELD).fill(password);
+		await fillSecretValue(page.locator(POSIT_PASSWORD_FIELD), password);
 		await page.locator(POSIT_LOGIN_BUTTON).click();
 
 		// Step 3: Click Continue button
@@ -750,7 +772,7 @@ export class Assistant {
 					break;
 				}
 			}
-			if (buttonClicked) continue;
+			if (buttonClicked) { continue; }
 
 			// No clickable buttons, wait a short interval before checking again
 			await page.waitForTimeout(200);
