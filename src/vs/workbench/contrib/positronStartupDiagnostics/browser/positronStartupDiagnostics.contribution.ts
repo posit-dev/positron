@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -42,7 +42,7 @@ registerAction2(class extends Action2 {
 	constructor() {
 		super({
 			id: 'positron.startupDiagnostics.show',
-			title: localize2('positronStartupDiagnostics.title', 'Positron: Runtime Startup Diagnostics'),
+			title: localize2('positronStartupDiagnostics.title', 'Runtime Startup Diagnostics'),
 			category: Categories.Developer,
 			f1: true
 		});

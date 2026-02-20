@@ -143,7 +143,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.blank();
 				this._addSystemInfo(md);
 				md.blank();
-				this._addInterpreterSettings(md);
+				this._addAffiliatedRuntimes(md);
 				md.blank();
 				this._addActiveRuntimes(md);
 				md.blank();
@@ -151,15 +151,13 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.blank();
 				this._addStartupPhaseTiming(md);
 				md.blank();
+				this._addRawPerfMarks(md);
+				md.blank();
 				this._addPerSessionTiming(md);
 				md.blank();
-				this._addAffiliatedRuntimes(md);
+				this._addInterpreterSettings(md);
 				md.blank();
 				this._addDiscoveredRuntimes(md);
-				md.blank();
-				this._addRestoredSessions(md);
-				md.blank();
-				this._addRawPerfMarks(md);
 
 				this._model.setValue(md.value);
 			}
@@ -411,41 +409,6 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			]);
 		}
 		md.table(['Extension', 'Name', 'Path'], table);
-	}
-
-	private _addRestoredSessions(md: MarkdownBuilder): void {
-		md.heading(2, 'Restored/Reconnected Sessions');
-
-		this._runtimeStartupService.getRestoredSessions().then(sessions => {
-			if (sessions.length === 0) {
-				// Model may have been updated already, skip
-				return;
-			}
-
-			// We can't easily update the model async, so just note that there were restored sessions
-			// The active sessions table will show sessions that were successfully restored
-		});
-
-		// For now, just indicate if there are any restored sessions in the active sessions
-		const sessions = this._runtimeSessionService.activeSessions;
-		const restoredSessions = sessions.filter(s => s.metadata.startReason?.includes('Reconnect') || s.metadata.startReason?.includes('restored'));
-
-		if (restoredSessions.length === 0) {
-			md.li('No restored sessions (or sessions were restored and are shown in Active Sessions)');
-			return;
-		}
-
-		const table: Array<Array<string>> = [];
-		for (const session of restoredSessions) {
-			table.push([
-				session.dynState.sessionName,
-				session.runtimeMetadata.languageId,
-				session.metadata.sessionMode,
-				session.getRuntimeState().toString(),
-				session.metadata.createdTimestamp ? new Date(session.metadata.createdTimestamp).toLocaleString() : '-'
-			]);
-		}
-		md.table(['Session Name', 'Language', 'Mode', 'State', 'Created'], table);
 	}
 
 	private _addRawPerfMarks(md: MarkdownBuilder): void {
