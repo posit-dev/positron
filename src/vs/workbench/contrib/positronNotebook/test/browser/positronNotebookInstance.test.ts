@@ -3,11 +3,28 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as assert from 'assert';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { Selection } from '../../../../../editor/common/core/selection.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
+
+/**
+ * Helper to enter edit mode on a cell and set cursor position.
+ * Split requires the cell to be in editing state with a cursor.
+ */
+function enterEditModeWithCursor(
+	notebook: TestPositronNotebookInstance,
+	cellIndex: number,
+	selections: Selection[],
+): void {
+	const cell = notebook.cells.get()[cellIndex];
+	notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
+	const editor = cell.currentEditor!;
+	assert.ok(editor, 'Cell should have an editor attached');
+	editor.setSelections(selections);
+}
 
 suite('PositronNotebookInstance', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -36,22 +53,6 @@ suite('PositronNotebookInstance', () => {
 	});
 
 	suite('splitCell', () => {
-
-		/**
-		 * Helper to enter edit mode on a cell and set cursor position.
-		 * Split requires the cell to be in editing state with a cursor.
-		 */
-		function enterEditModeWithCursor(
-			notebook: TestPositronNotebookInstance,
-			cellIndex: number,
-			selections: Selection[],
-		): void {
-			const cell = notebook.cells.get()[cellIndex];
-			notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
-			const editor = cell.currentEditor!;
-			assert.ok(editor, 'Cell should have an editor attached');
-			editor.setSelections(selections);
-		}
 
 		test('splits cell mid-line', () => {
 			const notebook = createTestPositronNotebookInstance(
@@ -155,7 +156,7 @@ suite('PositronNotebookInstance', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['hello world', 'python', CellKind.Code, [{
 					outputId: 'test-output',
-					outputs: [{ mime: 'text/plain', data: { bytes: new Uint8Array([]) } }]
+					outputs: [{ mime: 'text/plain', data: VSBuffer.alloc(0) }]
 				}]]],
 				disposables,
 			);
@@ -167,8 +168,46 @@ suite('PositronNotebookInstance', () => {
 			notebook.splitCell();
 
 			const { textModel } = notebook;
+			assert.ok(textModel);
 			assert.strictEqual(textModel.cells[0].outputs.length, 1, 'First cell should keep outputs');
 			assert.strictEqual(textModel.cells[1].outputs.length, 0, 'Second cell should have no outputs');
+		});
+
+		test('split preserves mime, internalMetadata, and collapseState on first cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[{
+					source: 'hello world',
+					language: 'python',
+					cellKind: CellKind.Code,
+					mime: 'text/x-python',
+					outputs: [],
+					metadata: {},
+					internalMetadata: { executionOrder: 5, lastRunSuccess: true },
+					collapseState: { inputCollapsed: false, outputCollapsed: true },
+				}],
+				disposables,
+			);
+
+			enterEditModeWithCursor(notebook, 0, [
+				new Selection(1, 6, 1, 6),
+			]);
+
+			notebook.splitCell();
+
+			const { textModel } = notebook;
+			assert.ok(textModel);
+			assert.strictEqual(textModel.cells.length, 2);
+
+			// First cell preserves all state
+			assert.strictEqual(textModel.cells[0].mime, 'text/x-python', 'First cell should preserve mime');
+			assert.strictEqual(textModel.cells[0].internalMetadata.executionOrder, 5, 'First cell should preserve executionOrder');
+			assert.strictEqual(textModel.cells[0].internalMetadata.lastRunSuccess, true, 'First cell should preserve lastRunSuccess');
+			assert.deepStrictEqual(textModel.cells[0].collapseState, { inputCollapsed: false, outputCollapsed: true }, 'First cell should preserve collapseState');
+
+			// Second cell gets mime but not execution state or collapse
+			assert.strictEqual(textModel.cells[1].mime, 'text/x-python', 'Second cell should preserve mime');
+			assert.strictEqual(textModel.cells[1].internalMetadata.executionOrder, undefined, 'Second cell should not inherit executionOrder');
+			assert.strictEqual(textModel.cells[1].collapseState, undefined, 'Second cell should not inherit collapseState');
 		});
 
 		test('split does nothing when not in edit mode', () => {
@@ -300,11 +339,11 @@ suite('PositronNotebookInstance', () => {
 				[
 					['cell1', 'python', CellKind.Code, [{
 						outputId: 'output-1',
-						outputs: [{ mime: 'text/plain', data: { bytes: new Uint8Array([]) } }]
+						outputs: [{ mime: 'text/plain', data: VSBuffer.alloc(0) }]
 					}]],
 					['cell2', 'python', CellKind.Code, [{
 						outputId: 'output-2',
-						outputs: [{ mime: 'text/plain', data: { bytes: new Uint8Array([]) } }]
+						outputs: [{ mime: 'text/plain', data: VSBuffer.alloc(0) }]
 					}]],
 				],
 				disposables,
@@ -317,10 +356,77 @@ suite('PositronNotebookInstance', () => {
 			notebook.joinSelectedCells();
 
 			const { textModel } = notebook;
+			assert.ok(textModel);
 			assert.strictEqual(textModel.cells.length, 1);
 			// The first cell's outputs are preserved
 			assert.strictEqual(textModel.cells[0].outputs.length, 1);
 			assert.strictEqual(textModel.cells[0].outputs[0].outputId, 'output-1');
+		});
+
+		test('preserves mime, internalMetadata, and collapseState from first cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					{
+						source: 'cell1',
+						language: 'python',
+						cellKind: CellKind.Code,
+						mime: 'text/x-python',
+						outputs: [],
+						metadata: {},
+						internalMetadata: { executionOrder: 3, lastRunSuccess: true },
+						collapseState: { inputCollapsed: false, outputCollapsed: true },
+					},
+					{
+						source: 'cell2',
+						language: 'python',
+						cellKind: CellKind.Code,
+						mime: 'text/x-python',
+						outputs: [],
+						metadata: {},
+						internalMetadata: { executionOrder: 4, lastRunSuccess: false },
+						collapseState: { inputCollapsed: true, outputCollapsed: false },
+					},
+				],
+				disposables,
+			);
+
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0]);
+			notebook.selectionStateMachine.selectCell(cells[1], CellSelectionType.Add);
+
+			notebook.joinSelectedCells();
+
+			const { textModel } = notebook;
+			assert.ok(textModel);
+			assert.strictEqual(textModel.cells.length, 1);
+			assert.strictEqual(textModel.cells[0].mime, 'text/x-python', 'Should preserve mime from first cell');
+			assert.strictEqual(textModel.cells[0].internalMetadata.executionOrder, 3, 'Should preserve executionOrder from first cell');
+			assert.strictEqual(textModel.cells[0].internalMetadata.lastRunSuccess, true, 'Should preserve lastRunSuccess from first cell');
+			assert.deepStrictEqual(textModel.cells[0].collapseState, { inputCollapsed: false, outputCollapsed: true }, 'Should preserve collapseState from first cell');
+		});
+
+		test('joins non-contiguous selection, leaving unselected cells intact', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					['a', 'python', CellKind.Code],
+					['b', 'python', CellKind.Code],
+					['c', 'python', CellKind.Code],
+				],
+				disposables,
+			);
+
+			// Select cells 0 and 2, skipping cell 1
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0]);
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Add);
+
+			notebook.joinSelectedCells();
+
+			const newCells = notebook.cells.get();
+			// Non-contiguous selected cells are merged; unselected cell 1 remains
+			assert.strictEqual(newCells.length, 2);
+			assert.strictEqual(newCells[0].getContent(), 'a\nc');
+			assert.strictEqual(newCells[1].getContent(), 'b');
 		});
 	});
 
@@ -380,6 +486,45 @@ suite('PositronNotebookInstance', () => {
 			const newCells = notebook.cells.get();
 			assert.strictEqual(newCells.length, 2, 'Should not join different cell types');
 		});
+
+		test('preserves mime, internalMetadata, and collapseState from above cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					{
+						source: 'above',
+						language: 'python',
+						cellKind: CellKind.Code,
+						mime: 'text/x-python',
+						outputs: [],
+						metadata: {},
+						internalMetadata: { executionOrder: 7 },
+						collapseState: { inputCollapsed: true, outputCollapsed: false },
+					},
+					{
+						source: 'below',
+						language: 'python',
+						cellKind: CellKind.Code,
+						mime: 'text/x-python',
+						outputs: [],
+						metadata: {},
+						internalMetadata: { executionOrder: 8 },
+					},
+				],
+				disposables,
+			);
+
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[1]);
+
+			notebook.joinCellAbove();
+
+			const { textModel } = notebook;
+			assert.ok(textModel);
+			assert.strictEqual(textModel.cells.length, 1);
+			assert.strictEqual(textModel.cells[0].mime, 'text/x-python', 'Should preserve mime from above cell');
+			assert.strictEqual(textModel.cells[0].internalMetadata.executionOrder, 7, 'Should preserve executionOrder from above cell');
+			assert.deepStrictEqual(textModel.cells[0].collapseState, { inputCollapsed: true, outputCollapsed: false }, 'Should preserve collapseState from above cell');
+		});
 	});
 
 	suite('joinCellBelow', () => {
@@ -437,25 +582,50 @@ suite('PositronNotebookInstance', () => {
 			const newCells = notebook.cells.get();
 			assert.strictEqual(newCells.length, 2, 'Should not join different cell types');
 		});
+
+		test('preserves mime, internalMetadata, and collapseState from active cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					{
+						source: 'active',
+						language: 'python',
+						cellKind: CellKind.Code,
+						mime: 'text/x-python',
+						outputs: [],
+						metadata: {},
+						internalMetadata: { executionOrder: 10 },
+						collapseState: { inputCollapsed: false, outputCollapsed: true },
+					},
+					{
+						source: 'below',
+						language: 'python',
+						cellKind: CellKind.Code,
+						mime: 'text/x-python',
+						outputs: [],
+						metadata: {},
+						internalMetadata: { executionOrder: 11 },
+					},
+				],
+				disposables,
+			);
+
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0]);
+
+			notebook.joinCellBelow();
+
+			const { textModel } = notebook;
+			assert.ok(textModel);
+			assert.strictEqual(textModel.cells.length, 1);
+			assert.strictEqual(textModel.cells[0].mime, 'text/x-python', 'Should preserve mime from active cell');
+			assert.strictEqual(textModel.cells[0].internalMetadata.executionOrder, 10, 'Should preserve executionOrder from active cell');
+			assert.deepStrictEqual(textModel.cells[0].collapseState, { inputCollapsed: false, outputCollapsed: true }, 'Should preserve collapseState from active cell');
+		});
 	});
 
 	suite('split and join roundtrip', () => {
-		/**
-		 * Helper for roundtrip tests -- enters edit mode on a cell and sets cursor.
-		 */
-		function enterEditModeWithCursor(
-			notebook: TestPositronNotebookInstance,
-			cellIndex: number,
-			selections: Selection[],
-		): void {
-			const cell = notebook.cells.get()[cellIndex];
-			notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
-			const editor = cell.currentEditor!;
-			assert.ok(editor, 'Cell should have an editor attached');
-			editor.setSelections(selections);
-		}
 
-		test('mid-line split then join restores original content', () => {
+		test('mid-line split then join inserts newline at split point', () => {
 			const originalContent = 'hello world';
 			const notebook = createTestPositronNotebookInstance(
 				[[originalContent, 'python', CellKind.Code]],
