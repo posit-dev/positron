@@ -82,6 +82,81 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// State
 	const [darkFilterMode, setDarkFilterMode] = useState(services.positronPlotsService.darkFilterMode);
 
+	// Do we have any plots?
+	const noPlots = positronPlotsContext.positronPlotInstances.length === 0;
+	const hasPlots = !noPlots;
+	const disableLeft = noPlots || positronPlotsContext.selectedInstanceIndex <= 0;
+	const disableRight = noPlots || positronPlotsContext.selectedInstanceIndex >=
+		positronPlotsContext.positronPlotInstances.length - 1;
+	const selectedPlot = positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex];
+
+	// Only show the sizing policy controls when Positron is in control of the
+	// sizing (i.e. don't show it on static plots)
+	const enableSizingPolicy = hasPlots
+		&& selectedPlot instanceof PlotClientInstance;
+	const enableZoomPlot = hasPlots
+		&& (selectedPlot instanceof StaticPlotClient
+			|| selectedPlot instanceof PlotClientInstance);
+	const enableSavingPlots = hasPlots
+		&& (selectedPlot instanceof PlotClientInstance
+			|| selectedPlot instanceof StaticPlotClient);
+
+	const enableCopyPlot = hasPlots &&
+		(selectedPlot instanceof StaticPlotClient
+			|| selectedPlot instanceof PlotClientInstance);
+	const enableDarkFilter = enableCopyPlot;
+
+	const enablePopoutPlot = hasPlots &&
+		selectedPlot instanceof HtmlPlotClient;
+
+	const enableEditorPlot = hasPlots
+		&& (selectedPlot instanceof PlotClientInstance
+			|| selectedPlot instanceof StaticPlotClient);
+
+	// Enable code actions when the plot has code metadata
+	const enableCodeActions = hasPlots && !!selectedPlot?.metadata.code;
+
+	// Only show the "Open in editor" button when in the main window
+	const showOpenInEditorButton = enableEditorPlot
+		&& props.displayLocation === PlotsDisplayLocation.MainWindow;
+
+	// Clear all the plots from the service.
+	const clearAllPlotsHandler = () => {
+		if (hasPlots) {
+			services.commandService.executeCommand(PlotsClearAction.ID);
+		}
+	};
+
+	// Navigate to the previous plot in the plot history.
+	const showPreviousPlotHandler = () => {
+		if (!disableLeft) {
+			services.commandService.executeCommand(PlotsPreviousAction.ID);
+		}
+	};
+
+	// Navigate to the next plot in the plot history.
+	const showNextPlotHandler = () => {
+		if (!disableRight) {
+			services.commandService.executeCommand(PlotsNextAction.ID);
+		}
+	};
+
+	const savePlotHandler = () => {
+		services.commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.VIEW);
+	};
+
+	const copyPlotHandler = () => {
+		services.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
+	};
+
+	const popoutPlotHandler = () => {
+		services.commandService.executeCommand(PlotsPopoutAction.ID);
+	};
+
+	const openGalleryInNewWindowHandler = () => {
+		services.commandService.executeCommand(PlotsGalleryInNewWindowAction.ID);
+	};
+
 	// Track dark filter mode changes.
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
@@ -170,81 +245,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		disabled: !action.enabled,
 		onSelected: () => action.run()
 	}));
-
-	// Do we have any plots?
-	const noPlots = positronPlotsContext.positronPlotInstances.length === 0;
-	const hasPlots = !noPlots;
-	const disableLeft = noPlots || positronPlotsContext.selectedInstanceIndex <= 0;
-	const disableRight = noPlots || positronPlotsContext.selectedInstanceIndex >=
-		positronPlotsContext.positronPlotInstances.length - 1;
-	const selectedPlot = positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex];
-
-	// Only show the sizing policy controls when Positron is in control of the
-	// sizing (i.e. don't show it on static plots)
-	const enableSizingPolicy = hasPlots
-		&& selectedPlot instanceof PlotClientInstance;
-	const enableZoomPlot = hasPlots
-		&& (selectedPlot instanceof StaticPlotClient
-			|| selectedPlot instanceof PlotClientInstance);
-	const enableSavingPlots = hasPlots
-		&& (selectedPlot instanceof PlotClientInstance
-			|| selectedPlot instanceof StaticPlotClient);
-
-	const enableCopyPlot = hasPlots &&
-		(selectedPlot instanceof StaticPlotClient
-			|| selectedPlot instanceof PlotClientInstance);
-	const enableDarkFilter = enableCopyPlot;
-
-	const enablePopoutPlot = hasPlots &&
-		selectedPlot instanceof HtmlPlotClient;
-
-	const enableEditorPlot = hasPlots
-		&& (selectedPlot instanceof PlotClientInstance
-			|| selectedPlot instanceof StaticPlotClient);
-
-	// Enable code actions when the plot has code metadata
-	const enableCodeActions = hasPlots && !!selectedPlot?.metadata.code;
-
-	// Only show the "Open in editor" button when in the main window
-	const showOpenInEditorButton = enableEditorPlot
-		&& props.displayLocation === PlotsDisplayLocation.MainWindow;
-
-	// Clear all the plots from the service.
-	const clearAllPlotsHandler = () => {
-		if (hasPlots) {
-			services.commandService.executeCommand(PlotsClearAction.ID);
-		}
-	};
-
-	// Navigate to the previous plot in the plot history.
-	const showPreviousPlotHandler = () => {
-		if (!disableLeft) {
-			services.commandService.executeCommand(PlotsPreviousAction.ID);
-		}
-	};
-
-	// Navigate to the next plot in the plot history.
-	const showNextPlotHandler = () => {
-		if (!disableRight) {
-			services.commandService.executeCommand(PlotsNextAction.ID);
-		}
-	};
-
-	const savePlotHandler = () => {
-		services.commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.VIEW);
-	};
-
-	const copyPlotHandler = () => {
-		services.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
-	};
-
-	const popoutPlotHandler = () => {
-		services.commandService.executeCommand(PlotsPopoutAction.ID);
-	};
-
-	const openGalleryInNewWindowHandler = () => {
-		services.commandService.executeCommand(PlotsGalleryInNewWindowAction.ID);
-	};
 
 	const leftActions: DynamicActionBarAction[] = [];
 	// Previous plot button.
