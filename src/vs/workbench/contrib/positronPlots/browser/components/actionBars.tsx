@@ -11,12 +11,9 @@ import { PropsWithChildren } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
-import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { SizingPolicyMenuButton } from './sizingPolicyMenuButton.js';
 import { ZoomPlotMenuButton } from './zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
@@ -342,102 +339,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
-				<PositronActionBar
-					borderBottom={true}
-					borderTop={true}
-					paddingLeft={kPaddingLeft}
-					paddingRight={kPaddingRight}
-				>
-					<ActionBarRegion location='left'>
-						<ActionBarButton
-							ariaLabel={showPreviousPlot}
-							disabled={disableLeft}
-							icon={ThemeIcon.fromId('positron-left-arrow')}
-							tooltip={showPreviousPlot}
-							onPressed={showPreviousPlotHandler}
-						/>
-						<ActionBarButton
-							ariaLabel={showNextPlot}
-							disabled={disableRight}
-							icon={ThemeIcon.fromId('positron-right-arrow')}
-							tooltip={showNextPlot}
-							onPressed={showNextPlotHandler}
-						/>
-
-						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot || enablePopoutPlot) &&
-							<ActionBarSeparator />
-						}
-
-						{enableSavingPlots &&
-							<ActionBarButton
-								ariaLabel={savePlot}
-								icon={ThemeIcon.fromId('positron-save')}
-								tooltip={savePlot}
-								onPressed={savePlotHandler}
-							/>
-						}
-						{enableCopyPlot &&
-							<ActionBarButton
-								ariaLabel={copyPlotToClipboard}
-								disabled={!hasPlots}
-								icon={ThemeIcon.fromId('copy')}
-								tooltip={copyPlotToClipboard}
-								onPressed={copyPlotHandler}
-							/>
-						}
-						{enableZoomPlot &&
-							<ZoomPlotMenuButton
-								actionHandler={zoomPlotHandler}
-								zoomLevel={props.zoomLevel}
-							/>}
-						{enableSizingPolicy &&
-							<SizingPolicyMenuButton plotClient={selectedPlot} />
-						}
-						{enablePopoutPlot &&
-							<ActionBarButton
-								align='right'
-								ariaLabel={openPlotInNewWindow}
-								icon={ThemeIcon.fromId('positron-open-in-new-window')}
-								tooltip={openPlotInNewWindow}
-								onPressed={popoutPlotHandler}
-							/>
-						}
-						{showOpenInEditorButton &&
-							<OpenInEditorMenuButton
-								ariaLabel={openInEditorTab}
-								commandService={services.commandService}
-								defaultGroup={services.positronPlotsService.getPreferredEditorGroup()}
-								tooltip={openInEditorTab}
-							/>
-						}
-						{enableCodeActions &&
-							<PlotCodeMenuButton plotClient={selectedPlot} />
-						}
-					</ActionBarRegion>
-					<ActionBarRegion location='right'>
-						{enableDarkFilter &&
-							<DarkFilterMenuButton />
-						}
-						<ActionBarSeparator />
-						{props.displayLocation === PlotsDisplayLocation.MainWindow &&
-							<ActionBarButton
-								align='right'
-								ariaLabel={openPlotsGalleryInNewWindow}
-								icon={ThemeIcon.fromId('window')}
-								tooltip={openPlotsGalleryInNewWindow}
-								onPressed={openGalleryInNewWindowHandler}
-							/>
-						}
-						<ActionBarButton
-							align='right'
-							ariaLabel={clearAllPlots}
-							disabled={noPlots}
-							icon={ThemeIcon.fromId('clear-all')}
-							tooltip={clearAllPlots}
-							onPressed={clearAllPlotsHandler}
-						/>
-					</ActionBarRegion>
-				</PositronActionBar>
 				<PositronDynamicActionBar
 					borderBottom={true}
 					borderTop={true}
