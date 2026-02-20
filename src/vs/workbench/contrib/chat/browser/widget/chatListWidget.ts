@@ -451,6 +451,14 @@ export class ChatListWidget extends Disposable {
 				this._settingChangeCounter++;
 				this.refresh();
 			}
+			// --- Start Positron ---
+			// Re-render chat items when token usage display settings change so that
+			// per-message token usage elements are shown/hidden dynamically.
+			if (e.affectsConfiguration('positron.assistant.showTokenUsage.enable') || e.affectsConfiguration('positron.assistant.approximateTokenCount')) {
+				this._settingChangeCounter++;
+				this.refresh();
+			}
+			// --- End Positron ---
 		}));
 	}
 
