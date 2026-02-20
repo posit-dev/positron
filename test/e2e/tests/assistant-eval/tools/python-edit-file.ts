@@ -35,10 +35,10 @@ export const pythonEditFile: EvalTestCase = {
 			);
 		}).toPass({ timeout: 5000 });
 
-		// Send the message and wait for response (handles Keep/Allow buttons automatically)
+		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		const timing = await assistant.enterChatMessageAndWait(prompt);
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 
 		// Get the response
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);

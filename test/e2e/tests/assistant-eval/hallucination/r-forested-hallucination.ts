@@ -28,10 +28,10 @@ export const rForestedHallucination: EvalTestCase = {
 		// Start R session
 		const [rSession] = await sessions.start(['r']);
 
-		// Send the message and wait for response (handles Keep/Allow buttons automatically)
+		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		const timing = await assistant.enterChatMessageAndWait(prompt);
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup

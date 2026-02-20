@@ -676,7 +676,7 @@ export class Assistant {
 	/**
 	 * Enters a chat message and optionally waits for the response to complete.
 	 * This is a simple method that does NOT handle Keep/Allow buttons.
-	 * Use enterChatMessageAndWait() for scenarios that may require button interaction.
+	 * Use sendChatMessageAndWait() for scenarios that may require button interaction.
 	 *
 	 * @param message The message to send
 	 */
@@ -685,7 +685,7 @@ export class Assistant {
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.pressSequentially(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
-		// It can take a moment for the loading locator to become visible. Wait for it to ensure the message was registered and response is starting.
+		// It can take a moment for the loading locator to become visible.
 		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
 	}
 
@@ -700,7 +700,7 @@ export class Assistant {
 	 * @param options Optional configuration (timeout, etc.)
 	 * @returns Result containing timing information
 	 */
-	async enterChatMessageAndWait(message: string, options: { timeout?: number } = {}): Promise<EnterChatMessageResult> {
+	async sendChatMessageAndWait(message: string, options: { timeout?: number } = {}): Promise<EnterChatMessageResult> {
 		const { timeout = 60000 } = options;
 		const page = this.code.driver.page;
 

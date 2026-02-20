@@ -47,10 +47,10 @@ export const rNotebookRunCells: EvalTestCase = {
 		const code2 = `result <- x + 5; print(result)`;
 		await notebooksPositron.addCodeToCell(1, code2);
 
-		// Send the message and wait for response (handles Keep/Allow buttons automatically)
+		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		const timing = await assistant.enterChatMessageAndWait(prompt);
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup

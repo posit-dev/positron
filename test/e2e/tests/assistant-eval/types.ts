@@ -83,7 +83,7 @@ export interface EvalTestCase {
 	 * Each test is responsible for starting its own sessions if needed.
 	 *
 	 * Returns a RunResult containing the response text and timing information.
-	 * Use `assistant.enterChatMessageAndWait()` to get accurate timing that
+	 * Use `assistant.sendChatMessageAndWait()` to get accurate timing that
 	 * excludes setup/cleanup and button interaction overhead.
 	 */
 	run: (fixtures: TestFixtures) => Promise<RunResult>;

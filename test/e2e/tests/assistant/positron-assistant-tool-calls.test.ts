@@ -60,7 +60,7 @@ test.describe('Positron Assistant Tool Scoping', { tag: [tags.WIN, tags.ASSISTAN
 			await app.workbench.assistant.selectChatMode('Agent');
 
 			// Send a simple message to get the available tools
-			await app.workbench.assistant.enterChatMessageAndWait('Hello');
+			await app.workbench.assistant.sendChatMessageAndWait('Hello');
 
 			const availableTools = await app.workbench.assistant.getAvailableTools(app.workspacePathOrFolder);
 
@@ -90,7 +90,7 @@ test.describe('Positron Assistant Tool Scoping', { tag: [tags.WIN, tags.ASSISTAN
 			await app.workbench.assistant.selectChatMode('Agent');
 
 			// Send a simple message to get the available tools
-			await app.workbench.assistant.enterChatMessageAndWait('Hello');
+			await app.workbench.assistant.sendChatMessageAndWait('Hello');
 
 			const availableTools = await app.workbench.assistant.getAvailableTools(app.workspacePathOrFolder);
 
@@ -150,7 +150,7 @@ test.describe('Positron Assistant Tool Scoping', { tag: [tags.WIN, tags.ASSISTAN
 			await app.workbench.assistant.clickNewChatButton();
 			await app.workbench.assistant.selectChatMode('Agent');
 
-			await app.workbench.assistant.enterChatMessageAndWait('Hello');
+			await app.workbench.assistant.sendChatMessageAndWait('Hello');
 
 			const availableTools = await app.workbench.assistant.getAvailableTools(app.workspacePathOrFolder);
 
