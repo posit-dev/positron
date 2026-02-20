@@ -155,6 +155,9 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                     executionInfoArgs,
                     token,
                     executionInfo.useShell,
+                    // --- Start Positron ---
+                    executionInfo.envVars,
+                    // --- End Positron ---
                 );
             }
         };
@@ -260,6 +263,9 @@ export abstract class ModuleInstaller implements IModuleInstaller {
         args: string[],
         token: CancellationToken | undefined,
         useShell: boolean | undefined,
+        // --- Start Positron ---
+        envVars?: Record<string, string>,
+        // --- End Positron ---
     ) {
         const options: TerminalCreationOptions = {};
         if (isResource(resource)) {
@@ -311,7 +317,10 @@ export abstract class ModuleInstaller implements IModuleInstaller {
             } else {
                 // Pass the cancellation token through so that users can cancel installs via the UI
                 // when executeInTerminal is false
-                const spawnOptions: SpawnOptions = { token };
+                const spawnOptions: SpawnOptions = {
+                    token,
+                    ...(envVars && Object.keys(envVars).length > 0 ? { extraVariables: envVars } : {}),
+                };
                 executionResult = await processService.exec(command, args, spawnOptions);
             }
             if (executionResult.stderr?.includes('error: externally-managed-environment')) {

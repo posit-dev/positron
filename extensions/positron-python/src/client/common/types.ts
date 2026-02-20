@@ -65,6 +65,9 @@ export type ExecutionInfo = {
     args: string[];
     product?: Product;
     useShell?: boolean;
+    // --- Start Positron ---
+    envVars?: Record<string, string>;
+    // --- End Positron ---
 };
 
 export enum InstallerResponse {
