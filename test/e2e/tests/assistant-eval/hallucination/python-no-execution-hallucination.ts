@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 
 /**
  * Test: No hallucination of execution results
@@ -21,7 +21,7 @@ export const pythonNoExecutionHallucination: EvalTestCase = {
 	prompt,
 	mode,
 
-	run: async ({ app, sessions }) => {
+	run: async ({ app, sessions }): Promise<RunResult> => {
 		const { assistant, console } = app.workbench;
 
 		// Start Python session
@@ -65,30 +65,17 @@ species = pl.DataFrame({
 })`;
 		await console.executeCode('Python', polarsCode);
 
-		// Ask the question (don't wait for response - assistant may create a file)
+		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(
-			prompt,
-			false // Don't wait - we may need to interact with Keep button
-		);
-
-		// Handle the Keep button if the assistant creates a file
-		try {
-			await assistant.clickKeepButton();
-			await assistant.waitForResponseComplete();
-		} catch (error) {
-			// Keep button didn't appear or wasn't clickable - that's OK
-			await assistant.expectResponseComplete();
-		}
-
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await console.focus();
 		await sessions.restart(pySession.id, { clearConsole: false });
 
-		return response;
+		return { response, timing };
 	},
 
 	evaluationCriteria: {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -64,13 +64,13 @@ export async function verifyCondaFilesArePresent(app: Application) {
 
 export async function verifyCondaEnvStarts(app: Application) {
 	await test.step('Verify conda environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents(/(Conda).*started/);
+		await app.workbench.console.waitForConsoleContents(/\(Conda: .+\) started/);
 	});
 }
 
 export async function verifyVenvEnvStarts(app: Application) {
 	await test.step('Verify venv environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents('(Venv: .venv) started.');
+		await app.workbench.console.waitForConsoleContents(/\(Venv: .+\) started/);
 	});
 }
 
@@ -79,7 +79,7 @@ export async function verifyUvEnvStarts(app: Application) {
 		if (/(8080)/.test(app.code.driver.page.url())) {
 			app.code.driver.page.getByRole('button', { name: 'Yes' }).click();
 		}
-		await app.workbench.console.waitForConsoleContents(/(Uv: .+) started./);
+		await app.workbench.console.waitForConsoleContents(/\(Uv: .+\) started/);
 	});
 }
 

@@ -36,6 +36,9 @@ export interface IRenderedPlot {
 	/** The pixel ratio of the device for which the plot was rendered */
 	pixel_ratio: number;
 
+	/** The format of the rendered plot */
+	format?: PlotRenderFormat;
+
 	/** The plot's image URI. The URI includes the plot itself as a base64-encoded string. */
 	uri: string;
 
@@ -417,6 +420,7 @@ export class PositronPlotRenderQueue extends Disposable {
 					const renderResult: IRenderedPlot = {
 						size: operationRequest.size,
 						pixel_ratio: operationRequest.pixel_ratio!,
+						format: operationRequest.format,
 						uri,
 						renderTimeMs
 					};

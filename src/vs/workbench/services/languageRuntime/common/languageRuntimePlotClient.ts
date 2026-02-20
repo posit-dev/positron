@@ -214,6 +214,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 					uri,
 					size: preRender.settings.size,
 					pixel_ratio: preRender.settings.pixel_ratio,
+					format: preRender.settings.format,
 					renderTimeMs: 0,
 				};
 			}
@@ -271,6 +272,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 					uri,
 					size: preRender.settings.size,
 					pixel_ratio: preRender.settings.pixel_ratio,
+					format: preRender.settings.format,
 					renderTimeMs: 0,
 				};
 
@@ -374,6 +376,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			return false;
 		}
 		if (left.pixel_ratio !== right.pixel_ratio) {
+			return false;
+		}
+		if (left.format !== right.format) {
 			return false;
 		}
 		return true;

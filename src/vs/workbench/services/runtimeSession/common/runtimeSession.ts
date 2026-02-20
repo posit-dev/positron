@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -149,6 +149,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._register(new Emitter<{ sessionId: string; uiClient: UiClientInstance }>());
 
 
+	// When true, suppresses implicit runtime auto-start from file-open events.
+	private _implicitStartupSuppressed = false;
+
 	// The dialog prompt instance for the modal wait prompt.
 	private _modalWaitPrompt: IModalDialogPromptInstance | undefined = undefined;
 
@@ -184,6 +187,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// If a runtime for the language is already starting or running,
 			// there is no need to check for implicit startup below.
 			if (this.hasStartingOrRunningConsole(languageId)) {
+				return;
+			}
+
+			// Don't auto-start a runtime when implicit startup is suppressed.
+			// This prevents starting the wrong runtime during new folder
+			// initialization, before the intended environment is ready.
+			if (this._implicitStartupSuppressed) {
+				this._logService.debug(
+					`Skipping implicit auto-start for language '${languageId}' ` +
+					`because implicit startup is suppressed.`
+				);
 				return;
 			}
 
@@ -831,6 +845,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	get foregroundSession(): ILanguageRuntimeSession | undefined {
 		return this._foregroundSession;
+	}
+
+	get implicitStartupSuppressed(): boolean {
+		return this._implicitStartupSuppressed;
+	}
+
+	set implicitStartupSuppressed(value: boolean) {
+		this._implicitStartupSuppressed = value;
 	}
 
 	/**
