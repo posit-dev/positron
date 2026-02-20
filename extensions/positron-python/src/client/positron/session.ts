@@ -39,6 +39,7 @@ import { Console } from '../common/utils/localize';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
 import { PipPackageManager } from './pipPackageManager';
+import { PackageManagerFactory } from './packageManagerFactory';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -171,7 +172,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
-        this._pipPackageManager = new PipPackageManager(this._pythonPath, this._messageEmitter, serviceContainer);
+        this._pipPackageManager = PackageManagerFactory.create(
+            runtimeMetadata.runtimeSource,
+            this._pythonPath,
+            this._messageEmitter,
+            serviceContainer,
+        );
     }
 
     get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {

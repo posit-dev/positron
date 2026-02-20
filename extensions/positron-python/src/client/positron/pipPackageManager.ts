@@ -27,9 +27,9 @@ export class PipPackageManager {
     private _pythonService: IPythonExecutionService | undefined;
 
     constructor(
-        private readonly _pythonPath: string,
-        private readonly _messageEmitter: MessageEmitter,
-        private readonly _serviceContainer: IServiceContainer,
+        protected readonly _pythonPath: string,
+        protected readonly _messageEmitter: MessageEmitter,
+        protected readonly _serviceContainer: IServiceContainer,
     ) {}
 
     /**
@@ -131,13 +131,13 @@ export class PipPackageManager {
     }
 
     // =========================================================================
-    // Private helper methods
+    // Protected helper methods
     // =========================================================================
 
     /**
      * Get or create the Python execution service.
      */
-    private async _getPythonService(): Promise<IPythonExecutionService> {
+    protected async _getPythonService(): Promise<IPythonExecutionService> {
         if (!this._pythonService) {
             const factory = this._serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
             this._pythonService = await factory.create({ pythonPath: this._pythonPath });
@@ -148,7 +148,7 @@ export class PipPackageManager {
     /**
      * Ensure pip is available, throwing an error if not.
      */
-    private async _ensurePip(): Promise<void> {
+    protected async _ensurePip(): Promise<void> {
         const hasPip = await this.isPipAvailable();
         if (!hasPip) {
             throw new Error(
@@ -162,14 +162,14 @@ export class PipPackageManager {
      * Format package install requests into pip package specifiers.
      * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0"
      */
-    private _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
+    protected _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
         return packages.map((pkg) => (pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name));
     }
 
     /**
      * Get proxy flags if a proxy is configured.
      */
-    private _getProxyFlags(): string[] {
+    protected _getProxyFlags(): string[] {
         const proxy = vscode.workspace.getConfiguration('http').get<string>('proxy', '');
         if (proxy) {
             return ['--proxy', proxy];
@@ -180,7 +180,7 @@ export class PipPackageManager {
     /**
      * Get installation flags based on the Python environment type.
      */
-    private async _getInstallFlags(): Promise<string[]> {
+    protected async _getInstallFlags(): Promise<string[]> {
         const flags: string[] = [...this._getProxyFlags()];
         return flags;
     }
@@ -188,7 +188,7 @@ export class PipPackageManager {
     /**
      * Execute a pip command in the terminal (visible to user).
      */
-    private async _executePipInTerminal(args: string[]): Promise<void> {
+    protected async _executePipInTerminal(args: string[]): Promise<void> {
         const terminalService = this._serviceContainer
             .get<ITerminalServiceFactory>(ITerminalServiceFactory)
             .getTerminalService({});
@@ -205,7 +205,7 @@ export class PipPackageManager {
     /**
      * Emit a stream message to the console.
      */
-    private _emitMessage(text: string, parentId?: string): void {
+    protected _emitMessage(text: string, parentId?: string): void {
         this._messageEmitter.fire({
             id: randomUUID(),
             parent_id: parentId ?? '',
