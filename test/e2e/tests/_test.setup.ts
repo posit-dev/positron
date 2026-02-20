@@ -401,20 +401,35 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 			// This tells Node.js: "don't keep the event loop alive for these handles"
 			// eslint-disable-next-line local/code-no-any-casts
 			const remainingHandles = (process as any)._getActiveHandles?.() ?? [];
-			if (remainingHandles.length > 0 && process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
+			if (remainingHandles.length > 0) {
 				console.log(`[afterAll] Unreferencing ${remainingHandles.length} remaining handles...`);
 			}
 
+			let unrefCount = 0;
 			for (const handle of remainingHandles) {
 				try {
 					// Call unref() on any handle that supports it
 					// This allows the event loop to exit even if the handle is still active
 					if (typeof handle?.unref === 'function') {
 						handle.unref();
+						unrefCount++;
 					}
 				} catch (err) {
 					// Ignore errors from unref
 				}
+			}
+
+			if (unrefCount > 0) {
+				console.log(`[afterAll] Successfully unreferenced ${unrefCount} handles`);
+			}
+
+			// Give unref'd handles a moment to release, then check if we still have issues
+			await new Promise(resolve => setTimeout(resolve, 1000));
+
+			// eslint-disable-next-line local/code-no-any-casts
+			const stillActive = (process as any)._getActiveHandles?.() ?? [];
+			if (stillActive.length > 0) {
+				console.log(`[afterAll] Warning: ${stillActive.length} handles still active after unref`);
 			}
 		} catch (error) {
 			console.log(`Error during final cleanup: ${error}`);
