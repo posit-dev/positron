@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { TestTags } from '../../../infra';
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 
 /**
  * Test: R forested package hallucination check
@@ -22,7 +22,7 @@ export const rForestedHallucination: EvalTestCase = {
 	mode,
 	tags: [TestTags.ARK],
 
-	run: async ({ app, sessions }) => {
+	run: async ({ app, sessions }): Promise<RunResult> => {
 		const { assistant, console } = app.workbench;
 
 		// Start R session
@@ -31,14 +31,14 @@ export const rForestedHallucination: EvalTestCase = {
 		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(prompt, true);
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await console.focus();
 		await sessions.restart(rSession.id);
 
-		return response;
+		return { response, timing };
 	},
 
 	evaluationCriteria: {
