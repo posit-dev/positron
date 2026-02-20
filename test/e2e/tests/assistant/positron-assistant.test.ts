@@ -334,7 +334,8 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 
 				// Verify default models appear first in their respective vendor groups
 				// Check Anthropic vendor group - Haiku should be first
-				const anthropicModels = await app.workbench.assistant.getModelPickerItemsForVendor('Anthropic');
+				// Vendor name must match the raw vendor ID used as the separator label
+				const anthropicModels = await app.workbench.assistant.getModelPickerItemsForVendor('anthropic-api');
 				expect(anthropicModels.length).toBeGreaterThanOrEqual(2);
 				expect(anthropicModels[0].label).toBe('Claude Haiku 4.5 (default)');
 				expect(anthropicModels[0].isDefault).toBe(true);

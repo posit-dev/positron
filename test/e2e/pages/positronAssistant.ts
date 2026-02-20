@@ -894,7 +894,7 @@ export class Assistant {
 	 * @param vendor The vendor name to filter by (e.g., 'Echo', 'Anthropic')
 	 */
 	async getModelPickerItemsForVendor(vendor: string): Promise<Array<{ label: string; isDefault: boolean }>> {
-		const allItems = this.code.driver.page.locator('.monaco-list-row');
+		const allItems = this.code.driver.page.locator('.action-widget .monaco-list-row');
 		const count = await allItems.count();
 		const vendorModels: Array<{ label: string; isDefault: boolean }> = [];
 		let inVendorSection = false;
