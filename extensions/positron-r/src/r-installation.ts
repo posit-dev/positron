@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -64,6 +64,7 @@ export enum ReasonDiscovered {
 	CONDA = "CONDA",
 	PIXI = "PIXI",
 	MODULE = "MODULE",
+	RVERSIONS = "RVERSIONS",
 
 	adHoc = "adHoc",
 	userSetting = "userSetting",
@@ -158,6 +159,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in a Pixi environment';
 			case ReasonDiscovered.MODULE:
 				return 'Found via environment modules';
+			case ReasonDiscovered.RVERSIONS:
+				return 'Found in r-versions configuration file';
 			case ReasonDiscovered.adHoc:
 				return 'Found in a conventional location for symlinked R binaries';
 			case ReasonDiscovered.userSetting:
