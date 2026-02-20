@@ -28,11 +28,6 @@ const customReporter = ['false', '0', 'no'].includes(disableCustomReporter)
  */
 const projectName = process.env.PW_PROJECT_NAME || 'default';
 
-// Debug teardown timeout config
-// On macOS CI, give extra time for child processes (kernels, extension host) to clean up
-const isMacOSCI = process.platform === 'darwin' && !!process.env.CI;
-const teardownTimeoutMs = isMacOSCI ? 3 * 60 * 1000 : 2 * 60 * 1000;
-console.log(`[playwright.config] platform=${process.platform} CI=${!!process.env.CI} teardownTimeout=${teardownTimeoutMs}ms`);
 
 const baseIgnore = [
 	'example.test.ts',
@@ -57,9 +52,6 @@ export default defineConfig<CustomTestOptions>({
 	retries: process.env.CI ? 1 : 0,
 	workers: 3,
 	timeout: 2 * 60 * 1000,
-	// Increase worker teardown timeout for macOS CI to accommodate cleanup of child processes (kernels, extension host)
-	// Default is 120000ms (2 minutes), increase to 3 minutes only on macOS CI where we see teardown timeouts
-	teardownTimeout: teardownTimeoutMs,
 	reportSlowTests: {
 		max: 10,
 		threshold: 60 * 1000, // 1 minute

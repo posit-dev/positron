@@ -384,56 +384,16 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		}
 	}
 
-	// Give handles time to drain naturally before worker teardown
-	// This helps prevent "Worker teardown timeout of 120000ms exceeded" errors on macOS CI
-	// Only apply this cleanup on macOS CI where we observe the issue
-	if (process.platform === 'darwin' && process.env.CI) {
-		try {
-			// Force garbage collection if available
-			if (global.gc) {
-				global.gc();
-			}
-
-			// Wait for handles to drain naturally
-			await new Promise(resolve => setTimeout(resolve, 3000));
-
-			// Unref all handles to allow worker teardown even if they're still active
-			// This tells Node.js: "don't keep the event loop alive for these handles"
-			// eslint-disable-next-line local/code-no-any-casts
-			const remainingHandles = (process as any)._getActiveHandles?.() ?? [];
-			if (remainingHandles.length > 0) {
-				console.log(`[afterAll] Unreferencing ${remainingHandles.length} remaining handles...`);
-			}
-
-			let unrefCount = 0;
-			for (const handle of remainingHandles) {
-				try {
-					// Call unref() on any handle that supports it
-					// This allows the event loop to exit even if the handle is still active
-					if (typeof handle?.unref === 'function') {
-						handle.unref();
-						unrefCount++;
-					}
-				} catch (err) {
-					// Ignore errors from unref
-				}
-			}
-
-			if (unrefCount > 0) {
-				console.log(`[afterAll] Successfully unreferenced ${unrefCount} handles`);
-			}
-
-			// Give unref'd handles a moment to release, then check if we still have issues
-			await new Promise(resolve => setTimeout(resolve, 1000));
-
-			// eslint-disable-next-line local/code-no-any-casts
-			const stillActive = (process as any)._getActiveHandles?.() ?? [];
-			if (stillActive.length > 0) {
-				console.log(`[afterAll] Warning: ${stillActive.length} handles still active after unref`);
-			}
-		} catch (error) {
-			console.log(`Error during final cleanup: ${error}`);
+	// Brief cleanup to help processes terminate cleanly
+	// The real fix is using SIGKILL in teardown() on macOS CI
+	try {
+		if (global.gc) {
+			global.gc();
 		}
+		// Brief wait for cleanup
+		await new Promise(resolve => setTimeout(resolve, 500));
+	} catch (error) {
+		console.log(`Error during cleanup: ${error}`);
 	}
 });
 

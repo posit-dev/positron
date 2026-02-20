@@ -14,12 +14,20 @@ export async function teardown(p: ChildProcess, logger: Logger, retryCount = 3):
 		return;
 	}
 
+	// --- Start Positron ---
+	// On macOS CI, use SIGKILL to forcefully terminate stubborn child processes
+	// (extension host, kernels, language servers) that may ignore SIGTERM
+	const signal = (process.platform === 'darwin' && process.env.CI) ? 'SIGKILL' : 'SIGTERM';
+	// --- End Positron ---
+
 	let retries = 0;
 	while (retries < retryCount) {
 		retries++;
 
 		try {
-			return await promisify(treeKill)(pid);
+			// --- Start Positron ---
+			return await promisify(treeKill)(pid, signal);
+			// --- End Positron ---
 		} catch (error) {
 			try {
 				process.kill(pid, 0); // throws an exception if the process doesn't exist anymore
