@@ -15,6 +15,12 @@ import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
 import { Quality } from './application';
 import { ElectronApplication } from '@playwright/test';
+import treeKill from 'tree-kill';
+import { promisify } from 'util';
+
+// Type treeKill properly to accept signal parameter
+type TreeKillFunction = (pid: number, signal?: string | number) => void;
+const treeKillAsync = promisify<number, string | number | undefined, void>(treeKill as TreeKillFunction);
 
 export type Browser = 'chromium' | 'firefox' | 'webkit' | 'chromium-msedge' | 'chromium-chrome' | undefined;
 
@@ -316,7 +322,8 @@ export class Code {
 		if (process.platform === 'darwin') {
 			this.logger.log(`Smoke test killProcessTree(): PID ${pid} still alive after SIGTERM; escalating to SIGKILL`);
 			try {
-				process.kill(pid, 'SIGKILL');
+				// Kill entire process tree with SIGKILL, not just parent
+				await treeKillAsync(pid, 'SIGKILL');
 			} catch (e) {
 				this.logger.log(`Smoke test killProcessTree(): SIGKILL failed: ${e}`);
 			}
