@@ -268,17 +268,16 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	 */
 	override async parseProviderError(error: any, context?: ErrorContext) {
 		// Handle AI_APICallError which wraps AWS errors in responseBody
-		// Check this first since AI_APICallError test cases may not be proper Error instances
 		let name = error?.name;
 		let message = error?.message;
-		let isAIAPICallError = false;
+		let statusCode: number;
 
 		// Check for AI API call errors (either via isInstance or by duck typing)
-		if ((ai.APICallError.isInstance(error) || error?.name === 'AI_APICallError') && error.responseBody) {
-			isAIAPICallError = true;
+		if (ai.APICallError.isInstance(error) && error.responseBody) {
 			try {
 				const parsedBody = JSON.parse(error.responseBody);
 				message = parsedBody.Message || parsedBody.message || message;
+				statusCode = error.statusCode;
 
 				// Extract error type from response headers
 				if (error.responseHeaders?.['x-amzn-errortype']) {
@@ -295,7 +294,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		}
 
 		// If not an AI_APICallError and not an Error instance, return undefined
-		if (!isAIAPICallError && !(error instanceof Error)) {
+		if (!ai.APICallError.isInstance(error) && !(error instanceof Error)) {
 			return undefined;
 		}
 
@@ -317,7 +316,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 		// Handle IAM authorization errors
 		if (name === 'AccessDeniedException' || name === 'UnauthorizedException' ||
-			error?.statusCode === 403 || message.includes('not authorized to perform')) {
+			statusCode === 403 || message.includes('not authorized to perform')) {
 
 			return ErrorTemplates.permissionError({
 				provider: 'Amazon Bedrock',
