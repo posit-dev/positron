@@ -68,7 +68,7 @@ test.describe('Quarto - Variables Follow Mode', {
 		await page.waitForTimeout(500);
 
 		// Step 3: Run the current cell to start the Quarto kernel and create variables
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for kernel to start and execution to complete
 		// The inline output appearing confirms execution completed

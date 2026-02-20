@@ -357,24 +357,36 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				continue;
 			}
 
+			// Clamp the range to the cell's code boundaries to exclude
+			// fence lines (```{python} / ```) that may be included by
+			// callers such as the Quarto extension's runAllCells command.
+			const clampedRange = new Range(
+				Math.max(range.startLineNumber, containingCell.codeStartLine),
+				range.startLineNumber < containingCell.codeStartLine ? 1 : range.startColumn,
+				Math.min(range.endLineNumber, containingCell.codeEndLine),
+				range.endLineNumber > containingCell.codeEndLine
+					? textModel.getLineMaxColumn(containingCell.codeEndLine)
+					: range.endColumn
+			);
+
 			// Get the code content and parse execution options
-			const code = textModel.getValueInRange(range);
+			const code = textModel.getValueInRange(clampedRange);
 			const { options, optionLineCount } = parseCellExecutionOptions(code);
 
 			// Calculate effective code range (excluding option lines at the start)
-			let effectiveCodeRange = range;
+			let effectiveCodeRange = clampedRange;
 			if (optionLineCount > 0) {
 				effectiveCodeRange = new Range(
-					range.startLineNumber + optionLineCount,
+					clampedRange.startLineNumber + optionLineCount,
 					1,
-					range.endLineNumber,
-					range.endColumn
+					clampedRange.endLineNumber,
+					clampedRange.endColumn
 				);
 			}
 
 			executions.push({
 				cell: containingCell,
-				codeRange: range,
+				codeRange: clampedRange,
 				effectiveCodeRange,
 				options,
 			});
@@ -407,6 +419,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		// Add all ranges to queued state with decorations
 		for (const execution of filteredExecutions) {
 			this._addToQueuedRanges(execution.cell.id, execution.codeRange);
+			this._addToQueue(documentUri, execution.cell.id);
 			// Only set state to Queued if cell is not already running
 			// (if it's running, the queued range decoration will still show)
 			const currentState = this.getExecutionState(execution.cell.id);
@@ -438,6 +451,18 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						this._removeFromQueuedRanges(e.cell.id, e.codeRange);
 					}
 					break;
+				}
+
+				// Check if the cell was cancelled while queued (e.g. via
+				// the cancel button on the cell toolbar)
+				const currentState = this.getExecutionState(execution.cell.id);
+				if (currentState !== CellExecutionState.Queued &&
+					currentState !== CellExecutionState.Running) {
+					this._logService.debug(
+						`[QuartoExecutionManager] Inline cell ${execution.cell.id} was cancelled while queued (state: ${currentState}), skipping`
+					);
+					this._removeFromQueuedRanges(execution.cell.id, execution.codeRange);
+					continue;
 				}
 
 				try {

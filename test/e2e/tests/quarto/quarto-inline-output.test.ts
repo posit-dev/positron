@@ -63,7 +63,7 @@ test.describe('Quarto - Inline Output', {
 
 		// Run the current cell using the command
 		// This will start the Quarto kernel if not already running
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		// The output should appear in a view zone with class 'quarto-inline-output'
@@ -129,7 +129,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -179,7 +179,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -241,7 +241,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -407,7 +407,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell using the command
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -485,7 +485,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the R cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear from the R cell
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -511,7 +511,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the Python cell - should execute via console and show inline output
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for Python console to show output
 		// The Python code is: import os; os.getpid()
@@ -585,7 +585,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -684,7 +684,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell to start the kernel
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear (confirms kernel executed code)
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -759,7 +759,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -812,7 +812,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -1080,7 +1080,7 @@ test.describe('Quarto - Inline Output', {
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 
-			await runCommand('positronQuarto.runCurrentCell');
+			await runCommand('quarto.runCurrentCell');
 
 			// Wait for output to update (longer timeout for kernel execution after reload)
 			await page.waitForTimeout(5000);
@@ -1203,7 +1203,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -1295,7 +1295,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -1403,7 +1403,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -1526,7 +1526,7 @@ test.describe('Quarto - Inline Output', {
 		// - comment (24)
 
 		// Step 1: Run ALL cells using the Run All command
-		await app.workbench.quickaccess.runCommand('positronQuarto.runAllCells');
+		await app.workbench.quickaccess.runCommand('quarto.runAllCells');
 
 		// Wait for both cells to produce output (first cell has sleep(5), so wait longer)
 		// Look for 2 inline output zones
@@ -1593,7 +1593,7 @@ test.describe('Quarto - Inline Output', {
 
 		// CRITICAL: Run the current cell (should be the second cell)
 		// With the bug, this would execute wrong code because cell metadata has stale line numbers
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for execution to complete
 		await page.waitForTimeout(5000);
@@ -1665,7 +1665,7 @@ test.describe('Quarto - Inline Output', {
 			await page.waitForTimeout(500);
 
 			// Run the current cell to generate the plot
-			await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+			await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 			// Wait for inline output to appear
 			const inlineOutput = page.locator('.quarto-inline-output');
@@ -1770,7 +1770,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear (includes kernel startup time)
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -1840,40 +1840,30 @@ test.describe('Quarto - Inline Output', {
 		// - text (14)
 		// - second cell (16-18): just prints
 
-		// Position cursor in the FIRST cell and run both cells using "Run All"
-		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('10');
-		await page.keyboard.press('Enter');
-		await page.waitForTimeout(500);
-
-		// Run all cells - this queues both cells
-		await app.workbench.quickaccess.runCommand('positronQuarto.runAllCells');
-
-		// Wait for the first cell to start running
-		// The first cell's toolbar should show a stop button (running state)
-		await page.waitForTimeout(1500); // Give time for execution to start
-
-		// Now the second cell should be in "Queued" state
-		// Find the second cell's toolbar by looking for the cancel button (clock icon)
-		// The second cell is around line 17, so scroll there
+		// Navigate to the second cell BEFORE running all cells so we can
+		// see the queued state and cancel it quickly. The first cell has a
+		// 3-second sleep, so we need to minimize the time between
+		// quarto.runAllCells and clicking the cancel button on the second cell.
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
 		await page.keyboard.type('17');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
-		// Find the toolbar for the second cell
-		// It should have the "queued" class and clock icon
+		// Run all cells - this queues both cells
+		await app.workbench.quickaccess.runCommand('quarto.runAllCells');
+
+		// The second cell should enter "Queued" state while the first cell runs.
+		// Find the second cell's toolbar and wait for the queued class to appear.
 		const toolbars = page.locator('.quarto-cell-toolbar');
 		const secondToolbar = toolbars.nth(1);
 
-		// The run button should show the clock icon (queued state)
 		const runButton = secondToolbar.locator('.quarto-toolbar-run');
-		await expect(runButton).toBeVisible({ timeout: 5000 });
+		await expect(runButton).toBeVisible({ timeout: 10000 });
 
-		// Verify the button has the queued class (indicating it's showing cancel option)
-		await expect(runButton).toHaveClass(/queued/, { timeout: 5000 });
+		// Wait for the queued class (indicating it's showing cancel option)
+		await expect(runButton).toHaveClass(/queued/, { timeout: 10000 });
 
-		// Click the cancel button to cancel the queued execution
+		// Click the cancel button to cancel the queued execution immediately
 		await runButton.click();
 
 		// Wait for the first cell to complete (it has a 3-second sleep)
@@ -2249,7 +2239,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the cell to generate plot output
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output with plot to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -2316,7 +2306,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the cell to generate text output
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -2386,7 +2376,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the cell to generate interactive HTML output
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -2451,7 +2441,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the cell to generate error output
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output with error to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -2501,7 +2491,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the cell to generate plot output
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -2574,7 +2564,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the cell to generate DataFrame HTML output
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -2673,7 +2663,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Run the current cell (this will generate 5000 random numbers)
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
 
 		// Wait for inline output to appear (includes kernel startup time)
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -2770,8 +2760,14 @@ test.describe('Quarto - Inline Output', {
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
-		// Run the bash cell - should execute via terminal and show inline output
-		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+		// Run the bash cell via the floating toolbar's run button.
+		// The Quarto extension's bash executor doesn't support inline output,
+		// so we use the toolbar which routes through Positron's execution
+		// manager (with terminal-based inline output support).
+		const cellToolbar = page.locator('.quarto-cell-toolbar');
+		await expect(cellToolbar.last()).toBeVisible({ timeout: 10000 });
+		const runButton = cellToolbar.last().locator('button.quarto-toolbar-run');
+		await runButton.click();
 
 		// Wait for inline output to appear
 		const inlineOutput = page.locator('.quarto-inline-output');
@@ -2861,7 +2857,7 @@ test.describe('Quarto - Inline Output', {
 		};
 
 		// Run All Cells via command (interactive gesture)
-		await app.workbench.quickaccess.runCommand('positronQuarto.runAllCells');
+		await app.workbench.quickaccess.runCommand('quarto.runAllCells');
 
 		// Wait for execution to complete. We need to wait until the queue finishes.
 		// With execution options: cells 1,3,4,5 produce output (4 total).

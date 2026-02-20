@@ -393,7 +393,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		} else if (this._executionState === CellExecutionState.Queued) {
 			return localize('quarto.toolbar.cancelQueuedExecution', 'Cancel Pending Execution');
 		} else {
-			const keybinding = this._keybindingService.lookupKeybinding(QuartoCommandId.RunCurrentCell);
+			const keybinding = this._keybindingService.lookupKeybinding('quarto.runCurrentCell');
 			const keybindingLabel = keybinding?.getLabel();
 			if (keybindingLabel) {
 				return localize('quarto.toolbar.runCell.tooltip', 'Run Cell ({0})', keybindingLabel);
