@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -27,6 +27,7 @@ import { ICustomEditorLabelService } from '../../../services/editor/common/custo
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import * as perf from '../../../../base/common/performance.js';
 
 export class PositronStartupDiagnosticsContrib {
@@ -83,7 +84,7 @@ export class PositronStartupDiagnosticsInput extends TextResourceEditorInput {
 	) {
 		super(
 			PositronStartupDiagnosticsContrib.get().getInputUri(),
-			localize('positronStartupDiagnostics.title', 'Positron: Runtime Startup Diagnostics'),
+			localize('positronStartupDiagnostics.title', 'Runtime Startup Diagnostics'),
 			undefined,
 			undefined,
 			undefined,
@@ -113,6 +114,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) { }
 
 	provideTextContent(resource: URI): Promise<ITextModel> {
@@ -140,6 +142,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.heading(1, 'Positron Runtime Startup Diagnostics');
 				md.blank();
 				this._addSystemInfo(md);
+				md.blank();
+				this._addInterpreterSettings(md);
 				md.blank();
 				this._addActiveRuntimes(md);
 				md.blank();
@@ -174,6 +178,87 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			md.li(`Memory(System): ${(metrics.totalmem / (ByteSize.GB)).toFixed(2)} GB (${(metrics.freemem / (ByteSize.GB)).toFixed(2)}GB free)`);
 		}
 		md.li(`Initial Startup: ${metrics.initialStartup}`);
+	}
+
+	private _addInterpreterSettings(md: MarkdownBuilder): void {
+		md.heading(2, 'Interpreter Settings');
+
+		// Helper to format a setting value for display
+		const fmt = (value: unknown): string => {
+			if (value === undefined || value === null) {
+				return '(not set)';
+			}
+			if (Array.isArray(value)) {
+				return value.length === 0 ? '[]' : JSON.stringify(value);
+			}
+			if (typeof value === 'object') {
+				return JSON.stringify(value);
+			}
+			return String(value);
+		};
+
+		// Helper to read a setting with language-specific override
+		const getLangOverride = (languageId: string, key: string): string | undefined => {
+			const overridden = this._configurationService.getValue(key, {
+				overrideIdentifier: languageId,
+			});
+			const base = this._configurationService.getValue(key);
+			if (overridden !== base) {
+				return fmt(overridden);
+			}
+			return undefined;
+		};
+
+		// Global startup behavior
+		md.heading(3, 'Startup Behavior');
+		const startupBehavior = this._configurationService.getValue<string>('interpreters.startupBehavior');
+		md.li(`\`interpreters.startupBehavior\`: ${fmt(startupBehavior)}`);
+
+		// Per-language overrides for startup behavior
+		const pythonOverride = getLangOverride('python', 'interpreters.startupBehavior');
+		if (pythonOverride) {
+			md.li(`\`[python] interpreters.startupBehavior\`: ${pythonOverride}`);
+		}
+		const rOverride = getLangOverride('r', 'interpreters.startupBehavior');
+		if (rOverride) {
+			md.li(`\`[r] interpreters.startupBehavior\`: ${rOverride}`);
+		}
+
+		const restartOnCrash = this._configurationService.getValue<boolean>('interpreters.restartOnCrash');
+		md.li(`\`interpreters.restartOnCrash\`: ${fmt(restartOnCrash)}`);
+
+		// Python settings
+		md.blank();
+		md.heading(3, 'Python');
+		const pythonSettings: Array<[string, string]> = [
+			['python.defaultInterpreterPath', 'Default interpreter path'],
+			['python.interpreters.include', 'Additional discovery paths'],
+			['python.interpreters.exclude', 'Excluded paths'],
+			['python.interpreters.override', 'Override list'],
+			['python.environmentProviders.enable', 'Environment providers'],
+			['python.locator', 'Locator implementation'],
+		];
+		for (const [key, _label] of pythonSettings) {
+			const value = this._configurationService.getValue(key);
+			md.li(`\`${key}\`: ${fmt(value)}`);
+		}
+
+		// R settings
+		md.blank();
+		md.heading(3, 'R');
+		const rSettings: Array<[string, string]> = [
+			['positron.r.interpreters.default', 'Default R binary'],
+			['positron.r.customBinaries', 'Additional R binaries'],
+			['positron.r.customRootFolders', 'Additional root folders'],
+			['positron.r.interpreters.exclude', 'Excluded paths'],
+			['positron.r.interpreters.override', 'Override list'],
+			['positron.r.interpreters.condaDiscovery', 'Conda discovery (experimental)'],
+			['positron.r.interpreters.pixiDiscovery', 'Pixi discovery (experimental)'],
+		];
+		for (const [key, _label] of rSettings) {
+			const value = this._configurationService.getValue(key);
+			md.li(`\`${key}\`: ${fmt(value)}`);
+		}
 	}
 
 	private _addActiveRuntimes(md: MarkdownBuilder): void {
