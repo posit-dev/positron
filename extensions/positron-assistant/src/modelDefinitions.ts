@@ -73,8 +73,8 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api#model-availability
 	['snowflake-cortex', [
 		{
-			name: 'Claude Sonnet 4.5',
-			identifier: 'claude-sonnet-4-5',
+			name: 'Claude Haiku 4.5',
+			identifier: 'claude-haiku-4-5',
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
@@ -83,8 +83,8 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
-			name: 'Claude Haiku 4.5',
-			identifier: 'claude-haiku-4-5',
+			name: 'Claude Opus 4.6',
+			identifier: 'claude-opus-4-6',
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
@@ -93,8 +93,8 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
-			name: 'Claude Opus 4.6',
-			identifier: 'claude-opus-4-6',
+			name: 'Claude Sonnet 4.5',
+			identifier: 'claude-sonnet-4-5',
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
