@@ -270,14 +270,13 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		// Handle AI_APICallError which wraps AWS errors in responseBody
 		let name = error?.name;
 		let message = error?.message;
-		let statusCode: number;
+		const statusCode: number | undefined = ai.APICallError.isInstance(error) ? error.statusCode : undefined;
 
 		// Check for AI API call errors (either via isInstance or by duck typing)
 		if (ai.APICallError.isInstance(error) && error.responseBody) {
 			try {
 				const parsedBody = JSON.parse(error.responseBody);
 				message = parsedBody.Message || parsedBody.message || message;
-				statusCode = error.statusCode;
 
 				// Extract error type from response headers
 				if (error.responseHeaders?.['x-amzn-errortype']) {
@@ -304,9 +303,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 		// Get AWS profile and region for better error messages
 		const profile = this.bedrockClient.config.profile || undefined;
-		const region = typeof this.bedrockClient.config.region === 'function'
+		const region = (typeof this.bedrockClient.config.region === 'function'
 			? await this.bedrockClient.config.region()
-			: this.bedrockClient.config.region || 'us-east-1';
+			: this.bedrockClient.config.region) || undefined;
 
 		// Await credential source to avoid race condition
 		const credentialSource = await this._credentialSourcePromise;
@@ -357,11 +356,13 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 						throw new AssistantError(message, false);
 					} else {
 						// We are in a chat response, so we should return an error to display in the chat pane
-						const profileArg = profile ? ` --profile ${this.bedrockClient.config.profile}` : '';
+						const profileArg = profile ? ` --profile ${profile}` : '';
+						const regionArg = region ? ` --region ${region}` : '';
 						throw new Error(
 							vscode.l10n.t(
-								'AWS login required. Please run `aws sso login{0} --region {1}` in the terminal, and retry this request.',
+								'AWS login required. Please run `aws sso login{0}{1}` in the terminal, and retry this request.',
 								profileArg,
+								regionArg,
 								region
 							)
 						);
@@ -413,6 +414,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		const result = new Promise<boolean>((resolve) => {
 			const disposable = vscode.tasks.onDidEndTaskProcess(e => {
 				if (e.execution === taskExecution) {
+					this._context.subscriptions.splice(this._context.subscriptions.indexOf(disposable), 1);
 					disposable.dispose();
 					// Notify the user of the result
 					const success = e.exitCode === 0 || e.exitCode === undefined;
@@ -445,6 +447,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 					resolve(success);
 				}
 			});
+			this._context.subscriptions.push(disposable);
 		});
 		return result;
 	}

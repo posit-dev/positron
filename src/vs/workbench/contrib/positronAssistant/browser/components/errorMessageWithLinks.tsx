@@ -17,21 +17,18 @@ interface ErrorMessageWithLinksProps {
  * Parses links like [text](command:id?args) and makes them clickable.
  * Also handles newlines properly by converting them to <br /> elements.
  */
-export const ErrorMessageWithLinks: React.FC<ErrorMessageWithLinksProps> = ({ message, openerService, onLinkClick }) => {
-	// Helper function to convert text with newlines to React elements
+export const ErrorMessageWithLinks = ({ message, openerService, onLinkClick }: ErrorMessageWithLinksProps) => {
+	// Convert text with newlines to React elements.
 	const renderTextWithNewlines = (text: string, startKey: number): (string | React.ReactElement)[] => {
-		const lines = text.split('\n');
 		const elements: (string | React.ReactElement)[] = [];
-
-		lines.forEach((line, i) => {
-			if (i > 0) {
+		for (const [i, line] of text.split('\n').entries()) {
+			if (elements.length > 0) {
 				elements.push(<br key={`br-${startKey}-${i}`} />);
 			}
 			if (line) {
 				elements.push(line);
 			}
-		});
-
+		}
 		return elements;
 	};
 
