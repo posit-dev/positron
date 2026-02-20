@@ -11,8 +11,10 @@ import { IAction2Options, registerAction2 } from '../../../../../../platform/act
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
-import { GhostCellController, POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST } from './controller.js';
+import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
+import { GhostCellController } from './controller.js';
+
+const POSITRON_NOTEBOOK_IS_ACTIVE_EDITOR = ContextKeyExpr.equals('activeEditor', 'workbench.editor.positronNotebook');
 
 // Helper function matching the FindController pattern (contrib/find/actions.ts)
 function registerGhostCellAction(
@@ -32,16 +34,20 @@ function registerGhostCellAction(
 	});
 }
 
-// Request ghost cell suggestion - triggered in pull mode when awaiting-request state is active
+// Request ghost cell suggestion - works from any state when the notebook editor is focused
 registerGhostCellAction({
 	id: 'positronNotebook.requestGhostCellSuggestion',
 	title: localize2('positronNotebook.requestGhostCellSuggestion', 'Request Ghost Cell Suggestion'),
 	keybinding: {
+		// Require notebook DOM focus and exclude cell editor focus to avoid
+		// stealing Cmd+Shift+G from terminal Find Previous or notebook Find Previous
 		when: ContextKeyExpr.and(
+			POSITRON_NOTEBOOK_IS_ACTIVE_EDITOR,
 			POSITRON_NOTEBOOK_EDITOR_FOCUSED,
-			POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST
+			POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.negate()
 		),
-		weight: KeybindingWeight.EditorContrib,
+		// Must be higher than editor.action.announceCursorPosition (WorkbenchContrib + 10)
+		weight: KeybindingWeight.WorkbenchContrib + 50,
 		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyG
 	},
 	run: (controller) => controller.requestGhostCellSuggestion(),
