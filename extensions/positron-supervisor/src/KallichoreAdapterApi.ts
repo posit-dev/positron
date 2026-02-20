@@ -125,6 +125,7 @@ export class KCApi implements PositronSupervisorApi {
 		private readonly _reconnect: boolean) {
 
 		this._api = new KallichoreApiInstance(_transport);
+		positron.runtime.emitPerfMark('initializing');
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
@@ -443,6 +444,7 @@ export class KCApi implements PositronSupervisorApi {
 			hideFromUser: !showTerminal,
 			isTransient: false
 		} satisfies vscode.TerminalOptions);
+		positron.runtime.emitPerfMark('terminalOpened');
 
 		// Flag to track if the terminal exited before the start barrier opened
 		let exited = false;
@@ -462,6 +464,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Wait for the terminal to start and get the PID
 		let processId = await withTimeout(this._terminal.processId,
 			startupTimeout, `Timed out waiting for terminal to start after ${startupTimeout}ms`);
+		positron.runtime.emitPerfMark('started');
 
 		// Now that the terminal has started, log the PID and
 		// start the timer for server startup
@@ -662,6 +665,7 @@ export class KCApi implements PositronSupervisorApi {
 			throw new Error(message);
 		}
 
+		positron.runtime.emitPerfMark('ready');
 		this.log(`Kallichore server started in ${Date.now() - supervisorStartTime}ms`);
 
 		// Begin streaming the logs (cleaning up any existing streamer)
@@ -825,6 +829,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		const status = await this._api.api.serverStatus();
 		this._started.open();
+		positron.runtime.emitPerfMark('ready');
 		this.log(`Kallichore ${status.data.version} server reconnected with ${status.data.sessions} sessions`);
 
 		// Update the idle timeout from settings if we aren't in web mode
