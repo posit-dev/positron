@@ -14,15 +14,15 @@ import { VenvPackageManager } from './venvPackageManager';
  * Used to identify which package manager is handling package operations.
  */
 export enum PackageManagerType {
-	Pip = 'Pip',
-	Venv = 'Venv',
+    Pip = 'Pip',
+    Venv = 'Venv',
 }
 
 /**
  * Interface for emitting messages to the Positron console
  */
 interface MessageEmitter {
-	fire(message: positron.LanguageRuntimeMessage): void;
+    fire(message: positron.LanguageRuntimeMessage): void;
 }
 
 /**
@@ -34,28 +34,28 @@ interface MessageEmitter {
  * - All other environments use PipPackageManager as the default
  */
 export class PackageManagerFactory {
-	/**
-	 * Create the appropriate package manager for the given environment.
-	 *
-	 * @param runtimeSource The environment type (e.g., 'Venv', 'Conda', 'Global')
-	 * @param pythonPath The path to the Python interpreter
-	 * @param messageEmitter The emitter for runtime messages
-	 * @param serviceContainer The service container for dependency injection
-	 * @returns The appropriate package manager for the environment
-	 */
-	static create(
-		runtimeSource: string,
-		pythonPath: string,
-		messageEmitter: MessageEmitter,
-		serviceContainer: IServiceContainer,
-	): PipPackageManager {
-		// Check if the environment is a venv
-		if (runtimeSource === EnvironmentType.Venv) {
-			return new VenvPackageManager(pythonPath, messageEmitter, serviceContainer);
-		}
+    /**
+     * Create the appropriate package manager for the given environment.
+     *
+     * @param runtimeSource The environment type (e.g., 'Venv', 'Conda', 'Global')
+     * @param pythonPath The path to the Python interpreter
+     * @param messageEmitter The emitter for runtime messages
+     * @param serviceContainer The service container for dependency injection
+     * @returns The appropriate package manager for the environment
+     */
+    static create(
+        runtimeSource: string,
+        pythonPath: string,
+        messageEmitter: MessageEmitter,
+        serviceContainer: IServiceContainer,
+    ): PipPackageManager {
+        // Check if the environment is a venv
+        if (runtimeSource === EnvironmentType.Venv) {
+            return new VenvPackageManager(pythonPath, messageEmitter, serviceContainer);
+        }
 
-		// Default to PipPackageManager for all other environment types
-		// This includes Conda, Pyenv, Global, System, VirtualEnv, etc.
-		return new PipPackageManager(pythonPath, messageEmitter, serviceContainer);
-	}
+        // Default to PipPackageManager for all other environment types
+        // This includes Conda, Pyenv, Global, System, VirtualEnv, etc.
+        return new PipPackageManager(pythonPath, messageEmitter, serviceContainer);
+    }
 }
