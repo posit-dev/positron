@@ -235,14 +235,11 @@ export class Code {
 					switch (retries) {
 
 						// --- Start Positron ---
-						// after 5 seconds: proactively kill process tree while main process is still alive
-						// This gives time for graceful shutdown (extension host, runtimes) before killing
-						// to prevent orphaned child processes
-						case 10: {
-							this.logger.log('Smoke test exit(): proactively killing process tree after 5s');
+						// after 1 second: proactively kill process tree while main process is still alive
+						// This ensures child processes are killed before they can be reparented
+						case 2: {
+							this.logger.log('Smoke test exit(): proactively killing process tree after 1s');
 							await this.killProcessTree(pid);
-							// Give child process handles time to drain
-							await this.wait(1000);
 							break;
 						}
 						// --- End Positron ---

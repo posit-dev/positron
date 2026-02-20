@@ -422,17 +422,6 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		}
 	}
 
-	// Brief cleanup to help processes terminate cleanly
-	// The real fix is using SIGKILL in teardown() on macOS CI
-	try {
-		if (global.gc) {
-			global.gc();
-		}
-		// Brief wait for cleanup
-		await new Promise(resolve => setTimeout(resolve, 500));
-	} catch (error) {
-		console.log(`Error during cleanup: ${error}`);
-	}
 });
 
 export { playwrightExpect as expect };
