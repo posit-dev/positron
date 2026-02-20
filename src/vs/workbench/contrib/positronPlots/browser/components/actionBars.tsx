@@ -143,8 +143,146 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	};
 
 	const leftActions: DynamicActionBarAction[] = [];
-	const rightActions: DynamicActionBarAction[] = [];
+	// Previous plot button.
+	leftActions.push({
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+		separator: false,
+		component: (
+			<ActionBarButton
+				ariaLabel={showPreviousPlot}
+				disabled={disableLeft}
+				icon={ThemeIcon.fromId('positron-left-arrow')}
+				tooltip={showPreviousPlot}
+				onPressed={showPreviousPlotHandler}
+			/>
+		)
+	});
 
+	// Next plot button.
+	leftActions.push({
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+		separator: enableSizingPolicy || enableSavingPlots || enableZoomPlot || enablePopoutPlot,
+		component: (
+			<ActionBarButton
+				ariaLabel={showNextPlot}
+				disabled={disableRight}
+				icon={ThemeIcon.fromId('positron-right-arrow')}
+				tooltip={showNextPlot}
+				onPressed={showNextPlotHandler}
+			/>
+		)
+	});
+
+	// Save plot button.
+	if (enableSavingPlots) {
+		leftActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<ActionBarButton
+					ariaLabel={savePlot}
+					icon={ThemeIcon.fromId('positron-save')}
+					tooltip={savePlot}
+					onPressed={savePlotHandler}
+				/>
+			)
+		});
+	}
+
+	// Copy plot button.
+	if (enableCopyPlot) {
+		leftActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<ActionBarButton
+					ariaLabel={copyPlotToClipboard}
+					disabled={!hasPlots}
+					icon={ThemeIcon.fromId('copy')}
+					tooltip={copyPlotToClipboard}
+					onPressed={copyPlotHandler}
+				/>
+			),
+			overflowContextMenuItem: {
+				icon: 'copy',
+				label: copyPlotToClipboard,
+				disabled: !hasPlots,
+				onSelected: copyPlotHandler
+			}
+		});
+	}
+
+	// Zoom plot menu button.
+	if (enableZoomPlot) {
+		leftActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<ZoomPlotMenuButton
+					actionHandler={zoomPlotHandler}
+					zoomLevel={props.zoomLevel}
+				/>
+			)
+		});
+	}
+
+	// Sizing policy menu button.
+	if (enableSizingPolicy) {
+		leftActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			separator: false,
+			component: <SizingPolicyMenuButton plotClient={selectedPlot} />
+		});
+	}
+
+	// Popout plot button.
+	if (enablePopoutPlot) {
+		leftActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<ActionBarButton
+					ariaLabel={openPlotInNewWindow}
+					icon={ThemeIcon.fromId('positron-open-in-new-window')}
+					tooltip={openPlotInNewWindow}
+					onPressed={popoutPlotHandler}
+				/>
+			),
+			overflowContextMenuItem: {
+				icon: 'positron-open-in-new-window',
+				label: openPlotInNewWindow,
+				onSelected: popoutPlotHandler
+			}
+		});
+	}
+
+	// Open in editor menu button.
+	if (showOpenInEditorButton) {
+		leftActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<OpenInEditorMenuButton
+					ariaLabel={openInEditorTab}
+					commandService={services.commandService}
+					defaultGroup={services.positronPlotsService.getPreferredEditorGroup()}
+					tooltip={openInEditorTab}
+				/>
+			)
+		});
+	}
+
+	// Plot code menu button.
+	if (enableCodeActions) {
+		leftActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			separator: false,
+			component: <PlotCodeMenuButton plotClient={selectedPlot} />
+		});
+	}
+
+	// Build right actions array.
+	const rightActions: DynamicActionBarAction[] = [];
 	// Dark filter menu button.
 	if (enableDarkFilter) {
 		rightActions.push({
