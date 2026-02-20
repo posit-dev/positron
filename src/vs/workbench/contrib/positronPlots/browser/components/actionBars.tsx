@@ -7,7 +7,7 @@
 import './actionBars.css';
 
 // React.
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -18,11 +18,14 @@ import { SizingPolicyMenuButton } from './sizingPolicyMenuButton.js';
 import { ZoomPlotMenuButton } from './zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
-import { PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IAction } from '../../../../../base/common/actions.js';
+import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
-import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PlotCodeMenuButton } from './plotCodeMenuButton.js';
@@ -41,6 +44,12 @@ const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open plot i
 const openInEditorTab = localize('positronOpenPlotInEditorTab', "Open in editor tab");
 const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open plots gallery in new window");
 const clearAllPlots = localize('positronClearAllPlots', "Clear all plots");
+// dark filter localized strings
+const darkFilterLabel = localize('positron.darkFilter', "Dark Filter");
+const darkFilterNoneLabel = localize('positron.darkFilterNone', "No Filter");
+const darkFilterFollowThemeLabel = localize('positron.darkFilterFollowTheme', "Follow Theme");
+const darkFilterTooltip = localize('positronDarkFilterTooltip', "Set whether a dark filter is applied to plots.");
+const openDarkFilterSettings = localize('positron.openDarkFilterSettings', "Change Default in Settings...");
 
 /**
  * ActionBarsProps interface.
@@ -60,6 +69,76 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const services = usePositronReactServicesContext();
 	const positronPlotsContext = usePositronPlotsContext();
+
+	// State
+	const [darkFilterMode, setDarkFilterMode] = useState(services.positronPlotsService.darkFilterMode);
+
+	// Track dark filter mode changes.
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		// Add the event handler for dark filter mode changes.
+		disposableStore.add(services.positronPlotsService.onDidChangeDarkFilterMode(mode => {
+			setDarkFilterMode(mode);
+		}));
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [services.positronPlotsService]);
+
+	const labelForDarkFilter = (filter: DarkFilter): string => {
+		switch (filter) {
+			case DarkFilter.On: return darkFilterLabel;
+			case DarkFilter.Off: return darkFilterNoneLabel;
+			case DarkFilter.Auto: return darkFilterFollowThemeLabel;
+		}
+	};
+
+	const iconForDarkFilter = (filter: DarkFilter): string => {
+		switch (filter) {
+			case DarkFilter.On: return 'circle-large-filled';
+			case DarkFilter.Off: return 'circle-large';
+			case DarkFilter.Auto: return 'color-mode';
+		}
+	};
+
+	// Dark filter actions builder.
+	const darkFilterActions = (): IAction[] => {
+		const modes = [DarkFilter.On, DarkFilter.Off, DarkFilter.Auto];
+
+		const actions: IAction[] = modes.map(mode => ({
+			id: mode,
+			label: labelForDarkFilter(mode),
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			checked: darkFilterMode === mode,
+			run: () => services.positronPlotsService.setDarkFilterMode(mode)
+		}));
+
+		// Add settings action.
+		actions.push({
+			id: 'open-settings',
+			label: openDarkFilterSettings,
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: async () => {
+				await services.preferencesService.openUserSettings({
+					jsonEditor: false,
+					query: 'plots.darkFilter,positron.plots.darkFilter'
+				});
+			}
+		});
+
+		return actions;
+	};
+
+	// A function that converts the dark filter IAction[] to CustomContextMenuItem[] for the overflow menu.
+	const darkFilterOverflowEntries = () => darkFilterActions().map(action => new CustomContextMenuItem({
+		label: action.label,
+		checked: action.checked,
+		disabled: !action.enabled,
+		onSelected: () => action.run()
+	}));
 
 	// Do we have any plots?
 	const noPlots = positronPlotsContext.positronPlotInstances.length === 0;
@@ -285,7 +364,21 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		rightActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
 			separator: true,
-			component: <DarkFilterMenuButton />
+			component: (
+				<ActionBarMenuButton
+					actions={darkFilterActions}
+					align='right'
+					ariaLabel={darkFilterTooltip}
+					icon={ThemeIcon.fromId(iconForDarkFilter(darkFilterMode))}
+					tooltip={darkFilterTooltip}
+				/>
+			),
+			overflowContextMenuSubmenu: {
+				icon: iconForDarkFilter(darkFilterMode),
+				label: darkFilterLabel,
+				// pass in the helper function that returns the CustomContextMenuItem[] for the submenu entries
+				entries: darkFilterOverflowEntries
+			}
 		});
 	}
 
