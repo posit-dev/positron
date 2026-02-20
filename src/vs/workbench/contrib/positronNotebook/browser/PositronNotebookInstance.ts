@@ -1588,6 +1588,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Both cells must be the same kind.
 	 */
 	joinCellAbove(): void {
+		this._joinCellWithNeighbor('above');
+	}
+
+	/**
+	 * Joins the active cell with the cell below it.
+	 * Both cells must be the same kind.
+	 */
+	joinCellBelow(): void {
+		this._joinCellWithNeighbor('below');
+	}
+
+	/**
+	 * Joins the active cell with its neighbor in the given direction.
+	 * The kept cell (lower index) preserves its metadata, outputs, and state.
+	 */
+	private _joinCellWithNeighbor(direction: 'above' | 'below'): void {
 		this._assertTextModel();
 
 		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
@@ -1595,15 +1611,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
+		const allCells = this.cells.get();
 		const cellIndex = activeCell.index;
-		if (cellIndex <= 0) {
+
+		if (direction === 'above' && cellIndex <= 0) {
+			return;
+		}
+		if (direction === 'below' && cellIndex >= allCells.length - 1) {
 			return;
 		}
 
-		const allCells = this.cells.get();
-		const aboveCell = allCells[cellIndex - 1];
+		const neighborIndex = direction === 'above' ? cellIndex - 1 : cellIndex + 1;
+		const neighborCell = allCells[neighborIndex];
 
-		if (activeCell.kind !== aboveCell.kind) {
+		if (activeCell.kind !== neighborCell.kind) {
 			this._notificationService.notify({
 				severity: Severity.Warning,
 				message: localize('joinCells.differentKinds', "Cannot join cells of different types."),
@@ -1613,42 +1634,48 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
-		const aboveCellModel = textModel.cells[cellIndex - 1];
-		if (!aboveCellModel) {
+
+		// The kept cell is always at the lower index; it preserves metadata and outputs
+		const keepIndex = Math.min(cellIndex, neighborIndex);
+		const deleteIndex = Math.max(cellIndex, neighborIndex);
+		const keepCell = allCells[keepIndex];
+		const otherCell = allCells[deleteIndex];
+
+		const keepCellModel = textModel.cells[keepIndex];
+		if (!keepCellModel) {
 			return;
 		}
 
-		const eol = aboveCellModel.textBuffer.getEOL();
-		const mergedContent = aboveCell.getContent() + eol + activeCell.getContent();
+		const eol = keepCellModel.textBuffer.getEOL();
+		const mergedContent = keepCell.getContent() + eol + otherCell.getContent();
 
-		// Replace above cell with merged content, delete active cell
 		const edits: ICellReplaceEdit[] = [
-			// Delete active cell first (higher index)
+			// Delete the higher-index cell first
 			{
 				editType: CellEditType.Replace,
-				index: cellIndex,
+				index: deleteIndex,
 				count: 1,
 				cells: []
 			},
-			// Replace above cell with merged content
+			// Replace the kept cell with merged content
 			{
 				editType: CellEditType.Replace,
-				index: cellIndex - 1,
+				index: keepIndex,
 				count: 1,
 				cells: [{
-					cellKind: aboveCell.kind,
-					language: aboveCellModel.language,
-					mime: aboveCellModel.mime,
-					outputs: aboveCellModel.outputs,
-					metadata: aboveCellModel.metadata,
-					internalMetadata: aboveCellModel.internalMetadata,
-					collapseState: aboveCellModel.collapseState,
+					cellKind: keepCell.kind,
+					language: keepCellModel.language,
+					mime: keepCellModel.mime,
+					outputs: keepCellModel.outputs,
+					metadata: keepCellModel.metadata,
+					internalMetadata: keepCellModel.internalMetadata,
+					collapseState: keepCellModel.collapseState,
 					source: mergedContent
 				}]
 			}
 		];
 
-		const focusRange = { start: cellIndex - 1, end: cellIndex };
+		const focusRange = { start: keepIndex, end: keepIndex + 1 };
 		const endSelections: ISelectionState = {
 			kind: SelectionStateType.Index,
 			focus: focusRange,
@@ -1662,92 +1689,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				kind: SelectionStateType.Index,
 				focus: { start: cellIndex, end: cellIndex + 1 },
 				selections: [{ start: cellIndex, end: cellIndex + 1 }]
-			},
-			() => endSelections,
-			undefined,
-			computeUndoRedo
-		);
-
-		this._onDidChangeContent.fire();
-	}
-
-	/**
-	 * Joins the active cell with the cell below it.
-	 * Both cells must be the same kind.
-	 */
-	joinCellBelow(): void {
-		this._assertTextModel();
-
-		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
-		if (!activeCell) {
-			return;
-		}
-
-		const allCells = this.cells.get();
-		const cellIndex = activeCell.index;
-		if (cellIndex >= allCells.length - 1) {
-			return;
-		}
-
-		const belowCell = allCells[cellIndex + 1];
-
-		if (activeCell.kind !== belowCell.kind) {
-			this._notificationService.notify({
-				severity: Severity.Warning,
-				message: localize('joinCells.differentKinds', "Cannot join cells of different types."),
-			});
-			return;
-		}
-
-		const textModel = this.textModel;
-		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
-		const activeCellModel = textModel.cells[cellIndex];
-		if (!activeCellModel) {
-			return;
-		}
-
-		const eol = activeCellModel.textBuffer.getEOL();
-		const mergedContent = activeCell.getContent() + eol + belowCell.getContent();
-
-		// Delete below cell first (higher index), then replace active cell
-		const edits: ICellReplaceEdit[] = [
-			{
-				editType: CellEditType.Replace,
-				index: cellIndex + 1,
-				count: 1,
-				cells: []
-			},
-			{
-				editType: CellEditType.Replace,
-				index: cellIndex,
-				count: 1,
-				cells: [{
-					cellKind: activeCell.kind,
-					language: activeCellModel.language,
-					mime: activeCellModel.mime,
-					outputs: activeCellModel.outputs,
-					metadata: activeCellModel.metadata,
-					internalMetadata: activeCellModel.internalMetadata,
-					collapseState: activeCellModel.collapseState,
-					source: mergedContent
-				}]
-			}
-		];
-
-		const focusRange = { start: cellIndex, end: cellIndex + 1 };
-		const endSelections: ISelectionState = {
-			kind: SelectionStateType.Index,
-			focus: focusRange,
-			selections: [focusRange]
-		};
-
-		textModel.applyEdits(
-			edits,
-			true,
-			{
-				kind: SelectionStateType.Index,
-				focus: focusRange,
-				selections: [focusRange]
 			},
 			() => endSelections,
 			undefined,
