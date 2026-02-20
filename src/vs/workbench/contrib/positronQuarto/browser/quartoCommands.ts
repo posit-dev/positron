@@ -16,8 +16,6 @@ import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoOutputManager } from './quartoOutputManager.js';
 import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_RUNNING, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { QuartoOutputContribution } from './quartoOutputManager.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -283,95 +281,6 @@ registerAction2(class ShutdownKernelAction extends Action2 {
 		const { documentUri } = context;
 
 		await kernelManager.shutdownKernelForDocument(documentUri);
-	}
-});
-
-/**
- * Change the kernel for the current document.
- */
-registerAction2(class ChangeKernelAction extends Action2 {
-	constructor() {
-		super({
-			id: QuartoCommandId.ChangeKernel,
-			title: {
-				value: localize('quarto.changeKernel', 'Change Kernel...'),
-				original: 'Change Kernel...',
-			},
-			category: QUARTO_CATEGORY,
-			f1: true,
-			precondition: QUARTO_PRECONDITION,
-			menu: {
-				id: MenuId.PositronQuartoKernelSubmenu,
-				order: 0, // First item in menu (like notebooks)
-			},
-		});
-	}
-
-	async run(accessor: ServicesAccessor): Promise<void> {
-		// Extract all services synchronously before any async operations
-		const editorService = accessor.get(IEditorService);
-		const kernelManager = accessor.get(IQuartoKernelManager);
-		const quickInputService = accessor.get(IQuickInputService);
-		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-
-		const context = getQuartoContext(editorService);
-		if (!context) {
-			return;
-		}
-
-		const { documentUri } = context;
-
-		// Get the document's current language from the kernel manager
-		const currentSession = kernelManager.getSessionForDocument(documentUri);
-		const currentLanguage = currentSession?.runtimeMetadata.languageId;
-
-		// Get available runtimes for the current language or all languages
-		const languages = currentLanguage ? [currentLanguage] : ['python', 'r'];
-		const availableRuntimes = languageRuntimeService.registeredRuntimes
-			.filter((runtime: ILanguageRuntimeMetadata) => languages.includes(runtime.languageId));
-
-		if (availableRuntimes.length === 0) {
-			return;
-		}
-
-		// Show quick pick
-		const quickPick = quickInputService.createQuickPick<IQuickPickItem & { runtime?: ILanguageRuntimeMetadata }>();
-		quickPick.title = localize('quarto.selectKernel.title', 'Select Quarto Kernel');
-		quickPick.placeholder = localize('quarto.selectKernel.placeholder', 'Select an interpreter for this document');
-
-		quickPick.items = availableRuntimes.map((runtime: ILanguageRuntimeMetadata) => ({
-			label: runtime.runtimeName,
-			description: runtime.languageName,
-			detail: runtime.runtimePath,
-			runtime,
-			picked: currentSession?.runtimeMetadata.runtimeId === runtime.runtimeId,
-		}));
-
-		return new Promise<void>(resolve => {
-			quickPick.onDidAccept(async () => {
-				const selected = quickPick.selectedItems[0];
-				if (selected?.runtime) {
-					// Shutdown existing kernel if any
-					await kernelManager.shutdownKernelForDocument(documentUri);
-
-					// TODO: Start kernel with specific runtime
-					// For now, restart to pick up the new preferred runtime
-					// A more complete implementation would pass the selected runtime
-					// to the kernel manager
-					await kernelManager.ensureKernelForDocument(documentUri);
-				}
-				quickPick.hide();
-				quickPick.dispose();
-				resolve();
-			});
-
-			quickPick.onDidHide(() => {
-				quickPick.dispose();
-				resolve();
-			});
-
-			quickPick.show();
-		});
 	}
 });
 

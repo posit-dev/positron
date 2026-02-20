@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -289,16 +289,11 @@ export class QuartoImagePreviewContribution extends Disposable implements IEdito
 	) {
 		super();
 
-		this._logService.info('[QuartoImagePreview] Constructor called');
-
 		const model = this._editor.getModel();
 		this._documentUri = model?.uri;
 
 		// Check if feature is enabled
 		this._featureEnabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
-
-		this._logService.info('[QuartoImagePreview] Feature enabled:', this._featureEnabled);
-		this._logService.info('[QuartoImagePreview] Is Quarto document:', this._isQuartoDocument());
 
 		// Listen for context key changes
 		this._register(this._contextKeyService.onDidChangeContext(e => {

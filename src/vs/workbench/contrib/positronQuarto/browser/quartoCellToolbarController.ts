@@ -41,9 +41,6 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	) {
 		super();
 
-		this._logService.info('[QuartoCellToolbarController] Constructor called');
-		console.log('[QuartoCellToolbarController] Constructor called');
-
 		// Listen for model changes
 		this._register(this._editor.onDidChangeModel(() => {
 			this._logService.debug('[QuartoCellToolbarController] Editor model changed');
@@ -82,14 +79,9 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			return;
 		}
 
-		this._logService.debug(`[QuartoCellToolbarController] Model URI: ${model.uri.toString()}`);
-
 		// Check if feature is enabled (context key checks both setting and extension installation)
 		const enabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
-		this._logService.info(`[QuartoCellToolbarController] Feature enabled: ${enabled}`);
-		console.log(`[QuartoCellToolbarController] Feature enabled: ${enabled}`);
 		if (!enabled) {
-			console.log('[QuartoCellToolbarController] Feature not enabled, skipping toolbar setup');
 			return;
 		}
 
@@ -173,9 +165,6 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		// Get the Quarto document model
 		const quartoModel = this._documentModelService.getModel(model);
 		const cells = quartoModel.cells;
-
-		this._logService.info(`[QuartoCellToolbarController] Building toolbars for ${cells.length} cells`);
-		console.log(`[QuartoCellToolbarController] Building toolbars for ${cells.length} cells`);
 
 		// Create a toolbar for each cell
 		for (let i = 0; i < cells.length; i++) {
