@@ -89,6 +89,11 @@ suite('AWSModelProvider', () => {
 				}
 			} as any;
 
+			// Use shared credentials source so the 'default' profile fallback in
+			// authenticationError's CREDENTIALS_PROFILE branch is exercised
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_PROFILE: 'n' });
+
 			const error = new Error('Could not load credentials');
 			error.name = 'CredentialsProviderError';
 

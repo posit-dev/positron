@@ -19,9 +19,9 @@ interface ErrorMessageWithLinksProps {
  */
 export const ErrorMessageWithLinks: React.FC<ErrorMessageWithLinksProps> = ({ message, openerService, onLinkClick }) => {
 	// Helper function to convert text with newlines to React elements
-	const renderTextWithNewlines = (text: string, startKey: number): (string | JSX.Element)[] => {
+	const renderTextWithNewlines = (text: string, startKey: number): (string | React.ReactElement)[] => {
 		const lines = text.split('\n');
-		const elements: (string | JSX.Element)[] = [];
+		const elements: (string | React.ReactElement)[] = [];
 
 		lines.forEach((line, i) => {
 			if (i > 0) {
@@ -38,7 +38,7 @@ export const ErrorMessageWithLinks: React.FC<ErrorMessageWithLinksProps> = ({ me
 	// Parse markdown-style command links: [text](command:id?args)
 	const linkRegex = /\[([^\]]+)\]\(command:([^)]+)\)/g;
 
-	const parts: (string | JSX.Element)[] = [];
+	const parts: (string | React.ReactElement)[] = [];
 	let lastIndex = 0;
 	let match;
 	let key = 0;
@@ -48,16 +48,19 @@ export const ErrorMessageWithLinks: React.FC<ErrorMessageWithLinksProps> = ({ me
 		if (match.index > lastIndex) {
 			const textBefore = message.substring(lastIndex, match.index);
 			parts.push(...renderTextWithNewlines(textBefore, key));
+			key++;
 		}
 
 		const linkText = match[1];
 		const commandLink = `command:${match[2]}`;
 
-		// Create clickable link using openerService
+		// Create clickable button styled as a link using openerService.
+		// A <button> is used instead of <a href="#"> for correct semantics:
+		// this is a command trigger, not navigation.
 		parts.push(
-			<a
+			<button
 				key={`link-${key++}`}
-				href='#'
+				className='link'
 				onClick={(e) => {
 					e.preventDefault();
 					e.stopPropagation();
@@ -70,7 +73,7 @@ export const ErrorMessageWithLinks: React.FC<ErrorMessageWithLinksProps> = ({ me
 				}}
 			>
 				{linkText}
-			</a>
+			</button>
 		);
 
 		lastIndex = match.index + match[0].length;

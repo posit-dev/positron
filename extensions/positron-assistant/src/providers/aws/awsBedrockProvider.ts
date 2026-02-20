@@ -412,8 +412,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		));
 
 		const result = new Promise<boolean>((resolve) => {
-			vscode.tasks.onDidEndTaskProcess(e => {
+			const disposable = vscode.tasks.onDidEndTaskProcess(e => {
 				if (e.execution === taskExecution) {
+					disposable.dispose();
 					// Notify the user of the result
 					const success = e.exitCode === 0 || e.exitCode === undefined;
 					if (success) {

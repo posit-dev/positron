@@ -443,11 +443,12 @@ export abstract class VercelModelProvider extends ModelProvider {
 					return errorData.error.message;
 				}
 			}
-			// Delegate to base class with the unwrapped error
-			return super.parseProviderError(error.lastError);
+			// Delegate to base class with the unwrapped error, forwarding context so
+			// connection-test suppression and other context-dependent behavior is preserved
+			return super.parseProviderError(error.lastError, _context);
 		}
 
-		return super.parseProviderError(error);
+		return super.parseProviderError(error, _context);
 	}
 
 	/**
