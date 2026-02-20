@@ -7,7 +7,7 @@
 import './actionBars.css';
 
 // React.
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -27,9 +27,9 @@ import { disposableTimeout } from '../../../../../base/common/async.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
+import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
-import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
+import { AUX_WINDOW_GROUP_TYPE, ACTIVE_GROUP_TYPE, SIDE_GROUP_TYPE, AUX_WINDOW_GROUP, ACTIVE_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PlotCodeMenuButton } from './plotCodeMenuButton.js';
@@ -69,6 +69,30 @@ const sizingPolicyLabel = localize('positron.sizingPolicy', "Sizing");
 const sizingPolicyTooltip = localize('positronSizingPolicyTooltip', "Set how the plot's shape and size are determined");
 const newCustomPolicyLabel = localize('positronNewCustomSize', "New Custom Size...");
 const changeCustomPolicyLabel = localize('positronChangeCustomSize', "Change Custom Size...");
+// open in editor localized strings
+const openInEditorLabel = localize('positron.openInEditor', "Open in Editor");
+const openInEditorDropdownLabel = localize('positron-editor-open-in-editor-dropdown', "Select where to open plot");
+
+// Open in editor command interface and data.
+interface OpenInEditorCommand {
+	editorTarget: AUX_WINDOW_GROUP_TYPE | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE;
+	label: string;
+}
+
+const openInEditorCommands: Array<OpenInEditorCommand> = [
+	{
+		editorTarget: AUX_WINDOW_GROUP,
+		label: localize('positron-editor-new-window', "Open in new window")
+	},
+	{
+		editorTarget: ACTIVE_GROUP,
+		label: localize('positron-editor-new-tab', "Open in editor tab")
+	},
+	{
+		editorTarget: SIDE_GROUP,
+		label: localize('positron-editor-new-tab-right', "Open in editor tab to the Side")
+	},
+];
 
 /**
  * ActionBarsProps interface.
@@ -105,6 +129,17 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const [activePolicyLabel, setActivePolicyLabel] = useState(() =>
 		plotClientForPolicy?.sizingPolicy.getName(plotClientForPolicy) ?? ''
 	);
+
+	// State for open in editor default action.
+	const [defaultEditorAction, setDefaultEditorAction] = useState<number>(
+		services.positronPlotsService.getPreferredEditorGroup()
+	);
+
+	// Handler to open plot in editor and update default action.
+	const openEditorPlotHandler = useCallback((groupType: number) => {
+		services.commandService.executeCommand(PlotsEditorAction.ID, groupType);
+		setDefaultEditorAction(groupType);
+	}, [services.commandService]);
 
 	// Only show the sizing policy controls when Positron is in control of the
 	// sizing (i.e. don't show it on static plots)
@@ -410,6 +445,27 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		});
 	});
 
+	// Open in editor actions builder.
+	const openInEditorActions = (): IAction[] => {
+		return openInEditorCommands.map(command => ({
+			id: PlotsEditorAction.ID,
+			label: command.label,
+			tooltip: '',
+			class: undefined,
+			checked: defaultEditorAction === command.editorTarget,
+			enabled: true,
+			run: () => openEditorPlotHandler(command.editorTarget)
+		}));
+	};
+
+	// A function that converts the open in editor IAction[] to CustomContextMenuItem[] for the overflow menu.
+	const openInEditorOverflowEntries = () => openInEditorActions().map(action => new CustomContextMenuItem({
+		label: action.label,
+		checked: action.checked,
+		disabled: !action.enabled,
+		onSelected: () => action.run()
+	}));
+
 	const leftActions: DynamicActionBarAction[] = [];
 	// Previous plot button.
 	leftActions.push({
@@ -552,13 +608,21 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
 			separator: false,
 			component: (
-				<OpenInEditorMenuButton
+				<ActionBarMenuButton
+					actions={openInEditorActions}
 					ariaLabel={openInEditorTab}
-					commandService={services.commandService}
-					defaultGroup={services.positronPlotsService.getPreferredEditorGroup()}
+					dropdownAriaLabel={openInEditorDropdownLabel}
+					dropdownIndicator='enabled-split'
+					dropdownTooltip={openInEditorDropdownLabel}
+					icon={ThemeIcon.fromId('go-to-file')}
 					tooltip={openInEditorTab}
 				/>
-			)
+			),
+			overflowContextMenuSubmenu: {
+				icon: 'go-to-file',
+				label: openInEditorLabel,
+				entries: openInEditorOverflowEntries
+			}
 		});
 	}
 
