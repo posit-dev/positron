@@ -28,7 +28,6 @@ const customReporter = ['false', '0', 'no'].includes(disableCustomReporter)
  */
 const projectName = process.env.PW_PROJECT_NAME || 'default';
 
-
 const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
