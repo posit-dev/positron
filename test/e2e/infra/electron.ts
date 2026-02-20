@@ -34,7 +34,8 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 		'--disable-updates',
 		`--crash-reporter-directory=${crashesPath}`,
 		'--disable-workspace-trust',
-		`--logsPath=${logsPath}`
+		`--logsPath=${logsPath}`,
+		`--log=trace`,
 	];
 	if (options.useInMemorySecretStorage) {
 		args.push('--use-inmemory-secretstorage');

@@ -32,7 +32,12 @@ export class RPackageManager {
 	async sourcePackagesScript(): Promise<void> {
 		// Escape backslashes for Windows paths
 		const escapedPath = PACKAGES_SCRIPT_PATH.replace(/\\/g, '\\\\');
-		await this._executeAndCapture(`source("${escapedPath}")`);
+		// Use Silent mode and suppress all R output to avoid showing internal
+		// implementation details to the user
+		await this._executeAndCapture(
+			`source("${escapedPath}", echo = FALSE, print.eval = FALSE, verbose = FALSE)`,
+			positron.RuntimeCodeExecutionMode.Silent
+		);
 	}
 
 	/**
@@ -51,17 +56,18 @@ export class RPackageManager {
 
 	/**
 	 * Install one or more packages.
+	 * @param packages Array of package install requests with name and optional version
 	 */
-	async installPackages(packages: string[]): Promise<void> {
-		// Validate package names (strip @version suffix for validation)
+	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
+		// Validate package names
 		for (const pkg of packages) {
-			this._validatePackageName(pkg.split('@')[0]);
+			this._validatePackageName(pkg.name);
 		}
 
 
 		// If we're installing pak, don't prompt to install pak
 		let hasPak: boolean;
-		if (packages.some((pkg) => pkg.split('@')[0] === 'pak')) {
+		if (packages.some((pkg) => pkg.name === 'pak')) {
 			hasPak = await this._ensurePakChecked();
 		} else {
 			hasPak = await this._ensurePak();
@@ -70,10 +76,10 @@ export class RPackageManager {
 		let pkgVector: string;
 		if (hasPak) {
 			// pak supports "pkg@version" syntax directly
-			pkgVector = this._formatPackageVector(packages);
+			pkgVector = this._formatPackageVector(packages.map(p => `${p.name}@${p.version}`));
 		} else {
 			// base R: strip version suffix if present (not supported)
-			const pkgNames = packages.map(p => p.split('@')[0]);
+			const pkgNames = packages.map(p => p.name.split('@')[0]);
 			pkgVector = this._formatPackageVector(pkgNames);
 		}
 
@@ -83,23 +89,22 @@ export class RPackageManager {
 
 	/**
 	 * Update specific packages to latest versions.
-	 * Package names can optionally include version using '@' syntax (e.g., "dplyr@1.1.0").
+	 * @param packages Array of package install requests with name and optional version
 	 */
-	async updatePackages(packages: string[]): Promise<void> {
-		// Validate package names (strip @version suffix for validation)
+	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
+		// Validate package names
 		for (const pkg of packages) {
-			this._validatePackageName(pkg.split('@')[0]);
+			this._validatePackageName(pkg.name);
 		}
 
 		const hasPak = await this._ensurePak();
 
 		let pkgVector: string;
 		if (hasPak) {
-			// pak supports "pkg@version" syntax directly
-			pkgVector = this._formatPackageVector(packages);
+			pkgVector = this._formatPackageVector(packages.map(p => `${p.name}@${p.version}`));
 		} else {
 			// base R: strip version suffix if present (not supported)
-			const pkgNames = packages.map(p => p.split('@')[0]);
+			const pkgNames = packages.map(p => p.name.split('@')[0]);
 			pkgVector = this._formatPackageVector(pkgNames);
 		}
 
@@ -119,14 +124,14 @@ export class RPackageManager {
 	/**
 	 * Uninstall one or more packages.
 	 */
-	async uninstallPackages(packages: string[]): Promise<void> {
+	async uninstallPackages(packageNames: string[]): Promise<void> {
 		// Validate package names
-		for (const pkg of packages) {
+		for (const pkg of packageNames) {
 			this._validatePackageName(pkg);
 		}
 
 		const hasPak = await this._ensurePakChecked();
-		const pkgVector = this._formatPackageVector(packages);
+		const pkgVector = this._formatPackageVector(packageNames);
 		const code = `.ps.packages.uninstall_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
 	}
@@ -191,9 +196,12 @@ export class RPackageManager {
 
 	/**
 	 * Execute R code and capture the output (for queries).
-	 * Uses Silent mode so output doesn't appear in console.
+	 * Uses Transient mode by default so output doesn't appear in history.
 	 */
-	private async _executeAndCapture(code: string): Promise<string> {
+	private async _executeAndCapture(
+		code: string,
+		mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Transient
+	): Promise<string> {
 		const id = randomUUID();
 		let output = '';
 
@@ -238,7 +246,7 @@ export class RPackageManager {
 		this._session.execute(
 			code,
 			id,
-			positron.RuntimeCodeExecutionMode.Transient,
+			mode,
 			positron.RuntimeErrorBehavior.Stop
 		);
 

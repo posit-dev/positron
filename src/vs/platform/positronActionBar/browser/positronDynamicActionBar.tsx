@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -81,11 +81,11 @@ interface CommonPositronDynamicActionBarProps {
 type NestedPositronDynamicActionBarProps = | {
 	nestedActionBar?: true;
 	borderTop?: never;
-	borderBottom?: never
+	borderBottom?: never;
 } | {
 	nestedActionBar?: false | undefined;
 	borderTop?: boolean;
-	borderBottom?: boolean
+	borderBottom?: boolean;
 };
 
 /**
@@ -239,7 +239,10 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		let overflowing = layoutWidth === 0;
 
 		// Grid entry interface.
-		interface GridEntry { width: number; action: DynamicActionBarAction; }
+		interface GridEntry {
+			width: number;
+			action: DynamicActionBarAction;
+		}
 
 		/**
 		 * Lays out the specified actions.
@@ -288,7 +291,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 				// Set the append separator flag for the next iteration.
 				appendSeparator = action.separator;
 			}
-		}
+		};
 
 		// Layout the right actions.
 		const rightGridEntries: GridEntry[] = [];

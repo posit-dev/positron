@@ -276,36 +276,34 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		return this._packages;
 	}
 
-	async installPackages(packages: string[]): Promise<void> {
-		LOGGER.info(`Installing packages: ${packages.join(', ')}`);
+	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
+		LOGGER.info(`Installing packages: ${packages.map(p => p.name).join(', ')}`);
 		await new Promise((resolve) => setTimeout(resolve, 1_000)); // fake delay
 		for (const pkg of packages) {
-			const [name, version] = pkg.split('@')
 			this._packages.push({
-				id: name,
-				name,
-				displayName: name,
-				version: version ?? '1.0.0'
-			})
+				id: pkg.name,
+				name: pkg.name,
+				displayName: pkg.name,
+				version: pkg.version ?? '1.0.0'
+			});
 		}
 	}
 
-	async updatePackages(packages: string[]): Promise<void> {
-		LOGGER.info(`Updating packages: ${packages.join(', ')}`);
+	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
+		LOGGER.info(`Updating packages: ${packages.map(p => p.name).join(', ')}`);
 		await new Promise((resolve) => setTimeout(resolve, 1_000)); // fake delay
 
 		for (const pkg of packages) {
-			const [name, version] = pkg.split('@')
-			const index = this._packages.findIndex(pkg => pkg.name === name);
+			const index = this._packages.findIndex(p => p.name === pkg.name);
 			if (index === -1) {
 				throw new Error('Package not installed.');
 			}
 
 			this._packages.splice(index, 1, {
-				id: name,
-				name,
-				displayName: name,
-				version: version ?? '1.0.0'
+				id: pkg.name,
+				name: pkg.name,
+				displayName: pkg.name,
+				version: pkg.version ?? '1.0.0'
 			});
 		}
 	}
@@ -319,11 +317,10 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		}
 	}
 
-	async uninstallPackages(packages: string[]): Promise<void> {
-		LOGGER.info(`Uninstalling packages: ${packages.join(', ')}`);
+	async uninstallPackages(packageNames: string[]): Promise<void> {
+		LOGGER.info(`Uninstalling packages: ${packageNames.join(', ')}`);
 		await new Promise((resolve) => setTimeout(resolve, 1_000)); // fake delay
-		for (const pkg of packages) {
-			const [name] = pkg.split('@')
+		for (const name of packageNames) {
 			const index = this._packages.findIndex(pkg => pkg.name === name);
 			if (index === -1) {
 				throw new Error('Package not installed.');
@@ -1448,7 +1445,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	}
 
 	showOutput(channel?: positron.LanguageRuntimeSessionChannel): void {
-		LOGGER.show()
+		LOGGER.show();
 	}
 
 	dispose(): void { }

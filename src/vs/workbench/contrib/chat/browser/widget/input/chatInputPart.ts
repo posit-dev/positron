@@ -1177,6 +1177,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		const defaultModel = allModels.find(m => m.metadata.isDefault) || allModels.find(m => m.metadata.isUserSelectable);
 		if (defaultModel) {
 			this.setCurrentLanguageModel(defaultModel);
+			// --- Start Positron ---
+		} else {
+			// No models available - clear the stale model so the picker
+			// shows a placeholder instead of the last-selected model name
+			this._currentLanguageModel = undefined;
+			this._onDidChangeModelList.fire();
+			// --- End Positron ---
 		}
 	}
 

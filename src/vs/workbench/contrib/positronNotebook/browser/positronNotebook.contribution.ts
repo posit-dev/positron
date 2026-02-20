@@ -42,7 +42,7 @@ import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
-import { getActiveCell, SelectionState } from './selectionMachine.js';
+import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
@@ -1043,8 +1043,20 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const state = notebook.selectionStateMachine.state.get();
+
+		// When multiple cells are selected, run all selected code cells
+		// and keep the multi-selection intact.
+		if (state.type === SelectionState.MultiSelection) {
+			const codeCells = getSelectedCells(state)
+				.filter(cell => cell.isCodeCell())
+				.sort((a, b) => a.index - b.index);
+			if (codeCells.length > 0) {
+				await notebook.runCells(codeCells);
+			}
+			return;
+		}
 
 		// Get the active cell
 		const cell = getActiveCell(state);
@@ -1338,6 +1350,101 @@ registerAction2(class extends NotebookAction2 {
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.changeCellType(CellKind.Code, 'raw');
+	}
+});
+
+// Split cell at cursor position(s)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.split',
+			title: localize2('positronNotebook.cell.split', "Split Cell"),
+			menu: [{
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 40,
+				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Minus
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.splitCell();
+	}
+});
+
+// Join selected cells - Shift+M (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.joinSelected',
+			title: localize2('positronNotebook.cell.joinSelected', "Join Selected Cells"),
+			menu: [{
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 50,
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyM
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.joinSelectedCells();
+	}
+});
+
+// Join with cell above
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.joinAbove',
+			title: localize2('positronNotebook.cell.joinAbove', "Join with Cell Above"),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 60,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 60,
+			}],
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.joinCellAbove();
+	}
+});
+
+// Join with cell below
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.joinBelow',
+			title: localize2('positronNotebook.cell.joinBelow', "Join with Cell Below"),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 70,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 70,
+			}],
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.joinCellBelow();
 	}
 });
 
