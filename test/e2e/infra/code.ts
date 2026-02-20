@@ -280,43 +280,60 @@ export class Code {
 	/**
 	 * Kill the entire process tree starting from the given PID.
 	 * This ensures child processes (kernels, language servers, etc.) are also terminated.
+	 * Uses two-phase approach: SIGTERM first, then SIGKILL if still alive (macOS only).
 	 */
 	private async killProcessTree(pid: number): Promise<void> {
-		try {
-			process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
-		} catch (e) {
+		const isAlive = () => {
+			try {
+				process.kill(pid, 0);
+				return true;
+			} catch {
+				return false;
+			}
+		};
+
+		if (!isAlive()) {
 			this.logger.log('Smoke test killProcessTree(): process does not exist, skipping');
 			return;
 		}
 
+		// Phase 1: Attempt graceful shutdown with SIGTERM
+		this.logger.log(`Smoke test killProcessTree(): Attempting SIGTERM for PID ${pid}`);
 		try {
-			this.logger.log(`Smoke test killProcessTree(): Killing process tree for PID: ${pid}`);
-			// Create a ChildProcess object with the PID for teardown
 			const processStub: Pick<cp.ChildProcess, 'pid'> = { pid };
-			// Use teardown which calls treeKill to kill entire process tree
 			await teardown(processStub as cp.ChildProcess, this.logger);
-
-			// Verify the process is actually dead on macOS (where Electron processes can be stubborn)
-			if (process.platform === 'darwin') {
-				await this.wait(500);
-				try {
-					process.kill(pid, 0); // throws if process doesn't exist
-					// Process still exists! Force kill with SIGKILL
-					this.logger.log(`Smoke test killProcessTree(): Process ${pid} survived SIGTERM, using SIGKILL`);
-					process.kill(pid, 'SIGKILL');
-					await this.wait(500);
-				} catch {
-					// Process is dead, good
-				}
-			}
-			this.logger.log('Smoke test killProcessTree(): Process tree killed successfully');
-
-			// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
-			// The shared dbus session (started in xvfb setup) should handle all Electron instances
-			// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
 		} catch (e) {
-			this.logger.log('Smoke test killProcessTree(): treeKill failed', e);
+			this.logger.log(`Smoke test killProcessTree(): teardown failed: ${e}`);
 		}
+
+		await this.wait(500);
+		if (!isAlive()) {
+			this.logger.log(`Smoke test killProcessTree(): PID ${pid} exited after SIGTERM`);
+			return;
+		}
+
+		// Phase 2: Process survived SIGTERM, escalate to SIGKILL (macOS only)
+		if (process.platform === 'darwin') {
+			this.logger.log(`Smoke test killProcessTree(): PID ${pid} still alive after SIGTERM; escalating to SIGKILL`);
+			try {
+				process.kill(pid, 'SIGKILL');
+			} catch (e) {
+				this.logger.log(`Smoke test killProcessTree(): SIGKILL failed: ${e}`);
+			}
+
+			await this.wait(500);
+			if (!isAlive()) {
+				this.logger.log(`Smoke test killProcessTree(): PID ${pid} exited after SIGKILL`);
+			} else {
+				this.logger.log(`Smoke test killProcessTree(): PID ${pid} STILL alive after SIGKILL (unexpected)`);
+			}
+		} else {
+			this.logger.log(`Smoke test killProcessTree(): PID ${pid} survived SIGTERM on non-macOS platform`);
+		}
+
+		// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
+		// The shared dbus session (started in xvfb setup) should handle all Electron instances
+		// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
 	}
 	// --- End Positron ---
 
