@@ -57,6 +57,8 @@ import { RuntimeNotebookKernelService } from '../../contrib/runtimeNotebookKerne
 import { IPositronNotebookService, PositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { INotebookLoggingService } from '../../contrib/notebook/common/notebookLoggingService.js';
 import { NotebookLoggingService } from '../../contrib/notebook/browser/services/notebookLoggingServiceImpl.js';
+import { IQuartoExecutionManager } from '../../contrib/positronQuarto/common/quartoExecutionTypes.js';
+import { QuartoExecutionManager } from '../../contrib/positronQuarto/browser/quartoExecutionManager.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
@@ -97,6 +99,7 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
 	instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
 	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
+	instantiationService.stub(IQuartoExecutionManager, disposables.add(instantiationService.createInstance(QuartoExecutionManager)));
 
 	return instantiationService;
 }
