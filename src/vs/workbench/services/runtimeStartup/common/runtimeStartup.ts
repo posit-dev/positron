@@ -168,15 +168,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
 
-		// Register the startup phase event handler. Use setStartupPhase to
-		// ensure the initial phase is recorded in performance marks.
 		this._startupPhase = _languageRuntimeService.startupPhase;
 		perf.mark(`code/positron/runtimeStartupPhase/${this._startupPhase}`);
 		this._register(
 			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				(phase) => {
 					this._logService.debug(`[Runtime startup] Phase changed to '${phase}'`);
-					this.setStartupPhase(phase);
+					if (this._startupPhase !== phase) {
+						this._startupPhase = phase;
+						perf.mark(`code/positron/runtimeStartupPhase/${phase}`);
+					}
 				}));
 
 
