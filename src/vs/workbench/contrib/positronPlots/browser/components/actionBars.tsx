@@ -32,7 +32,7 @@ import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { AUX_WINDOW_GROUP_TYPE, ACTIVE_GROUP_TYPE, SIDE_GROUP_TYPE, AUX_WINDOW_GROUP, ACTIVE_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PlotCodeMenuButton } from './plotCodeMenuButton.js';
+import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 // Constants.
@@ -72,6 +72,12 @@ const changeCustomPolicyLabel = localize('positronChangeCustomSize', "Change Cus
 // open in editor localized strings
 const openInEditorLabel = localize('positron.openInEditor', "Open in Editor");
 const openInEditorDropdownLabel = localize('positron-editor-open-in-editor-dropdown', "Select where to open plot");
+// plot code localized strings
+const plotCodeLabel = localize('positron.plotCode', "Code");
+const plotCodeActionsTooltip = localize('positronPlotCodeActions', "Plot code actions");
+const copyCodeLabel = localize('positronPlots.copyCode', "Copy Code");
+const revealInConsoleLabel = localize('positronPlots.revealInConsole', "Reveal Code in Console");
+const runCodeAgainLabel = localize('positronPlots.runCodeAgain', "Run Code Again");
 
 // Open in editor command interface and data.
 interface OpenInEditorCommand {
@@ -466,6 +472,77 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		onSelected: () => action.run()
 	}));
 
+	// Plot code actions builder.
+	const plotCodeActions = (): IAction[] => {
+		const plotCode = selectedPlot.metadata.code;
+		const executionId = selectedPlot.metadata.execution_id;
+		const sessionId = selectedPlot.metadata.session_id;
+		const languageId = selectedPlot.metadata.language;
+
+		return [
+			{
+				id: 'copyCode',
+				label: copyCodeLabel,
+				tooltip: '',
+				class: undefined,
+				enabled: !!plotCode,
+				run: () => {
+					services.clipboardService.writeText(plotCode);
+					const trimmedCode = plotCode.substring(0, 20) + (plotCode.length > 20 ? '...' : '');
+					services.notificationService.info(
+						localize('positronPlots.copyCodeInfo', "Plot code copied to clipboard: {0}", trimmedCode)
+					);
+				}
+			},
+			{
+				id: 'revealInConsole',
+				label: revealInConsoleLabel,
+				tooltip: '',
+				class: undefined,
+				enabled: !!executionId && !!sessionId,
+				run: () => {
+					try {
+						services.positronConsoleService.revealExecution(sessionId!, executionId!);
+					} catch (error) {
+						// It's very possible that the code that generated this
+						// plot has been removed from the console (e.g. if the
+						// console was cleared). In that case, just log a
+						// warning and show a notification.
+						if (error instanceof Error) {
+							services.logService.warn(error.message);
+						}
+						services.notificationService.warn(
+							localize('positronPlots.revealInConsoleError', "The code that generated this plot is no longer present in the console.")
+						);
+					}
+				}
+			},
+			{
+				id: 'runCodeAgain',
+				label: runCodeAgainLabel,
+				tooltip: '',
+				class: undefined,
+				enabled: !!plotCode && !!sessionId && !!languageId,
+				run: async () => {
+					await services.positronConsoleService.executeCode(
+						languageId!,
+						sessionId,
+						plotCode,
+						{ source: CodeAttributionSource.Interactive },
+						true
+					);
+				}
+			}
+		];
+	};
+
+	// A function that converts the plot code IAction[] to CustomContextMenuItem[] for the overflow menu.
+	const plotCodeOverflowEntries = () => plotCodeActions().map(action => new CustomContextMenuItem({
+		label: action.label,
+		disabled: !action.enabled,
+		onSelected: () => action.run()
+	}));
+
 	const leftActions: DynamicActionBarAction[] = [];
 	// Previous plot button.
 	leftActions.push({
@@ -631,7 +708,18 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		leftActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
 			separator: false,
-			component: <PlotCodeMenuButton plotClient={selectedPlot} />
+			component: (
+				<ActionBarMenuButton
+					actions={plotCodeActions}
+					icon={ThemeIcon.fromId('code')}
+					tooltip={selectedPlot?.metadata.code ?? plotCodeActionsTooltip}
+				/>
+			),
+			overflowContextMenuSubmenu: {
+				icon: 'code',
+				label: plotCodeLabel,
+				entries: plotCodeOverflowEntries
+			}
 		});
 	}
 
