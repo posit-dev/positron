@@ -28,6 +28,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IOutputService } from '../../../services/output/common/output.js';
 import * as perf from '../../../../base/common/performance.js';
 
 export class PositronStartupDiagnosticsContrib implements IDisposable {
@@ -115,6 +116,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IOutputService private readonly _outputService: IOutputService,
+		@ITextModelService private readonly _textModelService: ITextModelService,
 	) { }
 
 	provideTextContent(resource: URI): Promise<ITextModel> {
@@ -136,7 +139,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 	private _updateModel(): void {
 		Promise.all([
 			this._timerService.whenReady(),
-		]).then(() => {
+		]).then(async () => {
 			if (this._model && !this._model.isDisposed()) {
 				const md = new MarkdownBuilder();
 				md.heading(1, 'Positron Runtime Startup Diagnostics');
@@ -158,6 +161,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				this._addInterpreterSettings(md);
 				md.blank();
 				this._addDiscoveredRuntimes(md);
+				md.blank();
+				await this._addOutputChannels(md);
 
 				this._model.setValue(md.value);
 			}
@@ -433,6 +438,71 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		md.table(['Name', 'Timestamp', 'Delta', 'Total'], table);
 	}
 
+	private static readonly OUTPUT_CHANNEL_LABELS = [
+		'Kernel Supervisor',
+		'Python Language Pack',
+		'Python Kernel',
+		'Python Supervisor',
+		'R Language Pack',
+		'R Kernel',
+		'R Supervisor',
+	];
+
+	private static readonly OUTPUT_CHANNEL_MAX_LINES = 50;
+
+	private async _addOutputChannels(md: MarkdownBuilder): Promise<void> {
+		md.heading(2, 'Output Channels');
+
+		const descriptors = this._outputService.getChannelDescriptors();
+		let hasContent = false;
+
+		for (const label of PositronStartupDiagnosticsContentProvider.OUTPUT_CHANNEL_LABELS) {
+			const descriptor = descriptors.find(d => d.label === label);
+			if (!descriptor) {
+				continue;
+			}
+
+			const channel = this._outputService.getChannel(descriptor.id);
+			if (!channel) {
+				continue;
+			}
+
+			try {
+				const modelRef = await this._textModelService.createModelReference(channel.uri);
+				try {
+					const content = modelRef.object.textEditorModel.getValue();
+					if (!content) {
+						continue;
+					}
+
+					const lines = content.split('\n');
+					const maxLines = PositronStartupDiagnosticsContentProvider.OUTPUT_CHANNEL_MAX_LINES;
+					const truncatedLines = lines.length > maxLines
+						? lines.slice(-maxLines)
+						: lines;
+					const truncatedContent = truncatedLines.join('\n');
+
+					hasContent = true;
+					md.heading(3, label);
+					if (lines.length > maxLines) {
+						md.li(`Showing last ${maxLines} of ${lines.length} lines`);
+						md.blank();
+					}
+					md.codeFence(truncatedContent);
+					md.blank();
+				} finally {
+					modelRef.dispose();
+				}
+			} catch {
+				// Channel content not available; skip it.
+			}
+		}
+
+		if (!hasContent) {
+			md.li('No output channel content available');
+		}
+	}
+
 	private _getPositronPerfMarks(): perf.PerformanceMark[] {
 		// Read marks directly from the performance API rather than from the
 		// timer service snapshot, which is captured early during startup and
@@ -457,6 +527,11 @@ class MarkdownBuilder {
 
 	li(value: string) {
 		this.value += `* ${value}\n`;
+		return this;
+	}
+
+	codeFence(content: string) {
+		this.value += '```\n' + content + '\n```\n';
 		return this;
 	}
 
