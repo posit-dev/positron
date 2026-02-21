@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -35,6 +35,7 @@ export interface KeyboardModifiers {
  * ButtonProps interface.
  */
 export interface ButtonProps {
+	readonly ariaHaspopup?: React.AriaAttributes['aria-haspopup'];
 	readonly ariaLabel?: string;
 	readonly className?: string;
 	readonly disabled?: boolean;
@@ -45,6 +46,7 @@ export interface ButtonProps {
 	readonly tooltip?: string | (() => string | undefined);
 	readonly onBlur?: () => void;
 	readonly onFocus?: () => void;
+	readonly onKeyDown?: (e: KeyboardEvent<HTMLButtonElement>) => void;
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
 	readonly onPressed?: (e: KeyboardModifiers) => void;
@@ -94,10 +96,18 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 
 	/**
 	 * onKeyDown event handler.
-	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
+	 * @param e A KeyboardEvent<HTMLButtonElement> that describes a user interaction with the keyboard.
 	 */
 	const keyDownHandler = (e: KeyboardEvent<HTMLButtonElement>) => {
-		// Process the key down event.
+		// Call the external onKeyDown handler first if provided.
+		props.onKeyDown?.(e);
+
+		// If the event was handled (preventDefault called), don't process further.
+		if (e.defaultPrevented) {
+			return;
+		}
+
+		// Process the key down event for Enter/Space.
 		switch (e.code) {
 			case 'Enter':
 			case 'Space':
@@ -165,6 +175,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 		<button
 			ref={buttonRef}
 			aria-disabled={props.disabled ? 'true' : undefined}
+			aria-haspopup={props.ariaHaspopup}
 			aria-label={props.ariaLabel}
 			className={positronClassNames(
 				'positron-button',
