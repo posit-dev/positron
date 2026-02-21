@@ -1231,18 +1231,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Activates a single extension if it has not already been activated by this
-	 * service. Emits a performance marker on first activation.
+	 * Activates a single extension. Always calls through to activateById() so
+	 * that in-progress activations are properly awaited. The
+	 * _activatedExtensions set is used only to deduplicate logging and
+	 * performance marks.
 	 *
 	 * @param extensionId The extension to activate.
 	 * @param languageId The language ID triggering the activation.
 	 */
 	private async activateExtension(extensionId: ExtensionIdentifier, languageId: string): Promise<void> {
 		const key = extensionId.value;
-		if (this._activatedExtensions.has(key)) {
-			return;
+		const firstActivation = !this._activatedExtensions.has(key);
+		if (firstActivation) {
+			this._logService.debug(`[Runtime startup] Activating extension ${key} for language ID ${languageId}`);
 		}
-		this._logService.debug(`[Runtime startup] Activating extension ${key} for language ID ${languageId}`);
 		try {
 			await this._extensionService.activateById(extensionId,
 				{
@@ -1250,8 +1252,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					activationEvent: `onLanguageRuntime:${languageId}`,
 					startup: false
 				});
-			this._activatedExtensions.add(key);
-			perf.mark(`code/positron/runtimeStartup/extensionActivated/${key}`);
+			if (firstActivation) {
+				this._activatedExtensions.add(key);
+				perf.mark(`code/positron/runtimeStartup/extensionActivated/${key}`);
+			}
 		} catch (e) {
 			this._logService.debug(
 				`[Runtime startup] Error activating extension ${key}: ${e}`);

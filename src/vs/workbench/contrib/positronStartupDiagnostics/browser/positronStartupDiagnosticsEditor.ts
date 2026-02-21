@@ -265,7 +265,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 	}
 
 	private _addActiveRuntimes(md: MarkdownBuilder): void {
-		md.heading(2, 'Active Runtime Sessions');
+		md.heading(2, 'Active Sessions');
 
 		const sessions = this._runtimeSessionService.activeSessions;
 		if (sessions.length === 0) {
@@ -277,14 +277,14 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		for (const session of sessions) {
 			table.push([
 				session.runtimeMetadata.runtimeName,
-				session.runtimeMetadata.languageId,
+				session.dynState.sessionName || '-',
 				session.metadata.sessionMode,
 				session.getRuntimeState().toString(),
 				session.metadata.startReason || '-',
 				session.metadata.createdTimestamp ? new Date(session.metadata.createdTimestamp).toLocaleTimeString() : '-'
 			]);
 		}
-		md.table(['Runtime Name', 'Language', 'Mode', 'State', 'Start Reason', 'Created'], table);
+		md.table(['Runtime', 'Name', 'Mode', 'State', 'Start Reason', 'Created'], table);
 	}
 
 	private _addTimeToFirstRuntime(md: MarkdownBuilder): void {
