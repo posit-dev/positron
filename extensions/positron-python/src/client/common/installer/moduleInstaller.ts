@@ -273,6 +273,13 @@ export abstract class ModuleInstaller implements IModuleInstaller {
         } else {
             options.interpreter = resource;
         }
+        // --- Start Positron ---
+        // Pass env vars (e.g. HTTP_PROXY/HTTPS_PROXY for uv) to the terminal
+        // so they're available in the terminal's environment.
+        if (envVars && Object.keys(envVars).length > 0) {
+            options.env = envVars;
+        }
+        // --- End Positron ---
         if (executeInTerminal) {
             const terminalService = this.serviceContainer
                 .get<ITerminalServiceFactory>(ITerminalServiceFactory)
