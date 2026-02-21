@@ -35,7 +35,7 @@ export interface KeyboardModifiers {
  * ButtonProps interface.
  */
 export interface ButtonProps {
-	readonly ariaHaspopup?: 'menu' | 'listbox' | 'tree' | 'grid' | 'dialog' | 'true' | 'false';
+	readonly ariaHaspopup?: React.AriaAttributes['aria-haspopup'];
 	readonly ariaLabel?: string;
 	readonly className?: string;
 	readonly disabled?: boolean;

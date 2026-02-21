@@ -390,7 +390,11 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 				if (overflowAction.overflowContextMenuSubmenu) {
 					return new CustomContextMenuSubmenu(overflowAction.overflowContextMenuSubmenu);
 				}
-				return new CustomContextMenuItem(overflowAction.overflowContextMenuItem!);
+				if (overflowAction.overflowContextMenuItem) {
+					return new CustomContextMenuItem(overflowAction.overflowContextMenuItem);
+				}
+
+				throw new Error('Overflow action must define an overflow context menu item or submenu.');
 			};
 
 			rightGridColumns.push(`${DEFAULT_ACTION_BAR_BUTTON_WIDTH}px`);
