@@ -74,6 +74,31 @@ export interface IRuntimeStartupService {
 	readonly _serviceBrand: undefined;
 
 	/**
+	 * Shows a notification warning when an interpreter's architecture doesn't
+	 * match the system architecture (e.g., x86_64 Python on ARM Mac via Rosetta).
+	 * The notification is sticky and can be permanently dismissed per-language.
+	 *
+	 * @param languageId The language identifier (e.g., 'python', 'r') - used for dismissal scope
+	 * @param runtimeName The display name of the runtime (shown in notification)
+	 * @param systemArch The system architecture detected by the extension
+	 * @param interpreterArch The interpreter's actual architecture
+	 */
+	showArchitectureMismatchWarning(
+		languageId: string,
+		runtimeName: string,
+		systemArch: string,
+		interpreterArch: string
+	): void;
+
+	/**
+	 * Resets the architecture mismatch warning dismissal for a specific language
+	 * or all languages.
+	 *
+	 * @param languageId Optional language ID. If not provided, resets for all languages.
+	 */
+	resetArchitectureMismatchWarning(languageId?: string): void;
+
+	/**
 	 * Get the preferred runtime for a language. This approximates "the runtime
 	 * the user probably wants to start for the given language" and takes a
 	 * number of variables into account, including the what's active now, what

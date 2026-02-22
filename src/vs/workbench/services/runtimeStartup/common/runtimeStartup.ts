@@ -1660,6 +1660,74 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		});
 		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
 	}
+
+	// Storage key prefix for architecture mismatch dismissal
+	private readonly _archMismatchStorageKeyPrefix = 'interpreter.dismissedArchMismatch';
+
+	/**
+	 * Shows a notification warning when an interpreter's architecture doesn't
+	 * match the system architecture.
+	 */
+	public showArchitectureMismatchWarning(
+		languageId: string,
+		runtimeName: string,
+		systemArch: string,
+		interpreterArch: string
+	): void {
+		// Check if user has permanently dismissed for this language
+		const storageKey = `${this._archMismatchStorageKeyPrefix}.${languageId}`;
+		const dismissed = this._storageService.getBoolean(storageKey, StorageScope.PROFILE, false);
+		if (dismissed) {
+			return;
+		}
+
+		// Capitalize language name for display
+		const languageDisplayName = languageId === 'r' ? 'R' : languageId.charAt(0).toUpperCase() + languageId.slice(1);
+
+		// Show sticky notification
+		this._notificationService.prompt(
+			Severity.Warning,
+			nls.localize(
+				'positron.runtime.archMismatch',
+				'The {0} interpreter "{1}" has a different architecture ({2}) than your system ({3}). This may cause problems with performance or package compatibility.',
+				languageDisplayName,
+				runtimeName,
+				interpreterArch,
+				systemArch
+			),
+			[
+				{
+					label: nls.localize('positron.runtime.archMismatch.dismiss', "Don't show again for {0}", languageDisplayName),
+					run: () => {
+						this._storageService.store(storageKey, true, StorageScope.PROFILE, StorageTarget.USER);
+					}
+				}
+			],
+			{
+				sticky: true
+			}
+		);
+	}
+
+	/**
+	 * Resets the architecture mismatch warning dismissal for a specific language
+	 * or all languages.
+	 */
+	public resetArchitectureMismatchWarning(languageId?: string): void {
+		if (languageId) {
+			// Reset for specific language
+			const storageKey = `${this._archMismatchStorageKeyPrefix}.${languageId}`;
+			this._storageService.remove(storageKey, StorageScope.PROFILE);
+		} else {
+			// Reset for all languages by finding and removing all matching keys
+			const keys = this._storageService.keys(StorageScope.PROFILE, StorageTarget.USER);
+			for (const key of keys) {
+				if (key.startsWith(this._archMismatchStorageKeyPrefix)) {
+					this._storageService.remove(key, StorageScope.PROFILE);
+				}
+			}
+		}
+	}
 }
 
 registerSingleton(IRuntimeStartupService, RuntimeStartupService, InstantiationType.Eager);
