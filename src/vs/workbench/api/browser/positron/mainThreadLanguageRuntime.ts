@@ -1850,6 +1850,11 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(session.shutdown(exitReason));
 	}
 
+	$showArchitectureMismatchWarning(languageId: string, runtimeName: string, systemArch: string, interpreterArch: string): Promise<void> {
+		this._runtimeStartupService.showArchitectureMismatchWarning(languageId, runtimeName, systemArch, interpreterArch);
+		return Promise.resolve();
+	}
+
 	public dispose(): void {
 		// Check each session that is still running and emit an exit event for it
 		// so we can clean it up properly on the front end.
