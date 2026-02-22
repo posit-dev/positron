@@ -18,6 +18,7 @@ import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
 import { RPackageManager } from './packages';
+import { RMetadataExtra } from './r-installation';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -322,7 +323,37 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Initialize the package manager
 		this._packageManager = new RPackageManager(this);
 
+		// Check for architecture mismatch before starting
+		this.checkArchitectureMismatch();
+
 		return await this._kernel.start();
+	}
+
+	/**
+	 * Checks if the interpreter architecture differs from the system architecture
+	 * and shows a warning notification if so.
+	 */
+	private checkArchitectureMismatch(): void {
+		const metadataExtra = this.runtimeMetadata.extraRuntimeData as RMetadataExtra;
+		const interpreterArch = metadataExtra?.arch; // 'arm64', 'x86_64', etc.
+		const systemArch = process.arch; // 'arm64', 'x64', etc.
+
+		if (!interpreterArch || !systemArch) {
+			return;
+		}
+
+		// Normalize for comparison: R reports 'x86_64', Node.js reports 'x64'
+		const normalizedInterpreterArch = interpreterArch === 'x86_64' ? 'x64' : interpreterArch;
+
+		if (systemArch !== normalizedInterpreterArch) {
+			// Fire and forget - notification is non-blocking
+			positron.runtime.showArchitectureMismatchWarning(
+				'r',
+				this.runtimeMetadata.runtimeName,
+				systemArch,
+				interpreterArch,
+			);
+		}
 	}
 
 	private async onConsoleWidthChange(newWidth: number): Promise<void> {
