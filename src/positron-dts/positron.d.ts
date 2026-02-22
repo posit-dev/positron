@@ -2133,6 +2133,27 @@ declare module 'positron' {
 		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
 
 		/**
+		 * Shows a notification warning that an interpreter's architecture doesn't
+		 * match the system architecture (e.g., x86_64 Python on ARM Mac via Rosetta).
+		 * The notification is sticky and can be permanently dismissed per-language.
+		 *
+		 * Extensions should only call this when they have detected an actual
+		 * architecture mismatch. The core handles notification display and
+		 * user dismissal preferences.
+		 *
+		 * @param languageId The language identifier (e.g., 'python', 'r') - used for dismissal scope
+		 * @param runtimeName The display name of the runtime (shown in notification)
+		 * @param systemArch The system architecture (e.g., 'arm64', 'x64')
+		 * @param interpreterArch The interpreter's architecture (e.g., 'x64', 'x86_64')
+		 */
+		export function showArchitectureMismatchWarning(
+			languageId: string,
+			runtimeName: string,
+			systemArch: string,
+			interpreterArch: string
+		): Thenable<void>;
+
+		/**
 		 * An event that fires when a new runtime is registered.
 		 */
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntimeMetadata>;
