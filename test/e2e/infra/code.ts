@@ -15,6 +15,12 @@ import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
 import { Quality } from './application';
 import { ElectronApplication } from '@playwright/test';
+import treeKill from 'tree-kill';
+import { promisify } from 'util';
+
+// Type treeKill properly to accept signal parameter
+type TreeKillFunction = (pid: number, signal?: string | number) => void;
+const treeKillAsync = promisify<number, string | number | undefined, void>(treeKill as TreeKillFunction);
 
 export type Browser = 'chromium' | 'firefox' | 'webkit' | 'chromium-msedge' | 'chromium-chrome' | undefined;
 
@@ -197,6 +203,15 @@ export class Code {
 	}
 
 	async exit(): Promise<void> {
+		// --- Start Positron ---
+		// On macOS, kill the process tree BEFORE driver.close() to prevent orphaned children
+		// If we wait for the process to exit naturally, children get reparented and we can't kill them
+		if (process.platform === 'darwin' && this.mainProcess?.pid) {
+			this.logger.log('Smoke test exit(): proactively killing process tree on macOS before close');
+			await this.killProcessTree(this.mainProcess.pid);
+		}
+		// --- End Positron ---
+
 		return measureAndLog(() => new Promise<void>(resolve => {
 			// If no main process (external server mode), just close the driver
 			if (!this.mainProcess) {
@@ -240,8 +255,6 @@ export class Code {
 						case 2: {
 							this.logger.log('Smoke test exit(): proactively killing process tree after 1s');
 							await this.killProcessTree(pid);
-							// Give child process handles time to drain
-							await this.wait(1000);
 							break;
 						}
 						// --- End Positron ---
@@ -282,29 +295,61 @@ export class Code {
 	/**
 	 * Kill the entire process tree starting from the given PID.
 	 * This ensures child processes (kernels, language servers, etc.) are also terminated.
+	 * Uses two-phase approach: SIGTERM first, then SIGKILL if still alive (macOS only).
 	 */
 	private async killProcessTree(pid: number): Promise<void> {
-		try {
-			process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
-		} catch (e) {
+		const isAlive = () => {
+			try {
+				process.kill(pid, 0);
+				return true;
+			} catch {
+				return false;
+			}
+		};
+
+		if (!isAlive()) {
 			this.logger.log('Smoke test killProcessTree(): process does not exist, skipping');
 			return;
 		}
 
+		// Phase 1: Attempt graceful shutdown with SIGTERM
+		this.logger.log(`Smoke test killProcessTree(): Attempting SIGTERM for PID ${pid}`);
 		try {
-			this.logger.log(`Smoke test killProcessTree(): Killing process tree for PID: ${pid}`);
-			// Create a ChildProcess object with the PID for teardown
 			const processStub: Pick<cp.ChildProcess, 'pid'> = { pid };
-			// Use teardown which calls treeKill to kill entire process tree
 			await teardown(processStub as cp.ChildProcess, this.logger);
-			this.logger.log('Smoke test killProcessTree(): Process tree killed successfully');
-
-			// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
-			// The shared dbus session (started in xvfb setup) should handle all Electron instances
-			// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
 		} catch (e) {
-			this.logger.log('Smoke test killProcessTree(): treeKill failed', e);
+			this.logger.log(`Smoke test killProcessTree(): teardown failed: ${e}`);
 		}
+
+		await this.wait(500);
+		if (!isAlive()) {
+			this.logger.log(`Smoke test killProcessTree(): PID ${pid} exited after SIGTERM`);
+			return;
+		}
+
+		// Phase 2: Process survived SIGTERM, escalate to SIGKILL (macOS only)
+		if (process.platform === 'darwin') {
+			this.logger.log(`Smoke test killProcessTree(): PID ${pid} still alive after SIGTERM; escalating to SIGKILL`);
+			try {
+				// Kill entire process tree with SIGKILL, not just parent
+				await treeKillAsync(pid, 'SIGKILL');
+			} catch (e) {
+				this.logger.log(`Smoke test killProcessTree(): SIGKILL failed: ${e}`);
+			}
+
+			await this.wait(500);
+			if (!isAlive()) {
+				this.logger.log(`Smoke test killProcessTree(): PID ${pid} exited after SIGKILL`);
+			} else {
+				this.logger.log(`Smoke test killProcessTree(): PID ${pid} STILL alive after SIGKILL (unexpected)`);
+			}
+		} else {
+			this.logger.log(`Smoke test killProcessTree(): PID ${pid} survived SIGTERM on non-macOS platform`);
+		}
+
+		// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
+		// The shared dbus session (started in xvfb setup) should handle all Electron instances
+		// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
 	}
 	// --- End Positron ---
 
