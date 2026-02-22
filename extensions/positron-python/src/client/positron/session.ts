@@ -36,6 +36,7 @@ import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
+import { Architecture } from '../common/utils/platform';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
 import { PipPackageManager } from './pipPackageManager';
@@ -540,6 +541,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // If we're starting a new session (we have a kernel spec), ensure that ipykernel is available.
         if (this.kernelSpec) {
             await this._setupIpykernel(interpreter, this.kernelSpec);
+
+            // Check for architecture mismatch using the fresh architecture from ipykernel bundle detection.
+            // This must happen after _setupIpykernel which fetches accurate architecture on ARM64 systems.
+            this.checkArchitectureMismatch();
         }
 
         // Ensure the LSP client instance is created
@@ -573,6 +578,32 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.enableAutoReloadIfEnabled(this._runtimeInfo);
         }
         return this._runtimeInfo;
+    }
+
+    /**
+     * Checks if the interpreter architecture differs from the system architecture
+     * and shows a warning notification if so.
+     *
+     * Must be called after _setupIpykernel which fetches fresh architecture data.
+     */
+    private checkArchitectureMismatch(): void {
+        const architecture = this._ipykernelBundle.architecture;
+        if (architecture === undefined || architecture === Architecture.Unknown) {
+            return;
+        }
+
+        const systemArch = process.arch; // 'arm64', 'x64', etc.
+        const interpreterArch = architecture === Architecture.arm64 ? 'arm64' : 'x64';
+
+        if (systemArch !== interpreterArch) {
+            // Fire and forget - notification is non-blocking
+            positron.runtime.showArchitectureMismatchWarning(
+                'python',
+                this.runtimeMetadata.runtimeName,
+                systemArch,
+                interpreterArch,
+            );
+        }
     }
 
     private async onConsoleWidthChange(newWidth: number): Promise<void> {
