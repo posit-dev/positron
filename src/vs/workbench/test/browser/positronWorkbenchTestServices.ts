@@ -98,8 +98,8 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
 	instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
-	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
 	instantiationService.stub(IQuartoExecutionManager, disposables.add(instantiationService.createInstance(QuartoExecutionManager)));
+	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
 
 	return instantiationService;
 }
