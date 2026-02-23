@@ -1196,20 +1196,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			this.setCurrentLanguageModel(defaultModel);
 			// --- Start Positron ---
 		} else {
-			// No models available - clear the stale model so the picker
-			// shows a placeholder instead of the last-selected model name
-			this._currentLanguageModel = undefined;
+			// Clear the selected model when no models are available (e.g. after
+			// provider sign-out) so the picker button shows a placeholder instead
+			// of a stale model name.
+			this._currentLanguageModel.set(undefined, undefined);
 			this._onDidChangeModelList.fire();
 			// --- End Positron ---
 		}
-		// --- Start Positron ---
-		// Clear the selected model when no models are available (e.g. after
-		// provider sign-out) so the picker button shows a placeholder instead
-		// of a stale model name.
-		else {
-			this._currentLanguageModel.set(undefined, undefined);
-		}
-		// --- End Positron ---
 	}
 
 	/**
@@ -2148,7 +2141,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			},
 			actionViewItemProvider: (action, options) => {
 				if (action.id === OpenModelPickerAction.ID && action instanceof MenuItemAction) {
-					if (!this._currentLanguageModel) {
+					if (!this._currentLanguageModel.get()) {
 						this.setCurrentLanguageModelToDefault();
 					}
 
