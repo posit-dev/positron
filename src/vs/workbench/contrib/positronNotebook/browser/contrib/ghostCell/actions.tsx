@@ -16,6 +16,7 @@ import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED
 import { GhostCellController, POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST } from './controller.js';
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 
+export const REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID = 'positronNotebook.requestGhostCellSuggestion';
 export const SHOW_GHOST_CELL_INFO_COMMAND_ID = 'positronNotebook.showGhostCellInfo';
 
 // Helper function matching the FindController pattern (contrib/find/actions.ts)
@@ -38,7 +39,7 @@ function registerGhostCellAction(
 
 // Request ghost cell suggestion - works from any state when the notebook editor is focused
 registerGhostCellAction({
-	id: 'positronNotebook.requestGhostCellSuggestion',
+	id: REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID,
 	title: localize2('positronNotebook.requestGhostCellSuggestion', 'Request Ghost Cell Suggestion'),
 	keybinding: {
 		// Require notebook DOM focus and exclude cell editor focus to avoid

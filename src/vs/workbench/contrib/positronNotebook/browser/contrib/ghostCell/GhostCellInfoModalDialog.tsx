@@ -14,6 +14,7 @@ import { localize } from '../../../../../../nls.js';
 import { isMacintosh } from '../../../../../../base/common/platform.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { OKModalDialog } from '../../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
+import { REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID } from './actions.js';
 
 // Localized strings.
 const dialogTitle = localize('ghostCellInfo.title', 'About Ghost Cell Suggestions');
@@ -25,8 +26,6 @@ const whatAreGhostCellsText = localize('ghostCellInfo.whatAreText', 'Ghost cell 
 const howDoTheyWorkHeading = localize('ghostCellInfo.howWorkHeading', 'How do they work?');
 const howDoTheyWorkText = localize('ghostCellInfo.howWorkText', 'The AI analyzes your notebook context - including previous cells, outputs, and the overall structure - to suggest code that logically follows your current work.');
 const keyboardShortcutPrefix = localize('ghostCellInfo.keyboardShortcutPrefix', 'You can manually trigger a suggestion at any time by pressing');
-
-const GHOST_CELL_SUGGESTION_COMMAND_ID = 'positronNotebook.requestGhostCellSuggestion';
 
 const howToDisableHeading = localize('ghostCellInfo.disableHeading', 'How to disable suggestions');
 const howToDisableTextPart1 = localize('ghostCellInfo.disableTextPart1', 'You can disable ghost cell suggestions by clicking "Don\'t suggest again" in the dismiss dropdown, or in ');
@@ -55,7 +54,7 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 
 	// Resolve the keyboard shortcut dynamically so it reflects custom keybindings.
 	const shortcutLabel = React.useMemo(() => {
-		const binding = keybindingService.lookupKeybinding(GHOST_CELL_SUGGESTION_COMMAND_ID);
+		const binding = keybindingService.lookupKeybinding(REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID);
 		return binding?.getLabel() ?? (isMacintosh ? 'Cmd+Shift+G' : 'Ctrl+Shift+G');
 	}, [keybindingService]);
 

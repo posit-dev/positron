@@ -240,7 +240,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 							<>
 								{' '}
 								<a
-									className='assistant-panel-setting-learn-more'
+									className='monaco-link'
 									href=''
 									onClick={(e) => {
 										e.preventDefault();
