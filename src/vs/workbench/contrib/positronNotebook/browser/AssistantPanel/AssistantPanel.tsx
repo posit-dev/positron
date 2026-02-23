@@ -202,6 +202,17 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 		setShowPopover(false);
 	}, [clearHoverTimeout]);
 
+	const handleBlur = useCallback((e: React.FocusEvent) => {
+		// Don't close if focus is moving to an element within the popover
+		// (e.g., the "Learn more" link). The parent label span contains both
+		// the info icon and the popover content.
+		const container = e.currentTarget.parentElement;
+		if (container && e.relatedTarget && container.contains(e.relatedTarget as Node)) {
+			return;
+		}
+		handleHidePopover();
+	}, [handleHidePopover]);
+
 	return (
 		<div className='assistant-panel-setting-row'>
 			<span className='assistant-panel-setting-label'>
@@ -212,7 +223,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 					className='assistant-panel-setting-info codicon codicon-info'
 					role='button'
 					tabIndex={0}
-					onBlur={handleHidePopover}
+					onBlur={handleBlur}
 					onFocus={handleShowPopover}
 					onMouseEnter={handleShowPopover}
 					onMouseLeave={clearHoverTimeout}
