@@ -20,224 +20,224 @@ import { UvPackageManager } from '../../client/positron/packages/uvPackageManage
  * Interface for emitting messages to the Positron console (matches the one in uvPackageManager.ts)
  */
 interface MessageEmitter {
-	fire(message: positron.LanguageRuntimeMessage): void;
+    fire(message: positron.LanguageRuntimeMessage): void;
 }
 
 // Test class to expose protected methods
 class UvPackageManagerTest extends UvPackageManager {
-	public async shouldUseProjectWorkflow(): Promise<boolean> {
-		// Access private method via bracket notation for testing
-		return (this as any)._shouldUseProjectWorkflow();
-	}
+    public async shouldUseProjectWorkflow(): Promise<boolean> {
+        // Access private method via bracket notation for testing
+        return (this as any)._shouldUseProjectWorkflow();
+    }
 }
 
 suite('UvPackageManager Tests', () => {
-	let uvPackageManager: UvPackageManagerTest;
-	let serviceContainer: IServiceContainer;
-	let workspaceService: IWorkspaceService;
-	let fileSystem: IFileSystem;
-	let messageEmitter: MessageEmitter;
+    let uvPackageManager: UvPackageManagerTest;
+    let serviceContainer: IServiceContainer;
+    let workspaceService: IWorkspaceService;
+    let fileSystem: IFileSystem;
+    let messageEmitter: MessageEmitter;
 
-	setup(() => {
-		// Create mocks for services
-		fileSystem = {
-			fileExists: sinon.stub().resolves(false),
-			readFile: sinon.stub().resolves(''),
-		} as any;
+    setup(() => {
+        // Create mocks for services
+        fileSystem = {
+            fileExists: sinon.stub().resolves(false),
+            readFile: sinon.stub().resolves(''),
+        } as any;
 
-		workspaceService = {
-			getWorkspaceFolder: sinon.stub().returns(undefined),
-			get workspaceFolders() {
-				return undefined;
-			},
-		} as any;
+        workspaceService = {
+            getWorkspaceFolder: sinon.stub().returns(undefined),
+            get workspaceFolders() {
+                return undefined;
+            },
+        } as any;
 
-		// Create service container mock
-		serviceContainer = {
-			get: sinon.stub(),
-		} as any;
+        // Create service container mock
+        serviceContainer = {
+            get: sinon.stub(),
+        } as any;
 
-		// Configure service container to return the appropriate services
-		(serviceContainer.get as sinon.SinonStub)
-			.withArgs(IWorkspaceService)
-			.returns(workspaceService)
-			.withArgs(IFileSystem)
-			.returns(fileSystem);
+        // Configure service container to return the appropriate services
+        (serviceContainer.get as sinon.SinonStub)
+            .withArgs(IWorkspaceService)
+            .returns(workspaceService)
+            .withArgs(IFileSystem)
+            .returns(fileSystem);
 
-		// Create message emitter mock
-		messageEmitter = {
-			fire: sinon.stub(),
-		};
+        // Create message emitter mock
+        messageEmitter = {
+            fire: sinon.stub(),
+        };
 
-		// Create package manager instance
-		uvPackageManager = new UvPackageManagerTest('/path/to/python', messageEmitter, serviceContainer);
-	});
+        // Create package manager instance
+        uvPackageManager = new UvPackageManagerTest('/path/to/python', messageEmitter, serviceContainer);
+    });
 
-	teardown(() => {
-		sinon.restore();
-	});
+    teardown(() => {
+        sinon.restore();
+    });
 
-	suite('_shouldUseProjectWorkflow Method', () => {
-		test('Should return true when pyproject.toml exists with [project] section and requirements.txt does not', async () => {
-			const workspaceFolder = {
-				uri: Uri.file('/workspace'),
-				name: 'test',
-				index: 0,
-			};
+    suite('_shouldUseProjectWorkflow Method', () => {
+        test('Should return true when pyproject.toml exists with [project] section and requirements.txt does not', async () => {
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
 
-			const pyprojectContent = `[project]
+            const pyprojectContent = `[project]
 name = "test-project"
 version = "0.1.0"`;
 
-			sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
-			const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
-			(fileSystem.readFile as sinon.SinonStub)
-				.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
-				.resolves(pyprojectContent);
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(pyprojectContent);
 
-			const result = await uvPackageManager.shouldUseProjectWorkflow();
+            const result = await uvPackageManager.shouldUseProjectWorkflow();
 
-			expect(result).to.be.true;
-		});
+            expect(result).to.be.true;
+        });
 
-		test('Should return false when pyproject.toml exists without [project] section', async () => {
-			const workspaceFolder = {
-				uri: Uri.file('/workspace'),
-				name: 'test',
-				index: 0,
-			};
+        test('Should return false when pyproject.toml exists without [project] section', async () => {
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
 
-			const pyprojectContent = `[build-system]
+            const pyprojectContent = `[build-system]
 requires = ["setuptools"]`;
 
-			sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
-			const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
-			(fileSystem.readFile as sinon.SinonStub)
-				.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
-				.resolves(pyprojectContent);
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(pyprojectContent);
 
-			const result = await uvPackageManager.shouldUseProjectWorkflow();
+            const result = await uvPackageManager.shouldUseProjectWorkflow();
 
-			expect(result).to.be.false;
-		});
+            expect(result).to.be.false;
+        });
 
-		test('Should return false when pyproject.toml has [project] section but missing name', async () => {
-			const workspaceFolder = {
-				uri: Uri.file('/workspace'),
-				name: 'test',
-				index: 0,
-			};
+        test('Should return false when pyproject.toml has [project] section but missing name', async () => {
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
 
-			const pyprojectContent = `[project]
+            const pyprojectContent = `[project]
 version = "0.1.0"`;
 
-			sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
-			const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
-			(fileSystem.readFile as sinon.SinonStub)
-				.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
-				.resolves(pyprojectContent);
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(pyprojectContent);
 
-			const result = await uvPackageManager.shouldUseProjectWorkflow();
+            const result = await uvPackageManager.shouldUseProjectWorkflow();
 
-			expect(result).to.be.false;
-		});
+            expect(result).to.be.false;
+        });
 
-		test('Should return false when pyproject.toml has [project] section but missing version', async () => {
-			const workspaceFolder = {
-				uri: Uri.file('/workspace'),
-				name: 'test',
-				index: 0,
-			};
+        test('Should return false when pyproject.toml has [project] section but missing version', async () => {
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
 
-			const pyprojectContent = `[project]
+            const pyprojectContent = `[project]
 name = "test-project"`;
 
-			sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
-			const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
-			(fileSystem.readFile as sinon.SinonStub)
-				.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
-				.resolves(pyprojectContent);
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(pyprojectContent);
 
-			const result = await uvPackageManager.shouldUseProjectWorkflow();
+            const result = await uvPackageManager.shouldUseProjectWorkflow();
 
-			expect(result).to.be.false;
-		});
+            expect(result).to.be.false;
+        });
 
-		test('Should return false when pyproject.toml readFile throws error', async () => {
-			const workspaceFolder = {
-				uri: Uri.file('/workspace'),
-				name: 'test',
-				index: 0,
-			};
+        test('Should return false when pyproject.toml readFile throws error', async () => {
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
 
-			sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
-			const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
-			(fileSystem.readFile as sinon.SinonStub)
-				.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
-				.rejects(new Error('Permission denied'));
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .rejects(new Error('Permission denied'));
 
-			const result = await uvPackageManager.shouldUseProjectWorkflow();
+            const result = await uvPackageManager.shouldUseProjectWorkflow();
 
-			expect(result).to.be.false;
-		});
+            expect(result).to.be.false;
+        });
 
-		test('Should return false when both pyproject.toml and requirements.txt exist', async () => {
-			const workspaceFolder = {
-				uri: Uri.file('/workspace'),
-				name: 'test',
-				index: 0,
-			};
+        test('Should return false when both pyproject.toml and requirements.txt exist', async () => {
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
 
-			const pyprojectContent = `[project]
+            const pyprojectContent = `[project]
 name = "test-project"
 version = "0.1.0"`;
 
-			sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
-			const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(true);
-			(fileSystem.readFile as sinon.SinonStub)
-				.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
-				.resolves(pyprojectContent);
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(true);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(pyprojectContent);
 
-			const result = await uvPackageManager.shouldUseProjectWorkflow();
+            const result = await uvPackageManager.shouldUseProjectWorkflow();
 
-			expect(result).to.be.false;
-		});
+            expect(result).to.be.false;
+        });
 
-		test('Should return false when pyproject.toml does not exist', async () => {
-			const workspaceFolder = {
-				uri: Uri.file('/workspace'),
-				name: 'test',
-				index: 0,
-			};
+        test('Should return false when pyproject.toml does not exist', async () => {
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
 
-			sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
-			const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(false);
-			fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(false);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
 
-			const result = await uvPackageManager.shouldUseProjectWorkflow();
+            const result = await uvPackageManager.shouldUseProjectWorkflow();
 
-			expect(result).to.be.false;
-		});
+            expect(result).to.be.false;
+        });
 
-		test('Should return false when no workspace folder is available', async () => {
-			sinon.stub(workspaceService, 'workspaceFolders').value(undefined);
+        test('Should return false when no workspace folder is available', async () => {
+            sinon.stub(workspaceService, 'workspaceFolders').value(undefined);
 
-			const result = await uvPackageManager.shouldUseProjectWorkflow();
+            const result = await uvPackageManager.shouldUseProjectWorkflow();
 
-			expect(result).to.be.false;
-		});
-	});
+            expect(result).to.be.false;
+        });
+    });
 });
