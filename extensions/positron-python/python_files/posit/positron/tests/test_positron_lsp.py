@@ -450,7 +450,6 @@ class TestCompletions:
                 None,
                 ["0"],
                 id="pandas_dataframe_int_dict_key",
-                marks=pytest.mark.xfail(reason="Completing integer dict keys not supported"),
             ),
             pytest.param(
                 'x["',
@@ -465,7 +464,27 @@ class TestCompletions:
                 None,
                 ["0"],
                 id="polars_series_dict_key",
-                marks=pytest.mark.xfail(reason="Completing integer dict keys not supported"),
+            ),
+            pytest.param(
+                "x[",
+                {"x": {0: "zero", 1: "one", 2: "two"}},
+                None,
+                ["0", "1", "2"],
+                id="dict_int_keys",
+            ),
+            pytest.param(
+                "x[1",
+                {"x": pd.DataFrame({0: [], 10: [], 11: [], 20: []})},
+                None,
+                ["10", "11"],
+                id="pandas_dataframe_int_key_prefix_filter",
+            ),
+            pytest.param(
+                "x[",
+                {"x": pd.Series({"a": 0}, dtype="int64")},
+                None,
+                [],
+                id="pandas_series_string_index_no_int_keys",
             ),
             # Double-bracket (multi-column) DataFrame access
             pytest.param(
@@ -1053,6 +1072,20 @@ class TestCompletionItemResolve:
                 id="polars_dataframe_dict_key",
             ),
             pytest.param(
+                "x[",
+                {"x": {0: "hello"}},
+                "str",
+                None,
+                id="dict_int_key_resolve",
+            ),
+            pytest.param(
+                "x[",
+                {"x": pd.DataFrame({0: [1, 2, 3]})},
+                "int64 (3)",
+                "dtype: int64",
+                id="pandas_dataframe_int_key_resolve",
+            ),
+            pytest.param(
                 "x",
                 {"x": pl.Series([1, 2, 3])},
                 "Int64 (3)",
@@ -1087,13 +1120,13 @@ class TestCompletionItemResolve:
 
         item = completion_list.items[0]
 
-        # Dict key completions defer detail to resolve for performance
-        is_dict_key_completion = '["' in source or "['" in source
-        if is_dict_key_completion:
+        # Dict/int key completions defer detail to resolve for performance
+        is_subscript_completion = '["' in source or "['" in source or source.endswith("[")
+        if is_subscript_completion:
             # Verify detail is not set initially and data has expected structure
             assert item.detail is None
             assert item.data is not None
-            assert item.data.get("type") == "dict_key"
+            assert item.data.get("type") in ("dict_key", "int_key")
             assert "expr" in item.data
             assert "key" in item.data
 
