@@ -541,6 +541,8 @@ export function registerPositronConsoleActions() {
 							}
 							// Rejections returned by a provider are critical issues.
 							// We should not continue with a line-based approach after receiving one.
+							// This allows the user to focus on the notification instead and deal
+							// with the reason for the rejection.
 							return undefined;
 						}
 					}
