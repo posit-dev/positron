@@ -7,12 +7,12 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { IWorkspaceService } from '../common/application/types';
-import { IFileSystem } from '../common/platform/types';
-import { IProcessServiceFactory } from '../common/process/types';
-import { ITerminalServiceFactory } from '../common/terminal/types';
-import { IServiceContainer } from '../ioc/types';
-import { isUvInstalled } from '../pythonEnvironments/common/environmentManagers/uv';
+import { IWorkspaceService } from '../../common/application/types';
+import { IFileSystem } from '../../common/platform/types';
+import { IProcessServiceFactory } from '../../common/process/types';
+import { ITerminalServiceFactory } from '../../common/terminal/types';
+import { IServiceContainer } from '../../ioc/types';
+import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 
 /**
  * Interface for emitting messages to the Positron console
@@ -85,8 +85,8 @@ export class UvPackageManager {
         const useProjectWorkflow = await this._shouldUseProjectWorkflow();
 
         if (useProjectWorkflow) {
-            // Project workflow: uv remove --active <packages>
-            const args = ['remove', '--active', ...packages];
+            // Project workflow: uv remove --active --python <path> <packages>
+            const args = ['remove', '--active', '--python', this._pythonPath, ...packages];
             await this._executeUvInTerminal(args);
         } else {
             // Environment workflow: uv pip uninstall --python <path> <packages>
@@ -129,8 +129,8 @@ export class UvPackageManager {
         const useProjectWorkflow = await this._shouldUseProjectWorkflow();
 
         if (useProjectWorkflow) {
-            // Project workflow: uv sync --upgrade
-            const args = ['sync', '--upgrade'];
+            // Project workflow: uv sync --upgrade --active --python <path>
+            const args = ['sync', '--upgrade', '--active', '--python', this._pythonPath];
             await this._executeUvInTerminal(args);
         } else {
             // Environment workflow: get outdated packages and upgrade them
