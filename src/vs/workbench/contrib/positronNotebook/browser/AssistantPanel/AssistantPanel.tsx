@@ -215,7 +215,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 					onBlur={handleHidePopover}
 					onFocus={handleShowPopover}
 					onMouseEnter={handleShowPopover}
-					onMouseLeave={handleHidePopover}
+					onMouseLeave={clearHoverTimeout}
 				/>
 				{showPopover && infoRef.current && (
 					<Popover
