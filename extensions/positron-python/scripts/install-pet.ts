@@ -234,18 +234,6 @@ async function downloadAndReplacePet(version: string, githubPat: string | undefi
 }
 
 async function main() {
-    // Before we do any work, check to see if there is a locally built copy of
-    // the Python Environment Tool in the `pet / target` directory. If so, we'll assume
-    // that the user is a kernel developer and skip the download; this version
-    // will take precedence over any downloaded version.
-    const extensionParent = path.dirname(__dirname);
-    const petFolder = path.join(extensionParent, 'python-env-tools');
-    if (fs.existsSync(petFolder)) {
-        console.log(`Using locally built PET in ${petFolder}.`);
-        return;
-    }
-    console.log(`No locally built Python Environment Tool found in ${petFolder}; checking downloaded version.`);
-
     const packageJsonVersion = await getVersionFromPackageJson();
     const localPetVersion = await getLocalPetVersion();
 

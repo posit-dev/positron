@@ -83,6 +83,8 @@ export class WorkbenchContextKeysHandler extends Disposable {
 
 	// --- Start Positron ---
 	private positronTopActionBarVisibleContext: IContextKey<boolean>;
+	private isEnabledFileDownloadsKey: IContextKey<boolean>;
+	private isEnabledFileUploadsKey: IContextKey<boolean>;
 	// --- End Positron ---
 
 	constructor(
@@ -230,10 +232,13 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		this.auxiliaryBarMaximizedContext = AuxiliaryBarMaximizedContext.bindTo(this.contextKeyService);
 		this.auxiliaryBarMaximizedContext.set(this.layoutService.isAuxiliaryBarMaximized());
 
-		// --- Start PWB: disable file downloads ---
-		IsEnabledFileDownloads.bindTo(this.contextKeyService).set(this.environmentService.isEnabledFileDownloads ?? true);
-		IsEnabledFileUploads.bindTo(this.contextKeyService).set(this.environmentService.isEnabledFileUploads ?? true);
-		// --- End PWB ---
+		// --- Start Positron ---
+		// Combine CLI flags with user settings using "most restrictive wins" logic:
+		// disabled if EITHER the CLI flag says disable OR the setting says disable.
+		this.isEnabledFileDownloadsKey = IsEnabledFileDownloads.bindTo(this.contextKeyService);
+		this.isEnabledFileUploadsKey = IsEnabledFileUploads.bindTo(this.contextKeyService);
+		this.updateFileTransferKeys();
+		// --- End Positron ---
 
 		this.registerListeners();
 	}
@@ -264,6 +269,13 @@ export class WorkbenchContextKeysHandler extends Disposable {
 			if (e.affectsConfiguration('workbench.editor.openSideBySideDirection')) {
 				this.updateSplitEditorsVerticallyContext();
 			}
+
+			// --- Start Positron ---
+			if (e.affectsConfiguration('files.enableDownloads') ||
+				e.affectsConfiguration('files.enableUploads')) {
+				this.updateFileTransferKeys();
+			}
+			// --- End Positron ---
 		}));
 
 		this._register(this.layoutService.onDidChangeZenMode(enabled => this.inZenModeContext.set(enabled)));
@@ -378,4 +390,16 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		this.temporaryWorkspaceContext.set(isTemporaryWorkspace(this.contextService.getWorkspace()));
 		// --- End Positron ---
 	}
+
+	// --- Start Positron ---
+	private updateFileTransferKeys(): void {
+		const cliDownloads = this.environmentService.isEnabledFileDownloads ?? true;
+		const settingDownloads = this.configurationService.getValue<boolean>('files.enableDownloads') ?? true;
+		this.isEnabledFileDownloadsKey.set(cliDownloads && settingDownloads);
+
+		const cliUploads = this.environmentService.isEnabledFileUploads ?? true;
+		const settingUploads = this.configurationService.getValue<boolean>('files.enableUploads') ?? true;
+		this.isEnabledFileUploadsKey.set(cliUploads && settingUploads);
+	}
+	// --- End Positron ---
 }

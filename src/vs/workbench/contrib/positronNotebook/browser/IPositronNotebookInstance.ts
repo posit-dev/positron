@@ -317,6 +317,31 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void;
 
 	/**
+	 * Splits the currently editing cell at the cursor position(s).
+	 * Supports multi-cursor: each cursor creates an additional split point.
+	 */
+	splitCell(): void;
+
+	/**
+	 * Joins all currently selected cells into a single cell.
+	 * Uses the first cell's type for the merged result.
+	 * When only one cell is selected, joins with the cell below (Jupyter behavior).
+	 */
+	joinSelectedCells(): void;
+
+	/**
+	 * Joins the active cell with the cell above it.
+	 * Uses the active cell's type for the merged result.
+	 */
+	joinCellAbove(): void;
+
+	/**
+	 * Joins the active cell with the cell below it.
+	 * Uses the active cell's type for the merged result.
+	 */
+	joinCellBelow(): void;
+
+	/**
 	 * Checks if the notebook instance contains a code editor.
 	 *
 	 * @param editor The code editor to check for.

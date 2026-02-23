@@ -248,9 +248,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	updateSessionName(sessionName: string): void;
 
 	getPackages?: () => Promise<ILanguageRuntimePackage[]>;
-	installPackages?: (packages: string[]) => Promise<void>;
-	uninstallPackages?: (packages: string[]) => Promise<void>;
-	updatePackages?: (packages: string[]) => Promise<void>;
+	installPackages?: (packages: IPackageSpec[]) => Promise<void>;
+	uninstallPackages?: (packageNames: string[]) => Promise<void>;
+	updatePackages?: (packages: IPackageSpec[]) => Promise<void>;
 	updateAllPackages?: () => Promise<void>;
 
 	searchPackages?(query: string): Promise<ILanguageRuntimePackage[]>;
@@ -270,6 +270,16 @@ export interface ILanguageRuntimePackage {
 	name: string;
 	displayName: string;
 	version: string;
+}
+
+/**
+ * Represents a package to install or update, with an optional version.
+ */
+export interface IPackageSpec {
+	/** The package name */
+	name: string;
+	/** Optional version to install (if not specified, installs latest) */
+	version?: string;
 }
 
 /**
@@ -619,6 +629,14 @@ export interface IRuntimeSessionService {
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
 	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
+
+	/**
+	 * When true, suppresses implicit runtime auto-start triggered by
+	 * opening files with a matching language ID. Used during new folder
+	 * initialization to prevent starting the wrong runtime before the
+	 * intended environment is ready.
+	 */
+	implicitStartupSuppressed: boolean;
 }
 
 export { RuntimeClientType };

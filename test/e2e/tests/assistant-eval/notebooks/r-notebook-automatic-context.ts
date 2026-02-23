@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { TestTags } from '../../../infra';
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 
 /**
  * Test: Notebook automatic context (small notebook)
@@ -27,7 +27,7 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 	mode,
 	tags: [TestTags.POSITRON_NOTEBOOKS],
 
-	run: async ({ app, hotKeys, cleanup, settings }) => {
+	run: async ({ app, hotKeys, cleanup, settings }): Promise<RunResult> => {
 		const { assistant, notebooksPositron } = app.workbench;
 
 		// Enable Positron notebooks
@@ -46,18 +46,14 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(prompt, false);
-
-		// Click allow button and get response
-		await assistant.clickAllowButton();
-		await assistant.expectResponseComplete();
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await hotKeys.closeAllEditors();
 		await cleanup.discardAllChanges();
 
-		return response;
+		return { response, timing };
 	},
 
 	evaluationCriteria: {

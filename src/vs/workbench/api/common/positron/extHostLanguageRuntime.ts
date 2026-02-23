@@ -451,6 +451,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string): Promise<extHostProtocol.RuntimeInitialState> {
+		// Revive the notebook URI if it exists. The URI is serialized as a
+		// plain UriComponents object when crossing the IPC boundary and needs
+		// to be revived into a proper URI instance.
+		if (sessionMetadata.notebookUri) {
+			sessionMetadata = {
+				...sessionMetadata,
+				notebookUri: URI.revive(sessionMetadata.notebookUri)
+			};
+		}
+
 		// Look up the session manager responsible for restoring this session
 		console.debug(`[Reconnect ${sessionMetadata.sessionId}]: Await runtime manager for runtime ${runtimeMetadata.extensionId.value}...`);
 		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata, true);
@@ -723,7 +733,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return session.getPackages();
 	}
 
-	async $installPackages(handle: number, packages: string[]): Promise<void> {
+	async $installPackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot install package from runtime: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -735,7 +745,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return session.installPackages(packages);
 	}
 
-	async $uninstallPackages(handle: number, packages: string[]): Promise<void> {
+	async $uninstallPackages(handle: number, packageNames: string[]): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot uninstall package from runtime: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -744,10 +754,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Cannot uninstall packages from runtime: session handle '${handle}' does not implement package management.`);
 		}
 
-		return session.uninstallPackages(packages);
+		return session.uninstallPackages(packageNames);
 	}
 
-	async $updatePackages(handle: number, packages: string[]): Promise<void> {
+	async $updatePackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot update packages from runtime: session handle '${handle}' not found or no longer valid.`);
 		}

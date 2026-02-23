@@ -22,7 +22,7 @@ import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.j
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, getActiveCell, getEditingCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
@@ -46,6 +46,8 @@ import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSessi
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
 import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor, IChatEditingNotebookViewModel, IChatEditingCellViewModel } from './IPositronNotebookEditor.js';
+import { IPosition } from '../../../../editor/common/core/position.js';
+import { ITextModel } from '../../../../editor/common/model.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
@@ -1390,6 +1392,347 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		throw new Error('moveCells not yet implemented - to be completed in Step 3 (Drag & Drop)');
 	}
 
+	/**
+	 * Splits the currently editing cell at the cursor position(s).
+	 * Supports multi-cursor: each cursor creates an additional split point.
+	 */
+	splitCell(): void {
+		this._assertTextModel();
+
+		const cell = getEditingCell(this.selectionStateMachine.state.get());
+		if (!cell) {
+			return;
+		}
+
+		const editor = cell.currentEditor;
+		if (!editor) {
+			return;
+		}
+
+		const editorModel = editor.getModel();
+		if (!editorModel) {
+			return;
+		}
+
+		const selections = editor.getSelections();
+		if (!selections || selections.length === 0) {
+			return;
+		}
+
+		// Use cursor start positions as split points
+		const splitPoints: IPosition[] = selections.map(s => s.getStartPosition());
+		const boundaries = this._splitPointsToBoundaries(splitPoints, editorModel);
+		if (!boundaries || boundaries.length <= 1) {
+			return;
+		}
+
+		// Extract text segments between boundary pairs
+		const segments: string[] = [];
+		for (let i = 1; i < boundaries.length; i++) {
+			const start = boundaries[i - 1];
+			const end = boundaries[i];
+			const range = new Range(start.lineNumber, start.column, end.lineNumber, end.column);
+			segments.push(editorModel.getValueInRange(range));
+		}
+
+		if (segments.length <= 1) {
+			return;
+		}
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+		const cellIndex = cell.index;
+		const cellModel = textModel.cells[cellIndex];
+		if (!cellModel) {
+			return;
+		}
+
+		// Use a single Replace edit with all segments as the cells array.
+		// This avoids edit-ordering issues: notebookTextModel.applyEdits sorts
+		// multiple Replace edits by descending end index, which would interleave
+		// split segments with following cells if we used separate insert edits.
+		const splitCells = segments.map((source, i) => ({
+			cellKind: cell.kind,
+			language: cellModel.language,
+			mime: cellModel.mime,
+			outputs: i === 0 ? cellModel.outputs : [],
+			metadata: i === 0 ? cellModel.metadata : undefined,
+			internalMetadata: i === 0 ? cellModel.internalMetadata : undefined,
+			collapseState: i === 0 ? cellModel.collapseState : undefined,
+			source
+		}));
+
+		const focusIndex = cellIndex + 1;
+		const focusRange = { start: focusIndex, end: focusIndex + 1 };
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: focusRange,
+			selections: [focusRange]
+		};
+
+		textModel.applyEdits(
+			[{
+				editType: CellEditType.Replace,
+				index: cellIndex,
+				count: 1,
+				cells: splitCells
+			}],
+			true,
+			{
+				kind: SelectionStateType.Index,
+				focus: { start: cellIndex, end: cellIndex + 1 },
+				selections: [{ start: cellIndex, end: cellIndex + 1 }]
+			},
+			() => endSelections,
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
+	}
+
+	/**
+	 * Joins all currently selected cells into a single cell.
+	 * Uses the first cell's type for the merged result.
+	 * When only one cell is selected, joins with the cell below (Jupyter behavior).
+	 */
+	joinSelectedCells(): void {
+		this._assertTextModel();
+
+		const selectedCells = getSelectedCells(this.selectionStateMachine.state.get());
+
+		// With a single cell selected, merge with the cell below (Jupyter behavior)
+		if (selectedCells.length <= 1) {
+			this.joinCellBelow();
+			return;
+		}
+
+		// Sort by index in document order
+		const sortedCells = [...selectedCells].sort((a, b) => a.index - b.index);
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+
+		// Merge content from all selected cells, using the first cell's EOL
+		const firstCell = sortedCells[0];
+		const firstCellModel = textModel.cells[firstCell.index];
+		if (!firstCellModel) {
+			return;
+		}
+		const eol = firstCellModel.textBuffer.getEOL();
+		const mergedContent = sortedCells.map(c => c.getContent()).join(eol);
+
+		// Build edits in descending index order so deletions don't shift earlier indices
+		const edits: ICellReplaceEdit[] = [];
+
+		// Delete all selected cells except the first (descending order)
+		for (let i = sortedCells.length - 1; i >= 1; i--) {
+			edits.push({
+				editType: CellEditType.Replace,
+				index: sortedCells[i].index,
+				count: 1,
+				cells: []
+			});
+		}
+
+		// Replace the first selected cell with the merged cell
+		edits.push({
+			editType: CellEditType.Replace,
+			index: firstCell.index,
+			count: 1,
+			cells: [{
+				cellKind: firstCell.kind,
+				language: firstCellModel.language,
+				mime: firstCellModel.mime,
+				outputs: firstCellModel.outputs,
+				metadata: firstCellModel.metadata,
+				internalMetadata: firstCellModel.internalMetadata,
+				collapseState: firstCellModel.collapseState,
+				source: mergedContent
+			}]
+		});
+
+		const focusRange = { start: firstCell.index, end: firstCell.index + 1 };
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: focusRange,
+			selections: [focusRange]
+		};
+
+		textModel.applyEdits(
+			edits,
+			true,
+			{
+				kind: SelectionStateType.Index,
+				focus: focusRange,
+				selections: [focusRange]
+			},
+			() => endSelections,
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
+	}
+
+	/**
+	 * Joins the active cell with the cell above it.
+	 * Both cells must be the same kind.
+	 */
+	joinCellAbove(): void {
+		this._joinCellWithNeighbor('above');
+	}
+
+	/**
+	 * Joins the active cell with the cell below it.
+	 * Both cells must be the same kind.
+	 */
+	joinCellBelow(): void {
+		this._joinCellWithNeighbor('below');
+	}
+
+	/**
+	 * Joins the active cell with its neighbor in the given direction.
+	 * The active cell's type is used for the merged result (Jupyter behavior).
+	 * The merged cell is placed at the lower index position.
+	 */
+	private _joinCellWithNeighbor(direction: 'above' | 'below'): void {
+		this._assertTextModel();
+
+		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
+		if (!activeCell) {
+			return;
+		}
+
+		const allCells = this.cells.get();
+		const cellIndex = activeCell.index;
+
+		if (direction === 'above' && cellIndex <= 0) {
+			return;
+		}
+		if (direction === 'below' && cellIndex >= allCells.length - 1) {
+			return;
+		}
+
+		const neighborIndex = direction === 'above' ? cellIndex - 1 : cellIndex + 1;
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+
+		// The merged cell is placed at the lower index, but uses the active cell's type
+		const keepIndex = Math.min(cellIndex, neighborIndex);
+		const deleteIndex = Math.max(cellIndex, neighborIndex);
+		const keepCell = allCells[keepIndex];
+		const otherCell = allCells[deleteIndex];
+
+		const activeCellModel = textModel.cells[cellIndex];
+		const keepCellModel = textModel.cells[keepIndex];
+		if (!activeCellModel || !keepCellModel) {
+			return;
+		}
+
+		const eol = keepCellModel.textBuffer.getEOL();
+		const mergedContent = keepCell.getContent() + eol + otherCell.getContent();
+
+		const edits: ICellReplaceEdit[] = [
+			// Delete the higher-index cell first
+			{
+				editType: CellEditType.Replace,
+				index: deleteIndex,
+				count: 1,
+				cells: []
+			},
+			// Replace the kept cell with merged content, using active cell's type
+			{
+				editType: CellEditType.Replace,
+				index: keepIndex,
+				count: 1,
+				cells: [{
+					cellKind: activeCell.kind,
+					language: activeCellModel.language,
+					mime: activeCellModel.mime,
+					outputs: activeCellModel.outputs,
+					metadata: activeCellModel.metadata,
+					internalMetadata: activeCellModel.internalMetadata,
+					collapseState: activeCellModel.collapseState,
+					source: mergedContent
+				}]
+			}
+		];
+
+		const focusRange = { start: keepIndex, end: keepIndex + 1 };
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: focusRange,
+			selections: [focusRange]
+		};
+
+		textModel.applyEdits(
+			edits,
+			true,
+			{
+				kind: SelectionStateType.Index,
+				focus: { start: cellIndex, end: cellIndex + 1 },
+				selections: [{ start: cellIndex, end: cellIndex + 1 }]
+			},
+			() => endSelections,
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
+	}
+
+	/**
+	 * Converts an array of split points (cursor positions) and a text model
+	 * into an array of boundary positions that define text segments.
+	 * Adapted from upstream VS Code cellOperations.ts.
+	 *
+	 * @param splitPoints Array of cursor positions where the cell should be split
+	 * @param textModel The text model of the cell being split
+	 * @returns Array of boundary positions including document start and end, or undefined if invalid
+	 */
+	private _splitPointsToBoundaries(splitPoints: IPosition[], textModel: ITextModel): IPosition[] | undefined {
+		// Sort by line then column
+		const sorted = [...splitPoints].sort((a, b) => {
+			if (a.lineNumber !== b.lineNumber) {
+				return a.lineNumber - b.lineNumber;
+			}
+			return a.column - b.column;
+		});
+
+		// Normalize: if cursor is at end of a non-empty line, move to start of next line.
+		// Skip empty lines (lineMaxColumn === 1) where column 1 is both start and end.
+		const normalized: IPosition[] = sorted.map(p => {
+			const lineMaxColumn = textModel.getLineMaxColumn(p.lineNumber);
+			if (lineMaxColumn > 1 && p.column >= lineMaxColumn && p.lineNumber < textModel.getLineCount()) {
+				return { lineNumber: p.lineNumber + 1, column: 1 };
+			}
+			return p;
+		});
+
+		// Deduplicate adjacent identical positions
+		const deduped: IPosition[] = [normalized[0]];
+		for (let i = 1; i < normalized.length; i++) {
+			const prev = deduped[deduped.length - 1];
+			const curr = normalized[i];
+			if (prev.lineNumber !== curr.lineNumber || prev.column !== curr.column) {
+				deduped.push(curr);
+			}
+		}
+
+		// Wrap with document start and end as boundaries.
+		// Do NOT deduplicate against doc start/end -- a split point at (1,1)
+		// should produce an empty first segment, and a split at doc end should
+		// produce an empty last segment.
+		const docStart: IPosition = { lineNumber: 1, column: 1 };
+		const docEnd: IPosition = {
+			lineNumber: textModel.getLineCount(),
+			column: textModel.getLineMaxColumn(textModel.getLineCount())
+		};
+
+		return [docStart, ...deduped, docEnd];
+	}
 
 	/**
 	 * Checks if the notebook contains a specific code editor.

@@ -1269,7 +1269,13 @@ export default tseslint.config(
 				{
 					'selector': 'CallExpression[callee.property.name=\'getElementsByTagNameNS\']',
 					'message': 'getElementsByTagNameNS should not be used as relying on selectors is very fragile. Use dom.ts h() to build your elements and access them directly.'
+				},
+				// --- Start Positron ---
+				{
+					'selector': 'JSXOpeningElement > JSXIdentifier[name="PositronActionBar"]',
+					'message': 'PositronActionBar does not display actions at narrow widths gracefully. The action buttons will get cut off at narrower widths. Use PositronDynamicActionBar instead and configure overflowContextMenuItem on actions to allow them to move to an overflow menu when space is limited.'
 				}
+				// --- End Positron ---
 			],
 			'no-restricted-globals': [
 				'warn',

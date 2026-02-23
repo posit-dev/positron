@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 
 /**
  * Test: No hallucination of execution results
@@ -21,7 +21,7 @@ export const pythonNoExecutionHallucination: EvalTestCase = {
 	prompt,
 	mode,
 
-	run: async ({ app, sessions }) => {
+	run: async ({ app, sessions }): Promise<RunResult> => {
 		const { assistant, console } = app.workbench;
 
 		// Start Python session
@@ -68,14 +68,14 @@ species = pl.DataFrame({
 		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(prompt, true);
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
 
 		// Cleanup
 		await console.focus();
 		await sessions.restart(pySession.id, { clearConsole: false });
 
-		return response;
+		return { response, timing };
 	},
 
 	evaluationCriteria: {
