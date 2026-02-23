@@ -73,6 +73,11 @@ _RE_DOUBLE_BRACKET_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*\[\s*(?:.*,\s*)?
 
 Groups: (1) expression, (2) quote char, (3) optional key prefix"""
 
+_RE_INT_KEY_ACCESS = re.compile(r"(\w[\w\.]*)\s*\[\s*(\d*)$")
+"""Integer-key subscript access: e.g. `obj[` or `obj[12`
+
+Groups: (1) expression, (2) optional digit prefix"""
+
 _RE_DOTTED_IDENTIFIER = re.compile(r"([\w\.]+)$")
 """Trailing dotted identifier: e.g. `os.path.join`
 
@@ -615,21 +620,33 @@ def _handle_completion(
             )
         )
 
+    # Check for integer key access pattern (e.g., x[ or x[12)
+    int_key_match = _RE_INT_KEY_ACCESS.search(text_before_cursor)
+    if int_key_match and not dict_key_match:
+        items.extend(
+            _get_int_key_completions(
+                server,
+                expr=int_key_match.group(1),
+                prefix=int_key_match.group(2) or "",
+            )
+        )
+
     # Check for os.getenv() completions (e.g., os.getenv(" or os.getenv(key=")
     getenv_items = _get_getenv_completions(
         server, text_before_cursor, text_after_cursor, document=document
     )
     items.extend(getenv_items)
 
-    # Check for path completions in bare string literals (not dict access, not getenv)
-    if not dict_key_match and not getenv_items:
+    # Check for path completions in bare string literals (not dict/int key access, not getenv)
+    subscript_match = dict_key_match or int_key_match
+    if not subscript_match and not getenv_items:
         path_items = _get_path_completions(
             server, text_before_cursor, text_after_cursor, params.position
         )
         if path_items:
             return types.CompletionList(is_incomplete=False, items=path_items)
 
-    if not dict_key_match:
+    if not subscript_match:
         if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
             # Attribute completion (only if not inside a function call)
             items.extend(_get_attribute_completions(server, text_before_cursor))
@@ -830,9 +847,9 @@ def _get_dict_key_completions(
                 prefix, quote_char, has_closing_quote=has_closing_quote
             )
     elif _is_dataframe_like(obj):
-        # pandas/polars DataFrame
+        # pandas/polars DataFrame - only string columns for string key access
         with contextlib.suppress(Exception):
-            keys = list(obj.columns)
+            keys = [str(k) for k in obj.columns if isinstance(k, str)]
     elif _is_series_like(obj):
         # pandas Series with string index
         with contextlib.suppress(Exception):
@@ -858,7 +875,59 @@ def _get_dict_key_completions(
     return items
 
 
-def _get_dict_value_detail(obj: Any, key: str) -> tuple[str | None, types.MarkupContent | None]:
+def _get_int_key_completions(
+    server: PositronLanguageServer,
+    *,
+    expr: str,
+    prefix: str,
+) -> list[types.CompletionItem]:
+    """Get integer key completions for dict-like objects.
+
+    Handles dict with int keys, DataFrame with int columns, pandas
+    Series with int index, and polars Series (positional index).
+    """
+    if server.shell is None:
+        return []
+
+    obj = _safe_resolve_expression(server.shell.user_ns, expr)
+    if obj is None:
+        return []
+
+    int_keys: list[int] = []
+
+    with contextlib.suppress(Exception):
+        if isinstance(obj, dict):
+            int_keys = [k for k in obj if isinstance(k, int) and not isinstance(k, bool)]
+        elif _is_dataframe_like(obj):
+            int_keys = [k for k in obj.columns if isinstance(k, int)]
+        elif _is_series_like(obj):
+            module = type(obj).__module__
+            if "polars" in module:
+                int_keys = list(range(len(obj)))
+            else:
+                int_keys = [k for k in obj.index if isinstance(k, int)]
+
+    items: list[types.CompletionItem] = []
+    for key in int_keys:
+        label = str(key)
+        if not label.startswith(prefix):
+            continue
+        items.append(
+            types.CompletionItem(
+                label=label,
+                kind=types.CompletionItemKind.Field,
+                sort_text=f"a{label}",
+                insert_text=label,
+                data={"type": "int_key", "expr": expr, "key": key},
+            )
+        )
+
+    return items
+
+
+def _get_dict_value_detail(
+    obj: Any, key: str | int
+) -> tuple[str | None, types.MarkupContent | None]:
     """Get the detail string and documentation for a dict-like key's value.
 
     Args:
@@ -1437,6 +1506,17 @@ def _handle_completion_resolve(
         expr = params.data.get("expr")
         key = params.data.get("key")
         if expr and key and server.shell:
+            obj = _safe_resolve_expression(server.shell.user_ns, expr)
+            if obj is not None:
+                params.detail, params.documentation = _get_dict_value_detail(obj, key)
+        return params
+
+    # Handle integer key completions
+    if params.data and isinstance(params.data, dict) and params.data.get("type") == "int_key":
+        expr = params.data.get("expr")
+        key = params.data.get("key")
+        # Use `key is not None` because integer 0 is falsy
+        if expr and key is not None and server.shell:
             obj = _safe_resolve_expression(server.shell.user_ns, expr)
             if obj is not None:
                 params.detail, params.documentation = _get_dict_value_detail(obj, key)
