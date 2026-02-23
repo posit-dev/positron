@@ -32,8 +32,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../common/positronNotebookConfig.js';
-import { POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../contrib/ghostCell/config.js';
-import { SHOW_GHOST_CELL_INFO_COMMAND_ID } from '../contrib/ghostCell/config.js';
+import { POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY, SHOW_GHOST_CELL_INFO_COMMAND_ID } from '../contrib/ghostCell/config.js';
 import { CellEditType } from '../../../notebook/common/notebookCommon.js';
 import { AssistantSettings, ShowDiffOverride, AutoFollowOverride, GhostCellSuggestionsOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
 import { SegmentedToggle } from '../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
