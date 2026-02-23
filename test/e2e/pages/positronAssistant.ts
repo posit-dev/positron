@@ -702,17 +702,13 @@ export class Assistant {
 	 *
 	 * @param message The message to send
 	 */
-	async enterChatMessage(message: string, waitForResponse: boolean = true) {
+	async enterChatMessage(message: string) {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.pressSequentially(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
 		// It can take a moment for the loading locator to become visible.
 		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
-		// Optionally wait for any loading state on the most recent response to finish
-		if (waitForResponse) {
-			await this.waitForResponseComplete();
-		}
 	}
 
 	/**

@@ -158,7 +158,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 */
 	// Skipping Console tests due to PR #10784
 	test.skip('Python: Verify running code in console from chat markdown response', { tag: [] }, async function ({ app, python }) {
-		await app.workbench.assistant.enterChatMessage('Send Python Code');
+		await app.workbench.assistant.sendChatMessageAndWait('Send Python Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo = 100');
 		await app.workbench.console.waitForConsoleContents('foo = 100');
@@ -174,7 +174,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 */
 	// Skipping Console tests due to PR #10784
 	test.skip('R: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, r }) {
-		await app.workbench.assistant.enterChatMessage('Send R Code');
+		await app.workbench.assistant.sendChatMessageAndWait('Send R Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo <- 200');
 		await app.workbench.console.waitForConsoleContents('foo <- 200');
@@ -374,7 +374,7 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 
 	test('Token usage is displayed in chat response', async function ({ app }) {
 		const message = 'What is the meaning of life?';
-		await app.workbench.assistant.enterChatMessage(message);
+		await app.workbench.assistant.sendChatMessageAndWait(message);
 		await app.workbench.assistant.verifyTokenUsageVisible();
 		const tokenUsage = await app.workbench.assistant.getTokenUsage();
 		expect(tokenUsage).toMatchObject({
@@ -385,20 +385,20 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 
 	test('Token usage is not displayed when setting is disabled', async function ({ app, settings }) {
 		await settings.set({ 'positron.assistant.showTokenUsage.enable': false }, { reload: 'web' });
-		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
+		await app.workbench.assistant.sendChatMessageAndWait('What is the meaning of life?');
 
 		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
 	});
 
 	test('Token usage is not displayed for non-supported providers', async function ({ app, settings }) {
 		await settings.set({ 'positron.assistant.approximateTokenCount': [] }, { reload: 'web' });
-		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
+		await app.workbench.assistant.sendChatMessageAndWait('What is the meaning of life?');
 
 		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
 	});
 
 	test('Token usage updates when settings change', async function ({ app, settings }) {
-		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
+		await app.workbench.assistant.sendChatMessageAndWait('What is the meaning of life?');
 		await app.workbench.assistant.verifyTokenUsageVisible();
 
 		await settings.set({ 'positron.assistant.approximateTokenCount': [] }, { reload: 'web' });
@@ -419,11 +419,11 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		const message1 = 'What is the meaning of life?';
 		const message2 = 'Forty-two';
 
-		await app.workbench.assistant.enterChatMessage(message1);
-		await app.workbench.assistant.waitForReadyToSend();
-		await app.workbench.assistant.enterChatMessage(message2);
+		await app.workbench.assistant.sendChatMessageAndWait(message1);
+		// await app.workbench.assistant.waitForReadyToSend();
+		await app.workbench.assistant.sendChatMessageAndWait(message2);
 
-		await app.workbench.assistant.waitForReadyToSend();
+		// await app.workbench.assistant.waitForReadyToSend();
 
 		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
 		expect(totalTokens).toBeDefined();
