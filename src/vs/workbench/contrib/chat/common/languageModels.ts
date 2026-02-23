@@ -324,6 +324,13 @@ export interface ILanguageModelsService {
 
 	/** Get the stored provider vendor from persistent storage (even before provider metadata is loaded). */
 	getStoredProviderVendor(): string | undefined;
+
+	/**
+	 * Invalidate a provider's model cache and update state. Called when a
+	 * provider is signed out so the model picker and welcome view reflect
+	 * the actual availability.
+	 */
+	invalidateProvider(vendorId: string): void;
 	// --- End Positron ---
 
 	readonly onDidChangeLanguageModelVendors: Event<readonly string[]>;
@@ -919,6 +926,18 @@ export class LanguageModelsService implements ILanguageModelsService {
 		const stored = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
 		return stored?.id;
 	}
+
+	invalidateProvider(vendorId: string): void {
+		this._logService.trace('[LM] Invalidating provider', vendorId);
+		this._clearModelCache(vendorId);
+		this._onLanguageModelChange.fire(vendorId);
+
+		// Update currentProvider if the invalidated vendor was the active one
+		const availableProviders = this.getLanguageModelProviders();
+		if (this._currentProvider?.id === vendorId) {
+			this.currentProvider = availableProviders.length > 0 ? availableProviders[0] : undefined;
+		}
+	}
 	// --- End Positron ---
 
 	lookupLanguageModel(modelIdentifier: string): ILanguageModelChatMetadata | undefined {
@@ -1039,6 +1058,25 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 			if (hasChanges) {
 				this._onLanguageModelChange.fire(vendorId);
+				// --- Start Positron ---
+				// Keep currentProvider in sync after model changes from sign-in
+				// or sign-out. This mirrors the logic in _reResolveLanguageModels
+				// but runs on individual provider onDidChange events too.
+				const availableProviders = this.getLanguageModelProviders();
+				if (!this._currentProvider) {
+					// Auto-set current provider when models become available
+					// (e.g. user signed in to a provider after initial setup).
+					if (availableProviders.length > 0) {
+						this._logService.trace('[LM] Auto-setting current provider after model resolution', availableProviders[0].id);
+						this.currentProvider = availableProviders[0];
+					}
+				} else if (!availableProviders.some(p => p.id === this._currentProvider!.id)) {
+					// Current provider is no longer available (e.g. user signed
+					// out). Switch to the next available provider or clear.
+					this._logService.trace('[LM] Current provider no longer available after model resolution, switching', this._currentProvider.id);
+					this.currentProvider = availableProviders.length > 0 ? availableProviders[0] : undefined;
+				}
+				// --- End Positron ---
 			} else {
 				this._logService.trace(`[LM] No changes in language models for vendor ${vendorId}`);
 			}

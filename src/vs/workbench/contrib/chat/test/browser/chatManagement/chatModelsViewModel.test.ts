@@ -161,6 +161,7 @@ class MockLanguageModelsService implements ILanguageModelsService {
 	getStoredProviderVendor(): string | undefined {
 		return undefined;
 	}
+	invalidateProvider(_vendorId: string): void { }
 	// --- End Positron ---
 
 	async addLanguageModelsProviderGroup(name: string, vendorId: string, configuration: IStringDictionary<unknown> | undefined): Promise<void> {

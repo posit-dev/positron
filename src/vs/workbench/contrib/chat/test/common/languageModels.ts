@@ -88,6 +88,7 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 	getStoredProviderVendor(): string | undefined {
 		return undefined;
 	}
+	invalidateProvider(_vendorId: string): void { }
 	// --- End Positron ---
 
 	computeTokenLength(identifier: string, message: string | IChatMessage, token: CancellationToken): Promise<number> {
