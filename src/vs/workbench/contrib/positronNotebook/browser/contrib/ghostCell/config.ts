@@ -26,6 +26,10 @@ export const POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY = 'positron.assistant.notebo
 // Configuration key for maximum number of session variables to include in ghost cell context
 export const POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY = 'positron.assistant.notebook.ghostCellSuggestions.maxVariables';
 
+// Command IDs for ghost cell actions
+export const REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID = 'positronNotebook.requestGhostCellSuggestion';
+export const SHOW_GHOST_CELL_INFO_COMMAND_ID = 'positronNotebook.showGhostCellInfo';
+
 // Register ghost cell configuration settings
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
