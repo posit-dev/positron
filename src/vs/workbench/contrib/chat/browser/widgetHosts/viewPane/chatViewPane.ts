@@ -193,7 +193,12 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 	}
 
 	private updateViewPaneClasses(fromEvent: boolean): void {
-		const welcomeEnabled = !this.chatEntitlementService.sentiment.installed; // only show initially until Chat is setup
+		// --- Start Positron ---
+		// Always enable the welcome view in Positron so that the Positron Assistant
+		// welcome message is visible when no chat messages exist, regardless of
+		// the Copilot entitlement state.
+		const welcomeEnabled = true;
+		// --- End Positron ---
 		this.viewPaneContainer?.classList.toggle('chat-view-welcome-enabled', welcomeEnabled);
 
 		const activityBarLocationDefault = this.configurationService.getValue<string>(LayoutSettings.ACTIVITY_BAR_LOCATION) === 'default';
@@ -913,6 +918,12 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 		let availableSessionsHeight = height - this.sessionsTitleContainer.offsetHeight;
 		if (this.sessionsViewerOrientation === AgentSessionsViewerOrientation.Stacked) {
 			availableSessionsHeight -= Math.max(ChatViewPane.MIN_CHAT_WIDGET_HEIGHT, this._widget?.input?.height.get() ?? 0);
+			// --- Start Positron ---
+			// Cap sessions height to at most 30% of the total height so the
+			// Positron Assistant welcome content can display below the session list.
+			const maxSessionsHeight = Math.floor(height * 0.3);
+			availableSessionsHeight = Math.min(availableSessionsHeight, maxSessionsHeight);
+			// --- End Positron ---
 		} else {
 			availableSessionsHeight -= this.sessionsNewButtonContainer?.offsetHeight ?? 0;
 		}
