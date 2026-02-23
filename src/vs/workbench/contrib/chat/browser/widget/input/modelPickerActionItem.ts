@@ -369,7 +369,11 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 			domChildren.push(iconElement);
 		}
 
-		domChildren.push(dom.$('span.chat-input-picker-label', undefined, name ?? localize('chat.modelPicker.auto', "Auto")));
+		// --- Start Positron ---
+		// Show "Pick Model" when no model is selected (e.g. no providers signed in)
+		// domChildren.push(dom.$('span.chat-input-picker-label', undefined, name ?? localize('chat.modelPicker.auto', "Auto")));
+		domChildren.push(dom.$('span.chat-input-picker-label', undefined, name ?? localize('chat.modelPicker.pickModel', "Pick Model")));
+		// --- End Positron ---
 		domChildren.push(...renderLabelWithIcons(`$(chevron-down)`));
 
 		dom.reset(element, ...domChildren);
