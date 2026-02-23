@@ -88,17 +88,13 @@ export class TestFile {
 	) {
 		try {
 			const diagnostics: vscode.Diagnostic[] = [];
-			// --- Start Positron ---
-			// Add .tsx to the test file pattern to allow testing of React components
-			const fileName = this.uri.path.split('/').pop()!;
 			const ast = ts.createSourceFile(
-				fileName,
+				this.uri.path.split('/').pop()!,
 				content,
 				ts.ScriptTarget.ESNext,
 				false,
-				fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+				ts.ScriptKind.TS
 			);
-			// --- End Positron ---
 
 			const parents: { item: vscode.TestItem; children: vscode.TestItem[] }[] = [
 				{ item: file, children: [] },
