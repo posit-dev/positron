@@ -16,6 +16,8 @@ import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED
 import { GhostCellController, POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST } from './controller.js';
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 
+export const SHOW_GHOST_CELL_INFO_COMMAND_ID = 'positronNotebook.showGhostCellInfo';
+
 // Helper function matching the FindController pattern (contrib/find/actions.ts)
 function registerGhostCellAction(
 	options: IAction2Options & { run: (controller: GhostCellController) => void | Promise<void> },
@@ -63,7 +65,7 @@ registerGhostCellAction({
 
 // Show ghost cell info dialog - opens the informational dialog about ghost cell suggestions
 registerGhostCellAction({
-	id: 'positronNotebook.showGhostCellInfo',
+	id: SHOW_GHOST_CELL_INFO_COMMAND_ID,
 	title: localize2('positronNotebook.showGhostCellInfo', 'About Ghost Cell Suggestions'),
 	f1: true,
 	category: localize2('positronNotebook.category', 'Positron Notebook'),

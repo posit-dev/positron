@@ -42,11 +42,6 @@
 	box-shadow: inset 0 -1px 0 var(--vscode-keybindingLabel-bottomBorder, rgba(68, 68, 68, 0.6));
 }
 
-.ghost-cell-info-kbd-separator {
-	margin: 0 2px;
-	color: var(--vscode-descriptionForeground);
-}
-
 .ghost-cell-info-settings-link {
 	color: var(--vscode-textLink-foreground);
 	cursor: pointer;

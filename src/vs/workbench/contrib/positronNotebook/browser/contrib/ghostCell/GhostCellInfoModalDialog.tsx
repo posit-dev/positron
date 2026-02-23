@@ -11,8 +11,6 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
-import { isMacintosh } from '../../../../../../base/common/platform.js';
-import { ResolvedChord } from '../../../../../../base/common/keybindings.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { OKModalDialog } from '../../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 
@@ -26,22 +24,8 @@ const whatAreGhostCellsText = localize('ghostCellInfo.whatAreText', 'Ghost cell 
 const howDoTheyWorkHeading = localize('ghostCellInfo.howWorkHeading', 'How do they work?');
 const howDoTheyWorkText = localize('ghostCellInfo.howWorkText', 'The AI analyzes your notebook context - including previous cells, outputs, and the overall structure - to suggest code that logically follows your current work.');
 const keyboardShortcutPrefix = localize('ghostCellInfo.keyboardShortcutPrefix', 'You can manually trigger a suggestion at any time by pressing');
-const defaultShortcutChords: string[][] = [isMacintosh ? ['Cmd', 'Shift', 'G'] : ['Ctrl', 'Shift', 'G']];
 
 const GHOST_CELL_SUGGESTION_COMMAND_ID = 'positronNotebook.requestGhostCellSuggestion';
-
-/**
- * Extracts display labels for individual keys from a ResolvedChord.
- */
-function chordToKeys(chord: ResolvedChord): string[] {
-	const keys: string[] = [];
-	if (chord.ctrlKey) { keys.push('Ctrl'); }
-	if (chord.metaKey) { keys.push(isMacintosh ? 'Cmd' : 'Win'); }
-	if (chord.shiftKey) { keys.push('Shift'); }
-	if (chord.altKey) { keys.push(isMacintosh ? 'Option' : 'Alt'); }
-	if (chord.keyLabel) { keys.push(chord.keyLabel); }
-	return keys;
-}
 
 const howToDisableHeading = localize('ghostCellInfo.disableHeading', 'How to disable suggestions');
 const howToDisableTextPart1 = localize('ghostCellInfo.disableTextPart1', 'You can disable ghost cell suggestions by clicking "Don\'t suggest again" in the dismiss dropdown, or in ');
@@ -69,16 +53,9 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 	const { commandService, keybindingService } = renderer.services;
 
 	// Resolve the keyboard shortcut dynamically so it reflects custom keybindings.
-	// Returns an array of chords, where each chord is an array of key labels.
-	const shortcutChords = React.useMemo(() => {
+	const shortcutLabel = React.useMemo(() => {
 		const binding = keybindingService.lookupKeybinding(GHOST_CELL_SUGGESTION_COMMAND_ID);
-		if (binding) {
-			const chords = binding.getChords();
-			if (chords.length > 0) {
-				return chords.map(chordToKeys);
-			}
-		}
-		return defaultShortcutChords;
+		return binding?.getLabel() ?? null;
 	}, [keybindingService]);
 
 	const handleClose = React.useCallback(() => {
@@ -109,21 +86,12 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 				<div className='ghost-cell-info-section'>
 					<div className='ghost-cell-info-heading'>{howDoTheyWorkHeading}</div>
 					<div className='ghost-cell-info-text'>{howDoTheyWorkText}</div>
-					<div className='ghost-cell-info-text'>
-						{keyboardShortcutPrefix}{' '}
-						{shortcutChords.map((chord, ci) => (
-							<React.Fragment key={ci}>
-								{ci > 0 && ' '}
-								{chord.map((key, ki) => (
-									<React.Fragment key={ki}>
-										{ki > 0 && <span className='ghost-cell-info-kbd-separator'>+</span>}
-										<kbd className='ghost-cell-info-kbd'>{key}</kbd>
-									</React.Fragment>
-								))}
-							</React.Fragment>
-						))}
-						.
-					</div>
+					{shortcutLabel && (
+						<div className='ghost-cell-info-text'>
+							{keyboardShortcutPrefix}{' '}
+							<kbd className='ghost-cell-info-kbd'>{shortcutLabel}</kbd>.
+						</div>
+					)}
 				</div>
 				{modelName && (
 					<div className='ghost-cell-info-section'>
