@@ -46,7 +46,7 @@ export interface OverflowContextMenuSubmenu extends CustomContextMenuSubmenuOpti
  */
 export interface DynamicActionBarAction {
 	/**
-	 * he fixed width of the action from any icons and padding (but not including text labels).
+	 * The fixed width of the action from any icons and padding (but not including text labels).
 	 */
 	fixedWidth: number;
 
