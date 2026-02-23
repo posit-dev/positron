@@ -36,7 +36,7 @@ export class PackageManagerFactory {
      * @returns The appropriate package manager for the environment
      */
     static create(
-        runtimeSource: EnvironmentType,
+        runtimeSource: EnvironmentType | string,
         pythonPath: string,
         messageEmitter: MessageEmitter,
         serviceContainer: IServiceContainer,
