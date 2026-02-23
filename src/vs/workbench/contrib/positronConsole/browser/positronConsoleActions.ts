@@ -712,8 +712,8 @@ export function registerPositronConsoleActions() {
 								case StatementRangeRejectionKind.Syntax: {
 									logService.warn(
 										nextStatementRange.line ?
-											`Can't advance due to a syntax error on line ${nextStatementRange.line + 1}.` :
-											"Can't advance due to a syntax error."
+											`Can't compute advancement due to a syntax error on line ${nextStatementRange.line + 1}.` :
+											"Can't compute advancement due to a syntax error."
 									);
 									break;
 								}
@@ -721,9 +721,13 @@ export function registerPositronConsoleActions() {
 									throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${nextStatementRange.rejectionKind}`);
 								}
 							}
-							// Rejections returned by a provider are critical issues.
-							// We should not advance the cursor after receiving one.
-							return undefined;
+							// If we got here we had a successful `statementRange`, but a rejected
+							// `nextStatementRange`. This can occur when the user executes the last
+							// line of parsable code in a file, and everything after that is unparsable.
+							// We want to step one line past the parsable code so it isn't re-executed,
+							// which is what `newPosition` already points at, and then on the next invocation
+							// of statement range they will get a rejection notification.
+							break;
 						}
 						default: {
 							throw new Error(`Unrecognized 'StatementRangeKind': ${nextStatementRange}`);
