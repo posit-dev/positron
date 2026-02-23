@@ -509,6 +509,18 @@
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+/* "Learn more" link inside setting popover */
+.assistant-panel-setting-learn-more {
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.assistant-panel-setting-learn-more:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
 /* Controls container (right-aligned) */
 .assistant-panel-setting-controls {
 	display: flex;

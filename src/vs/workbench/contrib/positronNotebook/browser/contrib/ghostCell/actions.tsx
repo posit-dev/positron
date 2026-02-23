@@ -9,10 +9,12 @@ import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/con
 import { KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IAction2Options, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
-import { GhostCellController } from './controller.js';
+import { GhostCellController, POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST } from './controller.js';
+import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 
 // Helper function matching the FindController pattern (contrib/find/actions.ts)
 function registerGhostCellAction(
@@ -57,4 +59,18 @@ registerGhostCellAction({
 	f1: true,
 	category: localize2('positronNotebook.category', 'Positron Notebook'),
 	run: (controller) => controller.enableGhostCellSuggestionsForNotebook(),
+});
+
+// Show ghost cell info dialog - opens the informational dialog about ghost cell suggestions
+registerGhostCellAction({
+	id: 'positronNotebook.showGhostCellInfo',
+	title: localize2('positronNotebook.showGhostCellInfo', 'About Ghost Cell Suggestions'),
+	f1: true,
+	category: localize2('positronNotebook.category', 'Positron Notebook'),
+	run: (controller) => {
+		const state = controller.ghostCellState.get();
+		const modelName = state.status === 'ready' ? state.modelName : undefined;
+		const renderer = new PositronModalReactRenderer();
+		renderer.render(<GhostCellInfoModalDialog modelName={modelName} renderer={renderer} />);
+	},
 });

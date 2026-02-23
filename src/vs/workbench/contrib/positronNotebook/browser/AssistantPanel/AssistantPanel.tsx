@@ -53,6 +53,7 @@ const followGlobalLabel = localize('assistantPanel.followGlobal', 'follow global
 const yesLabel = localize('assistantPanel.yes', 'yes');
 const noLabel = localize('assistantPanel.no', 'no');
 const openGlobalSettingsLabel = localize('assistantPanel.settings.openGlobal', 'Open global settings');
+const learnMoreLabel = localize('assistantPanel.learnMore', 'Learn more');
 
 /**
  * Panel state for tracking notebook availability
@@ -156,6 +157,8 @@ interface SettingToggleRowProps {
 	effectiveValue: boolean;
 	onFollowGlobalChanged: (followGlobal: boolean) => void;
 	onToggle: () => void;
+	/** Optional callback to show a "Learn more" link in the info popover */
+	onLearnMore?: () => void;
 }
 
 /**
@@ -167,6 +170,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 	description,
 	overrideActive,
 	effectiveValue,
+	onLearnMore,
 	onFollowGlobalChanged,
 	onToggle,
 }) => {
@@ -220,6 +224,22 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 						onClose={() => setShowPopover(false)}
 					>
 						{description}
+						{onLearnMore && (
+							<>
+								{' '}
+								<a
+									className='assistant-panel-setting-learn-more'
+									href=''
+									onClick={(e) => {
+										e.preventDefault();
+										setShowPopover(false);
+										onLearnMore();
+									}}
+								>
+									{learnMoreLabel}
+								</a>
+							</>
+						)}
 					</Popover>
 				)}
 			</span>
@@ -351,6 +371,10 @@ const ReadyState = ({
 						} else {
 							onGhostCellSuggestionsChanged(globalGhostCellSuggestions ? 'enabled' : 'disabled');
 						}
+					}}
+					onLearnMore={() => {
+						onClose();
+						commandService.executeCommand('positronNotebook.showGhostCellInfo');
 					}}
 					onToggle={() => onGhostCellSuggestionsChanged(effectiveGhostCellSuggestions ? 'disabled' : 'enabled')}
 				/>
