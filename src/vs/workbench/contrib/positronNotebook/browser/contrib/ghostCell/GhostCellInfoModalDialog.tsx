@@ -35,7 +35,7 @@ const GHOST_CELL_SUGGESTION_COMMAND_ID = 'positronNotebook.requestGhostCellSugge
  */
 function chordToKeys(chord: ResolvedChord): string[] {
 	const keys: string[] = [];
-	if (chord.ctrlKey) { keys.push(isMacintosh ? 'Ctrl' : 'Ctrl'); }
+	if (chord.ctrlKey) { keys.push('Ctrl'); }
 	if (chord.metaKey) { keys.push(isMacintosh ? 'Cmd' : 'Win'); }
 	if (chord.shiftKey) { keys.push('Shift'); }
 	if (chord.altKey) { keys.push(isMacintosh ? 'Option' : 'Alt'); }

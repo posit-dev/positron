@@ -29,7 +29,7 @@ export type SpawnOptions = ChildProcessSpawnOptions & {
     useWorker?: boolean;
 };
 
-export type ShellOptions = ExecOptions & { throwOnStdErr?: boolean; useWorker?: boolean; encoding?: BufferEncoding };
+export type ShellOptions = ExecOptions & { throwOnStdErr?: boolean; useWorker?: boolean };
 
 export type ExecutionResult<T extends string | Buffer> = {
     stdout: T;
