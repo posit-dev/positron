@@ -418,6 +418,28 @@ export interface ILanguageRuntimeInfo {
 	supported_features?: string[];
 }
 
+/**
+ * ILanguageRuntimeLaunchInfo describes the kernel launch parameters used to
+ * start a runtime session. This is the information from the Jupyter kernel
+ * spec that was used to start the kernel.
+ */
+export interface ILanguageRuntimeLaunchInfo {
+	/** The command line used to start the kernel */
+	argv: string[];
+
+	/** Environment variables set for the kernel process */
+	env: Record<string, string>;
+
+	/** Optional preflight command run before starting the kernel (e.g. conda activate) */
+	startupCommand?: string;
+
+	/** How the kernel handles interrupts */
+	interruptMode?: string;
+
+	/** The Jupyter protocol version in use */
+	protocolVersion?: string;
+}
+
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
 export interface ILanguageRuntimeStartupFailure {
 	/** The error message to show to the user; at most one line of text */

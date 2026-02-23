@@ -26,7 +26,7 @@ import { getWorkbenchContribution } from '../../../common/contributions.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IOutputService } from '../../../services/output/common/output.js';
 import * as perf from '../../../../base/common/performance.js';
@@ -160,6 +160,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.blank();
 				this._addInterpreterSettings(md);
 				md.blank();
+				await this._addSessionLaunchInfo(md);
+				md.blank();
 				this._addDiscoveredRuntimes(md);
 				md.blank();
 				await this._addOutputChannels(md);
@@ -285,6 +287,67 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			]);
 		}
 		md.table(['Runtime', 'Name', 'Mode', 'State', 'Start Reason', 'Created'], table);
+	}
+
+	private async _addSessionLaunchInfo(md: MarkdownBuilder): Promise<void> {
+		md.heading(2, 'Session Launch Parameters');
+
+		const sessions = this._runtimeSessionService.activeSessions;
+		if (sessions.length === 0) {
+			md.li('No active sessions');
+			return;
+		}
+
+		for (const session of sessions) {
+			if (!session.getLaunchInfo) {
+				continue;
+			}
+
+			let launchInfo: ILanguageRuntimeLaunchInfo | undefined;
+			try {
+				launchInfo = await session.getLaunchInfo();
+			} catch {
+				// Session may not support launch info; skip it.
+				continue;
+			}
+
+			if (!launchInfo) {
+				continue;
+			}
+
+			md.heading(3, session.runtimeMetadata.runtimeName);
+
+			// Command line
+			md.li(`**argv**: \`${launchInfo.argv.join(' ')}\``);
+
+			// Startup command (e.g. conda activate)
+			if (launchInfo.startupCommand) {
+				md.li(`**Startup command**: \`${launchInfo.startupCommand}\``);
+			}
+
+			// Protocol and interrupt mode
+			if (launchInfo.protocolVersion) {
+				md.li(`**Protocol version**: ${launchInfo.protocolVersion}`);
+			}
+			if (launchInfo.interruptMode) {
+				md.li(`**Interrupt mode**: ${launchInfo.interruptMode}`);
+			}
+
+			// Environment variables
+			const envKeys = Object.keys(launchInfo.env);
+			if (envKeys.length > 0) {
+				md.li(`**Environment variables** (${envKeys.length}):`);
+				const envTable: Array<Array<string>> = [];
+				for (const key of envKeys.sort()) {
+					envTable.push([key, launchInfo.env[key]]);
+				}
+				md.blank();
+				md.table(['Variable', 'Value'], envTable);
+			} else {
+				md.li('**Environment variables**: (none)');
+			}
+			md.blank();
+		}
 	}
 
 	private _addTimeToFirstRuntime(md: MarkdownBuilder): void {
