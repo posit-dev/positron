@@ -11,6 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
+import { isMacintosh } from '../../../../../../base/common/platform.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { OKModalDialog } from '../../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 
@@ -55,7 +56,7 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 	// Resolve the keyboard shortcut dynamically so it reflects custom keybindings.
 	const shortcutLabel = React.useMemo(() => {
 		const binding = keybindingService.lookupKeybinding(GHOST_CELL_SUGGESTION_COMMAND_ID);
-		return binding?.getLabel() ?? null;
+		return binding?.getLabel() ?? (isMacintosh ? 'Cmd+Shift+G' : 'Ctrl+Shift+G');
 	}, [keybindingService]);
 
 	const handleClose = React.useCallback(() => {
@@ -86,12 +87,10 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 				<div className='ghost-cell-info-section'>
 					<div className='ghost-cell-info-heading'>{howDoTheyWorkHeading}</div>
 					<div className='ghost-cell-info-text'>{howDoTheyWorkText}</div>
-					{shortcutLabel && (
-						<div className='ghost-cell-info-text'>
-							{keyboardShortcutPrefix}{' '}
-							<kbd className='ghost-cell-info-kbd'>{shortcutLabel}</kbd>.
-						</div>
-					)}
+					<div className='ghost-cell-info-text'>
+						{keyboardShortcutPrefix}{' '}
+						<kbd className='ghost-cell-info-kbd'>{shortcutLabel}</kbd>.
+					</div>
 				</div>
 				{modelName && (
 					<div className='ghost-cell-info-section'>
