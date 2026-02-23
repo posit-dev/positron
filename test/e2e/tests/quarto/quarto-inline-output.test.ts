@@ -2096,7 +2096,7 @@ test.describe('Quarto - Inline Output', {
 			await page.keyboard.type(String(lineNumber));
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(300);
-			await page.keyboard.press('Meta+Enter');
+			await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
 		}
 
 		// STEP 1: Execute the first line of the first cell (line 11)
@@ -2164,7 +2164,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(300);
 
 		// Execute the selection
-		await page.keyboard.press('Meta+Enter');
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
 		await page.waitForTimeout(2000);
 
 		// Scroll to see output
@@ -2184,7 +2184,7 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Execute - this should execute the entire multi-line statement (lines 19-21)
-		await page.keyboard.press('Meta+Enter');
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
 
 		// Wait for execution and scroll to see output
 		await expect(async () => {
