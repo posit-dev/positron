@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* eslint-disable no-restricted-syntax */
+
 import assert from 'assert';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
@@ -100,7 +102,6 @@ suite('ColumnSummaryCell', () => {
 	const columnSchema = getColumnSchema('test_column', 0, 'string', ColumnDisplayType.String);
 
 	function renderRoot(
-		root: Root,
 		mockTableSummaryDataGridInstance: TableSummaryDataGridInstance,
 	) {
 		// Render the widget and wait for React to flush
@@ -125,12 +126,8 @@ suite('ColumnSummaryCell', () => {
 
 	teardown(() => {
 		// Clean up the React root and container
-		if (root) {
-			root.unmount();
-		}
-		if (container && container.parentNode) {
-			container.parentNode.removeChild(container);
-		}
+		root.unmount();
+		container.remove();
 		// Restore spies and stubs
 		sinon.restore();
 	});
@@ -141,7 +138,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 0,
 		});
 
-		renderRoot(root, mockTableSummaryDataGridInstance);
+		renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -154,7 +151,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1,
 		});
 
-		renderRoot(root, mockTableSummaryDataGridInstance);
+		renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -167,7 +164,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 999,
 		});
 
-		renderRoot(root, mockTableSummaryDataGridInstance);
+		renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -180,7 +177,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1000,
 		});
 
-		renderRoot(root, mockTableSummaryDataGridInstance);
+		renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
