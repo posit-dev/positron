@@ -10,16 +10,6 @@ import { IPackageManager, MessageEmitter } from './types';
 import { UvPackageManager } from './uvPackageManager';
 
 /**
- * Package manager types for Python environments.
- * Used to identify which package manager is handling package operations.
- */
-export enum PackageManagerType {
-    Pip = 'Pip',
-    Venv = 'Venv',
-    Uv = 'Uv',
-}
-
-/**
  * Factory for creating the appropriate package manager based on environment type.
  *
  * This factory examines the Python environment type and returns the corresponding
