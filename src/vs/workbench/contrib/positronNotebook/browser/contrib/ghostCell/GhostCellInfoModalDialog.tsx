@@ -26,7 +26,7 @@ const whatAreGhostCellsText = localize('ghostCellInfo.whatAreText', 'Ghost cell 
 const howDoTheyWorkHeading = localize('ghostCellInfo.howWorkHeading', 'How do they work?');
 const howDoTheyWorkText = localize('ghostCellInfo.howWorkText', 'The AI analyzes your notebook context - including previous cells, outputs, and the overall structure - to suggest code that logically follows your current work.');
 const keyboardShortcutPrefix = localize('ghostCellInfo.keyboardShortcutPrefix', 'You can manually trigger a suggestion at any time by pressing');
-const defaultShortcutKeys = isMacintosh ? ['Cmd', 'Shift', 'G'] : ['Ctrl', 'Shift', 'G'];
+const defaultShortcutChords: string[][] = [isMacintosh ? ['Cmd', 'Shift', 'G'] : ['Ctrl', 'Shift', 'G']];
 
 const GHOST_CELL_SUGGESTION_COMMAND_ID = 'positronNotebook.requestGhostCellSuggestion';
 
@@ -69,15 +69,16 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 	const { commandService, keybindingService } = renderer.services;
 
 	// Resolve the keyboard shortcut dynamically so it reflects custom keybindings.
-	const shortcutKeys = React.useMemo(() => {
+	// Returns an array of chords, where each chord is an array of key labels.
+	const shortcutChords = React.useMemo(() => {
 		const binding = keybindingService.lookupKeybinding(GHOST_CELL_SUGGESTION_COMMAND_ID);
 		if (binding) {
 			const chords = binding.getChords();
 			if (chords.length > 0) {
-				return chordToKeys(chords[0]);
+				return chords.map(chordToKeys);
 			}
 		}
-		return defaultShortcutKeys;
+		return defaultShortcutChords;
 	}, [keybindingService]);
 
 	const handleClose = React.useCallback(() => {
@@ -110,10 +111,15 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 					<div className='ghost-cell-info-text'>{howDoTheyWorkText}</div>
 					<div className='ghost-cell-info-text'>
 						{keyboardShortcutPrefix}{' '}
-						{shortcutKeys.map((key, i) => (
-							<React.Fragment key={key}>
-								{i > 0 && <span className='ghost-cell-info-kbd-separator'>+</span>}
-								<kbd className='ghost-cell-info-kbd'>{key}</kbd>
+						{shortcutChords.map((chord, ci) => (
+							<React.Fragment key={ci}>
+								{ci > 0 && ' '}
+								{chord.map((key, ki) => (
+									<React.Fragment key={ki}>
+										{ki > 0 && <span className='ghost-cell-info-kbd-separator'>+</span>}
+										<kbd className='ghost-cell-info-kbd'>{key}</kbd>
+									</React.Fragment>
+								))}
 							</React.Fragment>
 						))}
 						.

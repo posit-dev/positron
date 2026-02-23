@@ -67,6 +67,7 @@ registerGhostCellAction({
 	title: localize2('positronNotebook.showGhostCellInfo', 'About Ghost Cell Suggestions'),
 	f1: true,
 	category: localize2('positronNotebook.category', 'Positron Notebook'),
+	precondition: ContextKeyExpr.equals('activeEditor', 'workbench.editor.positronNotebook'),
 	run: (controller) => {
 		const state = controller.ghostCellState.get();
 		const modelName = state.status === 'ready' ? state.modelName : undefined;
