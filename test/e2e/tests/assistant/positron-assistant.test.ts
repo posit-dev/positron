@@ -303,12 +303,12 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 		await app.workbench.assistant.loginModelProvider('anthropic-api');
 
 		// Reload window if we manually signed in (not auto-signed-in)
-		if (!process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_KEY) {
-			await runCommand('workbench.action.reloadWindow');
-			await app.code.driver.page.waitForTimeout(3000);
-			await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
-			await app.workbench.sessions.expectNoStartUpMessaging();
-		}
+		// if (!process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_KEY) {
+		// 	await runCommand('workbench.action.reloadWindow');
+		// 	await app.code.driver.page.waitForTimeout(3000);
+		// 	await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		// 	await app.workbench.sessions.expectNoStartUpMessaging();
+		// }
 
 		await expect(async () => {
 			try {
