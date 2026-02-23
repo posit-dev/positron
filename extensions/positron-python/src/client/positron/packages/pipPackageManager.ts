@@ -21,9 +21,9 @@ export class PipPackageManager implements IPackageManager {
     private _pythonService: IPythonExecutionService | undefined;
 
     constructor(
-        protected readonly _pythonPath: string,
-        protected readonly _messageEmitter: MessageEmitter,
-        protected readonly _serviceContainer: IServiceContainer,
+        private readonly _pythonPath: string,
+        private readonly _messageEmitter: MessageEmitter,
+        private readonly _serviceContainer: IServiceContainer,
     ) {}
 
     /**
@@ -125,13 +125,13 @@ export class PipPackageManager implements IPackageManager {
     }
 
     // =========================================================================
-    // Protected helper methods
+    // Private helper methods
     // =========================================================================
 
     /**
      * Get or create the Python execution service.
      */
-    protected async _getPythonService(): Promise<IPythonExecutionService> {
+    private async _getPythonService(): Promise<IPythonExecutionService> {
         if (!this._pythonService) {
             const factory = this._serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
             this._pythonService = await factory.create({ pythonPath: this._pythonPath });
@@ -142,7 +142,7 @@ export class PipPackageManager implements IPackageManager {
     /**
      * Ensure pip is available, throwing an error if not.
      */
-    protected async _ensurePip(): Promise<void> {
+    private async _ensurePip(): Promise<void> {
         const hasPip = await this.isPipAvailable();
         if (!hasPip) {
             throw new Error(
@@ -156,14 +156,14 @@ export class PipPackageManager implements IPackageManager {
      * Format package install requests into pip package specifiers.
      * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0"
      */
-    protected _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
+    private _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
         return packages.map((pkg) => (pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name));
     }
 
     /**
      * Get proxy flags if a proxy is configured.
      */
-    protected _getProxyFlags(): string[] {
+    private _getProxyFlags(): string[] {
         const proxy = vscode.workspace.getConfiguration('http').get<string>('proxy', '');
         if (proxy) {
             return ['--proxy', proxy];
@@ -174,7 +174,7 @@ export class PipPackageManager implements IPackageManager {
     /**
      * Get installation flags based on the Python environment type.
      */
-    protected async _getInstallFlags(): Promise<string[]> {
+    private async _getInstallFlags(): Promise<string[]> {
         const flags: string[] = [...this._getProxyFlags()];
         return flags;
     }
@@ -182,7 +182,7 @@ export class PipPackageManager implements IPackageManager {
     /**
      * Execute a pip command in the terminal (visible to user).
      */
-    protected async _executePipInTerminal(args: string[]): Promise<void> {
+    private async _executePipInTerminal(args: string[]): Promise<void> {
         const terminalService = this._serviceContainer
             .get<ITerminalServiceFactory>(ITerminalServiceFactory)
             .getTerminalService({});
@@ -199,7 +199,7 @@ export class PipPackageManager implements IPackageManager {
     /**
      * Emit a stream message to the console.
      */
-    protected _emitMessage(text: string, parentId?: string): void {
+    private _emitMessage(text: string, parentId?: string): void {
         this._messageEmitter.fire({
             id: randomUUID(),
             parent_id: parentId ?? '',
