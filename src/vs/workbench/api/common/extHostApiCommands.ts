@@ -556,7 +556,12 @@ const newCommands: ApiCommand[] = [
 					switch (result.rejectionKind) {
 						case languages.StatementRangeRejectionKind.Syntax:
 							throw new extHostTypes.StatementRangeSyntaxError(result.line);
+						default:
+							throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${result.rejectionKind}`);
 					}
+				default:
+					throw new Error(`Unrecognized 'StatementRangeKind': ${result}`);
+
 			}
 		})
 	),

@@ -85,7 +85,13 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 					case StatementRangeRejectionKind.Syntax: {
 						throw new positron.StatementRangeSyntaxError(data.line);
 					}
+					default: {
+						throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${data.rejectionKind}`);
+					}
 				}
+			}
+			default: {
+				throw new Error(`Unrecognized 'StatementRangeKind': ${data}`);
 			}
 		}
 	}

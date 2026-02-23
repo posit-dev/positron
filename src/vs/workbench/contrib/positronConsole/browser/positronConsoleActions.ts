@@ -538,12 +538,18 @@ export function registerPositronConsoleActions() {
 									);
 									break;
 								}
+								default: {
+									throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${statementRange.rejectionKind}`);
+								}
 							}
 							// Rejections returned by a provider are critical issues.
 							// We should not continue with a line-based approach after receiving one.
 							// This allows the user to focus on the notification instead and deal
 							// with the reason for the rejection.
 							return undefined;
+						}
+						default: {
+							throw new Error(`Unrecognized 'StatementRangeKind': ${statementRange}`);
 						}
 					}
 				} else {
@@ -711,10 +717,16 @@ export function registerPositronConsoleActions() {
 									);
 									break;
 								}
+								default: {
+									throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${nextStatementRange.rejectionKind}`);
+								}
 							}
 							// Rejections returned by a provider are critical issues.
 							// We should not advance the cursor after receiving one.
 							return undefined;
+						}
+						default: {
+							throw new Error(`Unrecognized 'StatementRangeKind': ${nextStatementRange}`);
 						}
 					}
 				}
