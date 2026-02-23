@@ -352,19 +352,29 @@ class TestCompletions:
         assert labels == {expected_label}
 
     @pytest.mark.parametrize(
-        ("source", "character", "expected_labels"),
+        ("source", "namespace", "character", "expected_labels"),
         [
-            ("x['']", 3, {"a", "b"}),
-            ('x[""]', 3, {"a", "b"}),
-            ("x['", None, {"a'", "b'"}),
-            ('x["', None, {'a"', 'b"'}),
+            ("x['']", {"x": {"a": 0, "b": 1}}, 3, {"a", "b"}),
+            ('x[""]', {"x": {"a": 0, "b": 1}}, 3, {"a", "b"}),
+            ("x['", {"x": {"a": 0, "b": 1}}, None, {"a'", "b'"}),
+            ('x["', {"x": {"a": 0, "b": 1}}, None, {'a"', 'b"'}),
+            ('x[[""]', {"x": pd.DataFrame({"a": [], "b": []})}, 4, {"a", "b"}),
+            ("x[['']", {"x": pd.DataFrame({"a": [], "b": []})}, 4, {"a", "b"}),
+            ('x[["', {"x": pd.DataFrame({"a": [], "b": []})}, None, {'a"', 'b"'}),
+            ("x[['", {"x": pd.DataFrame({"a": [], "b": []})}, None, {"a'", "b'"}),
+            ('x[[""]', {"x": {"a": 0, "b": 1}}, 4, set()),
+            ("x[['']", {"x": {"a": 0, "b": 1}}, 4, set()),
         ],
     )
     def test_dict_key_completion_with_closing_quote(
-        self, source: str, character: Optional[int], expected_labels: set[str]
+        self,
+        source: str,
+        namespace: Dict[str, Any],
+        character: Optional[int],
+        expected_labels: set[str],
     ) -> None:
         """Test that dict key completions don't duplicate closing quote when it already exists."""
-        server = create_test_server(namespace={"x": {"a": 0, "b": 1}})
+        server = create_test_server(namespace=namespace)
 
         text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
         completions = self._completions(server, text_document, character=character)
@@ -456,6 +466,70 @@ class TestCompletions:
                 ["0"],
                 id="polars_series_dict_key",
                 marks=pytest.mark.xfail(reason="Completing integer dict keys not supported"),
+            ),
+            # Double-bracket (multi-column) DataFrame access
+            pytest.param(
+                'x[["',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket",
+            ),
+            pytest.param(
+                "x[['",
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ["a'", "b'"],
+                id="pandas_dataframe_double_bracket_single_quote",
+            ),
+            pytest.param(
+                'x[["a", "',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket_second_col",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": pl.DataFrame({"a": []})},
+                None,
+                ['a"'],
+                id="polars_dataframe_double_bracket",
+            ),
+            pytest.param(
+                'x[[ "',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket_whitespace",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": {"a": 0, "b": 1}},
+                None,
+                [],
+                id="dict_double_bracket_no_completions",
+            ),
+            pytest.param(
+                'os.environ[["',
+                {"os": os},
+                None,
+                [],
+                id="os_environ_double_bracket_no_completions",
+            ),
+            pytest.param(
+                'import os; os.environ[["',
+                {},
+                None,
+                [],
+                id="os_environ_double_bracket_from_source_no_completions",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": pd.Series({"a": 1, "b": 2})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_series_double_bracket",
             ),
             pytest.param(
                 'os.environ["',
