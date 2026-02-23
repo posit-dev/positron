@@ -78,8 +78,10 @@ export class ContextMenu {
 
 				// Retry entire trigger+hover+click to handle menu closing unexpectedly
 				await expect(async () => {
-					// Dismiss any stale menu before re-triggering
-					await this.page.keyboard.press('Escape').catch(() => { });
+					// Dismiss any stale menu before re-triggering (only if menu is visible)
+					if (await this.contextMenu.isVisible()) {
+						await this.page.keyboard.press('Escape').catch(() => { });
+					}
 
 					// Trigger the menu
 					await menuTrigger.click({ button: menuTriggerButton });

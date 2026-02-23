@@ -14,6 +14,7 @@ from positron.positron_lsp import (
     _RE_DICT_KEY_ACCESS,
     _RE_DOTTED_IDENTIFIER,
     _RE_DOTTED_IDENTIFIER_WS,
+    _RE_DOUBLE_BRACKET_KEY_ACCESS,
     _RE_KWARG_NAME,
     _RE_KWARG_TRAILING,
     _RE_KWARG_VALUE,
@@ -80,6 +81,49 @@ class TestDictKeyAccess:
     )
     def test_no_match(self, text: str) -> None:
         assert _RE_DICT_KEY_ACCESS.search(text) is None
+
+
+class TestDoubleBracketKeyAccess:
+    """Match DataFrame multi-column select like df[["col."""
+
+    @pytest.mark.parametrize(
+        ("text", "expr", "quote", "prefix"),
+        [
+            ('x[["', "x", '"', ""),
+            ("x[['", "x", "'", ""),
+            ('x[["abc', "x", '"', "abc"),
+            ("df[['col", "df", "'", "col"),
+            ('obj.attr[["key', "obj.attr", '"', "key"),
+            ('x  [["', "x", '"', ""),
+            ('x[["a", "', "x", '"', ""),
+            ('x[["a", "bc', "x", '"', "bc"),
+            ("x[['a', 'b', '", "x", "'", ""),
+            ('x[[ "', "x", '"', ""),
+            ('x[[ "a",  "bc', "x", '"', "bc"),
+        ],
+    )
+    def test_match(self, text: str, expr: str, quote: str, prefix: str) -> None:
+        m = _RE_DOUBLE_BRACKET_KEY_ACCESS.search(text)
+        assert m is not None
+        assert m.group(1) == expr
+        assert m.group(2) == quote
+        assert m.group(3) == prefix
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            'x["',
+            "x['",
+            "x[[",
+            "x[[1",
+            "x",
+            "",
+            '[["',
+            "[['",
+        ],
+    )
+    def test_no_match(self, text: str) -> None:
+        assert _RE_DOUBLE_BRACKET_KEY_ACCESS.search(text) is None
 
 
 class TestDottedIdentifier:

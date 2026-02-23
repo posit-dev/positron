@@ -173,11 +173,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Selected Item
 	const [selectedItem, setSelectedItem] = useState<string | undefined>();
 
-	// Load packages when the active session changes
-	useEffect(() => {
-		services.commandService.executeCommand('positronPackages.refreshPackages');
-	}, [activeInstance, services.commandService]);
-
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
 	const [, setScrollState, scrollStateRef] = useStateRef<number[] | undefined>(

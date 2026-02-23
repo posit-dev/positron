@@ -37,20 +37,26 @@ export const usePositronPackagesState = (
 		const disposableStore = new DisposableStore();
 		disposableStore.add(
 			services.positronPackagesService.onDidChangeActivePackagesInstance((instance) => {
-				setInstances(services.positronPackagesService.getInstances())
-				setInstance(instance)
+				setInstances(services.positronPackagesService.getInstances());
+				setInstance(instance);
 			})
 		)
 
 		disposableStore.add(
 			services.positronPackagesService.onDidStopPackagesInstance(() => {
-				setInstances(services.positronPackagesService.getInstances())
+				setInstances(services.positronPackagesService.getInstances());
 			})
 		)
 		return () => disposableStore.dispose();
 	}, [
 		services.positronPackagesService,
 	]);
+
+	// When the active instance changes, attach
+	useEffect(() => {
+		instance?.attachRuntime();
+		return () => instance?.detachRuntime();
+	}, [instance]);
 
 	// Return the Positron Packages state.
 	return {

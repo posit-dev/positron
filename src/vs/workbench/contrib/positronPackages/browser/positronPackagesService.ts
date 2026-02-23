@@ -7,6 +7,7 @@ import { timeout } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { isEqual } from '../../../../base/common/resources.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -39,10 +40,12 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	 * Constructor.
 	 * @param _runtimeSessionService The language runtime service.
 	 * @param _editorService The editor service.
+	 * @param _logService The log service.
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// Call the disposable constructor.
 		super();
@@ -78,7 +81,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		let instance = this._instancesBySessionId.get(session.sessionId);
 
 		if (!instance) {
-			instance = new PositronPackagesInstance(session);
+			instance = new PositronPackagesInstance(session, this._logService);
 			this._instancesBySessionId.set(session.sessionId, instance);
 		}
 

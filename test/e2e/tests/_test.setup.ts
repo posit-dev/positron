@@ -367,22 +367,92 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 	// Enable with ENABLE_DIAGNOSTIC_LOGGING=true
 	if (process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
 		try {
-			// Using unofficial Node.js internal APIs for debugging teardown timeouts
+			const util = require('util');
+
+			function summarizeHandle(h: any) {
+				const name = h?.constructor?.name ?? typeof h;
+
+				if (name === 'ChildProcess') {
+					return {
+						type: name,
+						pid: h.pid,
+						spawnfile: h.spawnfile,
+						spawnargs: h.spawnargs,
+						connected: h.connected,
+						killed: h.killed,
+						exitCode: h.exitCode,
+						signalCode: h.signalCode,
+					};
+				}
+
+				if (name === 'Socket') {
+					return {
+						type: name,
+						local: `${h.localAddress ?? ''}:${h.localPort ?? ''}`,
+						remote: `${h.remoteAddress ?? ''}:${h.remotePort ?? ''}`,
+						bytesWritten: h.bytesWritten,
+						bytesRead: h.bytesRead,
+						destroyed: h.destroyed,
+						pending: h.pending,
+					};
+				}
+
+				if (name === 'Pipe') {
+					return {
+						type: name,
+						fd: h.fd,
+					};
+				}
+
+				// default: show a shallow inspection
+				return {
+					type: name,
+					info: util.inspect(h, { depth: 1, maxArrayLength: 10 }),
+				};
+			}
+
 			// eslint-disable-next-line local/code-no-any-casts
 			const handles = (process as any)._getActiveHandles?.() ?? [];
 			// eslint-disable-next-line local/code-no-any-casts
 			const requests = (process as any)._getActiveRequests?.() ?? [];
 			console.log(`\n[afterAll] Active handles=${handles.length} requests=${requests.length}`);
+
 			for (const h of handles) {
-				console.log('  handle:', h?.constructor?.name ?? typeof h);
+				console.log(' handle:', summarizeHandle(h));
 			}
+
+			// Group requests by type for cleaner output
+			const byType = new Map<string, number>();
+			const writeWraps: any[] = [];
 			for (const r of requests) {
-				console.log('  request:', r?.constructor?.name ?? typeof r);
+				const t = r?.constructor?.name ?? typeof r;
+				byType.set(t, (byType.get(t) ?? 0) + 1);
+
+				// Collect WriteWrap samples for detailed inspection
+				if (t === 'WriteWrap' && writeWraps.length < 3) {
+					writeWraps.push(r);
+				}
+			}
+			console.log(' requestsByType:', Object.fromEntries(byType));
+
+			// Show detailed info for first few WriteWrap requests (the smoking gun)
+			if (writeWraps.length > 0) {
+				console.log(' WriteWrap samples (first 3):');
+				for (const w of writeWraps) {
+					try {
+						const handleType = w.handle?.constructor?.name ?? 'unknown';
+						const handleDestroyed = w.handle?.destroyed ?? 'unknown';
+						console.log(`   - handle: ${handleType}, destroyed: ${handleDestroyed}`);
+					} catch {
+						console.log('   - (unable to inspect)');
+					}
+				}
 			}
 		} catch (error) {
 			console.log(`Error dumping handles: ${error}`);
 		}
 	}
+
 });
 
 export { playwrightExpect as expect };

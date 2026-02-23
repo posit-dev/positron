@@ -13,11 +13,12 @@ import {
     DiscoveredTestNode,
     DiscoveredTestPayload,
     ExecutionTestPayload,
-    ITestResultResolver,
+    ITestItemMappings,
 } from './types';
 import { Deferred, createDeferred } from '../../../common/utils/async';
 import { createReaderPipe, generateRandomPipeName } from '../../../common/pipes/namedPipes';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
+import { PROJECT_ID_SEPARATOR } from './projectUtils';
 
 export function fixLogLinesNoTrailing(content: string): string {
     const lines = content.split(/\r?\n/g);
@@ -175,32 +176,49 @@ export async function startDiscoveryNamedPipe(
 }
 
 /**
- * Detects if an error message indicates that pytest is not installed.
- * @param message The error message to check
- * @returns True if the error indicates pytest is not installed
+ * Extracts the missing module name from a ModuleNotFoundError or ImportError message.
+ * @param message The error message to parse
+ * @returns The module name if found, undefined otherwise
  */
-function isPytestNotInstalledError(message: string): boolean {
-    return (
-        (message.includes('ModuleNotFoundError') && message.includes('pytest')) ||
-        (message.includes('No module named') && message.includes('pytest')) ||
-        (message.includes('ImportError') && message.includes('pytest'))
-    );
+function extractMissingModuleName(message: string): string | undefined {
+    // Match patterns like:
+    // - No module named 'requests'
+    // - No module named "requests"
+    // - ModuleNotFoundError: No module named 'requests'
+    // - ImportError: No module named requests
+    const patterns = [/No module named ['"]([^'"]+)['"]/, /No module named (\S+)/];
+
+    for (const pattern of patterns) {
+        const match = message.match(pattern);
+        if (match) {
+            return match[1];
+        }
+    }
+    return undefined;
 }
 
-export function buildErrorNodeOptions(uri: Uri, message: string, testType: string): ErrorTestItemOptions {
+export function buildErrorNodeOptions(
+    uri: Uri,
+    message: string,
+    testType: string,
+    projectName?: string,
+): ErrorTestItemOptions {
     let labelText = testType === 'pytest' ? 'pytest Discovery Error' : 'Unittest Discovery Error';
     let errorMessage = message;
 
-    // Provide more specific error message if pytest is not installed
-    if (testType === 'pytest' && isPytestNotInstalledError(message)) {
-        labelText = 'pytest Not Installed';
-        errorMessage =
-            'pytest is not installed in the selected Python environment. Please install pytest to enable test discovery and execution.';
+    // Check for missing module errors and provide specific messaging
+    const missingModule = extractMissingModuleName(message);
+    if (missingModule) {
+        labelText = `Missing Module: ${missingModule}`;
+        errorMessage = `The module '${missingModule}' is not installed in the selected Python environment. Please install it to enable test discovery.`;
     }
+
+    // Use project name for label if available (project-based testing), otherwise use folder name
+    const displayName = projectName ?? path.basename(uri.fsPath);
 
     return {
         id: `DiscoveryError:${uri.fsPath}`,
-        label: `${labelText} [${path.basename(uri.fsPath)}]`,
+        label: `${labelText} [${displayName}]`,
         error: errorMessage,
     };
 }
@@ -209,12 +227,18 @@ export function populateTestTree(
     testController: TestController,
     testTreeData: DiscoveredTestNode,
     testRoot: TestItem | undefined,
-    resultResolver: ITestResultResolver,
+    testItemMappings: ITestItemMappings,
     token?: CancellationToken,
+    projectId?: string,
+    projectName?: string,
 ): void {
     // If testRoot is undefined, use the info of the root item of testTreeData to create a test item, and append it to the test controller.
     if (!testRoot) {
-        testRoot = testController.createTestItem(testTreeData.path, testTreeData.name, Uri.file(testTreeData.path));
+        // Create project-scoped ID if projectId is provided
+        const rootId = projectId ? `${projectId}${PROJECT_ID_SEPARATOR}${testTreeData.path}` : testTreeData.path;
+        // Use "Project: {name}" label for project-based testing, otherwise use folder name
+        const rootLabel = projectName ? `Project: ${projectName}` : testTreeData.name;
+        testRoot = testController.createTestItem(rootId, rootLabel, Uri.file(testTreeData.path));
 
         testRoot.canResolveChildren = true;
         testRoot.tags = [RunTestTag, DebugTestTag];
@@ -226,7 +250,9 @@ export function populateTestTree(
     testTreeData.children.forEach((child) => {
         if (!token?.isCancellationRequested) {
             if (isTestItem(child)) {
-                const testItem = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
+                // Create project-scoped vsId
+                const vsId = projectId ? `${projectId}${PROJECT_ID_SEPARATOR}${child.id_}` : child.id_;
+                const testItem = testController.createTestItem(vsId, child.name, Uri.file(child.path));
                 testItem.tags = [RunTestTag, DebugTestTag];
 
                 let range: Range | undefined;
@@ -245,15 +271,17 @@ export function populateTestTree(
                 testItem.tags = [RunTestTag, DebugTestTag];
 
                 testRoot!.children.add(testItem);
-                // add to our map
-                resultResolver.runIdToTestItem.set(child.runID, testItem);
-                resultResolver.runIdToVSid.set(child.runID, child.id_);
-                resultResolver.vsIdToRunId.set(child.id_, child.runID);
+                // add to our map - use runID as key, vsId as value
+                testItemMappings.runIdToTestItem.set(child.runID, testItem);
+                testItemMappings.runIdToVSid.set(child.runID, vsId);
+                testItemMappings.vsIdToRunId.set(vsId, child.runID);
             } else {
-                let node = testController.items.get(child.path);
+                // Use project-scoped ID for non-test nodes and look up within the current root
+                const nodeId = projectId ? `${projectId}${PROJECT_ID_SEPARATOR}${child.id_}` : child.id_;
+                let node = testRoot!.children.get(nodeId);
 
                 if (!node) {
-                    node = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
+                    node = testController.createTestItem(nodeId, child.name, Uri.file(child.path));
 
                     node.canResolveChildren = true;
                     node.tags = [RunTestTag, DebugTestTag];
@@ -274,7 +302,7 @@ export function populateTestTree(
 
                     testRoot!.children.add(node);
                 }
-                populateTestTree(testController, child, node, resultResolver, token);
+                populateTestTree(testController, child, node, testItemMappings, token, projectId, projectName);
             }
         }
     });
