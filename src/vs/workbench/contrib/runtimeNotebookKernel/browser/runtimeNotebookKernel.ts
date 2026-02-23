@@ -27,6 +27,7 @@ import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellT
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
+import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';
@@ -38,7 +39,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	/**
 	 * The kernel's supported view type.
 	 */
-	public readonly viewType = '*';
+	public readonly viewType = IPYNB_VIEW_TYPE;
 
 	/**
 	 * The kernel's extension. Although this kernel lives in the main thread, some notebook services

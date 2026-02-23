@@ -4,16 +4,16 @@ title: "Eval Options Test"
 
 Test document for eval option behavior.
 
-```{test}
+```{testquarto}
 #| eval: false
 skip this code
 ```
 
-```{test}
+```{testquarto}
 #| eval: true
 execute this code
 ```
 
-```{test}
+```{testquarto}
 regular test code
 ```

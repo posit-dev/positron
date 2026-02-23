@@ -4,7 +4,7 @@ title: "Test Document"
 
 Some markdown text.
 
-```{test}
+```{testquarto}
 test code
 ```
 

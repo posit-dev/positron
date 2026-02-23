@@ -4,21 +4,21 @@ title: "Execution Options Test"
 
 This document tests execution options.
 
-```{test}
+```{testquarto}
 #| eval: false
 skip this code
 ```
 
-```{test}
+```{testquarto}
 #| eval: true
 execute this code
 ```
 
-```{test}
+```{testquarto}
 #| error: false
 code with error continue
 ```
 
-```{test}
+```{testquarto}
 regular test code
 ```
