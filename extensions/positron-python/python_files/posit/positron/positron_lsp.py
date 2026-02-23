@@ -68,6 +68,11 @@ _RE_DICT_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$')
 
 Groups: (1) expression, (2) quote char, (3) optional key prefix"""
 
+_RE_DOUBLE_BRACKET_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*\[\s*(?:.*,\s*)?(["\'])([^"\']*)?$')
+"""DataFrame multi-column select: e.g. `df[["col` or `df[["a", "col`
+
+Groups: (1) expression, (2) quote char, (3) optional key prefix"""
+
 _RE_DOTTED_IDENTIFIER = re.compile(r"([\w\.]+)$")
 """Trailing dotted identifier: e.g. `os.path.join`
 
@@ -590,6 +595,10 @@ def _handle_completion(
     # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
     dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
+    is_double_bracket = False
+    if not dict_key_match:
+        dict_key_match = _RE_DOUBLE_BRACKET_KEY_ACCESS.search(text_before_cursor)
+        is_double_bracket = dict_key_match is not None
     if dict_key_match:
         quote_char = dict_key_match.group(2)
         # Check if there's already a closing quote after cursor
@@ -602,6 +611,7 @@ def _handle_completion(
                 quote_char=quote_char,
                 has_closing_quote=has_closing_quote,
                 document=document,
+                exclude_dicts=is_double_bracket,
             )
         )
 
@@ -785,6 +795,7 @@ def _get_dict_key_completions(
     quote_char: str,
     has_closing_quote: bool,
     document: TextDocument | None = None,
+    exclude_dicts: bool = False,
 ) -> list[types.CompletionItem]:
     """Get dict key completions for dict-like objects (dict, DataFrame, Series, os.environ)."""
     if server.shell is None:
@@ -807,12 +818,17 @@ def _get_dict_key_completions(
     items = []
     keys: list[str] = []
 
-    # Get keys based on the type of object
+    # Get keys based on the type of object.
+    # Double-bracket access (df[["col"]]) only makes sense for DataFrames/Series,
+    # not plain dicts or environ (which would raise TypeError on list keys).
     if isinstance(obj, dict):
-        keys = [str(k) for k in obj if isinstance(k, str)]
+        if not exclude_dicts:
+            keys = [str(k) for k in obj if isinstance(k, str)]
     elif _is_environ_like(obj):
-        # os.environ or similar - use shared helper
-        return _make_env_var_completions(prefix, quote_char, has_closing_quote=has_closing_quote)
+        if not exclude_dicts:
+            return _make_env_var_completions(
+                prefix, quote_char, has_closing_quote=has_closing_quote
+            )
     elif _is_dataframe_like(obj):
         # pandas/polars DataFrame
         with contextlib.suppress(Exception):
