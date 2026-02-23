@@ -584,6 +584,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// as the affiliated runtime for this workspace.
 		if (!this._newFolderService.initTasksComplete.isOpen()) {
 			perf.mark('code/positron/newFolderInitTasks');
+			this.setStartupPhase(RuntimeStartupPhase.NewFolderTasks);
 			await this._newFolderService.initTasksComplete.wait();
 			const newRuntime = this._newFolderService.newFolderRuntimeMetadata;
 			if (newRuntime) {

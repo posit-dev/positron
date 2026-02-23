@@ -91,7 +91,7 @@ export const StartupStatus = () => {
 			bar?.done();
 			disposableStore.dispose();
 		};
-	});
+	}, [services.languageRuntimeService, services.runtimeStartupService]);
 
 	// Render.
 	return (
