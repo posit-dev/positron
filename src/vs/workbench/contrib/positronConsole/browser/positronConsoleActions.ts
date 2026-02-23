@@ -178,7 +178,7 @@ function notifyStatementRangeSyntaxRejection(
 	let message = '';
 	let actions = undefined;
 
-	if (line) {
+	if (line !== undefined) {
 		const lineOneIndexed = line + 1;
 
 		message = localize(
