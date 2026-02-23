@@ -22,10 +22,17 @@ import {
 import { BrowserTestRunner, PlatformTestRunner, VSCodeTestRunner } from './vscodeTestRunner';
 import { ImportGraph } from './importGraph';
 
-const TEST_FILE_PATTERN = 'src/vs/**/*.{test,integrationTest}.ts';
+// --- Start Positron ---
+// Add .tsx to the test file pattern to allow testing of React components
+const TEST_FILE_PATTERN = 'src/vs/**/*.{test,integrationTest}.{ts,tsx}';
+// --- End Positron ---
 
 const getWorkspaceFolderForTestFile = (uri: vscode.Uri) =>
-	(uri.path.endsWith('.test.ts') || uri.path.endsWith('.integrationTest.ts')) &&
+	// --- Start Positron ---
+	// Add .tsx to the test file pattern to allow testing of React components
+	(uri.path.endsWith('.test.ts') || uri.path.endsWith('.integrationTest.ts') ||
+		uri.path.endsWith('.test.tsx') || uri.path.endsWith('.integrationTest.tsx')) &&
+		// --- End Positron ---
 		uri.path.includes('/src/vs/')
 		? vscode.workspace.getWorkspaceFolder(uri)
 		: undefined;
