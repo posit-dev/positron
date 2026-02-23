@@ -38,8 +38,8 @@ import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
-import { PipPackageManager } from './pipPackageManager';
-import { PackageManagerFactory } from './packageManagerFactory';
+import { PackageManagerFactory } from './packages/packageManagerFactory';
+import { IPackageManager } from './packages/types';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -125,8 +125,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     private dynState: positron.LanguageRuntimeDynState;
 
-    /** The pip package manager for handling package operations */
-    private _pipPackageManager: PipPackageManager;
+    /** The package manager for handling package operations */
+    private _packageManager: IPackageManager;
 
     onDidReceiveRuntimeMessage = this._messageEmitter.event;
 
@@ -172,7 +172,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
-        this._pipPackageManager = PackageManagerFactory.create(
+        this._packageManager = PackageManagerFactory.create(
             runtimeMetadata.runtimeSource,
             this._pythonPath,
             this._messageEmitter,
@@ -392,14 +392,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * Supports specifying versions with == syntax (e.g., "package==1.0.0").
      */
     async installPackages(packages: positron.PackageSpec[]): Promise<void> {
-        await this._pipPackageManager.installPackages(packages);
+        await this._packageManager.installPackages(packages);
     }
 
     /**
      * Uninstall one or more packages.
      */
     async uninstallPackages(packageNames: string[]): Promise<void> {
-        await this._pipPackageManager.uninstallPackages(packageNames);
+        await this._packageManager.uninstallPackages(packageNames);
     }
 
     /**
@@ -407,14 +407,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * Supports specifying versions with == syntax (e.g., "package==1.0.0").
      */
     async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
-        await this._pipPackageManager.updatePackages(packages);
+        await this._packageManager.updatePackages(packages);
     }
 
     /**
      * Update all installed packages to their latest versions.
      */
     async updateAllPackages(): Promise<void> {
-        await this._pipPackageManager.updateAllPackages();
+        await this._packageManager.updateAllPackages();
     }
 
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {

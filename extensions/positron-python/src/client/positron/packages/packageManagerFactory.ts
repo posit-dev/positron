@@ -3,11 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as positron from 'positron';
-import { IServiceContainer } from '../ioc/types';
-import { EnvironmentType } from '../pythonEnvironments/info';
+import { IServiceContainer } from '../../ioc/types';
+import { EnvironmentType } from '../../pythonEnvironments/info';
 import { PipPackageManager } from './pipPackageManager';
-import { VenvPackageManager } from './venvPackageManager';
+import { IPackageManager, MessageEmitter } from './types';
 
 /**
  * Package manager types for Python environments.
@@ -16,13 +15,6 @@ import { VenvPackageManager } from './venvPackageManager';
 export enum PackageManagerType {
     Pip = 'Pip',
     Venv = 'Venv',
-}
-
-/**
- * Interface for emitting messages to the Positron console
- */
-interface MessageEmitter {
-    fire(message: positron.LanguageRuntimeMessage): void;
 }
 
 /**
@@ -44,14 +36,14 @@ export class PackageManagerFactory {
      * @returns The appropriate package manager for the environment
      */
     static create(
-        runtimeSource: string,
+        runtimeSource: EnvironmentType,
         pythonPath: string,
         messageEmitter: MessageEmitter,
         serviceContainer: IServiceContainer,
-    ): PipPackageManager {
+    ): IPackageManager {
         // Check if the environment is a venv
         if (runtimeSource === EnvironmentType.Venv) {
-            return new VenvPackageManager(pythonPath, messageEmitter, serviceContainer);
+            return new PipPackageManager(pythonPath, messageEmitter, serviceContainer);
         }
 
         // Default to PipPackageManager for all other environment types
