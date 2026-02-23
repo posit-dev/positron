@@ -76,7 +76,7 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 			}, kFilterTimeout);
 
 			// Clear the find timeout.
-			return () => clearTimeout(filterTimeout)
+			return () => clearTimeout(filterTimeout);
 		}
 	}, [filterText, positronVariablesContext.activePositronVariablesInstance]);
 

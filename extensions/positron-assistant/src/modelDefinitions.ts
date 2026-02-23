@@ -50,8 +50,23 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
 	]],
-	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql#regional-availability
+	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api#model-availability
 	['snowflake-cortex', [
+		{
+			name: 'Claude Haiku 4.5',
+			identifier: 'claude-haiku-4-5',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
+		{
+			name: 'Claude Opus 4.5',
+			identifier: 'claude-opus-4-5',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
+		{
+			name: 'Claude Opus 4.6',
+			identifier: 'claude-opus-4-6',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
 		{
 			name: 'Claude Sonnet 4',
 			identifier: 'claude-4-sonnet',
@@ -63,19 +78,14 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
-			name: 'Claude Haiku 4.5',
-			identifier: 'claude-haiku-4-5',
-			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+			name: 'GPT-4.1',
+			identifier: 'openai-gpt-4.1',
+			maxInputTokens: 128_000, // Typical GPT context window
 		},
 		{
 			name: 'GPT-5',
 			identifier: 'openai-gpt-5',
-			maxInputTokens: 128_000, // Typical GPT-5 context window
-		},
-		{
-			name: 'GPT-4.1',
-			identifier: 'openai-gpt-4.1',
-			maxInputTokens: 128_000, // Typical GPT-5 context window
+			maxInputTokens: 128_000, // Typical GPT context window
 		},
 	]]
 ]);

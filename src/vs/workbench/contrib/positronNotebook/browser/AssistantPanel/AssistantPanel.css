@@ -478,22 +478,35 @@
 
 /* Setting label (left-aligned) */
 .assistant-panel-setting-label {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
-	gap: 4px;
 	color: var(--vscode-foreground);
 	flex-shrink: 0;
 }
 
-/* Info indicator for setting tooltips */
+/* Info icon next to setting label */
 .assistant-panel-setting-info {
+	margin-left: 4px;
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
-	cursor: help;
+	cursor: default;
 }
 
 .assistant-panel-setting-info:hover {
 	color: var(--vscode-foreground);
+}
+
+/* Popover for setting description */
+.assistant-panel-setting-popover {
+	max-width: 260px;
+	padding: 8px 10px;
+	font-size: 12px;
+	line-height: 1.4;
+	color: var(--vscode-foreground);
+	background: var(--vscode-editorHoverWidget-background);
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Controls container (right-aligned) */
@@ -549,62 +562,6 @@
 .assistant-panel-checkbox:focus-visible + .assistant-panel-checkbox-indicator {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 1px;
-}
-
-/* Toggle - matches ActionBarToggle styling */
-.assistant-panel-toggle {
-	display: flex;
-	font-size: 12px;
-	align-items: center;
-}
-
-.assistant-panel-toggle .toggle-container {
-	height: 22px;
-	border: none;
-	display: grid;
-	padding: 0 .5px;
-	cursor: pointer;
-	border-radius: 6px;
-	align-items: center;
-	grid-template-columns: [left] 1fr [right] 1fr [end];
-	background-color: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
-}
-
-.assistant-panel-toggle .toggle-container:focus {
-	outline: none;
-}
-
-.assistant-panel-toggle .toggle-container:focus-visible {
-	outline-offset: 2px;
-	outline: 1px solid var(--vscode-focusBorder);
-}
-
-.assistant-panel-toggle .toggle-container.disabled {
-	opacity: 0.5;
-	cursor: default;
-}
-
-.assistant-panel-toggle .toggle-container .toggle-button {
-	display: flex;
-	height: 20px;
-	padding: 0 6px;
-	border-radius: 6px;
-	align-items: center;
-	justify-content: center;
-	border: 1px solid transparent;
-}
-
-.assistant-panel-toggle .toggle-container .toggle-button.highlighted {
-	background-color: var(--vscode-positronActionBar-background, var(--vscode-editor-background));
-	border: 1px solid var(--vscode-positronActionBar-toggleButtonHighlightedBorder, var(--vscode-contrastBorder, transparent));
-}
-
-.assistant-panel-toggle .toggle-container .toggle-button.left {
-	grid-column: left / right;
-}
-
-.assistant-panel-toggle .toggle-container .toggle-button.right {
-	grid-column: right / end;
 }
 
 /* Settings button with icon */

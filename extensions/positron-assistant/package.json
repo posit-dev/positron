@@ -221,6 +221,12 @@
         "title": "%commands.resetState.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.selectGhostCellModel",
+        "title": "%commands.selectGhostCellModel.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [
@@ -1103,7 +1109,7 @@
       {
         "name": "getTableSummary",
         "displayName": "Get Table Summary",
-        "modelDescription": "Get structured information about table variables in the current session.",
+        "modelDescription": "Retrieve summary statistics and structure of tabular data variables (DataFrames, tibbles, arrays) in the current session. Use when the user asks to summarize, describe, or inspect their data.",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "getTableSummary",
         "userDescription": "Get a summary of a table's data and structure.",

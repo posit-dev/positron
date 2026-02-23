@@ -1818,8 +1818,11 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 
 			// External file DND (Import/Upload file)
 			if (data instanceof NativeDragAndDropData) {
-				// --- Start PWB: disable file downloads ---
-				if (this.environmentService.isEnabledFileUploads) {
+				// --- Start Positron ---
+				// Combine CLI flag with user setting using "most restrictive wins" logic
+				const cliUploads = this.environmentService.isEnabledFileUploads;
+				const settingUploads = this.configurationService.getValue<boolean>('files.enableUploads') ?? true;
+				if (cliUploads && settingUploads) {
 					// Use local file import when supported
 					if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
 						const fileImport = this.instantiationService.createInstance(ExternalFileImport);
@@ -1830,8 +1833,8 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 						const browserUpload = this.instantiationService.createInstance(BrowserFileUpload);
 						await browserUpload.upload(target, originalEvent);
 					}
-					// --- End PWB ---
 				}
+				// --- End Positron ---
 			}
 
 			// In-Explorer DND (Move/Copy file)

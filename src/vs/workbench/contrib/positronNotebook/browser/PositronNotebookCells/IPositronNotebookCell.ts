@@ -8,12 +8,12 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { IObservable, IObservableSignal, ISettableObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 import { IPositronCellViewModel } from '../IPositronNotebookEditor.js';
+import { ICellRevealOptions } from './PositronNotebookCell.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
@@ -190,10 +190,10 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 
 	/**
 	 * Reveal the cell in the viewport
-	 * @param type Reveal type.
+	 * @param options Reveal options controlling scroll behavior based on reason (keyboard navigation vs programmatic).
 	 * @returns Promise that resolves to true if the cell was successfully revealed, false otherwise.
 	 */
-	reveal(type?: CellRevealType): Promise<boolean>;
+	reveal(options: ICellRevealOptions): Promise<boolean>;
 
 	/**
 	 * Temporarily highlight the cell with a flash animation to draw attention.
@@ -237,7 +237,7 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 *
 	 * @param editor Code editor widget associated with cell.
 	 */
-	attachEditor(editor: CodeEditorWidget): void;
+	attachEditor(editor: ICodeEditor): void;
 
 	/**
 	 * Detach the editor from the cell

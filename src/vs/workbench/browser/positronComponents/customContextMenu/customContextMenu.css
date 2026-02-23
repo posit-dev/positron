@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -84,7 +84,21 @@
 }
 
 .custom-context-menu-item .shortcut {
-	padding-inline: 10px; /* Vertical padding can cause overflow and supurious scrollbars. */
+	padding-inline: 10px; /* Vertical padding can cause overflow and spurious scrollbars. */
 	white-space: nowrap;
 	grid-column: shortcut / end;
+}
+
+/* The submenu chevron indicator uses the shortcut column slot */
+.custom-context-menu-item .submenu-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding-right: 4px;
+	grid-column: shortcut / end;
+}
+
+/* Make the submenu chevron indicator look disabled */
+.custom-context-menu-item .submenu-indicator.disabled {
+	opacity: 50%;
 }

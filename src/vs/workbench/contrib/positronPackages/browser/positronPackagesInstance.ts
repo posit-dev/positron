@@ -4,16 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
 	session: ILanguageRuntimeSession;
+	attachRuntime(): void;
+	detachRuntime(): void;
 	refreshPackages(): Promise<ILanguageRuntimePackage[]>;
-	installPackages(packages: string[]): Promise<void>;
-	uninstallPackages(packages: string[]): Promise<void>;
-	updatePackages(packages: string[]): Promise<void>;
+	installPackages(packages: IPackageSpec[]): Promise<void>;
+	uninstallPackages(packageNames: string[]): Promise<void>;
+	updatePackages(packages: IPackageSpec[]): Promise<void>;
 	updateAllPackages(): Promise<void>;
 	searchPackages(name: string): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string): Promise<string[]>;
@@ -37,6 +41,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	private _packages: ILanguageRuntimePackage[] = [];
 
+	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
+
+	private readonly _logService: ILogService;
+
 	private readonly _onDidRefreshPackagesInstance = this._register(new Emitter<ILanguageRuntimePackage[]>());
 
 	private readonly _onDidChangeRefreshState = this._register(new Emitter<boolean>());
@@ -51,10 +59,12 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	constructor(
 		session: ILanguageRuntimeSession,
+		logService: ILogService,
 	) {
 		super();
 
 		this._session = session;
+		this._logService = logService;
 	}
 
 	readonly onDidRefreshPackagesInstance = this._onDidRefreshPackagesInstance.event;
@@ -104,7 +114,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async installPackages(packages: string[]): Promise<void> {
+	async installPackages(packages: IPackageSpec[]): Promise<void> {
 		const session = this._session;
 		if (!session.installPackages) {
 			throw new Error('Method not implemented.');
@@ -127,7 +137,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async uninstallPackages(packages: string[]): Promise<void> {
+	async uninstallPackages(packageNames: string[]): Promise<void> {
 		const session = this._session;
 		if (!session.uninstallPackages) {
 			throw new Error('Method not implemented.');
@@ -137,7 +147,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._onDidChangeUninstallState.fire(true);
 
 		try {
-			await session.uninstallPackages(packages);
+			await session.uninstallPackages(packageNames);
 
 			// Fire refresh event.
 			const newPackages = await session.getPackages?.();
@@ -150,7 +160,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async updatePackages(packages: string[]): Promise<void> {
+	async updatePackages(packages: IPackageSpec[]): Promise<void> {
 		const session = this._session;
 		if (!session.updatePackages) {
 			throw new Error('Method not implemented.');
@@ -212,6 +222,46 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 
 		return await session.searchPackageVersions(name);
+	}
+
+	/**
+	 * Attaches to the runtime to listen for state changes and trigger initial refresh.
+	 */
+	attachRuntime(): void {
+		// Add the onDidChangeRuntimeState event handler to refresh packages when ready
+		this._runtimeDisposableStore.add(
+			this._session.onDidChangeRuntimeState(async runtimeState => {
+				if (runtimeState === RuntimeState.Ready) {
+					// Refresh packages when the runtime becomes ready (once at startup)
+					try {
+						await this.refreshPackages();
+					} catch (err) {
+						this._logService.warn(`[Packages] Failed to refresh packages on state change: ${err}`);
+					}
+				} else if (runtimeState === RuntimeState.Exited) {
+					this.detachRuntime();
+				}
+			})
+		);
+
+		// If the runtime is already ready, refresh packages immediately
+		const currentState = this._session.getRuntimeState();
+		if (currentState === RuntimeState.Ready ||
+			currentState === RuntimeState.Idle ||
+			currentState === RuntimeState.Busy) {
+			this.refreshPackages().catch(err => {
+				this._logService.warn(`[Packages] Failed to refresh packages on attach: ${err}`);
+			});
+		}
+	}
+
+	/**
+	 * Detaches from the runtime and cleans up disposables.
+	 */
+	detachRuntime(): void {
+		// Clear all disposables associated with the attached runtime.
+		// We use clear() instead of dispose() to not mark the store as disposed.
+		this._runtimeDisposableStore.clear();
 	}
 
 }

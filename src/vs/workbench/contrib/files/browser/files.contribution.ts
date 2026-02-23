@@ -676,3 +676,33 @@ ModesRegistry.registerLanguage({
 	aliases: ['Binary'],
 	mimetypes: ['text/x-code-binary']
 });
+
+// --- Start Positron ---
+// File transfer restriction settings, enforceable via POSITRON_ENFORCED_SETTINGS admin policy.
+configurationRegistry.registerConfiguration({
+	id: 'files',
+	order: 100,
+	title: nls.localize('filesConfigurationTitle', "Files"),
+	type: 'object',
+	properties: {
+		'files.enableDownloads': {
+			type: 'boolean',
+			default: true,
+			description: nls.localize(
+				'files.enableDownloads',
+				"Enable file downloads via the browser UI. When false, download actions are hidden. If the server was started with --disable-file-downloads, downloads are disabled regardless of this setting."
+			),
+			restricted: true,
+		},
+		'files.enableUploads': {
+			type: 'boolean',
+			default: true,
+			description: nls.localize(
+				'files.enableUploads',
+				"Enable file uploads via the browser UI. When false, upload actions are hidden. If the server was started with --disable-file-uploads, uploads are disabled regardless of this setting."
+			),
+			restricted: true,
+		},
+	}
+});
+// --- End Positron ---

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,8 +12,7 @@ test.use({
 });
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
-test.describe.skip('New Folder Flow: Python Project', {
-	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9999' }],
+test.describe('New Folder Flow: Python Project', {
 	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB]
 }, () => {
 	const folderTemplate = FolderTemplate.PYTHON_PROJECT;

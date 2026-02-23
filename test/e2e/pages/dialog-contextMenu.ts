@@ -75,13 +75,22 @@ export class ContextMenu {
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton });
 			} else {
 				this.code.logger.log(`Using web menu to select: ${menuItemLabel}`);
-				await this.triggerMenu(menuTrigger, menuTriggerButton);
 
-				// Retry hover+click to handle DOM detachment from menu re-renders
+				// Retry entire trigger+hover+click to handle menu closing unexpectedly
 				await expect(async () => {
+					// Dismiss any stale menu before re-triggering (only if menu is visible)
+					if (await this.contextMenu.isVisible()) {
+						await this.page.keyboard.press('Escape').catch(() => { });
+					}
+
+					// Trigger the menu
+					await menuTrigger.click({ button: menuTriggerButton });
+					await expect(this.contextMenu).toBeVisible({ timeout: 2000 });
+
 					const menuItem = menuItemType === 'menuitemcheckbox'
 						? this.getContextMenuCheckboxItem(menuItemLabel)
 						: this.getContextMenuItem(menuItemLabel);
+
 					await menuItem.hover({ timeout: 2000 });
 					await this.page.waitForTimeout(200);
 
@@ -91,7 +100,7 @@ export class ContextMenu {
 						// Tooltip must have been blocking and now we click
 						await menuItem.click();
 					}
-				}, 'hover and click menu item').toPass({ timeout: 5000 });
+				}, 'trigger, hover, and click menu item').toPass({ timeout: 10000 });
 			}
 		});
 	}

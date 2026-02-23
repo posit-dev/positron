@@ -7,7 +7,10 @@ import { isStandalone } from '../../base/browser/browser.js';
 import { isLinux, isMacintosh, isNative, isWeb, isWindows } from '../../base/common/platform.js';
 import { localize } from '../../nls.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../platform/configuration/common/configurationRegistry.js';
-import product from '../../platform/product/common/product.js';
+// --- Start Positron ---
+// Unused after disabling alwaysShowAdvancedSettings default logic
+// import product from '../../platform/product/common/product.js';
+// --- End Positron ---
 import { Registry } from '../../platform/registry/common/platform.js';
 import { ConfigurationKeyValuePairs, ConfigurationMigrationWorkbenchContribution, DynamicWindowConfiguration, DynamicWorkbenchSecurityConfiguration, Extensions, IConfigurationMigrationRegistry, problemsConfigurationNodeBase, windowConfigurationNodeBase, workbenchConfigurationNodeBase } from '../common/configuration.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../common/contributions.js';
@@ -550,7 +553,13 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 			'workbench.settings.alwaysShowAdvancedSettings': {
 				'type': 'boolean',
 				'description': localize('alwaysShowAdvancedSettings', "Controls whether advanced settings are always shown in the settings editor without requiring the `@tag:advanced` filter."),
+				// --- Start Positron ---
+				// Positron doesn't set product.quality, so default to false to hide advanced model providers
+				/*
 				'default': product.quality !== 'stable'
+				*/
+				'default': false
+				// --- End Positron ---
 			},
 			'workbench.sideBar.location': {
 				'type': 'string',

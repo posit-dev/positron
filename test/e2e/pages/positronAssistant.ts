@@ -4,11 +4,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, test, chromium, Browser, BrowserContext, Page } from '@playwright/test';
+import { expect, test, chromium, Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
 import { Modals } from './dialog-modals.js';
+
+/**
+ * Fills an input element's value using evaluate() instead of Playwright's
+ * fill() to prevent the value from being recorded in Playwright trace files.
+ * Use this for sensitive values like API keys and passwords.
+ */
+async function fillSecretValue(locator: Locator, value: string): Promise<void> {
+	await locator.evaluate((el: HTMLInputElement, val) => {
+		// Use the native HTMLInputElement prototype setter to bypass React's
+		// internal value tracking. Setting el.value directly uses React's
+		// overridden setter which doesn't trigger change detection.
+		const nativeSetter = Object.getOwnPropertyDescriptor(
+			window.HTMLInputElement.prototype, 'value'
+		)?.set;
+		if (nativeSetter) {
+			nativeSetter.call(el, val);
+		} else {
+			el.value = val;
+		}
+		el.dispatchEvent(new Event('input', { bubbles: true }));
+	}, value);
+}
 
 // Positron modal dialog selectors (used by Posit AI)
 const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
@@ -52,6 +74,20 @@ const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-input-picker-item a.action-label[aria-label^="Pick Model"] .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
+
+/**
+ * Result of sending a chat message.
+ */
+export interface EnterChatMessageResult {
+	/** Time from clicking send to response complete (excluding button interaction time) */
+	llmResponseMs: number;
+	/** Total wall-clock time from send to complete */
+	totalMs: number;
+	/** Number of Keep button clicks */
+	keepClicks: number;
+	/** Number of Allow button clicks */
+	allowClicks: number;
+}
 
 /**
  * Supported model providers for the Positron Assistant.
@@ -428,7 +464,7 @@ export class Assistant {
 	async enterApiKey(apiKey: string) {
 		await this.code.driver.page.locator(APIKEY_RADIO).check();
 		const apiKeyInput = this.code.driver.page.locator(APIKEY_INPUT);
-		await apiKeyInput.fill(apiKey);
+		await fillSecretValue(apiKeyInput, apiKey);
 	}
 
 	async clickSignInButton() {
@@ -624,7 +660,7 @@ export class Assistant {
 
 		// Step 2: Enter password and click Log in
 		await expect(page.locator(POSIT_PASSWORD_FIELD)).toBeVisible({ timeout: 15000 });
-		await page.locator(POSIT_PASSWORD_FIELD).fill(password);
+		await fillSecretValue(page.locator(POSIT_PASSWORD_FIELD), password);
 		await page.locator(POSIT_LOGIN_BUTTON).click();
 
 		// Step 3: Click Continue button
@@ -658,17 +694,97 @@ export class Assistant {
 		return texts.map(t => t.trim()).filter(Boolean);
 	}
 
-	async enterChatMessage(message: string, waitForResponse: boolean = true) {
+	/**
+	 * Enters a chat message and optionally waits for the response to complete.
+	 * This is a simple method that does NOT handle Keep/Allow buttons.
+	 * Use sendChatMessageAndWait() for scenarios that may require button interaction.
+	 *
+	 * @param message The message to send
+	 */
+	async enterChatMessage(message: string) {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.pressSequentially(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
 		// It can take a moment for the loading locator to become visible.
 		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
-		// Optionally wait for any loading state on the most recent response to finish
-		if (waitForResponse) {
-			await this.waitForResponseComplete();
+	}
+
+	/**
+	 * Sends a chat message and waits for the response to complete, automatically
+	 * handling any Keep/Allow buttons that appear. Returns timing information
+	 * that excludes button interaction time for accurate LLM response measurement.
+	 *
+	 * Use this for eval tests or scenarios where Keep/Allow buttons may appear.
+	 *
+	 * @param message The message to send
+	 * @param options Optional configuration (timeout, etc.)
+	 * @returns Result containing timing information
+	 */
+	async sendChatMessageAndWait(message: string, options: { timeout?: number } = {}): Promise<EnterChatMessageResult> {
+		const { timeout = 60000 } = options;
+		const page = this.code.driver.page;
+
+		// Locators for completion states
+		const loadingResponse = page.locator('.chat-most-recent-response.chat-response-loading');
+		const keepButton = page.locator(KEEP_BUTTON);
+		const allowButton = page.getByRole('button', { name: 'Allow' });
+
+		// Send the message
+		const chatInput = page.locator(CHAT_INPUT);
+		await chatInput.waitFor({ state: 'visible' });
+		await chatInput.pressSequentially(message);
+
+		const sendTime = Date.now();
+		await page.locator(SEND_MESSAGE_BUTTON).click();
+
+		// Wait for loading to start
+		await loadingResponse.waitFor({ state: 'visible' });
+
+		// Button configs for Keep/Allow handling
+		const buttons = [
+			{ locator: keepButton, name: 'keep' as const },
+			{ locator: allowButton, name: 'allow' as const },
+		];
+		const clicks = { keep: 0, allow: 0 };
+		let buttonInteractionMs = 0;
+		const deadline = Date.now() + timeout;
+
+		// Loop until response is complete, handling buttons as they appear
+		while (await loadingResponse.isVisible()) {
+			if (Date.now() > deadline) {
+				throw new Error(`Response did not complete within ${timeout}ms`);
+			}
+
+			// Check each button - click if visible and enabled
+			let buttonClicked = false;
+			for (const btn of buttons) {
+				const isClickable = await btn.locator.isVisible().catch(() => false) &&
+					await btn.locator.isEnabled().catch(() => false);
+				if (isClickable) {
+					const buttonStart = Date.now();
+					await btn.locator.click();
+					await page.waitForTimeout(100);
+					buttonInteractionMs += Date.now() - buttonStart;
+					clicks[btn.name]++;
+					buttonClicked = true;
+					break;
+				}
+			}
+			if (buttonClicked) { continue; }
+
+			// No clickable buttons, wait a short interval before checking again
+			await page.waitForTimeout(200);
 		}
+
+		const totalMs = Date.now() - sendTime;
+
+		return {
+			llmResponseMs: totalMs - buttonInteractionMs,
+			totalMs,
+			keepClicks: clicks.keep,
+			allowClicks: clicks.allow,
+		};
 	}
 
 	/**
@@ -975,21 +1091,20 @@ export class Assistant {
 	}
 
 	async getChatResponseText(exportFolder?: string) {
-		// Export the chat to a file first
-		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
-		await this.toasts.waitForAppear('Chat log exported to:');
-		await this.toasts.closeAll();
+		// Export and find the chat file with retry (export may silently fail or file may not be ready)
+		let chatExportFile: string | null = null;
+		await expect(async () => {
+			await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
+			await this.toasts.waitForAppear('Chat log exported to:');
+			await this.toasts.closeWithHeader('Chat log exported to:');
+			chatExportFile = await this.findChatExportFile(exportFolder);
+			expect(chatExportFile).not.toBeNull();
+		}).toPass({ timeout: 15000 });
 
-		// Find and parse the chat export file
-		const chatExportFile = await this.findChatExportFile(exportFolder);
-		if (!chatExportFile) {
-			throw new Error('No chat export file found');
-		}
-
-		const responseText = await this.parseChatResponseFromFile(chatExportFile);
+		const responseText = await this.parseChatResponseFromFile(chatExportFile!);
 
 		// Rename the file to prevent it from being found again
-		await this.renameChatExportFile(chatExportFile);
+		await this.renameChatExportFile(chatExportFile!);
 
 		return responseText;
 	}

@@ -352,19 +352,29 @@ class TestCompletions:
         assert labels == {expected_label}
 
     @pytest.mark.parametrize(
-        ("source", "character", "expected_labels"),
+        ("source", "namespace", "character", "expected_labels"),
         [
-            ("x['']", 3, {"a", "b"}),
-            ('x[""]', 3, {"a", "b"}),
-            ("x['", None, {"a'", "b'"}),
-            ('x["', None, {'a"', 'b"'}),
+            ("x['']", {"x": {"a": 0, "b": 1}}, 3, {"a", "b"}),
+            ('x[""]', {"x": {"a": 0, "b": 1}}, 3, {"a", "b"}),
+            ("x['", {"x": {"a": 0, "b": 1}}, None, {"a'", "b'"}),
+            ('x["', {"x": {"a": 0, "b": 1}}, None, {'a"', 'b"'}),
+            ('x[[""]', {"x": pd.DataFrame({"a": [], "b": []})}, 4, {"a", "b"}),
+            ("x[['']", {"x": pd.DataFrame({"a": [], "b": []})}, 4, {"a", "b"}),
+            ('x[["', {"x": pd.DataFrame({"a": [], "b": []})}, None, {'a"', 'b"'}),
+            ("x[['", {"x": pd.DataFrame({"a": [], "b": []})}, None, {"a'", "b'"}),
+            ('x[[""]', {"x": {"a": 0, "b": 1}}, 4, set()),
+            ("x[['']", {"x": {"a": 0, "b": 1}}, 4, set()),
         ],
     )
     def test_dict_key_completion_with_closing_quote(
-        self, source: str, character: Optional[int], expected_labels: set[str]
+        self,
+        source: str,
+        namespace: Dict[str, Any],
+        character: Optional[int],
+        expected_labels: set[str],
     ) -> None:
         """Test that dict key completions don't duplicate closing quote when it already exists."""
-        server = create_test_server(namespace={"x": {"a": 0, "b": 1}})
+        server = create_test_server(namespace=namespace)
 
         text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
         completions = self._completions(server, text_document, character=character)
@@ -440,7 +450,6 @@ class TestCompletions:
                 None,
                 ["0"],
                 id="pandas_dataframe_int_dict_key",
-                marks=pytest.mark.xfail(reason="Completing integer dict keys not supported"),
             ),
             pytest.param(
                 'x["',
@@ -455,7 +464,91 @@ class TestCompletions:
                 None,
                 ["0"],
                 id="polars_series_dict_key",
-                marks=pytest.mark.xfail(reason="Completing integer dict keys not supported"),
+            ),
+            pytest.param(
+                "x[",
+                {"x": {0: "zero", 1: "one", 2: "two"}},
+                None,
+                ["0", "1", "2"],
+                id="dict_int_keys",
+            ),
+            pytest.param(
+                "x[1",
+                {"x": pd.DataFrame({0: [], 10: [], 11: [], 20: []})},
+                None,
+                ["10", "11"],
+                id="pandas_dataframe_int_key_prefix_filter",
+            ),
+            pytest.param(
+                "x[",
+                {"x": pd.Series({"a": 0}, dtype="int64")},
+                None,
+                [],
+                id="pandas_series_string_index_no_int_keys",
+            ),
+            # Double-bracket (multi-column) DataFrame access
+            pytest.param(
+                'x[["',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket",
+            ),
+            pytest.param(
+                "x[['",
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ["a'", "b'"],
+                id="pandas_dataframe_double_bracket_single_quote",
+            ),
+            pytest.param(
+                'x[["a", "',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket_second_col",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": pl.DataFrame({"a": []})},
+                None,
+                ['a"'],
+                id="polars_dataframe_double_bracket",
+            ),
+            pytest.param(
+                'x[[ "',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket_whitespace",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": {"a": 0, "b": 1}},
+                None,
+                [],
+                id="dict_double_bracket_no_completions",
+            ),
+            pytest.param(
+                'os.environ[["',
+                {"os": os},
+                None,
+                [],
+                id="os_environ_double_bracket_no_completions",
+            ),
+            pytest.param(
+                'import os; os.environ[["',
+                {},
+                None,
+                [],
+                id="os_environ_double_bracket_from_source_no_completions",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": pd.Series({"a": 1, "b": 2})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_series_double_bracket",
             ),
             pytest.param(
                 'os.environ["',
@@ -979,6 +1072,20 @@ class TestCompletionItemResolve:
                 id="polars_dataframe_dict_key",
             ),
             pytest.param(
+                "x[",
+                {"x": {0: "hello"}},
+                "str",
+                None,
+                id="dict_int_key_resolve",
+            ),
+            pytest.param(
+                "x[",
+                {"x": pd.DataFrame({0: [1, 2, 3]})},
+                "int64 (3)",
+                "dtype: int64",
+                id="pandas_dataframe_int_key_resolve",
+            ),
+            pytest.param(
                 "x",
                 {"x": pl.Series([1, 2, 3])},
                 "Int64 (3)",
@@ -1013,13 +1120,13 @@ class TestCompletionItemResolve:
 
         item = completion_list.items[0]
 
-        # Dict key completions defer detail to resolve for performance
-        is_dict_key_completion = '["' in source or "['" in source
-        if is_dict_key_completion:
+        # Dict/int key completions defer detail to resolve for performance
+        is_subscript_completion = '["' in source or "['" in source or source.endswith("[")
+        if is_subscript_completion:
             # Verify detail is not set initially and data has expected structure
             assert item.detail is None
             assert item.data is not None
-            assert item.data.get("type") == "dict_key"
+            assert item.data.get("type") in ("dict_key", "int_key")
             assert "expr" in item.data
             assert "key" in item.data
 

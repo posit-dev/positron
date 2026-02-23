@@ -15,18 +15,21 @@ import { registerCopilotService } from './copilot.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { generateNotebookSuggestions, type NotebookSuggestionsResult } from './notebookSuggestions.js';
+import { generateGhostCellSuggestion, type GhostCellSuggestionResult } from './ghostCellSuggestions.js';
 import { initializeTokenTracking } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
+import { selectGhostCellModel } from './commands/ghostCellModelPicker.js';
 import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { resetAssistantState } from './reset.js';
 import { performSettingsMigrations } from './providerMigration.js';
-import { disposeModels, registerModels } from './modelRegistration';
+import { disposeModels, registerModels, registerModelsForProvider } from './modelRegistration';
 import { registerPositAuthProvider } from './providers/posit/positProvider.js';
+import { PROVIDER_METADATA } from './providerMetadata.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -85,6 +88,53 @@ function registerGenerateNotebookSuggestionsCommand(
 	);
 }
 
+function registerGenerateGhostCellSuggestionCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron-assistant.generateGhostCellSuggestion',
+			async (
+				notebookUri: string,
+				executedCellIndex: number,
+				progressCallbackCommand?: string,
+				skipConfigCheck?: boolean,
+				token?: vscode.CancellationToken
+			): Promise<GhostCellSuggestionResult | null> => {
+				// Create a token source only if no token is provided
+				let tokenSource: vscode.CancellationTokenSource | undefined;
+				const cancellationToken = token || (tokenSource = new vscode.CancellationTokenSource()).token;
+
+				// Progress callback handler that invokes the provided command
+				const onProgress = progressCallbackCommand
+					? (partial: Partial<GhostCellSuggestionResult>) => {
+						Promise.resolve(vscode.commands.executeCommand(progressCallbackCommand, partial)).catch(err => {
+							log.warn(`[ghost-cell] Progress callback failed: ${err}`);
+						});
+					}
+					: undefined;
+
+				try {
+					return await generateGhostCellSuggestion(
+						notebookUri,
+						executedCellIndex,
+						participantService,
+						log,
+						cancellationToken,
+						onProgress,
+						skipConfigCheck
+					);
+				} finally {
+					// Only dispose if we created the token
+					tokenSource?.dispose();
+				}
+			}
+		)
+	);
+}
+
 function registerExportChatCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.exportChatToFileInWorkspace', async () => {
@@ -121,6 +171,30 @@ function registerResetCommand(context: vscode.ExtensionContext) {
 		})
 	);
 }
+
+/**
+ * Listen for Snowflake configuration changes that affect model registration.
+ * Only re-registers Snowflake models when Snowflake-specific settings change.
+ */
+function registerSnowflakeConfigurationListener(context: vscode.ExtensionContext) {
+	const snowflakeProviderId = PROVIDER_METADATA.snowflake.id;
+
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(async (e) => {
+			// Snowflake provider enable setting changed
+			if (e.affectsConfiguration('positron.assistant.provider.snowflakeCortex.enable')) {
+				log.info('[Assistant] Snowflake provider enable setting changed, re-registering Snowflake models');
+				await registerModelsForProvider(context, snowflakeProviderId);
+			}
+			// Snowflake provider variables changed (SNOWFLAKE_HOME, etc.)
+			if (e.affectsConfiguration('positron.assistant.providerVariables.snowflake')) {
+				log.info('[Assistant] Snowflake provider variables changed, re-registering Snowflake models');
+				await registerModelsForProvider(context, snowflakeProviderId);
+			}
+		})
+	);
+}
+
 
 async function toggleInlineCompletions() {
 	// Get the current value of the setting
@@ -192,6 +266,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerConfigureProvidersCommand(context);
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
+	registerGenerateGhostCellSuggestionCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);
@@ -211,6 +286,16 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register chat commands
 	registerAssistantCommands();
+
+	// Register ghost cell model picker command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.selectGhostCellModel', selectGhostCellModel)
+	);
+
+	// Listener for configuration changes so that models can be registered without a reload
+	// Note: Snowflake uses file-based credentials (connections.toml), handled via
+	// positron.assistant.providerVariables.snowflake configuration changes
+	registerSnowflakeConfigurationListener(context);
 
 	// Dispose cleanup
 	context.subscriptions.push({

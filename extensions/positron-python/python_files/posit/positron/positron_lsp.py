@@ -32,6 +32,7 @@ import re
 import threading
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
 from ._vendor import attrs, cattrs
@@ -57,6 +58,88 @@ _SHELL_PREFIX = "!"
 
 # Custom LSP method for help topic requests
 _HELP_TOPIC = "positron/textDocument/helpTopic"
+
+# Pre-compiled regex patterns used throughout the LSP server
+_RE_STATEMENT_SPLIT = re.compile(r"[;\n]")
+"""Split source code by statement separators (semicolons or newlines)"""
+
+_RE_DICT_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$')
+"""Dict/DataFrame subscript access: e.g. `obj["key` or `a.b['prefix`
+
+Groups: (1) expression, (2) quote char, (3) optional key prefix"""
+
+_RE_DOUBLE_BRACKET_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*\[\s*(?:.*,\s*)?(["\'])([^"\']*)?$')
+"""DataFrame multi-column select: e.g. `df[["col` or `df[["a", "col`
+
+Groups: (1) expression, (2) quote char, (3) optional key prefix"""
+
+_RE_INT_KEY_ACCESS = re.compile(r"(\w[\w\.]*)\s*\[\s*(\d*)$")
+"""Integer-key subscript access: e.g. `obj[` or `obj[12`
+
+Groups: (1) expression, (2) optional digit prefix"""
+
+_RE_DOTTED_IDENTIFIER = re.compile(r"([\w\.]+)$")
+"""Trailing dotted identifier: e.g. `os.path.join`
+
+Group: (1) dotted name"""
+
+_RE_KWARG_VALUE = re.compile(r"\w+\s*=\s*[^\s,]*$")
+"""Keyword argument with value started: e.g. `x=1` or `x=val` at end"""
+
+_RE_KWARG_NAME = re.compile(r"(\w+)\s*=")
+"""Keyword argument name before `=`: e.g. `key=`
+
+Group: (1) parameter name"""
+
+_RE_PARTIAL_PARAM = re.compile(r"(?:^|,\s*)(\w+)$")
+"""Partial parameter name at start or after comma: e.g. `, par`
+
+Group: (1) partial name"""
+
+_RE_TRAILING_WORD = re.compile(r"(\w*)$")
+"""Trailing word characters (partial identifier being typed)
+
+Group: (1) word prefix, possibly empty"""
+
+_RE_ALIAS_ENVIRON = re.compile(r"^(\w+)\.environ$")
+"""Static detection of `<alias>.environ`
+
+Group: (1) alias name"""
+
+_RE_STRING_LITERAL = re.compile(r'(["\'])([^"\']*)?$')
+"""Cursor inside a string literal: opening quote with optional content
+
+Groups: (1) quote char, (2) optional string content"""
+
+_RE_KWARG_TRAILING = re.compile(r"(\w+)\s*=\s*$")
+"""Keyword argument `name=` at end with no value started
+
+Group: (1) keyword name"""
+
+_RE_DOTTED_IDENTIFIER_WS = re.compile(r"([\w\.]+)\s*$")
+"""Trailing dotted identifier with optional trailing whitespace
+
+Group: (1) dotted name"""
+
+_RE_ALIAS_GETENV = re.compile(r"^(\w+)\.getenv$")
+"""Static detection of `<alias>.getenv`
+
+Group: (1) alias name"""
+
+_RE_ATTRIBUTE_ACCESS = re.compile(r".*?(\w[\w\.]*)\.(\w*)$")
+"""Attribute access at end of line: `expr.attr_prefix`
+
+Groups: (1) base expression, (2) attribute prefix"""
+
+_RE_TRAILING_TOKEN = re.compile(r"\s*([^\s]*)$")
+"""Trailing non-whitespace token (last word including special chars)
+
+Group: (1) token"""
+
+_RE_LEADING_PERCENT = re.compile(r"^(%*)")
+"""Leading percent signs for magic commands
+
+Group: (1) percent characters"""
 
 
 @enum.unique
@@ -142,7 +225,8 @@ def _safe_resolve_expression(namespace: dict[str, Any], expr: str) -> Any | None
         return None
 
 
-def _parse_os_imports(source: str) -> dict[str, str]:
+@lru_cache(maxsize=32)
+def _parse_os_imports(source: str) -> MappingProxyType[str, str]:
     """
     Parse import statements to find os module imports.
 
@@ -150,10 +234,12 @@ def _parse_os_imports(source: str) -> dict[str, str]:
     Only supports `import os` and `import os as <alias>` forms.
     Does NOT support `from os import ...` (out of scope).
 
-    Returns empty dict if source is empty, invalid, or has no os imports.
+    Returns empty mapping if source is empty, invalid, or has no os imports.
+
+    The return value is immutable (MappingProxyType) since results are cached.
     """
     if not source or not source.strip():
-        return {}
+        return MappingProxyType({})
 
     imports: dict[str, str] = {}
 
@@ -166,14 +252,14 @@ def _parse_os_imports(source: str) -> dict[str, str]:
                     if alias.name == "os":
                         key = alias.asname or "os"
                         imports[key] = "os"
-        return imports
+        return MappingProxyType(imports)
     except SyntaxError:
         pass
 
     # If whole source fails to parse (e.g., incomplete code during typing),
     # try to extract and parse just the import statements
     # Split by common statement separators and try each part
-    for part in re.split(r"[;\n]", source):
+    for part in _RE_STATEMENT_SPLIT.split(source):
         part = part.strip()
         if not part.startswith("import "):
             continue
@@ -188,7 +274,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
         except SyntaxError:
             continue
 
-    return imports
+    return MappingProxyType(imports)
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -504,16 +590,20 @@ def _handle_completion(
     text_after_cursor = line[params.position.character :]
 
     # Check for parameter completion first (e.g., inside a function call like "f(")
-    param_items = _get_parameter_completions(server, text_before_cursor)
-    if param_items:
-        items.extend(param_items)
-
-    # Determine if we're inside a function call
-    inside_function_call = bool(param_items) or _is_inside_function_call(text_before_cursor)
+    if "(" in text_before_cursor:
+        param_items, inside_function_call = _get_parameter_completions(server, text_before_cursor)
+        if param_items:
+            items.extend(param_items)
+    else:
+        inside_function_call = False
 
     # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
-    dict_key_match = re.search(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$', text_before_cursor)
+    dict_key_match = _RE_DICT_KEY_ACCESS.search(text_before_cursor)
+    is_double_bracket = False
+    if not dict_key_match:
+        dict_key_match = _RE_DOUBLE_BRACKET_KEY_ACCESS.search(text_before_cursor)
+        is_double_bracket = dict_key_match is not None
     if dict_key_match:
         quote_char = dict_key_match.group(2)
         # Check if there's already a closing quote after cursor
@@ -526,6 +616,18 @@ def _handle_completion(
                 quote_char=quote_char,
                 has_closing_quote=has_closing_quote,
                 document=document,
+                exclude_dicts=is_double_bracket,
+            )
+        )
+
+    # Check for integer key access pattern (e.g., x[ or x[12)
+    int_key_match = _RE_INT_KEY_ACCESS.search(text_before_cursor)
+    if int_key_match and not dict_key_match:
+        items.extend(
+            _get_int_key_completions(
+                server,
+                expr=int_key_match.group(1),
+                prefix=int_key_match.group(2) or "",
             )
         )
 
@@ -535,15 +637,16 @@ def _handle_completion(
     )
     items.extend(getenv_items)
 
-    # Check for path completions in bare string literals (not dict access, not getenv)
-    if not dict_key_match and not getenv_items:
+    # Check for path completions in bare string literals (not dict/int key access, not getenv)
+    subscript_match = dict_key_match or int_key_match
+    if not subscript_match and not getenv_items:
         path_items = _get_path_completions(
             server, text_before_cursor, text_after_cursor, params.position
         )
         if path_items:
             return types.CompletionList(is_incomplete=False, items=path_items)
 
-    if not dict_key_match:
+    if not subscript_match:
         if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
             # Attribute completion (only if not inside a function call)
             items.extend(_get_attribute_completions(server, text_before_cursor))
@@ -569,60 +672,52 @@ def _handle_completion(
     return types.CompletionList(is_incomplete=False, items=items) if items else None
 
 
-def _is_inside_function_call(text_before_cursor: str) -> bool:
-    """Check if the cursor is inside a function call (after an opening parenthesis)."""
-    # Count unmatched opening parentheses
-    paren_depth = 0
-    for c in text_before_cursor:
-        if c == "(":
-            paren_depth += 1
-        elif c == ")":
-            paren_depth -= 1
-    return paren_depth > 0
-
-
 def _get_parameter_completions(
     server: PositronLanguageServer, text_before_cursor: str
-) -> list[types.CompletionItem]:
-    """Get parameter completions when inside a function call."""
+) -> tuple[list[types.CompletionItem], bool]:
+    """Get parameter completions when inside a function call.
+
+    Returns (items, inside_function_call) where inside_function_call
+    indicates whether the cursor is inside an enclosing parenthesis.
+    """
     if server.shell is None:
-        return []
+        return [], False
 
     # Find if we're inside a function call
     func_end = _find_enclosing_paren(text_before_cursor)
     if func_end < 0:
-        return []
+        return [], False
 
     # Extract function name/expression
     func_expr = text_before_cursor[:func_end].rstrip()
-    match = re.search(r"([\w\.]+)$", func_expr)
+    match = _RE_DOTTED_IDENTIFIER.search(func_expr)
     if not match:
-        return []
+        return [], True
 
     func_name = match.group(1)
 
     # Safely resolve the callable
     obj = _safe_resolve_expression(server.shell.user_ns, func_name)
     if obj is None or not callable(obj):
-        return []
+        return [], True
 
     # Parse arguments section to understand context
     args_text = text_before_cursor[func_end + 1 :]
 
     # Skip parameter completions if we're inside a string literal
     if _is_inside_string(args_text):
-        return []
+        return [], True
 
     # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
     # Pattern: look for "word=" at the end, possibly with a value started
-    if re.search(r"\w+\s*=\s*[^\s,]*$", args_text) and not args_text.rstrip().endswith(","):
+    if _RE_KWARG_VALUE.search(args_text) and not args_text.rstrip().endswith(","):
         # Cursor is positioned after "=" where a value should go, don't suggest parameters
-        return []
+        return [], True
 
     # Find all keyword arguments already provided (param=value)
     already_provided = set()
     # Match keyword arguments: word followed by = (but not at the very end being typed)
-    for match in re.finditer(r"(\w+)\s*=", args_text):
+    for match in _RE_KWARG_NAME.finditer(args_text):
         param_name = match.group(1)
         # Only add to already_provided if it's followed by something (value or comma)
         # and not being currently typed
@@ -632,7 +727,7 @@ def _get_parameter_completions(
 
     # Check if we're currently typing a partial parameter name
     # Look for a partial word at the end that doesn't have "=" after it
-    partial_match = re.search(r"(?:^|,\s*)(\w+)$", args_text)
+    partial_match = _RE_PARTIAL_PARAM.search(args_text)
     partial_prefix = partial_match.group(1) if partial_match else ""
 
     items = []
@@ -665,7 +760,7 @@ def _get_parameter_completions(
         # Can't get signature for this callable
         pass
 
-    return items
+    return items, True
 
 
 def _get_namespace_completions(
@@ -685,7 +780,7 @@ def _get_namespace_completions(
 
     items = []
     # Get the partial word being typed
-    match = re.search(r"(\w*)$", text_before_cursor)
+    match = _RE_TRAILING_WORD.search(text_before_cursor)
     prefix = match.group(1) if match else ""
 
     for name, obj in server.shell.user_ns.items():
@@ -717,6 +812,7 @@ def _get_dict_key_completions(
     quote_char: str,
     has_closing_quote: bool,
     document: TextDocument | None = None,
+    exclude_dicts: bool = False,
 ) -> list[types.CompletionItem]:
     """Get dict key completions for dict-like objects (dict, DataFrame, Series, os.environ)."""
     if server.shell is None:
@@ -726,10 +822,10 @@ def _get_dict_key_completions(
     obj = _safe_resolve_expression(server.shell.user_ns, expr)
     if obj is None:
         # Try static analysis fallback for os.environ
-        if document is not None:
+        if not exclude_dicts and document is not None:
             os_imports = _parse_os_imports(document.source)
             # Check if expr is "<alias>.environ" where alias maps to "os"
-            match = re.match(r"^(\w+)\.environ$", expr)
+            match = _RE_ALIAS_ENVIRON.match(expr)
             if match and os_imports.get(match.group(1)) == "os":
                 return _make_env_var_completions(
                     prefix, quote_char, has_closing_quote=has_closing_quote
@@ -739,16 +835,21 @@ def _get_dict_key_completions(
     items = []
     keys: list[str] = []
 
-    # Get keys based on the type of object
+    # Get keys based on the type of object.
+    # Double-bracket access (df[["col"]]) only makes sense for DataFrames/Series,
+    # not plain dicts or environ (which would raise TypeError on list keys).
     if isinstance(obj, dict):
-        keys = [str(k) for k in obj if isinstance(k, str)]
+        if not exclude_dicts:
+            keys = [str(k) for k in obj if isinstance(k, str)]
     elif _is_environ_like(obj):
-        # os.environ or similar - use shared helper
-        return _make_env_var_completions(prefix, quote_char, has_closing_quote=has_closing_quote)
+        if not exclude_dicts:
+            return _make_env_var_completions(
+                prefix, quote_char, has_closing_quote=has_closing_quote
+            )
     elif _is_dataframe_like(obj):
-        # pandas/polars DataFrame
+        # pandas/polars DataFrame - only string columns for string key access
         with contextlib.suppress(Exception):
-            keys = list(obj.columns)
+            keys = [str(k) for k in obj.columns if isinstance(k, str)]
     elif _is_series_like(obj):
         # pandas Series with string index
         with contextlib.suppress(Exception):
@@ -774,7 +875,59 @@ def _get_dict_key_completions(
     return items
 
 
-def _get_dict_value_detail(obj: Any, key: str) -> tuple[str | None, types.MarkupContent | None]:
+def _get_int_key_completions(
+    server: PositronLanguageServer,
+    *,
+    expr: str,
+    prefix: str,
+) -> list[types.CompletionItem]:
+    """Get integer key completions for dict-like objects.
+
+    Handles dict with int keys, DataFrame with int columns, pandas
+    Series with int index, and polars Series (positional index).
+    """
+    if server.shell is None:
+        return []
+
+    obj = _safe_resolve_expression(server.shell.user_ns, expr)
+    if obj is None:
+        return []
+
+    int_keys: list[int] = []
+
+    with contextlib.suppress(Exception):
+        if isinstance(obj, dict):
+            int_keys = [k for k in obj if isinstance(k, int) and not isinstance(k, bool)]
+        elif _is_dataframe_like(obj):
+            int_keys = [k for k in obj.columns if isinstance(k, int)]
+        elif _is_series_like(obj):
+            module = type(obj).__module__
+            if "polars" in module:
+                int_keys = list(range(len(obj)))
+            else:
+                int_keys = [k for k in obj.index if isinstance(k, int)]
+
+    items: list[types.CompletionItem] = []
+    for key in int_keys:
+        label = str(key)
+        if not label.startswith(prefix):
+            continue
+        items.append(
+            types.CompletionItem(
+                label=label,
+                kind=types.CompletionItemKind.Field,
+                sort_text=f"a{label}",
+                insert_text=label,
+                data={"type": "int_key", "expr": expr, "key": key},
+            )
+        )
+
+    return items
+
+
+def _get_dict_value_detail(
+    obj: Any, key: str | int
+) -> tuple[str | None, types.MarkupContent | None]:
     """Get the detail string and documentation for a dict-like key's value.
 
     Args:
@@ -984,7 +1137,7 @@ def _get_path_completions(
         List of completion items for matching filesystem paths
     """
     # Detect if cursor is inside a string literal
-    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
     if not string_match:
         return []
 
@@ -1058,7 +1211,7 @@ def _get_getenv_completions(
         return []
 
     # Check if cursor is inside a string literal (matches opening quote + optional prefix)
-    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
     if not string_match:
         return []
 
@@ -1067,7 +1220,7 @@ def _get_getenv_completions(
     before_string = text_before_cursor[: string_match.start()]
 
     # Check for keyword argument (e.g., "key=") - only complete for 'key', not 'default'
-    keyword_match = re.search(r"(\w+)\s*=\s*$", before_string)
+    keyword_match = _RE_KWARG_TRAILING.search(before_string)
     if keyword_match and keyword_match.group(1) != "key":
         return []
 
@@ -1077,7 +1230,7 @@ def _get_getenv_completions(
         return []
 
     # Extract and validate the function name
-    func_match = re.search(r"([\w\.]+)\s*$", before_string[:func_paren_pos])
+    func_match = _RE_DOTTED_IDENTIFIER_WS.search(before_string[:func_paren_pos])
     if not func_match or not func_match.group(1).endswith("getenv"):
         return []
 
@@ -1089,7 +1242,7 @@ def _get_getenv_completions(
         if document is not None:
             os_imports = _parse_os_imports(document.source)
             # Check if func_name is "<alias>.getenv" where alias maps to "os"
-            match = re.match(r"^(\w+)\.getenv$", func_name)
+            match = _RE_ALIAS_GETENV.match(func_name)
             if not (match and os_imports.get(match.group(1)) == "os"):
                 return []
         else:
@@ -1170,7 +1323,7 @@ def _get_attribute_completions(
         return []
 
     # Extract the expression before the last dot
-    match = re.match(r".*?(\w[\w\.]*)\.(\w*)$", text_before_cursor)
+    match = _RE_ATTRIBUTE_ACCESS.match(text_before_cursor)
     if not match:
         return []
 
@@ -1302,10 +1455,10 @@ def _create_magic_completion_item(
     prefix = _CELL_MAGIC_PREFIX if magic_type == _MagicType.cell else _LINE_MAGIC_PREFIX
 
     # Determine insert_text - handle existing '%' characters
-    match = re.search(r"\s*([^\s]*)$", chars_before_cursor)
+    match = _RE_TRAILING_TOKEN.search(chars_before_cursor)
     text = match.group(1) if match else ""
 
-    match2 = re.match(r"^(%*)", text)
+    match2 = _RE_LEADING_PERCENT.match(text)
     count = len(match2.group(1)) if match2 else 0
     pad_count = max(0, len(prefix) - count)
     insert_text = prefix[0] * pad_count + name
@@ -1353,6 +1506,17 @@ def _handle_completion_resolve(
         expr = params.data.get("expr")
         key = params.data.get("key")
         if expr and key and server.shell:
+            obj = _safe_resolve_expression(server.shell.user_ns, expr)
+            if obj is not None:
+                params.detail, params.documentation = _get_dict_value_detail(obj, key)
+        return params
+
+    # Handle integer key completions
+    if params.data and isinstance(params.data, dict) and params.data.get("type") == "int_key":
+        expr = params.data.get("expr")
+        key = params.data.get("key")
+        # Use `key is not None` because integer 0 is falsy
+        if expr and key is not None and server.shell:
             obj = _safe_resolve_expression(server.shell.user_ns, expr)
             if obj is not None:
                 params.detail, params.documentation = _get_dict_value_detail(obj, key)
@@ -1502,7 +1666,7 @@ def _handle_signature_help(
 
     # Extract function name/expression
     func_expr = text_before_cursor[:func_end].rstrip()
-    match = re.search(r"([\w\.]+)$", func_expr)
+    match = _RE_DOTTED_IDENTIFIER.search(func_expr)
     if not match:
         return None
 
@@ -1518,6 +1682,7 @@ def _handle_signature_help(
 
     # Get signature - handle builtins which may not have introspectable signatures
     sig_str = None
+    doc = None
     params_list = []
     try:
         sig = inspect.signature(obj)
@@ -1535,7 +1700,7 @@ def _handle_signature_help(
         if doc:
             # First line of docstring often contains the signature
             first_line = doc.split("\n")[0]
-            # Match patterns like "print(value, ..., sep=' ', end='\n', ...)"
+            # Dynamic pattern — depends on the function name, can't be pre-compiled
             match = re.match(rf"^{re.escape(func_name.split('.')[-1])}\s*\(([^)]*)\)", first_line)
             if match:
                 sig_str = f"({match.group(1)})"
@@ -1552,7 +1717,8 @@ def _handle_signature_help(
         if not sig_str:
             return None
 
-    doc = inspect.getdoc(obj)
+    if doc is None:
+        doc = inspect.getdoc(obj)
     signature_info = types.SignatureInformation(
         label=f"{func_name}{sig_str}",
         documentation=doc,

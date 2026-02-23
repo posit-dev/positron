@@ -255,6 +255,17 @@ export class PlaywrightDriver {
 		if (this.serverProcess) {
 			await measureAndLog(() => teardown(this.serverProcess!, this.options.logger), 'teardown server process', this.options.logger);
 		}
+
+		// --- Start Positron ---
+		// Wait for child process handles to drain after application closes
+		// This gives time for ChildProcess, Socket, Pipe, and WriteWrap handles to close
+		// before the test worker attempts to tear down
+		try {
+			await measureAndLog(() => this.wait(2000), 'wait for handles to drain', this.options.logger);
+		} catch (error) {
+			this.options.logger.log(`Error during handle drain wait (${error})`);
+		}
+		// --- End Positron ---
 	}
 
 	private async saveWebClientLogs(): Promise<void> {

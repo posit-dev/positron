@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { Application, SessionMetaData } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
 
@@ -186,6 +187,10 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 
 	await sessions.select(session.id);
 	await hotKeys.firstTab();
+
+	// Wait for the editor to actually have focus before typing
+	const editorInput = app.code.driver.page.locator('.editor-instance .monaco-editor .native-edit-context');
+	await expect(editorInput).toBeFocused();
 
 	if (retrigger) {
 		const triggerText = session.name.includes('Python') ? 'pd.DataF' : 'read_p';

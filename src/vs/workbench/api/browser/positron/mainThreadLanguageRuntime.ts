@@ -12,7 +12,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -640,15 +640,15 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._proxy.$getPackages(this.handle);
 	}
 
-	async installPackages(packages: string[]): Promise<void> {
+	async installPackages(packages: IPackageSpec[]): Promise<void> {
 		return this._proxy.$installPackages(this.handle, packages);
 	}
 
-	async uninstallPackages(packages: string[]): Promise<void> {
-		return this._proxy.$uninstallPackages(this.handle, packages);
+	async uninstallPackages(packageNames: string[]): Promise<void> {
+		return this._proxy.$uninstallPackages(this.handle, packageNames);
 	}
 
-	async updatePackages(packages: string[]): Promise<void> {
+	async updatePackages(packages: IPackageSpec[]): Promise<void> {
 		return this._proxy.$updatePackages(this.handle, packages);
 	}
 
@@ -711,10 +711,15 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				this._startupEmitter.fire(info);
 				resolve(info);
 			}).catch((err) => {
+				// Combine error details and stack trace if both are present
+				const errorDetails = `${err.details ? err.details : ''}${err.stack ? '\n\n' + err.stack : ''}`;
 				// Examine the error object to see what kind of failure it is
-				if (err.message && err.details) {
+				if (err.message && errorDetails) {
 					// We have an error message and details; use both
-					this._startupFailureEmitter.fire(err satisfies ILanguageRuntimeStartupFailure);
+					this._startupFailureEmitter.fire({
+						message: err.message,
+						details: errorDetails
+					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else if (err.message && err.errors) {
 					// There are multiple errors (AggregateError)
@@ -728,21 +733,21 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 					// We have a name and a message.
 					this._startupFailureEmitter.fire({
 						message: err.name,
-						details: err.message
+						details: err.message + (errorDetails ? '\n\n' + errorDetails : '')
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else if (err.message) {
 					// We only have a message.
 					this._startupFailureEmitter.fire({
 						message: err.message,
-						details: ''
+						details: errorDetails
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else {
 					// Not an error object, or it doesn't have a message; just use the string
 					this._startupFailureEmitter.fire({
 						message: err.toString(),
-						details: ''
+						details: errorDetails
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err);
 				}

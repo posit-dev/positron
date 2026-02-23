@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { join } from 'path';
-import { EvalTestCase } from '../types';
+import { EvalTestCase, RunResult } from '../types';
 
 /**
  * Test: positron_editFile_internal tool usage
@@ -22,7 +22,7 @@ export const pythonEditFile: EvalTestCase = {
 	prompt,
 	mode,
 
-	run: async ({ app, sessions, hotKeys, cleanup }) => {
+	run: async ({ app, sessions, hotKeys, cleanup }): Promise<RunResult> => {
 		const { assistant, console, quickaccess } = app.workbench;
 
 		// Start Python session
@@ -35,21 +35,10 @@ export const pythonEditFile: EvalTestCase = {
 			);
 		}).toPass({ timeout: 5000 });
 
-		// Ask the question (don't wait for response - we need to click Keep)
+		// Ask the question
 		await assistant.clickNewChatButton();
 		await assistant.selectChatMode(mode);
-		await assistant.enterChatMessage(
-			prompt,
-			false // Don't wait - we need to interact with Keep button
-		);
-
-		// Handle the Keep button interaction
-		try {
-			await assistant.clickKeepButton();
-			await assistant.waitForResponseComplete();
-		} catch (error) {
-			// Keep button didn't appear or wasn't clickable - that's OK
-		}
+		const timing = await assistant.sendChatMessageAndWait(prompt);
 
 		// Get the response
 		const response = await assistant.getChatResponseText(app.workspacePathOrFolder);
@@ -60,7 +49,7 @@ export const pythonEditFile: EvalTestCase = {
 		await sessions.restart(pySession.id);
 		await cleanup.discardAllChanges();
 
-		return response;
+		return { response, timing };
 	},
 
 	evaluationCriteria: {

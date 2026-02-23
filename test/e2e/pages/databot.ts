@@ -87,6 +87,8 @@ export class Databot {
 	 */
 	async waitForReady(timeout: number = 30000): Promise<void> {
 		await expect(this.frame.locator(CHAT_INPUT)).toBeVisible({ timeout });
+		await expect(this.frame.locator(SEND_BUTTON)).toBeVisible({ timeout });
+		await expect(this.frame.locator(STOP_BUTTON)).not.toBeVisible({ timeout });
 	}
 
 	/**
@@ -274,7 +276,7 @@ export class Databot {
 			return;
 		}
 		await button.click();
-		await expect(this.frame.locator(CHAT_INPUT)).toBeVisible();
+		await this.waitForReady();
 	}
 
 	/**

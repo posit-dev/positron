@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { IRange, Range } from '../../../../../editor/common/core/range.js';
@@ -39,5 +39,56 @@ export class CellEditorRange implements ICellEditorRange {
 
 	public static getEndPosition(range: ICellEditorRange): CellEditorPosition {
 		return new CellEditorPosition(range.cellIndex, Range.getEndPosition(range.range));
+	}
+
+	equalsRange(other: ICellEditorRange | null | undefined): boolean {
+		return CellEditorRange.equalsRange(this, other);
+	}
+
+	public static equalsRange(a: ICellEditorRange | null | undefined, b: ICellEditorRange | null | undefined): boolean {
+		if (!a && !b) {
+			return true;
+		}
+		return (
+			!!a &&
+			!!b &&
+			a.cellIndex === b.cellIndex &&
+			Range.equalsRange(a.range, b.range)
+		);
+	}
+
+	isEmpty(): boolean {
+		return CellEditorRange.isEmpty(this);
+	}
+
+	public static isEmpty(cellRange: ICellEditorRange): boolean {
+		return Range.isEmpty(cellRange.range);
+	}
+
+	containsRange(other: ICellEditorRange): boolean {
+		return CellEditorRange.containsRange(this, other);
+	}
+
+	public static containsRange(cellRange: ICellEditorRange, otherCellRange: ICellEditorRange): boolean {
+		return cellRange.cellIndex === otherCellRange.cellIndex && Range.containsRange(cellRange.range, otherCellRange.range);
+	}
+
+	isBefore(other: ICellEditorRange): boolean {
+		return CellEditorRange.isBefore(this, other);
+	}
+
+	public static isBefore(a: ICellEditorRange, b: ICellEditorRange): boolean {
+		return CellEditorPosition.isBefore(
+			CellEditorRange.getStartPosition(a),
+			CellEditorRange.getStartPosition(b),
+		);
+	}
+
+	toString(): string {
+		return CellEditorRange.toString(this);
+	}
+
+	public static toString(cellRange: ICellEditorRange): string {
+		return `cell[${cellRange.cellIndex}]:[${cellRange.range.startLineNumber},${cellRange.range.startColumn} -> ${cellRange.range.endLineNumber},${cellRange.range.endColumn}]`;
 	}
 }

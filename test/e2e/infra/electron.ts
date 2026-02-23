@@ -33,7 +33,8 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 		'--disable-updates',
 		`--crash-reporter-directory=${crashesPath}`,
 		'--disable-workspace-trust',
-		`--logsPath=${logsPath}`
+		`--logsPath=${logsPath}`,
+		`--log=trace`,
 	];
 
 	// Only add workspace path if provided
