@@ -108,10 +108,11 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		const outerFrame = page.frameLocator('iframe.webview.ready');
 		const innerFrame = outerFrame.frameLocator('iframe#active-frame');
 
+
 		await test.step('Add files to deployment file (after app.py) and save', async () => {
-			await innerFrame.locator('.tree-item-title', { hasText: 'shared.py' }).click();
-			await innerFrame.locator('.tree-item-title', { hasText: 'styles.css' }).click();
-			await innerFrame.locator('.tree-item-title', { hasText: 'tips.csv' }).click();
+			await innerFrame.locator('.tree-item-container').filter({ hasText: 'shared.py' }).locator('.tree-item-checkbox .checkbox-control').click();
+			await innerFrame.locator('.tree-item-container').filter({ hasText: 'styles.css' }).locator('.tree-item-checkbox .checkbox-control').click();
+			await innerFrame.locator('.tree-item-container').filter({ hasText: 'tips.csv' }).locator('.tree-item-checkbox .checkbox-control').click();
 		});
 
 		const deployButton = innerFrame.locator('vscode-button[data-automation="deploy-button"] >>> button');
@@ -151,8 +152,6 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await expect(app.workbench.topActionBar.saveAllButton).not.toBeEnabled({ timeout: 10000 });
 		});
 
-		await hotKeys.restoreBottomPanel();
-
 		let appGuid;
 		await test.step('Deploy, await completion and get appGuid', async () => {
 			await deployButton.click({ timeout: 5000 });
@@ -160,6 +159,8 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await expect(app.code.driver.page.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 200000 });
 
 			await hotKeys.closeSecondarySidebar();
+
+			await hotKeys.restoreBottomPanel();
 
 			await app.code.driver.page.locator('.monaco-action-bar .action-label', { hasText: 'Publisher' }).click({ timeout: 60000 });
 
