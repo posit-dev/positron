@@ -518,6 +518,20 @@ class TestCompletions:
                 id="os_environ_double_bracket_no_completions",
             ),
             pytest.param(
+                'import os; os.environ[["',
+                {},
+                None,
+                [],
+                id="os_environ_double_bracket_from_source_no_completions",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": pd.Series({"a": 1, "b": 2})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_series_double_bracket",
+            ),
+            pytest.param(
                 'os.environ["',
                 {"os": os},
                 None,

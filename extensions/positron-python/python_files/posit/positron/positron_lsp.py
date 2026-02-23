@@ -805,7 +805,7 @@ def _get_dict_key_completions(
     obj = _safe_resolve_expression(server.shell.user_ns, expr)
     if obj is None:
         # Try static analysis fallback for os.environ
-        if document is not None:
+        if not exclude_dicts and document is not None:
             os_imports = _parse_os_imports(document.source)
             # Check if expr is "<alias>.environ" where alias maps to "os"
             match = _RE_ALIAS_ENVIRON.match(expr)
