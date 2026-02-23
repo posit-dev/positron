@@ -16,7 +16,7 @@ import { IModelService } from '../../../common/services/model.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 
 
-async function provideStatementRange(
+export async function provideStatementRange(
 	registry: LanguageFeatureRegistry<languages.StatementRangeProvider>,
 	model: ITextModel,
 	position: Position,
