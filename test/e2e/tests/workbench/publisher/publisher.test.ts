@@ -123,15 +123,16 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		await hotKeys.minimizeBottomPanel();
 
-		await test.step('Ensure toml file is ready for update', async () => {
+		await test.step('Ensure toml file is ready for update - flake workaround', async () => {
 			await expect(async () => {
 				try {
+					// is tips.csv in the toml file?
 					const editorContainer = app.code.driver.page.locator('[id="workbench.parts.editor"]');
 					const dynamicTomlLineRegex = 'tips.csv';
 					const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
-
 					await expect(targetLine).toBeVisible({ timeout: 10000 });
 				} catch (e) {
+					// reload the toml file
 					const filenames = await app.workbench.editor.getMonacoFilenames();
 					await hotKeys.closeAllEditors();
 					const file = `workspaces/shiny-py-example/.posit/publish/${filenames.find(f => f.startsWith('shiny-py-example'))}`;
@@ -139,6 +140,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 					await openFile(file);
 					await hotKeys.stackedLayout();
 					await hotKeys.minimizeBottomPanel();
+					await hotKeys.publishDocument();
 					throw e;
 				}
 			}).toPass({ timeout: 60000 });
