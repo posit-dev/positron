@@ -223,16 +223,14 @@ export class UvPackageManager {
     private async _getOutdatedPackages(): Promise<Array<{ name: string }>> {
         const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         const processService = await processServiceFactory.create();
+        const proxyEnv = this._getProxyEnv();
 
         try {
-            const result = await processService.exec('uv', [
-                'pip',
-                'list',
-                '--outdated',
-                '--format=json',
-                '--python',
-                this._pythonPath,
-            ]);
+            const result = await processService.exec(
+                'uv',
+                ['pip', 'list', '--outdated', '--format=json', '--python', this._pythonPath],
+                { extraVariables: proxyEnv },
+            );
 
             if (result.stdout) {
                 return JSON.parse(result.stdout);
@@ -253,12 +251,28 @@ export class UvPackageManager {
     }
 
     /**
+     * Get proxy environment variables if a proxy is configured in VS Code settings.
+     * uv uses standard HTTP_PROXY/HTTPS_PROXY environment variables.
+     */
+    private _getProxyEnv(): Record<string, string> | undefined {
+        const proxy = vscode.workspace.getConfiguration('http').get<string>('proxy', '');
+        if (proxy) {
+            return {
+                HTTP_PROXY: proxy,
+                HTTPS_PROXY: proxy,
+            };
+        }
+        return undefined;
+    }
+
+    /**
      * Execute a uv command in the terminal (visible to user).
      */
     private async _executeUvInTerminal(args: string[]): Promise<void> {
+        const proxyEnv = this._getProxyEnv();
         const terminalService = this._serviceContainer
             .get<ITerminalServiceFactory>(ITerminalServiceFactory)
-            .getTerminalService({});
+            .getTerminalService({ env: proxyEnv });
         // Ensure terminal is created and ready before sending command
         await terminalService.show();
         const tokenSource = new vscode.CancellationTokenSource();
