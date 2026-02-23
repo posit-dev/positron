@@ -13,14 +13,7 @@ import { IApplicationEnvironment, ICommandManager, IWorkspaceService } from './c
 import { Commands, PYTHON_LANGUAGE, UseProposedApi } from './common/constants';
 import { registerTypes as installerRegisterTypes } from './common/installer/serviceRegistry';
 import { IFileSystem } from './common/platform/types';
-import {
-    IConfigurationService,
-    IDisposableRegistry,
-    IExtensions,
-    IInterpreterPathService,
-    ILogOutputChannel,
-    IPathUtils,
-} from './common/types';
+import { IConfigurationService, IDisposableRegistry, IExtensions, ILogOutputChannel, IPathUtils } from './common/types';
 import { noop } from './common/utils/misc';
 import { registerTypes as debugConfigurationRegisterTypes } from './debugger/extension/serviceRegistry';
 import { IDebugConfigurationService } from './debugger/extension/types';
@@ -57,10 +50,6 @@ import { registerPixiFeatures } from './pythonEnvironments/common/environmentMan
 // --- Start Positron ---
 // This hyperlinks the terminal to the native REPL, which we don't use.
 // import { registerCustomTerminalLinkProvider } from './terminals/pythonStartupLinkProvider';
-// --- End Positron ---
-import { registerEnvExtFeatures } from './envExt/api.internal';
-
-// --- Start Positron ---
 import { IPythonRuntimeManager } from './positron/manager';
 // --- End Positron ---
 
@@ -107,13 +96,9 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
     const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
         IInterpreterQuickPick,
     );
-    const interpreterPathService: IInterpreterPathService = ext.legacyIOC.serviceContainer.get<IInterpreterPathService>(
-        IInterpreterPathService,
-    );
     const interpreterService: IInterpreterService = ext.legacyIOC.serviceContainer.get<IInterpreterService>(
         IInterpreterService,
     );
-    registerEnvExtFeatures(ext.disposables, interpreterPathService);
     const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
 
     // --- Start Positron ---
