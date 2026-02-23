@@ -24,7 +24,8 @@ import { ImportGraph } from './importGraph';
 
 // --- Start Positron ---
 // Add .tsx to the test file pattern to allow testing of React components
-const TEST_FILE_PATTERN = 'src/vs/**/*.{test,integrationTest}.{ts,tsx}';
+// VSCode only seems to support a single brace expansion
+const TEST_FILE_PATTERN = 'src/vs/**/*.{test.ts,test.tsx,integrationTest.ts,integrationTest.tsx}';
 // --- End Positron ---
 
 const getWorkspaceFolderForTestFile = (uri: vscode.Uri) =>
