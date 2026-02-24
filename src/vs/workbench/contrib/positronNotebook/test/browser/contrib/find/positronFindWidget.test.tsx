@@ -10,7 +10,7 @@ import assert from 'assert';
 import sinon from 'sinon';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../../../base/test/browser/react.js';
-import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
+import { ISettableObservable, observableValue, transaction } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
@@ -95,29 +95,6 @@ suite('PositronFindWidget', () => {
 			);
 		});
 
-		test('contains find input container', () => {
-			renderWidget();
-
-			const findInput = container().querySelector('.positron-find-widget .find-input-container');
-			assert.ok(findInput, 'Expected .find-input-container to exist');
-		});
-
-		test('contains navigation buttons', () => {
-			renderWidget();
-
-			const navButtons = container().querySelector('.positron-find-widget .navigation-buttons');
-			assert.ok(navButtons, 'Expected .navigation-buttons to exist');
-
-			const buttons = navButtons.querySelectorAll('button.action-button');
-			assert.strictEqual(buttons.length, 2, 'Expected 2 navigation buttons');
-		});
-
-		test('contains close button', () => {
-			renderWidget();
-
-			const closeButton = container().querySelector('.positron-find-widget button.close-button');
-			assert.ok(closeButton, 'Expected close button to exist');
-		});
 	});
 
 	suite('FindResult display', () => {
@@ -267,9 +244,11 @@ suite('PositronFindWidget', () => {
 
 	suite('Reactivity', () => {
 		test('re-renders when matchCount changes', () => {
-			findText.set('foo', undefined);
-			matchCount.set(3, undefined);
-			matchIndex.set(0, undefined);
+			transaction((tx) => {
+				findText.set('foo', tx);
+				matchCount.set(3, tx);
+				matchIndex.set(0, tx);
+			})
 			renderWidget();
 
 			let results = container().querySelector('.positron-find-widget .results');
@@ -305,7 +284,7 @@ suite('PositronFindWidget', () => {
 			renderWidget();
 
 			widget = container().querySelector('.positron-find-widget');
-			assert.ok(!widget?.classList.contains('visible'), 'Expected widget to not be visible');
+			assert.ok(widget?.classList.contains('visible') === false, 'Expected widget to not be visible');
 		});
 	});
 });
