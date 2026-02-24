@@ -29,6 +29,7 @@ import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/
 import { ILanguageRuntimeService, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IOutputService } from '../../../services/output/common/output.js';
+import { IAdminPolicyService } from '../../../../platform/policy/common/adminPolicyService.js';
 import * as perf from '../../../../base/common/performance.js';
 
 export class PositronStartupDiagnosticsContrib implements IDisposable {
@@ -118,6 +119,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IOutputService private readonly _outputService: IOutputService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
+		@IAdminPolicyService private readonly _adminPolicyService: IAdminPolicyService,
 	) { }
 
 	provideTextContent(resource: URI): Promise<ITextModel> {
@@ -159,6 +161,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				this._addPerSessionTiming(md);
 				md.blank();
 				this._addInterpreterSettings(md);
+				md.blank();
+				this._addAdminEnforcedSettings(md);
 				md.blank();
 				await this._addSessionLaunchInfo(md);
 				md.blank();
@@ -265,6 +269,24 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			const value = this._configurationService.getValue(key);
 			md.li(`\`${key}\`: ${fmt(value)}`);
 		}
+	}
+
+	private _addAdminEnforcedSettings(md: MarkdownBuilder): void {
+		const policies = this._adminPolicyService.getAllSettings();
+		if (policies.length === 0) {
+			return;
+		}
+
+		md.heading(2, 'Admin Enforced Settings');
+
+		const table: Array<Array<string>> = [];
+		for (const policy of policies) {
+			const value = typeof policy.value === 'object'
+				? JSON.stringify(policy.value)
+				: String(policy.value);
+			table.push([policy.key, value]);
+		}
+		md.table(['Setting', 'Value'], table);
 	}
 
 	private _addActiveRuntimes(md: MarkdownBuilder): void {

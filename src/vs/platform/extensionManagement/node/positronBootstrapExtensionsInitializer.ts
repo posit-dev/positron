@@ -15,7 +15,7 @@ import { existsSync, readFileSync, writeFileSync, accessSync, constants as fsCon
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { getSystemArchitecture } from '../../../base/node/arch.js';
 import { DeferredPromise } from '../../../base/common/async.js';
-import * as perf from '../../../../base/common/performance.js';
+import * as perf from '../../../base/common/performance.js';
 
 const BOOTSTRAP_TIMEOUT_MS = 30000; // 30 seconds
 
