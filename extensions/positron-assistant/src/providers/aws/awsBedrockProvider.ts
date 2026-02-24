@@ -25,7 +25,7 @@ import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers'
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { autoconfigureWithManagedCredentials, hasManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
-import { ErrorTemplates } from './errorFormatting';
+import { ErrorTemplates, getCredentialTypeDescription } from './errorFormatting';
 import { registerModelWithAPI } from '../../modelRegistration';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 import { ErrorContext } from '../base/errorContext.js';
@@ -207,7 +207,8 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		// Store as promise to avoid race conditions if errors occur before resolution
 		this._credentialSourcePromise = this.getCredentialSource(credentials).then(credentialSource => {
 			if (credentialSource) {
-				this.logger.debug(`AWS credentials loaded with source features: ${JSON.stringify(Object.keys(credentialSource))}`);
+				const description = getCredentialTypeDescription(credentialSource);
+				this.logger.debug(`AWS credentials loaded using ${description ?? 'unknown source'}.`);
 			}
 			return credentialSource;
 		});

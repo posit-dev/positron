@@ -29,7 +29,7 @@ function createSettingsUri(
  * @param isManagedCredential Whether the credentials are managed credentials (detected by caller)
  * @returns A human-readable description of the credential type
  */
-function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures, isManagedCredential?: boolean): string | undefined {
+export function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures, isManagedCredential?: boolean): string | undefined {
 	if (!source) {
 		return undefined;
 	}
