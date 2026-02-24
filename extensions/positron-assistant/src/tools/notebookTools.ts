@@ -272,7 +272,7 @@ async function runAllCells(
 	// Run all cell indices (the execution service handles skipping non-executable cells)
 	const allIndices = allCells.map(c => c.index);
 	// Track code cells separately for accurate reporting
-	const codeCells = allCells.filter(c => c.type === 'code');
+	const codeCells = allCells.filter(c => c.type === positron.notebooks.NotebookCellType.Code);
 
 	if (allIndices.length === 0) {
 		return new vscode.LanguageModelToolResult([

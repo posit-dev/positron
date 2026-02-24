@@ -13,6 +13,11 @@ import { log } from '../log.js';
 /**
  * MIME types for notebook cell output classification.
  * Matches the canonical types from the ipynb extension and VS Code notebook renderer.
+ *
+ * NOTE: The core browser layer has similar utilities in
+ * `src/vs/workbench/contrib/positronNotebook/browser/notebookMimeUtils.ts`
+ * (isImageMimeType, isTextBasedMimeType). Extensions cannot import from core,
+ * so these are maintained separately. Keep them aligned when adding new types.
  */
 const ERROR_MIME_TYPES = new Set([
 	'application/vnd.code.notebook.error',
@@ -24,12 +29,18 @@ const ERROR_MIME_TYPES = new Set([
 const TEXT_MIME_TYPES = new Set([
 	'application/vnd.code.notebook.stdout',
 	'application/x.notebook.stdout',
+	'application/x.notebook.stream',
 	'application/json',
+	'application/xml',
 	'image/svg+xml',
 ]);
 
 /**
  * Strips MIME parameters (e.g., `; charset=utf-8`) to get the base type.
+ *
+ * Differs from `normalizeMimeType` in `src/vs/base/common/mime.ts` which
+ * preserves parameters and only lowercases. This variant strips parameters
+ * entirely for Set-based lookups.
  */
 function normalizeMime(mimeType: string): string {
 	const semicolonIndex = mimeType.indexOf(';');
