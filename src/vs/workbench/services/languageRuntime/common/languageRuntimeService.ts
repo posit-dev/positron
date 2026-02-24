@@ -437,6 +437,28 @@ export interface ILanguageRuntimeInfo {
 	interpreterArch?: LanguageRuntimeArchitecture;
 }
 
+/**
+ * ILanguageRuntimeLaunchInfo describes the kernel launch parameters used to
+ * start a runtime session. This is the information from the Jupyter kernel
+ * spec that was used to start the kernel.
+ */
+export interface ILanguageRuntimeLaunchInfo {
+	/** The command line used to start the kernel */
+	argv: string[];
+
+	/** Environment variables set for the kernel process */
+	env: Record<string, string>;
+
+	/** Optional preflight command run before starting the kernel (e.g. conda activate) */
+	startupCommand?: string;
+
+	/** How the kernel handles interrupts */
+	interruptMode?: string;
+
+	/** The Jupyter protocol version in use */
+	protocolVersion?: string;
+}
+
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
 export interface ILanguageRuntimeStartupFailure {
 	/** The error message to show to the user; at most one line of text */
@@ -738,21 +760,28 @@ export enum RuntimeStartupPhase {
 	Reconnecting = 'reconnecting',
 
 	/**
-	 * Phase 4: Positron is starting any runtimes that are affiliated with the
+	 * Phase 4: Positron is setting up new runtimes for the workspace. We only
+	 * enter this phase when starting up a workspace for the first time via the
+	 * New Folder templates. This sets up affilated runtimes for the workspace.
+	 */
+	NewFolderTasks = 'newFolderTasks',
+
+	/**
+	 * Phase 5: Positron is starting any runtimes that are affiliated with the
 	 * workspace. We enter this phase on a fresh start of Positron, when no
 	 * existing sessions are running.
 	 */
 	Starting = 'starting',
 
 	/**
-	 * Phase 5: Positron is discovering all the runtimes on the machine. This
+	 * Phase 6: Positron is discovering all the runtimes on the machine. This
 	 * can take a while, but does precede startup for workspaces that have no
 	 * affiliated runtimes (so we don't know what to start yet).
 	 */
 	Discovering = 'discovering',
 
 	/**
-	 * Phase 6: Startup is complete. In this phase, we start any runtimes
+	 * Phase 7: Startup is complete. In this phase, we start any runtimes
 	 * recommended by extensions if nothing was started in previous phases.
 	 */
 	Complete = 'complete',

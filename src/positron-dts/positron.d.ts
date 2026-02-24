@@ -483,6 +483,26 @@ declare module 'positron' {
 		interpreterArch?: LanguageRuntimeArchitecture;
 	}
 
+	/**
+	 * Describes the kernel launch parameters used to start a runtime session.
+	 */
+	export interface LanguageRuntimeLaunchInfo {
+		/** The command line used to start the kernel */
+		argv: string[];
+
+		/** Environment variables set for the kernel process */
+		env: Record<string, string>;
+
+		/** Optional preflight command run before starting the kernel */
+		startupCommand?: string;
+
+		/** How the kernel handles interrupts */
+		interruptMode?: string;
+
+		/** The Jupyter protocol version in use */
+		protocolVersion?: string;
+	}
+
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
 	export interface LanguageRuntimeState extends LanguageRuntimeMessage {
 		/** The new state */
@@ -1314,6 +1334,13 @@ declare module 'positron' {
 		 * @param sessionName The new session name
 		 */
 		updateSessionName(sessionName: string): void;
+
+		/**
+		 * Returns the kernel launch parameters used to start this session,
+		 * if available.
+		 */
+		getLaunchInfo?(): LanguageRuntimeLaunchInfo | undefined;
+
 
 		/**
 		 * Show runtime log in output panel.
@@ -2170,6 +2197,14 @@ declare module 'positron' {
 		 * Positron core.
 		 */
 		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
+
+		/**
+		 * Emit a performance mark that can be used for telemetry and
+		 * performance monitoring. The mark is recorded at the current time.
+		 *
+		 * @param name The name of the performance mark.
+		 */
+		export function emitPerfMark(name: string): void;
 
 		/**
 		 * An event that fires when a new runtime is registered.

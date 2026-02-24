@@ -481,6 +481,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		await this._kernel?.showProfile?.();
 	}
 
+	getLaunchInfo(): positron.LanguageRuntimeLaunchInfo | undefined {
+		return this._kernel?.getLaunchInfo?.();
+	}
+
 	updateSessionName(sessionName: string): void {
 		// Update the dynamic state of the session
 		this.dynState.sessionName = sessionName;

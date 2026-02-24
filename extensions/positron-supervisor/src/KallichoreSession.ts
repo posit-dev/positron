@@ -1776,6 +1776,41 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return this._runtimeInfo;
 	}
 
+	getLaunchInfo(): positron.LanguageRuntimeLaunchInfo | undefined {
+		// For newly created sessions, use the original kernel spec which has
+		// the most complete information.
+		if (this._kernelSpec) {
+			const env: Record<string, string> = {};
+			if (this._kernelSpec.env) {
+				for (const [key, value] of Object.entries(this._kernelSpec.env)) {
+					if (typeof value === 'string') {
+						env[key] = value;
+					}
+				}
+			}
+			return {
+				argv: this._kernelSpec.argv,
+				env,
+				startupCommand: this._kernelSpec.startup_command,
+				interruptMode: this._kernelSpec.interrupt_mode,
+				protocolVersion: this._kernelSpec.kernel_protocol_version,
+			};
+		}
+
+		// For restored sessions, fall back to the ActiveSession data from
+		// Kallichore. This has argv, initial_env, and interrupt_mode but
+		// not startup_command or protocol_version.
+		if (this._activeSession) {
+			return {
+				argv: this._activeSession.argv,
+				env: this._activeSession.initial_env ?? {},
+				interruptMode: this._activeSession.interrupt_mode,
+			};
+		}
+
+		return undefined;
+	}
+
 	/**
 	 * Processs and emit a state change.
 	 *

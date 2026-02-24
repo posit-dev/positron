@@ -817,6 +817,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return [...channels, positron.LanguageRuntimeSessionChannel.LSP];
     }
 
+    getLaunchInfo(): positron.LanguageRuntimeLaunchInfo | undefined {
+        return this._kernel?.getLaunchInfo?.();
+    }
+
     async forceQuit(): Promise<void> {
         if (this._kernel) {
             this._kernel.emitJupyterLog('Force quitting');
