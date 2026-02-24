@@ -1248,7 +1248,7 @@
       {
         "name": "editNotebook",
         "displayName": "Edit Notebook",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndices array, e.g., [0] for single cell or [0,1,2] for multiple), operation='reorder' to reorganize cells, or operation='clearOutputs' to clear cell outputs (optional cellIndices to clear specific cells, omit to clear all). For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndices array, e.g., [0] for single cell or [0,1,2] for multiple), operation='reorder' to reorganize cells, or operation='clearOutputs' to clear all cell outputs. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
         "toolReferenceName": "editNotebook",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -1266,7 +1266,7 @@
                 "reorder",
                 "clearOutputs"
               ],
-              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell, 'reorder' moves cells to new positions, 'clearOutputs' clears cell outputs."
+              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell, 'reorder' moves cells to new positions, 'clearOutputs' clears all cell outputs."
             },
             "cellType": {
               "type": "string",
@@ -1293,7 +1293,7 @@
               "items": {
                 "type": "number"
               },
-              "description": "Array of cell indices (0-based). Required for 'delete'. Optional for 'clearOutputs' (omit to clear all). Use [0] for single cell or [0,1,2] for multiple."
+              "description": "Array of cell indices (0-based). Required for 'delete'. Use [0] for single cell or [0,1,2] for multiple."
             },
             "run": {
               "type": "boolean",

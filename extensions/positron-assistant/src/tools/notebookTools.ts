@@ -503,15 +503,11 @@ function createEditNotebookTool(participantService: ParticipantService) {
 				}
 
 				case 'clearOutputs': {
-					const { cellIndices } = options.input;
-					const message = cellIndices && cellIndices.length > 0
-						? vscode.l10n.t('Clear outputs from {0} cell(s)?', cellIndices.length)
-						: vscode.l10n.t('Clear all cell outputs?');
 					return {
 						invocationMessage: vscode.l10n.t('Clearing notebook outputs'),
 						confirmationMessages: {
 							title: vscode.l10n.t('Clear Outputs'),
-							message: message
+							message: vscode.l10n.t('Clear all cell outputs?'),
 						},
 						pastTenseMessage: vscode.l10n.t('Cleared notebook outputs'),
 					};
@@ -815,78 +811,17 @@ function createEditNotebookTool(participantService: ParticipantService) {
 					}
 
 					case 'clearOutputs': {
-						const { cellIndices } = options.input;
+						// Ensure the notebook is the active editor so
+						// notebook.clearAllCellsOutputs resolves its context.
+						// The chat panel may have stolen focus.
+						const notebookUri = vscode.Uri.parse(context.uri);
+						const notebookDoc = await vscode.workspace.openNotebookDocument(notebookUri);
+						await vscode.window.showNotebookDocument(notebookDoc, { preserveFocus: false });
 
-						if (cellIndices && cellIndices.length > 0) {
-							// Validate specified indices
-							const validation = validateCellIndices(cellIndices, context.cellCount);
-							if (!validation.valid) {
-								return new vscode.LanguageModelToolResult([
-									new vscode.LanguageModelTextPart(validation.error!)
-								]);
-							}
-
-							// Clear outputs for specific cells by selecting each and clearing
-							const notebookEditor = vscode.window.activeNotebookEditor;
-							if (!notebookEditor || notebookEditor.notebook.uri.toString() !== context.uri) {
-								return new vscode.LanguageModelToolResult([
-									new vscode.LanguageModelTextPart('Cannot clear outputs: the active notebook has changed. Please ensure the target notebook is focused.')
-								]);
-							}
-							const notebook = notebookEditor.notebook;
-
-							// Build a WorkspaceEdit that replaces each target code cell
-							// with a copy that has no outputs. Accumulate all edits
-							// before calling set() so earlier entries are not replaced.
-							const edit = new vscode.WorkspaceEdit();
-							const notebookEdits: vscode.NotebookEdit[] = [];
-							let clearedCount = 0;
-							const uniqueIndices = [...new Set(cellIndices)].sort((a, b) => a - b);
-							for (const idx of uniqueIndices) {
-								const cell = notebook.cellAt(idx);
-								if (cell.kind === vscode.NotebookCellKind.Code) {
-									const cellData = new vscode.NotebookCellData(
-										cell.kind,
-										cell.document.getText(),
-										cell.document.languageId
-									);
-									cellData.metadata = cell.metadata;
-									cellData.outputs = []; // Empty outputs
-									const range = new vscode.NotebookRange(idx, idx + 1);
-									notebookEdits.push(vscode.NotebookEdit.replaceCells(range, [cellData]));
-									clearedCount++;
-								}
-							}
-
-							if (notebookEdits.length > 0) {
-								edit.set(notebook.uri, notebookEdits);
-								const success = await vscode.workspace.applyEdit(edit);
-								if (!success) {
-									return new vscode.LanguageModelToolResult([
-										new vscode.LanguageModelTextPart('Failed to apply edit to clear cell outputs.')
-									]);
-								}
-							}
-
-							return new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart(
-									`Successfully cleared outputs from ${clearedCount} code cell(s) (${cellIndices.length} cell(s) specified).`
-								)
-							]);
-						} else {
-							// Verify the active notebook matches the target to avoid clearing the wrong notebook
-							const activeEditor = vscode.window.activeNotebookEditor;
-							if (!activeEditor || activeEditor.notebook.uri.toString() !== context.uri) {
-								return new vscode.LanguageModelToolResult([
-									new vscode.LanguageModelTextPart('Cannot clear outputs: the active notebook has changed. Please ensure the target notebook is focused.')
-								]);
-							}
-							// Clear all outputs using the built-in command
-							await vscode.commands.executeCommand('notebook.clearAllCellsOutputs');
-							return new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart('Successfully cleared all cell outputs.')
-							]);
-						}
+						await vscode.commands.executeCommand('notebook.clearAllCellsOutputs');
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart('Successfully cleared all cell outputs.')
+						]);
 					}
 
 					default:
