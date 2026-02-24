@@ -28,6 +28,8 @@ import { IProgressService, ProgressLocation } from '../../../../platform/progres
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
 export const POSITRON_PACKAGES_VIEW_ID = 'workbench.view.positronPackages.view';
 
+const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.equals('config.positron.environments.enable', true);
+
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PACKAGES_VIEW_CONTAINER_ID,
 	title: nls.localize2('packages', 'Packages'),
@@ -58,7 +60,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronSessionViewIcon,
-			when: ContextKeyExpr.equals('config.positron.environments.enable', true)
+			when: POSITRON_PACKAGES_ENABLED
 		}
 	],
 	viewContainer
@@ -79,6 +81,7 @@ class RefreshPackagesAction extends Action2 {
 			title: nls.localize2('refreshPackages', 'Refresh Packages'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
+			precondition: POSITRON_PACKAGES_ENABLED,
 		});
 	}
 	override run(accessor: ServicesAccessor, ...args: unknown[]): Promise<ILanguageRuntimePackage[]> {
@@ -101,6 +104,7 @@ class InstallPackageAction extends Action2 {
 			title: nls.localize2('installPackage', 'Install Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
+			precondition: POSITRON_PACKAGES_ENABLED,
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -163,6 +167,7 @@ class UninstallPackageAction extends Action2 {
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
+			precondition: POSITRON_PACKAGES_ENABLED,
 		});
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -234,6 +239,7 @@ class UpdatePackageAction extends Action2 {
 			title: nls.localize2('updatePackage', 'Update Package'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
+			precondition: POSITRON_PACKAGES_ENABLED,
 			menu: {
 				id: MenuId.ViewItemContext,
 				when: ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID),
@@ -304,6 +310,7 @@ class UpdateAllPackagesAction extends Action2 {
 			title: nls.localize2('updateAllPackages', 'Update All Packages'),
 			category: PACKAGES_CATEGORY,
 			f1: true,
+			precondition: POSITRON_PACKAGES_ENABLED,
 			menu: {
 				id: MenuId.ViewItemContext,
 				when: ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID),
