@@ -33,8 +33,8 @@ const TEXT_MIME_TYPES = new Set([
  */
 function normalizeMime(mimeType: string): string {
 	const semicolonIndex = mimeType.indexOf(';');
-	const base = semicolonIndex >= 0 ? mimeType.slice(0, semicolonIndex).trim() : mimeType;
-	return base.toLowerCase();
+	const base = semicolonIndex >= 0 ? mimeType.slice(0, semicolonIndex) : mimeType;
+	return base.trim().toLowerCase();
 }
 
 /**
