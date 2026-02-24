@@ -248,7 +248,7 @@ suite('PositronFindWidget', () => {
 				findText.set('foo', tx);
 				matchCount.set(3, tx);
 				matchIndex.set(0, tx);
-			})
+			});
 			renderWidget();
 
 			let results = container().querySelector('.positron-find-widget .results');
