@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { IExtensionManagementService } from '../common/extensionManagement.js';
@@ -15,6 +15,7 @@ import { existsSync, readFileSync, writeFileSync, accessSync, constants as fsCon
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { getSystemArchitecture } from '../../../base/node/arch.js';
 import { DeferredPromise } from '../../../base/common/async.js';
+import * as perf from '../../../../base/common/performance.js';
 
 const BOOTSTRAP_TIMEOUT_MS = 30000; // 30 seconds
 
@@ -67,6 +68,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 
 		if (lastKnownVersion !== currentVersion) {
 			this.logService.info('First launch after first install, upgrade, or downgrade. Installing bootstrapped extensions');
+			perf.mark('code/positron/bootstrapExtensions/start');
 			this.installVSIXOnStartup()
 				.then(() => {
 					this.logService.info('Bootstrap extensions installed successfully');
@@ -75,12 +77,14 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 					} catch (error) {
 						this.logService.error('Error writing bootstrapped extension storage file', storageFilePath, getErrorMessage(error));
 					}
-					this._whenReady.complete();
 				})
 				.catch(error => {
 					this.logService.error('Error installing bootstrapped extensions', getErrorMessage(error));
-					// Complete anyway to avoid blocking startup
+				})
+				.finally(() => {
+					// Always complete to avoid blocking startup
 					this._whenReady.complete();
+					perf.mark('code/positron/bootstrapExtensions/end');
 				});
 			this.cleanupOldExtensions(lastKnownVersion);
 
