@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -144,9 +144,19 @@ export class UVInstaller extends ModuleInstaller {
         }
         args.push('--upgrade', '--python', pythonPath);
 
+        // Read the http.proxy setting and pass it as env vars for uv,
+        // which uses HTTP_PROXY/HTTPS_PROXY (not a CLI flag like pip).
+        const proxy = workspaceService.getConfiguration('http').get<string>('proxy', '');
+        const envVars: Record<string, string> = {};
+        if (proxy) {
+            envVars.HTTP_PROXY = proxy;
+            envVars.HTTPS_PROXY = proxy;
+        }
+
         return {
             args: [...args, moduleName],
             execPath,
+            ...(Object.keys(envVars).length > 0 ? { envVars } : {}),
         };
     }
 }
