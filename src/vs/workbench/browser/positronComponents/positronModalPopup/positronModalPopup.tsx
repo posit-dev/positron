@@ -58,12 +58,20 @@ export interface AnchorPoint {
 }
 
 /**
- * PopupPosition type.
+ * The vertical position of the popup relative to the anchor element or point.
+
+ * - 'bottom': Position the popup below the anchor.
+ * - 'top': Position the popup above the anchor.
+ * - 'auto': Automatically choose 'bottom' or 'top' based on available space.
  */
 export type PopupPosition = 'bottom' | 'top' | 'auto';
 
 /**
- * PopupAlignment type.
+ * The horizontal alignment of the popup relative to the anchor element or point.
+ *
+ * - 'left': Align the popup's left edge with the anchor's left edge (popup extends right).
+ * - 'right': Align the popup's right edge with the anchor's right edge (popup extends left).
+ * - 'auto': Automatically choose 'left' or 'right' based on available space.
  */
 export type PopupAlignment = 'left' | 'right' | 'auto';
 
