@@ -10,7 +10,7 @@ import assert from 'assert';
 import sinon from 'sinon';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../../../base/test/browser/react.js';
-import { ISettableObservable, observableValue } from '../../../../../../../base/common/observableInternal/index.js';
+import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
@@ -35,25 +35,25 @@ suite('PositronFindWidget', () => {
 	function renderWidget() {
 		render(
 			<PositronFindWidget
-				findText={findText}
 				contextKeyService={new MockContextKeyService()}
 				// ContextViewService is only used by FindInput for validation message
 				// popups, which these tests don't trigger.
 				contextViewService={{} as IContextViewService}
-				matchCase={matchCase}
-				matchWholeWord={matchWholeWord}
-				useRegex={useRegex}
-				matchIndex={matchIndex}
-				matchCount={matchCount}
 				findInputOptions={{
 					label: 'Find',
 					inputBoxStyles: unthemedInboxStyles,
 					toggleStyles: unthemedToggleStyles,
 				}}
-				isVisible={isVisible}
+				findText={findText}
 				inputFocused={inputFocused}
-				onPreviousMatch={onPreviousMatch}
+				isVisible={isVisible}
+				matchCase={matchCase}
+				matchCount={matchCount}
+				matchIndex={matchIndex}
+				matchWholeWord={matchWholeWord}
+				useRegex={useRegex}
 				onNextMatch={onNextMatch}
+				onPreviousMatch={onPreviousMatch}
 			/>
 		);
 	}
