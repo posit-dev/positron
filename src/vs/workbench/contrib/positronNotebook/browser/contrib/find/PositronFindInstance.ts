@@ -9,8 +9,9 @@ import * as DOM from '../../../../../../base/browser/dom.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { IObservable, observableValue, transaction } from '../../../../../../base/common/observable.js';
-import { PositronFindWidget } from './PositronFindWidget.js';
-import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
+import { PositronFindWidget, type PositronFindWidgetReplaceProps } from './PositronFindWidget.js';
+import type { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
+import type { IReplaceInputOptions } from '../../../../../../base/browser/ui/findinput/replaceInput.js';
 import { PositronReactRenderer } from '../../../../../../base/browser/positronReactRenderer.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
@@ -29,6 +30,11 @@ export interface IPositronFindInstanceOptions {
 	 * Options for the find input widget.
 	 */
 	findInputOptions: IFindInputOptions;
+
+	/**
+	 * Options for the replace input widget. If undefined, the replace UI is disabled.
+	 */
+	replaceInputOptions?: IReplaceInputOptions;
 
 	/**
 	 * Context key service for scoped context keys.
@@ -52,9 +58,13 @@ export class PositronFindInstance extends Disposable {
 	// Events for user actions
 	private readonly _onDidRequestFindNext = this._register(new Emitter<void>());
 	private readonly _onDidRequestFindPrevious = this._register(new Emitter<void>());
+	private readonly _onDidRequestReplace = this._register(new Emitter<void>());
+	private readonly _onDidRequestReplaceAll = this._register(new Emitter<void>());
 
 	public readonly onDidRequestFindNext = this._onDidRequestFindNext.event;
 	public readonly onDidRequestFindPrevious = this._onDidRequestFindPrevious.event;
+	public readonly onDidRequestReplace = this._onDidRequestReplace.event;
+	public readonly onDidRequestReplaceAll = this._onDidRequestReplaceAll.event;
 
 	// Observable state for find operations
 	public readonly searchString = observableValue('findStateSearchString', '');
@@ -65,12 +75,18 @@ export class PositronFindInstance extends Disposable {
 	public readonly matchIndex = observableValue<number | undefined>('findStateMatchIndex', undefined);
 	public readonly matchCount = observableValue<number | undefined>('findStateMatchCount', undefined);
 
+	// Observable state for replace operations
+	public readonly replaceText = observableValue('findStateReplaceText', '');
+	public readonly replaceExpanded = observableValue('findStateReplaceExpanded', false);
+
 	// Observable state for visibility and focus
 	private readonly _isVisible = observableValue('findStateIsVisible', false);
 	private readonly _inputFocused = observableValue('findStateInputFocused', false);
+	private readonly _replaceInputFocused = observableValue('findStateReplaceInputFocused', false);
 
 	public readonly isVisible: IObservable<boolean> = this._isVisible;
 	public readonly inputFocused: IObservable<boolean> = this._inputFocused;
+	public readonly replaceInputFocused: IObservable<boolean> = this._replaceInputFocused;
 
 	constructor(
 		private readonly _options: IPositronFindInstanceOptions
@@ -99,6 +115,20 @@ export class PositronFindInstance extends Disposable {
 			// Create React renderer
 			this._renderer = this._register(new PositronReactRenderer(this._container));
 
+			// Build replace props if replace input options are provided
+			let replaceProps: PositronFindWidgetReplaceProps | undefined;
+			if (this._options.replaceInputOptions) {
+				replaceProps = {
+					expanded: this.replaceExpanded,
+					replaceText: this.replaceText,
+					preserveCase: this.preserveCase,
+					replaceInputFocused: this._replaceInputFocused,
+					replaceInputOptions: this._options.replaceInputOptions,
+					onReplace: () => this._onDidRequestReplace.fire(),
+					onReplaceAll: () => this._onDidRequestReplaceAll.fire(),
+				};
+			}
+
 			// Create the find widget
 			const findWidget = React.createElement(PositronFindWidget, {
 				contextKeyService: this._options.contextKeyService,
@@ -112,6 +142,7 @@ export class PositronFindInstance extends Disposable {
 				useRegex: this.isRegex,
 				matchIndex: this.matchIndex,
 				matchCount: this.matchCount,
+				replace: replaceProps,
 				onPreviousMatch: () => this._onDidRequestFindPrevious.fire(),
 				onNextMatch: () => this._onDidRequestFindNext.fire(),
 			});

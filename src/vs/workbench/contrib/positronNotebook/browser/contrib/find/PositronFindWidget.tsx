@@ -9,7 +9,9 @@ import './PositronFindWidget.css';
 // Other dependencies.
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { PositronFindInput } from './PositronFindInput.js';
+import { PositronReplaceInput } from './PositronReplaceInput.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
+import { IReplaceInputOptions } from '../../../../../../base/browser/ui/findinput/replaceInput.js';
 import { IObservable, ISettableObservable } from '../../../../../../base/common/observable.js';
 import { useObservedValue } from '../../useObservedValue.js';
 import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
@@ -23,8 +25,21 @@ const previousMatchLabel = localize('positronNotebook.find.previousMatch', "Prev
 const nextMatchLabel = localize('positronNotebook.find.nextMatch', "Next Match");
 const closeLabel = localize('positronNotebook.find.close', "Close");
 const noResultsLabel = localize('positronNotebook.find.noResults', "No results");
+const toggleReplaceLabel = localize('positronNotebook.find.toggleReplace', "Toggle Replace");
+const replaceLabel = localize('positronNotebook.find.replace', "Replace");
+const replaceAllLabel = localize('positronNotebook.find.replaceAll', "Replace All");
 const matchCountLabel = (matchIndex: number, matchCount: number) =>
 	localize('positronNotebook.find.matchCount', "{0} of {1}", matchIndex, matchCount);
+
+export interface PositronFindWidgetReplaceProps {
+	readonly expanded: ISettableObservable<boolean>;
+	readonly replaceText: ISettableObservable<string>;
+	readonly preserveCase: ISettableObservable<boolean>;
+	readonly replaceInputFocused: ISettableObservable<boolean>;
+	readonly replaceInputOptions: IReplaceInputOptions;
+	readonly onReplace: () => void;
+	readonly onReplaceAll: () => void;
+}
 
 export interface PositronFindWidgetProps {
 	readonly findText: ISettableObservable<string>;
@@ -38,6 +53,7 @@ export interface PositronFindWidgetProps {
 	readonly findInputOptions: IFindInputOptions;
 	readonly isVisible: ISettableObservable<boolean>;
 	readonly inputFocused: ISettableObservable<boolean>;
+	readonly replace?: PositronFindWidgetReplaceProps;
 	readonly onPreviousMatch: () => void;
 	readonly onNextMatch: () => void;
 }
@@ -54,6 +70,7 @@ export const PositronFindWidget = ({
 	isVisible,
 	inputFocused,
 	findInputOptions,
+	replace,
 	onPreviousMatch,
 	onNextMatch,
 }: PositronFindWidgetProps) => {
@@ -65,12 +82,16 @@ export const PositronFindWidget = ({
 	const _matchCount = useObservedValue(matchCount);
 	const _isVisible = useObservedValue(isVisible);
 	const _inputFocused = useObservedValue(inputFocused);
+	const _replaceExpanded = useObservedValue(replace?.expanded, false);
+	const _replaceText = useObservedValue(replace?.replaceText, '');
+	const _preserveCase = useObservedValue(replace?.preserveCase, false);
 
 	const noMatches = !_matchCount;
 	const hasNoResults = _findText && _matchCount === 0;
+	const noFindText = !_findText;
 
-	return (
-		<div className={`positron-find-widget${_isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
+	const findPart = (
+		<div className='find-part'>
 			<PositronFindInput
 				contextKeyService={contextKeyService}
 				contextViewService={contextViewService}
@@ -87,36 +108,88 @@ export const PositronFindWidget = ({
 				onUseRegexChange={(value) => useRegex.set(value, undefined)}
 				onValueChange={(value) => findText.set(value, undefined)}
 			/>
-			<FindResult
-				findText={_findText}
-				matchCount={_matchCount}
-				matchIndex={_matchIndex}
-			/>
-			<div className='navigation-buttons'>
+			<div className='find-actions'>
+				<FindResult
+					findText={_findText}
+					matchCount={_matchCount}
+					matchIndex={_matchIndex}
+				/>
+				<div className='navigation-buttons'>
+					<ActionButton
+						ariaLabel={previousMatchLabel}
+						className='action-button'
+						disabled={noMatches}
+						onPressed={() => onPreviousMatch()}
+					>
+						<ThemeIcon icon={Codicon.arrowUp} />
+					</ActionButton>
+					<ActionButton
+						ariaLabel={nextMatchLabel}
+						className='action-button'
+						disabled={noMatches}
+						onPressed={() => onNextMatch()}
+					>
+						<ThemeIcon icon={Codicon.arrowDown} />
+					</ActionButton>
+				</div>
 				<ActionButton
-					ariaLabel={previousMatchLabel}
-					className='action-button'
-					disabled={noMatches}
-					onPressed={() => onPreviousMatch()}
+					ariaLabel={closeLabel}
+					className='action-button close-button'
+					onPressed={() => isVisible.set(false, undefined)}
 				>
-					<ThemeIcon icon={Codicon.arrowUp} />
-				</ActionButton>
-				<ActionButton
-					ariaLabel={nextMatchLabel}
-					className='action-button'
-					disabled={noMatches}
-					onPressed={() => onNextMatch()}
-				>
-					<ThemeIcon icon={Codicon.arrowDown} />
+					<div className='codicon codicon-close' />
 				</ActionButton>
 			</div>
-			<ActionButton
-				ariaLabel={closeLabel}
-				className='action-button close-button'
-				onPressed={() => isVisible.set(false, undefined)}
-			>
-				<div className='codicon codicon-close' />
-			</ActionButton>
+		</div>
+	);
+
+	return (
+		<div className={`positron-find-widget${_isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
+			{replace && (
+				<ActionButton
+					ariaLabel={toggleReplaceLabel}
+					className='action-button toggle-replace'
+					onPressed={() => replace.expanded.set(!replace.expanded.get(), undefined)}
+				>
+					<ThemeIcon icon={_replaceExpanded ? Codicon.chevronDown : Codicon.chevronRight} />
+				</ActionButton>
+			)}
+			<div className='find-replace-rows'>
+				{findPart}
+				{replace && _replaceExpanded && (
+					<div className='replace-part'>
+						<PositronReplaceInput
+							contextKeyService={contextKeyService}
+							contextViewService={contextViewService}
+							preserveCase={_preserveCase}
+							replaceInputOptions={replace.replaceInputOptions}
+							value={_replaceText}
+							onInputBlur={() => replace.replaceInputFocused.set(false, undefined)}
+							onInputFocus={() => replace.replaceInputFocused.set(true, undefined)}
+							onPreserveCaseChange={(value) => replace.preserveCase.set(value, undefined)}
+							onValueChange={(value) => replace.replaceText.set(value, undefined)}
+						/>
+						<div className='replace-actions'>
+							<ActionButton
+								ariaLabel={replaceLabel}
+								className='action-button replace-button'
+								disabled={noFindText}
+								onPressed={() => replace.onReplace()}
+							>
+								<ThemeIcon icon={Codicon.replace} />
+							</ActionButton>
+							<ActionButton
+								ariaLabel={replaceAllLabel}
+								className='action-button replace-all-button'
+								disabled={noFindText}
+								onPressed={() => replace.onReplaceAll()}
+							>
+								<ThemeIcon icon={Codicon.replaceAll} />
+							</ActionButton>
+						</div>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 };
