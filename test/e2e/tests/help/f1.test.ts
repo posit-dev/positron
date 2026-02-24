@@ -95,9 +95,15 @@ test.describe('F1 Help', {
 	});
 
 	test('Python - Verify basic F1 editor help functionality', async function ({ app, page, python }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-py', 'generate-data-frames.py'));
+		const fileName = 'generate-data-frames.py';
+		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-py', fileName));
 
-		await app.code.driver.page.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
+		// Wait for editor content to be fully rendered before interacting
+		await app.workbench.editor.waitForEditorContents(fileName, (content) => content.includes('pd.DataFrame'));
+
+		await expect(async () => {
+			await app.code.driver.page.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
+		}).toPass({ timeout: 30000 });
 
 		await page.keyboard.press('F1');
 
@@ -111,7 +117,9 @@ test.describe('F1 Help', {
 	test('Python - Verify basic F1 notebook help functionality', async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
-		await app.code.driver.page.locator('span').filter({ hasText: 'warnings.filterwarnings(\'ignore\')' }).locator('span').first().dblclick();
+		await expect(async () => {
+			await app.code.driver.page.locator('span').filter({ hasText: 'warnings.filterwarnings(\'ignore\')' }).locator('span').first().dblclick();
+		}).toPass({ timeout: 30000 });
 
 		await expect(async () => {
 
