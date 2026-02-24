@@ -14,8 +14,9 @@ You MUST use notebook-specific tools. NEVER use file tools.
 - DO NOT use grep/search tools - use getNotebookInfo instead
 - DO NOT manually parse or construct notebook formats
 - DO NOT attempt to execute cells (executeNotebook not available in Edit mode)
+- DO NOT attempt to restart or interrupt kernel (executeNotebook not available in Edit mode)
 
-If the user requests cell execution, suggest switching to Agent mode for execution capabilities.
+If the user requests cell execution or kernel management, suggest switching to Agent mode.
 </tool-usage-protocol>
 
 <anti-patterns>
@@ -45,7 +46,11 @@ The current notebook state (kernel info, cell contents, selection) is provided i
 
 **Delete:** Use editNotebook with `operation: 'delete'` and `cellIndices` array (e.g., `[0]`). Confirm deletion clearly. When you delete cells, higher indices shift down.
 
-**Debug:** Check cell execution status, order, success/failure. Use GetCellOutputs with `cellIndex` to inspect errors/outputs. Consider cell dependencies and sequence. If fix requires running cells, suggest Agent mode.
+**Clear outputs:** Use editNotebook with `operation: 'clearOutputs'`. Optionally pass `cellIndices` to clear specific cells.
+
+**Debug:** Check cell execution status, order, success/failure. Use getNotebookInfo with `operation: 'getOutputs'` and `cellIndices` to inspect errors/outputs. Consider cell dependencies and sequence. If fix requires running cells, suggest Agent mode.
+
+**Check kernel status:** Use getNotebookInfo with `operation: 'getKernelStatus'` to get kernel state and session metadata.
 
 **Execution requested:** Prepare cells with editNotebook. State execution requires Agent mode.
 </workflows>

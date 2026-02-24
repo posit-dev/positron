@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../log.js';
-import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
+import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH, isErrorMime, isTextMime, isImageMime } from './notebookUtils.js';
 import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
 import { resolveShowDiff } from '../notebookAssistantMetadata.js';
@@ -52,48 +52,105 @@ const CELL_TYPE_MAP: Record<string, positron.notebooks.NotebookCellType> = {
 };
 
 /**
+ * Maximum number of cells for which runAll returns full outputs.
+ * Beyond this threshold, runAll returns per-cell summaries instead.
+ */
+const MAX_CELLS_FOR_FULL_RUN_ALL_OUTPUT = 10;
+
+/**
+ * Input type for the ExecuteNotebook tool.
+ */
+interface ExecuteNotebookInput {
+	operation: 'run' | 'runAll' | 'interrupt' | 'restartKernel';
+	cellIndices?: number[];
+	runAll?: boolean;
+}
+
+/**
  * Tool: Execute Notebook
  *
- * Executes one or more cells in the active notebook and returns their outputs.
- * Supports both text and image outputs.
+ * Manages the notebook execution lifecycle: run specific cells, run all cells,
+ * interrupt execution, or restart the kernel.
  */
-export const ExecuteNotebookTool = vscode.lm.registerTool<{
-	cellIndices: number[];
-}>(PositronAssistantToolName.ExecuteNotebook, {
+export const ExecuteNotebookTool = vscode.lm.registerTool<ExecuteNotebookInput>(PositronAssistantToolName.ExecuteNotebook, {
 	prepareInvocation: async (options, _token) => {
-		const cellIndices = options.input.cellIndices;
+		const { operation, cellIndices } = options.input;
 
-		// Get the active notebook context to fetch cell previews
-		const context = await positron.notebooks.getContext();
-		if (!context) {
-			// If no notebook is active, we still need to return a PreparedToolInvocation
-			// The actual error will be shown during invoke()
-			return {
-				invocationMessage: vscode.l10n.t('Running notebook cells'),
-				pastTenseMessage: vscode.l10n.t('Ran notebook cells'),
-			};
+		switch (operation) {
+			case 'run': {
+				if (!cellIndices || cellIndices.length === 0) {
+					return {
+						invocationMessage: vscode.l10n.t('Running notebook cells'),
+						pastTenseMessage: vscode.l10n.t('Ran notebook cells'),
+					};
+				}
+
+				// Build simple confirmation message
+				const cellList = cellIndices.length <= 5
+					? cellIndices.join(', ')
+					: `${cellIndices.slice(0, 5).join(', ')}, and ${cellIndices.length - 5} more`;
+
+				const message = cellIndices.length === 1
+					? vscode.l10n.t('Execute cell {0}?', cellIndices[0])
+					: vscode.l10n.t('Execute {0} cells ({1})?', cellIndices.length, cellList);
+
+				return {
+					invocationMessage: vscode.l10n.t('Running notebook cells'),
+					confirmationMessages: {
+						title: vscode.l10n.t('Run Notebook Cells'),
+						message: message
+					},
+					pastTenseMessage: vscode.l10n.t('Ran notebook cells'),
+				};
+			}
+
+			case 'runAll': {
+				const context = await positron.notebooks.getContext();
+				const cellCount = context?.cellCount ?? 0;
+				return {
+					invocationMessage: vscode.l10n.t('Running all notebook cells'),
+					confirmationMessages: {
+						title: vscode.l10n.t('Run All Cells'),
+						message: vscode.l10n.t('Execute all {0} cells in the notebook?', cellCount)
+					},
+					pastTenseMessage: vscode.l10n.t('Ran all notebook cells'),
+				};
+			}
+
+			case 'interrupt':
+				return {
+					invocationMessage: vscode.l10n.t('Interrupting notebook execution'),
+					pastTenseMessage: vscode.l10n.t('Interrupted notebook execution'),
+				};
+
+			case 'restartKernel': {
+				const willRunAll = options.input.runAll === true;
+				const message = willRunAll
+					? vscode.l10n.t('Restart the kernel and run all cells?')
+					: vscode.l10n.t('Restart the kernel?');
+				return {
+					invocationMessage: willRunAll
+						? vscode.l10n.t('Restarting kernel and running all cells')
+						: vscode.l10n.t('Restarting kernel'),
+					confirmationMessages: {
+						title: vscode.l10n.t('Restart Kernel'),
+						message: message
+					},
+					pastTenseMessage: willRunAll
+						? vscode.l10n.t('Restarted kernel and ran all cells')
+						: vscode.l10n.t('Restarted kernel'),
+				};
+			}
+
+			default:
+				return {
+					invocationMessage: vscode.l10n.t('Executing notebook operation'),
+					pastTenseMessage: vscode.l10n.t('Executed notebook operation'),
+				};
 		}
-
-		// Build simple confirmation message
-		const cellList = cellIndices.length <= 5
-			? cellIndices.join(', ')
-			: `${cellIndices.slice(0, 5).join(', ')}, and ${cellIndices.length - 5} more`;
-
-		const message = cellIndices.length === 1
-			? vscode.l10n.t('Execute cell {0}?', cellIndices[0])
-			: vscode.l10n.t('Execute {0} cells ({1})?', cellIndices.length, cellList);
-
-		return {
-			invocationMessage: vscode.l10n.t('Running notebook cells'),
-			confirmationMessages: {
-				title: vscode.l10n.t('Run Notebook Cells'),
-				message: message
-			},
-			pastTenseMessage: vscode.l10n.t('Ran notebook cells'),
-		};
 	},
 	invoke: async (options, token) => {
-		const cellIndices = options.input.cellIndices;
+		const { operation } = options.input;
 
 		try {
 			const context = await positron.notebooks.getContext();
@@ -101,50 +158,190 @@ export const ExecuteNotebookTool = vscode.lm.registerTool<{
 				return createNoActiveNotebookErrorResult();
 			}
 
-			// Validate cell indices
-			const validation = validateCellIndices(cellIndices, context.cellCount);
-			if (!validation.valid) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(validation.error!)
-				]);
-			}
+			switch (operation) {
+				case 'run': {
+					const cellIndices = options.input.cellIndices;
+					if (!cellIndices || cellIndices.length === 0) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart('Missing required parameter: cellIndices (required for run operation)')
+						]);
+					}
 
-			await positron.notebooks.runCells(context.uri, cellIndices);
+					// Validate cell indices
+					const validation = validateCellIndices(cellIndices, context.cellCount);
+					if (!validation.valid) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(validation.error!)
+						]);
+					}
 
-			// Build mixed content response with support for images
-			const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
-			resultParts.push(
-				new vscode.LanguageModelTextPart(`Successfully executed ${cellIndices.length} cell(s).\n\nOutputs:\n`)
-			);
+					await positron.notebooks.runCells(context.uri, cellIndices);
 
-			for (const cellIndex of cellIndices) {
-				const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cellIndex);
+					// Build mixed content response with support for images
+					const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
+					resultParts.push(
+						new vscode.LanguageModelTextPart(`Successfully executed ${cellIndices.length} cell(s).\n\nOutputs:\n`)
+					);
 
-				if (cellOutputs.length > 0) {
-					resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cellIndex}:\n`));
-					// Convert outputs to LanguageModel parts using shared helper
-					const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
-					resultParts.push(...outputParts);
+					for (const cellIndex of cellIndices) {
+						const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cellIndex);
+
+						if (cellOutputs.length > 0) {
+							resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cellIndex}:\n`));
+							const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
+							resultParts.push(...outputParts);
+						}
+					}
+
+					return new vscode.LanguageModelToolResult2(resultParts);
 				}
-			}
 
-			return new vscode.LanguageModelToolResult2(resultParts);
+				case 'runAll': {
+					return await runAllCells(context);
+				}
+
+				case 'interrupt': {
+					await vscode.commands.executeCommand('notebook.cancelExecution');
+					return new vscode.LanguageModelToolResult([
+						new vscode.LanguageModelTextPart('Successfully interrupted notebook execution.')
+					]);
+				}
+
+				case 'restartKernel': {
+					const notebookUri = vscode.Uri.parse(context.uri);
+					const session = await positron.runtime.getNotebookSession(notebookUri);
+					if (!session) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart('No active kernel session found for this notebook. The kernel may not be started.')
+						]);
+					}
+
+					await positron.runtime.restartSession(session.metadata.sessionId);
+
+					if (options.input.runAll === true) {
+						// Re-fetch context after restart to get fresh state
+						const freshContext = await positron.notebooks.getContext();
+						if (!freshContext) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart('Kernel restarted successfully, but notebook context became unavailable. Could not run all cells.')
+							]);
+						}
+						// Verify the active notebook hasn't changed during restart
+						if (freshContext.uri !== context.uri) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart('Kernel restarted successfully, but the active notebook changed. Run all cells skipped to avoid executing the wrong notebook.')
+							]);
+						}
+						return await runAllCells(freshContext);
+					}
+
+					return new vscode.LanguageModelToolResult([
+						new vscode.LanguageModelTextPart('Successfully restarted the kernel.')
+					]);
+				}
+
+				default:
+					return new vscode.LanguageModelToolResult([
+						new vscode.LanguageModelTextPart(
+							`Unknown operation: ${operation}. Must be "run", "runAll", "interrupt", or "restartKernel".`
+						)
+					]);
+			}
 		} catch (error: unknown) {
-			return createNotebookToolErrorResult(error, PositronAssistantToolName.ExecuteNotebook, 'execute cells');
+			return createNotebookToolErrorResult(error, PositronAssistantToolName.ExecuteNotebook, `${operation}`);
 		}
 	}
 });
 
 /**
+ * Runs all cells in a notebook and returns results.
+ * For small notebooks (<= MAX_CELLS_FOR_FULL_RUN_ALL_OUTPUT cells),
+ * returns full outputs. For larger notebooks, returns per-cell summaries.
+ */
+async function runAllCells(
+	context: positron.notebooks.NotebookContext
+): Promise<vscode.LanguageModelToolResult | vscode.LanguageModelToolResult2> {
+	const allCells = await positron.notebooks.getCells(context.uri);
+	// Run all cell indices (the execution service handles skipping non-executable cells)
+	const allIndices = allCells.map(c => c.index);
+	// Track code cells separately for accurate reporting
+	const codeCells = allCells.filter(c => c.type === 'code');
+
+	if (allIndices.length === 0) {
+		return new vscode.LanguageModelToolResult([
+			new vscode.LanguageModelTextPart('The notebook has no cells to execute.')
+		]);
+	}
+
+	await positron.notebooks.runCells(context.uri, allIndices);
+
+	const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
+
+	if (codeCells.length <= MAX_CELLS_FOR_FULL_RUN_ALL_OUTPUT) {
+		// Small notebook: return full outputs for code cells
+		resultParts.push(
+			new vscode.LanguageModelTextPart(
+				`Successfully executed all ${allIndices.length} cell(s) (${codeCells.length} code cell(s)).\n\nOutputs:\n`
+			)
+		);
+
+		for (const cell of codeCells) {
+			const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cell.index);
+			if (cellOutputs.length > 0) {
+				resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cell.index}:\n`));
+				const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
+				resultParts.push(...outputParts);
+			}
+		}
+	} else {
+		// Large notebook: return per-cell summaries for code cells
+		resultParts.push(
+			new vscode.LanguageModelTextPart(
+				`Successfully executed all ${allIndices.length} cell(s) (${codeCells.length} code cell(s)). Per-cell summary:\n\n`
+			)
+		);
+
+		for (const cell of codeCells) {
+			const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cell.index);
+			if (cellOutputs.length === 0) {
+				resultParts.push(
+					new vscode.LanguageModelTextPart(`Cell ${cell.index}: No output\n`)
+				);
+			} else {
+				// Show first line of first text output or indicator for non-text types
+				const firstOutput = cellOutputs[0];
+				if (isImageMime(firstOutput.mimeType)) {
+					resultParts.push(
+						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [OK] [Image output]\n`)
+					);
+				} else if (isTextMime(firstOutput.mimeType)) {
+					const firstLine = (firstOutput.data?.split('\n')[0] ?? '').slice(0, 200);
+					const status = isErrorMime(firstOutput.mimeType) ? 'Error' : 'OK';
+					resultParts.push(
+						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [${status}] ${firstLine}\n`)
+					);
+				} else {
+					resultParts.push(
+						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [OK] [${firstOutput.mimeType} output]\n`)
+					);
+				}
+			}
+		}
+	}
+
+	return new vscode.LanguageModelToolResult2(resultParts);
+}
+
+/**
  * Input type for the EditNotebook tool.
  */
 interface EditNotebookInput {
-	operation: 'add' | 'update' | 'delete' | 'reorder';
+	operation: 'add' | 'update' | 'delete' | 'reorder' | 'clearOutputs';
 	cellType?: 'code' | 'markdown';
 	index?: number;
 	content?: string;
 	cellIndex?: number;           // For update operation
-	cellIndices?: number[];        // For delete operation (array)
+	cellIndices?: number[];        // For delete and clearOutputs operations
 	run?: boolean;
 	fromIndex?: number;
 	toIndex?: number;
@@ -186,6 +383,10 @@ function createEditNotebookTool(participantService: ParticipantService) {
 					reorder: {
 						invocationMessage: vscode.l10n.t('Reordering notebook cells'),
 						pastTenseMessage: vscode.l10n.t('Reordered notebook cells'),
+					},
+					clearOutputs: {
+						invocationMessage: vscode.l10n.t('Clearing notebook outputs'),
+						pastTenseMessage: vscode.l10n.t('Cleared notebook outputs'),
 					},
 				};
 				return messages[operation];
@@ -290,6 +491,21 @@ function createEditNotebookTool(participantService: ParticipantService) {
 							pastTenseMessage: vscode.l10n.t('Moved notebook cell'),
 						};
 					}
+				}
+
+				case 'clearOutputs': {
+					const { cellIndices } = options.input;
+					const message = cellIndices && cellIndices.length > 0
+						? vscode.l10n.t('Clear outputs from {0} cell(s)?', cellIndices.length)
+						: vscode.l10n.t('Clear all cell outputs?');
+					return {
+						invocationMessage: vscode.l10n.t('Clearing notebook outputs'),
+						confirmationMessages: {
+							title: vscode.l10n.t('Clear Outputs'),
+							message: message
+						},
+						pastTenseMessage: vscode.l10n.t('Cleared notebook outputs'),
+					};
 				}
 
 				default:
@@ -589,10 +805,76 @@ function createEditNotebookTool(participantService: ParticipantService) {
 						}
 					}
 
+					case 'clearOutputs': {
+						const { cellIndices } = options.input;
+
+						if (cellIndices && cellIndices.length > 0) {
+							// Validate specified indices
+							const validation = validateCellIndices(cellIndices, context.cellCount);
+							if (!validation.valid) {
+								return new vscode.LanguageModelToolResult([
+									new vscode.LanguageModelTextPart(validation.error!)
+								]);
+							}
+
+							// Clear outputs for specific cells by selecting each and clearing
+							const notebookEditor = vscode.window.activeNotebookEditor;
+							if (!notebookEditor) {
+								return createNoActiveNotebookErrorResult();
+							}
+							const notebook = notebookEditor.notebook;
+
+							// Build a WorkspaceEdit that replaces each target code cell
+							// with a copy that has no outputs. Accumulate all edits
+							// before calling set() so earlier entries are not replaced.
+							const edit = new vscode.WorkspaceEdit();
+							const notebookEdits: vscode.NotebookEdit[] = [];
+							let clearedCount = 0;
+							const uniqueIndices = [...new Set(cellIndices)].sort((a, b) => a - b);
+							for (const idx of uniqueIndices) {
+								const cell = notebook.cellAt(idx);
+								if (cell.kind === vscode.NotebookCellKind.Code) {
+									const cellData = new vscode.NotebookCellData(
+										cell.kind,
+										cell.document.getText(),
+										cell.document.languageId
+									);
+									cellData.metadata = cell.metadata;
+									cellData.outputs = []; // Empty outputs
+									const range = new vscode.NotebookRange(idx, idx + 1);
+									notebookEdits.push(vscode.NotebookEdit.replaceCells(range, [cellData]));
+									clearedCount++;
+								}
+							}
+
+							if (notebookEdits.length > 0) {
+								edit.set(notebook.uri, notebookEdits);
+								const success = await vscode.workspace.applyEdit(edit);
+								if (!success) {
+									return new vscode.LanguageModelToolResult([
+										new vscode.LanguageModelTextPart('Failed to apply edit to clear cell outputs.')
+									]);
+								}
+							}
+
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(
+									`Successfully cleared outputs from ${clearedCount} code cell(s) (${cellIndices.length} cell(s) specified).`
+								)
+							]);
+						} else {
+							// Clear all outputs using the built-in command
+							await vscode.commands.executeCommand('notebook.clearAllCellsOutputs');
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart('Successfully cleared all cell outputs.')
+							]);
+						}
+					}
+
 					default:
 						return new vscode.LanguageModelToolResult([
 							new vscode.LanguageModelTextPart(
-								`Unknown operation: ${operation}. Must be "add", "update", "delete", or "reorder".`
+								`Unknown operation: ${operation}. Must be "add", "update", "delete", "reorder", or "clearOutputs".`
 							)
 						]);
 				}
@@ -600,7 +882,7 @@ function createEditNotebookTool(participantService: ParticipantService) {
 				return createNotebookToolErrorResult(
 					error,
 					PositronAssistantToolName.EditNotebook,
-					`${operation} cell`
+					`${operation}`
 				);
 			}
 		}
@@ -614,13 +896,19 @@ function createEditNotebookTool(participantService: ParticipantService) {
  * Supports getting specific cells, all cells, selected cells, outputs, or metadata only.
  */
 export const GetNotebookInfoTool = vscode.lm.registerTool<{
-	operation: 'get' | 'getSelected' | 'getOutputs' | 'getMetadata';
+	operation: 'get' | 'getSelected' | 'getOutputs' | 'getMetadata' | 'getKernelStatus';
 	cellIndices?: number[];
 }>(PositronAssistantToolName.GetNotebookInfo, {
 	prepareInvocation: async (options, _token) => {
+		if (options.input.operation === 'getKernelStatus') {
+			return {
+				invocationMessage: vscode.l10n.t('Getting kernel status'),
+				pastTenseMessage: vscode.l10n.t('Retrieved kernel status'),
+			};
+		}
 		return {
-			invocationMessage: vscode.l10n.t('Getting notebook cells'),
-			pastTenseMessage: vscode.l10n.t('Retrieved notebook cells'),
+			invocationMessage: vscode.l10n.t('Getting notebook info'),
+			pastTenseMessage: vscode.l10n.t('Retrieved notebook info'),
 		};
 	},
 	invoke: async (options, token) => {
@@ -777,10 +1065,38 @@ export const GetNotebookInfoTool = vscode.lm.registerTool<{
 					]);
 				}
 
+				case 'getKernelStatus': {
+					const statusInfo: Record<string, string | undefined> = {
+						kernelLanguage: context.kernelLanguage,
+						kernelId: context.kernelId,
+						runtimeState: context.runtimeState ?? 'unknown',
+					};
+
+					// Try to get additional session metadata
+					const notebookUri = vscode.Uri.parse(context.uri);
+					const session = await positron.runtime.getNotebookSession(notebookUri);
+					if (session) {
+						const metadata = session.runtimeMetadata;
+						statusInfo.runtimeName = metadata.runtimeName;
+						statusInfo.languageVersion = metadata.languageVersion;
+						statusInfo.runtimeVersion = metadata.runtimeVersion;
+						statusInfo.runtimeSource = metadata.runtimeSource;
+
+						const dynState = await session.getDynState();
+						statusInfo.sessionName = dynState.sessionName;
+					}
+
+					return new vscode.LanguageModelToolResult([
+						new vscode.LanguageModelTextPart(
+							`Kernel status:\n${JSON.stringify(statusInfo, null, 2)}`
+						)
+					]);
+				}
+
 				default:
 					return new vscode.LanguageModelToolResult([
 						new vscode.LanguageModelTextPart(
-							`Unknown operation: ${operation}. Must be "get", "getSelected", "getOutputs", or "getMetadata".`
+							`Unknown operation: ${operation}. Must be "get", "getSelected", "getOutputs", "getMetadata", or "getKernelStatus".`
 						)
 					]);
 			}
@@ -788,7 +1104,7 @@ export const GetNotebookInfoTool = vscode.lm.registerTool<{
 			return createNotebookToolErrorResult(
 				error,
 				PositronAssistantToolName.GetNotebookInfo,
-				`${operation} cells`
+				`${operation}`
 			);
 		}
 	}

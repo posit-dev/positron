@@ -40,9 +40,19 @@ The current notebook state (kernel info, cell contents, selection) is provided i
 
 **Delete cells:** Use editNotebook with `operation: 'delete'` and `cellIndices` array (e.g., `[0]` for single cell, `[0,2,3]` for multiple). When you delete cells, higher indices shift down.
 
-**Execute cells:** Use executeNotebook with `cellIndices` (array). Consider cell dependencies and execution order. Example: `cellIndices: [0, 1, 3]`.
+**Execute cells:** Use executeNotebook with `operation: 'run'` and `cellIndices` (array). Consider cell dependencies and execution order. Example: `operation: 'run', cellIndices: [0, 1, 3]`.
 
-**Debug issues:** Check cell execution status, order, success/failure. Use GetCellOutputs with `operation: 'getOutputs'` and `cellIndices` to inspect errors/outputs. Consider cell dependencies and sequence.
+**Run all cells:** Use executeNotebook with `operation: 'runAll'` to execute all cells in order.
+
+**Interrupt execution:** Use executeNotebook with `operation: 'interrupt'` to cancel running execution.
+
+**Restart kernel:** Use executeNotebook with `operation: 'restartKernel'`. Add `runAll: true` to run all cells after restart.
+
+**Clear outputs:** Use editNotebook with `operation: 'clearOutputs'`. Optionally pass `cellIndices` to clear specific cells.
+
+**Check kernel status:** Use getNotebookInfo with `operation: 'getKernelStatus'` to get kernel state and session metadata.
+
+**Debug issues:** Check cell execution status, order, success/failure. Use getNotebookInfo with `operation: 'getOutputs'` and `cellIndices` to inspect errors/outputs. Consider cell dependencies and sequence.
 </workflows>
 
 <data-verification>

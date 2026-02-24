@@ -273,7 +273,7 @@ Notebook instructions are split into mode-specific prompt files following the es
 - **Content:**
   - **Tool usage protocol** with brief "why" explanations for constraints
   - **Anti-pattern examples** showing common mistakes and correct approaches
-  - Read and modification tools (GetNotebookInfo, GetCellOutputs, AddNotebookCell, UpdateNotebookCell)
+  - Read and modification tools (GetNotebookInfo, GetCellOutputs, EditNotebook)
   - **Workflows section** includes mode capabilities as first item, followed by concise workflows:
     - Analyze/explain, Modify, Add, Delete, Debug, Execution requested
   - **Exact response template** for execution requests: "Cannot execute in Edit mode. Switch to Agent mode to run cells."
@@ -287,7 +287,7 @@ Notebook instructions are split into mode-specific prompt files following the es
 - **Content:**
   - **Tool usage protocol** with brief "why" explanations (e.g., "causes sync issues")
   - **Anti-pattern examples** demonstrating wrong approaches (file tools) vs. correct approaches (notebook tools)
-  - Complete tool list (all 5 tools: GetNotebookInfo, GetCellOutputs, ExecuteNotebook, AddNotebookCell, UpdateNotebookCell)
+  - Complete tool list (all 4 tools: GetNotebookInfo, GetCellOutputs, ExecuteNotebook, EditNotebook)
   - Concise workflows covering all operations: analyze, modify, add, delete, execute, debug
   - Critical rules with:
     - Zero-based index referencing

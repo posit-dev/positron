@@ -47,6 +47,8 @@ The current notebook state (kernel info, cell contents, selection) is provided i
 <workflows>
 **Analyze/explain:** Reference cells by **index** ("cell 0", "cell 3"). Use getNotebookInfo with `cellIndices` for additional cells. Check execution order [N], status, and success/failure.
 
-**Debug issues:** Check cell execution status, order, success/failure. Use GetCellOutputs with `cellIndex` to inspect errors/outputs. Consider cell dependencies and sequence.
+**Debug issues:** Check cell execution status, order, success/failure. Use getNotebookInfo with `operation: 'getOutputs'` and `cellIndices` to inspect errors/outputs. Consider cell dependencies and sequence.
+
+**Check kernel status:** Use getNotebookInfo with `operation: 'getKernelStatus'` to get kernel state and session metadata.
 </workflows>
 {{/if}}

@@ -11,6 +11,48 @@ import { isRuntimeSessionReference } from '../utils.js';
 import { log } from '../log.js';
 
 /**
+ * MIME types for notebook cell output classification.
+ * Matches the canonical types from the ipynb extension and VS Code notebook renderer.
+ */
+const ERROR_MIME_TYPES = new Set([
+	'application/vnd.code.notebook.error',
+	'application/vnd.code.notebook.stderr',
+	'application/x.notebook.error',
+	'application/x.notebook.stderr',
+]);
+
+const TEXT_MIME_TYPES = new Set([
+	'application/vnd.code.notebook.stdout',
+	'application/x.notebook.stdout',
+	'application/json',
+]);
+
+/**
+ * Returns true if the MIME type represents an error or stderr output.
+ */
+export function isErrorMime(mimeType: string): boolean {
+	return ERROR_MIME_TYPES.has(mimeType);
+}
+
+/**
+ * Returns true if the MIME type represents text-based output
+ * (including stdout, stderr, error, text/*, and structured text like JSON).
+ */
+export function isTextMime(mimeType: string): boolean {
+	return mimeType.startsWith('text/') ||
+		TEXT_MIME_TYPES.has(mimeType) ||
+		ERROR_MIME_TYPES.has(mimeType);
+}
+
+/**
+ * Returns true if the MIME type represents an image output.
+ * Excludes image/svg+xml which is text-based XML.
+ */
+export function isImageMime(mimeType: string): boolean {
+	return mimeType.startsWith('image/') && mimeType !== 'image/svg+xml';
+}
+
+/**
  * Maximum preview length per cell for confirmations (characters)
  */
 const MAX_CELL_PREVIEW_LENGTH = 500;
