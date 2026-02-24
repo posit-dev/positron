@@ -64,8 +64,9 @@ export class PositronNotebooks extends Notebooks {
 	// Search Widget
 	private searchWidget = this.code.driver.page.locator('.positron-find-widget');
 	private findInput = this.searchWidget.getByRole('textbox', { name: 'Find' });
+	private toggleReplaceButton = this.searchWidget.getByRole('button', { name: 'Toggle Replace' });
 	private replaceInput = this.searchWidget.getByRole('textbox', { name: 'Replace' });
-	private replaceButton = this.searchWidget.getByRole('button', { name: 'Replace' });
+	private replaceButton = this.searchWidget.getByRole('button', { name: 'Replace', exact: true });
 	private replaceAllButton = this.searchWidget.getByRole('button', { name: 'Replace All' });
 	private searchNextButton = this.searchWidget.getByRole('button', { name: 'Next Match' });
 	private searchPreviousButton = this.searchWidget.getByRole('button', { name: 'Previous Match' });
@@ -571,17 +572,23 @@ export class PositronNotebooks extends Notebooks {
 			// Enter search text
 			await this.findInput.fill(searchText);
 
-			// If replace text is provided, perform replace
-			if (replaceText !== undefined) {
-				await this.replaceInput.fill(replaceText);
-
-				replaceAll
-					? await this.replaceAllButton.click()
-					: await this.replaceButton.click();
-			}
-
 			if (enterKey) {
 				await this.code.driver.page.keyboard.press('Enter');
+			}
+
+			// If replace text is provided, expand replace row and perform replace
+			if (replaceText !== undefined) {
+				// Wait for search results before interacting with replace
+				await expect(this.searchNextButton).toBeEnabled({ timeout: 5000 });
+
+				await this.searchExpandReplace();
+				await this.replaceInput.fill(replaceText);
+
+				if (replaceAll) {
+					await this.replaceAllButton.click();
+				} else {
+					await this.replaceButton.click();
+				}
 			}
 		});
 	}
@@ -621,9 +628,39 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Action: Expand the replace row in the search widget.
+	 * Clicks the "Toggle Replace" button if the replace input is not already visible.
+	 */
+	async searchExpandReplace(): Promise<void> {
+		await test.step('Expand replace row', async () => {
+			if (!await this.replaceInput.isVisible()) {
+				await this.toggleReplaceButton.click();
+			}
+			await expect(this.replaceInput).toBeVisible({ timeout: 2000 });
+		});
+	}
+
+
 	// #endregion
 
 	// #region VERIFICATIONS
+
+	/**
+	 * Verify: Replace row is visible or hidden.
+	 * @param visible - Whether the replace row should be visible (true) or hidden (false).
+	 */
+	async expectReplaceRowVisible(visible: boolean = true): Promise<void> {
+		await test.step(`Expect replace row to be ${visible ? 'visible' : 'hidden'}`, async () => {
+			if (visible) {
+				await expect(this.replaceInput).toBeVisible({ timeout: 2000 });
+				await expect(this.replaceButton).toBeVisible({ timeout: 2000 });
+				await expect(this.replaceAllButton).toBeVisible({ timeout: 2000 });
+			} else {
+				await expect(this.replaceInput).not.toBeVisible({ timeout: 2000 });
+			}
+		});
+	}
 
 	/**
 	 * Verify: Assistant buttons visibility.

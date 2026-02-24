@@ -8,9 +8,12 @@ import '../../../../browser/contrib/find/positronNotebookFind.contribution.js';
 import assert from 'assert';
 import * as sinon from 'sinon';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
-import { IModelDecoration } from '../../../../../../../editor/common/model.js';
+import { IModelDecoration, ITextModel } from '../../../../../../../editor/common/model.js';
 import { USUAL_WORD_SEPARATORS } from '../../../../../../../editor/common/core/wordHelper.js';
-import { CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../../../editor/contrib/find/browser/findModel.js';
+import { IBulkEditService, ResourceEdit, ResourceTextEdit } from '../../../../../../../editor/browser/services/bulkEditService.js';
+import { EditOperation } from '../../../../../../../editor/common/core/editOperation.js';
+import { Range } from '../../../../../../../editor/common/core/range.js';
+import { CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../../../editor/contrib/find/browser/findModel.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
@@ -20,6 +23,9 @@ import { PositronFindInstance } from '../../../../browser/contrib/find/PositronF
 import { instantiateTestNotebookInstance, positronNotebookInstantiationService, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
 import { transaction } from '../../../../../../../base/common/observable.js';
 import { TestInstantiationService } from '../../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { IModelService } from '../../../../../../../editor/common/services/model.js';
+import { Disposable, IDisposable } from '../../../../../../../base/common/lifecycle.js';
+import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTravelScheduler.js';
 
 /** Get the find controller for a notebook. */
 function getController(notebook: TestPositronNotebookInstance): PositronNotebookFindController {
@@ -62,13 +68,69 @@ function getCellSelection(cell: IPositronNotebookCell): [number, number, number,
 	return [selection.startLineNumber, selection.startColumn, selection.endLineNumber, selection.endColumn];
 }
 
+/** Waits past the 20ms debounce used by the notebook content change scheduler. */
+function waitForDebounce(): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, 25));
+}
+
+/**
+ * Lightweight IBulkEditService for tests, modeled after the unexported
+ * StandaloneBulkEditService in standaloneServices.ts.
+ * Groups edits by model and applies them atomically via pushEditOperations
+ * (which supports undo, unlike model.applyEdits).
+ */
+class TestBulkEditService implements IBulkEditService {
+	declare readonly _serviceBrand: undefined;
+
+	constructor(private readonly _modelService: IModelService) { }
+
+	hasPreviewHandler(): false { return false; }
+	setPreviewHandler(): IDisposable { return Disposable.None; }
+
+	async apply(editsIn: ResourceEdit[]): Promise<{ ariaSummary: string; isApplied: boolean }> {
+		const textEdits = new Map<string, { model: ITextModel; ops: ReturnType<typeof EditOperation.replaceMove>[] }>();
+
+		for (const edit of editsIn) {
+			if (!(edit instanceof ResourceTextEdit)) {
+				throw new Error('TestBulkEditService only supports ResourceTextEdit');
+			}
+			const model = this._modelService.getModel(edit.resource);
+			if (!model) {
+				throw new Error(`Model not found for ${edit.resource}`);
+			}
+			const key = edit.resource.toString();
+			let entry = textEdits.get(key);
+			if (!entry) {
+				entry = { model, ops: [] };
+				textEdits.set(key, entry);
+			}
+			entry.ops.push(EditOperation.replaceMove(Range.lift(edit.textEdit.range), edit.textEdit.text));
+		}
+
+		let totalEdits = 0;
+		for (const { model, ops } of textEdits.values()) {
+			model.pushStackElement();
+			model.pushEditOperations([], ops, () => []);
+			model.pushStackElement();
+			totalEdits += ops.length;
+		}
+
+		return { ariaSummary: '', isApplied: totalEdits > 0 };
+	}
+}
+
 suite('PositronNotebookFindController', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	let instantiationService: TestInstantiationService;
+	let bulkEditApplySpy: sinon.SinonSpy;
 
 	setup(() => {
 		instantiationService = positronNotebookInstantiationService(disposables);
+
+		const bulkEditService = new TestBulkEditService(instantiationService.get(IModelService));
+		bulkEditApplySpy = sinon.spy(bulkEditService, 'apply');
+		instantiationService.stub(IBulkEditService, bulkEditService);
 	});
 
 	function createNotebook(cells: [string, string, CellKind][]) {
@@ -365,20 +427,35 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(match.cellMatch.cellRange.range.startColumn, 7);
 		});
 
+		// Regression: findNext() was a no-op when the cursor was past all
+		// matches because findNextMatchFromCursor() returned -1 instead of
+		// wrapping to the first match.
+		test('findNext wraps to first match when cursor is past all matches', () => {
+			const { notebook, controller, find } = findFixture([['aa bb', 'python', CellKind.Code]]);
+
+			// Place cursor at column 4 ('aa |bb') — past the only 'aa' match
+			const cell = notebook.cells.get()[0];
+			cell.currentEditor!.setPosition({ lineNumber: 1, column: 4 });
+
+			find.searchString.set('aa', undefined);
+
+			assert.strictEqual(find.matchCount.get(), 1);
+			assert.strictEqual(find.matchIndex.get(), 0);
+			assert.strictEqual(controller.currentMatch.get(), undefined,
+				'research sets matchIndex but not currentMatch');
+
+			controller.findNext();
+			const match = controller.currentMatch.get();
+			assert.ok(match, 'findNext should wrap to the first match');
+			assert.strictEqual(match.matchIndex, 0);
+			assert.strictEqual(match.cellMatch.cellRange.range.startColumn, 1);
+		});
+
 	});
 
 	suite('Notebook Structure Changes', () => {
-		let clock: sinon.SinonFakeTimers;
 
-		setup(() => {
-			clock = sinon.useFakeTimers();
-		});
-
-		teardown(() => {
-			clock.restore();
-		});
-
-		test('adding a cell with matching content recomputes matches', () => {
+		test('adding a cell with matching content recomputes matches', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['hello', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
 			assert.strictEqual(find.matchCount.get(), 1);
@@ -387,11 +464,11 @@ suite('PositronNotebookFindController', () => {
 			notebook.addCell(CellKind.Code, 1, false, 'hello again');
 
 			// Structural change triggers debounced recompute
-			clock.tick(25);
+			await waitForDebounce();
 			assert.strictEqual(find.matchCount.get(), 2);
-		});
+		}));
 
-		test('deleting a cell with matches recomputes correctly', () => {
+		test('deleting a cell with matches recomputes correctly', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([
 				['hello', 'python', CellKind.Code],
 				['hello', 'python', CellKind.Code],
@@ -404,11 +481,11 @@ suite('PositronNotebookFindController', () => {
 			const cells = notebook.cells.get();
 			notebook.deleteCell(cells[1]);
 
-			clock.tick(25);
+			await waitForDebounce();
 			assert.strictEqual(find.matchCount.get(), 1);
-		});
+		}));
 
-		test('content edit that removes match recomputes correctly', () => {
+		test('content edit that removes match recomputes correctly', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
 			assert.strictEqual(find.matchCount.get(), 1);
@@ -417,11 +494,11 @@ suite('PositronNotebookFindController', () => {
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('goodbye world');
 
-			clock.tick(25);
+			await waitForDebounce();
 			assert.strictEqual(find.matchCount.get(), 0);
-		});
+		}));
 
-		test('content edit that adds matches recomputes correctly', () => {
+		test('content edit that adds matches recomputes correctly', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['goodbye world', 'python', CellKind.Code]]);
 			find.searchString.set('hello', undefined);
 			assert.strictEqual(find.matchCount.get(), 0);
@@ -430,11 +507,11 @@ suite('PositronNotebookFindController', () => {
 			const cell = notebook.cells.get()[0];
 			cell.model.textModel!.setValue('hello hello');
 
-			clock.tick(25);
+			await waitForDebounce();
 			assert.strictEqual(find.matchCount.get(), 2);
-		});
+		}));
 
-		test('navigation remains correct after cell deletion', () => {
+		test('navigation remains correct after cell deletion', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([
 				['match', 'python', CellKind.Code],
 				['match', 'python', CellKind.Code],
@@ -451,15 +528,15 @@ suite('PositronNotebookFindController', () => {
 			const cells = notebook.cells.get();
 			notebook.deleteCell(cells[0]);
 
-			clock.tick(25);
+			await waitForDebounce();
 			assert.strictEqual(controller.matches.get().length, 2);
 
 			// Navigation should work on new match set
 			controller.findNext();
 			assert.ok(controller.currentMatch.get());
-		});
+		}));
 
-		test('decorations are cleaned up for deleted cells', () => {
+		test('decorations are cleaned up for deleted cells', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([
 				['match', 'python', CellKind.Code],
 				['match', 'python', CellKind.Code],
@@ -473,13 +550,13 @@ suite('PositronNotebookFindController', () => {
 			// Delete first cell
 			notebook.deleteCell(cellsBefore[0]);
 
-			clock.tick(25);
+			await waitForDebounce();
 
 			// Remaining cell still has decoration
 			const cellsAfter = notebook.cells.get();
 			assert.strictEqual(cellsAfter.length, 1);
 			assert.strictEqual(getFindMatchDecorations(cellsAfter[0]).length, 1);
-		});
+		}));
 	});
 
 	suite('Decorations', () => {
@@ -634,13 +711,37 @@ suite('PositronNotebookFindController', () => {
 			);
 		});
 
-		test('context key FIND_INPUT_FOCUSED toggles correctly', () => {
-			const { notebook } = findFixture([['hello', 'python', CellKind.Code]]);
+		test('context key FIND_INPUT_FOCUSED is true after show and false after hide', () => {
+			const { notebook, controller } = findFixture([['hello', 'python', CellKind.Code]]);
 
-			// After show(), inputFocused is set to true
+			// After show(), find input is focused
 			assert.strictEqual(
 				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_INPUT_FOCUSED.key),
 				true
+			);
+
+			// Hide resets the context key
+			controller.hide();
+			assert.strictEqual(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_INPUT_FOCUSED.key),
+				false
+			);
+		});
+
+		test('context key REPLACE_INPUT_FOCUSED is false after show and false after hide', () => {
+			const { notebook, controller } = findFixture([['hello', 'python', CellKind.Code]]);
+
+			// After show(), replace input is not focused
+			assert.strictEqual(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_REPLACE_INPUT_FOCUSED.key),
+				false
+			);
+
+			// Hide keeps it false
+			controller.hide();
+			assert.strictEqual(
+				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_REPLACE_INPUT_FOCUSED.key),
+				false
 			);
 		});
 
@@ -733,17 +834,8 @@ suite('PositronNotebookFindController', () => {
 	});
 
 	suite('Debounce and Reactive Updates', () => {
-		let clock: sinon.SinonFakeTimers;
 
-		setup(() => {
-			clock = sinon.useFakeTimers();
-		});
-
-		teardown(() => {
-			clock.restore();
-		});
-
-		test('content change triggers debounced recompute', () => {
+		test('content change triggers debounced recompute', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['hello world', 'python', CellKind.Code]]);
 			// Set up search — autorun fires synchronously when observables change
 			find.searchString.set('hello', undefined);
@@ -758,9 +850,9 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(find.matchCount.get(), 1, 'Should not recompute before debounce fires');
 
 			// Advance past the 20ms debounce
-			clock.tick(25);
+			await waitForDebounce();
 			assert.strictEqual(find.matchCount.get(), 3, 'Should have recomputed after debounce');
-		});
+		}));
 
 		test('search param change triggers immediate recompute', () => {
 			const { find } = findFixture([['hello Hello HELLO', 'python', CellKind.Code]]);
@@ -772,7 +864,7 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(find.matchCount.get(), 1, 'Case-sensitive finds only lowercase');
 		});
 
-		test('rapid content changes settle to correct final state', () => {
+		test('rapid content changes settle to correct final state', () => runWithFakedTimers({}, async () => {
 			const { notebook, find } = findFixture([['initial', 'python', CellKind.Code]]);
 			find.searchString.set('final', undefined);
 			assert.strictEqual(find.matchCount.get(), 0);
@@ -784,8 +876,467 @@ suite('PositronNotebookFindController', () => {
 			cell.model.textModel!.setValue('final content');
 
 			// Advance past the 20ms debounce — only final state matters
-			clock.tick(25);
+			await waitForDebounce();
 			assert.strictEqual(find.matchCount.get(), 1, 'Should find "final" in final content');
+		}));
+	});
+
+	suite('Replace Single Match', () => {
+
+		test('replace() with no current match navigates to first match without replacing', async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('goodbye', tx);
+			});
+			assert.strictEqual(find.matchCount.get(), 2);
+
+			// No current match yet — replace should just navigate
+			await controller.replace();
+
+			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world hello', 'Text should be unchanged');
+		});
+
+		test('replace() with current match replaces it and advances to next', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('goodbye', tx);
+			});
+
+			// Navigate to first match
+			controller.findNext();
+			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+
+			// Replace
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'goodbye world hello');
+
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 1);
+		}));
+
+		test('replace() with current match on last match wraps to first', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('goodbye', tx);
+			});
+
+			// Navigate to last match (index 1)
+			controller.findNext();
+			controller.findNext();
+			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 1);
+
+			// Replace last match
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world goodbye');
+
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 1);
+			// Should wrap to match 0 (the remaining 'hello')
+			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 0);
+		}));
+
+		test('replace() does nothing when there are no matches', async () => {
+			const { notebook, controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('xyz', tx);
+				find.replaceText.set('replaced', tx);
+			});
+			assert.strictEqual(find.matchCount.get(), 0);
+
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world');
+			assert.strictEqual(controller.currentMatch.get(), undefined);
+			assert.ok(bulkEditApplySpy.notCalled, 'IBulkEditService.apply should not be called');
+		});
+
+		test('replace() uses literal text when regex is off', async () => {
+			const { notebook, controller, find } = findFixture([['foo123 bar', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('foo123', tx);
+				find.replaceText.set('$1-replaced', tx);
+			});
+
+			controller.findNext();
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			// '$1' should be treated literally, not as a capture group
+			assert.strictEqual(cell.model.textModel!.getValue(), '$1-replaced bar');
+		});
+
+		test('replace() uses capture groups when regex is on', async () => {
+			const { notebook, controller, find } = findFixture([['foo123 bar456', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.isRegex.set(true, tx);
+				find.searchString.set('(\\w+?)(\\d+)', tx);
+				find.replaceText.set('$2-$1', tx);
+			});
+
+			controller.findNext();
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), '123-foo bar456');
+		});
+
+		test('replace() with preserveCase inherits casing from matched text', async () => {
+			const { notebook, controller, find } = findFixture([['Hello world', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.preserveCase.set(true, tx);
+				find.searchString.set('hello', tx);
+				find.replaceText.set('goodbye', tx);
+			});
+
+			controller.findNext();
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			// 'Hello' matched -> 'goodbye' should become 'Goodbye'
+			assert.strictEqual(cell.model.textModel!.getValue(), 'Goodbye world');
+		});
+
+		test('replace() calls IBulkEditService.apply with correct ResourceTextEdit', async () => {
+			const { controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('hi', tx);
+			});
+
+			controller.findNext();
+			await controller.replace();
+
+			assert.ok(bulkEditApplySpy.calledOnce, 'apply should be called once');
+			const edits = bulkEditApplySpy.firstCall.args[0];
+			assert.strictEqual(edits.length, 1);
+			assert.strictEqual(edits[0].textEdit.text, 'hi');
+			// 'hello' is at [1,1 -> 1,6]
+			assert.strictEqual(edits[0].textEdit.range.startLineNumber, 1);
+			assert.strictEqual(edits[0].textEdit.range.startColumn, 1);
+			assert.strictEqual(edits[0].textEdit.range.endLineNumber, 1);
+			assert.strictEqual(edits[0].textEdit.range.endColumn, 6);
+			// Check options label
+			const options = bulkEditApplySpy.firstCall.args[1];
+			assert.strictEqual(options.quotableLabel, 'Notebook Replace');
+		});
+
+		test('replace() triggers research via content change debounce', () => runWithFakedTimers({}, async () => {
+			const { controller, find } = findFixture([['hello hello hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('bye', tx);
+			});
+			assert.strictEqual(find.matchCount.get(), 3);
+
+			controller.findNext();
+			await controller.replace();
+
+			// After debounce, match count should update
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 2);
+		}));
+
+		// Matches upstream text-editor behavior (findModel.ts): the first
+		// replace() call after a fresh search navigates to the match; the
+		// second call performs the actual replacement.
+		test('replace() after fresh search navigates first, then replaces on second call', async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('goodbye', tx);
+			});
+			assert.strictEqual(find.matchCount.get(), 2);
+			assert.strictEqual(controller.currentMatch.get(), undefined, 'currentMatch should be unset after a fresh search');
+
+			// First replace() navigates to the first match without replacing.
+			await controller.replace();
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world hello',
+				'First replace() should navigate, not replace');
+			assert.ok(controller.currentMatch.get() !== undefined,
+				'currentMatch should be set after first replace()');
+
+			// Second replace() performs the replacement.
+			await controller.replace();
+			assert.strictEqual(cell.model.textModel!.getValue(), 'goodbye world hello',
+				'Second replace() should replace the first match');
+		});
+	});
+
+	suite('Replace All', () => {
+
+		test('replaceAll() replaces all matches in one operation', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('bye', tx);
+			});
+
+			await controller.replaceAll();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'bye world bye');
+
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 0);
+		}));
+
+		test('replaceAll() works across multiple cells', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([
+				['hello', 'python', CellKind.Code],
+				['world', 'python', CellKind.Code],
+				['hello again', 'python', CellKind.Code],
+			]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('bye', tx);
+			});
+
+			await controller.replaceAll();
+
+			const cells = notebook.cells.get();
+			assert.strictEqual(cells[0].model.textModel!.getValue(), 'bye');
+			assert.strictEqual(cells[1].model.textModel!.getValue(), 'world');
+			assert.strictEqual(cells[2].model.textModel!.getValue(), 'bye again');
+
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 0);
+		}));
+
+		test('replaceAll() applies all edits in a single IBulkEditService.apply call', async () => {
+			const { controller, find } = findFixture([
+				['aa', 'python', CellKind.Code],
+				['aa', 'python', CellKind.Code],
+			]);
+			transaction((tx) => {
+				find.searchString.set('aa', tx);
+				find.replaceText.set('bb', tx);
+			});
+
+			await controller.replaceAll();
+
+			assert.ok(bulkEditApplySpy.calledOnce, 'apply should be called exactly once');
+			const edits = bulkEditApplySpy.firstCall.args[0];
+			assert.strictEqual(edits.length, 2, 'Should have two ResourceTextEdit objects');
+			const options = bulkEditApplySpy.firstCall.args[1];
+			assert.strictEqual(options.quotableLabel, 'Notebook Replace All');
+		});
+
+		test('replaceAll() with zero matches is a no-op', async () => {
+			const { notebook, controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('xyz', tx);
+				find.replaceText.set('replaced', tx);
+			});
+
+			await controller.replaceAll();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hello');
+			assert.ok(bulkEditApplySpy.notCalled, 'IBulkEditService.apply should not be called');
+		});
+
+		test('replaceAll() with regex capture groups builds per-match replacements', async () => {
+			const { notebook, controller, find } = findFixture([['foo123 bar456', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.isRegex.set(true, tx);
+				find.searchString.set('(\\w+?)(\\d+)', tx);
+				find.replaceText.set('$2-$1', tx);
+			});
+
+			await controller.replaceAll();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), '123-foo 456-bar');
+		});
+
+		// Undo grouping is verified by the "single IBulkEditService.apply call"
+		// test above. The real BulkEditService uses pushEditOperations which
+		// supports undo, so direct undo verification could be added if needed.
+	});
+
+	suite('Replace Edge Cases', () => {
+
+		test('replace when match text equals replacement text still advances', async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('hello', tx);
+			});
+
+			controller.findNext(); // match 0
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world hello');
+			assert.ok(bulkEditApplySpy.calledOnce, 'apply should still be called');
+
+			// No debounce needed: replace() calls findNext() which sets
+			// currentMatch synchronously. The text didn't change so
+			// research() is a no-op.
+			assert.strictEqual(controller.currentMatch.get()?.matchIndex, 1);
+		});
+
+		test('replace with empty string deletes matched text', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello ', tx);
+				find.replaceText.set('', tx);
+			});
+
+			controller.findNext();
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'world');
+
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 0);
+		}));
+
+		test('replaceAll with empty string deletes all matched text', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('', tx);
+			});
+
+			await controller.replaceAll();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), ' world ');
+
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 0);
+		}));
+
+		test('replace triggers research and updates decorations', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('bye', tx);
+			});
+			assert.strictEqual(find.matchCount.get(), 2);
+
+			controller.findNext();
+			await controller.replace();
+
+			await waitForDebounce();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(getFindMatchDecorations(cell).length, 1, 'One remaining match decoration');
+		}));
+
+		test('replace clears stale currentMatch and decoration after research', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('bye', tx);
+			});
+
+			controller.findNext();
+			const cell = notebook.cells.get()[0];
+			assert.ok(controller.currentMatch.get() !== undefined);
+			assert.ok(getCurrentFindMatchDecoration(cell),
+				'currentFindMatch decoration should exist after findNext');
+
+			await controller.replace();
+			// replace() sets currentMatch to the next (now stale) match
+			assert.ok(controller.currentMatch.get() !== undefined,
+				'currentMatch should be set immediately after replace');
+
+			// After debounce, research() recomputes matches. The stale
+			// currentMatch no longer corresponds to any match in the new
+			// set and should be cleared along with its decoration.
+			await waitForDebounce();
+			assert.strictEqual(controller.currentMatch.get(), undefined,
+				'currentMatch should be cleared when it no longer matches');
+			assert.strictEqual(getCurrentFindMatchDecoration(cell), undefined,
+				'currentFindMatch decoration should be cleared');
+		}));
+
+		test('replaceAll clears all decorations', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('bye', tx);
+			});
+
+			await controller.replaceAll();
+
+			await waitForDebounce();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(getFindMatchDecorations(cell).length, 0);
+			assert.strictEqual(getCurrentFindMatchDecoration(cell), undefined);
+		}));
+
+		test('replace on multi-line content', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['line1\nline2\nline1', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('line1', tx);
+				find.replaceText.set('replaced', tx);
+			});
+			assert.strictEqual(find.matchCount.get(), 2);
+
+			controller.findNext();
+			await controller.replace();
+
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(cell.model.textModel!.getValue(), 'replaced\nline2\nline1');
+
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 1);
+		}));
+
+		// Regression test for: replace() does nothing when cursor is past all matches.
+		//
+		// Repro steps:
+		// 1. Create a single cell with content 'aa bb'.
+		// 2. In edit mode, place cursor between the space and 'bb' (column 4): 'aa |bb'.
+		// 3. Open the find widget and type 'aa' in the search field.
+		// 4. Type 'test' in the replace field.
+		// 5. Click the Replace button.
+		//
+		// Expected: First click navigates to the 'aa' match, second click replaces it.
+		// Actual (bug): Nothing happens on any number of clicks because
+		// findNextMatchFromCursor() returns -1 when the cursor is past all matches
+		// (no wrap-around).
+		test('replace() works when cursor is positioned after all matches in the cell', async () => {
+			const { notebook, controller, find } = findFixture([['aa bb', 'python', CellKind.Code]]);
+			const cell = notebook.cells.get()[0];
+
+			// Place cursor at column 4 ('aa |bb') — past the only 'aa' match at [1,1]-[1,3]
+			cell.currentEditor!.setPosition({ lineNumber: 1, column: 4 });
+
+			transaction((tx) => {
+				find.searchString.set('aa', tx);
+				find.replaceText.set('test', tx);
+			});
+			assert.strictEqual(find.matchCount.get(), 1);
+
+			// First replace() should navigate to the match (two-step behavior)
+			await controller.replace();
+			assert.strictEqual(cell.model.textModel!.getValue(), 'aa bb',
+				'First replace() should navigate, not replace');
+			assert.ok(controller.currentMatch.get() !== undefined,
+				'currentMatch should be set after first replace()');
+
+			// Second replace() should perform the actual replacement
+			await controller.replace();
+			assert.strictEqual(cell.model.textModel!.getValue(), 'test bb',
+				'Second replace() should replace the match');
 		});
 	});
 
