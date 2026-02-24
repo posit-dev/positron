@@ -437,7 +437,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					kernelLanguage: context.kernelLanguage,
 					cellCount: context.cellCount,
 					selectedCells: context.selectedCells,
-					allCells: context.allCells
+					allCells: context.allCells,
+					runtimeState: context.runtimeState
 				};
 			},
 

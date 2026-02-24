@@ -2732,6 +2732,12 @@ declare module 'positron' {
 			 * to fit without taking too much context.
 			 */
 			allCells?: NotebookCell[];
+
+			/**
+			 * The current state of the runtime session (e.g. 'idle', 'busy', 'restarting').
+			 * Undefined if no runtime session is associated with this notebook.
+			 */
+			runtimeState?: string;
 		}
 
 		/**

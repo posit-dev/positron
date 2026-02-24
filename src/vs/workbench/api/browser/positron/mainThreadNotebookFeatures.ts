@@ -21,6 +21,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -36,6 +37,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		// No initialization needed
 	}
@@ -112,13 +114,19 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Include all cells - filtering will be done on the extension side
 		const allCells = cells.map(cell => this.mapCellToDTO(cell));
 
+		// Get runtime state from the session service
+		const notebookUri = instance.uri;
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		const runtimeState = session?.getRuntimeState();
+
 		return {
-			uri: instance.uri.toString(),
+			uri: notebookUri.toString(),
 			kernelId: kernel?.id,
 			kernelLanguage: kernel?.runtime.languageId,
 			cellCount: cells.length,
 			selectedCells,
-			allCells
+			allCells,
+			runtimeState: runtimeState ?? undefined,
 		};
 	}
 
