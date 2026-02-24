@@ -311,7 +311,7 @@ export class TerminalBuilder {
 			workspaceFolder,
 			remoteWorkspaceFolder,
 			containerUser: devContainerConfig.remoteUser,
-			env: devContainerConfig.remoteEnv,
+			env: devContainerConfig.containerEnv,
 			mounts,
 			labels: {
 				'devcontainer.local_folder': workspaceFolder,

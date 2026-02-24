@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as jsonc from 'jsonc-parser';
 import { Logger } from '../common/logger';
 import { PortForwardingManager } from './portForwarding';
 import { installAndStartServer } from '../server/serverInstaller';
@@ -161,6 +164,15 @@ export class ConnectionManager {
 				this.logger.debug(`Setting CONTAINER_WORKSPACE_FOLDER: ${remoteWorkspacePath}`);
 			} else {
 				this.logger.debug('No remoteWorkspacePath available');
+			}
+
+			// Add remoteEnv from devcontainer.json to the extension host environment
+			if (localWorkspacePath) {
+				const remoteEnv = this.readRemoteEnv(localWorkspacePath);
+				if (remoteEnv) {
+					Object.assign(extensionHostEnv, remoteEnv);
+					this.logger.debug(`Merged remoteEnv from devcontainer.json: ${Object.keys(remoteEnv).join(', ')}`);
+				}
 			}
 
 			// 3. Install Positron server with environment variables
@@ -490,6 +502,33 @@ export class ConnectionManager {
 			POSITRON_REMOTE_ENV: 'devcontainer',
 			// Add other environment variables as needed
 		};
+	}
+
+	/**
+	 * Read remoteEnv from the devcontainer.json for a workspace folder.
+	 * Returns the remoteEnv record, or undefined if the config cannot be read.
+	 */
+	private readRemoteEnv(workspacePath: string): Record<string, string> | undefined {
+		try {
+			// Check both standard devcontainer.json locations
+			let configPath = path.join(workspacePath, '.devcontainer', 'devcontainer.json');
+			if (!fs.existsSync(configPath)) {
+				configPath = path.join(workspacePath, '.devcontainer.json');
+				if (!fs.existsSync(configPath)) {
+					this.logger.debug('No devcontainer.json found for remoteEnv');
+					return undefined;
+				}
+			}
+
+			const config = jsonc.parse(fs.readFileSync(configPath, 'utf8'));
+			if (config.remoteEnv && typeof config.remoteEnv === 'object') {
+				return config.remoteEnv;
+			}
+			return undefined;
+		} catch (error) {
+			this.logger.debug('Failed to read remoteEnv from devcontainer.json', error);
+			return undefined;
+		}
 	}
 
 	/**
