@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../log.js';
-import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH, isErrorMime, isTextMime, isImageMime } from './notebookUtils.js';
+import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH, isErrorMime, isTextMime } from './notebookUtils.js';
 import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
 import { resolveShowDiff } from '../notebookAssistantMetadata.js';
@@ -320,7 +320,7 @@ async function runAllCells(
 				const status = hasError ? 'Error' : 'OK';
 				// Show first line of first text output or indicator for non-text types
 				const firstOutput = cellOutputs[0];
-				if (isImageMime(firstOutput.mimeType)) {
+				if (firstOutput.mimeType.startsWith('image/')) {
 					resultParts.push(
 						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [${status}] [Image output]\n`)
 					);
