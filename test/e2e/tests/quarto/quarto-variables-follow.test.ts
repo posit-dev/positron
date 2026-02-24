@@ -92,10 +92,10 @@ test.describe('Quarto - Variables Follow Mode', {
 		await page.waitForTimeout(500);
 
 		// Execute more code in the console - this will make it the foreground session
-		// and the follow mode should switch variables to the console
-		await positronConsole.focus();
-		await positronConsole.typeToConsole('another_var = 456', true);
-		await positronConsole.waitForReady('>>>');
+		// and the follow mode should switch variables to the console.
+		// Use executeCode (which uses quick access) instead of typeToConsole to avoid
+		// focus issues when the Settings UI or other editor panes steal keyboard input.
+		await positronConsole.executeCode('Python', 'another_var = 456', { maximizeConsole: false });
 
 		// Verify the variables pane switched to the console session (NOT the QMD)
 		await variables.expectSessionToBe(/Python/);
