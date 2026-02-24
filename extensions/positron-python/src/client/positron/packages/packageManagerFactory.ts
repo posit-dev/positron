@@ -21,9 +21,7 @@ export enum PackageManagerType {
  * Factory for creating the appropriate package manager based on environment type.
  *
  * This factory examines the Python environment type and returns the corresponding
- * package manager implementation:
- * - Venv environments use VenvPackageManager
- * - All other environments use PipPackageManager as the default
+ * package manager implementation, with a fallback to PipPackageManager.
  */
 export class PackageManagerFactory {
     /**
