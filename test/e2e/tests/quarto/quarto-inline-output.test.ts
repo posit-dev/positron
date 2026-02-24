@@ -2489,18 +2489,25 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		// Position cursor in the Python code cell (line 12)
-		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('12');
-		await page.keyboard.press('Enter');
-		await page.waitForTimeout(500);
-
-		// Run the cell to generate plot output
-		await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
-
-		// Wait for inline output to appear
+		// Run the cell to generate plot output, retrying until the Quarto
+		// extension has parsed the document and recognizes the code cell.
+		// In CI, the Quarto extension may not have finished parsing by the
+		// time we first attempt to run the cell, resulting in the warning
+		// "Editor selection is not within an executable cell". Wrapping the
+		// cursor positioning, cell execution, and output check in a single
+		// toPass retry block handles this race condition.
 		const inlineOutput = page.locator('.quarto-inline-output');
 		await expect(async () => {
+			// Position cursor in the Python code cell (line 12)
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('12');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+
+			// Run the cell (may fail if Quarto hasn't parsed yet; retry handles it)
+			await app.workbench.quickaccess.runCommand('quarto.runCurrentCell');
+
+			// Scroll to where inline output appears and check visibility
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
 			await page.keyboard.type('25');
 			await page.keyboard.press('Enter');
