@@ -25,6 +25,7 @@ const TEXT_MIME_TYPES = new Set([
 	'application/vnd.code.notebook.stdout',
 	'application/x.notebook.stdout',
 	'application/json',
+	'image/svg+xml',
 ]);
 
 /**
