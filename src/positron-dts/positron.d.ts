@@ -443,6 +443,19 @@ declare module 'positron' {
 		password: boolean;
 	}
 
+	/**
+	 * The CPU architecture of an interpreter.
+	 * Used to detect architecture mismatches between the interpreter and the system.
+	 */
+	export enum LanguageRuntimeArchitecture {
+		/** 64-bit ARM architecture (Apple Silicon, ARM64 Windows, etc.) */
+		Arm64 = 'arm64',
+		/** 64-bit x86 architecture (Intel/AMD) */
+		X64 = 'x64',
+		/** Architecture was detected but is not arm64 or x64 */
+		Other = 'other'
+	}
+
 	/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
 	export interface LanguageRuntimeInfo {
 		/** A startup banner */
@@ -462,6 +475,12 @@ declare module 'positron' {
 
 		/** Continuation prompt string in case user customized it */
 		continuation_prompt?: string;
+
+		/**
+		 * The interpreter's CPU architecture.
+		 * Used to detect architecture mismatches with the system.
+		 */
+		interpreterArch?: LanguageRuntimeArchitecture;
 	}
 
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
@@ -2131,27 +2150,6 @@ declare module 'positron' {
 		 * Positron core.
 		 */
 		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
-
-		/**
-		 * Shows a notification warning that an interpreter's architecture doesn't
-		 * match the system architecture (e.g., x86_64 Python on ARM Mac via Rosetta).
-		 * The notification is sticky and can be permanently dismissed per-language.
-		 *
-		 * Extensions should only call this when they have detected an actual
-		 * architecture mismatch. The core handles notification display and
-		 * user dismissal preferences.
-		 *
-		 * @param languageId The language identifier (e.g., 'python', 'r') - used for dismissal scope
-		 * @param runtimeName The display name of the runtime (shown in notification)
-		 * @param systemArch The system architecture (e.g., 'arm64', 'x64')
-		 * @param interpreterArch The interpreter's architecture (e.g., 'x64', 'x86_64')
-		 */
-		export function showArchitectureMismatchWarning(
-			languageId: string,
-			runtimeName: string,
-			systemArch: string,
-			interpreterArch: string
-		): Thenable<void>;
 
 		/**
 		 * An event that fires when a new runtime is registered.

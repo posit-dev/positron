@@ -541,13 +541,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // If we're starting a new session (we have a kernel spec), ensure that ipykernel is available.
         if (this.kernelSpec) {
             await this._setupIpykernel(interpreter, this.kernelSpec);
-
-            // Check for architecture mismatch using the fresh architecture from ipykernel bundle detection.
-            // This must happen after _setupIpykernel which fetches accurate architecture on ARM64 systems.
-            // Errors are caught and logged to avoid blocking kernel startup.
-            this.checkArchitectureMismatch().catch((err) => {
-                traceWarn(`Error checking architecture mismatch: ${err}`);
-            });
         }
 
         // Ensure the LSP client instance is created
@@ -579,33 +572,21 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._runtimeInfo = await this._kernel.start();
         if (this.kernelSpec) {
             this.enableAutoReloadIfEnabled(this._runtimeInfo);
+
+            // Add interpreter architecture to the runtime info for mismatch detection.
+            // This must happen after _setupIpykernel which fetches accurate architecture.
+            const architecture = this._ipykernelBundle.architecture;
+            if (architecture !== undefined && architecture !== Architecture.Unknown) {
+                if (architecture === Architecture.arm64) {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Arm64;
+                } else if (architecture === Architecture.x64) {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.X64;
+                } else {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Other;
+                }
+            }
         }
         return this._runtimeInfo;
-    }
-
-    /**
-     * Checks if the interpreter architecture differs from the system architecture
-     * and shows a warning notification if so.
-     *
-     * Must be called after _setupIpykernel which fetches fresh architecture data.
-     */
-    private async checkArchitectureMismatch(): Promise<void> {
-        const architecture = this._ipykernelBundle.architecture;
-        if (architecture === undefined || architecture === Architecture.Unknown) {
-            return;
-        }
-
-        const systemArch = process.arch; // 'arm64', 'x64', etc.
-        const interpreterArch = architecture === Architecture.arm64 ? 'arm64' : 'x64';
-
-        if (systemArch !== interpreterArch) {
-            await positron.runtime.showArchitectureMismatchWarning(
-                'python',
-                this.runtimeMetadata.runtimeName,
-                systemArch,
-                interpreterArch,
-            );
-        }
     }
 
     private async onConsoleWidthChange(newWidth: number): Promise<void> {

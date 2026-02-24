@@ -323,39 +323,22 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Initialize the package manager
 		this._packageManager = new RPackageManager(this);
 
-		// Check for architecture mismatch before starting.
-		// Errors are caught and logged to avoid blocking kernel startup.
-		this.checkArchitectureMismatch().catch((err) => {
-			LOGGER.warn(`Error checking architecture mismatch: ${err}`);
-		});
+		const runtimeInfo = await this._kernel.start();
 
-		return await this._kernel.start();
-	}
-
-	/**
-	 * Checks if the interpreter architecture differs from the system architecture
-	 * and shows a warning notification if so.
-	 */
-	private async checkArchitectureMismatch(): Promise<void> {
+		// Add interpreter architecture to the runtime info for mismatch detection.
 		const metadataExtra = this.runtimeMetadata.extraRuntimeData as RMetadataExtra;
-		const interpreterArch = metadataExtra?.arch; // 'arm64', 'x86_64', etc.
-		const systemArch = process.arch; // 'arm64', 'x64', etc.
-
-		if (!interpreterArch || !systemArch) {
-			return;
+		const interpreterArch = metadataExtra?.arch;
+		if (interpreterArch) {
+			if (interpreterArch === 'arm64') {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Arm64;
+			} else if (interpreterArch === 'x86_64') {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.X64;
+			} else {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Other;
+			}
 		}
 
-		// Normalize for comparison: R reports 'x86_64', Node.js reports 'x64'
-		const normalizedInterpreterArch = interpreterArch === 'x86_64' ? 'x64' : interpreterArch;
-
-		if (systemArch !== normalizedInterpreterArch) {
-			await positron.runtime.showArchitectureMismatchWarning(
-				'r',
-				this.runtimeMetadata.runtimeName,
-				systemArch,
-				interpreterArch,
-			);
-		}
+		return runtimeInfo;
 	}
 
 	private async onConsoleWidthChange(newWidth: number): Promise<void> {

@@ -54,6 +54,19 @@ export enum RuntimeOnlineState {
 	Idle = 'idle',
 }
 
+/**
+ * The CPU architecture of an interpreter.
+ * Used to detect architecture mismatches between the interpreter and the system.
+ */
+export enum LanguageRuntimeArchitecture {
+	/** 64-bit ARM architecture (Apple Silicon, ARM64 Windows, etc.) */
+	Arm64 = 'arm64',
+	/** 64-bit x86 architecture (Intel/AMD) */
+	X64 = 'x64',
+	/** Architecture was detected but is not arm64 or x64 */
+	Other = 'other'
+}
+
 /** The set of possible language runtime messages */
 export enum LanguageRuntimeMessageType {
 	/** A message instructing the frontend to clear the output of a runtime execution. */

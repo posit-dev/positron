@@ -395,6 +395,19 @@ export enum RuntimeCodeExecutionMode {
 	Silent = 'silent'
 }
 
+/**
+ * The CPU architecture of an interpreter.
+ * Used to detect architecture mismatches between the interpreter and the system.
+ */
+export enum LanguageRuntimeArchitecture {
+	/** 64-bit ARM architecture (Apple Silicon, ARM64 Windows, etc.) */
+	Arm64 = 'arm64',
+	/** 64-bit x86 architecture (Intel/AMD) */
+	X64 = 'x64',
+	/** Architecture was detected but is not arm64 or x64 */
+	Other = 'other'
+}
+
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
 export interface ILanguageRuntimeInfo {
 	/** A startup banner */
@@ -416,6 +429,12 @@ export interface ILanguageRuntimeInfo {
 
 	/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
 	supported_features?: string[];
+
+	/**
+	 * The interpreter's CPU architecture.
+	 * Used to detect architecture mismatches with the system.
+	 */
+	interpreterArch?: LanguageRuntimeArchitecture;
 }
 
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
