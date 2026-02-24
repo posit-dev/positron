@@ -5,7 +5,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as vscode from 'vscode';
 import { RBinary } from './provider.js';
 import { ReasonDiscovered } from './r-installation.js';
 import { LOGGER } from './extension.js';
@@ -60,7 +59,7 @@ export function parseRVersionsFile(content: string): RVersionEntry[] {
 
 		for (const line of lines) {
 			const trimmedLine = line.trim();
-			if (!trimmedLine) {
+			if (!trimmedLine || trimmedLine.startsWith('#')) {
 				continue;
 			}
 
@@ -171,14 +170,6 @@ function getRBinaryFromHome(rHomePath: string): string | undefined {
 export async function discoverRVersionsBinaries(): Promise<RBinary[]> {
 	// r-versions is a Posit Workbench feature, which only runs on Linux
 	if (process.platform === 'win32') {
-		return [];
-	}
-
-	// Check if r-versions discovery is enabled
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const enabled = config.get<boolean>('interpreters.rversionsDiscovery', true);
-	if (!enabled) {
-		LOGGER.debug('r-versions discovery is disabled');
 		return [];
 	}
 
