@@ -29,10 +29,18 @@ const TEXT_MIME_TYPES = new Set([
 ]);
 
 /**
+ * Strips MIME parameters (e.g., `; charset=utf-8`) to get the base type.
+ */
+function normalizeMime(mimeType: string): string {
+	const semicolonIndex = mimeType.indexOf(';');
+	return semicolonIndex >= 0 ? mimeType.slice(0, semicolonIndex).trim() : mimeType;
+}
+
+/**
  * Returns true if the MIME type represents an error or stderr output.
  */
 export function isErrorMime(mimeType: string): boolean {
-	return ERROR_MIME_TYPES.has(mimeType);
+	return ERROR_MIME_TYPES.has(normalizeMime(mimeType));
 }
 
 /**
@@ -40,9 +48,10 @@ export function isErrorMime(mimeType: string): boolean {
  * (including stdout, stderr, error, text/*, and structured text like JSON).
  */
 export function isTextMime(mimeType: string): boolean {
-	return mimeType.startsWith('text/') ||
-		TEXT_MIME_TYPES.has(mimeType) ||
-		ERROR_MIME_TYPES.has(mimeType);
+	const normalized = normalizeMime(mimeType);
+	return normalized.startsWith('text/') ||
+		TEXT_MIME_TYPES.has(normalized) ||
+		ERROR_MIME_TYPES.has(normalized);
 }
 
 /**
@@ -50,7 +59,8 @@ export function isTextMime(mimeType: string): boolean {
  * Excludes image/svg+xml which is text-based XML.
  */
 export function isImageMime(mimeType: string): boolean {
-	return mimeType.startsWith('image/') && mimeType !== 'image/svg+xml';
+	const normalized = normalizeMime(mimeType);
+	return normalized.startsWith('image/') && normalized !== 'image/svg+xml';
 }
 
 /**

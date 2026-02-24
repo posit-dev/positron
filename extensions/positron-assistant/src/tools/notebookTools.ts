@@ -201,6 +201,13 @@ export const ExecuteNotebookTool = vscode.lm.registerTool<ExecuteNotebookInput>(
 				}
 
 				case 'interrupt': {
+					// Verify the active notebook matches the target to avoid interrupting the wrong notebook
+					const activeEditor = vscode.window.activeNotebookEditor;
+					if (!activeEditor || activeEditor.notebook.uri.toString() !== context.uri) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart('Cannot interrupt: the active notebook has changed. Please ensure the target notebook is focused.')
+						]);
+					}
 					await vscode.commands.executeCommand('notebook.cancelExecution');
 					return new vscode.LanguageModelToolResult([
 						new vscode.LanguageModelTextPart('Successfully interrupted notebook execution.')
@@ -308,21 +315,23 @@ async function runAllCells(
 					new vscode.LanguageModelTextPart(`Cell ${cell.index}: No output\n`)
 				);
 			} else {
+				// Determine error status from all outputs, not just the first
+				const hasError = cellOutputs.some(o => isErrorMime(o.mimeType));
+				const status = hasError ? 'Error' : 'OK';
 				// Show first line of first text output or indicator for non-text types
 				const firstOutput = cellOutputs[0];
 				if (isImageMime(firstOutput.mimeType)) {
 					resultParts.push(
-						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [OK] [Image output]\n`)
+						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [${status}] [Image output]\n`)
 					);
 				} else if (isTextMime(firstOutput.mimeType)) {
 					const firstLine = (firstOutput.data?.split('\n')[0] ?? '').slice(0, 200);
-					const status = isErrorMime(firstOutput.mimeType) ? 'Error' : 'OK';
 					resultParts.push(
 						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [${status}] ${firstLine}\n`)
 					);
 				} else {
 					resultParts.push(
-						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [OK] [${firstOutput.mimeType} output]\n`)
+						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [${status}] [${firstOutput.mimeType} output]\n`)
 					);
 				}
 			}
@@ -819,8 +828,10 @@ function createEditNotebookTool(participantService: ParticipantService) {
 
 							// Clear outputs for specific cells by selecting each and clearing
 							const notebookEditor = vscode.window.activeNotebookEditor;
-							if (!notebookEditor) {
-								return createNoActiveNotebookErrorResult();
+							if (!notebookEditor || notebookEditor.notebook.uri.toString() !== context.uri) {
+								return new vscode.LanguageModelToolResult([
+									new vscode.LanguageModelTextPart('Cannot clear outputs: the active notebook has changed. Please ensure the target notebook is focused.')
+								]);
 							}
 							const notebook = notebookEditor.notebook;
 
@@ -863,6 +874,13 @@ function createEditNotebookTool(participantService: ParticipantService) {
 								)
 							]);
 						} else {
+							// Verify the active notebook matches the target to avoid clearing the wrong notebook
+							const activeEditor = vscode.window.activeNotebookEditor;
+							if (!activeEditor || activeEditor.notebook.uri.toString() !== context.uri) {
+								return new vscode.LanguageModelToolResult([
+									new vscode.LanguageModelTextPart('Cannot clear outputs: the active notebook has changed. Please ensure the target notebook is focused.')
+								]);
+							}
 							// Clear all outputs using the built-in command
 							await vscode.commands.executeCommand('notebook.clearAllCellsOutputs');
 							return new vscode.LanguageModelToolResult([
