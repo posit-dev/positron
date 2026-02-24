@@ -164,7 +164,10 @@ async function loadTestModules(opts) {
 		const files = Array.isArray(opts.run) ? opts.run : [opts.run];
 		const modules = files.map(file => {
 			file = file.replace(/^src[\\/]/, '');
-			return file.replace(/\.[jt]s$/, '');
+			// --- Start Positron ---
+			// Add support for React .tsx tests
+			return file.replace(/\.[jt]sx?$/, '');
+			// --- End Positron ---
 		});
 		return loadModules(modules);
 	}
