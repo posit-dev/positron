@@ -6,16 +6,10 @@
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { IPythonExecutionFactory, IPythonExecutionService } from '../common/process/types';
-import { ITerminalServiceFactory } from '../common/terminal/types';
-import { IServiceContainer } from '../ioc/types';
-
-/**
- * Interface for emitting messages to the Positron console
- */
-interface MessageEmitter {
-    fire(message: positron.LanguageRuntimeMessage): void;
-}
+import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
+import { ITerminalServiceFactory } from '../../common/terminal/types';
+import { IServiceContainer } from '../../ioc/types';
+import { IPackageManager, MessageEmitter } from './types';
 
 /**
  * Pip Package Manager
@@ -23,7 +17,7 @@ interface MessageEmitter {
  * Provides package management functionality for Python sessions using pip.
  * Runs pip commands as subprocesses and streams output to the Positron Console.
  */
-export class PipPackageManager {
+export class PipPackageManager implements IPackageManager {
     private _pythonService: IPythonExecutionService | undefined;
 
     constructor(
