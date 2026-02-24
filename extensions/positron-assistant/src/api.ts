@@ -299,17 +299,17 @@ export function getEnabledTools(
 				break;
 			// Notebook tools require both a notebook attached as context AND an active notebook editor.
 			// Tool availability varies by mode:
-			// - Execution tools (RunNotebookCells): Agent mode only
-			// - Modification tools (EditNotebookCells): Edit and Agent modes
-			// - Read-only tools (GetNotebookCells): All modes (Ask, Edit, Agent)
-			case PositronAssistantToolName.RunNotebookCells:
+			// - Execution tools (ExecuteNotebook): Agent mode only
+			// - Modification tools (EditNotebook): Edit and Agent modes
+			// - Read-only tools (GetNotebookInfo): All modes (Ask, Edit, Agent)
+			case PositronAssistantToolName.ExecuteNotebook:
 				// Execution requires Agent mode
 				if (!(inChatPane && hasActiveNotebook && isAgentMode)) {
 					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, active notebook, and agent mode' });
 					continue;
 				}
 				break;
-			case PositronAssistantToolName.EditNotebookCells:
+			case PositronAssistantToolName.EditNotebook:
 				// Modification requires Edit or Agent mode
 				// Available when notebook mode is enabled (not just when notebook is active)
 				// so it can be used immediately after CreateNotebook in the same turn
@@ -318,7 +318,7 @@ export function getEnabledTools(
 					continue;
 				}
 				break;
-			case PositronAssistantToolName.GetNotebookCells:
+			case PositronAssistantToolName.GetNotebookInfo:
 				// Read-only tools available in all modes when notebook mode is enabled
 				// Available without active notebook so it can be used after CreateNotebook
 				if (!(inChatPane && isNotebookModeEnabled())) {

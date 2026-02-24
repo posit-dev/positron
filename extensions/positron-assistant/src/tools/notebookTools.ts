@@ -52,14 +52,14 @@ const CELL_TYPE_MAP: Record<string, positron.notebooks.NotebookCellType> = {
 };
 
 /**
- * Tool: Run Notebook Cells
+ * Tool: Execute Notebook
  *
  * Executes one or more cells in the active notebook and returns their outputs.
  * Supports both text and image outputs.
  */
-export const RunNotebookCellsTool = vscode.lm.registerTool<{
+export const ExecuteNotebookTool = vscode.lm.registerTool<{
 	cellIndices: number[];
-}>(PositronAssistantToolName.RunNotebookCells, {
+}>(PositronAssistantToolName.ExecuteNotebook, {
 	prepareInvocation: async (options, _token) => {
 		const cellIndices = options.input.cellIndices;
 
@@ -130,15 +130,15 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 
 			return new vscode.LanguageModelToolResult2(resultParts);
 		} catch (error: unknown) {
-			return createNotebookToolErrorResult(error, PositronAssistantToolName.RunNotebookCells, 'execute cells');
+			return createNotebookToolErrorResult(error, PositronAssistantToolName.ExecuteNotebook, 'execute cells');
 		}
 	}
 });
 
 /**
- * Input type for the EditNotebookCells tool.
+ * Input type for the EditNotebook tool.
  */
-interface EditNotebookCellsInput {
+interface EditNotebookInput {
 	operation: 'add' | 'update' | 'delete' | 'reorder';
 	cellType?: 'code' | 'markdown';
 	index?: number;
@@ -152,7 +152,7 @@ interface EditNotebookCellsInput {
 }
 
 /**
- * Creates the Edit Notebook Cells tool.
+ * Creates the Edit Notebook tool.
  *
  * Performs edit operations on notebook cells: add, update, delete, or reorder.
  * Uses a simple enum-based operation parameter for flexibility.
@@ -160,8 +160,8 @@ interface EditNotebookCellsInput {
  * @param participantService The participant service for accessing the chat response stream
  * @returns The registered tool disposable
  */
-function createEditNotebookCellsTool(participantService: ParticipantService) {
-	return vscode.lm.registerTool<EditNotebookCellsInput>(PositronAssistantToolName.EditNotebookCells, {
+function createEditNotebookTool(participantService: ParticipantService) {
+	return vscode.lm.registerTool<EditNotebookInput>(PositronAssistantToolName.EditNotebook, {
 		prepareInvocation: async (options, _token) => {
 			const { operation, cellType, cellIndex, run } = options.input;
 
@@ -599,7 +599,7 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 			} catch (error: unknown) {
 				return createNotebookToolErrorResult(
 					error,
-					PositronAssistantToolName.EditNotebookCells,
+					PositronAssistantToolName.EditNotebook,
 					`${operation} cell`
 				);
 			}
@@ -608,15 +608,15 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 }
 
 /**
- * Tool: Get Notebook Cells
+ * Tool: Get Notebook Info
  *
  * Retrieves information about notebook cells with flexible operation modes.
  * Supports getting specific cells, all cells, selected cells, outputs, or metadata only.
  */
-export const GetNotebookCellsTool = vscode.lm.registerTool<{
+export const GetNotebookInfoTool = vscode.lm.registerTool<{
 	operation: 'get' | 'getSelected' | 'getOutputs' | 'getMetadata';
 	cellIndices?: number[];
-}>(PositronAssistantToolName.GetNotebookCells, {
+}>(PositronAssistantToolName.GetNotebookInfo, {
 	prepareInvocation: async (options, _token) => {
 		return {
 			invocationMessage: vscode.l10n.t('Getting notebook cells'),
@@ -787,7 +787,7 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 		} catch (error: unknown) {
 			return createNotebookToolErrorResult(
 				error,
-				PositronAssistantToolName.GetNotebookCells,
+				PositronAssistantToolName.GetNotebookInfo,
 				`${operation} cells`
 			);
 		}
@@ -807,8 +807,8 @@ export function registerNotebookTools(
 	participantService: ParticipantService
 ): void {
 	context.subscriptions.push(
-		RunNotebookCellsTool,
-		createEditNotebookCellsTool(participantService),
-		GetNotebookCellsTool
+		ExecuteNotebookTool,
+		createEditNotebookTool(participantService),
+		GetNotebookInfoTool
 	);
 }

@@ -1206,10 +1206,10 @@
         ]
       },
       {
-        "name": "runNotebookCells",
-        "displayName": "Run Notebook Cells",
+        "name": "executeNotebook",
+        "displayName": "Execute Notebook",
         "modelDescription": "Execute one or more cells in the active notebook and return their outputs. Use this when the user wants to run code cells or see the results of cell execution.",
-        "toolReferenceName": "runNotebookCells",
+        "toolReferenceName": "executeNotebook",
         "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant",
@@ -1232,10 +1232,10 @@
         }
       },
       {
-        "name": "editNotebookCells",
-        "displayName": "Edit Notebook Cells",
+        "name": "editNotebook",
+        "displayName": "Edit Notebook",
         "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndices array, e.g., [0] for single cell or [0,1,2] for multiple), or operation='reorder' to reorganize cells. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
-        "toolReferenceName": "editNotebookCells",
+        "toolReferenceName": "editNotebook",
         "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
@@ -1306,10 +1306,10 @@
         }
       },
       {
-        "name": "getNotebookCells",
-        "displayName": "Get Notebook Cells",
+        "name": "getNotebookInfo",
+        "displayName": "Get Notebook Info",
         "modelDescription": "Retrieve information about notebook cells with flexible operations. Use operation='get' to fetch specific cells by index or all cells if cellIndices is omitted, operation='getSelected' to get only selected cells, operation='getOutputs' to retrieve cell execution outputs (requires cellIndices), or operation='getMetadata' to get only cell status information without content.",
-        "toolReferenceName": "getNotebookCells",
+        "toolReferenceName": "getNotebookInfo",
         "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
@@ -1343,7 +1343,7 @@
       {
         "name": "createNotebook",
         "displayName": "Create Notebook",
-        "modelDescription": "Create a new Jupyter notebook with the specified language kernel (Python or R). Use when the user wants to start a new notebook. After creation, use EditNotebookCells to add content.",
+        "modelDescription": "Create a new Jupyter notebook with the specified language kernel (Python or R). Use when the user wants to start a new notebook. After creation, use editNotebook to add content.",
         "toolReferenceName": "createNotebook",
         "canBeReferencedInPrompt": true,
         "tags": [
