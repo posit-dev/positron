@@ -1227,6 +1227,13 @@ test.describe('Quarto - Inline Output', {
 			expect(stdoutText).not.toContain('col1');
 			expect(stdoutText).not.toContain('col2');
 		}
+
+		// Should NOT have data explorer metadata JSON leaking into the output.
+		// The kernel sends an application/vnd.positron.dataExplorer+json MIME type
+		// which should be silently filtered, not rendered as text.
+		const allOutputText = await inlineOutput.textContent();
+		expect(allOutputText).not.toContain('comm_id');
+		expect(allOutputText).not.toContain('vnd.positron.dataExplorer');
 	});
 
 	test('Python - Verify interactive HTML widget persists correctly after close and reopen', async function ({ app, openFile, python }) {

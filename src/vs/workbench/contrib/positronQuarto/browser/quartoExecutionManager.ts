@@ -1779,9 +1779,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			}
 		}
 
-		// Handle any remaining MIME types
+		// Handle any remaining MIME types, skipping Positron-internal types
+		// (e.g. application/vnd.positron.dataExplorer+json) that are used for
+		// comm channel metadata and should not be rendered as output.
 		for (const [mime, value] of Object.entries(data)) {
-			if (!mimeOrder.includes(mime) && value !== undefined) {
+			if (!mimeOrder.includes(mime) && value !== undefined &&
+				!mime.startsWith('application/vnd.positron.')) {
 				if (typeof value === 'string') {
 					outputItems.push({ mime, data: value });
 				} else {
