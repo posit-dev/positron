@@ -31,7 +31,7 @@ import {
 } from '../common/quartoExecutionTypes.js';
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
-import { DeferredPromise, RunOnceScheduler } from '../../../../base/common/async.js';
+import { DeferredPromise, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -891,17 +891,37 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		let output: string | undefined;
 		let exitCode: number | undefined;
 
-		if (result.type === 'finished' && result.command) {
+		// Try to get a command object. If onCommandFinished won the race, we
+		// already have one; otherwise (idle won), give onCommandFinished a
+		// brief grace period (shell integration may fire it shortly after
+		// the prompt-idle detection), then fall back to the last finished
+		// command in the commands list.
+		let cmd = result.command;
+		if (!cmd) {
+			// Wait briefly for onCommandFinished to fire
+			const grace = await Promise.race([
+				commandFinishedPromise.p.then(c => c),
+				timeout(500).then(() => undefined),
+			]);
+			if (grace) {
+				cmd = grace;
+				this._logService.debug(`[QuartoExecutionManager] Idle won race; got command from grace period`);
+			} else if (commandDetection.commands.length > 0) {
+				cmd = commandDetection.commands[commandDetection.commands.length - 1];
+				this._logService.debug(`[QuartoExecutionManager] Idle won race; using last finished command from commandDetection`);
+			}
+		}
+
+		if (cmd) {
 			// Get output from command detection - this is the cleanest source
-			output = result.command.getOutput();
-			exitCode = result.command.exitCode;
+			output = cmd.getOutput();
+			exitCode = cmd.exitCode;
 
 			if (output !== undefined) {
 				this._logService.debug(`[QuartoExecutionManager] Got output via shell integration getOutput(), exit code: ${exitCode}`);
 			} else {
 				// getOutput() returned undefined - try using the command's markers directly
 				// This happens when executedMarker or endMarker is on the same line or missing
-				const cmd = result.command;
 				if (cmd.executedMarker && cmd.endMarker) {
 					// Use executedMarker (where output starts) to endMarker (where it ends)
 					try {
@@ -1068,47 +1088,83 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		// First, strip ANSI codes for analysis
 		let cleanOutput = this._stripAnsiCodes(output);
 
-		// Normalize line endings and split on common prompt patterns
-		// This handles cases where terminal output doesn't have clean newlines
+		// Normalize line endings
 		cleanOutput = cleanOutput.replace(/\r\n?/g, '\n');
 
-		const promptPatterns = [
-			// allow-any-unicode-next-line
-			/(\u276f\s+)/g,      // Starship prompt ❯
-			/(\$\s+)/g,          // Bash prompt $
-			/(>\s+)/g,           // Generic prompt >
-		];
+		const commandToMatch = commandText ? commandText.trim() : '';
 
-		// If the output seems to be all on one line with prompts embedded,
-		// split it up by inserting newlines before prompts
-		for (const pattern of promptPatterns) {
-			cleanOutput = cleanOutput.replace(pattern, '\n$1');
+		// Primary approach: find the echoed command in the output and take
+		// everything after it. The terminal echoes the command (possibly
+		// wrapped across lines), followed by the actual output, followed
+		// by a new prompt. By locating the command in a whitespace-
+		// normalized form we avoid issues with line wrapping splitting
+		// the prompt+command across multiple lines.
+		if (commandToMatch) {
+			// Build a mapping from normalized (whitespace-collapsed) positions
+			// back to positions in the original text, so we can find the
+			// command even when it wraps across lines. Use the last
+			// occurrence since the command may be echoed multiple times
+			// (once when sent, once in the prompt-echoed line).
+			const normalized = cleanOutput.replace(/\s+/g, ' ');
+			const normalizedCmd = commandToMatch.replace(/\s+/g, ' ');
+			const cmdIndex = normalized.lastIndexOf(normalizedCmd);
+			if (cmdIndex >= 0) {
+				// Map the normalized end position back to the original text.
+				// Walk through the original text counting non-whitespace-run
+				// characters to find where the command ends.
+				let normPos = 0;
+				let origPos = 0;
+				const targetNormPos = cmdIndex + normalizedCmd.length;
+				while (normPos < targetNormPos && origPos < cleanOutput.length) {
+					if (/\s/.test(cleanOutput[origPos])) {
+						// In original text, advance past all whitespace
+						while (origPos < cleanOutput.length && /\s/.test(cleanOutput[origPos])) {
+							origPos++;
+						}
+						// In normalized text, this maps to a single space
+						normPos++;
+					} else {
+						origPos++;
+						normPos++;
+					}
+				}
+				// Take everything after the echoed command in the original text
+				const afterCmd = cleanOutput.substring(origPos).trim();
+				// Split into lines and remove trailing prompt lines
+				const lines = afterCmd.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+				const outputLines: string[] = [];
+				for (const line of lines) {
+					if (this._looksLikePromptLine(line)) {
+						continue;
+					}
+					outputLines.push(line);
+				}
+				if (outputLines.length > 0) {
+					return outputLines.join('\n');
+				}
+			}
 		}
 
-		// Now split into lines
+		// Fallback: line-by-line filtering (original approach)
 		const lines = cleanOutput.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
 		if (lines.length === 0) {
 			return '';
 		}
 
-		// Find lines to keep - exclude command echo and prompts
 		const outputLines: string[] = [];
-		const commandToMatch = commandText ? commandText.trim() : '';
-
 		for (const line of lines) {
 			// Skip lines that contain the command we executed
 			if (commandToMatch && line.includes(commandToMatch)) {
 				continue;
 			}
 
-			// Skip lines that look like prompts (path + prompt character)
+			// Skip lines that look like prompts
 			if (this._looksLikePromptLine(line)) {
 				continue;
 			}
 
 			// Skip lines that are just the command without prompt
-			// (in case the command was echoed separately)
 			if (commandToMatch) {
 				const normalizedLine = line.toLowerCase();
 				const normalizedCommand = commandToMatch.toLowerCase();
@@ -1142,6 +1198,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		// Lines starting with prompt characters
 		if (/^[\$#%>\u276f]\s/.test(line)) {
+			return true;
+		}
+
+		// user@host:path# or user@host:path$ patterns (common in Docker/CI)
+		if (/\w+@[\w.-]+:.*[\$#]\s*$/.test(line)) {
 			return true;
 		}
 
