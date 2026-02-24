@@ -340,7 +340,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.li(`**Environment variables** (${envKeys.length}):`);
 				const envTable: Array<Array<string>> = [];
 				for (const key of envKeys.sort()) {
-					envTable.push([key, launchInfo.env[key]]);
+					envTable.push([key, maskEnvValue(key, launchInfo.env[key])]);
 				}
 				md.blank();
 				md.table(['Variable', 'Value'], envTable);
@@ -573,6 +573,21 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		// misses marks recorded after that point.
 		return perf.getMarks().filter(m => m.name.startsWith('code/positron/'));
 	}
+}
+
+/**
+ * Masks the value of an environment variable if its name or value suggests it
+ * contains sensitive material (secrets, certificates, or private keys).
+ */
+function maskEnvValue(name: string, value: string): string {
+	const upperName = name.toUpperCase();
+	if (upperName.includes('SECRET') || upperName.includes('CERT') || upperName.includes('KEY')) {
+		return '***';
+	}
+	if (value.includes('BEGIN CERTIFICATE') || value.includes('BEGIN PRIVATE KEY')) {
+		return '***';
+	}
+	return value;
 }
 
 class MarkdownBuilder {
