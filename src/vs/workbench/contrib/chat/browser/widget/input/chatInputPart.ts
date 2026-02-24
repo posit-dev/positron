@@ -594,6 +594,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this.agentSessionTypeKey.set(initialSessionType);
 			}
 		}
+		// --- Start Positron ---
+		// Default to 'local' session type when no delegate is provided.
+		// Without this, the model picker is hidden in the welcome view because
+		// the upstream `when` clause requires agentSessionType === 'local'.
+		else {
+			this.agentSessionTypeKey.set(localChatSessionType);
+		}
+		// --- End Positron ---
 		this.chatSessionHasCustomAgentTarget = ChatContextKeys.chatSessionHasCustomAgentTarget.bindTo(contextKeyService);
 
 		this.history = this._register(this.instantiationService.createInstance(ChatHistoryNavigator, this.location));
