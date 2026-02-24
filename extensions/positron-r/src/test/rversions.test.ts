@@ -180,4 +180,63 @@ suite('r-versions file parsing', () => {
 		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
 		assert.strictEqual(entries[0].label, 'R 4.3.0');
 	});
+
+	test('ignores comment lines starting with #', () => {
+		const content = [
+			'# This is a comment',
+			'Path: /opt/R/4.3.0',
+			'# Another comment',
+			'Label: R 4.3.0',
+		].join('\n');
+		const entries = parseRVersionsFile(content);
+
+		assert.strictEqual(entries.length, 1);
+		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
+		assert.strictEqual(entries[0].label, 'R 4.3.0');
+	});
+
+	test('parses file based on Posit Workbench r-versions template', () => {
+		// Based on rstudio-pro/src/cpp/server/extras/conf/r-versions
+		const content = [
+			'# This file contains entries that specify which versions of R are available for sessions to use.',
+			'#',
+			'# Each entry consists of four fields: Path, Label, Module, and Script, each separated',
+			'# by a new line.',
+			'#',
+			'# Each entry MUST be separated by ONE blank line (2 new line characters).',
+			'#',
+			'# Path is the location of the R installation. It is a required field.',
+			'#',
+			'# Label is a user-friendly version moniker for the particular R version. It is optional.',
+			'#',
+			'# Module is an environment module (see https://en.wikipedia.org/wiki/Environment_Modules_(software))',
+			'# to load when the particular version of R is loaded. It is optional.',
+			'#',
+			'# Script is the location of an executable script to run before the session is started.',
+			'#',
+			'# Examples are below.',
+			'#',
+			'Path: /opt/R/R-2.15.3',
+			'Label: My special R Version',
+			'Module: testmodule',
+			'Script: ~/rload.sh',
+			'',
+			'Path: /opt/R/R-2.15.3-alternate',
+			'Label: My special R Version Alternate',
+			'Script: /opt/R/R-2.15.3-alternate/preload.sh',
+		].join('\n');
+		const entries = parseRVersionsFile(content);
+
+		assert.strictEqual(entries.length, 2);
+
+		assert.strictEqual(entries[0].path, '/opt/R/R-2.15.3');
+		assert.strictEqual(entries[0].label, 'My special R Version');
+		assert.strictEqual(entries[0].module, 'testmodule');
+		assert.strictEqual(entries[0].script, '~/rload.sh');
+
+		assert.strictEqual(entries[1].path, '/opt/R/R-2.15.3-alternate');
+		assert.strictEqual(entries[1].label, 'My special R Version Alternate');
+		assert.strictEqual(entries[1].script, '/opt/R/R-2.15.3-alternate/preload.sh');
+		assert.strictEqual(entries[1].module, undefined);
+	});
 });
