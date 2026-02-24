@@ -2040,6 +2040,15 @@ export class FoldingRangeKind {
 }
 
 // --- Start Positron ---
+export const enum StatementRangeKind {
+	Success = 'success',
+	Rejection = 'rejection',
+}
+
+export const enum StatementRangeRejectionKind {
+	Syntax = 'syntax',
+}
+
 export interface StatementRangeProvider {
 	/**
 	 * Provide the statement that contains the given position.
@@ -2048,10 +2057,19 @@ export interface StatementRangeProvider {
 		ProviderResult<IStatementRange>;
 }
 
+export type IStatementRange = IStatementRangeSuccess | IStatementRangeRejection;
+
+export type IStatementRangeRejection = IStatementRangeSyntaxRejection;
+
 /**
  * The range of a statement, plus optionally the code for the range.
  */
-export interface IStatementRange {
+export interface IStatementRangeSuccess {
+	/**
+	 * The kind of statement range result.
+	 */
+	readonly kind: StatementRangeKind.Success;
+
 	/**
 	 * The range of the statement at the given position.
 	 */
@@ -2061,7 +2079,23 @@ export interface IStatementRange {
 	 * The code for this statement range, if different from the document contents at this range.
 	 */
 	readonly code?: string;
+}
 
+export interface IStatementRangeSyntaxRejection {
+	/**
+	 * The kind of statement range result.
+	 */
+	readonly kind: StatementRangeKind.Rejection;
+
+	/**
+	 * The kind of rejection.
+	 */
+	readonly rejectionKind: StatementRangeRejectionKind.Syntax;
+
+	/**
+	 * Zero indexed line number where the syntax error occurred.
+	 */
+	readonly line?: number;
 }
 
 export interface HelpTopicProvider {

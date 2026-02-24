@@ -1542,6 +1542,9 @@ declare module 'positron' {
 		 * cursor is within. If the cursor is not within a statement, return the
 		 * range of the next statement, if one exists.
 		 *
+		 * Throw a {@link StatementRangeSyntaxError} to indicate that a statement range
+		 * cannot be provided due to a syntax error in the document.
+		 *
 		 * @param document The document in which the command was invoked.
 		 * @param position The position at which the command was invoked.
 		 * @param token A cancellation token.
@@ -1565,7 +1568,24 @@ declare module 'positron' {
 		 * The code for this statement range, if different from the document contents at this range.
 		 */
 		readonly code?: string;
+	}
 
+	/**
+	 * An error thrown by a {@link StatementRangeProvider} to indicate that a statement range
+	 * cannot be provided due to a syntax error in the document.
+	 */
+	export class StatementRangeSyntaxError extends Error {
+		/**
+		 * Zero indexed line number where the syntax error occurred.
+		 */
+		readonly line?: number;
+
+		/**
+		 * Creates a new statement range syntax error.
+		 *
+		 * @param line Zero indexed line number where the syntax error occurred.
+		 */
+		constructor(line?: number);
 	}
 
 	export interface HelpTopicProvider {

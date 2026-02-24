@@ -539,6 +539,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			PlotRenderFormat: extHostTypes.PlotRenderFormat,
 			PreviewSourceType: extHostTypes.PreviewSourceType,
 			UiRuntimeNotifications: extHostTypes.UiRuntimeNotifications,
+			StatementRangeSyntaxError: extHostTypes.StatementRangeSyntaxError,
 		};
 	};
 }

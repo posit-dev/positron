@@ -434,5 +434,27 @@ export enum PreviewSourceType {
 	Terminal = 'terminal',
 }
 
+/**
+ * An error thrown by a {@link StatementRangeProvider} to indicate that a statement range
+ * cannot be provided due to a syntax error in the document.
+ */
+export class StatementRangeSyntaxError extends Error {
+	/**
+	 * Zero indexed line number where the syntax error occurred.
+	 */
+	readonly line?: number;
+
+	/**
+	 * Creates a new statement range syntax error.
+	 *
+	 * @param line Zero indexed line number where the syntax error occurred.
+	 */
+	constructor(line?: number) {
+		super();
+		Object.setPrototypeOf(this, StatementRangeSyntaxError.prototype);
+		this.line = line;
+	}
+}
+
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 export { PlotRenderSettings, PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';
