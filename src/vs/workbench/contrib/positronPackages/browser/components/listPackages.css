@@ -37,6 +37,23 @@
 	display: flex;
 	align-items: center;
 	cursor: pointer;
+	overflow: hidden;
+}
+
+.packages-list-item-name {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+
+.packages-list-item-version {
+	flex: 0 1 auto;
+	min-width: 0;
+	opacity: 0.7;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 0.9em;
+	margin-left: 0.5em;
 }
 
 .packages-list-item:hover {
@@ -53,11 +70,4 @@
 .positron-packages-list.focused .packages-list-item.selected {
 	color: var(--vscode-list-activeSelectionForeground);
 	background: var(--vscode-list-activeSelectionBackground);
-}
-
-.packages-list-item .description {
-	opacity: 0.7;
-	white-space: nowrap;
-	font-size: 0.9em;
-	margin-left: 0.5em;
 }

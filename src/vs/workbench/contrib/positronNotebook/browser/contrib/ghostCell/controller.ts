@@ -488,15 +488,56 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	}
 
 	/**
-	 * Request a ghost cell suggestion when in pull mode.
-	 * Only triggers if the current state is 'awaiting-request'.
+	 * Request a ghost cell suggestion via keyboard shortcut or UI button.
+	 * Works from any state: if a ghost cell is already showing, uses its cell
+	 * index; otherwise falls back to the last code cell in the notebook.
 	 */
 	requestGhostCellSuggestion(): void {
 		const state = this._ghostCellState.get();
-		if (state.status !== 'awaiting-request') {
+
+		// If already loading or streaming, don't interrupt the current request
+		if (state.status === 'loading' || state.status === 'streaming') {
 			return;
 		}
-		this.triggerGhostCellSuggestion(state.executedCellIndex);
+
+		// If showing the opt-in prompt, treat the shortcut as the user opting in
+		if (state.status === 'opt-in-prompt') {
+			this.enableGhostCellSuggestions();
+			return;
+		}
+
+		// Clear any pending debounce/error timers to prevent them from
+		// overwriting the state after this manual trigger
+		if (this._ghostCellDebounceTimer) {
+			clearTimeout(this._ghostCellDebounceTimer);
+			this._ghostCellDebounceTimer = undefined;
+		}
+		if (this._errorDismissTimer) {
+			clearTimeout(this._errorDismissTimer);
+			this._errorDismissTimer = undefined;
+		}
+
+		// Determine which cell index to use for the suggestion
+		let executedCellIndex: number;
+		if (state.status !== 'hidden') {
+			executedCellIndex = state.executedCellIndex;
+		} else {
+			// Find the last code cell as the context for the suggestion
+			const cells = this._notebook.cells.get();
+			let lastCodeCellIndex = -1;
+			for (let i = cells.length - 1; i >= 0; i--) {
+				if (cells[i].isCodeCell()) {
+					lastCodeCellIndex = i;
+					break;
+				}
+			}
+			if (lastCodeCellIndex === -1) {
+				return;
+			}
+			executedCellIndex = lastCodeCellIndex;
+		}
+
+		this.triggerGhostCellSuggestion(executedCellIndex);
 	}
 
 	// ===== Private Helpers =====
