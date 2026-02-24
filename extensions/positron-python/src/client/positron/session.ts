@@ -544,7 +544,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             // Check for architecture mismatch using the fresh architecture from ipykernel bundle detection.
             // This must happen after _setupIpykernel which fetches accurate architecture on ARM64 systems.
-            this.checkArchitectureMismatch();
+            // Errors are caught and logged to avoid blocking kernel startup.
+            this.checkArchitectureMismatch().catch((err) => {
+                traceWarn(`Error checking architecture mismatch: ${err}`);
+            });
         }
 
         // Ensure the LSP client instance is created
@@ -586,7 +589,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      *
      * Must be called after _setupIpykernel which fetches fresh architecture data.
      */
-    private checkArchitectureMismatch(): void {
+    private async checkArchitectureMismatch(): Promise<void> {
         const architecture = this._ipykernelBundle.architecture;
         if (architecture === undefined || architecture === Architecture.Unknown) {
             return;
@@ -596,8 +599,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const interpreterArch = architecture === Architecture.arm64 ? 'arm64' : 'x64';
 
         if (systemArch !== interpreterArch) {
-            // Fire and forget - notification is non-blocking
-            positron.runtime.showArchitectureMismatchWarning(
+            await positron.runtime.showArchitectureMismatchWarning(
                 'python',
                 this.runtimeMetadata.runtimeName,
                 systemArch,

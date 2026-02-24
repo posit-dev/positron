@@ -323,8 +323,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Initialize the package manager
 		this._packageManager = new RPackageManager(this);
 
-		// Check for architecture mismatch before starting
-		this.checkArchitectureMismatch();
+		// Check for architecture mismatch before starting.
+		// Errors are caught and logged to avoid blocking kernel startup.
+		this.checkArchitectureMismatch().catch((err) => {
+			LOGGER.warn(`Error checking architecture mismatch: ${err}`);
+		});
 
 		return await this._kernel.start();
 	}
@@ -333,7 +336,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * Checks if the interpreter architecture differs from the system architecture
 	 * and shows a warning notification if so.
 	 */
-	private checkArchitectureMismatch(): void {
+	private async checkArchitectureMismatch(): Promise<void> {
 		const metadataExtra = this.runtimeMetadata.extraRuntimeData as RMetadataExtra;
 		const interpreterArch = metadataExtra?.arch; // 'arm64', 'x86_64', etc.
 		const systemArch = process.arch; // 'arm64', 'x64', etc.
@@ -346,8 +349,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		const normalizedInterpreterArch = interpreterArch === 'x86_64' ? 'x64' : interpreterArch;
 
 		if (systemArch !== normalizedInterpreterArch) {
-			// Fire and forget - notification is non-blocking
-			positron.runtime.showArchitectureMismatchWarning(
+			await positron.runtime.showArchitectureMismatchWarning(
 				'r',
 				this.runtimeMetadata.runtimeName,
 				systemArch,
