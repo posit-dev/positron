@@ -919,6 +919,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 			if (output !== undefined) {
 				this._logService.debug(`[QuartoExecutionManager] Got output via shell integration getOutput(), exit code: ${exitCode}`);
+				// On some platforms (e.g. Windows PowerShell), shell integration
+				// output may still include the prompt and echoed command. Clean
+				// it to ensure we only return the actual command output.
+				if (output) {
+					output = this._cleanTerminalOutput(output, code);
+				}
 			} else {
 				// getOutput() returned undefined - try using the command's markers directly
 				// This happens when executedMarker or endMarker is on the same line or missing
@@ -1203,6 +1209,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		// user@host:path# or user@host:path$ patterns (common in Docker/CI)
 		if (/\w+@[\w.-]+:.*[\$#]\s*$/.test(line)) {
+			return true;
+		}
+
+		// PowerShell prompt: "PS C:\path>" or "PS /path>"
+		if (/^PS\s+[A-Za-z]:?[\\/].*>\s*$/.test(line)) {
 			return true;
 		}
 
