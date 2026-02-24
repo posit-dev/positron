@@ -134,15 +134,30 @@ export class PositronAssistantApi {
 }
 
 /**
- * Copilot notebook tool names that should be disabled when Positron notebook mode is active.
+ * External notebook tool names that should be disabled when Positron notebook mode is active.
  * These tools conflict with Positron's specialized notebook tools.
+ *
+ * Includes tools from both Copilot (copilot_* prefix) and the Jupyter extension
+ * (ms-toolsai.jupyter), which registers configure_notebook, notebook_list_packages,
+ * and notebook_install_packages.
  */
-const COPILOT_NOTEBOOK_TOOLS = new Set([
+const EXTERNAL_NOTEBOOK_TOOLS = new Set([
+	// Copilot notebook tools
 	'copilot_editNotebook',
 	'copilot_getNotebookSummary',
 	'copilot_runNotebookCell',
 	'copilot_readNotebookCellOutput',
 	'copilot_createNewJupyterNotebook',
+	// Jupyter extension notebook tools (ms-toolsai.jupyter)
+	'configure_notebook',
+	'notebook_list_packages',
+	'notebook_install_packages',
+	// Jupyter extension kernel management tools (ms-toolsai.jupyter)
+	// These are hidden via when: "false" but can be dynamically activated
+	// via the extension_installed_by_tool tag mechanism.
+	'configure_python_notebook',
+	'configure_non_python_notebook',
+	'restart_notebook_kernel',
 ]);
 
 /**
@@ -381,9 +396,9 @@ export function getEnabledTools(
 		// Check if the tool is provided by Copilot.
 		const copilotTool = tool.name.startsWith('copilot_');
 
-		// Disable Copilot notebook tools when Positron notebook mode is active
+		// Disable external notebook tools when Positron notebook mode is active
 		// to avoid conflicts with Positron's specialized notebook tools.
-		if (copilotTool && COPILOT_NOTEBOOK_TOOLS.has(tool.name)) {
+		if (EXTERNAL_NOTEBOOK_TOOLS.has(tool.name)) {
 			// For most tools, this means an active notebook is attached
 			// For createNotebook specifically, we disable when our CreateNotebook tool would be available
 			if (hasActiveNotebook ||
