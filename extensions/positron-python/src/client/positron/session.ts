@@ -36,6 +36,7 @@ import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
+import { Architecture } from '../common/utils/platform';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
 import { PackageManagerFactory } from './packages/packageManagerFactory';
@@ -577,6 +578,19 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._runtimeInfo = await this._kernel.start();
         if (this.kernelSpec) {
             this.enableAutoReloadIfEnabled(this._runtimeInfo);
+
+            // Add interpreter architecture to the runtime info for mismatch detection.
+            // This must happen after _setupIpykernel which fetches accurate architecture.
+            const architecture = this._ipykernelBundle.architecture;
+            if (architecture !== undefined && architecture !== Architecture.Unknown) {
+                if (architecture === Architecture.arm64) {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Arm64;
+                } else if (architecture === Architecture.x64) {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.X64;
+                } else {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Other;
+                }
+            }
         }
         return this._runtimeInfo;
     }

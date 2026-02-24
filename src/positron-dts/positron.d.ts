@@ -443,6 +443,19 @@ declare module 'positron' {
 		password: boolean;
 	}
 
+	/**
+	 * The CPU architecture of an interpreter.
+	 * Used to detect architecture mismatches between the interpreter and the system.
+	 */
+	export enum LanguageRuntimeArchitecture {
+		/** 64-bit ARM architecture (Apple Silicon, ARM64 Windows, etc.) */
+		Arm64 = 'arm64',
+		/** 64-bit x86 architecture (Intel/AMD) */
+		X64 = 'x64',
+		/** Architecture was detected but is not arm64 or x64 */
+		Other = 'other'
+	}
+
 	/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
 	export interface LanguageRuntimeInfo {
 		/** A startup banner */
@@ -462,6 +475,12 @@ declare module 'positron' {
 
 		/** Continuation prompt string in case user customized it */
 		continuation_prompt?: string;
+
+		/**
+		 * The interpreter's CPU architecture.
+		 * Used to detect architecture mismatches with the system.
+		 */
+		interpreterArch?: LanguageRuntimeArchitecture;
 	}
 
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */

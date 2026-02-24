@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
@@ -27,6 +27,7 @@ import { IPositronNewFolderService } from '../../positronNewFolder/common/positr
 import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Barrier } from '../../../../base/common/async.js';
+import { arch as systemArch } from '../../../../base/common/process.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -188,6 +189,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				session.runtimeMetadata);
 
 			this.saveWorkspaceSessions();
+
+			// Check for architecture mismatch now that the session has started.
+			// runtimeInfo is available after session.start() completes.
+			if (session.runtimeInfo) {
+				this.checkArchitectureMismatch(session, session.runtimeInfo);
+			}
 
 			this._register(session.onDidEndSession(exit => {
 				// Ignore if shutting down; sessions 'exit' during shutdown as
@@ -1659,6 +1666,108 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			newSession: true
 		});
 		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
+	}
+
+	// Storage key prefix for architecture mismatch dismissal
+	private readonly _archMismatchStorageKeyPrefix = 'interpreter.dismissedArchMismatch';
+
+	/**
+	 * Checks if the interpreter architecture differs from the system architecture
+	 * and shows a warning notification if so.
+	 */
+	private checkArchitectureMismatch(
+		session: ILanguageRuntimeSession,
+		runtimeInfo: { interpreterArch?: LanguageRuntimeArchitecture }
+	): void {
+		// Skip on web - the browser's architecture doesn't relate to where
+		// the interpreter is running
+		if (isWeb) {
+			return;
+		}
+
+		const interpreterArch = runtimeInfo.interpreterArch;
+		if (!interpreterArch || !systemArch) {
+			return;
+		}
+
+		// Don't warn for "Other" architectures; we only care about arm64/x64 mismatches
+		if (interpreterArch === LanguageRuntimeArchitecture.Other) {
+			return;
+		}
+
+		// Compare the enum value (which is a string like 'arm64' or 'x64') with process.arch
+		if (systemArch !== interpreterArch) {
+			this.showArchitectureMismatchWarning(
+				session.runtimeMetadata.languageId,
+				session.runtimeMetadata.runtimeName,
+				systemArch,
+				interpreterArch
+			);
+		}
+	}
+
+	/**
+	 * Shows a notification warning when an interpreter's architecture doesn't
+	 * match the system architecture.
+	 */
+	private showArchitectureMismatchWarning(
+		languageId: string,
+		runtimeName: string,
+		systemArchValue: string,
+		interpreterArch: LanguageRuntimeArchitecture
+	): void {
+		// Check if user has permanently dismissed for this language
+		const storageKey = `${this._archMismatchStorageKeyPrefix}.${languageId}`;
+		const dismissed = this._storageService.getBoolean(storageKey, StorageScope.PROFILE, false);
+		if (dismissed) {
+			return;
+		}
+
+		// Capitalize language name for display
+		const languageDisplayName = languageId === 'r' ? 'R' : languageId.charAt(0).toUpperCase() + languageId.slice(1);
+
+		// Show sticky notification
+		this._notificationService.prompt(
+			Severity.Warning,
+			nls.localize(
+				'positron.runtime.archMismatch',
+				'The interpreter "{0}" has a different architecture ({1}) than your system ({2}). This may cause problems with performance and package compatibility.',
+				runtimeName,
+				interpreterArch,
+				systemArchValue
+			),
+			[
+				{
+					label: nls.localize('positron.runtime.archMismatch.dismiss', "Don't show again for {0}", languageDisplayName),
+					run: () => {
+						this._storageService.store(storageKey, true, StorageScope.PROFILE, StorageTarget.USER);
+					}
+				}
+			],
+			{
+				sticky: true
+			}
+		);
+	}
+
+	/**
+	 * Resets the architecture mismatch warning dismissal for a specific language
+	 * or all languages.
+	 */
+	public resetArchitectureMismatchWarning(languageId?: string): void {
+		if (languageId) {
+			// Reset for specific language
+			const storageKey = `${this._archMismatchStorageKeyPrefix}.${languageId}`;
+			this._storageService.remove(storageKey, StorageScope.PROFILE);
+		} else {
+			// Reset for all languages by finding and removing all matching keys
+			const keys = this._storageService.keys(StorageScope.PROFILE, StorageTarget.USER);
+			for (const key of keys) {
+				if (key.startsWith(this._archMismatchStorageKeyPrefix)) {
+					this._storageService.remove(key, StorageScope.PROFILE);
+				}
+			}
+		}
 	}
 }
 

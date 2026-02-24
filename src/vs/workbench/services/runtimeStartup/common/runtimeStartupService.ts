@@ -74,6 +74,14 @@ export interface IRuntimeStartupService {
 	readonly _serviceBrand: undefined;
 
 	/**
+	 * Resets the architecture mismatch warning dismissal for a specific language
+	 * or all languages.
+	 *
+	 * @param languageId Optional language ID. If not provided, resets for all languages.
+	 */
+	resetArchitectureMismatchWarning(languageId?: string): void;
+
+	/**
 	 * Get the preferred runtime for a language. This approximates "the runtime
 	 * the user probably wants to start for the given language" and takes a
 	 * number of variables into account, including the what's active now, what

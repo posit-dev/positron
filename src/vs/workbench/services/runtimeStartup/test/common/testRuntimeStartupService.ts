@@ -164,4 +164,11 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	public getRegisteredRuntimeManagers(): IRuntimeManager[] {
 		return [...this._runtimeManagers];
 	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	public resetArchitectureMismatchWarning(_languageId?: string): void {
+		// No-op in test implementation
+	}
 }
