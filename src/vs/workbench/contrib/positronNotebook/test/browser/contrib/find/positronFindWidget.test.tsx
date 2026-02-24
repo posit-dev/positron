@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,42 +10,66 @@ import assert from 'assert';
 import sinon from 'sinon';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../../../base/test/browser/react.js';
-import { observableValue } from '../../../../../../../base/common/observable.js';
+import { ISettableObservable, observableValue } from '../../../../../../../base/common/observableInternal/index.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
 import { unthemedToggleStyles } from '../../../../../../../base/browser/ui/toggle/toggle.js';
-import { PositronFindWidget, PositronFindWidgetProps } from '../../../../browser/contrib/find/PositronFindWidget.js';
+import { PositronFindWidget } from '../../../../browser/contrib/find/PositronFindWidget.js';
 
 suite('PositronFindWidget', () => {
 	const { render, container } = setupReactRenderer();
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	function renderWidget(overrides?: Partial<PositronFindWidgetProps>) {
-		const props: PositronFindWidgetProps = {
-			findText: observableValue('findText', ''),
-			contextKeyService: new MockContextKeyService(),
-			// ContextViewService is only used by FindInput for validation message
-			// popups, which these tests don't trigger.
-			contextViewService: {} as IContextViewService,
-			matchCase: observableValue('matchCase', false),
-			matchWholeWord: observableValue('matchWholeWord', false),
-			useRegex: observableValue('useRegex', false),
-			matchIndex: observableValue<number | undefined>('matchIndex', undefined),
-			matchCount: observableValue<number | undefined>('matchCount', undefined),
-			findInputOptions: {
-				label: 'Find',
-				inputBoxStyles: unthemedInboxStyles,
-				toggleStyles: unthemedToggleStyles,
-			},
-			isVisible: observableValue('isVisible', true),
-			inputFocused: observableValue('inputFocused', false),
-			onPreviousMatch: sinon.stub(),
-			onNextMatch: sinon.stub(),
-			...overrides,
-		};
-		render(<PositronFindWidget {...props} />);
+	let findText: ISettableObservable<string>;
+	let matchCase: ISettableObservable<boolean>;
+	let matchWholeWord: ISettableObservable<boolean>;
+	let useRegex: ISettableObservable<boolean>;
+	let matchIndex: ISettableObservable<number | undefined>;
+	let matchCount: ISettableObservable<number | undefined>;
+	let isVisible: ISettableObservable<boolean>;
+	let inputFocused: ISettableObservable<boolean>;
+	let onPreviousMatch: sinon.SinonStub;
+	let onNextMatch: sinon.SinonStub;
+
+	function renderWidget() {
+		render(
+			<PositronFindWidget
+				findText={findText}
+				contextKeyService={new MockContextKeyService()}
+				// ContextViewService is only used by FindInput for validation message
+				// popups, which these tests don't trigger.
+				contextViewService={{} as IContextViewService}
+				matchCase={matchCase}
+				matchWholeWord={matchWholeWord}
+				useRegex={useRegex}
+				matchIndex={matchIndex}
+				matchCount={matchCount}
+				findInputOptions={{
+					label: 'Find',
+					inputBoxStyles: unthemedInboxStyles,
+					toggleStyles: unthemedToggleStyles,
+				}}
+				isVisible={isVisible}
+				inputFocused={inputFocused}
+				onPreviousMatch={onPreviousMatch}
+				onNextMatch={onNextMatch}
+			/>
+		);
 	}
+
+	setup(() => {
+		findText = observableValue('findText', '');
+		matchCase = observableValue('matchCase', false);
+		matchWholeWord = observableValue('matchWholeWord', false);
+		useRegex = observableValue('useRegex', false);
+		matchIndex = observableValue<number | undefined>('matchIndex', undefined);
+		matchCount = observableValue<number | undefined>('matchCount', undefined);
+		isVisible = observableValue('isVisible', true);
+		inputFocused = observableValue('inputFocused', false);
+		onPreviousMatch = sinon.stub();
+		onNextMatch = sinon.stub();
+	});
 
 	teardown(() => {
 		sinon.restore();
@@ -60,8 +84,8 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('hidden when not visible', () => {
-			const isVisible = observableValue('isVisible', false);
-			renderWidget({ isVisible });
+			isVisible.set(false, undefined);
+			renderWidget();
 
 			const widget = container().querySelector('.positron-find-widget');
 			assert.ok(widget, 'Expected .positron-find-widget to exist');
@@ -106,9 +130,8 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('shows empty results when matchCount is undefined', () => {
-			const findText = observableValue('findText', 'foo');
-			const matchCount = observableValue<number | undefined>('matchCount', undefined);
-			renderWidget({ findText, matchCount });
+			findText.set('foo', undefined);
+			renderWidget();
 
 			const results = container().querySelector('.positron-find-widget .results');
 			assert.ok(results, 'Expected .results to exist');
@@ -116,9 +139,9 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('shows "No results" with error styling when no matches', () => {
-			const findText = observableValue('findText', 'foo');
-			const matchCount = observableValue<number | undefined>('matchCount', 0);
-			renderWidget({ findText, matchCount });
+			findText.set('foo', undefined);
+			matchCount.set(0, undefined);
+			renderWidget();
 
 			const results = container().querySelector('.positron-find-widget .results');
 			assert.ok(results, 'Expected .results to exist');
@@ -129,10 +152,10 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('shows match count when matches exist', () => {
-			const findText = observableValue('findText', 'foo');
-			const matchCount = observableValue<number | undefined>('matchCount', 5);
-			const matchIndex = observableValue<number | undefined>('matchIndex', 2);
-			renderWidget({ findText, matchCount, matchIndex });
+			findText.set('foo', undefined);
+			matchCount.set(5, undefined);
+			matchIndex.set(2, undefined);
+			renderWidget();
 
 			const results = container().querySelector('.positron-find-widget .results');
 			assert.ok(results, 'Expected .results to exist');
@@ -140,10 +163,9 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('shows "1 of N" when matchIndex is undefined', () => {
-			const findText = observableValue('findText', 'foo');
-			const matchCount = observableValue<number | undefined>('matchCount', 3);
-			const matchIndex = observableValue<number | undefined>('matchIndex', undefined);
-			renderWidget({ findText, matchCount, matchIndex });
+			findText.set('foo', undefined);
+			matchCount.set(3, undefined);
+			renderWidget();
 
 			const results = container().querySelector('.positron-find-widget .results');
 			assert.ok(results, 'Expected .results to exist');
@@ -153,8 +175,8 @@ suite('PositronFindWidget', () => {
 
 	suite('Navigation buttons', () => {
 		test('previous match button disabled when no matches', () => {
-			const matchCount = observableValue<number | undefined>('matchCount', 0);
-			renderWidget({ matchCount });
+			matchCount.set(0, undefined);
+			renderWidget();
 
 			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
 			const prevButton = buttons[0] as HTMLButtonElement;
@@ -163,8 +185,8 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('next match button disabled when no matches', () => {
-			const matchCount = observableValue<number | undefined>('matchCount', 0);
-			renderWidget({ matchCount });
+			matchCount.set(0, undefined);
+			renderWidget();
 
 			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
 			const nextButton = buttons[1] as HTMLButtonElement;
@@ -173,8 +195,8 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('previous match button enabled when matches exist', () => {
-			const matchCount = observableValue<number | undefined>('matchCount', 3);
-			renderWidget({ matchCount });
+			matchCount.set(3, undefined);
+			renderWidget();
 
 			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
 			const prevButton = buttons[0] as HTMLButtonElement;
@@ -183,8 +205,8 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('next match button enabled when matches exist', () => {
-			const matchCount = observableValue<number | undefined>('matchCount', 3);
-			renderWidget({ matchCount });
+			matchCount.set(3, undefined);
+			renderWidget();
 
 			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
 			const nextButton = buttons[1] as HTMLButtonElement;
@@ -193,9 +215,8 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('previous match button calls onPreviousMatch', () => {
-			const matchCount = observableValue<number | undefined>('matchCount', 3);
-			const onPreviousMatch = sinon.stub();
-			renderWidget({ matchCount, onPreviousMatch });
+			matchCount.set(3, undefined);
+			renderWidget();
 
 			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
 			const prevButton = buttons[0] as HTMLButtonElement;
@@ -205,9 +226,8 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('next match button calls onNextMatch', () => {
-			const matchCount = observableValue<number | undefined>('matchCount', 3);
-			const onNextMatch = sinon.stub();
-			renderWidget({ matchCount, onNextMatch });
+			matchCount.set(3, undefined);
+			renderWidget();
 
 			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
 			const nextButton = buttons[1] as HTMLButtonElement;
@@ -219,8 +239,7 @@ suite('PositronFindWidget', () => {
 
 	suite('Close button', () => {
 		test('sets isVisible to false', () => {
-			const isVisible = observableValue('isVisible', true);
-			renderWidget({ isVisible });
+			renderWidget();
 
 			const closeButton = container().querySelector('.positron-find-widget button.close-button') as HTMLButtonElement;
 			assert.ok(closeButton, 'Expected close button to exist');
@@ -232,8 +251,8 @@ suite('PositronFindWidget', () => {
 
 	suite('Tab order', () => {
 		test('disabled navigation buttons are excluded from tab order', () => {
-			const matchCount = observableValue<number | undefined>('matchCount', 0);
-			renderWidget({ matchCount });
+			matchCount.set(0, undefined);
+			renderWidget();
 
 			const navButtons = container().querySelectorAll('.positron-find-widget .navigation-buttons button') as NodeListOf<HTMLButtonElement>;
 			for (const btn of navButtons) {
@@ -248,44 +267,42 @@ suite('PositronFindWidget', () => {
 
 	suite('Reactivity', () => {
 		test('re-renders when matchCount changes', () => {
-			const findText = observableValue('findText', 'foo');
-			const matchCount = observableValue<number | undefined>('matchCount', 3);
-			const matchIndex = observableValue<number | undefined>('matchIndex', 0);
-			renderWidget({ findText, matchCount, matchIndex });
+			findText.set('foo', undefined);
+			matchCount.set(3, undefined);
+			matchIndex.set(0, undefined);
+			renderWidget();
 
 			let results = container().querySelector('.positron-find-widget .results');
 			assert.strictEqual(results?.textContent, '1 of 3');
 
 			matchCount.set(5, undefined);
-			renderWidget({ findText, matchCount, matchIndex });
+			renderWidget();
 
 			results = container().querySelector('.positron-find-widget .results');
 			assert.strictEqual(results?.textContent, '1 of 5');
 		});
 
 		test('re-renders when findText changes', () => {
-			const findText = observableValue('findText', '');
-			renderWidget({ findText });
+			renderWidget();
 
 			let results = container().querySelector('.positron-find-widget .results');
 			assert.strictEqual(results?.textContent, 'No results');
 
 			findText.set('foo', undefined);
-			renderWidget({ findText });
+			renderWidget();
 
 			results = container().querySelector('.positron-find-widget .results');
 			assert.strictEqual(results?.textContent, '');
 		});
 
 		test('re-renders when visibility changes', () => {
-			const isVisible = observableValue('isVisible', true);
-			renderWidget({ isVisible });
+			renderWidget();
 
 			let widget = container().querySelector('.positron-find-widget');
 			assert.ok(widget?.classList.contains('visible'), 'Expected widget to be visible');
 
 			isVisible.set(false, undefined);
-			renderWidget({ isVisible });
+			renderWidget();
 
 			widget = container().querySelector('.positron-find-widget');
 			assert.ok(!widget?.classList.contains('visible'), 'Expected widget to not be visible');
