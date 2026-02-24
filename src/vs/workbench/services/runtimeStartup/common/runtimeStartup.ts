@@ -1679,6 +1679,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		session: ILanguageRuntimeSession,
 		runtimeInfo: { interpreterArch?: LanguageRuntimeArchitecture }
 	): void {
+		// Skip on web - the browser's architecture doesn't relate to where
+		// the interpreter is running
+		if (isWeb) {
+			return;
+		}
+
 		const interpreterArch = runtimeInfo.interpreterArch;
 		if (!interpreterArch || !systemArch) {
 			return;
