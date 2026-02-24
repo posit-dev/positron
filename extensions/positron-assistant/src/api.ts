@@ -152,6 +152,12 @@ const EXTERNAL_NOTEBOOK_TOOLS = new Set([
 	'configure_notebook',
 	'notebook_list_packages',
 	'notebook_install_packages',
+	// Jupyter extension kernel management tools (ms-toolsai.jupyter)
+	// These are hidden via when: "false" but can be dynamically activated
+	// via the extension_installed_by_tool tag mechanism.
+	'configure_python_notebook',
+	'configure_non_python_notebook',
+	'restart_notebook_kernel',
 ]);
 
 /**
