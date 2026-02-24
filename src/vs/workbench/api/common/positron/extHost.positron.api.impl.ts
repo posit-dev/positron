@@ -167,9 +167,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				 */
 				return extHostLanguageRuntime.registerClientInstance(clientInstanceId);
 			},
-			showArchitectureMismatchWarning(languageId: string, runtimeName: string, systemArch: string, interpreterArch: string): Thenable<void> {
-				return extHostLanguageRuntime.showArchitectureMismatchWarning(languageId, runtimeName, systemArch, interpreterArch);
-			},
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;
 			},
@@ -528,6 +525,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			RuntimeExitReason: extHostTypes.RuntimeExitReason,
 			RuntimeMethodErrorCode: extHostTypes.RuntimeMethodErrorCode,
+			LanguageRuntimeArchitecture: extHostTypes.LanguageRuntimeArchitecture,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			LanguageRuntimeStreamName: extHostTypes.LanguageRuntimeStreamName,
 			LanguageRuntimeSessionChannel: extHostTypes.LanguageRuntimeSessionChannel,

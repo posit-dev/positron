@@ -168,18 +168,6 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	/**
 	 * {@inheritDoc}
 	 */
-	public showArchitectureMismatchWarning(
-		_languageId: string,
-		_runtimeName: string,
-		_systemArch: string,
-		_interpreterArch: string
-	): void {
-		// No-op in test implementation
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
 	public resetArchitectureMismatchWarning(_languageId?: string): void {
 		// No-op in test implementation
 	}

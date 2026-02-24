@@ -1500,19 +1500,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
-	 * Shows a notification warning when an interpreter's architecture doesn't
-	 * match the system architecture.
-	 *
-	 * @param languageId The language identifier
-	 * @param runtimeName The display name of the runtime
-	 * @param systemArch The system architecture
-	 * @param interpreterArch The interpreter's architecture
-	 */
-	showArchitectureMismatchWarning(languageId: string, runtimeName: string, systemArch: string, interpreterArch: string): Promise<void> {
-		return this._proxy.$showArchitectureMismatchWarning(languageId, runtimeName, systemArch, interpreterArch);
-	}
-
-	/**
 	 * Handles a comm open message from the language runtime by either creating
 	 * a client instance for it or passing it to a registered client handler.
 	 *

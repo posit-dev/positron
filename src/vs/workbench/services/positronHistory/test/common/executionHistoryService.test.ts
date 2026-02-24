@@ -360,15 +360,6 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		return this._onWillStartSessionStartup;
 	}
 
-	showArchitectureMismatchWarning(
-		_languageId: string,
-		_runtimeName: string,
-		_systemArch: string,
-		_interpreterArch: string
-	): void {
-		// No-op in test implementation
-	}
-
 	resetArchitectureMismatchWarning(_languageId?: string): void {
 		// No-op in test implementation
 	}
