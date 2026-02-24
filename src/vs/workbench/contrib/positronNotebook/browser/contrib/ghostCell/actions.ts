@@ -14,8 +14,6 @@ import { NotebookAction2 } from '../../NotebookAction2.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
 import { GhostCellController } from './controller.js';
 
-const POSITRON_NOTEBOOK_IS_ACTIVE_EDITOR = ContextKeyExpr.equals('activeEditor', 'workbench.editor.positronNotebook');
-
 // Helper function matching the FindController pattern (contrib/find/actions.ts)
 function registerGhostCellAction(
 	options: IAction2Options & { run: (controller: GhostCellController) => void | Promise<void> },
@@ -42,7 +40,6 @@ registerGhostCellAction({
 		// Require notebook DOM focus and exclude cell editor focus to avoid
 		// stealing Cmd+Shift+G from terminal Find Previous or notebook Find Previous
 		when: ContextKeyExpr.and(
-			POSITRON_NOTEBOOK_IS_ACTIVE_EDITOR,
 			POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 			POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.negate()
 		),
