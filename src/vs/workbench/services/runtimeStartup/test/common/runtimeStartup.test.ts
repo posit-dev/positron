@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import { Emitter } from '../../../../../base/common/event.js';
+import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
@@ -49,7 +50,9 @@ suite('Positron - RuntimeStartupService Architecture Mismatch', () => {
 		runtimeStartupService = disposables.add(instantiationService.createInstance(RuntimeStartupService));
 	});
 
-	test('no notification when architectures match', () => {
+	// Architecture mismatch checks are skipped on web since the browser's
+	// architecture doesn't relate to where the interpreter is running
+	(isWeb ? test.skip : test)('no notification when architectures match', () => {
 		// Use the same architecture as the system
 		const matchingArch = systemArch === 'arm64'
 			? LanguageRuntimeArchitecture.Arm64
@@ -65,7 +68,7 @@ suite('Positron - RuntimeStartupService Architecture Mismatch', () => {
 		assert.strictEqual(notificationService.promptCalls.length, 0, 'Should not show notification when architectures match');
 	});
 
-	test('notification shown with correct message when architectures mismatch', () => {
+	(isWeb ? test.skip : test)('notification shown with correct message when architectures mismatch', () => {
 		// Use a different architecture than the system
 		const mismatchedArch = systemArch === 'arm64'
 			? LanguageRuntimeArchitecture.X64
