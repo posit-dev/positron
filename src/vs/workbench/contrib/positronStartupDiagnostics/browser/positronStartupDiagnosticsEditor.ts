@@ -174,7 +174,8 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 	private _addSystemInfo(md: MarkdownBuilder): void {
 		const metrics = this._timerService.startupMetrics;
 		md.heading(2, 'System Information');
-		md.li(`${this._productService.nameShort}: ${this._productService.version} (${this._productService.commit || '0000000'})`);
+		md.li(`${this._productService.nameShort}: ${this._productService.positronVersion} build ${this._productService.positronBuildNumber} (Code OSS ${this._productService.version})`);
+		md.li(`Commit: ${this._productService.commit || 'unknown'}`);
 		md.li(`OS: ${metrics.platform}(${metrics.release})`);
 		if (metrics.cpus) {
 			md.li(`CPUs: ${metrics.cpus.model}(${metrics.cpus.count} x ${metrics.cpus.speed})`);
