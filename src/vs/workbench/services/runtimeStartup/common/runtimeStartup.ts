@@ -1689,8 +1689,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			Severity.Warning,
 			nls.localize(
 				'positron.runtime.archMismatch',
-				'The {0} interpreter "{1}" has a different architecture ({2}) than your system ({3}). This may cause problems with performance or package compatibility.',
-				languageDisplayName,
+				'The interpreter "{1}" has a different architecture ({2}) than your system ({3}). This may cause problems with performance and package compatibility.',
 				runtimeName,
 				interpreterArch,
 				systemArch
