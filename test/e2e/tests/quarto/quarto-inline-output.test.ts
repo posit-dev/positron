@@ -2887,20 +2887,32 @@ test.describe('Quarto - Inline Output', {
 		// All cells should have finished executing by now
 		await page.waitForTimeout(10000);
 
-		// Scroll through the entire document to ensure all view zones are in the DOM
-		await scrollToLine(47);
-		await page.waitForTimeout(1000);
-		await scrollToLine(1);
-		await page.waitForTimeout(1000);
+		// Scroll through the entire document at multiple positions to collect all
+		// output texts. Monaco virtualizes rendering and only keeps elements near
+		// the viewport in the DOM, so on smaller viewports (e.g. Windows CI) a
+		// single scroll position may not capture all outputs. We scroll
+		// incrementally and accumulate unique output texts from each position.
+		const collectedTexts = new Set<string>();
 
-		// Now count outputs and verify content.
-		// Use page.evaluate to read all output text from the DOM regardless of visibility.
-		// Note: Monaco virtualizes rendering, so DOM order may not match document order.
-		// We collect all output texts and verify presence/absence of expected content.
-		const outputTexts = await page.evaluate(() => {
-			const outputs = document.querySelectorAll('.quarto-inline-output .quarto-output-content');
-			return Array.from(outputs).map(el => el.textContent ?? '');
-		});
+		const collectVisibleOutputs = async () => {
+			const texts = await page.evaluate(() => {
+				const outputs = document.querySelectorAll('.quarto-inline-output .quarto-output-content');
+				return Array.from(outputs).map(el => el.textContent ?? '');
+			});
+			for (const text of texts) {
+				collectedTexts.add(text);
+			}
+		};
+
+		// Scroll through document in steps to ensure every view zone is
+		// rendered at least once, then collect outputs at each position.
+		for (const line of [1, 15, 30, 47]) {
+			await scrollToLine(line);
+			await page.waitForTimeout(1000);
+			await collectVisibleOutputs();
+		}
+
+		const outputTexts = Array.from(collectedTexts);
 
 		// CRITICAL ASSERTION: With execution options properly respected:
 		// - Cell 1: executed -> output contains "This is the first cell."
