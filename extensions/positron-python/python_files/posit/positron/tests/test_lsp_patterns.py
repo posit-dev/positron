@@ -15,6 +15,7 @@ from positron.positron_lsp import (
     _RE_DOTTED_IDENTIFIER,
     _RE_DOTTED_IDENTIFIER_WS,
     _RE_DOUBLE_BRACKET_KEY_ACCESS,
+    _RE_INT_KEY_ACCESS,
     _RE_KWARG_NAME,
     _RE_KWARG_TRAILING,
     _RE_KWARG_VALUE,
@@ -124,6 +125,43 @@ class TestDoubleBracketKeyAccess:
     )
     def test_no_match(self, text: str) -> None:
         assert _RE_DOUBLE_BRACKET_KEY_ACCESS.search(text) is None
+
+
+class TestIntKeyAccess:
+    """Match integer-key subscript access like obj[ or obj[12."""
+
+    @pytest.mark.parametrize(
+        ("text", "expr", "prefix"),
+        [
+            ("x[", "x", ""),
+            ("x[0", "x", "0"),
+            ("x[12", "x", "12"),
+            ("obj.attr[", "obj.attr", ""),
+            ("obj.attr[3", "obj.attr", "3"),
+            ("x  [", "x", ""),
+            ("x[ 1", "x", "1"),
+        ],
+    )
+    def test_match(self, text: str, expr: str, prefix: str) -> None:
+        m = _RE_INT_KEY_ACCESS.search(text)
+        assert m is not None
+        assert m.group(1) == expr
+        assert m.group(2) == prefix
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            'x["',
+            "x['",
+            'x["abc',
+            "",
+            "x",
+            "['",
+            "[",
+        ],
+    )
+    def test_no_match(self, text: str) -> None:
+        assert _RE_INT_KEY_ACCESS.search(text) is None
 
 
 class TestDottedIdentifier:

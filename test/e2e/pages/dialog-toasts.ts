@@ -56,6 +56,12 @@ export class Toasts {
 		}
 	}
 
+	async closeWithHeader(header: string | RegExp) {
+		const toast = this.toastNotification.filter({ hasText: header });
+		await toast.hover();
+		await toast.locator('.codicon-notifications-clear').click();
+	}
+
 	// --- Verifications ---
 
 	async expectToBeVisible(title?: string | RegExp, timeoutMs = 3000) {

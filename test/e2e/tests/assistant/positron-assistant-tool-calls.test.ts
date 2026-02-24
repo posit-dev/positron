@@ -120,13 +120,12 @@ test.describe('Positron Assistant Tool Scoping', { tag: [tags.WIN, tags.ASSISTAN
 		];
 
 		// Tools that don't require any session (always available in Agent mode)
+		// Note: configure_notebook, notebook_list_packages, and notebook_install_packages
+		// are excluded here because they are filtered out when Positron notebook mode is active.
 		const NON_SESSION_TOOLS = [
 			'documentCreate',
 			'getProjectTree',
 			'getChangedFiles',
-			'configure_notebook',
-			'notebook_list_packages',
-			'notebook_install_packages',
 			'inline_chat_exit',
 			'get_terminal_output',
 			'terminal_selection',

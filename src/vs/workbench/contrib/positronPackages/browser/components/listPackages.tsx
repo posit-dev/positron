@@ -264,8 +264,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					}
 				}}
 			>
-				<div>{displayName}</div>
-				<div className='description'>{version}</div>
+				<div className='packages-list-item-name'>{displayName}</div>
+				<div className='packages-list-item-version'>{version}</div>
 			</div >
 		);
 	};

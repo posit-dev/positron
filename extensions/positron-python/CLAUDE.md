@@ -19,7 +19,7 @@ Python language support for the Positron IDE. Fork of Microsoft's Python extensi
 
 - Before running Python-related commands, if a virtual environment exists at `extensions/positron-python/.venv`, activate it
 - **Python**: Run pytest from `extensions/positron-python/python_files/posit`
-- **TypeScript**: `npm run test-extension -- -l positron-python --grep "pattern"`
+- **TypeScript**: `npm run test:unittests -- --grep "pattern"`
 - Never use `if __name__ == "__main__"` in test files
 - Use parametrized tests (`@pytest.mark.parametrize`) for comprehensive coverage
 

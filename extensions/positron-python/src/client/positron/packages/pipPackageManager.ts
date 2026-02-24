@@ -6,16 +6,10 @@
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { IPythonExecutionFactory, IPythonExecutionService } from '../common/process/types';
-import { ITerminalServiceFactory } from '../common/terminal/types';
-import { IServiceContainer } from '../ioc/types';
-
-/**
- * Interface for emitting messages to the Positron console
- */
-interface MessageEmitter {
-    fire(message: positron.LanguageRuntimeMessage): void;
-}
+import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
+import { ITerminalServiceFactory } from '../../common/terminal/types';
+import { IServiceContainer } from '../../ioc/types';
+import { IPackageManager, MessageEmitter } from './types';
 
 /**
  * Pip Package Manager
@@ -23,7 +17,7 @@ interface MessageEmitter {
  * Provides package management functionality for Python sessions using pip.
  * Runs pip commands as subprocesses and streams output to the Positron Console.
  */
-export class PipPackageManager {
+export class PipPackageManager implements IPackageManager {
     private _pythonService: IPythonExecutionService | undefined;
 
     constructor(
@@ -44,10 +38,6 @@ export class PipPackageManager {
         }
     }
 
-    /**
-     * Install one or more packages.
-     * @param packages Array of package install requests with name and optional version
-     */
     async installPackages(packages: positron.PackageSpec[]): Promise<void> {
         if (packages.length === 0) {
             return;
@@ -62,9 +52,6 @@ export class PipPackageManager {
         await this._executePipInTerminal(args);
     }
 
-    /**
-     * Uninstall one or more packages.
-     */
     async uninstallPackages(packages: string[]): Promise<void> {
         if (packages.length === 0) {
             return;
@@ -77,10 +64,6 @@ export class PipPackageManager {
         await this._executePipInTerminal(args);
     }
 
-    /**
-     * Update specific packages to latest versions.
-     * @param packages Array of package install requests with name and optional version
-     */
     async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
         if (packages.length === 0) {
             return;
@@ -95,9 +78,6 @@ export class PipPackageManager {
         await this._executePipInTerminal(args);
     }
 
-    /**
-     * Update all installed packages to their latest versions.
-     */
     async updateAllPackages(): Promise<void> {
         await this._ensurePip();
 

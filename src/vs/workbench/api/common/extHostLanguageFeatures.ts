@@ -42,6 +42,7 @@ import { IInlineCompletionsUnificationState } from '../../services/inlineComplet
 
 // --- Start Positron ---
 import type * as positron from 'positron';
+import * as extHostTypes from './positron/extHostTypes.positron.js';
 
 /**
  * Extracts plain text from a markdown string by removing code block syntax.
@@ -1922,21 +1923,39 @@ class StatementRangeAdapter {
 	 * @param resource The URI of the document to search
 	 * @param pos The position to search at
 	 * @param token The cancellation token (currently unused)
-	 * @returns A promise that resolves to the statement range plus optionally the range's code
+	 * @returns A promise that resolves to the statement range or undefined.
 	 */
 	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<languages.IStatementRange | undefined> {
 		const document = this._documents.getDocument(resource);
 		const position = typeConvert.Position.to(pos);
 
-		const providerRange = await this._provider.provideStatementRange(document, position, token);
+		let result: positron.StatementRange | undefined | null;
+		try {
+			result = await this._provider.provideStatementRange(document, position, token);
+		} catch (err) {
+			if (err instanceof extHostTypes.StatementRangeSyntaxError) {
+				return {
+					kind: languages.StatementRangeKind.Rejection,
+					rejectionKind: languages.StatementRangeRejectionKind.Syntax,
+					line: err.line,
+				} satisfies languages.IStatementRangeSyntaxRejection;
+			}
+			throw err;
+		}
 
-		if (!providerRange || !Range.isRange(providerRange?.range)) {
+		if (!result) {
 			return undefined;
 		}
 
-		const range = typeConvert.Range.from(providerRange.range);
-		const statementRange: languages.IStatementRange = { range: range, code: providerRange.code };
-		return statementRange;
+		if (!Range.isRange(result.range)) {
+			return undefined;
+		}
+
+		return {
+			kind: languages.StatementRangeKind.Success,
+			range: typeConvert.Range.from(result.range),
+			code: result.code,
+		} satisfies languages.IStatementRangeSuccess;
 	}
 }
 

@@ -33,7 +33,7 @@ import threading
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
+from typing import TYPE_CHECKING, Any, Callable, Generator, NamedTuple, Optional
 
 from ._vendor import attrs, cattrs
 from ._vendor.lsprotocol import types
@@ -72,6 +72,11 @@ _RE_DOUBLE_BRACKET_KEY_ACCESS = re.compile(r'(\w[\w\.]*)\s*\[\s*\[\s*(?:.*,\s*)?
 """DataFrame multi-column select: e.g. `df[["col` or `df[["a", "col`
 
 Groups: (1) expression, (2) quote char, (3) optional key prefix"""
+
+_RE_INT_KEY_ACCESS = re.compile(r"(\w[\w\.]*)\s*\[\s*(\d*)$")
+"""Integer-key subscript access: e.g. `obj[` or `obj[12`
+
+Groups: (1) expression, (2) optional digit prefix"""
 
 _RE_DOTTED_IDENTIFIER = re.compile(r"([\w\.]+)$")
 """Trailing dotted identifier: e.g. `os.path.join`
@@ -135,6 +140,78 @@ _RE_LEADING_PERCENT = re.compile(r"^(%*)")
 """Leading percent signs for magic commands
 
 Group: (1) percent characters"""
+
+_ANY_POSITIONAL = -1
+"""Sentinel for variadic positional parameters (e.g., polars `select(*exprs)`)."""
+
+
+class _ColParam(NamedTuple):
+    """Parameter that accepts column names in a DataFrame method."""
+
+    name: str
+    pos: int | None
+
+
+_PANDAS_COLUMN_METHODS: dict[str, list[_ColParam]] = {
+    "groupby": [_ColParam("by", 0)],
+    "sort_values": [_ColParam("by", 0)],
+    "drop": [_ColParam("labels", 0), _ColParam("columns", None)],
+    "set_index": [_ColParam("keys", 0)],
+    "merge": [
+        _ColParam("on", None),
+        _ColParam("left_on", None),
+        _ColParam("right_on", None),
+    ],
+    "drop_duplicates": [_ColParam("subset", 0)],
+    "duplicated": [_ColParam("subset", 0)],
+    "pivot": [
+        _ColParam("index", None),
+        _ColParam("columns", None),
+        _ColParam("values", None),
+    ],
+    "pivot_table": [
+        _ColParam("values", 0),
+        _ColParam("index", None),
+        _ColParam("columns", None),
+    ],
+    "melt": [_ColParam("id_vars", 0), _ColParam("value_vars", 1)],
+    "nlargest": [_ColParam("columns", 1)],
+    "nsmallest": [_ColParam("columns", 1)],
+    "explode": [_ColParam("column", 0)],
+    "value_counts": [_ColParam("subset", 0)],
+    "get": [_ColParam("key", 0)],
+    "pop": [_ColParam("item", 0)],
+    "join": [_ColParam("on", None)],
+    "resample": [_ColParam("on", None)],
+    "filter": [_ColParam("items", None)],
+}
+"""Pandas DataFrame methods whose string arguments are column names."""
+
+_POLARS_COLUMN_METHODS: dict[str, list[_ColParam]] = {
+    "select": [_ColParam("exprs", _ANY_POSITIONAL)],
+    "group_by": [_ColParam("by", _ANY_POSITIONAL)],
+    "sort": [_ColParam("by", 0)],
+    "drop": [_ColParam("columns", _ANY_POSITIONAL)],
+    "join": [
+        _ColParam("on", None),
+        _ColParam("left_on", None),
+        _ColParam("right_on", None),
+    ],
+    "unique": [_ColParam("subset", 0)],
+    "explode": [_ColParam("columns", 0)],
+    "unpivot": [_ColParam("on", 0), _ColParam("index", None)],
+    "melt": [_ColParam("id_vars", 0), _ColParam("value_vars", 1)],
+    "pivot": [
+        _ColParam("on", 0),
+        _ColParam("index", None),
+        _ColParam("values", None),
+    ],
+    "partition_by": [_ColParam("by", _ANY_POSITIONAL)],
+    "get_column": [_ColParam("name", 0)],
+    "with_columns": [_ColParam("exprs", _ANY_POSITIONAL)],
+    "filter": [_ColParam("predicates", _ANY_POSITIONAL)],
+}
+"""Polars DataFrame/LazyFrame methods whose string arguments are column names."""
 
 
 @enum.unique
@@ -615,21 +692,37 @@ def _handle_completion(
             )
         )
 
+    # Check for integer key access pattern (e.g., x[ or x[12)
+    int_key_match = _RE_INT_KEY_ACCESS.search(text_before_cursor)
+    if int_key_match and not dict_key_match:
+        items.extend(
+            _get_int_key_completions(
+                server,
+                expr=int_key_match.group(1),
+                prefix=int_key_match.group(2) or "",
+            )
+        )
+
     # Check for os.getenv() completions (e.g., os.getenv(" or os.getenv(key=")
     getenv_items = _get_getenv_completions(
         server, text_before_cursor, text_after_cursor, document=document
     )
     items.extend(getenv_items)
 
-    # Check for path completions in bare string literals (not dict access, not getenv)
-    if not dict_key_match and not getenv_items:
+    # Check for DataFrame column name completions in method calls
+    col_name_items = _get_column_name_completions(server, text_before_cursor, text_after_cursor)
+    items.extend(col_name_items)
+
+    # Check for path completions in bare string literals (not subscript access, not getenv, not columns)
+    subscript_match = dict_key_match or int_key_match
+    if not subscript_match and not getenv_items and not col_name_items:
         path_items = _get_path_completions(
             server, text_before_cursor, text_after_cursor, params.position
         )
         if path_items:
             return types.CompletionList(is_incomplete=False, items=path_items)
 
-    if not dict_key_match:
+    if not subscript_match:
         if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
             # Attribute completion (only if not inside a function call)
             items.extend(_get_attribute_completions(server, text_before_cursor))
@@ -830,9 +923,9 @@ def _get_dict_key_completions(
                 prefix, quote_char, has_closing_quote=has_closing_quote
             )
     elif _is_dataframe_like(obj):
-        # pandas/polars DataFrame
+        # pandas/polars DataFrame - only string columns for string key access
         with contextlib.suppress(Exception):
-            keys = list(obj.columns)
+            keys = [str(k) for k in obj.columns if isinstance(k, str)]
     elif _is_series_like(obj):
         # pandas Series with string index
         with contextlib.suppress(Exception):
@@ -858,7 +951,59 @@ def _get_dict_key_completions(
     return items
 
 
-def _get_dict_value_detail(obj: Any, key: str) -> tuple[str | None, types.MarkupContent | None]:
+def _get_int_key_completions(
+    server: PositronLanguageServer,
+    *,
+    expr: str,
+    prefix: str,
+) -> list[types.CompletionItem]:
+    """Get integer key completions for dict-like objects.
+
+    Handles dict with int keys, DataFrame with int columns, pandas
+    Series with int index, and polars Series (positional index).
+    """
+    if server.shell is None:
+        return []
+
+    obj = _safe_resolve_expression(server.shell.user_ns, expr)
+    if obj is None:
+        return []
+
+    int_keys: list[int] = []
+
+    with contextlib.suppress(Exception):
+        if isinstance(obj, dict):
+            int_keys = [k for k in obj if isinstance(k, int) and not isinstance(k, bool)]
+        elif _is_dataframe_like(obj):
+            int_keys = [k for k in obj.columns if isinstance(k, int)]
+        elif _is_series_like(obj):
+            module = type(obj).__module__
+            if "polars" in module:
+                int_keys = list(range(len(obj)))
+            else:
+                int_keys = [k for k in obj.index if isinstance(k, int)]
+
+    items: list[types.CompletionItem] = []
+    for key in int_keys:
+        label = str(key)
+        if not label.startswith(prefix):
+            continue
+        items.append(
+            types.CompletionItem(
+                label=label,
+                kind=types.CompletionItemKind.Field,
+                sort_text=f"a{label}",
+                insert_text=label,
+                data={"type": "int_key", "expr": expr, "key": key},
+            )
+        )
+
+    return items
+
+
+def _get_dict_value_detail(
+    obj: Any, key: str | int
+) -> tuple[str | None, types.MarkupContent | None]:
     """Get the detail string and documentation for a dict-like key's value.
 
     Args:
@@ -1346,6 +1491,138 @@ def _get_dataframe_column_completions(obj: Any, prefix: str) -> list[types.Compl
     return items
 
 
+def _dataframe_library(obj: Any) -> str | None:
+    """Return 'pandas' or 'polars' based on the object's module, or None."""
+    module = type(obj).__module__
+    if "pandas" in module:
+        return "pandas"
+    if "polars" in module:
+        return "polars"
+    return None
+
+
+def _col_param_matches(
+    params: list[_ColParam],
+    kwarg_name: str | None,
+    positional_index: int,
+) -> bool:
+    """Check if any _ColParam matches the current argument position."""
+    for param in params:
+        if kwarg_name is not None:
+            if param.name == kwarg_name:
+                return True
+        elif param.pos == positional_index or param.pos == _ANY_POSITIONAL:
+            return True
+    return False
+
+
+def _make_column_completions(
+    obj: Any,
+    prefix: str,
+    quote_char: str,
+    *,
+    has_closing_quote: bool,
+) -> list[types.CompletionItem]:
+    """Create column name completion items for a DataFrame."""
+    items: list[types.CompletionItem] = []
+    try:
+        # Polars LazyFrame: use collect_schema().names() to avoid PerformanceWarning
+        if hasattr(obj, "collect_schema"):
+            columns = obj.collect_schema().names()
+        else:
+            columns = list(obj.columns)
+    except Exception:
+        return []
+
+    for col in columns:
+        if col is None:
+            continue
+        col_str = str(col)
+        if not col_str.startswith(prefix):
+            continue
+        insert_text = col_str if has_closing_quote else f"{col_str}{quote_char}"
+        items.append(
+            types.CompletionItem(
+                label=col_str,
+                kind=types.CompletionItemKind.Field,
+                sort_text=f"0{col_str}",
+                detail="column",
+                insert_text=insert_text,
+            )
+        )
+    return items
+
+
+def _get_column_name_completions(
+    server: PositronLanguageServer,
+    text_before_cursor: str,
+    text_after_cursor: str,
+) -> list[types.CompletionItem]:
+    """Get column name completions for DataFrame method calls.
+
+    Detects patterns like `df.groupby("col")` or `df.sort_values(by="col")`
+    and provides column name completions from the DataFrame.
+    """
+    if server.shell is None or "(" not in text_before_cursor or "." not in text_before_cursor:
+        return []
+
+    # Check if cursor is inside a string literal
+    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
+    if not string_match:
+        return []
+
+    quote_char = string_match.group(1)
+    prefix = string_match.group(2) or ""
+    before_string = text_before_cursor[: string_match.start()]
+
+    # Check for keyword argument (e.g., "by=")
+    keyword_match = _RE_KWARG_TRAILING.search(before_string)
+    kwarg_name = keyword_match.group(1) if keyword_match else None
+
+    # Find the enclosing function call's opening parenthesis
+    func_paren_pos = _find_enclosing_paren(before_string)
+    if func_paren_pos < 0:
+        return []
+
+    # Extract receiver.method before the opening paren
+    func_match = _RE_DOTTED_IDENTIFIER_WS.search(before_string[:func_paren_pos])
+    if not func_match:
+        return []
+
+    dotted_name = func_match.group(1)
+    last_dot = dotted_name.rfind(".")
+    if last_dot < 0:
+        return []
+
+    receiver_expr = dotted_name[:last_dot]
+    method_name = dotted_name[last_dot + 1 :]
+
+    # Resolve the receiver object
+    obj = _safe_resolve_expression(server.shell.user_ns, receiver_expr)
+    if obj is None:
+        return []
+
+    # Check if it's a DataFrame and get the library
+    library = _dataframe_library(obj)
+    if library is None or not _is_dataframe_like(obj):
+        return []
+
+    # Look up the method in the library-specific dict
+    method_dict = _PANDAS_COLUMN_METHODS if library == "pandas" else _POLARS_COLUMN_METHODS
+    col_params = method_dict.get(method_name)
+    if col_params is None:
+        return []
+
+    # Determine positional index and check parameter match
+    args_text = before_string[func_paren_pos + 1 :]
+    positional_index = _count_arg_commas(args_text)
+    if not _col_param_matches(col_params, kwarg_name, positional_index):
+        return []
+
+    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
+    return _make_column_completions(obj, prefix, quote_char, has_closing_quote=has_closing_quote)
+
+
 def _get_magic_completions(
     server: PositronLanguageServer, text_before_cursor: str
 ) -> list[types.CompletionItem]:
@@ -1437,6 +1714,17 @@ def _handle_completion_resolve(
         expr = params.data.get("expr")
         key = params.data.get("key")
         if expr and key and server.shell:
+            obj = _safe_resolve_expression(server.shell.user_ns, expr)
+            if obj is not None:
+                params.detail, params.documentation = _get_dict_value_detail(obj, key)
+        return params
+
+    # Handle integer key completions
+    if params.data and isinstance(params.data, dict) and params.data.get("type") == "int_key":
+        expr = params.data.get("expr")
+        key = params.data.get("key")
+        # Use `key is not None` because integer 0 is falsy
+        if expr and key is not None and server.shell:
             obj = _safe_resolve_expression(server.shell.user_ns, expr)
             if obj is not None:
                 params.detail, params.documentation = _get_dict_value_detail(obj, key)

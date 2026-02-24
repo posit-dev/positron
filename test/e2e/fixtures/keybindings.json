@@ -116,5 +116,9 @@
 	{
 		"key": "ctrl+shift+g",
 		"command": "workbench.view.scm" // SCM View
-  	}
+  	},
+	{
+        "key": "cmd+l p",
+        "command": "posit.publisher.deployWithEntrypoint" // Publish Document
+    },
 ]

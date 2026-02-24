@@ -1097,7 +1097,7 @@ export class Assistant {
 		await expect(async () => {
 			await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
 			await this.toasts.waitForAppear('Chat log exported to:');
-			await this.toasts.closeAll();
+			await this.toasts.closeWithHeader('Chat log exported to:');
 			chatExportFile = await this.findChatExportFile(exportFolder);
 			expect(chatExportFile).not.toBeNull();
 		}).toPass({ timeout: 15000 });
