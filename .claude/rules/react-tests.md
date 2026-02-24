@@ -5,13 +5,13 @@ paths:
 
 # React Tests
 
-React component tests run in Electron (not browser). No React testing libraries are available - only `assert`, `sinon`, `react-dom`, and `react-dom/client`.
+React component tests run in Electron with `assert`, `sinon`, and `react-dom`. No React testing libraries (Testing Library, Enzyme, etc.) are available.
 
 ## Setup
 
-Use `setupReactRenderer()` from `base/test/browser/react.js` for DOM/root lifecycle. Call it **before** `ensureNoDisposablesAreLeakedInTestSuite()` (mocha teardown is FIFO -- React must unmount before the leak checker runs).
+Use `setupReactRenderer()` from `base/test/browser/react.js` to manage the DOM container and React root. Call it **before** `ensureNoDisposablesAreLeakedInTestSuite()` -- mocha teardown is FIFO, so React must unmount before the leak checker runs.
 
-## Constraints
+## General
 
 - Place tests in `test/browser/` adjacent to source.
 - `container()` is a function -- call it inside tests, not at suite-definition time.
