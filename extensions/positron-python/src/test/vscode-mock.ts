@@ -192,4 +192,5 @@ mockedPositron.LanguageRuntimeMessageType = positronMocks.LanguageRuntimeMessage
 mockedPositron.LanguageRuntimeStreamName = positronMocks.LanguageRuntimeStreamName;
 mockedPositron.RuntimeOnlineState = positronMocks.RuntimeOnlineState;
 mockedPositron.RuntimeState = positronMocks.RuntimeState;
+mockedPositron.LanguageRuntimeArchitecture = positronMocks.LanguageRuntimeArchitecture;
 // --- End Positron ---
