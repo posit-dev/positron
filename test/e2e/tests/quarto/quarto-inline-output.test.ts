@@ -2006,8 +2006,12 @@ test.describe('Quarto - Inline Output', {
 
 		// CRITICAL ASSERTIONS:
 
-		// 1. Verify the error view zone exists for the missing image
-		// Use retry pattern since Monaco virtualizes content and may need scrolling
+		// 1. Verify the error view zone exists for the missing image.
+		// The error preview is inside a Monaco view zone. On small screens (e.g. CI),
+		// the Mandelbrot image preview on line 8 takes up viewport space, pushing the
+		// error view zone below the viewport. Since `scrollIntoViewIfNeeded()` does
+		// not work for view zone content (Monaco controls scrolling), we use
+		// `toHaveCount` to check DOM presence instead of `toBeVisible`.
 		const errorPreview = page.locator('.quarto-image-preview-error');
 		await expect(async () => {
 			// Scroll to where the error preview should appear (after line 18)
@@ -2015,12 +2019,12 @@ test.describe('Quarto - Inline Output', {
 			await page.keyboard.type('20');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
-			await expect(errorPreview).toBeVisible({ timeout: 1000 });
+			await expect(errorPreview).toHaveCount(1, { timeout: 1000 });
 		}).toPass({ timeout: 30000 });
 
 		// 2. Verify the error message contains the filename
 		const errorText = page.locator('.quarto-image-preview-error-text');
-		await expect(errorText).toBeVisible({ timeout: 10000 });
+		await expect(errorText).toHaveCount(1, { timeout: 10000 });
 		const errorContent = await errorText.textContent();
 		expect(errorContent).toContain('julia.jpg');
 
@@ -2030,7 +2034,7 @@ test.describe('Quarto - Inline Output', {
 		// 4. Verify the error is styled with error colors (red border/background)
 		// The error container should have the error styling classes
 		const errorContainer = page.locator('.quarto-image-preview-error');
-		await expect(errorContainer).toBeVisible({ timeout: 5000 });
+		await expect(errorContainer).toHaveCount(1, { timeout: 5000 });
 	});
 
 	test('R - Verify execute code action steps through statements line by line with inline output', async function ({ app, openFile, r }) {
