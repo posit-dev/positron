@@ -7,7 +7,7 @@ import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { EditorActionImplementation } from '../../../../../../editor/browser/editorExtensions.js';
 import { PreviousMatchFindAction } from '../../../../../../editor/contrib/find/browser/findController.js';
-import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
+import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../../editor/contrib/find/browser/findModel.js';
 import { localize2 } from '../../../../../../nls.js';
 import { IAction2Options, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
@@ -141,3 +141,62 @@ registerPositronNotebookFindAction({
 
 // Find the previous match from cell editor
 PreviousMatchFindAction.addImplementation(0, findEditorActionImplementation((controller) => controller.findPrevious()));
+
+// Open find widget with replace expanded
+registerPositronNotebookFindAction({
+	id: 'positron.notebook.find.replaceStart',
+	title: localize2('positron.notebook.find.replaceStart.title', 'Find and Replace'),
+	keybinding: [{
+		when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+		primary: KeyCode.KeyH | KeyMod.CtrlCmd,
+		mac: { primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyF },
+		weight: KeybindingWeight.EditorContrib
+	}],
+	run: (controller) => controller.start({ expandReplace: true })
+});
+
+// Replace the current match
+registerPositronNotebookFindAction({
+	id: 'positron.notebook.find.replace',
+	title: localize2('positron.notebook.find.replace.title', 'Replace'),
+	keybinding: [{
+		when: ContextKeyExpr.and(
+			POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+			CONTEXT_FIND_WIDGET_VISIBLE,
+		),
+		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Digit1,
+		weight: KeybindingWeight.EditorContrib + 5
+	}, {
+		when: ContextKeyExpr.and(
+			POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+			CONTEXT_FIND_WIDGET_VISIBLE,
+			CONTEXT_REPLACE_INPUT_FOCUSED,
+		),
+		primary: KeyCode.Enter,
+		weight: KeybindingWeight.EditorContrib + 5
+	}],
+	run: (controller) => controller.replace()
+});
+
+// Replace all matches
+registerPositronNotebookFindAction({
+	id: 'positron.notebook.find.replaceAll',
+	title: localize2('positron.notebook.find.replaceAll.title', 'Replace All'),
+	keybinding: [{
+		when: ContextKeyExpr.and(
+			POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+			CONTEXT_FIND_WIDGET_VISIBLE,
+		),
+		primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Enter,
+		weight: KeybindingWeight.EditorContrib + 5
+	}, {
+		when: ContextKeyExpr.and(
+			POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+			CONTEXT_FIND_WIDGET_VISIBLE,
+			CONTEXT_REPLACE_INPUT_FOCUSED,
+		),
+		mac: { primary: KeyMod.CtrlCmd | KeyCode.Enter },
+		weight: KeybindingWeight.EditorContrib + 5
+	}],
+	run: (controller) => controller.replaceAll()
+});
