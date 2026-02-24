@@ -119,7 +119,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IOutputService private readonly _outputService: IOutputService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
-		@IAdminPolicyService private readonly _adminPolicyService: IAdminPolicyService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) { }
 
 	provideTextContent(resource: URI): Promise<ITextModel> {
@@ -272,7 +272,14 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 	}
 
 	private _addAdminEnforcedSettings(md: MarkdownBuilder): void {
-		const policies = this._adminPolicyService.getAllSettings();
+		let adminPolicyService: IAdminPolicyService | undefined;
+		try {
+			adminPolicyService = this._instantiationService.invokeFunction(accessor => accessor.get(IAdminPolicyService));
+		} catch {
+			// Service not available in this environment.
+			return;
+		}
+		const policies = adminPolicyService.getAllSettings();
 		if (policies.length === 0) {
 			return;
 		}
