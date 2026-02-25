@@ -1022,6 +1022,21 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				const lm = this._currentLanguageModel.get();
 				if (!lm || lm.identifier !== state.selectedModel.identifier) {
 					this.setCurrentLanguageModel(state.selectedModel);
+					// --- Start Positron ---
+					// Validate that the persisted model is still available from
+					// an enabled provider before restoring it. Without this
+					// check, stale session state (e.g. a Copilot "Auto" model
+					// from a previous session) can be blindly a	pplied even when
+					// no providers are configured, causing the model picker to
+					// show a stale label.
+					const availableModels = this.getModels();
+					const isModelAvailable = availableModels.some(m => m.identifier === state.selectedModel!.identifier);
+					if (isModelAvailable) {
+						this.setCurrentLanguageModel(state.selectedModel);
+					} else {
+						this.setCurrentLanguageModelToDefault();
+					}
+					// --- End Positron ---
 				}
 			}
 

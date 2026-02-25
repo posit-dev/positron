@@ -2080,7 +2080,12 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.viewModel.resetInputPlaceholder();
 		}
 		this.inputEditor?.updateOptions({ placeholder: undefined });
-		this.listWidget?.updateRendererOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
+		// --- Start Positron ---
+		// Always show progress message at bottom of response in all modes,
+		// matching the initial widget creation override in chatViewPane.ts and chatEditor.ts.
+		// this.listWidget?.updateRendererOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
+		this.listWidget?.updateRendererOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: true });
+		// --- End Positron ---
 		if (this.visible) {
 			this.listWidget?.rerender();
 		}
