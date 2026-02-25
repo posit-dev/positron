@@ -2152,7 +2152,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Clears the outputs of all cells in the notebook.
 	 */
 	clearAllCellOutputs(): void {
+		this._assertTextModel();
 		const allIndices = this.cells.get().map((_, i) => i);
+		if (allIndices.length === 0) {
+			// Preserve legacy behavior: always fire content-change even on empty notebooks
+			this._onDidChangeContent.fire();
+			return;
+		}
 		this.clearCellOutputsByIndex(allIndices);
 	}
 
