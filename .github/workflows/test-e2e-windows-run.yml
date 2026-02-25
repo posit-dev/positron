@@ -518,6 +518,45 @@ jobs:
           pattern: blob-report-${{ inputs.project }}-*
           merge-multiple: true
 
+      - name: Verify all shard reports received
+        id: verify-reports
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXPECTED_SHARDS=${{ inputs.shards }}
+          PROJECT="${{ inputs.project }}"
+          echo "Expected shard count: $EXPECTED_SHARDS"
+
+          # Query GitHub API for artifacts in this run matching our pattern
+          # This is more reliable than counting files since artifact names are deterministic
+          ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[].name' | grep "^blob-report-${PROJECT}-" || true)
+          ARTIFACT_COUNT=$(echo "$ARTIFACTS" | grep -c . || echo 0)
+
+          echo "Found artifacts:"
+          echo "$ARTIFACTS"
+          echo ""
+          echo "Artifact count: $ARTIFACT_COUNT"
+
+          # Check which shards are missing
+          MISSING_SHARDS=""
+          for i in $(seq 1 $EXPECTED_SHARDS); do
+            if ! echo "$ARTIFACTS" | grep -q "^blob-report-${PROJECT}-${i}$"; then
+              MISSING_SHARDS="$MISSING_SHARDS $i"
+            fi
+          done
+
+          if [ -n "$MISSING_SHARDS" ]; then
+            echo "::warning::Missing blob reports for shards:$MISSING_SHARDS"
+            echo "This typically means these shards crashed before uploading their results."
+            echo "missing_reports=true" >> $GITHUB_OUTPUT
+            echo "missing_shards=$MISSING_SHARDS" >> $GITHUB_OUTPUT
+          else
+            echo "All $EXPECTED_SHARDS shard reports received"
+            echo "missing_reports=false" >> $GITHUB_OUTPUT
+            echo "missing_shards=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
         shell: bash
         working-directory: playwright-merge
@@ -565,6 +604,16 @@ jobs:
           fi
 
           node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
+
+          # Fail if we're missing reports from any shards (even if all available tests passed)
+          if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then
+            echo ""
+            echo "::error::Missing shard reports detected!"
+            echo "Missing reports from shards:${{ steps.verify-reports.outputs.missing_shards }}"
+            echo "These shards likely crashed or timed out before uploading results."
+            echo "Check the individual shard jobs above for errors."
+            exit 1
+          fi
 
       - name: Clean up blob report artifacts
         if: success()
