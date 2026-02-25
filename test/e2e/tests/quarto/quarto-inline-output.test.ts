@@ -2659,8 +2659,6 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		const inlineOutput = page.locator('.quarto-inline-output');
-
 		// Helper to scroll editor to a specific line and wait
 		const scrollToLine = async (line: number) => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
@@ -2669,7 +2667,38 @@ test.describe('Quarto - Inline Output', {
 			await page.waitForTimeout(500);
 		};
 
-		// Run All Cells, retrying until Quarto has parsed the document.
+		// Helper to scroll through the document and collect all unique output
+		// texts. Monaco virtualizes rendering, so we scroll to multiple
+		// positions to ensure every view zone is rendered at least once.
+		const collectAllOutputTexts = async (): Promise<Set<string>> => {
+			const collected = new Set<string>();
+			for (const line of [1, 15, 30, 47]) {
+				await scrollToLine(line);
+				await page.waitForTimeout(500);
+				const texts = await page.evaluate(() => {
+					const outputs = document.querySelectorAll('.quarto-inline-output .quarto-output-content');
+					return Array.from(outputs).map(el => el.textContent ?? '');
+				});
+				for (const text of texts) {
+					collected.add(text);
+				}
+			}
+			return collected;
+		};
+
+		// Expected output substrings for the 4 cells that should execute:
+		// - Cell 1: print("This is the first cell.")
+		// - Cell 3: stop("Oh no") with error: false (non-fatal)
+		// - Cell 4: print("It's the end of the world...")
+		// - Cell 5: stop("Well, this is awkward.") with error: true (fatal, stops queue)
+		const expectedSubstrings = ['This is the first cell.', 'Oh no', 'end of the world', 'awkward'];
+
+		// Run All Cells, retrying until Quarto has parsed the document and
+		// all expected outputs appear. On slower CI environments (e.g.
+		// Windows), the execution queue may take longer to drain, so the
+		// retry loop keeps checking until all 4 outputs are present.
+		// We re-issue runAllCells on each retry in case Quarto hadn't
+		// parsed the document yet on the first attempt.
 		await expect(async () => {
 			// Position cursor inside the first cell (line 10) to ensure context
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
@@ -2680,46 +2709,23 @@ test.describe('Quarto - Inline Output', {
 			// Run All Cells (may fail if Quarto hasn't parsed yet; retry handles it)
 			await app.workbench.quickaccess.runCommand('quarto.runAllCells');
 
-			// Scroll through document to trigger view zone creation
-			await scrollToLine(47);
-			await page.waitForTimeout(500);
-			await scrollToLine(1);
-			await page.waitForTimeout(500);
+			// Wait for execution queue to drain; on Windows CI this can
+			// take significantly longer than on macOS/Linux.
+			await page.waitForTimeout(15000);
 
-			// Check that some outputs have appeared
-			const count = await inlineOutput.count();
-			expect(count).toBeGreaterThanOrEqual(1);
+			// Scroll through document and collect all visible outputs
+			const collected = await collectAllOutputTexts();
+
+			// Verify all expected outputs are present
+			for (const expected of expectedSubstrings) {
+				const found = Array.from(collected).some(text => text.includes(expected));
+				expect(found).toBe(true);
+			}
 		}).toPass({ timeout: 120000 });
 
-		// Wait for execution queue to fully drain
-		// All cells should have finished executing by now
-		await page.waitForTimeout(10000);
-
-		// Scroll through the entire document at multiple positions to collect all
-		// output texts. Monaco virtualizes rendering and only keeps elements near
-		// the viewport in the DOM, so on smaller viewports (e.g. Windows CI) a
-		// single scroll position may not capture all outputs. We scroll
-		// incrementally and accumulate unique output texts from each position.
-		const collectedTexts = new Set<string>();
-
-		const collectVisibleOutputs = async () => {
-			const texts = await page.evaluate(() => {
-				const outputs = document.querySelectorAll('.quarto-inline-output .quarto-output-content');
-				return Array.from(outputs).map(el => el.textContent ?? '');
-			});
-			for (const text of texts) {
-				collectedTexts.add(text);
-			}
-		};
-
-		// Scroll through document in steps to ensure every view zone is
-		// rendered at least once, then collect outputs at each position.
-		for (const line of [1, 15, 30, 47]) {
-			await scrollToLine(line);
-			await page.waitForTimeout(1000);
-			await collectVisibleOutputs();
-		}
-
+		// All outputs confirmed present; do a final collection for the
+		// remaining assertions.
+		const collectedTexts = await collectAllOutputTexts();
 		const outputTexts = Array.from(collectedTexts);
 
 		// CRITICAL ASSERTION: With execution options properly respected:
