@@ -14,9 +14,9 @@ test.describe('Quarto - Variables Follow Mode', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.VARIABLES]
 }, () => {
 
-	test.beforeAll(async function ({ app, python, settings }) {
-		// Start Python first to ensure a runtime is available
-		// Enable the Quarto inline output feature
+	test.beforeAll(async function ({ settings }) {
+		// Enable the Quarto inline output feature and follow mode.
+		// These settings require a reload to take effect.
 		await settings.set({
 			'positron.quarto.inlineOutput.enabled': true,
 			'positron.variables.followMode': true
@@ -30,7 +30,7 @@ test.describe('Quarto - Variables Follow Mode', {
 		});
 	});
 
-	test('Python - Variables pane follows active QMD editor', async function ({ app, openFile }) {
+	test('Python - Variables pane follows active QMD editor', async function ({ app, python, openFile }) {
 		const page = app.code.driver.page;
 		const { variables, console: positronConsole, hotKeys } = app.workbench;
 
