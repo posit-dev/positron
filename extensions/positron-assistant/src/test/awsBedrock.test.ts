@@ -178,7 +178,7 @@ suite('AWSModelProvider', () => {
 			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
 			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
 			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
-			assert.ok(result.includes('docs.posit.co'), 'Expected documentation URL');
+			assert.ok(result.includes('positron.posit.co'), 'Expected documentation URL');
 			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
 			// Should not include technical details
 			assert.ok(!result.includes('EC2_SSM_Role'), 'Should not include user ARN');
@@ -244,7 +244,7 @@ suite('AWSModelProvider', () => {
 
 			// Verify documentation link
 			assert.ok(result.includes('[required permissions documentation]'), 'Expected documentation link');
-			assert.ok(result.includes('docs.posit.co'), 'Expected documentation URL');
+			assert.ok(result.includes('positron.posit.co'), 'Expected documentation URL');
 
 			// Verify paragraph breaks
 			assert.ok(result.includes('\n\n'), 'Expected paragraph breaks');
