@@ -333,9 +333,9 @@ export function convertOutputsToLanguageModelParts(
 
 	// Convert each output to appropriate LanguageModel part
 	for (const output of outputs) {
-		// Intentionally uses startsWith rather than isImageMime() so that
-		// SVG (image/svg+xml) is treated as an image here. The helper
-		// classifies SVG as text, which will be corrected in #12096.
+		// SVG (image/svg+xml) classification is inconsistent -- isTextMime
+		// treats it as text, but we want it as an image here. Uses
+		// startsWith as a workaround; proper fix deferred to #12096.
 		if (output.mimeType.startsWith('image/')) {
 			// Handle image outputs - convert base64 to binary
 			if (!output.data) {
