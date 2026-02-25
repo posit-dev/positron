@@ -1887,12 +1887,13 @@ test.describe('Quarto - Inline Output', {
 		}
 
 		// STEP 1: Execute the first line of the first cell (line 11)
-		// Position cursor at line 11 (first print statement) and execute
-		await goToLineAndExecute(11);
-
-		// Wait for inline output to appear
+		// Position cursor at line 11 (first print statement) and execute.
+		// Retry the entire sequence because the keybinding may not be active
+		// until Quarto has fully parsed the document.
 		const inlineOutput = page.locator('.quarto-inline-output');
 		await expect(async () => {
+			await goToLineAndExecute(11);
+
 			// Scroll down to see the output area by going to line 15 first
 			// (we'll reposition cursor for subsequent executions)
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
