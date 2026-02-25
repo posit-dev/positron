@@ -26,6 +26,7 @@ import { showHistoryKeybindingHint } from '../../../../../../platform/history/br
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
 import { FindWidgetSearchHistory } from '../../../../../../editor/contrib/find/browser/findWidgetSearchHistory.js';
+import { ReplaceWidgetHistory } from '../../../../../../editor/contrib/find/browser/replaceWidgetHistory.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IBulkEditService, ResourceTextEdit } from '../../../../../../editor/browser/services/bulkEditService.js';
 import { ReplacePattern, parseReplaceString } from '../../../../../../editor/contrib/find/browser/replacePattern.js';
@@ -144,6 +145,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 			// Create the find instance
 			const findWidgetSearchHistory = FindWidgetSearchHistory.getOrCreate(this._storageService);
+			const replaceWidgetHistory = ReplaceWidgetHistory.getOrCreate(this._storageService);
 			const findInstance = this._register(new PositronFindInstance({
 				container: this._notebook.overlayContainer,
 				findInputOptions: {
@@ -161,6 +163,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					inputBoxStyles: defaultInputBoxStyles,
 					toggleStyles: defaultToggleStyles,
 					showHistoryHint: () => showHistoryKeybindingHint(this._keybindingService),
+					history: replaceWidgetHistory,
 				},
 				contextKeyService: this._notebook.scopedContextKeyService,
 				contextViewService: this._contextViewService,
