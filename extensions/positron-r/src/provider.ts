@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,6 +20,7 @@ import { isDirectory, isFile } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
+import { discoverRVersionsBinaries } from './provider-rversions.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -189,6 +190,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 
 	// Consult various sources of R binaries
 	const currentBinaries = await currentRBinaryCandidates();
+	const rVersionsBinaries = await discoverRVersionsBinaries();
 	const systemBinaries = discoverSystemBinaries();
 	const condaBinaries = await discoverCondaBinaries();
 	const pixiBinaries = await discoverPixiBinaries();
@@ -206,6 +208,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	// Combine all the binaries we've found
 	const rBinaries: RBinary[] = [
 		...currentBinaries,
+		...rVersionsBinaries,
 		...systemBinaries,
 		...condaBinaries,
 		...pixiBinaries,
