@@ -506,6 +506,20 @@ function createEditNotebookTool(participantService: ParticipantService) {
 				}
 
 				case 'clearOutputs': {
+					const { cellIndices: clearIndices } = options.input;
+					if (clearIndices && clearIndices.length > 0) {
+						const message = clearIndices.length === 1
+							? vscode.l10n.t('Clear outputs for cell {0}?', clearIndices[0])
+							: vscode.l10n.t('Clear outputs for cells {0}?', clearIndices.join(', '));
+						return {
+							invocationMessage: vscode.l10n.t('Clearing notebook outputs'),
+							confirmationMessages: {
+								title: vscode.l10n.t('Clear Outputs'),
+								message: message,
+							},
+							pastTenseMessage: vscode.l10n.t('Cleared notebook outputs'),
+						};
+					}
 					return {
 						invocationMessage: vscode.l10n.t('Clearing notebook outputs'),
 						confirmationMessages: {
@@ -816,23 +830,24 @@ function createEditNotebookTool(participantService: ParticipantService) {
 					case 'clearOutputs': {
 						const { cellIndices: clearCellIndices } = options.input;
 						if (clearCellIndices && clearCellIndices.length > 0) {
+							// Validate cell indices
+							const validation = validateCellIndices(clearCellIndices, context.cellCount);
+							if (!validation.valid) {
+								return new vscode.LanguageModelToolResult([
+									new vscode.LanguageModelTextPart(validation.error!)
+								]);
+							}
+
+							await positron.notebooks.clearCellOutputs(context.uri, clearCellIndices);
+							const message = clearCellIndices.length === 1
+								? `Successfully cleared outputs for cell ${clearCellIndices[0]}.`
+								: `Successfully cleared outputs for cells ${clearCellIndices.join(', ')}.`;
 							return new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart(
-									'The clearOutputs operation clears all cell outputs. ' +
-									'Selecting specific cells via cellIndices is not supported. ' +
-									'Omit cellIndices to clear all outputs.'
-								)
+								new vscode.LanguageModelTextPart(message)
 							]);
 						}
 
-						// Ensure the notebook is the active editor so
-						// notebook.clearAllCellsOutputs resolves its context.
-						// The chat panel may have stolen focus.
-						const notebookUri = vscode.Uri.parse(context.uri);
-						const notebookDoc = await vscode.workspace.openNotebookDocument(notebookUri);
-						await vscode.window.showNotebookDocument(notebookDoc, { preserveFocus: false });
-
-						await vscode.commands.executeCommand('notebook.clearAllCellsOutputs');
+						await positron.notebooks.clearCellOutputs(context.uri);
 						return new vscode.LanguageModelToolResult([
 							new vscode.LanguageModelTextPart('Successfully cleared all cell outputs.')
 						]);

@@ -615,6 +615,43 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	}
 
 	/**
+	 * Clears cell outputs in a notebook.
+	 * If cellIndices is provided, clears only those cells. Otherwise clears all.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndices Optional array of cell indices to clear.
+	 */
+	async $clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void> {
+		const instance = this._getInstanceByUri(notebookUri);
+		if (!instance) {
+			throw new Error(`No notebook found with URI: ${notebookUri}`);
+		}
+
+		if (cellIndices === undefined) {
+			// Clear all cell outputs
+			instance.clearAllCellOutputs();
+		} else {
+			if (cellIndices.length === 0) {
+				return;
+			}
+
+			const cells = instance.cells.get();
+			const cellCount = cells.length;
+
+			// De-duplicate and sort ascending
+			const uniqueIndices = [...new Set(cellIndices)].sort((a, b) => a - b);
+
+			// Validate all indices
+			for (const idx of uniqueIndices) {
+				if (!Number.isInteger(idx) || idx < 0 || idx >= cellCount) {
+					throw new Error(`Invalid cell index: ${idx}. Must be between 0 and ${cellCount - 1}`);
+				}
+			}
+
+			instance.clearCellOutputsByIndex(uniqueIndices);
+		}
+	}
+
+	/**
 	 * Helper method to ensure and return a notebook's text model.
 	 * Asserts the text model is defined and narrows the type for TypeScript.
 	 * @param instance The notebook instance.

@@ -508,6 +508,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 			async scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
 				return extHostNotebookFeatures.scrollToCellIfNeeded(notebookUri, cellIndex);
+			},
+
+			async clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void> {
+				return extHostNotebookFeatures.clearCellOutputs(notebookUri, cellIndices);
 			}
 		};
 

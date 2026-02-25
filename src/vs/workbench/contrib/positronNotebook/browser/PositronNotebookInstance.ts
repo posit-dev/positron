@@ -2201,6 +2201,56 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
+	/**
+	 * Clears outputs from specific cells in the notebook by index.
+	 * @param cellIndices Array of cell indices whose outputs should be cleared.
+	 */
+	clearCellOutputsByIndex(cellIndices: number[]): void {
+		this._assertTextModel();
+
+		if (cellIndices.length === 0) {
+			return;
+		}
+
+		try {
+			const computeUndoRedo = !this.isReadOnly;
+			const cells = this.cells.get();
+
+			// Clear outputs from specified cells
+			for (const idx of cellIndices) {
+				this.clearCellOutput(cells[idx], true);
+			}
+
+			// Clear execution metadata for non-executing cells at specified indices
+			const clearExecutionMetadataEdits: ICellEditOperation[] = [];
+			for (const idx of cellIndices) {
+				const cellModel = this.textModel.cells[idx];
+				const runState = this.notebookExecutionStateService.getCellExecution(cellModel.uri)?.state;
+				if (runState !== NotebookCellExecutionState.Executing) {
+					clearExecutionMetadataEdits.push({
+						editType: CellEditType.PartialInternalMetadata,
+						index: idx,
+						internalMetadata: {
+							runStartTime: null,
+							runStartTimeAdjustment: null,
+							runEndTime: null,
+							executionOrder: null,
+							lastRunSuccess: null
+						}
+					});
+				}
+			}
+
+			if (clearExecutionMetadataEdits.length) {
+				this.textModel.applyEdits(clearExecutionMetadataEdits, true, undefined, () => undefined, undefined, computeUndoRedo);
+			}
+
+		} finally {
+			// Fire a single content change event
+			this._onDidChangeContent.fire();
+		}
+	}
+
 
 	// #endregion
 

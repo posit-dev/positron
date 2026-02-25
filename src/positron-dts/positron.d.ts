@@ -2929,5 +2929,12 @@ declare module 'positron' {
 		 * @param cellIndex The index of the cell to scroll to
 		 */
 		export function scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Thenable<void>;
+
+		/**
+		 * Clear cell outputs in a notebook.
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndices Optional array of cell indices to clear. If omitted, clears all cells.
+		 */
+		export function clearCellOutputs(notebookUri: string, cellIndices?: number[]): Thenable<void>;
 	}
 }
