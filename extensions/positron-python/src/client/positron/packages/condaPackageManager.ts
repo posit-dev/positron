@@ -71,7 +71,9 @@ export class CondaPackageManager implements IPackageManager {
 
         const packageSpecs = this._formatPackageSpecs(packages);
         const envPrefix = await this._getEnvironmentPrefix();
-        const args = ['update', '--prefix', envPrefix, '-y', ...packageSpecs];
+        // Use 'install' instead of 'update' because conda update doesn't support version specs.
+        // conda install will update (or downgrade) to the specified version.
+        const args = ['install', '--prefix', envPrefix, '-y', ...packageSpecs];
 
         await this._executeCondaInTerminal(args);
     }
