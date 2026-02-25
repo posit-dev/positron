@@ -507,7 +507,14 @@ function createEditNotebookTool(participantService: ParticipantService) {
 
 				case 'clearOutputs': {
 					const { cellIndices: clearIndices } = options.input;
-					if (clearIndices && clearIndices.length > 0) {
+					if (clearIndices !== undefined) {
+						if (clearIndices.length === 0) {
+							// Empty array -- invoke will reject; skip confirmation
+							return {
+								invocationMessage: vscode.l10n.t('Clearing notebook outputs'),
+								pastTenseMessage: vscode.l10n.t('Cleared notebook outputs'),
+							};
+						}
 						const message = clearIndices.length === 1
 							? vscode.l10n.t('Clear outputs for cell {0}?', clearIndices[0])
 							: vscode.l10n.t('Clear outputs for cells {0}?', clearIndices.join(', '));
