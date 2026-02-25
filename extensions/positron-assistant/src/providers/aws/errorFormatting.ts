@@ -98,9 +98,8 @@ export const ErrorTemplates = {
 		const profileContext = params.profile
 			? ` for profile '${params.profile}'`
 			: '';
-		const regionContext = params.region
-			? ` in region '${params.region}'`
-			: '';
+		const region = params.region || 'us-east-1';
+		const regionContext = ` in region '${region}'`;
 
 		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource, params.isManagedCredential);
 		const credentialContext = credentialTypeDesc
@@ -116,9 +115,7 @@ export const ErrorTemplates = {
 			if (params.profile) {
 				awsArgs += ` --profile ${params.profile}`;
 			}
-			if (params.region) {
-				awsArgs += ` --region ${params.region}`;
-			}
+			awsArgs += ` --region ${region}`;
 			loginGuidance = vscode.l10n.t(
 				'To login, [open a terminal](command:workbench.action.terminal.new) and run `aws sso login {0}`.\n\n',
 				awsArgs
@@ -185,9 +182,8 @@ export const ErrorTemplates = {
 		const profileContext = params.profile
 			? ` for profile '${params.profile}'`
 			: '';
-		const regionContext = params.region
-			? ` in region '${params.region}'`
-			: '';
+		const region = params.region || 'us-east-1';
+		const regionContext = ` in region '${region}'`;
 
 		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource, params.isManagedCredential);
 		const credentialContext = credentialTypeDesc
