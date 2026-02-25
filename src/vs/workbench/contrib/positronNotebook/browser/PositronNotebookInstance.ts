@@ -2152,53 +2152,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Clears the outputs of all cells in the notebook.
 	 */
 	clearAllCellOutputs(): void {
-		this._assertTextModel();
-
-		try {
-			const computeUndoRedo = !this.isReadOnly;
-
-			// Clear outputs from all cells
-			this.textModel.cells.forEach((cell, index) => {
-				this.clearCellOutput(this.cells.get()[index], true);
-			});
-
-			// Clear execution metadata for non-executing cells
-			const clearExecutionMetadataEdits = this.textModel.cells.map((cell, index) => {
-				const runState = this.notebookExecutionStateService.getCellExecution(cell.uri)?.state;
-				if (runState !== NotebookCellExecutionState.Executing) {
-					return {
-						editType: CellEditType.PartialInternalMetadata,
-						index,
-						internalMetadata: {
-							runStartTime: null,
-							runStartTimeAdjustment: null,
-							runEndTime: null,
-							executionOrder: null,
-							lastRunSuccess: null
-						}
-					};
-				}
-				return undefined;
-			}).filter((edit): edit is ICellEditOperation & {
-				editType: CellEditType.PartialInternalMetadata;
-				index: number;
-				internalMetadata: {
-					runStartTime: null;
-					runStartTimeAdjustment: null;
-					runEndTime: null;
-					executionOrder: null;
-					lastRunSuccess: null;
-				};
-			} => !!edit);
-
-			if (clearExecutionMetadataEdits.length) {
-				this.textModel.applyEdits(clearExecutionMetadataEdits, true, undefined, () => undefined, undefined, computeUndoRedo);
-			}
-
-		} finally {
-			// Fire a single content change event
-			this._onDidChangeContent.fire();
-		}
+		const allIndices = this.cells.get().map((_, i) => i);
+		this.clearCellOutputsByIndex(allIndices);
 	}
 
 	/**

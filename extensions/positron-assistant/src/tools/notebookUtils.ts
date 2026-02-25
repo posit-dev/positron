@@ -67,15 +67,6 @@ export function isTextMime(mimeType: string): boolean {
 }
 
 /**
- * Returns true if the MIME type represents an image output.
- * Excludes image/svg+xml which is text-based XML.
- */
-export function isImageMime(mimeType: string): boolean {
-	const normalized = normalizeMime(mimeType);
-	return normalized.startsWith('image/') && normalized !== 'image/svg+xml';
-}
-
-/**
  * Maximum preview length per cell for confirmations (characters)
  */
 const MAX_CELL_PREVIEW_LENGTH = 500;
