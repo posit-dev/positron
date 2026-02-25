@@ -5,8 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as jsonc from 'jsonc-parser';
+import { URI } from 'vscode-uri';
 import { Logger } from '../common/logger';
 import { PortForwardingManager } from './portForwarding';
 import { installAndStartServer } from '../server/serverInstaller';
@@ -15,6 +15,8 @@ import { getDevContainerManager } from '../container/devContainerManager';
 import { decodeDevContainerAuthority } from '../common/authorityEncoding';
 import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
 import { getConfiguration } from '../common/configuration';
+import { Workspace } from '../common/workspace';
+import { substitute } from '../spec/spec-common/variableSubstitution';
 
 /**
  * Connection state
@@ -510,19 +512,37 @@ export class ConnectionManager {
 	 */
 	private readRemoteEnv(workspacePath: string): Record<string, string> | undefined {
 		try {
-			// Check both standard devcontainer.json locations
-			let configPath = path.join(workspacePath, '.devcontainer', 'devcontainer.json');
-			if (!fs.existsSync(configPath)) {
-				configPath = path.join(workspacePath, '.devcontainer.json');
-				if (!fs.existsSync(configPath)) {
-					this.logger.debug('No devcontainer.json found for remoteEnv');
-					return undefined;
-				}
+			// Use Workspace helper to find the devcontainer.json path
+			const workspaceFolder: vscode.WorkspaceFolder = {
+				uri: vscode.Uri.file(workspacePath),
+				name: workspacePath.split(/[/\\]/).pop() || 'workspace',
+				index: 0
+			};
+			const paths = Workspace.getDevContainerPaths(workspaceFolder);
+			if (!paths) {
+				this.logger.debug('No devcontainer.json found for remoteEnv');
+				return undefined;
 			}
 
-			const config = jsonc.parse(fs.readFileSync(configPath, 'utf8'));
+			const config = jsonc.parse(fs.readFileSync(paths.devContainerJsonPath, 'utf8'));
 			if (config.remoteEnv && typeof config.remoteEnv === 'object') {
-				return config.remoteEnv;
+				// Validate that all values are strings
+				const result: Record<string, string> = {};
+				for (const [key, value] of Object.entries(config.remoteEnv)) {
+					if (typeof value === 'string') {
+						result[key] = value;
+					} else if (value !== null && value !== undefined) {
+						this.logger.debug(`Skipping non-string remoteEnv value for key "${key}"`);
+					}
+				}
+
+				// Expand variable references like ${localEnv:PATH}
+				return substitute({
+					platform: process.platform,
+					configFile: URI.file(paths.devContainerJsonPath),
+					localWorkspaceFolder: workspacePath,
+					env: process.env,
+				}, result);
 			}
 			return undefined;
 		} catch (error) {
