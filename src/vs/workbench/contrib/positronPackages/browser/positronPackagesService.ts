@@ -10,7 +10,7 @@ import { isEqual } from '../../../../base/common/resources.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
 import { PositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
@@ -52,7 +52,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 		// Create new instances
 		this._register(this._runtimeSessionService.onWillStartSession((e) => {
-			this.createOrAssignInstance(e.session, e.activate);
+			this.createOrAssignInstance(e.session, e.activate, e.startMode);
 		}));
 
 		// Register session cleanup handler
@@ -72,7 +72,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		}));
 	}
 
-	private createOrAssignInstance(session: ILanguageRuntimeSession, activate: boolean) {
+	private createOrAssignInstance(session: ILanguageRuntimeSession, activate: boolean, startMode: RuntimeStartMode) {
 		// Ignore background sessions
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Background) {
 			return;
@@ -85,7 +85,9 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 			this._instancesBySessionId.set(session.sessionId, instance);
 		}
 
-		if (activate) {
+		// Activate if requested, or if the session is restarting (to maintain
+		// the active instance across restarts)
+		if (activate || startMode === RuntimeStartMode.Restarting) {
 			this.setActiveInstance(session.sessionId);
 		}
 
