@@ -320,6 +320,9 @@ async function runAllCells(
 				const status = hasError ? 'Error' : 'OK';
 				// Show first line of first text output or indicator for non-text types
 				const firstOutput = cellOutputs[0];
+				// Intentionally uses startsWith rather than isImageMime() so that
+				// SVG (image/svg+xml) is treated as an image here. The helper
+				// classifies SVG as text, which will be corrected in #12096.
 				if (firstOutput.mimeType.startsWith('image/')) {
 					resultParts.push(
 						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [${status}] [Image output]\n`)
