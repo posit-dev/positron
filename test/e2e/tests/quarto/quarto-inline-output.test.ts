@@ -2047,8 +2047,11 @@ test.describe('Quarto - Inline Output', {
 		const outputImage = inlineOutput.locator('.quarto-output-image');
 		await expect(outputImage).toBeVisible({ timeout: 10000 });
 
-		// The popout button should be visible for plot output (taller than 80px)
+		// The popout button should be visible for plot output (taller than 80px).
+		// Scroll it into view first; in CI the view zone can be taller than the
+		// visible editor area, clipping the button bar at the top.
 		const popoutButton = inlineOutput.locator('.quarto-output-popout');
+		await popoutButton.scrollIntoViewIfNeeded({ timeout: 10000 });
 		await expect(popoutButton).toBeVisible({ timeout: 10000 });
 
 		// Count current editor tabs before popout
@@ -2188,8 +2191,12 @@ test.describe('Quarto - Inline Output', {
 		// Wait for the webview to fully render
 		await page.waitForTimeout(3000);
 
-		// The popout button should be visible for interactive HTML output
+		// The popout button should be visible for interactive HTML output.
+		// Scroll the button into view first; in CI (1280x720 viewport) the
+		// button bar at the top of a tall interactive-output view zone can
+		// be clipped above the visible editor area.
 		const popoutButton = inlineOutput.locator('.quarto-output-popout');
+		await popoutButton.scrollIntoViewIfNeeded({ timeout: 10000 });
 		await expect(popoutButton).toBeVisible({ timeout: 10000 });
 
 		// Position cursor back inside the cell so the popout command knows which cell to act on
@@ -2389,8 +2396,11 @@ test.describe('Quarto - Inline Output', {
 		const htmlOutput = inlineOutput.locator('.quarto-output-html');
 		await expect(htmlOutput).toBeVisible({ timeout: 10000 });
 
-		// The popout button should be visible for HTML output
+		// The popout button should be visible for HTML output.
+		// Scroll it into view first; in CI the view zone can be taller than the
+		// visible editor area, clipping the button bar at the top.
 		const popoutButton = inlineOutput.locator('.quarto-output-popout');
+		await popoutButton.scrollIntoViewIfNeeded({ timeout: 10000 });
 		await expect(popoutButton).toBeVisible({ timeout: 10000 });
 
 		// Click the popout button to open in Viewer
