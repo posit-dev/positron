@@ -19,7 +19,7 @@ import { PositronReactServices } from '../../../../base/browser/positronReactSer
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from './customContextMenuItem.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
+import { AnchorMode, AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 
 /**
  * CustomContextMenuEntry type.
@@ -72,6 +72,7 @@ export interface CustomContextMenuProps {
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
 	readonly popupAlignment: PopupAlignment;
+	readonly anchorMode?: AnchorMode;
 	readonly width?: number | 'auto';
 	readonly minWidth?: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
@@ -94,6 +95,7 @@ export const showCustomContextMenu = ({
 	anchorPoint,
 	popupPosition,
 	popupAlignment,
+	anchorMode,
 	width,
 	minWidth,
 	entries,
@@ -120,6 +122,7 @@ export const showCustomContextMenu = ({
 	renderer.render(
 		<CustomContextMenuModalPopup
 			anchorElement={anchorElement}
+			anchorMode={anchorMode}
 			anchorPoint={anchorPoint}
 			entries={entries}
 			minWidth={minWidth}
@@ -140,6 +143,7 @@ interface CustomContextMenuModalPopupProps {
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
 	readonly popupAlignment: PopupAlignment;
+	readonly anchorMode?: AnchorMode;
 	readonly width: number | 'auto';
 	readonly minWidth: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
@@ -271,20 +275,14 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				return;
 			}
 
-			// Get the anchor point to position the submenu to the top right of the parent menu item.
-			const rect = buttonRef.current.getBoundingClientRect();
-			const anchorPoint: AnchorPoint = {
-				clientX: rect.right,
-				clientY: rect.top
-			};
-
 			// Show the submenu by creating a new custom context menu instance.
-			// Use 'auto' positioning to let the popup system determine the best placement.
+			// We use 'avoid' anchor mode to position the submenu adjacent to the parent menu item,
+			// instead of below the parent menu item so the parent menu item is not covered up.
 			showCustomContextMenu({
 				anchorElement: buttonRef.current,
-				anchorPoint,
 				popupPosition: 'auto',
 				popupAlignment: 'auto',
+				anchorMode: 'avoid',
 				// Evaluate the entries now to ensure things like the checked state is up to date when submenu opens.
 				entries: options.entries(),
 				onClose: () => {
@@ -377,6 +375,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
+			anchorMode={props.anchorMode}
 			anchorPoint={props.anchorPoint}
 			height={'auto'}
 			keyboardNavigationStyle='menu'
