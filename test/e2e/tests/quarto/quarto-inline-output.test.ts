@@ -2564,6 +2564,12 @@ test.describe('Quarto - Inline Output', {
 		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
 		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
 
+		// Clear any cached inline outputs from previous tests (e.g. the
+		// multi-language test may have left R and Python outputs, which would
+		// cause .last() below to pick the wrong output).
+		await app.workbench.quickaccess.runCommand('positronQuarto.clearAllOutputs');
+		await page.waitForTimeout(500);
+
 		// Click on the editor to ensure focus
 		await editor.click();
 		await page.waitForTimeout(500);
