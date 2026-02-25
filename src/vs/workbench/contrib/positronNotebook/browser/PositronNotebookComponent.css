@@ -84,7 +84,8 @@
 
 .positron-notebook-cells-container {
 	padding-block: 1.5rem;
-	padding-inline: 1rem;
+	padding-inline-start: 2rem; /* Extra left padding for drag handles */
+	padding-inline-end: 1rem;
 	display: flex;
 	flex-direction: column;
 	gap: var(--_positron-notebook-cell-gap);

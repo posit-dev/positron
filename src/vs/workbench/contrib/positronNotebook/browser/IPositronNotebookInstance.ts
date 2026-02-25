@@ -347,6 +347,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	joinCellBelow(): void;
 
 	/**
+	 * Move a single cell from one index to another (for drag-and-drop).
+	 * @param fromIndex The current index of the cell
+	 * @param toIndex The target index for the cell
+	 */
+	moveCell(fromIndex: number, toIndex: number): void;
+
+	/**
 	 * Checks if the notebook instance contains a code editor.
 	 *
 	 * @param editor The code editor to check for.
