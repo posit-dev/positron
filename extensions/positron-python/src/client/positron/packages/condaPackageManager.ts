@@ -5,6 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
@@ -87,6 +88,52 @@ export class CondaPackageManager implements IPackageManager {
         await this._executeCondaInTerminal(args);
     }
 
+    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+        await this._ensureConda();
+
+        try {
+            // Use wildcard pattern for partial matching
+            const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json']);
+            const json = JSON.parse(result) as Record<string, Array<{ version: string }>>;
+
+            // Return unique package names with the latest version
+            return Object.keys(json).map((name) => {
+                const versions = json[name];
+                const latestVersion = versions[versions.length - 1]?.version ?? '0';
+                return {
+                    id: name,
+                    name: name,
+                    displayName: name,
+                    version: latestVersion,
+                };
+            });
+        } catch {
+            // Return empty array if search fails (e.g., no matches)
+            return [];
+        }
+    }
+
+    async searchPackageVersions(name: string): Promise<string[]> {
+        await this._ensureConda();
+
+        try {
+            const result = await this._executeCondaWithOutput(['search', name, '--json']);
+            const json = JSON.parse(result) as Record<string, Array<{ version: string }>>;
+
+            // Get all unique versions for this package
+            const packageInfo = json[name];
+            if (!packageInfo) {
+                return [];
+            }
+
+            // Extract unique versions, maintaining order
+            const versions = [...new Set(packageInfo.map((p) => p.version))];
+            return versions;
+        } catch {
+            return [];
+        }
+    }
+
     // =========================================================================
     // Private helper methods
     // =========================================================================
@@ -153,5 +200,17 @@ export class CondaPackageManager implements IPackageManager {
         } finally {
             tokenSource.dispose();
         }
+    }
+
+    /**
+     * Execute a conda command and capture stdout.
+     */
+    private async _executeCondaWithOutput(args: string[]): Promise<string> {
+        const condaFile = await this._getCondaFile();
+        const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
+        const processService = await processServiceFactory.create();
+
+        const result = await processService.exec(condaFile, args);
+        return result.stdout;
     }
 }

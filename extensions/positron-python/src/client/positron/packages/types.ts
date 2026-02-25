@@ -40,4 +40,18 @@ export interface IPackageManager {
      * Update all installed packages to their latest versions.
      */
     updateAllPackages(): Promise<void>;
+
+    /**
+     * Search for packages matching a query.
+     * @param query Search query string
+     * @returns Array of matching packages
+     */
+    searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]>;
+
+    /**
+     * Search for available versions of a specific package.
+     * @param name Package name
+     * @returns Array of version strings
+     */
+    searchPackageVersions(name: string): Promise<string[]>;
 }

@@ -110,6 +110,33 @@ export class PipPackageManager implements IPackageManager {
         await this._executePipInTerminal(args);
     }
 
+    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+        const response = await fetch('https://pypi.org/simple/', {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as {
+            projects: { name: string }[];
+        };
+
+        return json.projects
+            .map((x) => x.name)
+            .filter((x) => x.includes(query))
+            .map((x) => ({
+                id: x,
+                name: x,
+                displayName: x,
+                version: '0',
+            }));
+    }
+
+    async searchPackageVersions(name: string): Promise<string[]> {
+        const response = await fetch(`https://pypi.org/simple/${name}/`, {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as { versions: string[] };
+        return json.versions;
+    }
+
     // =========================================================================
     // Private helper methods
     // =========================================================================
