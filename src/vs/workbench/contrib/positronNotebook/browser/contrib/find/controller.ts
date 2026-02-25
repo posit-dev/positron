@@ -242,10 +242,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	public start(options?: { expandReplace?: boolean }): void {
 		const findInstance = this.getOrCreateFindInstance();
-		if (options?.expandReplace) {
-			findInstance.replaceExpanded.set(true, undefined);
-		}
-		findInstance.show();
+		findInstance.show(options);
 	}
 
 	/**

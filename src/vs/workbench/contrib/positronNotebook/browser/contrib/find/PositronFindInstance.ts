@@ -102,8 +102,9 @@ export class PositronFindInstance extends Disposable {
 
 	/**
 	 * Shows the find widget.
+	 * @param options.expandReplace If true, expands the replace section.
 	 */
-	public show(): void {
+	public show(options?: { expandReplace?: boolean }): void {
 		// Only create renderer and widget on first show
 		if (!this._renderer) {
 			// Create widget container
@@ -155,6 +156,11 @@ export class PositronFindInstance extends Disposable {
 			// Set visible state and request focus
 			this._isVisible.set(true, tx);
 			this._inputFocused.set(true, tx);
+
+			// Optionally expand replace
+			if (options?.expandReplace) {
+				this.replaceExpanded.set(true, tx);
+			}
 		});
 	}
 
