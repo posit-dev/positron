@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
+import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter } from './types';
 
 /**
@@ -111,30 +112,11 @@ export class PipPackageManager implements IPackageManager {
     }
 
     async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
-        const response = await fetch('https://pypi.org/simple/', {
-            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
-        });
-        const json = (await response.json()) as {
-            projects: { name: string }[];
-        };
-
-        return json.projects
-            .map((x) => x.name)
-            .filter((x) => x.includes(query))
-            .map((x) => ({
-                id: x,
-                name: x,
-                displayName: x,
-                version: '0',
-            }));
+        return searchPyPI(query);
     }
 
     async searchPackageVersions(name: string): Promise<string[]> {
-        const response = await fetch(`https://pypi.org/simple/${name}/`, {
-            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
-        });
-        const json = (await response.json()) as { versions: string[] };
-        return json.versions;
+        return searchPyPIVersions(name);
     }
 
     // =========================================================================

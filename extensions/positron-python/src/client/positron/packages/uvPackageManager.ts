@@ -13,6 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
+import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 
 /**
  * Interface for emitting messages to the Positron console
@@ -134,32 +135,11 @@ export class UvPackageManager {
     }
 
     async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
-        // UV uses PyPI, same as pip
-        const response = await fetch('https://pypi.org/simple/', {
-            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
-        });
-        const json = (await response.json()) as {
-            projects: { name: string }[];
-        };
-
-        return json.projects
-            .map((x) => x.name)
-            .filter((x) => x.includes(query))
-            .map((x) => ({
-                id: x,
-                name: x,
-                displayName: x,
-                version: '0',
-            }));
+        return searchPyPI(query);
     }
 
     async searchPackageVersions(name: string): Promise<string[]> {
-        // UV uses PyPI, same as pip
-        const response = await fetch(`https://pypi.org/simple/${name}/`, {
-            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
-        });
-        const json = (await response.json()) as { versions: string[] };
-        return json.versions;
+        return searchPyPIVersions(name);
     }
 
     // =========================================================================
