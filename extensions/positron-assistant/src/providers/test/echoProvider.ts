@@ -92,6 +92,17 @@ export class EchoModelProvider extends ModelProvider {
 		else if (inputText === 'Return model') {
 			response = model.id;
 		}
+		else if (inputText.startsWith('delay')) {
+			// Simulate a delayed response for testing cancellation and streaming, max 10s delay to prevent excessively long test runs
+			const delayMatch = inputText.match(/delay\s+(\d+)/);
+			const delay = Math.min(delayMatch ? parseInt(delayMatch[1]) : 1, 10);
+			await new Promise(resolve => setTimeout(resolve, delay * 1000));
+			response = `Responded after ${delay}s delay`;
+		}
+		else if (inputText === 'Long Response') {
+			// Simulate a long response to test streaming and cancellation
+			response = 'This is a long response. '.repeat(25);
+		}
 		else {
 			// Default case: echo back the input message
 			response = inputText;
