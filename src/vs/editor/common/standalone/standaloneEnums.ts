@@ -881,6 +881,15 @@ export enum SignatureHelpTriggerKind {
 	ContentChange = 3
 }
 
+export enum StatementRangeKind {
+	Success = 'success',
+	Rejection = 'rejection'
+}
+
+export enum StatementRangeRejectionKind {
+	Syntax = 'syntax'
+}
+
 /**
  * A symbol kind.
  */

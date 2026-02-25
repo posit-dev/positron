@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  test:
+    image: ghcr.io/posit-dev/positron-ubuntu24-amd64:100
+    container_name: test
+    init: true
+    ports:
+      - "8080:8080"
+      - "5900:5900"
+      - "9323:9323"
+      - "8787:8787"
+    command: /bin/bash -c "while true; do sleep 3600; done"
+    tty: true
+    stdin_open: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      connect:
+        condition: service_healthy
+    networks:
+      - mynetwork
+    environment:
+      # Postgres configuration
+      - E2E_POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
+      - E2E_POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
+      - E2E_POSTGRES_DB=${E2E_POSTGRES_DB:-testdb}
+      - WB_PASSWORD=${WB_PASSWORD:-testpassword}
+      - CONNECT_BOOTSTRAP_SECRETKEY=${CONNECT_BOOTSTRAP_SECRETKEY:-testkey}
+    volumes:
+      - connect_tokens:/tokens
+
+  postgres:
+    image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:100
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - mynetwork
+    environment:
+      - E2E_POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
+      - E2E_POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
+      - E2E_POSTGRES_DB=${E2E_POSTGRES_DB:-testdb}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${E2E_POSTGRES_USER:-testuser} -d ${E2E_POSTGRES_DB:-testdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  connect:
+    image: rstudio/rstudio-connect-preview:dev-jammy-daily
+    container_name: connect
+    networks:
+      - mynetwork
+    ports:
+      - "3939:3939"
+    environment:
+      - CONNECT_BOOTSTRAP_ENABLED=true
+      - CONNECT_BOOTSTRAP_SECRETKEY=${CONNECT_BOOTSTRAP_SECRETKEY:-testkey}
+      - CONNECT_APPLICATIONS_PACKAGEAUDITINGENABLED=true
+      - CONNECT_TENSORFLOW_ENABLED=false
+    privileged: true
+    volumes:
+      - connect-data:/var/lib/rstudio-connect
+      - /var/lib/rstudio-connect
+      - ./connect/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg:ro
+      - connect_tokens:/tokens
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3939"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  mynetwork:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  connect-data:
+  connect_tokens: {}

@@ -58,10 +58,6 @@ export function registerSnowflakeProvider(
 		light: resourceUri('light', 'snowflake.png'),
 		dark: resourceUri('dark', 'snowflake.png'),
 	};
-	vscode.authentication.onDidChangeSessions((e) => {
-		if (e.provider.id === 'snowflake') {
-		}
-	});
 	return registry.register(registration);
 }
 
@@ -637,9 +633,9 @@ async function getRCodeForSnowflakeTable(
 	const varname = table?.replace('-', '_').toLowerCase();
 
 	const code = `conn <- DBI::dbConnect(
-	  odbc::snowflake(),
-	  account = "${account}"${warehouse ? `,
-	  warehouse = "${warehouse}"` : ''}
+		odbc::snowflake(),
+		account = "${account}"${warehouse ? `,
+		warehouse = "${warehouse}"` : ''}
 )
 ${table
 			? `${varname} <- dplyr::tbl(conn, I("${absoluteTablePath}"))

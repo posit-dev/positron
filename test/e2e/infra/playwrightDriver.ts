@@ -9,12 +9,12 @@ import type { Protocol } from 'playwright-core/types/protocol';
 import { dirname, join } from 'path';
 import { promises } from 'fs';
 import { IWindowDriver } from './driver';
-// eslint-disable-next-line local/code-import-patterns
-import { PageFunction } from 'playwright-core/types/structs';
 import { measureAndLog } from './logger';
 import { LaunchOptions } from './code';
 import { teardown } from './processes';
 import { ChildProcess } from 'child_process';
+
+type PageFunction<Arg, T> = (arg: Arg) => T | Promise<T>;
 
 export class PlaywrightDriver {
 
@@ -230,6 +230,17 @@ export class PlaywrightDriver {
 		if (this.serverProcess) {
 			await measureAndLog(() => teardown(this.serverProcess!, this.options.logger), 'teardown server process', this.options.logger);
 		}
+
+		// --- Start Positron ---
+		// Wait for child process handles to drain after application closes
+		// This gives time for ChildProcess, Socket, Pipe, and WriteWrap handles to close
+		// before the test worker attempts to tear down
+		try {
+			await measureAndLog(() => this.wait(2000), 'wait for handles to drain', this.options.logger);
+		} catch (error) {
+			this.options.logger.log(`Error during handle drain wait (${error})`);
+		}
+		// --- End Positron ---
 	}
 
 	private async saveWebClientLogs(): Promise<void> {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -115,6 +115,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	readonly onDidStartUiClient = this._onDidStartUiClient.event;
 
 	foregroundSession: ILanguageRuntimeSession | undefined;
+	implicitStartupSuppressed = false;
 
 	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined> {
 		return undefined;
@@ -357,6 +358,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 
 	get onWillStartSessionStartupEmitter() {
 		return this._onWillStartSessionStartup;
+	}
+
+	resetArchitectureMismatchWarning(_languageId?: string): void {
+		// No-op in test implementation
 	}
 }
 

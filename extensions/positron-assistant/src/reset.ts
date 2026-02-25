@@ -1,13 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import { generateDiagnosticsContent } from './diagnostics';
 import { CopilotService } from './copilot';
-import { getStoredModels, GlobalSecretStorage } from './config';
-import { disposeModels, log } from './extension';
+import { getStoredModels } from './config';
+import { log } from './log.js';
+import { disposeModels } from './modelRegistration';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -49,10 +50,9 @@ async function clearAssistantState(context: vscode.ExtensionContext): Promise<vo
 		}
 	}
 
-	const storage = new GlobalSecretStorage(context);
 	for (const model of storedModels) {
 		try {
-			await storage.delete(`apiKey-${model.id}`);
+			await context.secrets.delete(`apiKey-${model.id}`);
 		} catch (error) {
 			log.trace(`Failed to delete API key for model ${model.id}: ${formatError(error)}`);
 		}

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { IExtensionManagementService } from '../common/extensionManagement.js';
@@ -11,10 +11,11 @@ import { IProductService } from '../../product/common/productService.js';
 import { INativeEnvironmentService } from '../../environment/common/environment.js';
 import { FileOperationResult, IFileService, IFileStat, toFileOperationResult } from '../../files/common/files.js';
 import { getErrorMessage } from '../../../base/common/errors.js';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, accessSync, constants as fsConstants } from 'fs';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { getSystemArchitecture } from '../../../base/node/arch.js';
 import { DeferredPromise } from '../../../base/common/async.js';
+import * as perf from '../../../base/common/performance.js';
 
 const BOOTSTRAP_TIMEOUT_MS = 30000; // 30 seconds
 
@@ -45,6 +46,21 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		// Clean up timeout when the promise settles
 		this._whenReady.p.finally(() => clearTimeout(timeoutHandle));
 
+		// Check if the extensions directory is writable before attempting installation
+		if (!this.isExtensionsDirectoryWritable()) {
+			const isWorkbenchSession = !!process.env['WORKBENCH_WEB_BASE_URL'];
+			const instructions = isWorkbenchSession
+				? 'Please contact your administrator to install the bootstrap extensions.'
+				: 'To fix this, make the extensions directory writable.';
+
+			this.logService.error(
+				`Cannot install bootstrap extensions: The extensions directory is not writable: ${this.environmentService.extensionsPath}. ` +
+				instructions
+			);
+			this._whenReady.complete();
+			return;
+		}
+
 		const storageFilePath = join(this.environmentService.extensionsPath, '.version');
 		const currentVersion = `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`;
 
@@ -52,6 +68,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 
 		if (lastKnownVersion !== currentVersion) {
 			this.logService.info('First launch after first install, upgrade, or downgrade. Installing bootstrapped extensions');
+			perf.mark('code/positron/bootstrapExtensions/start');
 			this.installVSIXOnStartup()
 				.then(() => {
 					this.logService.info('Bootstrap extensions installed successfully');
@@ -60,12 +77,14 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 					} catch (error) {
 						this.logService.error('Error writing bootstrapped extension storage file', storageFilePath, getErrorMessage(error));
 					}
-					this._whenReady.complete();
 				})
 				.catch(error => {
 					this.logService.error('Error installing bootstrapped extensions', getErrorMessage(error));
-					// Complete anyway to avoid blocking startup
+				})
+				.finally(() => {
+					// Always complete to avoid blocking startup
 					this._whenReady.complete();
+					perf.mark('code/positron/bootstrapExtensions/end');
 				});
 			this.cleanupOldExtensions(lastKnownVersion);
 
@@ -174,6 +193,20 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		}
 
 		return URI.file(this.environmentService.bootstrapExtensionsPath);
+	}
+
+	/**
+	 * Tests if the extensions directory is writable.
+	 */
+	private isExtensionsDirectoryWritable(): boolean {
+		const extensionsPath = this.environmentService.extensionsPath;
+
+		try {
+			accessSync(extensionsPath, fsConstants.W_OK);
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	/**

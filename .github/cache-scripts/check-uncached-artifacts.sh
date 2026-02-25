@@ -27,7 +27,7 @@
 #
 # Option A - Add to cache (if tests need these files):
 #   • Core/build paths: Edit .github/cache-scripts/cache-paths.sh
-#   • Volatile extensions: Edit build/npm/dirs.js (volatileExtensions array)
+#   • Volatile extensions: Edit build/npm/dirs.ts (volatileExtensions array)
 #   • Stable extensions: Already cached automatically!
 #   • Verify: Run .github/cache-scripts/verify-cache-paths.sh
 #
@@ -168,7 +168,7 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
 	echo ""
 	echo "   For extension paths:"
 	echo "     → Volatile extensions (python/assistant/r):"
-	echo "       Edit build/npm/dirs.js → Add to volatileExtensions array"
+	echo "       Edit build/npm/dirs.ts → Add to volatileExtensions array"
 	echo "       Entire directory will be cached automatically"
 	echo ""
 	echo "     → Stable extensions:"
@@ -198,7 +198,7 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
 			echo ""
 			echo "npm install created **$UNCACHED_COUNT files** outside node_modules/ that aren't cached."
 			echo ""
-			echo "See the \"Check for uncached postinstall artifacts\" step for details and next steps."
+			echo "**Where to look:** In the \`${GITHUB_JOB:-unit}\` job, expand the \"🔍 Check for uncached postinstall artifacts\" step for details and next steps."
 		} >> "$GITHUB_STEP_SUMMARY"
 	fi
 

@@ -11,10 +11,10 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 
 // Local imports
-import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage } from '../infra';
+import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage, Assistant } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import {
-	FileOperationsFixture, SettingsFixture, MetricsFixture,
+	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
@@ -28,18 +28,8 @@ let appFixtureFailed = false;
 let appFixtureScreenshot: Buffer | undefined;
 let renamedLogsPath = 'not-set';
 
-// Currents fixtures
-import {
-	CurrentsFixtures,
-	CurrentsWorkerFixtures,
-	fixtures as currentsFixtures
-	// eslint-disable-next-line local/code-import-patterns
-} from '@currents/playwright';
-
 // Test fixtures
-export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
-	...currentsFixtures.baseFixtures,
-	...currentsFixtures.actionFixtures,
+export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
 
 	envVars: [async ({ }, use, workerInfo) => {
@@ -140,6 +130,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
+
+	assistant: [
+		async ({ app }, use) => {
+			await use(app.workbench.assistant);
+		},
+		{ scope: 'test' }
+	],
 
 	sessions: [
 		async ({ app }, use) => {
@@ -365,6 +362,97 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		appFixtureFailed = false;
 		appFixtureScreenshot = undefined;
 	}
+
+	// Dump active handles/requests to help debug worker teardown timeouts
+	// Enable with ENABLE_DIAGNOSTIC_LOGGING=true
+	if (process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
+		try {
+			const util = require('util');
+
+			function summarizeHandle(h: any) {
+				const name = h?.constructor?.name ?? typeof h;
+
+				if (name === 'ChildProcess') {
+					return {
+						type: name,
+						pid: h.pid,
+						spawnfile: h.spawnfile,
+						spawnargs: h.spawnargs,
+						connected: h.connected,
+						killed: h.killed,
+						exitCode: h.exitCode,
+						signalCode: h.signalCode,
+					};
+				}
+
+				if (name === 'Socket') {
+					return {
+						type: name,
+						local: `${h.localAddress ?? ''}:${h.localPort ?? ''}`,
+						remote: `${h.remoteAddress ?? ''}:${h.remotePort ?? ''}`,
+						bytesWritten: h.bytesWritten,
+						bytesRead: h.bytesRead,
+						destroyed: h.destroyed,
+						pending: h.pending,
+					};
+				}
+
+				if (name === 'Pipe') {
+					return {
+						type: name,
+						fd: h.fd,
+					};
+				}
+
+				// default: show a shallow inspection
+				return {
+					type: name,
+					info: util.inspect(h, { depth: 1, maxArrayLength: 10 }),
+				};
+			}
+
+			// eslint-disable-next-line local/code-no-any-casts
+			const handles = (process as any)._getActiveHandles?.() ?? [];
+			// eslint-disable-next-line local/code-no-any-casts
+			const requests = (process as any)._getActiveRequests?.() ?? [];
+			console.log(`\n[afterAll] Active handles=${handles.length} requests=${requests.length}`);
+
+			for (const h of handles) {
+				console.log(' handle:', summarizeHandle(h));
+			}
+
+			// Group requests by type for cleaner output
+			const byType = new Map<string, number>();
+			const writeWraps: any[] = [];
+			for (const r of requests) {
+				const t = r?.constructor?.name ?? typeof r;
+				byType.set(t, (byType.get(t) ?? 0) + 1);
+
+				// Collect WriteWrap samples for detailed inspection
+				if (t === 'WriteWrap' && writeWraps.length < 3) {
+					writeWraps.push(r);
+				}
+			}
+			console.log(' requestsByType:', Object.fromEntries(byType));
+
+			// Show detailed info for first few WriteWrap requests (the smoking gun)
+			if (writeWraps.length > 0) {
+				console.log(' WriteWrap samples (first 3):');
+				for (const w of writeWraps) {
+					try {
+						const handleType = w.handle?.constructor?.name ?? 'unknown';
+						const handleDestroyed = w.handle?.destroyed ?? 'unknown';
+						console.log(`   - handle: ${handleType}, destroyed: ${handleDestroyed}`);
+					} catch {
+						console.log('   - (unable to inspect)');
+					}
+				}
+			}
+		} catch (error) {
+			console.log(`Error dumping handles: ${error}`);
+		}
+	}
+
 });
 
 export { playwrightExpect as expect };
@@ -377,6 +465,7 @@ export interface TestFixtures {
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
 	sessions: Sessions;
+	assistant: Assistant;
 	r: void;
 	python: void;
 	packages: PackageManager;
@@ -408,11 +497,7 @@ export interface WorkerFixtures {
 	app: Application;
 	logsPath: string;
 	logger: MultiLogger;
-	settings: {
-		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		clear: () => Promise<void>;
-		remove: (settingsToRemove: string[]) => Promise<void>;
-	};
+	settings: Settings;
 	settingsFile: SettingsFile;
 	vsCodeSettings: SettingsFile;
 }

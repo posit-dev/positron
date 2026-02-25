@@ -42,8 +42,7 @@ import { CacheControl, serveError, serveFile, WebClientServer } from './webClien
 const require = createRequire(import.meta.url);
 
 // --- Start Positron ---
-import { validateLicenseKey } from './remoteLicenseKey.js';
-
+import { validateLicenseKey, ILicenseValidationResult } from './remoteLicenseKey.js';
 // eslint-disable-next-line no-duplicate-imports
 import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
 import { PositronBootstrapExtensionsInitializer } from '../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
@@ -58,7 +57,7 @@ import { kProxyRegex } from './pwbConstants.js';
 
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
 
-declare module vsda {
+declare namespace vsda {
 	// the signer is a native module that for historical reasons uses a lower case class name
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	export class signer {
@@ -79,6 +78,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	private readonly _allReconnectionTokens: Set<string>;
 	private readonly _webClientServer: WebClientServer | null;
 	private readonly _webEndpointOriginChecker: WebEndpointOriginChecker;
+	private readonly _reconnectionGraceTime: number;
 
 	private readonly _serverBasePath: string | undefined;
 	private readonly _serverProductPath: string;
@@ -114,6 +114,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				: null
 		);
 		this._logService.info(`Extension host agent started.`);
+		this._reconnectionGraceTime = this._environmentService.reconnectionGraceTime;
 
 		this._waitThenShutdown(true);
 	}
@@ -459,7 +460,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				}
 
 				protocol.sendControl(VSBuffer.fromString(JSON.stringify({ type: 'ok' })));
-				const con = new ManagementConnection(this._logService, reconnectionToken, remoteAddress, protocol);
+				const con = new ManagementConnection(this._logService, reconnectionToken, remoteAddress, protocol, this._reconnectionGraceTime);
 				this._socketServer.acceptConnection(con.protocol, con.onClose);
 				this._managementConnections[reconnectionToken] = con;
 				this._allReconnectionTokens.add(reconnectionToken);
@@ -690,6 +691,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	//
 	// We don't require a connection token when used in headless (remote
 	// extension host) mode.
+	let licenseValidationResult: ILicenseValidationResult | undefined;
 	const hasWebUi = fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
 	if (hasWebUi) {
 		if (connectionToken.type !== ServerConnectionTokenType.Mandatory) {
@@ -697,8 +699,8 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 			process.exit(1);
 		}
 		const mandatoryConnectionToken = connectionToken as MandatoryServerConnectionToken;
-		const hasValidLicense = await validateLicenseKey(mandatoryConnectionToken.value, args);
-		if (!hasValidLicense) {
+		licenseValidationResult = await validateLicenseKey(mandatoryConnectionToken.value, args);
+		if (!licenseValidationResult.valid) {
 			// License warnings are logged in the validateLicenseKey function; at this point we just need to exit
 			process.exit(1);
 		}
@@ -738,7 +740,14 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	});
 
 	const disposables = new DisposableStore();
-	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables);
+	// --- Start Positron ---
+	// Pass the licensee info (if available) to the server services
+	const positronLicenseeInfo = licenseValidationResult?.valid ? {
+		licensee: licenseValidationResult.licensee,
+		issuer: licenseValidationResult.issuer
+	} : undefined;
+	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo);
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	// Wait for bootstrap extensions to complete before continuing with server setup.

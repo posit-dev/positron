@@ -894,13 +894,16 @@ export class FilesRenderer implements ICompressibleTreeRenderer<ExplorerItem, Fu
 		const templateDisposables = new DisposableStore();
 		const label = templateDisposables.add(this.labels.create(container, { supportHighlights: true }));
 		templateDisposables.add(label.onDidRender(() => {
-			try {
-				if (templateData.currentContext) {
-					this.updateWidth(templateData.currentContext);
+			// schedule this on the next animation frame to avoid rendering reentry
+			DOM.scheduleAtNextAnimationFrame(DOM.getWindow(templateData.container), () => {
+				try {
+					if (templateData.currentContext) {
+						this.updateWidth(templateData.currentContext);
+					}
+				} catch (e) {
+					// noop since the element might no longer be in the tree, no update of width necessary
 				}
-			} catch (e) {
-				// noop since the element might no longer be in the tree, no update of width necessary
-			}
+			});
 		}));
 
 		const contribs = explorerFileContribRegistry.create(this.instantiationService, container, templateDisposables);
@@ -1826,8 +1829,11 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 
 			// External file DND (Import/Upload file)
 			if (data instanceof NativeDragAndDropData) {
-				// --- Start PWB: disable file downloads ---
-				if (this.environmentService.isEnabledFileUploads) {
+				// --- Start Positron ---
+				// Combine CLI flag with user setting using "most restrictive wins" logic
+				const cliUploads = this.environmentService.isEnabledFileUploads;
+				const settingUploads = this.configurationService.getValue<boolean>('files.enableUploads') ?? true;
+				if (cliUploads && settingUploads) {
 					// Use local file import when supported
 					if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
 						const fileImport = this.instantiationService.createInstance(ExternalFileImport);
@@ -1838,8 +1844,8 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 						const browserUpload = this.instantiationService.createInstance(BrowserFileUpload);
 						await browserUpload.upload(target, originalEvent);
 					}
-					// --- End PWB ---
 				}
+				// --- End Positron ---
 			}
 
 			// In-Explorer DND (Move/Copy file)

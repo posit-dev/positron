@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -78,7 +78,9 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 						`[RuntimeNotebookKernelService] Processing deferred kernel selection for ${kernelId}`
 					);
 					this._pendingKernelSelections.delete(notebookUri);
-					await kernel.ensureSessionStarted(notebookUri, 'Deferred kernel selection after runtime registration');
+					if (!this._runtimeSessionService.implicitStartupSuppressed) {
+						await kernel.ensureSessionStarted(notebookUri, 'Deferred kernel selection after runtime registration');
+					}
 				}
 			}
 		}));
@@ -135,7 +137,9 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 				if (newKernel) {
 					// Kernel is registered, start the session
 					this.updateNotebookLanguage(e.notebook, newKernel.runtime.languageId);
-					await newKernel.ensureSessionStarted(e.notebook, `Runtime kernel ${newKernel.id} selected for notebook`);
+					if (!this._runtimeSessionService.implicitStartupSuppressed) {
+						await newKernel.ensureSessionStarted(e.notebook, `Runtime kernel ${newKernel.id} selected for notebook`);
+					}
 				} else {
 					// Our kernel but not registered yet - defer processing until runtime registers
 					this._logService.info(
@@ -412,7 +416,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		// Get the selected kernel
 		const kernel = instance.kernel.get();
 
-		if (kernel) {
+		if (kernel && !this._runtimeSessionService.implicitStartupSuppressed) {
 			// Ensure a session is started for the kernel
 			await kernel.ensureSessionStarted(instance.uri, `Positron notebook editor opened`);
 		}

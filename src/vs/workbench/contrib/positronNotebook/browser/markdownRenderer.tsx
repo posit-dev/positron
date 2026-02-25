@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,6 +22,7 @@ import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../..
 import { importAMDNodeModule } from '../../../../amdX.js';
 import { convertDomChildrenToReact } from './domToReact.js';
 import { MarkedKatexExtension } from '../../markdown/common/markedKatexExtension.js';
+import { MarkedSuperSubExtension } from '../../markdown/common/markedSuperSubExtension.js';
 
 /**
  * Decodes HTML entities in a string
@@ -67,7 +68,7 @@ function decodeHtmlEntities(text: string): string {
  * KatexToken is created by MarkedKatexExtension.ts which
  * parses LaTeX math expressions and creates these tokens.
  */
-type ExtendedToken = marked.Token | MarkedKatexExtension.KatexToken;
+type ExtendedToken = marked.Token | MarkedKatexExtension.KatexToken | MarkedSuperSubExtension.SuperSubToken;
 
 /**
  * Component that renders LaTeX expressions.
@@ -336,6 +337,11 @@ export class TokenMarkdownRenderer {
 				return <code key={key}>{decodeHtmlEntities((token as marked.Tokens.Codespan).text)}</code>;
 			case 'del':
 				return this.renderDel(token as marked.Tokens.Del, key);
+			// Custom superscript/subscript tokens
+			case 'superscript':
+				return <sup key={key}>{this.renderInlineTokens((token as MarkedSuperSubExtension.SuperSubToken).tokens)}</sup>;
+			case 'subscript':
+				return <sub key={key}>{this.renderInlineTokens((token as MarkedSuperSubExtension.SuperSubToken).tokens)}</sub>;
 			// Custom KaTeX tokens
 			case 'inlineKatex':
 			case 'blockKatex':
@@ -522,13 +528,20 @@ export class TokenMarkdownRenderer {
 	/**
 	 * Extracts plain text from tokens (used for generating heading IDs)
 	 */
-	private extractTextFromTokens(tokens: marked.Token[]): string {
+	private extractTextFromTokens(tokens: ExtendedToken[]): string {
 		const parts: string[] = [];
 		for (const token of tokens) {
 			if (token.type === 'text') {
-				parts.push(token.text);
+				parts.push((token as marked.Tokens.Text).text);
 			} else if (token.type === 'code' || token.type === 'codespan') {
 				parts.push((token as marked.Tokens.Code | marked.Tokens.Codespan).text);
+			} else if (token.type === 'superscript' || token.type === 'subscript') {
+				const supSubToken = token as MarkedSuperSubExtension.SuperSubToken;
+				if (supSubToken.tokens && supSubToken.tokens.length > 0) {
+					parts.push(this.extractTextFromTokens(supSubToken.tokens));
+				} else {
+					parts.push(supSubToken.text);
+				}
 			} else if ('tokens' in token && Array.isArray(token.tokens)) {
 				parts.push(this.extractTextFromTokens(token.tokens));
 			}
@@ -565,8 +578,10 @@ export async function renderNotebookMarkdown(
 		{ throwOnError: false }
 	);
 
-	// Create Marked instance with KaTeX extension which handles LaTeX
-	const markedInstance = new marked.Marked().use(katexExtension);
+	// Create Marked instance with KaTeX and superscript/subscript extensions
+	const markedInstance = new marked.Marked()
+		.use(katexExtension)
+		.use(MarkedSuperSubExtension.extension());
 
 	// Tokenize markdown (KaTeX extension creates custom tokens)
 	const tokens = markedInstance.lexer(content) as ExtendedToken[];

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './consoleCore.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { ActionBar } from './actionBar.js';
@@ -55,6 +55,12 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// Main useEffect hook.
 	useEffect(() => {
+		// Re-read the current phase to close the race between the initial
+		// useState snapshot and the subscription below. If the phase changed
+		// between component construction and this effect, the update would
+		// otherwise be lost.
+		setStartupPhase(services.languageRuntimeService.startupPhase);
+
 		const disposables = services.languageRuntimeService.onDidChangeRuntimeStartupPhase(e => {
 			setStartupPhase(e);
 		});

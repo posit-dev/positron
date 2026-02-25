@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -15,33 +15,95 @@ import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
+import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { useCellContextMenu } from './useCellContextMenu.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 
 
 interface CellOutputsSectionProps {
+	cell: PositronNotebookCodeCell;
 	outputs: NotebookCellOutputs[];
 }
 
-function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
+const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
+	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const { showContextMenu } = useCellContextMenu({
+		cell,
+		menuId: MenuId.PositronNotebookCellOutputActionLeft,
+	});
+	const isSingleDataExplorer = outputs?.length === 1 &&
+		outputs[0].parsed.type === 'dataExplorer';
+
+	const handleShowHiddenOutput = () => {
+		cell.expandOutput();
+		/**
+		 * When this handler is fired via a keyboard event (ex: Enter),
+		 * the focus remains on the button that triggered this event.
+		 * However, since expanding the output causes this button
+		 * to be removed from the DOM, focus is lost. To maintain
+		 * focus so keyboard nav/shortcuts still work, we refocus
+		 * the cell container after expanding the output.
+		 */
+		cell.container?.focus();
+	};
+
+	const handleContextMenu = (event: React.MouseEvent) => {
+		// Only show context menu if there are outputs
+		if (outputs.length === 0) {
+			return;
+		}
+		showContextMenu({ x: event.clientX, y: event.clientY });
+	};
+
 	return (
-		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? '' : 'no-outputs'}`} data-testid='cell-output'>
-			<div className='positron-notebook-code-cell-outputs-inner'>
-				{outputs?.map((output) => (
-					<CellOutput key={output.outputId} {...output} />
-				))}
-			</div>
+		<div className={positronClassNames(
+			'positron-notebook-outputs-section',
+			{ 'no-outputs': outputs.length === 0 },
+			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
+		)}>
+			<CellOutputLeftActionMenu cell={cell} />
+			<section
+				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
+				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
+				data-testid='cell-output'
+				onContextMenu={handleContextMenu}
+			>
+				<div className='positron-notebook-code-cell-outputs-inner'>
+					{isCollapsed
+						? <Button
+							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
+							className='show-hidden-output-button'
+							onPressed={handleShowHiddenOutput}
+						>
+							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
+						</Button>
+						: <>
+							{outputs?.map((output) => (
+								<CellOutput key={output.outputId} {...output} />
+							))}
+						</>
+					}
+				</div>
+			</section>
 		</div>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Simple reference equality - outputs array is stable when nothing changes
+	return prevProps.outputs === nextProps.outputs;
+});
 
-export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
+export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
 	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
@@ -57,19 +119,22 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 					</div>
 					<CodeCellStatusFooter cell={cell} hasError={hasError} />
 				</div>
-				<CellOutputsSection outputs={outputContents} />
+				<CellOutputsSection cell={cell} outputs={outputContents} />
 			</div>
 
 		</NotebookCellWrapper>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Cell objects are stable references - only rerender if cell reference changes
+	return prevProps.cell === nextProps.cell;
+});
 
-function CellOutput(output: NotebookCellOutputs) {
+const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
 	if (output.preloadMessageResult) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed } = output;
+	const { parsed, outputs } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -86,9 +151,16 @@ function CellOutput(output: NotebookCellOutputs) {
 			return renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
+		case 'dataExplorer':
+			return <DataExplorerCellOutput outputs={outputs} parsed={parsed} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}
 			</div>;
 	}
-}
+}, (prevProps, nextProps) => {
+	// Reference equality on parsed is correct - new execution creates new parsed objects
+	return prevProps.outputId === nextProps.outputId &&
+		prevProps.parsed === nextProps.parsed;
+});
+

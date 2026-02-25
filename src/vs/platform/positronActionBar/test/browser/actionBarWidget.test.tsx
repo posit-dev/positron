@@ -1,58 +1,46 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
+/* eslint-disable no-restricted-syntax */
+
 import assert from 'assert';
 import sinon from 'sinon';
+import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
 import { ActionBarWidget } from '../../browser/components/actionBarWidget.js';
 import { IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
 import { MenuId } from '../../../actions/common/actions.js';
-import { ICommandService } from '../../../commands/common/commands.js';
-import { ServicesAccessor } from '../../../instantiation/common/instantiation.js';
+import { ICommandService, CommandsRegistry } from '../../../commands/common/commands.js';
+import { ServiceIdentifier, ServicesAccessor } from '../../../instantiation/common/instantiation.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { PositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-/**
- * Creates a minimal mock ServicesAccessor for testing.
- */
-function createMockServicesAccessor(commandService?: ICommandService): ServicesAccessor {
-	const mockCommandService = commandService || {
-		executeCommand: sinon.stub().resolves()
-	} as any;
-
-	return {
-		get: (serviceId: any) => {
-			if (serviceId === ICommandService) {
-				return mockCommandService;
-			}
-			throw new Error(`Service ${serviceId} not mocked`);
-		}
-	} as any;
-}
-
-/**
- * Helper to render ActionBarWidget with context.
- */
-function renderWidget(
-	root: Root,
-	descriptor: IPositronActionBarWidgetDescriptor,
-	servicesAccessor: ServicesAccessor
-) {
-	root.render(
-		<PositronReactServicesContext.Provider value={servicesAccessor as any}>
-			<ActionBarWidget descriptor={descriptor} />
-		</PositronReactServicesContext.Provider>
-	);
-}
+import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { TestCommandService } from '../../../../editor/test/browser/editorTestServices.js';
+import { TestInstantiationService } from '../../../instantiation/test/common/instantiationServiceMock.js';
+import { Event } from '../../../../base/common/event.js';
 
 suite('ActionBarWidget', () => {
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+
 	let root: Root;
 	let container: HTMLElement;
-	let mockServicesAccessor: ServicesAccessor;
-	let commandService: ICommandService;
+	let mockServicesAccessor: PositronReactServices;
+	let commandService: TestCommandService;
+
+	/** Helper to render ActionBarWidget with context. */
+	function renderWidget(descriptor: IPositronActionBarWidgetDescriptor) {
+		// Render the widget and wait for React to flush
+		flushSync(() => {
+			root.render(
+				<PositronReactServicesContext.Provider value={mockServicesAccessor}>
+					<ActionBarWidget descriptor={descriptor} />
+				</PositronReactServicesContext.Provider>
+			);
+		});
+	}
 
 	setup(() => {
 		// Create a container element for React to render into
@@ -60,22 +48,24 @@ suite('ActionBarWidget', () => {
 		mainWindow.document.body.appendChild(container);
 		root = createRoot(container);
 
-		// Create mock command service
-		commandService = {
-			executeCommand: sinon.stub().resolves()
-		} as unknown as ICommandService;
-
-		mockServicesAccessor = createMockServicesAccessor(commandService);
+		// Create mock services
+		const instantiationService = disposables.add(new TestInstantiationService());
+		commandService = new TestCommandService(instantiationService);
+		mockServicesAccessor = ({
+			get<T>(serviceId: ServiceIdentifier<T>): T {
+				if (serviceId === ICommandService) {
+					return commandService as T;
+				}
+				throw new Error(`Service ${serviceId} not mocked`);
+			}
+		} satisfies Partial<PositronReactServices>) as PositronReactServices;
 	});
 
 	teardown(() => {
 		// Clean up the React root and container
-		if (root) {
-			root.unmount();
-		}
-		if (container && container.parentNode) {
-			container.parentNode.removeChild(container);
-		}
+		root.unmount();
+		container.remove();
+
 		// Restore spies and stubs
 		sinon.restore();
 	});
@@ -88,10 +78,7 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span className='test-widget-content'>Test Widget</span>
 		};
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const widgetContent = container.querySelector('.test-widget-content');
 		assert.ok(widgetContent, 'Expected to find widget content');
@@ -111,10 +98,7 @@ suite('ActionBarWidget', () => {
 			}
 		};
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		assert.ok(receivedAccessor, 'Widget should receive services accessor');
 		assert.strictEqual(receivedAccessor, mockServicesAccessor);
@@ -131,10 +115,7 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Command Widget</span>
 		};
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const button = container.querySelector('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button element');
@@ -143,6 +124,9 @@ suite('ActionBarWidget', () => {
 	});
 
 	test('command-driven widget executes command on click', async () => {
+		// Register a test command
+		disposables.add(CommandsRegistry.registerCommand('test.click.command', () => { }));
+
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.clickable.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -153,29 +137,25 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Click Me</span>
 		};
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate click
+		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
 		button.click();
 
 		// Wait for click handler
-		await new Promise(resolve => setTimeout(resolve, 0));
-
-		const executeCommandStub = commandService.executeCommand as sinon.SinonStub;
-		assert.ok(executeCommandStub.calledOnce, 'Command should be executed once');
-		assert.ok(
-			executeCommandStub.calledWith('test.click.command', { arg1: 'value1' }),
-			'Command should be called with correct arguments'
-		);
+		const command = await commandPromise;
+		assert.strictEqual(command.commandId, 'test.click.command', 'Expected commandId to match');
+		assert.deepStrictEqual(command.args, [{ arg1: 'value1' }], 'Command should be called with correct arguments');
 	});
 
 	test('command-driven widget executes command on Enter key', async () => {
+		// Register a test command
+		disposables.add(CommandsRegistry.registerCommand('test.keyboard.command', () => { }));
+
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.keyboard.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -185,26 +165,24 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Enter</span>
 		};
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate Enter key press
+		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
 		const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
 		button.dispatchEvent(enterEvent);
 
-		// Wait for event handler
-		await new Promise(resolve => setTimeout(resolve, 0));
-
-		const executeCommandStub = commandService.executeCommand as sinon.SinonStub;
-		assert.ok(executeCommandStub.calledOnce, 'Command should be executed on Enter');
+		const command = await commandPromise;
+		assert.strictEqual(command.commandId, 'test.keyboard.command', 'Command should be executed on Enter');
 	});
 
 	test('command-driven widget executes command on Space key', async () => {
+		// Register a test command
+		disposables.add(CommandsRegistry.registerCommand('test.space.command', () => { }));
+
 		const descriptor: IPositronActionBarWidgetDescriptor = {
 			id: 'test.space.widget',
 			menuId: MenuId.EditorActionsRight,
@@ -214,23 +192,18 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Space</span>
 		};
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate Space key press
+		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
 		const spaceEvent = new KeyboardEvent('keydown', { key: ' ', bubbles: true });
 		button.dispatchEvent(spaceEvent);
 
-		// Wait for event handler
-		await new Promise(resolve => setTimeout(resolve, 0));
-
-		const executeCommandStub = commandService.executeCommand as sinon.SinonStub;
-		assert.ok(executeCommandStub.calledOnce, 'Command should be executed on Space');
+		const command = await commandPromise;
+		assert.strictEqual(command.commandId, 'test.space.command', 'Command should be executed on Space');
 	});
 
 	test('self-contained widget renders as div (not button)', async () => {
@@ -242,10 +215,7 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Self Contained</span>
 		};
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
 		assert.ok(div, 'Expected to find div element');
@@ -263,10 +233,7 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Legacy Widget</span>
 		};
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
 		assert.ok(div, 'Expected to find div element for legacy widget');
@@ -291,10 +258,7 @@ suite('ActionBarWidget', () => {
 		// Suppress console.error for this test since we expect an error
 		const consoleErrorStub = sinon.stub(console, 'error');
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for error boundary to catch error
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector('.action-bar-widget-error');
 		assert.ok(errorIndicator, 'Expected to find error indicator');
@@ -323,10 +287,7 @@ suite('ActionBarWidget', () => {
 		// Suppress console.error for this test
 		const consoleErrorStub = sinon.stub(console, 'error');
 
-		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for error boundary to catch error
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector('.action-bar-widget-error') as HTMLElement;
 		assert.ok(errorIndicator, 'Expected to find error indicator');
@@ -337,7 +298,4 @@ suite('ActionBarWidget', () => {
 
 		consoleErrorStub.restore();
 	});
-
-	// Ensure that all disposables are cleaned up.
-	ensureNoDisposablesAreLeakedInTestSuite();
 });

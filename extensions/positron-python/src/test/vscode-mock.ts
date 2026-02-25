@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as vscodeMocks from './mocks/vsc';
 import { vscMockTelemetryReporter } from './mocks/vsc/telemetryReporter';
 import { anything, instance, mock, when } from 'ts-mockito';
+import { TestItem } from 'vscode';
 const Module = require('module');
 
 type VSCode = typeof vscode;
@@ -192,4 +193,31 @@ mockedPositron.LanguageRuntimeMessageType = positronMocks.LanguageRuntimeMessage
 mockedPositron.LanguageRuntimeStreamName = positronMocks.LanguageRuntimeStreamName;
 mockedPositron.RuntimeOnlineState = positronMocks.RuntimeOnlineState;
 mockedPositron.RuntimeState = positronMocks.RuntimeState;
+mockedPositron.LanguageRuntimeArchitecture = positronMocks.LanguageRuntimeArchitecture;
 // --- End Positron ---
+
+// Mock TestController for vscode.tests namespace
+function createMockTestController(): vscode.TestController {
+    const disposable = { dispose: () => undefined };
+    return ({
+        items: {
+            forEach: () => undefined,
+            get: () => undefined,
+            add: () => undefined,
+            replace: () => undefined,
+            delete: () => undefined,
+            size: 0,
+            [Symbol.iterator]: function* () {},
+        },
+        createRunProfile: () => disposable,
+        createTestItem: () => ({} as TestItem),
+        dispose: () => undefined,
+        resolveHandler: undefined,
+        refreshHandler: undefined,
+    } as unknown) as vscode.TestController;
+}
+
+// Add tests namespace with createTestController
+(mockedVSCode as any).tests = {
+    createTestController: (_id: string, _label: string) => createMockTestController(),
+};

@@ -54,6 +54,19 @@ export enum RuntimeOnlineState {
 	Idle = 'idle',
 }
 
+/**
+ * The CPU architecture of an interpreter.
+ * Used to detect architecture mismatches between the interpreter and the system.
+ */
+export enum LanguageRuntimeArchitecture {
+	/** 64-bit ARM architecture (Apple Silicon, ARM64 Windows, etc.) */
+	Arm64 = 'arm64',
+	/** 64-bit x86 architecture (Intel/AMD) */
+	X64 = 'x64',
+	/** Architecture was detected but is not arm64 or x64 */
+	Other = 'other'
+}
+
 /** The set of possible language runtime messages */
 export enum LanguageRuntimeMessageType {
 	/** A message instructing the frontend to clear the output of a runtime execution. */
@@ -432,6 +445,28 @@ export enum PreviewSourceType {
 	Runtime = 'runtime',
 	/** The preview was opened by a terminal. */
 	Terminal = 'terminal',
+}
+
+/**
+ * An error thrown by a {@link StatementRangeProvider} to indicate that a statement range
+ * cannot be provided due to a syntax error in the document.
+ */
+export class StatementRangeSyntaxError extends Error {
+	/**
+	 * Zero indexed line number where the syntax error occurred.
+	 */
+	readonly line?: number;
+
+	/**
+	 * Creates a new statement range syntax error.
+	 *
+	 * @param line Zero indexed line number where the syntax error occurred.
+	 */
+	constructor(line?: number) {
+		super();
+		Object.setPrototypeOf(this, StatementRangeSyntaxError.prototype);
+		this.line = line;
+	}
 }
 
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';

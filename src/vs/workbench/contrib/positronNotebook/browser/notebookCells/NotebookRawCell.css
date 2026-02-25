@@ -1,0 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-raw-cell-contents {
+	display: flex;
+	flex-direction: column;
+}
+
+.positron-notebook-raw-cell-contents .positron-notebook-editor-section {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-start;
+	width: 100%;
+	position: relative;
+}
+
+.positron-notebook-raw-cell-contents .positron-notebook-editor-container {
+	flex: 1;
+}

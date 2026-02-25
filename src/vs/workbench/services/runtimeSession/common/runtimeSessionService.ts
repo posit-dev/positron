@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@ import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { UiClientInstance, IRuntimeClientEvent } from '../../languageRuntime/common/languageRuntimeUiClient.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
@@ -232,6 +232,13 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** Force quit the runtime */
 	forceQuit(): Thenable<void>;
 
+	/**
+	 * Returns the kernel launch parameters used to start this session,
+	 * if available. This includes the command line, environment variables,
+	 * and other kernel spec fields.
+	 */
+	getLaunchInfo?(): Thenable<ILanguageRuntimeLaunchInfo | undefined>;
+
 	/** Show output log of the runtime */
 	showOutput(channel?: LanguageRuntimeSessionChannel): void;
 
@@ -246,6 +253,15 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** Updates the session's name */
 	updateSessionName(sessionName: string): void;
+
+	getPackages?: () => Promise<ILanguageRuntimePackage[]>;
+	installPackages?: (packages: IPackageSpec[]) => Promise<void>;
+	uninstallPackages?: (packageNames: string[]) => Promise<void>;
+	updatePackages?: (packages: IPackageSpec[]) => Promise<void>;
+	updateAllPackages?: () => Promise<void>;
+
+	searchPackages?(query: string): Promise<ILanguageRuntimePackage[]>;
+	searchPackageVersions?(name: string): Promise<string[]>;
 }
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
@@ -254,6 +270,23 @@ export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata
 
 export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession {
 	metadata: INotebookRuntimeSessionMetadata;
+}
+
+export interface ILanguageRuntimePackage {
+	id: string;
+	name: string;
+	displayName: string;
+	version: string;
+}
+
+/**
+ * Represents a package to install or update, with an optional version.
+ */
+export interface IPackageSpec {
+	/** The package name */
+	name: string;
+	/** Optional version to install (if not specified, installs latest) */
+	version?: string;
 }
 
 /**
@@ -603,6 +636,14 @@ export interface IRuntimeSessionService {
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
 	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
+
+	/**
+	 * When true, suppresses implicit runtime auto-start triggered by
+	 * opening files with a matching language ID. Used during new folder
+	 * initialization to prevent starting the wrong runtime before the
+	 * intended environment is ready.
+	 */
+	implicitStartupSuppressed: boolean;
 }
 
 export { RuntimeClientType };

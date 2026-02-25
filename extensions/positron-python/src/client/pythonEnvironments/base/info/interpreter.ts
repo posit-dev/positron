@@ -7,6 +7,9 @@ import {
     interpreterInfo as getInterpreterInfoCommand,
     InterpreterInfoJson,
 } from '../../../common/process/internal/scripts';
+// --- Start Positron ---
+import { getArchitectureFromInfo } from '../../../common/process/internal/scripts/architecture';
+// --- End Positron ---
 import { Architecture } from '../../../common/utils/platform';
 import { traceError, traceInfo, traceVerbose } from '../../../logging';
 import { shellExecute } from '../../common/externalDependencies';
@@ -50,7 +53,10 @@ function extractInterpreterInfo(python: string, raw: InterpreterInfoJson): Inter
         }
     }
     return {
-        arch: raw.is64Bit ? Architecture.x64 : Architecture.x86,
+        // --- Start Positron ---
+        // arch: raw.is64Bit ? Architecture.x64 : Architecture.x86,
+        arch: getArchitectureFromInfo(raw),
+        // --- End Positron ---
         executable: {
             filename: python,
             sysPrefix: raw.sysPrefix,

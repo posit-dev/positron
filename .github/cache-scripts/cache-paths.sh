@@ -16,7 +16,7 @@
 #
 # ADDING/MODIFYING CACHES:
 # 1. For core/build paths: Edit NPM_CORE_PATHS below
-# 2. For volatile extensions: Edit build/npm/dirs.js (volatileExtensions array)
+# 2. For volatile extensions: Edit build/npm/dirs.ts (volatileExtensions array)
 # 3. For stable extensions: Automatic (all non-volatile extensions)
 # 4. Run: .github/cache-scripts/verify-cache-paths.sh to validate changes
 #
@@ -29,7 +29,7 @@
 
 set -euo pipefail
 
-# Find repository root (needed for Node.js require() to find build/npm/dirs.js)
+# Find repository root (needed for Node.js require() to find build/npm/dirs.ts)
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # ============================================================================
@@ -64,13 +64,16 @@ fi
 # ----------------------------------------------------------------------------
 # npm-core: Core build dependencies (~500MB-1GB)
 # ----------------------------------------------------------------------------
-# What: Root node_modules, build tools, test dependencies, npm/node-gyp caches
+# What: Root node_modules, build tools, test dependencies, npm/node-gyp caches,
+#       and artifacts generated during postinstall (e.g., ESM dependencies)
 # Invalidates: When any core package-lock.json changes OR Node.js major version changes
+#              OR postinstall scripts change (see generate-package-locks-hash.sh)
 # Why cache node-gyp: Avoids downloading Node.js headers (saves 10-30s, more reliable)
 # Node.js version: Major version included in cache key (ABI is stable within major versions)
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
 $NODE_GYP_CACHE
+.build/esm-package-dependencies
 node_modules
 build/node_modules
 remote/node_modules
@@ -112,10 +115,10 @@ PLAYWRIGHT_PATHS="$PLAYWRIGHT_CACHE"
 # Why: These change in 71% of PRs, so cache them separately
 # Includes: node_modules, source code, resources (python_files, copilot, etc.)
 # Invalidates: When ANY file in these extensions changes
-# SSOT: build/npm/dirs.js (volatileExtensions array)
+# SSOT: build/npm/dirs.ts (volatileExtensions array)
 generate_npm_extensions_volatile_paths() {
 	local volatile_exts
-	volatile_exts=$(cd "$REPO_ROOT" && node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
+	volatile_exts=$(cd "$REPO_ROOT" && node -e "const {volatileExtensions} = require('./build/npm/dirs.ts'); console.log(volatileExtensions.join('\n'))")
 
 	local paths=""
 	while IFS= read -r ext; do
@@ -137,7 +140,7 @@ generate_npm_extensions_volatile_paths() {
 # Note: Automatically discovers extensions (no manual list needed)
 generate_npm_extensions_stable_paths() {
 	local volatile_exts
-	volatile_exts=$(cd "$REPO_ROOT" && node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
+	volatile_exts=$(cd "$REPO_ROOT" && node -e "const {volatileExtensions} = require('./build/npm/dirs.ts'); console.log(volatileExtensions.join('\n'))")
 
 	# Build exclusion pattern from volatile extensions
 	local volatile_pattern=""

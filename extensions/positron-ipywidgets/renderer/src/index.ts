@@ -27,7 +27,7 @@ export const activate: ActivationFunction = async (context) => {
 	// We bundle the main Jupyter widget packages together with the renderer.
 	// However, we still need to define them as AMD modules since if a third party module
 	// depends on them it will try to load them with requirejs.
-	const define = (window as any).define; // eslint-disable-line local/code-no-any-casts
+	const define: unknown = (window as Window & { define?: unknown }).define;
 	if (!isDefineFn(define)) {
 		throw new Error('Requirejs is needed, please ensure it is loaded on the page.');
 	}

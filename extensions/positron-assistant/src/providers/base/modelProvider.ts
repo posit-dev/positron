@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { ModelConfig, SecretStorage, getMaxConnectionAttempts } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
+import { getMaxConnectionAttempts } from '../../providerConfig.js';
 import { isAuthorizationError } from '../../utils';
 import { applyModelFilters } from '../../modelFilters';
 import { getAllModelDefinitions } from '../../modelDefinitions';
@@ -15,6 +16,7 @@ import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABI
 import { ModelProviderLogger } from './modelProviderLogger';
 import { AuthenticationError, ModelRetrievalError } from './modelProviderErrors';
 import { AutoconfigureResult, ModelCapabilities } from './modelProviderTypes';
+import { ErrorContext } from './errorContext';
 
 /**
  * Abstract base class for all model providers in the Positron Assistant extension.
@@ -113,12 +115,10 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 *
 	 * @param _config - Configuration for this model provider including API keys, base URLs, and model settings
 	 * @param _context - VS Code extension context for accessing storage and other extension features
-	 * @param _storage - Secret storage for managing sensitive credentials
 	 */
 	constructor(
 		protected readonly _config: ModelConfig,
 		protected readonly _context?: vscode.ExtensionContext,
-		protected readonly _storage?: SecretStorage,
 	) {
 		this.id = _config.id;
 		this.displayName = _config.name;
@@ -260,7 +260,14 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 			return new ModelRetrievalError(this.providerName, 'No models available after applying filters');
 		}
 
-		return this.testModelConnectivity(models, token);
+		// Set connection test context for error handling
+		const connectionTestContext: ErrorContext = {
+			isConnectionTest: true,
+			isChat: false,
+			isStartup: false
+		};
+
+		return this.testModelConnectivity(models, token, connectionTestContext);
 	}
 
 	/**
@@ -276,6 +283,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 *
 	 * @param models - The list of models to test connectivity for
 	 * @param token - Cancellation token to abort testing
+	 * @param context - Optional error context for error handling
 	 * @returns A promise that resolves to undefined if at least one model succeeds,
 	 *          or an Error containing all failure messages if all models fail
 	 *
@@ -284,7 +292,8 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 */
 	protected async testModelConnectivity(
 		models: vscode.LanguageModelChatInformation[],
-		token: vscode.CancellationToken
+		token: vscode.CancellationToken,
+		context?: ErrorContext
 	): Promise<Error | undefined> {
 		const maxModelsToTest = getMaxConnectionAttempts();
 		const modelsToTest = models.slice(0, maxModelsToTest);
@@ -307,7 +316,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 				return undefined; // Success! At least one model is working
 			} catch (error) {
 				this.logger.warn(`'${model}' Error sending test message`, error);
-				const errorMsg = await this.parseProviderError(error) ||
+				const errorMsg = await this.parseProviderError(error, context) ||
 					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
 				errors.push(errorMsg);
 			}
@@ -457,8 +466,11 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 * - API call errors: Extracts error messages from response bodies
 	 *
 	 * Subclasses can override this method to add provider-specific error handling.
+	 * The context parameter allows adjusting messages and behavior based on where
+	 * the error occurs (e.g., suppress notifications during connection tests).
 	 *
 	 * @param error - The error object returned by the provider
+	 * @param context - Optional context about where the error is being displayed
 	 * @returns A promise that resolves to a user-friendly error message, or undefined
 	 *          if the error wasn't specifically handled
 	 *
@@ -466,8 +478,9 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 *
 	 * @see {@link isAuthorizationError} for authorization error detection
 	 * @see {@link ai.APICallError} for Vercel AI SDK error types
+	 * @see {@link ErrorContext} for context parameters
 	 */
-	async parseProviderError(error: any): Promise<string | undefined> {
+	async parseProviderError(error: any, context?: ErrorContext): Promise<string | undefined> {
 		// Check for authorization errors (401/403)
 		if (isAuthorizationError(error)) {
 			let specificMessage = '';

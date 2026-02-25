@@ -25,6 +25,7 @@ type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
 export class PositronNotebooks extends Notebooks {
 	// Containers, generic locators
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
+	private cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .native-edit-context');
@@ -54,6 +55,11 @@ export class PositronNotebooks extends Notebooks {
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
+
+	// Assistant buttons (shown on error cells when assistant is enabled)
+	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
+	private fixErrorButton = this.code.driver.page.getByRole('button', { name: /Ask assistant to fix/i });
+	private explainErrorButton = this.code.driver.page.getByRole('button', { name: /Ask assistant to explain/i });
 
 	// Search Widget
 	private searchWidget = this.code.driver.page.locator('.positron-find-widget');
@@ -515,6 +521,36 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Click the "Ask assistant to fix" button on an error cell.
+	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
+	 */
+	async clickFixErrorButton(): Promise<void> {
+		await test.step('Click Fix error button', async () => {
+			await this.fixErrorButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click the "Ask assistant to explain" button on an error cell.
+	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
+	 */
+	async clickExplainErrorButton(): Promise<void> {
+		await test.step('Click Explain error button', async () => {
+			await this.explainErrorButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click the "Ask Assistant" button in the editor action bar.
+	 * Requires: assistant enabled and a model signed in.
+	 */
+	async clickAskAssistantButton(): Promise<void> {
+		await test.step('Click Ask Assistant button', async () => {
+			await this.askAssistantButton.click();
+		});
+	}
+
+	/**
 	 * Action: Search Notebook.
 	 * @param searchText - The text to search for.
 	 * @param options - Options to control behavior:
@@ -588,6 +624,46 @@ export class PositronNotebooks extends Notebooks {
 	// #endregion
 
 	// #region VERIFICATIONS
+
+	/**
+	 * Verify: Assistant buttons visibility.
+	 * @param visible - Whether the buttons should be visible (true) or hidden (false).
+	 */
+	async expectAssistantButtonsVisible(visible: boolean = true): Promise<void> {
+		await test.step(`Expect assistant buttons to be ${visible ? 'visible' : 'hidden'}`, async () => {
+			if (visible) {
+				await expect(this.askAssistantButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				await expect(this.askAssistantButton).not.toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
+
+	/**
+	 * Verify: Fix/Explain error buttons visibility.
+	 * @param visible - Whether the buttons should be visible (true) or hidden (false).
+	 */
+	async expectErrorAssistantButtonsVisible(visible: boolean = true): Promise<void> {
+		await test.step(`Expect Fix/Explain error buttons to be ${visible ? 'visible' : 'hidden'}`, async () => {
+			if (visible) {
+				await expect(this.fixErrorButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+				await expect(this.explainErrorButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				await expect(this.fixErrorButton).not.toBeVisible({ timeout: DEFAULT_TIMEOUT });
+				await expect(this.explainErrorButton).not.toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
+
+	/**
+	 * Verify: A notebook error is visible in any cell.
+	 * @param timeout - The maximum time to wait for visibility (default: 10000ms)
+	 */
+	async expectNotebookErrorVisible(timeout: number = 10000): Promise<void> {
+		await test.step('Expect notebook error to be visible', async () => {
+			await this.code.driver.page.waitForSelector('.notebook-error', { timeout });
+		});
+	}
 
 	/**
 	 * Verify: search count matches expected count.
@@ -954,6 +1030,77 @@ export class PositronNotebooks extends Notebooks {
 				await expect(this.cellOutput(cellIndex).getByText(line)).toBeVisible();
 			}
 		});
+	}
+
+	/**
+	 * Verify: the cell at the specified index is fully visible within the
+	 * notebook scroll container. For cells taller than the viewport, checks
+	 * that the specified edge ('top' or 'bottom') is visible instead.
+	 */
+	async expectCellToBeVisibleInViewport(
+		cellIndex: number,
+		options?: { edge?: 'top' | 'bottom' }
+	): Promise<void> {
+		await test.step(`Verify cell ${cellIndex} is visible in viewport`, async () => {
+			await expect(async () => {
+				const cellBox = await this.cell.nth(cellIndex).boundingBox();
+				const containerBox = await this.cellsContainer.boundingBox();
+				expect(cellBox, `Cell ${cellIndex} has no bounding box`).not.toBeNull();
+				expect(containerBox, 'Cells container has no bounding box').not.toBeNull();
+
+				const isOversized = cellBox!.height > containerBox!.height;
+
+				if (isOversized) {
+					// Oversized cell: check the requested edge, or default to
+					// verifying at least partial overlap with the viewport.
+					if (options?.edge === 'top') {
+						expect(cellBox!.y).toBeGreaterThanOrEqual(containerBox!.y - 1);
+					} else if (options?.edge === 'bottom') {
+						expect(cellBox!.y + cellBox!.height).toBeLessThanOrEqual(
+							containerBox!.y + containerBox!.height + 1
+						);
+					} else {
+						// No edge specified: cell must at least partially overlap viewport
+						const cellBottom = cellBox!.y + cellBox!.height;
+						const containerBottom = containerBox!.y + containerBox!.height;
+						expect(cellBottom).toBeGreaterThanOrEqual(containerBox!.y - 1);
+						expect(cellBox!.y).toBeLessThanOrEqual(containerBottom + 1);
+					}
+				} else {
+					// Cell should be fully within container
+					expect(cellBox!.y).toBeGreaterThanOrEqual(containerBox!.y - 1);
+					expect(cellBox!.y + cellBox!.height).toBeLessThanOrEqual(
+						containerBox!.y + containerBox!.height + 1
+					);
+				}
+			}).toPass({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Verify: the action bar for the cell at the specified index is not clipped
+	 * by the notebook scroll container (its top edge is within the viewport).
+	 */
+	async expectActionBarVisibleInViewport(cellIndex: number): Promise<void> {
+		await test.step(`Verify action bar for cell ${cellIndex} is visible in viewport`, async () => {
+			await expect(async () => {
+				const actionBar = this.cell.nth(cellIndex).locator('.positron-notebooks-cell-action-bar');
+				const actionBarBox = await actionBar.boundingBox();
+				const containerBox = await this.cellsContainer.boundingBox();
+				expect(actionBarBox, `Action bar for cell ${cellIndex} has no bounding box`).not.toBeNull();
+				expect(containerBox, 'Cells container has no bounding box').not.toBeNull();
+
+				// The action bar's top edge should not be above the scroll container
+				expect(actionBarBox!.y).toBeGreaterThanOrEqual(containerBox!.y - 1);
+			}).toPass({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Get the current scroll position of the notebook cells container.
+	 */
+	async getScrollTop(): Promise<number> {
+		return this.cellsContainer.evaluate(el => el.scrollTop);
 	}
 	// #endregion
 }

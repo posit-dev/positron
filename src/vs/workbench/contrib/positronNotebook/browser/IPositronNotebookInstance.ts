@@ -240,8 +240,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param index The position at which to insert the new cell
 	 * @param enterEditMode Whether to put the new cell into edit mode immediately
 	 * @param content Optional content to set for the cell. Defaults to an empty string if not provided.
+	 * @param language Optional language override. Defaults to notebook language for code cells, 'markdown' for markup cells.
 	 */
-	addCell(type: CellKind, index: number, enterEditMode: boolean, content?: string): void;
+	addCell(type: CellKind, index: number, enterEditMode: boolean, content?: string, language?: string): void;
 
 	/**
 	 * Inserts a new code cell either above or below the current selection
@@ -260,6 +261,15 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param referenceCell Optional cell to insert relative to. If not provided, uses the currently selected cell
 	 */
 	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
+
+	/**
+	 * Inserts a new raw cell either above or below the current selection
+	 * and focuses the container.
+	 *
+	 * @param aboveOrBelow Whether to insert the cell above or below the current selection
+	 * @param referenceCell Optional cell to insert relative to. If not provided, uses the currently selected cell
+	 */
+	insertRawCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
 
 	/**
 	 * Changes a cell to a different kind (code or markdown) and/or changes its language.
@@ -305,6 +315,31 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param targetIndex The index to move the cells to
 	 */
 	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void;
+
+	/**
+	 * Splits the currently editing cell at the cursor position(s).
+	 * Supports multi-cursor: each cursor creates an additional split point.
+	 */
+	splitCell(): void;
+
+	/**
+	 * Joins all currently selected cells into a single cell.
+	 * Uses the first cell's type for the merged result.
+	 * When only one cell is selected, joins with the cell below (Jupyter behavior).
+	 */
+	joinSelectedCells(): void;
+
+	/**
+	 * Joins the active cell with the cell above it.
+	 * Uses the active cell's type for the merged result.
+	 */
+	joinCellAbove(): void;
+
+	/**
+	 * Joins the active cell with the cell below it.
+	 * Uses the active cell's type for the merged result.
+	 */
+	joinCellBelow(): void;
 
 	/**
 	 * Checks if the notebook instance contains a code editor.

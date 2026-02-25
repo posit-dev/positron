@@ -1,20 +1,21 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { useNewFolderFlowContext } from '../../newFolderFlowContext.js';
 import { NewFolderFlowStepProps } from '../../interfaces/newFolderFlowStepProps.js';
 import { localize } from '../../../../../nls.js';
-import { envProviderInfoToDropDownItems, envProviderNameForId, locationForNewEnv } from '../../utilities/pythonEnvironmentStepUtils.js';
+import { envProviderInfoToDropDownItems, envProviderNameForId, getDefaultEnvName, locationForNewEnv } from '../../utilities/pythonEnvironmentStepUtils.js';
 import { PositronFlowStep } from '../flowStep.js';
 import { PositronFlowSubStep } from '../flowSubStep.js';
 import { RadioButtonItem } from '../../../positronComponents/positronModalDialog/components/radioButton.js';
 import { RadioGroup } from '../../../positronComponents/positronModalDialog/components/radioGroup.js';
+import { LabeledTextInput } from '../../../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { EnvironmentSetupType } from '../../interfaces/newFolderFlowEnums.js';
 import { InterpreterEntry } from './interpreterEntry.js';
 import { DropdownEntry } from './dropdownEntry.js';
@@ -44,6 +45,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	const [envSetupType, setEnvSetupType] = useState(context.pythonEnvSetupType);
 	const [envProviders, setEnvProviders] = useState(context.pythonEnvProviders);
 	const [envProviderId, setEnvProviderId] = useState(context.pythonEnvProvider);
+	const [envName, setEnvName] = useState(context.pythonEnvName);
 	const [interpreters, setInterpreters] = useState(context.interpreters);
 	const [selectedInterpreter, setSelectedInterpreter] = useState(context.selectedRuntime);
 	const [preferredInterpreter, setPreferredInterpreter] = useState(context.preferredInterpreter);
@@ -65,6 +67,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			setEnvSetupType(context.pythonEnvSetupType);
 			setEnvProviders(context.pythonEnvProviders);
 			setEnvProviderId(context.pythonEnvProvider);
+			setEnvName(context.pythonEnvName);
 			setInterpreters(context.interpreters);
 			setSelectedInterpreter(context.selectedRuntime);
 			setPreferredInterpreter(context.preferredInterpreter);
@@ -81,6 +84,22 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, [context]);
+
+	// Set the default environment name when the provider changes.
+	useEffect(() => {
+		if (envSetupType === EnvironmentSetupType.NewEnvironment && envProviders && envProviderId) {
+			const providerName = envProviderNameForId(envProviderId, envProviders);
+			const defaultName = getDefaultEnvName(providerName);
+			// Only set if no name has been set yet (undefined or null, not empty string)
+			if (envName === undefined || envName === null) {
+				setEnvName(defaultName);
+				context.pythonEnvName = defaultName;
+			}
+		}
+		// Note: envName is intentionally NOT in the dependency array to avoid resetting
+		// when user clears the input
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [envSetupType, envProviderId, envProviders, context]);
 
 	// Utility functions.
 	// At least one interpreter is available.
@@ -139,6 +158,17 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	const onEnvProviderSelected = (identifier: string) => {
 		context.pythonEnvProvider = identifier;
 		setEnvProviderId(identifier);
+		// Reset the environment name to the default for the new provider.
+		const providerName = envProviderNameForId(identifier, envProviders!);
+		const defaultName = getDefaultEnvName(providerName);
+		setEnvName(defaultName);
+		context.pythonEnvName = defaultName;
+	};
+
+	// Handler for when the environment name is changed.
+	const onEnvNameChanged = (value: string) => {
+		setEnvName(value);
+		context.pythonEnvName = value;
 	};
 
 	// Construct the feedback message for the environment provider step.
@@ -162,7 +192,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 								locationForNewEnv(
 									context.parentFolder.path,
 									context.folderName,
-									envProviderNameForId(envProviderId, envProviders!)
+									envProviderNameForId(envProviderId, envProviders!),
+									envName
 								)
 							}
 							pathService={context.services.pathService}
@@ -472,6 +503,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						onSelectionChanged={(item) =>
 							onEnvProviderSelected(item.options.identifier)
 						}
+					/>
+					<LabeledTextInput
+						label={(() => localize(
+							'pythonEnvironmentNameSubStep.label',
+							"Environment name"
+						))()}
+						value={envName ?? ''}
+						onChange={(e) => onEnvNameChanged(e.target.value)}
 					/>
 				</PositronFlowSubStep> : null
 			}

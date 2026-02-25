@@ -1,11 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getEnabledProviders } from './config.js';
-import { log } from './extension.js';
+import { getSettingNameForProvider } from './providerMetadata.js';
 
 export interface ModelDefinition {
 	name: string;
@@ -16,35 +15,22 @@ export interface ModelDefinition {
 
 /**
  * Get custom models from VS Code settings for a specific provider.
+ *
+ * Reads from the individual provider setting (models.overrides.<settingName>).
+ * Legacy object-based settings are migrated on startup, so no fallback is needed.
  */
 export function getCustomModels(providerId: string): ModelDefinition[] {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
-	return customModels[providerId] || [];
-}
+	const settingName = getSettingNameForProvider(providerId);
 
-/**
- * Check whether the provider IDs in the custom models are valid providers.
- */
-export async function verifyProvidersInCustomModels() {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
-	const enabledProviders = await getEnabledProviders();
-
-	const invalidProviders = Object.keys(customModels)
-		// Note: 'copilot' is a special case, where we don't support customModels
-		.filter(providerId => !enabledProviders.includes(providerId) || providerId === 'copilot');
-	if (invalidProviders.length === 0) {
-		return;
+	if (settingName) {
+		const individualModels = config.get<ModelDefinition[]>(`models.overrides.${settingName}`);
+		if (individualModels && individualModels.length > 0) {
+			return individualModels;
+		}
 	}
 
-	const message = vscode.l10n.t('Custom models contain unsupported providers: {0}. Please review your configuration for \'positron.assistant.models.custom\'', invalidProviders.map(p => `'${p}'`).join(', '));
-	log.warn(message);
-	const settingsAction = vscode.l10n.t('Open Settings');
-	const selectedAction = await vscode.window.showWarningMessage(message, settingsAction);
-	if (selectedAction === settingsAction) {
-		await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.models.custom');
-	}
+	return [];
 }
 
 /**
@@ -52,26 +38,6 @@ export async function verifyProvidersInCustomModels() {
  * is provided and dynamic model querying is not available or fails.
  */
 const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
-	['posit-ai', [
-		{
-			name: 'Claude Sonnet 4.5',
-			identifier: 'claude-sonnet-4-5',
-			maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-		},
-		{
-			name: 'Claude Opus 4.1',
-			identifier: 'claude-opus-4-1',
-			maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-		},
-		{
-			name: 'Claude Haiku 4.5',
-			identifier: 'claude-haiku-4-5',
-			maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-		},
-	]],
 	['google', [
 		{
 			name: 'Gemini 2.5 Flash',
@@ -84,8 +50,23 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
 	]],
-	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql#regional-availability
+	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api#model-availability
 	['snowflake-cortex', [
+		{
+			name: 'Claude Haiku 4.5',
+			identifier: 'claude-haiku-4-5',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
+		{
+			name: 'Claude Opus 4.5',
+			identifier: 'claude-opus-4-5',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
+		{
+			name: 'Claude Opus 4.6',
+			identifier: 'claude-opus-4-6',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
 		{
 			name: 'Claude Sonnet 4',
 			identifier: 'claude-4-sonnet',
@@ -97,19 +78,14 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
-			name: 'Claude Haiku 4.5',
-			identifier: 'claude-haiku-4-5',
-			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+			name: 'GPT-4.1',
+			identifier: 'openai-gpt-4.1',
+			maxInputTokens: 128_000, // Typical GPT context window
 		},
 		{
 			name: 'GPT-5',
 			identifier: 'openai-gpt-5',
-			maxInputTokens: 128_000, // Typical GPT-5 context window
-		},
-		{
-			name: 'GPT-4.1',
-			identifier: 'openai-gpt-4.1',
-			maxInputTokens: 128_000, // Typical GPT-5 context window
+			maxInputTokens: 128_000, // Typical GPT context window
 		},
 	]]
 ]);

@@ -51,6 +51,10 @@ export const POSITRON_NOTEBOOK_CELL_IS_ACTIVE = new RawContextKey<boolean>('posi
 export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP = new RawContextKey<boolean>('positronNotebookCellCanMoveUp', false);
 export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN = new RawContextKey<boolean>('positronNotebookCellCanMoveDown', false);
 
+// Output-related context keys
+export const POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS = new RawContextKey<boolean>('positronNotebookCellHasOutputs', false);
+export const POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED = new RawContextKey<boolean>('positronNotebookCellOutputIsCollapsed', false);
+
 // All cell context keys in one place so we can easily operate on them all at once
 export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	isCode: POSITRON_NOTEBOOK_CELL_IS_CODE,
@@ -66,6 +70,8 @@ export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	isActive: POSITRON_NOTEBOOK_CELL_IS_ACTIVE,
 	canMoveUp: POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP,
 	canMoveDown: POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN,
+	hasOutputs: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+	outputIsCollapsed: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED,
 } as const;
 
 // Interface for the cell context keys
@@ -92,6 +98,8 @@ export function bindCellContextKeys(service: IScopedContextKeyService): IPositro
 		isActive: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isActive.bindTo(service),
 		canMoveUp: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveUp.bindTo(service),
 		canMoveDown: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveDown.bindTo(service),
+		hasOutputs: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.hasOutputs.bindTo(service),
+		outputIsCollapsed: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputIsCollapsed.bindTo(service),
 	} satisfies IPositronNotebookCellContextKeys;
 }
 

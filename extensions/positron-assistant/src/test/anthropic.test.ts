@@ -8,12 +8,17 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { AnthropicModelProvider, CacheControlOptions } from '../providers/anthropic/anthropicProvider';
-import { ModelConfig } from '../config';
+import { ModelConfig } from '../configTypes.js';
 import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from '../utils.js';
 import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
-import { mock } from './utils.js';
+import {
+	mock,
+	createNativeRateLimitError,
+	assertRateLimitErrorWithRetry,
+	assertRateLimitErrorWithoutRetry
+} from './utils.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import * as helpersModule from '../modelResolutionHelpers.js';
 
@@ -102,7 +107,7 @@ suite('AnthropicModelProvider', () => {
 		};
 
 		// Create an instance of the AnthropicModelProvider
-		model = new AnthropicModelProvider(config, undefined, undefined, mockClient as unknown as Anthropic);
+		model = new AnthropicModelProvider(config, undefined, mockClient as unknown as Anthropic);
 
 		// Create mock model info for provideLanguageModelChatResponse
 		mockModelInfo = {
@@ -837,6 +842,66 @@ suite('AnthropicModelProvider', () => {
 				assert.strictEqual((model as any).modelListing.length, 1);
 				assert.strictEqual((model as any).modelListing[0].id, 'cached-claude');
 			});
+		});
+	});
+
+	suite('Rate limit error handling', () => {
+		test('throws error with retry-after when rate limited with header', async () => {
+			const rateLimitError = createNativeRateLimitError('30');
+
+			// Configure mock to reject with rate limit error
+			mockClient.messages.stream.returns(mock<MessageStream>({
+				on: () => mock<MessageStream>({}),
+				abort: () => { },
+				done: () => Promise.reject(rateLimitError),
+				finalMessage: () => Promise.resolve(mock<Anthropic.Message>({})),
+				request_id: 'test-request-id'
+			}));
+
+			const messages = [vscode.LanguageModelChatMessage.User('Test message')];
+
+			await assert.rejects(
+				() => model.provideLanguageModelChatResponse(
+					mockModelInfo,
+					messages,
+					{ requestInitiator: 'test', toolMode: vscode.LanguageModelChatToolMode.Auto },
+					progress,
+					cancellationToken
+				),
+				(error: Error) => {
+					assertRateLimitErrorWithRetry(error, '30');
+					return true;
+				}
+			);
+		});
+
+		test('throws error without retry-after when rate limited without header', async () => {
+			const rateLimitError = createNativeRateLimitError();
+
+			// Configure mock to reject with rate limit error
+			mockClient.messages.stream.returns(mock<MessageStream>({
+				on: () => mock<MessageStream>({}),
+				abort: () => { },
+				done: () => Promise.reject(rateLimitError),
+				finalMessage: () => Promise.resolve(mock<Anthropic.Message>({})),
+				request_id: 'test-request-id'
+			}));
+
+			const messages = [vscode.LanguageModelChatMessage.User('Test message')];
+
+			await assert.rejects(
+				() => model.provideLanguageModelChatResponse(
+					mockModelInfo,
+					messages,
+					{ requestInitiator: 'test', toolMode: vscode.LanguageModelChatToolMode.Auto },
+					progress,
+					cancellationToken
+				),
+				(error: Error) => {
+					assertRateLimitErrorWithoutRetry(error);
+					return true;
+				}
+			);
 		});
 	});
 });

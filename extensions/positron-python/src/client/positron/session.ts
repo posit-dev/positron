@@ -2,7 +2,7 @@
 /* eslint-disable no-else-return */
 /* eslint-disable class-methods-use-this */
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,8 +36,11 @@ import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
-import { IpykernelBundle } from './ipykernel';
+import { Architecture } from '../common/utils/platform';
+import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
+import { PackageManagerFactory } from './packages/packageManagerFactory';
+import { IPackageManager } from './packages/types';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -123,6 +126,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     private dynState: positron.LanguageRuntimeDynState;
 
+    /** The package manager for handling package operations */
+    private _packageManager: IPackageManager;
+
     onDidReceiveRuntimeMessage = this._messageEmitter.event;
 
     onDidChangeRuntimeState = this._stateEmitter.event;
@@ -167,6 +173,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
+        this._packageManager = PackageManagerFactory.create(
+            runtimeMetadata.runtimeSource,
+            this._pythonPath,
+            this._messageEmitter,
+            serviceContainer,
+        );
     }
 
     get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
@@ -336,6 +348,76 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        if (this._kernel) {
+            try {
+                return await this._kernel?.callMethod('getPackagesInstalled');
+            } catch (err) {
+                this._kernel?.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
+                throw err;
+            }
+        }
+
+        throw new Error(`Cannot get packages: kernel not started`);
+    }
+
+    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+        const response = await fetch('https://pypi.org/simple/', {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as {
+            projects: { name: string }[];
+        };
+
+        return json.projects
+            .map((x) => x.name)
+            .filter((x) => x.includes(query))
+            .map((x) => ({
+                id: x,
+                name: x,
+                displayName: x,
+                version: '0',
+            }));
+    }
+
+    async searchPackageVersions(name: string): Promise<string[]> {
+        const response = await fetch(`https://pypi.org/simple/${name}/`, {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as { versions: string[] };
+        return json.versions;
+    }
+
+    /**
+     * Install one or more packages.
+     * Supports specifying versions with == syntax (e.g., "package==1.0.0").
+     */
+    async installPackages(packages: positron.PackageSpec[]): Promise<void> {
+        await this._packageManager.installPackages(packages);
+    }
+
+    /**
+     * Uninstall one or more packages.
+     */
+    async uninstallPackages(packageNames: string[]): Promise<void> {
+        await this._packageManager.uninstallPackages(packageNames);
+    }
+
+    /**
+     * Update specific packages to latest versions.
+     * Supports specifying versions with == syntax (e.g., "package==1.0.0").
+     */
+    async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
+        await this._packageManager.updatePackages(packages);
+    }
+
+    /**
+     * Update all installed packages to their latest versions.
+     */
+    async updateAllPackages(): Promise<void> {
+        await this._packageManager.updateAllPackages();
+    }
+
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);
@@ -350,8 +432,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         interpreter: PythonEnvironment,
         kernelSpec: JupyterKernelSpec,
     ): Promise<boolean> {
-        if (this._ipykernelBundle.disabledReason || !this._ipykernelBundle.paths) {
-            traceInfo(`Not using bundled ipykernel. Reason: ${this._ipykernelBundle.disabledReason}`);
+        // Re-evaluate the ipykernel bundle paths for this interpreter at runtime.
+        // This ensures we use the correct paths based on the interpreter's actual architecture,
+        // rather than relying on potentially stale cached metadata (which may have been created
+        // with different bundle paths before an update).
+        const ipykernelBundle = await getIpykernelBundle(interpreter, this.serviceContainer);
+
+        // Update the cached bundle for use by other methods (e.g., _isUninstallBundledPackageCommand)
+        this._ipykernelBundle = ipykernelBundle;
+
+        if (ipykernelBundle.disabledReason || !ipykernelBundle.paths) {
+            traceInfo(`Not using bundled ipykernel. Reason: ${ipykernelBundle.disabledReason}`);
             return false;
         }
 
@@ -359,7 +450,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (!kernelSpec?.env) {
             kernelSpec.env = {};
         }
-        for (const path of this._ipykernelBundle.paths) {
+        for (const path of ipykernelBundle.paths) {
             this._envVarsService.appendPythonPath(kernelSpec.env, path);
         }
 
@@ -487,6 +578,19 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._runtimeInfo = await this._kernel.start();
         if (this.kernelSpec) {
             this.enableAutoReloadIfEnabled(this._runtimeInfo);
+
+            // Add interpreter architecture to the runtime info for mismatch detection.
+            // This must happen after _setupIpykernel which fetches accurate architecture.
+            const architecture = this._ipykernelBundle.architecture;
+            if (architecture !== undefined && architecture !== Architecture.Unknown) {
+                if (architecture === Architecture.arm64) {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Arm64;
+                } else if (architecture === Architecture.x64) {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.X64;
+                } else {
+                    this._runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Other;
+                }
+            }
         }
         return this._runtimeInfo;
     }
@@ -711,6 +815,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const channels = this._kernel?.listOutputChannels?.() ?? [];
         // Add the LSP channel in addition to the kernel channels
         return [...channels, positron.LanguageRuntimeSessionChannel.LSP];
+    }
+
+    getLaunchInfo(): positron.LanguageRuntimeLaunchInfo | undefined {
+        return this._kernel?.getLaunchInfo?.();
     }
 
     async forceQuit(): Promise<void> {

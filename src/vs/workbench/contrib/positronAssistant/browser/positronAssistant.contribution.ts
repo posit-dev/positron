@@ -11,10 +11,10 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { localize2 } from '../../../../nls.js';
 import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
-import { ICodeBlockActionContext } from '../../chat/browser/codeBlockPart.js';
+import { ICodeBlockActionContext } from '../../chat/browser/widget/chatContentParts/codeBlockPart.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { ChatContextKeys } from '../../chat/common/chatContextKeys.js';
+import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';
 import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';

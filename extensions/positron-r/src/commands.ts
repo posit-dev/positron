@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as path from 'path';
+import * as os from 'os';
 import { generateDirectInjectionId, PromiseHandles } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
@@ -191,6 +193,23 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			sourceCurrentFile(true, resource);
 		}),
 
+		// Commands used to load R data files.
+		// RData loads immediately since the user has explicitly chosen to load.
+		// RDS opens the custom editor so the user can review/edit the variable name.
+		vscode.commands.registerCommand('r.loadRDataFile', async (resource?: vscode.Uri) => {
+			if (resource) {
+				await loadRDataFile(resource);
+			}
+		}),
+		vscode.commands.registerCommand('r.loadRdsFile', async (resource?: vscode.Uri) => {
+			if (resource) {
+				await vscode.commands.executeCommand('vscode.openWith', resource, 'positron-r.rdsLoader');
+			}
+		}),
+		vscode.commands.registerCommand('r.loadRDataFileWithPicker', async () => {
+			loadRDataFileWithPicker();
+		}),
+
 		// Command used to source the current file
 		vscode.commands.registerCommand('r.rmarkdownRender', async () => {
 			const filePath = await getEditorFilePathForCommand();
@@ -354,6 +373,37 @@ async function executeCodeForCommand(pkg: string, code: string) {
 	}
 }
 
+/**
+ * Prompts the user to select an R data file (.RData, .rda, .rds) and loads it.
+ */
+async function loadRDataFileWithPicker() {
+	const filters: { [name: string]: string[] } = {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		'R Data Files': ['RData', 'Rdata', 'rdata', 'rda', 'rds', 'RDS']
+	};
+
+	const fileUri = await vscode.window.showOpenDialog({
+		canSelectMany: false,
+		openLabel: vscode.l10n.t('Load'),
+		filters: filters,
+		title: vscode.l10n.t('Select R Data File to Load')
+	});
+
+	if (!fileUri || fileUri.length === 0) {
+		return;
+	}
+
+	const selectedFile = fileUri[0];
+	const ext = path.extname(selectedFile.fsPath).toLowerCase();
+
+	if (ext === '.rds') {
+		await vscode.commands.executeCommand('vscode.openWith', selectedFile, 'positron-r.rdsLoader');
+	} else {
+		// .RData, .Rdata, .rdata, .rda -- load immediately
+		await loadRDataFile(selectedFile);
+	}
+}
+
 export async function getEditorFilePathForCommand(resource?: vscode.Uri) {
 	let filePath: string | undefined;
 
@@ -421,4 +471,70 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 		// https://github.com/posit-dev/positron/issues/780
 	}
 
+}
+
+/**
+ * Gets the file path for loading operations.
+ * Formats the path for use in R console: forward slashes, relative to R
+ * session's working directory if possible, otherwise home-relative or absolute.
+ *
+ * @param resource Optional URI from context menu
+ * @returns The formatted file path (quoted), or undefined if not found
+ */
+export async function getFilePathForLoad(resource?: vscode.Uri): Promise<string | undefined> {
+	let filePath: string | undefined;
+
+	if (resource) {
+		// Unlikely since these Uris come from VS Code's file explorer or editor
+		// context menus, but validate that the resource has a file system path.
+		if (!resource.fsPath) {
+			LOGGER.warn('getFilePathForLoad: resource has no fsPath: ' + JSON.stringify(resource));
+			return undefined;
+		}
+		filePath = resource.fsPath;
+	} else {
+		const editor = vscode.window.activeTextEditor;
+		if (editor) {
+			filePath = editor.document.uri.fsPath;
+		}
+	}
+
+	if (!filePath) {
+		return undefined;
+	}
+
+	// Verify file exists
+	try {
+		await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+
+		// Format path relative to R's working directory, falling back to home-relative
+		return await positron.paths.formatPathForCode(filePath, {
+			relativeTo: ['session', 'home'],
+			homeUri: vscode.Uri.file(os.homedir())
+		});
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Loads an R workspace file (.RData, .rda) into the R session immediately.
+ * Used by the right-click context menu and file picker commands, where the
+ * user has explicitly chosen to load.
+ *
+ * @param resource URI of the file to load
+ */
+async function loadRDataFile(resource: vscode.Uri): Promise<void> {
+	try {
+		const filePath = await getFilePathForLoad(resource);
+		if (!filePath) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: File not found or invalid path {0}', JSON.stringify(resource)));
+			return;
+		}
+		const command = `load(${filePath})`; // filePath is already quoted
+		await positron.runtime.executeCode('r', command, true);
+	} catch (e) {
+		const message = e instanceof Error ? e.message : String(e);
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: {0}', message));
+	}
 }

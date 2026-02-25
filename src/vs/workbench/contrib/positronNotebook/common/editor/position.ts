@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { IPosition, Position } from '../../../../../editor/common/core/position.js';
@@ -16,6 +16,22 @@ export class CellEditorPosition implements ICellEditorPosition {
 		public readonly cellIndex: number,
 		public readonly position: IPosition
 	) { }
+
+	equals(other: ICellEditorPosition): boolean {
+		return CellEditorPosition.equals(this, other);
+	}
+
+	public static equals(a: ICellEditorPosition | null, b: ICellEditorPosition | null): boolean {
+		if (!a && !b) {
+			return true;
+		}
+		return (
+			!!a &&
+			!!b &&
+			a.cellIndex === b.cellIndex &&
+			Position.equals(a.position, b.position)
+		);
+	}
 
 	isBefore(other: ICellEditorPosition): boolean {
 		return CellEditorPosition.isBefore(this, other);
@@ -46,5 +62,13 @@ export class CellEditorPosition implements ICellEditorPosition {
 			return true;
 		}
 		return false;
+	}
+
+	toString(): string {
+		return CellEditorPosition.toString(this);
+	}
+
+	public static toString(cellPosition: ICellEditorPosition): string {
+		return `cell[${cellPosition.cellIndex}]:(${cellPosition.position.lineNumber},${cellPosition.position.column})`;
 	}
 }

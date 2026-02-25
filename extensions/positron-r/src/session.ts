@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,6 +17,8 @@ import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
+import { RPackageManager } from './packages';
+import { RMetadataExtra } from './r-installation';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -101,6 +103,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	/** Cache of installed packages and associated version info */
 	private _packageCache: Map<string, RPackageInstallation> = new Map();
+
+	/** Package manager for this session */
+	private _packageManager?: RPackageManager;
 
 	/** Disposables. Disposed of after main resources (LSP, kernel, etc) */
 	private _disposables: vscode.Disposable[] = [];
@@ -315,7 +320,25 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				});
 		}
 
-		return await this._kernel.start();
+		// Initialize the package manager
+		this._packageManager = new RPackageManager(this);
+
+		const runtimeInfo = await this._kernel.start();
+
+		// Add interpreter architecture to the runtime info for mismatch detection.
+		const metadataExtra = this.runtimeMetadata.extraRuntimeData as RMetadataExtra;
+		const interpreterArch = metadataExtra?.arch;
+		if (interpreterArch) {
+			if (interpreterArch === 'arm64') {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Arm64;
+			} else if (interpreterArch === 'x86_64') {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.X64;
+			} else {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Other;
+			}
+		}
+
+		return runtimeInfo;
 	}
 
 	private async onConsoleWidthChange(newWidth: number): Promise<void> {
@@ -456,6 +479,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 */
 	async showProfile() {
 		await this._kernel?.showProfile?.();
+	}
+
+	getLaunchInfo(): positron.LanguageRuntimeLaunchInfo | undefined {
+		return this._kernel?.getLaunchInfo?.();
 	}
 
 	updateSessionName(sessionName: string): void {
@@ -659,6 +686,78 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 
 		return attached;
+	}
+
+	/**
+	 * Get list of installed packages.
+	 */
+	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		return this._packageManager.getPackages();
+	}
+
+	/**
+	 * Install the list of packages.
+	 * @param packages Array of package install requests with name and optional version
+	 */
+	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		await this._packageManager.installPackages(packages);
+	}
+
+	/**
+	 * Update the list of packages.
+	 * @param packages Array of package install requests with name and optional version
+	 */
+	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		await this._packageManager.updatePackages(packages);
+	}
+
+	/**
+	 * Update all installed packages.
+	 */
+	async updateAllPackages(): Promise<void> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		await this._packageManager.updateAllPackages();
+	}
+
+	/**
+	 * Uninstall the list of packages.
+	 */
+	async uninstallPackages(packageNames: string[]): Promise<void> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		await this._packageManager.uninstallPackages(packageNames);
+	}
+
+	/**
+	 * Search a repository for packages matching the query.
+	 */
+	async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		return this._packageManager.searchPackages(query);
+	}
+
+	/**
+	 * Search a repository for available versions of a package.
+	 */
+	async searchPackageVersions(name: string): Promise<string[]> {
+		if (!this._packageManager) {
+			throw new Error('Package manager not initialized');
+		}
+		return this._packageManager.searchPackageVersions(name);
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
@@ -954,10 +1053,21 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private async onStateChange(state: positron.RuntimeState): Promise<void> {
 		this._state = state;
 		if (state === positron.RuntimeState.Ready) {
-			await Promise.all([
+			const promises: Promise<void>[] = [
 				this.startDap(),
-				this.setConsoleWidth()
-			]);
+				this.setConsoleWidth(),
+			];
+
+			// Only source the packages script if the environments feature is enabled
+			const environmentsEnabled = vscode.workspace
+				.getConfiguration('positron.environments')
+				.get<boolean>('enable', false);
+
+			if (environmentsEnabled) {
+				promises.push(this._packageManager!.sourcePackagesScript());
+			}
+
+			await Promise.all(promises);
 		} else if (state === positron.RuntimeState.Exited) {
 			await Promise.all([
 				this.deactivateServices('session exited'),

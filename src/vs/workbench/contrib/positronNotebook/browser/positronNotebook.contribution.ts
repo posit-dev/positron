@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // Notebook editor extensions
 import './contrib/find/positronNotebookFind.contribution.js';
 import './contrib/assistant/positronNotebookAssistant.contribution.js';
+import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
@@ -40,9 +41,9 @@ import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../note
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
-import { getActiveCell, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from './ContextKeysManager.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -52,6 +53,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
@@ -320,6 +322,9 @@ registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebook
 
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
+
+// Register the prompt that invites users to try the new notebook editor
+registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNotebookPromptContribution, WorkbenchPhase.AfterRestored);
 
 
 
@@ -667,6 +672,56 @@ registerAction2(class extends NotebookAction2 {
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
+			id: 'positronNotebook.cell.insertRawCellAbove',
+			title: localize2('positronNotebook.rawCell.insertAbove', "Insert Raw Cell Above"),
+			icon: ThemeIcon.fromId('arrow-up'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Insert,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Insert,
+			}]
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell) {
+			cell.insertRawCellAbove();
+		}
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.insertRawCellBelow',
+			title: localize2('positronNotebook.rawCell.insertBelow', "Insert Raw Cell Below"),
+			icon: ThemeIcon.fromId('arrow-down'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Insert,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Insert,
+			}]
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell) {
+			cell.insertRawCellBelow();
+		}
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
 			id: 'positronNotebook.cell.delete',
 			title: localize2('positronNotebook.cell.delete.description', "Delete Cell"),
 			icon: ThemeIcon.fromId('trash'),
@@ -988,8 +1043,20 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const state = notebook.selectionStateMachine.state.get();
+
+		// When multiple cells are selected, run all selected code cells
+		// and keep the multi-selection intact.
+		if (state.type === SelectionState.MultiSelection) {
+			const codeCells = getSelectedCells(state)
+				.filter(cell => cell.isCodeCell())
+				.sort((a, b) => a.index - b.index);
+			if (codeCells.length > 0) {
+				await notebook.runCells(codeCells);
+			}
+			return;
+		}
 
 		// Get the active cell
 		const cell = getActiveCell(state);
@@ -1283,6 +1350,155 @@ registerAction2(class extends NotebookAction2 {
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.changeCellType(CellKind.Code, 'raw');
+	}
+});
+
+// Split cell at cursor position(s)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.split',
+			title: localize2('positronNotebook.cell.split', "Split Cell"),
+			menu: [{
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 40,
+				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Minus
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.splitCell();
+	}
+});
+
+// Join selected cells - Shift+M (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.joinSelected',
+			title: localize2('positronNotebook.cell.joinSelected', "Join Selected Cells"),
+			menu: [{
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 50,
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyM
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.joinSelectedCells();
+	}
+});
+
+// Join with cell above
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.joinAbove',
+			title: localize2('positronNotebook.cell.joinAbove', "Join with Cell Above"),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 60,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 60,
+			}],
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.joinCellAbove();
+	}
+});
+
+// Join with cell below
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.joinBelow',
+			title: localize2('positronNotebook.cell.joinBelow', "Join with Cell Below"),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 70,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 70,
+			}],
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.joinCellBelow();
+	}
+});
+
+// Collapse all outputs for a cell
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.collapseOutput',
+			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Collapse,
+				order: 1,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+				)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.collapseOutput();
+		}
+	}
+});
+
+// Expand all outputs for a cell
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.expandOutput',
+			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Collapse,
+				order: 2,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
+				)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.expandOutput();
+		}
 	}
 });
 

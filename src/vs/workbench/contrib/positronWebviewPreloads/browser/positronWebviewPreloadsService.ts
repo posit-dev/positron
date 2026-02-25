@@ -74,6 +74,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		super.dispose();
 		// Clean up disposables linked to any connected sessions
 		this._sessionToDisposablesMap.forEach(disposables => disposables.dispose());
+		this._notebookToDisposablesMap.forEach(disposables => disposables.dispose());
 	}
 
 	sessionInfo(sessionId: string) {

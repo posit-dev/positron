@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 
 // Other dependencies.
-import { localize } from '../../../../../../nls.js';
 import { showCustomContextMenu } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
@@ -19,21 +18,21 @@ import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNote
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 
 interface NotebookCellMoreActionsMenuProps {
+	ariaLabel: string;
 	cell: IPositronNotebookCell;
 	hoverManager?: IHoverManager;
 	instance: IPositronNotebookInstance;
 	isMenuOpen: boolean;
-	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
+	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][];
 	setIsMenuOpen: (isOpen: boolean) => void;
 }
-
-const moreCellActions = localize('moreCellActions', 'More Cell Actions');
 
 /**
  * More actions dropdown menu component for notebook cells.
  * Encapsulates all dropdown menu logic including state management and menu display.
  */
 export function NotebookCellMoreActionsMenu({
+	ariaLabel,
 	cell,
 	hoverManager,
 	instance,
@@ -76,9 +75,9 @@ export function NotebookCellMoreActionsMenu({
 			ref={buttonRef}
 			aria-expanded={isMenuOpen}
 			aria-haspopup='menu'
-			ariaLabel={moreCellActions}
+			ariaLabel={ariaLabel}
 			hoverManager={hoverManager}
-			tooltip={moreCellActions}
+			tooltip={ariaLabel}
 			onPressed={showMoreActionsMenu}
 		>
 			<Icon className='button-icon' icon={Codicon.ellipsis} />

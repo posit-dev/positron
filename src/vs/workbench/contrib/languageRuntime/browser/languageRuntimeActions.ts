@@ -7,6 +7,7 @@ import * as nls from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
+import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
@@ -1259,5 +1260,28 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 		} catch (e) {
 			notificationService.error(e);
 		}
+	}
+});
+
+/**
+ * Action to reset the architecture mismatch warning so it shows again.
+ * Useful for testing or if users change their mind.
+ */
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.interpreter.resetArchitectureMismatchWarning',
+			title: nls.localize2('positron.interpreter.resetArchMismatch', 'Reset Interpreter Architecture Mismatch Warning'),
+			category: Categories.Developer,
+			f1: true,
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const runtimeStartupService = accessor.get(IRuntimeStartupService);
+		const notificationService = accessor.get(INotificationService);
+
+		runtimeStartupService.resetArchitectureMismatchWarning();
+		notificationService.info(nls.localize('positron.interpreter.archMismatchReset', 'Architecture mismatch warning has been reset. The warning will appear the next time you start an interpreter with a different architecture than your system.'));
 	}
 });

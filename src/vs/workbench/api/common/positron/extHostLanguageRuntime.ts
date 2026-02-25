@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -450,6 +450,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string): Promise<extHostProtocol.RuntimeInitialState> {
+		// Revive the notebook URI if it exists. The URI is serialized as a
+		// plain UriComponents object when crossing the IPC boundary and needs
+		// to be revived into a proper URI instance.
+		if (sessionMetadata.notebookUri) {
+			sessionMetadata = {
+				...sessionMetadata,
+				notebookUri: URI.revive(sessionMetadata.notebookUri)
+			};
+		}
+
 		// Look up the session manager responsible for restoring this session
 		console.debug(`[Reconnect ${sessionMetadata.sessionId}]: Await runtime manager for runtime ${runtimeMetadata.extensionId.value}...`);
 		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata, true);
@@ -710,6 +720,92 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].forceQuit();
 	}
 
+	async $getPackages(handle: number): Promise<positron.LanguageRuntimePackage[]> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot get packages from runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.getPackages) {
+			throw new Error(`Cannot get packages from runtime: session handle '${handle}' does not implement package management.`);
+		}
+
+		return session.getPackages();
+	}
+
+	async $installPackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot install package from runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.installPackages) {
+			throw new Error(`Cannot install packages from runtime: session handle '${handle}' does not implement package management.`);
+		}
+
+		return session.installPackages(packages);
+	}
+
+	async $uninstallPackages(handle: number, packageNames: string[]): Promise<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot uninstall package from runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.uninstallPackages) {
+			throw new Error(`Cannot uninstall packages from runtime: session handle '${handle}' does not implement package management.`);
+		}
+
+		return session.uninstallPackages(packageNames);
+	}
+
+	async $updatePackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot update packages from runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+
+		const session = this._runtimeSessions[handle];
+		if (!session.updatePackages) {
+			throw new Error(`Cannot update packages from runtime: session handle '${handle}' does not implement package management.`);
+		}
+
+
+		return session.updatePackages(packages);
+	}
+
+	async $updateAllPackages(handle: number): Promise<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot update all packages from runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.updateAllPackages) {
+			throw new Error(`Cannot update all packages from runtime: session handle '${handle}' does not implement package management.`);
+		}
+
+		return session.updateAllPackages();
+	}
+
+	async $searchPackages(handle: number, query: string): Promise<positron.LanguageRuntimePackage[]> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot search packages from runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.searchPackages) {
+			throw new Error(`Cannot search packages from runtime: session handle '${handle}' does not implement package management.`);
+		}
+
+		return session.searchPackages(query);
+	}
+
+	async $searchPackageVersions(handle: number, name: string): Promise<string[]> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot search package versions from runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.searchPackageVersions) {
+			throw new Error(`Cannot search package versions from runtime: session handle '${handle}' does not implement package management.`);
+		}
+
+		return session.searchPackageVersions(name);
+	}
+
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
@@ -769,6 +865,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].showProfile!();
 	}
 
+	async $getLaunchInfo(handle: number): Promise<positron.LanguageRuntimeLaunchInfo | undefined> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot get launch info: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.getLaunchInfo) {
+			return undefined;
+		}
+		return session.getLaunchInfo();
+	}
 
 	$openResource(handle: number, resource: URI | string): Promise<boolean> {
 		if (handle >= this._runtimeSessions.length) {
@@ -1075,6 +1181,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	/**
+	 * Emits a performance mark for language runtime operations. This is used to
+	 * correlate performance events across the extension host and main thread.
+	 *
+	 * @param name The name of the performance mark
+	 */
+	public emitPerfMark(extensionId: string, name: string): void {
+		this._proxy.$emitPerfMark(extensionId, name);
+	}
+
 	public getRegisteredRuntimes(): Promise<positron.LanguageRuntimeMetadata[]> {
 		return this._proxy.$getRegisteredRuntimes();
 	}
@@ -1144,6 +1260,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public async getNotebookSession(notebookUri: URI): Promise<positron.BaseLanguageRuntimeSession | undefined> {
 		const session = await this._proxy.$getNotebookSession(notebookUri);
 		return this.getRuntimeSessionInterface(session);
+	}
+
+	/**
+	 * Get the current working directory of a runtime session.
+	 * @param sessionId the session ID, or undefined for the foreground session
+	 * @returns The working directory, or undefined if not available
+	 */
+	public async getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined> {
+		return this._proxy.$getSessionWorkingDirectory(sessionId);
 	}
 
 	/**

@@ -6,8 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { getStoredModels } from './config';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
-import { BufferedLogOutputChannel } from './logBuffer.js';
+import { BufferedLogOutputChannel } from './log.js';
 import { getModelProviders } from './providers';
 
 function formatError(error: unknown): string {

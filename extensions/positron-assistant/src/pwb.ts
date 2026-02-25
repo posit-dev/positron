@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getEnabledProviders } from './config';
+import * as positron from 'positron';
 import { IS_RUNNING_ON_PWB } from './constants';
-import { log } from './extension';
-import { AutoconfigureResult } from './providers/index.js';
+import { log } from './log.js';
+import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 
 /**
  * Configuration for managed credentials on Posit Workbench.
@@ -58,20 +58,19 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 	displayName: string
 ): Promise<AutoconfigureResult> {
 	// Configure automatically if:
-	// - We are on PWB, and
 	// - the provider is enabled in settings, and
+	// - we are on PWB, and
 	// - managed credentials are available
 
-	if (!IS_RUNNING_ON_PWB) {
-		log.debug(`[${displayName}] Not running on Posit Workbench, skipping autoconfigure`);
+	const enabledProviders = await positron.ai.getEnabledProviders();
+	const providerEnabled = enabledProviders.includes(providerId);
+	if (!providerEnabled) {
+		log.debug(`[${displayName}] Provider '${providerId}' not enabled in settings, skipping autoconfigure`);
 		return { configured: false };
 	}
 
-	const providerEnabled = await getEnabledProviders().then(
-		providers => providers.includes(providerId)
-	);
-	if (!providerEnabled) {
-		log.debug(`[${displayName}] Provider '${providerId}' not enabled in settings`);
+	if (!IS_RUNNING_ON_PWB) {
+		log.debug(`[${displayName}] Not running on Posit Workbench, skipping autoconfigure`);
 		return { configured: false };
 	}
 
@@ -96,4 +95,27 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 		configured: true,
 		message: credentialConfig.displayName
 	};
+}
+
+/**
+ * Checks whether managed credentials are available for the given credential
+ * configuration on Posit Workbench. This is a pure check with no side effects.
+ *
+ * @param credentialConfig - The credential configuration to check
+ * @returns Whether managed credentials are available and valid
+ */
+export function hasManagedCredentials(credentialConfig: ManagedCredentialConfig): boolean {
+	if (!IS_RUNNING_ON_PWB) {
+		return false;
+	}
+
+	let tokenEnv = process.env[credentialConfig.envVar];
+
+	if (!tokenEnv && credentialConfig.providerVariableKey) {
+		const configSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables')
+			.get<Record<string, any>>(credentialConfig.providerVariableKey, {});
+		tokenEnv = configSettings[credentialConfig.envVar];
+	}
+
+	return !!tokenEnv && credentialConfig.validator(tokenEnv);
 }

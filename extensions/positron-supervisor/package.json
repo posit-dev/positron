@@ -198,7 +198,7 @@
   "dependencies": {
     "tail": "^2.2.6",
     "ws": "^8.18.0",
-    "axios": "^1.12.0"
+    "axios": "^1.13.5"
   },
   "overrides": {
 	"request": {

@@ -1,0 +1,39 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Container for output left action menu - positioned in the gutter area */
+.cell-output-left-action-menu {
+	/*
+	* A -24px offset will vertically align this menu with the CellLeftActionMenu
+	* in the cell gutter. The offset is 1px less than CellLeftActionMenu because
+	* there is no 1px border on the parent of this element.
+	*/
+	--_container-offset-left: -24px;
+	--_container-size: 20px;
+	/*
+	 * To line up output menu with the first line of the output, we need to position the menu
+	 * the same distance from the top of the cell as the start of the output contents.
+	 * The output contents are 0.5rem from the top of the cell because of the padding.
+	 * So we need to offset the menu 0.5rem from the top of the cell as well.
+	 */
+	--_container-offset-top: 0.5rem;
+
+	position: absolute;
+	top: var(--_container-offset-top);
+	left: var(--_container-offset-left);
+	width: var(--_container-size);
+	height: var(--_container-size);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	/* Make the button styles more compact so it fits in the left cell gutter */
+	& .action-button {
+		padding: 2px;
+		border-radius: 4px;
+		min-width: unset;
+	}
+}

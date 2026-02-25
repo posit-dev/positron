@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -125,6 +125,7 @@ export class KCApi implements PositronSupervisorApi {
 		private readonly _reconnect: boolean) {
 
 		this._api = new KallichoreApiInstance(_transport);
+		positron.runtime.emitPerfMark('initializing');
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
@@ -207,6 +208,31 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Provides a human-readable description of a terminal exit reason, for use
+	 * in logging and error messages.
+	 *
+	 * @param reason  The terminal exit reason to describe.
+	 * @returns The description of the exit reason as a string.
+	 */
+	describeExitReason(reason: vscode.TerminalExitReason | undefined): string {
+		if (reason === undefined) {
+			return 'unknown reason';
+		} else if (reason === vscode.TerminalExitReason.Process) {
+			return 'the process exited';
+		} else if (reason === vscode.TerminalExitReason.User) {
+			return 'the user closed the terminal';
+		} else if (reason === vscode.TerminalExitReason.Unknown) {
+			return 'an unknown error occurred';
+		} else if (reason === vscode.TerminalExitReason.Extension) {
+			return 'the extension closed the terminal';
+		} else if (reason === vscode.TerminalExitReason.Shutdown) {
+			return 'the terminal was closed due to shutdown';
+		} else {
+			return `reason code ${reason}`;
+		}
+	}
+
+	/**
 	 * Starts a new Kallichore server. If a server is already running, it will
 	 * attempt to reconnect to it. Returns a promise that resolves when the
 	 * server is online.
@@ -258,7 +284,10 @@ export class KCApi implements PositronSupervisorApi {
 			undefined;
 
 		// If there is, and we can reconnect to it, do so
-		if (serverState) {
+		const connectionInfo = serverState ?
+			this.connectionInfoFromState(serverState) :
+			undefined;
+		if (connectionInfo && serverState) {
 			try {
 				if (await this.reconnect(serverState)) {
 					// Successfully reconnected
@@ -269,16 +298,10 @@ export class KCApi implements PositronSupervisorApi {
 					// reconnect to the server saved in the state, and it's
 					// normal for it to have exited if this is a new Positron
 					// session.
-					const connectionInfo = serverState.base_path ||
-						(serverState.socket_path ? `socket:${serverState.socket_path}` : '') ||
-						(serverState.named_pipe ? `pipe:${serverState.named_pipe}` : '');
 					this.log(`Could not reconnect to Kallichore server ` +
 						`at ${connectionInfo}. Starting a new server`);
 				}
 			} catch (err) {
-				const connectionInfo = serverState.base_path ||
-					(serverState.socket_path ? `socket:${serverState.socket_path}` : '') ||
-					(serverState.named_pipe ? `pipe:${serverState.named_pipe}` : '');
 				this.log(`Failed to reconnect to Kallichore server ` +
 					` at ${connectionInfo}: ${err}. Starting a new server.`);
 			}
@@ -405,15 +428,32 @@ export class KCApi implements PositronSupervisorApi {
 				return;
 			}
 
+			// If we're running detached, and the terminal closes without an
+			// error code (or with a "successful" exit), don't treat it as a
+			// failure since the server process can outlive the terminal.
+			if (shutdownTimeout !== 'immediately') {
+				if (this._terminal.exitStatus?.code === undefined || this._terminal.exitStatus?.code === 0) {
+					this.log(`Supervisor terminal closed (` +
+						this.describeExitReason(this._terminal.exitStatus?.reason) +
+						`) during startup; ignoring because shutdownTimeout is set ` +
+						`to '${shutdownTimeout}'`);
+					return;
+				}
+			}
+
 			// Mark the terminal as exited
 			exited = true;
 
 			// Read the contents of the output file and log it
 			const contents = fs.readFileSync(outFile, 'utf8');
 			if (this._terminal.exitStatus && this._terminal.exitStatus.code) {
-				this.log(`Supervisor terminal closed with exit code ${this._terminal.exitStatus.code}; output:\n${contents}`);
+				this.log(`Supervisor terminal closed (` +
+					this.describeExitReason(this._terminal.exitStatus.reason) +
+					`) with exit code ${this._terminal.exitStatus.code}; output:\n${contents}`);
 			} else {
-				this.log(`Supervisor terminal closed unexpectedly; output:\n${contents}`);
+				this.log(`Supervisor terminal closed unexpectedly (` +
+					this.describeExitReason(this._terminal.exitStatus?.reason) +
+					`); output:\n${contents}`);
 			}
 
 			// Display a notification that directs users to open the log to get more information
@@ -443,6 +483,7 @@ export class KCApi implements PositronSupervisorApi {
 			hideFromUser: !showTerminal,
 			isTransient: false
 		} satisfies vscode.TerminalOptions);
+		positron.runtime.emitPerfMark('terminalOpened');
 
 		// Flag to track if the terminal exited before the start barrier opened
 		let exited = false;
@@ -462,6 +503,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Wait for the terminal to start and get the PID
 		let processId = await withTimeout(this._terminal.processId,
 			startupTimeout, `Timed out waiting for terminal to start after ${startupTimeout}ms`);
+		positron.runtime.emitPerfMark('started');
 
 		// Now that the terminal has started, log the PID and
 		// start the timer for server startup
@@ -662,6 +704,7 @@ export class KCApi implements PositronSupervisorApi {
 			throw new Error(message);
 		}
 
+		positron.runtime.emitPerfMark('ready');
 		this.log(`Kallichore server started in ${Date.now() - supervisorStartTime}ms`);
 
 		// Begin streaming the logs (cleaning up any existing streamer)
@@ -783,6 +826,19 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Returns the connection information (base path, socket path, or named
+	 * pipe) from the given server state.
+	 *
+	 * @param state The server state to extract the connection information from.
+	 * @returns The connection information as a string.
+	 */
+	connectionInfoFromState(state: KallichoreServerState): string {
+		return state.base_path ||
+			(state.socket_path ? `socket:${state.socket_path}` : '') ||
+			(state.named_pipe ? `npipe:${state.named_pipe}` : '');
+	}
+
+	/**
 	 * Attempt to reconnect to a Kallichore server that was previously running.
 	 *
 	 * @param serverState The state of the server to reconnect to.
@@ -806,9 +862,7 @@ export class KCApi implements PositronSupervisorApi {
 		// position in the log file, we'll wind up with duplicate logs after
 		// reconnecting.
 		this._log.clear();
-		const connectionInfo = serverState.base_path ||
-			(serverState.socket_path ? `socket:${serverState.socket_path}` : '') ||
-			(serverState.named_pipe ? `npipe:${serverState.named_pipe}` : '');
+		const connectionInfo = this.connectionInfoFromState(serverState);
 		this.log(`Reconnecting to Kallichore server at ${connectionInfo} (PID ${pid})`);
 
 		// Re-establish the bearer token
@@ -825,6 +879,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		const status = await this._api.api.serverStatus();
 		this._started.open();
+		positron.runtime.emitPerfMark('ready');
 		this.log(`Kallichore ${status.data.version} server reconnected with ${status.data.sessions} sessions`);
 
 		// Update the idle timeout from settings if we aren't in web mode
@@ -993,9 +1048,22 @@ export class KCApi implements PositronSupervisorApi {
 					}
 				}
 
-				// Rethrow the error for the caller to handle. Use a summary to
-				// unroll AggregateErrors.
-				throw new Error(summarizeError(err));
+				// Log the error; use a summary to unroll aggregate errors like
+				// AggregateError
+				const errorSummary = summarizeError(err);
+				this.log(`Failed to create session '${sessionMetadata.sessionId}': ${errorSummary}`);
+				if (err.stack) {
+					this.log(`Stack trace: ${err.stack}`);
+				}
+				if (err.cause) {
+					this.log(`Caused by: ${summarizeError(err.cause)}`);
+					if (err.cause.stack) {
+						this.log(`Stack trace: ${err.cause.stack}`);
+					}
+				}
+
+				// Rethrow the error for the caller to handle.
+				throw new Error(errorSummary);
 			}
 		}
 

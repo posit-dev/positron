@@ -7,12 +7,13 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
 import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 import { applyModelFilters } from '../../modelFilters';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * OpenAI model provider implementation.
@@ -69,17 +70,13 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'openai-api',
-			displayName: 'OpenAI'
-		},
+		provider: PROVIDER_METADATA.openai,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
 			name: 'OpenAI',
 			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
-			toolCalls: true,
-			completions: true,
+			toolCalls: true
 		},
 	};
 

@@ -55,6 +55,8 @@ import { ILanguageService } from '../../../editor/common/languages/language.js';
 import { IRuntimeNotebookKernelService } from '../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { RuntimeNotebookKernelService } from '../../contrib/runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
 import { IPositronNotebookService, PositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
+import { INotebookLoggingService } from '../../contrib/notebook/common/notebookLoggingService.js';
+import { NotebookLoggingService } from '../../contrib/notebook/browser/services/notebookLoggingServiceImpl.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
@@ -80,6 +82,7 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(INotebookDocumentService, new NotebookDocumentWorkbenchService());
 	instantiationService.stub(INotebookService, disposables.add(instantiationService.createInstance(NotebookService)));
 	instantiationService.stub(INotebookKernelService, disposables.add(instantiationService.createInstance(NotebookKernelService)));
+	instantiationService.stub(INotebookLoggingService, disposables.add(instantiationService.createInstance(NotebookLoggingService)));
 
 	// Positron services.
 	instantiationService.stub(IEphemeralStateService, instantiationService.createInstance(EphemeralStateService));

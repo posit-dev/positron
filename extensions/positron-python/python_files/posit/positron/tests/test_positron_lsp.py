@@ -352,19 +352,29 @@ class TestCompletions:
         assert labels == {expected_label}
 
     @pytest.mark.parametrize(
-        ("source", "character", "expected_labels"),
+        ("source", "namespace", "character", "expected_labels"),
         [
-            ("x['']", 3, {"a", "b"}),
-            ('x[""]', 3, {"a", "b"}),
-            ("x['", None, {"a'", "b'"}),
-            ('x["', None, {'a"', 'b"'}),
+            ("x['']", {"x": {"a": 0, "b": 1}}, 3, {"a", "b"}),
+            ('x[""]', {"x": {"a": 0, "b": 1}}, 3, {"a", "b"}),
+            ("x['", {"x": {"a": 0, "b": 1}}, None, {"a'", "b'"}),
+            ('x["', {"x": {"a": 0, "b": 1}}, None, {'a"', 'b"'}),
+            ('x[[""]', {"x": pd.DataFrame({"a": [], "b": []})}, 4, {"a", "b"}),
+            ("x[['']", {"x": pd.DataFrame({"a": [], "b": []})}, 4, {"a", "b"}),
+            ('x[["', {"x": pd.DataFrame({"a": [], "b": []})}, None, {'a"', 'b"'}),
+            ("x[['", {"x": pd.DataFrame({"a": [], "b": []})}, None, {"a'", "b'"}),
+            ('x[[""]', {"x": {"a": 0, "b": 1}}, 4, set()),
+            ("x[['']", {"x": {"a": 0, "b": 1}}, 4, set()),
         ],
     )
     def test_dict_key_completion_with_closing_quote(
-        self, source: str, character: Optional[int], expected_labels: set[str]
+        self,
+        source: str,
+        namespace: Dict[str, Any],
+        character: Optional[int],
+        expected_labels: set[str],
     ) -> None:
         """Test that dict key completions don't duplicate closing quote when it already exists."""
-        server = create_test_server(namespace={"x": {"a": 0, "b": 1}})
+        server = create_test_server(namespace=namespace)
 
         text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
         completions = self._completions(server, text_document, character=character)
@@ -440,7 +450,6 @@ class TestCompletions:
                 None,
                 ["0"],
                 id="pandas_dataframe_int_dict_key",
-                marks=pytest.mark.xfail(reason="Completing integer dict keys not supported"),
             ),
             pytest.param(
                 'x["',
@@ -455,7 +464,91 @@ class TestCompletions:
                 None,
                 ["0"],
                 id="polars_series_dict_key",
-                marks=pytest.mark.xfail(reason="Completing integer dict keys not supported"),
+            ),
+            pytest.param(
+                "x[",
+                {"x": {0: "zero", 1: "one", 2: "two"}},
+                None,
+                ["0", "1", "2"],
+                id="dict_int_keys",
+            ),
+            pytest.param(
+                "x[1",
+                {"x": pd.DataFrame({0: [], 10: [], 11: [], 20: []})},
+                None,
+                ["10", "11"],
+                id="pandas_dataframe_int_key_prefix_filter",
+            ),
+            pytest.param(
+                "x[",
+                {"x": pd.Series({"a": 0}, dtype="int64")},
+                None,
+                [],
+                id="pandas_series_string_index_no_int_keys",
+            ),
+            # Double-bracket (multi-column) DataFrame access
+            pytest.param(
+                'x[["',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket",
+            ),
+            pytest.param(
+                "x[['",
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ["a'", "b'"],
+                id="pandas_dataframe_double_bracket_single_quote",
+            ),
+            pytest.param(
+                'x[["a", "',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket_second_col",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": pl.DataFrame({"a": []})},
+                None,
+                ['a"'],
+                id="polars_dataframe_double_bracket",
+            ),
+            pytest.param(
+                'x[[ "',
+                {"x": pd.DataFrame({"a": [], "b": []})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_dataframe_double_bracket_whitespace",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": {"a": 0, "b": 1}},
+                None,
+                [],
+                id="dict_double_bracket_no_completions",
+            ),
+            pytest.param(
+                'os.environ[["',
+                {"os": os},
+                None,
+                [],
+                id="os_environ_double_bracket_no_completions",
+            ),
+            pytest.param(
+                'import os; os.environ[["',
+                {},
+                None,
+                [],
+                id="os_environ_double_bracket_from_source_no_completions",
+            ),
+            pytest.param(
+                'x[["',
+                {"x": pd.Series({"a": 1, "b": 2})},
+                None,
+                ['a"', 'b"'],
+                id="pandas_series_double_bracket",
             ),
             pytest.param(
                 'os.environ["',
@@ -627,6 +720,182 @@ class TestCompletions:
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_alias_with_os_in_namespace",
+            ),
+            # --- DataFrame column name completions in method calls ---
+            # Pandas positional
+            pytest.param(
+                'x.drop("")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_drop_positional",
+            ),
+            pytest.param(
+                'x.groupby("")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_groupby_positional",
+            ),
+            pytest.param(
+                'x.sort_values("")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_sort_values_positional",
+            ),
+            pytest.param(
+                'x.set_index("")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_set_index_positional",
+            ),
+            pytest.param(
+                'x.nlargest(5, "")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_nlargest_positional",
+            ),
+            # Pandas keyword
+            pytest.param(
+                'x.filter(items="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_filter_keyword",
+            ),
+            pytest.param(
+                'x.drop(columns="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_drop_keyword",
+            ),
+            pytest.param(
+                'x.groupby(by="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_groupby_keyword",
+            ),
+            pytest.param(
+                'x.sort_values(by="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_sort_values_keyword",
+            ),
+            pytest.param(
+                'x.set_index(keys="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_set_index_keyword",
+            ),
+            pytest.param(
+                'x.merge(other, on="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []}), "other": pd.DataFrame()},
+                -2,
+                ["col1", "col2"],
+                id="pandas_merge_on_keyword",
+            ),
+            pytest.param(
+                'x.merge(other, left_on="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []}), "other": pd.DataFrame()},
+                -2,
+                ["col1", "col2"],
+                id="pandas_merge_left_on_keyword",
+            ),
+            # Pandas out-of-order keywords
+            pytest.param(
+                'x.groupby(axis="columns", by="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_groupby_out_of_order_keyword",
+            ),
+            pytest.param(
+                'x.sort_values(axis="columns", by="")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_sort_values_out_of_order_keyword",
+            ),
+            # Pandas prefix and quote variants
+            pytest.param(
+                'x.groupby("col")',
+                {"x": pd.DataFrame({"col1": [], "col2": [], "other": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_groupby_prefix_filter",
+            ),
+            pytest.param(
+                "x.groupby('')",
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="pandas_groupby_single_quote",
+            ),
+            # Polars positional
+            pytest.param(
+                'x.sort("")',
+                {"x": pl.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="polars_sort_positional",
+            ),
+            pytest.param(
+                'x.select("")',
+                {"x": pl.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="polars_select_positional",
+            ),
+            pytest.param(
+                'x.select("x", "")',
+                {"x": pl.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="polars_select_variadic_second",
+            ),
+            pytest.param(
+                'x.group_by("")',
+                {"x": pl.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="polars_group_by_positional",
+            ),
+            pytest.param(
+                'x.drop("")',
+                {"x": pl.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="polars_drop_positional",
+            ),
+            pytest.param(
+                'x.explode("")',
+                {"x": pl.DataFrame({"col1": [], "col2": []})},
+                -2,
+                ["col1", "col2"],
+                id="polars_explode_positional",
+            ),
+            # Polars keyword
+            pytest.param(
+                'x.join(other, on="")',
+                {"x": pl.DataFrame({"col1": [], "col2": []}), "other": pl.DataFrame()},
+                -2,
+                ["col1", "col2"],
+                id="polars_join_on_keyword",
+            ),
+            # Polars LazyFrame
+            pytest.param(
+                'lf.sort("")',
+                {"lf": pl.DataFrame({"col1": [], "col2": []}).lazy()},
+                -2,
+                ["col1", "col2"],
+                id="polars_lazyframe_sort",
             ),
         ],
     )
@@ -915,6 +1184,57 @@ class TestCompletions:
 
         assert set(labels) == {"%%timeit", "%%time"}
 
+    @pytest.mark.parametrize(
+        ("source", "namespace", "character"),
+        [
+            pytest.param(
+                'x.nlargest(5, 3, "")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                id="pandas_nlargest_wrong_positional",
+            ),
+            pytest.param(
+                'x.unknown_method("")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                id="unknown_method",
+            ),
+            pytest.param(
+                'mydict.groupby("")',
+                {"mydict": {"col1": 0}},
+                -2,
+                id="not_a_dataframe",
+            ),
+            pytest.param(
+                'x.merge("")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                id="pandas_merge_positional_not_column",
+            ),
+            pytest.param(
+                'x.filter("")',
+                {"x": pd.DataFrame({"col1": [], "col2": []})},
+                -2,
+                id="pandas_filter_positional_keyword_only",
+            ),
+        ],
+    )
+    def test_no_column_completions(
+        self,
+        source: str,
+        namespace: Dict[str, Any],
+        character: int,
+        tmp_path: Path,
+    ) -> None:
+        """Test that column completions are NOT returned for invalid contexts."""
+        server = create_test_server(namespace, root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+        completions = self._completions(server, text_document, character)
+        column_completions = [c for c in completions if c.detail == "column"]
+        assert column_completions == [], (
+            f"Expected no column completions, got {[c.label for c in column_completions]}"
+        )
+
 
 class TestCompletionItemResolve:
     """Tests for completion item resolve functionality."""
@@ -979,6 +1299,20 @@ class TestCompletionItemResolve:
                 id="polars_dataframe_dict_key",
             ),
             pytest.param(
+                "x[",
+                {"x": {0: "hello"}},
+                "str",
+                None,
+                id="dict_int_key_resolve",
+            ),
+            pytest.param(
+                "x[",
+                {"x": pd.DataFrame({0: [1, 2, 3]})},
+                "int64 (3)",
+                "dtype: int64",
+                id="pandas_dataframe_int_key_resolve",
+            ),
+            pytest.param(
                 "x",
                 {"x": pl.Series([1, 2, 3])},
                 "Int64 (3)",
@@ -1013,13 +1347,13 @@ class TestCompletionItemResolve:
 
         item = completion_list.items[0]
 
-        # Dict key completions defer detail to resolve for performance
-        is_dict_key_completion = '["' in source or "['" in source
-        if is_dict_key_completion:
+        # Dict/int key completions defer detail to resolve for performance
+        is_subscript_completion = '["' in source or "['" in source or source.endswith("[")
+        if is_subscript_completion:
             # Verify detail is not set initially and data has expected structure
             assert item.detail is None
             assert item.data is not None
-            assert item.data.get("type") == "dict_key"
+            assert item.data.get("type") in ("dict_key", "int_key")
             assert "expr" in item.data
             assert "key" in item.data
 

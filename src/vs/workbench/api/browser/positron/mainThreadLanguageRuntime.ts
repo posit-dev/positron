@@ -11,8 +11,8 @@ import {
 	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -51,8 +51,9 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
+import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState, LanguageRuntimePackage } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
+import * as perf from '../../../../base/common/performance.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -636,6 +637,34 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
+	async getPackages(): Promise<LanguageRuntimePackage[]> {
+		return this._proxy.$getPackages(this.handle);
+	}
+
+	async installPackages(packages: IPackageSpec[]): Promise<void> {
+		return this._proxy.$installPackages(this.handle, packages);
+	}
+
+	async uninstallPackages(packageNames: string[]): Promise<void> {
+		return this._proxy.$uninstallPackages(this.handle, packageNames);
+	}
+
+	async updatePackages(packages: IPackageSpec[]): Promise<void> {
+		return this._proxy.$updatePackages(this.handle, packages);
+	}
+
+	async updateAllPackages(): Promise<void> {
+		return this._proxy.$updateAllPackages(this.handle);
+	}
+
+	async searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$searchPackages(this.handle, query);
+	}
+
+	async searchPackageVersions(name: string): Promise<string[]> {
+		return this._proxy.$searchPackageVersions(this.handle, name);
+	}
+
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
 		return this._proxy.$showOutputLanguageRuntime(this.handle, channel);
 	}
@@ -651,6 +680,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	async showProfile(): Promise<void> {
 		return this._proxy.$showProfileLanguageRuntime(this.handle);
+	}
+
+	async getLaunchInfo(): Promise<ILanguageRuntimeLaunchInfo | undefined> {
+		return this._proxy.$getLaunchInfo(this.handle);
 	}
 
 	/**
@@ -683,10 +716,15 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				this._startupEmitter.fire(info);
 				resolve(info);
 			}).catch((err) => {
+				// Combine error details and stack trace if both are present
+				const errorDetails = `${err.details ? err.details : ''}${err.stack ? '\n\n' + err.stack : ''}`;
 				// Examine the error object to see what kind of failure it is
-				if (err.message && err.details) {
+				if (err.message && errorDetails) {
 					// We have an error message and details; use both
-					this._startupFailureEmitter.fire(err satisfies ILanguageRuntimeStartupFailure);
+					this._startupFailureEmitter.fire({
+						message: err.message,
+						details: errorDetails
+					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else if (err.message && err.errors) {
 					// There are multiple errors (AggregateError)
@@ -700,21 +738,21 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 					// We have a name and a message.
 					this._startupFailureEmitter.fire({
 						message: err.name,
-						details: err.message
+						details: err.message + (errorDetails ? '\n\n' + errorDetails : '')
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else if (err.message) {
 					// We only have a message.
 					this._startupFailureEmitter.fire({
 						message: err.message,
-						details: ''
+						details: errorDetails
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else {
 					// Not an error object, or it doesn't have a message; just use the string
 					this._startupFailureEmitter.fire({
 						message: err.toString(),
-						details: ''
+						details: errorDetails
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err);
 				}
@@ -1611,6 +1649,19 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(session.dynState);
 	}
 
+	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined> {
+		let session;
+		if (sessionId) {
+			session = this.findSession(sessionId);
+		} else {
+			session = this._runtimeSessionService.foregroundSession;
+		}
+		if (session) {
+			return Promise.resolve(session.dynState.currentWorkingDirectory || undefined);
+		}
+		return Promise.resolve(undefined);
+	}
+
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown> {
 		const session = this.findSession(sessionId);
 		return session.callMethod(method, args);
@@ -1707,6 +1758,17 @@ export class MainThreadLanguageRuntime
 			}
 		}
 		throw new Error(`No variables provider found for session ${sessionId}`);
+	}
+
+	/**
+	 * Emit a performance mark for a given extension. This is used to track the
+	 * timing of startup actions that happen in extensions.
+	 *
+	 * @param extensionId The ID of the extension emitting the performance mark
+	 * @param name The name of the performance mark
+	 */
+	$emitPerfMark(extensionId: string, name: string): void {
+		perf.mark(`code/positron/${extensionId}/${name}`);
 	}
 
 	async querySessionTables(instance: IPositronVariablesInstance, accessKeys: Array<Array<string>>, queryTypes: Array<string>):

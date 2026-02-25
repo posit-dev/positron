@@ -50,7 +50,7 @@ test.describe('Diagnostics', {
 		// Python Alt Session - verify warning since pkg not installed
 		await sessions.start('pythonAlt');
 		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
-		await problems.expectWarningText('Could not find import of `termcolor`');
+		await problems.expectWarningText('Cannot find module `termcolor`');
 
 		// does pyrefly use squiggly correctly?
 		// await problems.expectSquigglyCountToBe('warning', 1);

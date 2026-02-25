@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -59,6 +59,7 @@ import { ILanguageConfigurationService } from '../../editor/common/languages/lan
 import { IQuickChatService } from '../../workbench/contrib/chat/browser/chat.js';
 import { IActionWidgetService } from '../../platform/actionWidget/browser/actionWidget.js';
 import { ITerminalService } from '../../workbench/contrib/terminal/browser/terminal.js';
+import { IPositronPackagesService } from '../../workbench/contrib/positronPackages/browser/interfaces/positronPackagesService.js';
 
 /**
  * PositronReactServices interface.
@@ -117,6 +118,7 @@ export class PositronReactServices {
 		@IPositronModalDialogsService public readonly positronModalDialogsService: IPositronModalDialogsService,
 		@IPositronNewFolderService public readonly positronNewFolderService: IPositronNewFolderService,
 		@IPositronNotebookOutputWebviewService public readonly positronNotebookOutputWebviewService: IPositronNotebookOutputWebviewService,
+		@IPositronPackagesService public readonly positronPackagesService: IPositronPackagesService,
 		@IPositronPlotsService public readonly positronPlotsService: IPositronPlotsService,
 		@IPositronPreviewService public readonly positronPreviewService: IPositronPreviewService,
 		@IResourceUsageHistoryService public readonly resourceUsageHistoryService: IResourceUsageHistoryService,
@@ -149,15 +151,5 @@ export class PositronReactServices {
 	 */
 	get<T>(id: ServiceIdentifier<T>): T {
 		return this.instantiationService.invokeFunction(accessor => accessor.get(id));
-	}
-
-	/**
-	 * Get a service by its identifier, returning undefined if it doesn't exist.
-	 * Makes PositronReactServices compatible with ServicesAccessor interface.
-	 * @param id Service identifier
-	 * @returns The requested service
-	 */
-	getIfExists<T>(id: ServiceIdentifier<T>): T | undefined {
-		return this.instantiationService.invokeFunction(accessor => accessor.getIfExists(id));
 	}
 }

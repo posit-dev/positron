@@ -36,41 +36,36 @@ export class MainThreadConnections implements MainThreadConnectionsShape {
 }
 
 export interface IAvailableDriverMethods {
-	generateCode: boolean,
-	connect: boolean,
-	checkDependencies: boolean,
-	installDependencies: boolean
+	generateCode: boolean;
+	connect: boolean;
+	checkDependencies: boolean;
+	installDependencies: boolean;
 }
 
 class MainThreadDriverAdapter implements IDriver {
+	readonly generateCode?: (inputs: Input[]) => Promise<string | { code: string; errorMessage: string }>;
+	readonly connect?: (code: string) => Promise<void>;
+	readonly checkDependencies?: () => Promise<boolean>;
+	readonly installDependencies?: () => Promise<boolean>;
+
 	constructor(
 		readonly driverId: string,
 		readonly metadata: IDriverMetadata,
-		private readonly availableMethods: IAvailableDriverMethods,
-		private readonly _proxy: ExtHostConnectionsShape
-	) { }
-	get generateCode() {
-		if (!this.availableMethods.generateCode) {
-			return undefined;
+		availableMethods: IAvailableDriverMethods,
+		proxy: ExtHostConnectionsShape
+	) {
+		// Create stable function references once in the constructor
+		if (availableMethods.generateCode) {
+			this.generateCode = (inputs: Input[]) => proxy.$driverGenerateCode(driverId, inputs);
 		}
-		return (inputs: Input[]) => this._proxy.$driverGenerateCode(this.driverId, inputs);
-	}
-	get connect() {
-		if (!this.availableMethods.connect) {
-			return undefined;
+		if (availableMethods.connect) {
+			this.connect = (code: string) => proxy.$driverConnect(driverId, code);
 		}
-		return (code: string) => this._proxy.$driverConnect(this.driverId, code);
-	}
-	get checkDependencies() {
-		if (!this.availableMethods.checkDependencies) {
-			return undefined;
+		if (availableMethods.checkDependencies) {
+			this.checkDependencies = () => proxy.$driverCheckDependencies(driverId);
 		}
-		return () => this._proxy.$driverCheckDependencies(this.driverId);
-	}
-	get installDependencies() {
-		if (!this.availableMethods.installDependencies) {
-			return undefined;
+		if (availableMethods.installDependencies) {
+			this.installDependencies = () => proxy.$driverInstallDependencies(driverId);
 		}
-		return () => this._proxy.$driverInstallDependencies(this.driverId);
 	}
 }
