@@ -112,9 +112,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.commit || github.ref }}
           fetch-depth: 0
           submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - name: Load secret
         uses: 1password/load-secrets-action@v3
@@ -484,8 +487,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.commit || github.ref }}
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - uses: actions/setup-node@v6
         with:
