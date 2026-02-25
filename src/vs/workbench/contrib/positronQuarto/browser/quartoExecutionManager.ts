@@ -1106,32 +1106,29 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		// normalized form we avoid issues with line wrapping splitting
 		// the prompt+command across multiple lines.
 		if (commandToMatch) {
-			// Build a mapping from normalized (whitespace-collapsed) positions
+			// Build a mapping from stripped (all-whitespace-removed) positions
 			// back to positions in the original text, so we can find the
-			// command even when it wraps across lines. Use the last
-			// occurrence since the command may be echoed multiple times
-			// (once when sent, once in the prompt-echoed line).
-			const normalized = cleanOutput.replace(/\s+/g, ' ');
-			const normalizedCmd = commandToMatch.replace(/\s+/g, ' ');
-			const cmdIndex = normalized.lastIndexOf(normalizedCmd);
+			// command even when terminal line wrapping splits words (e.g.
+			// "Yo\nur" should still match "Your"). Use the last occurrence
+			// since the command may be echoed multiple times (once when
+			// sent, once in the prompt-echoed line).
+			const stripped = cleanOutput.replace(/\s/g, '');
+			const strippedCmd = commandToMatch.replace(/\s/g, '');
+			const cmdIndex = stripped.lastIndexOf(strippedCmd);
 			if (cmdIndex >= 0) {
-				// Map the normalized end position back to the original text.
-				// Walk through the original text counting non-whitespace-run
-				// characters to find where the command ends.
-				let normPos = 0;
+				// Map the stripped end position back to the original text.
+				// Walk through the original text, skipping whitespace
+				// characters to count only non-whitespace positions.
+				let strippedPos = 0;
 				let origPos = 0;
-				const targetNormPos = cmdIndex + normalizedCmd.length;
-				while (normPos < targetNormPos && origPos < cleanOutput.length) {
+				const targetStrippedPos = cmdIndex + strippedCmd.length;
+				while (strippedPos < targetStrippedPos && origPos < cleanOutput.length) {
 					if (/\s/.test(cleanOutput[origPos])) {
-						// In original text, advance past all whitespace
-						while (origPos < cleanOutput.length && /\s/.test(cleanOutput[origPos])) {
-							origPos++;
-						}
-						// In normalized text, this maps to a single space
-						normPos++;
+						// Skip whitespace in original text (not counted in stripped)
+						origPos++;
 					} else {
 						origPos++;
-						normPos++;
+						strippedPos++;
 					}
 				}
 				// Take everything after the echoed command in the original text
