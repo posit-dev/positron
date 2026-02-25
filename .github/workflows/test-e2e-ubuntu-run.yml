@@ -373,6 +373,32 @@ jobs:
           pattern: blob-report-${{ inputs.project }}-*
           merge-multiple: true
 
+      - name: Verify all shard reports received
+        id: verify-reports
+        run: |
+          EXPECTED_SHARDS=${{ inputs.shards }}
+          echo "Expected shard count: $EXPECTED_SHARDS"
+
+          # Count the number of blob report artifacts that were downloaded
+          # Each shard produces a report.zip file in the blob-report directory
+          REPORT_COUNT=$(find all-blob-reports -name "report-*.zip" 2>/dev/null | wc -l)
+          echo "Found $REPORT_COUNT blob report(s)"
+
+          if [ "$REPORT_COUNT" -lt "$EXPECTED_SHARDS" ]; then
+            echo "::warning::Missing blob reports! Expected $EXPECTED_SHARDS but found $REPORT_COUNT"
+            echo "This typically means one or more shards crashed before uploading their results."
+            echo "missing_reports=true" >> $GITHUB_OUTPUT
+            echo "report_count=$REPORT_COUNT" >> $GITHUB_OUTPUT
+          else
+            echo "All $EXPECTED_SHARDS shard reports received"
+            echo "missing_reports=false" >> $GITHUB_OUTPUT
+            echo "report_count=$REPORT_COUNT" >> $GITHUB_OUTPUT
+          fi
+
+          # List what we have for debugging
+          echo "Contents of all-blob-reports:"
+          ls -la all-blob-reports/ || true
+
       - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
         working-directory: playwright-merge
         run: |
@@ -417,6 +443,16 @@ jobs:
           fi
 
           node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
+
+          # Fail if we're missing reports from any shards (even if all available tests passed)
+          if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then
+            echo ""
+            echo "::error::Missing shard reports detected!"
+            echo "Expected ${{ inputs.shards }} shard reports but only received ${{ steps.verify-reports.outputs.report_count }}."
+            echo "One or more shards likely crashed or timed out before uploading results."
+            echo "Check the individual shard jobs above for errors."
+            exit 1
+          fi
 
       - name: Clean up blob report artifacts
         if: success()
