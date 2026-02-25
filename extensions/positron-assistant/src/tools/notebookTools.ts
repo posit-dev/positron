@@ -814,6 +814,17 @@ function createEditNotebookTool(participantService: ParticipantService) {
 					}
 
 					case 'clearOutputs': {
+						const { cellIndices: clearCellIndices } = options.input;
+						if (clearCellIndices && clearCellIndices.length > 0) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(
+									'The clearOutputs operation clears all cell outputs. ' +
+									'Selecting specific cells via cellIndices is not supported. ' +
+									'Omit cellIndices to clear all outputs.'
+								)
+							]);
+						}
+
 						// Ensure the notebook is the active editor so
 						// notebook.clearAllCellsOutputs resolves its context.
 						// The chat panel may have stolen focus.
