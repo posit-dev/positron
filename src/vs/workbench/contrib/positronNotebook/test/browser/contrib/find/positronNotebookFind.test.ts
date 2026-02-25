@@ -1238,34 +1238,6 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(getFindMatchDecorations(cell).length, 1, 'One remaining match decoration');
 		}));
 
-		test('replace clears stale currentMatch and decoration after research', () => runWithFakedTimers({}, async () => {
-			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
-			transaction((tx) => {
-				find.searchString.set('hello', tx);
-				find.replaceText.set('bye', tx);
-			});
-
-			controller.findNext();
-			const cell = notebook.cells.get()[0];
-			assert.ok(controller.currentMatch.get() !== undefined);
-			assert.ok(getCurrentFindMatchDecoration(cell),
-				'currentFindMatch decoration should exist after findNext');
-
-			await controller.replace();
-			// replace() sets currentMatch to the next (now stale) match
-			assert.ok(controller.currentMatch.get() !== undefined,
-				'currentMatch should be set immediately after replace');
-
-			// After debounce, research() recomputes matches. The stale
-			// currentMatch no longer corresponds to any match in the new
-			// set and should be cleared along with its decoration.
-			await waitForDebounce();
-			assert.strictEqual(controller.currentMatch.get(), undefined,
-				'currentMatch should be cleared when it no longer matches');
-			assert.strictEqual(getCurrentFindMatchDecoration(cell), undefined,
-				'currentFindMatch decoration should be cleared');
-		}));
-
 		test('replaceAll clears all decorations', () => runWithFakedTimers({}, async () => {
 			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
 			transaction((tx) => {
@@ -1338,6 +1310,108 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(cell.model.textModel!.getValue(), 'test bb',
 				'Second replace() should replace the match');
 		});
+
+		// Regression test for: after replace() changes text and research
+		// recomputes matches, the next replace() call requires an extra click
+		// to navigate before it will replace.
+		//
+		// Repro steps:
+		// 1. Create a cell with 'hello world hello'.
+		// 2. Open find/replace, search 'hello', replace 'hi'.
+		// 3. Click Replace to navigate to match 0 (expected two-step behavior).
+		// 4. Click Replace to replace match 0 -> 'hi world hello'.
+		// 5. Wait for debounced research to recompute matches.
+		// 6. Click Replace again.
+		//
+		// Expected: Step 6 immediately replaces the remaining 'hello' -> 'hi world hi'.
+		// Actual (bug): Step 6 only navigates to the match; a seventh click is
+		// needed to actually replace it. This happens because replace() advances
+		// currentMatch synchronously, but the debounced research clears it
+		// (the replacement shifted match positions), causing the next replace()
+		// to treat it as a fresh search (navigate-first).
+		//
+		// Uses different-length replacement ('hello' -> 'hi') so that the second
+		// match's position shifts, making the stale currentMatch invalid.
+		test('replace() after debounce-triggered research immediately replaces next match', () => runWithFakedTimers({}, async () => {
+			const { notebook, controller, find } = findFixture([['hello world hello', 'python', CellKind.Code]]);
+			const cell = notebook.cells.get()[0];
+
+			transaction((tx) => {
+				find.searchString.set('hello', tx);
+				find.replaceText.set('hi', tx);
+			});
+			assert.strictEqual(find.matchCount.get(), 2);
+
+			// Navigate to match 0 (two-step behavior for fresh search)
+			await controller.replace();
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hello world hello',
+				'First replace() should navigate, not replace');
+
+			// Replace match 0
+			await controller.replace();
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hi world hello',
+				'Second replace() should replace match 0');
+
+			// Wait for debounced research to recompute matches.
+			// The remaining 'hello' shifted from column 13 to column 10
+			// due to the shorter replacement, so the old currentMatch is stale.
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 1);
+
+			// This replace() should immediately replace the remaining match
+			// without requiring an extra navigation click
+			await controller.replace();
+			assert.strictEqual(cell.model.textModel!.getValue(), 'hi world hi',
+				'replace() after research should immediately replace, not just navigate');
+		}));
+	});
+
+	suite('Performance Optimizations', () => {
+
+		test('research() does not store capture groups (only needed for replace)', () => {
+			const { controller, find } = findFixture([['foo123 bar456', 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.isRegex.set(true, tx);
+				find.searchString.set('(\\w+?)(\\d+)', tx);
+			});
+
+			const matches = controller.matches.get();
+			assert.strictEqual(matches.length, 2);
+			// research() should not pay the cost of capturing groups
+			assert.strictEqual(matches[0].matches, null);
+			assert.strictEqual(matches[1].matches, null);
+		});
+
+		test('replaceAll() replaces all matches beyond the decoration limit', () => runWithFakedTimers({}, async () => {
+			// 1100 occurrences of 'aa', exceeding the default findMatches
+			// limitResultCount of 1000. research() should cap at 1000 for
+			// decorations, but replaceAll() must replace all 1100.
+			const content = Array(1100).fill('aa').join(' ');
+			const { notebook, controller, find } = findFixture([[content, 'python', CellKind.Code]]);
+			transaction((tx) => {
+				find.searchString.set('aa', tx);
+				find.replaceText.set('bb', tx);
+			});
+
+			// research() should cap matches for decorations.
+			// The default findMatches limitResultCount is 999.
+			const cell = notebook.cells.get()[0];
+			assert.strictEqual(controller.matches.get().length, 999,
+				'research() should limit matches to 999 for decorations');
+			assert.strictEqual(getFindMatchDecorations(cell).length, 999,
+				'decorations should be capped at 999');
+
+			// replaceAll() should replace ALL 1100, not just the decorated 1000
+			await controller.replaceAll();
+
+			assert.ok(
+				!cell.model.textModel!.getValue().includes('aa'),
+				'All 1100 matches should be replaced, not just the first 1000'
+			);
+
+			await waitForDebounce();
+			assert.strictEqual(find.matchCount.get(), 0);
+		}));
 	});
 
 });

@@ -18,6 +18,7 @@ import { CellEditorRange } from '../../../common/editor/range.js';
 import { NotebookCellsChangeType } from '../../../../notebook/common/notebookCommon.js';
 import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
 import { RunOnceScheduler } from '../../../../../../base/common/async.js';
+import { Constants } from '../../../../../../base/common/uint.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { getActiveCell } from '../../selectionMachine.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
@@ -45,6 +46,9 @@ export class CurrentPositronCellMatch {
 		public readonly matchIndex: number,
 	) { }
 }
+
+/** Maximum matches returned by research() for decorations. */
+const MATCHES_LIMIT = 999;
 
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
@@ -273,20 +277,30 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	/**
-	 * Performs a search across all notebook cells.
+	 * Finds matches across all notebook cells.
 	 */
-	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean): PositronCellFindMatch[] {
+	private _findMatchesInCells(
+		searchString: string,
+		isRegex: boolean,
+		matchCase: boolean,
+		wholeWord: boolean,
+		captureMatches: boolean,
+		limitResultCount?: number,
+	): PositronCellFindMatch[] {
+		const wordSeparators = wholeWord
+			? this._configurationService.inspect<string>('editor.wordSeparators').value || null
+			: null;
 		const cellMatches: PositronCellFindMatch[] = [];
 		for (const [cellIndex, cell] of this._notebook.cells.get().entries()) {
 			if (cell.model.textModel) {
-				const wordSeparators = this._configurationService.inspect<string>('editor.wordSeparators').value;
 				const matches = cell.model.textModel.findMatches(
 					searchString,
 					null,
 					isRegex,
 					matchCase,
-					wholeWord ? wordSeparators || null : null,
-					true, // captureMatches - always true for replace/preserveCase support
+					wordSeparators,
+					captureMatches,
+					limitResultCount,
 				);
 				for (const match of matches) {
 					const cellRange = new CellEditorRange(cellIndex, match.range);
@@ -295,6 +309,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				}
 			}
 		}
+		return cellMatches;
+	}
+
+	/**
+	 * Performs a search across all notebook cells and updates state.
+	 */
+	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean, moveCursor = false): PositronCellFindMatch[] {
+		const cellMatches = this._findMatchesInCells(searchString, isRegex, matchCase, wholeWord, false, MATCHES_LIMIT);
 
 		// Set the match index to the first match after the cursor
 		let matchIndex: number | undefined = undefined;
@@ -335,6 +357,13 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				this._currentMatch.set(undefined, tx);
 			}
 		});
+
+		if (moveCursor && cellMatches.length > 0) {
+			const nextIndex = matchIndex !== undefined
+				? (matchIndex + 1) % cellMatches.length
+				: 0;
+			this.navigateToMatch(nextIndex);
+		}
 
 		return cellMatches;
 	}
@@ -507,37 +536,84 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			return;
 		}
 
-		// Build the replacement string
+		const findInstance = this._findInstance;
+		if (!findInstance) {
+			return;
+		}
+
+		const { cell, cellRange } = currentMatch.cellMatch;
 		const replacePattern = this._getReplacePattern();
-		const preserveCase = this._findInstance?.preserveCase.get() ?? false;
-		const replacementText = replacePattern.buildReplaceString(currentMatch.cellMatch.matches, preserveCase);
+		const preserveCase = findInstance.preserveCase.get();
+
+		// Get captures only when the replacement pattern needs them
+		let capturedMatches: string[] | null = null;
+		if (replacePattern.hasReplacementPatterns || preserveCase) {
+			const textModel = cell.model.textModel;
+			if (textModel) {
+				const wordSeparators = findInstance.wholeWord.get()
+					? this._configurationService.inspect<string>('editor.wordSeparators').value || null
+					: null;
+				const cellMatches = textModel.findMatches(
+					findInstance.searchString.get(),
+					cellRange.range,
+					findInstance.isRegex.get(),
+					findInstance.matchCase.get(),
+					wordSeparators,
+					true, // captureMatches
+					1,    // limitResultCount
+				);
+				capturedMatches = cellMatches[0]?.matches ?? null;
+			}
+		}
+
+		const replacementText = replacePattern.buildReplaceString(capturedMatches, preserveCase);
 
 		// Apply the edit
-		const { cell, cellRange } = currentMatch.cellMatch;
 		await this._bulkEditService.apply(
 			[new ResourceTextEdit(cell.uri, { range: cellRange.range, text: replacementText })],
 			{ quotableLabel: localize('positronNotebook.replace', "Notebook Replace") },
 		);
 
-		// Advance to the next match
-		this.findNext();
+		// Immediate research with fresh positions, then navigate to next match
+		this.research(
+			findInstance.searchString.get(),
+			findInstance.isRegex.get(),
+			findInstance.matchCase.get(),
+			findInstance.wholeWord.get(),
+			true, // moveCursor
+		);
 	}
 
 	/**
 	 * Replaces all matches in a single bulk edit operation (one undo step).
 	 */
 	public async replaceAll(): Promise<void> {
-		const matches = this._matches.get();
-		if (matches.length === 0) {
+		const findInstance = this._findInstance;
+		if (!findInstance) {
 			return;
 		}
 
 		const replacePattern = this._getReplacePattern();
-		const preserveCase = this._findInstance?.preserveCase.get() ?? false;
+		const preserveCase = findInstance.preserveCase.get();
+		const needsCaptures = replacePattern.hasReplacementPatterns || preserveCase;
+
+		// Fresh uncapped search to ensure all matches are found
+		const allMatches = this._findMatchesInCells(
+			findInstance.searchString.get(),
+			findInstance.isRegex.get(),
+			findInstance.matchCase.get(),
+			findInstance.wholeWord.get(),
+			needsCaptures,
+			Constants.MAX_SAFE_SMALL_INTEGER,
+		);
+
+		if (allMatches.length === 0) {
+			return;
+		}
 
 		// Build edits for all matches
 		const edits: ResourceTextEdit[] = [];
-		for (const match of matches) {
+		for (const match of allMatches) {
 			const replacementText = replacePattern.buildReplaceString(match.matches, preserveCase);
 			edits.push(new ResourceTextEdit(match.cell.uri, { range: match.cellRange.range, text: replacementText }));
 		}
