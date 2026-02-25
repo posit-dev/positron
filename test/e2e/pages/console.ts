@@ -58,14 +58,6 @@ export class Console {
 	}
 
 	/**
-	 * Gets the console input editor locator.
-	 * Useful for verifying console input is visible and editable.
-	 */
-	get inputEditor() {
-		return this.activeConsole.locator('.console-input');
-	}
-
-	/**
 	 * Action: Start a new session via the `+ v` button in the console.
 	 *
 	 * @param contextMenu
