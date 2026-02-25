@@ -390,7 +390,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		}
 
 		// Report token usage information
-		const part: any = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
+		const part = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
 		progress.report(part);
 
 		if (requestId) {
