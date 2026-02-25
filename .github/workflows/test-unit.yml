@@ -40,8 +40,10 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.commit || github.ref }}
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
 
       - uses: actions/setup-node@v6
         with:
