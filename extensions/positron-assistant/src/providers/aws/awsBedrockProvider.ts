@@ -364,7 +364,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 								'AWS login required. Please run `aws sso login{0}{1}` in the terminal, and retry this request.',
 								profileArg,
 								regionArg,
-								region
 							)
 						);
 					}
@@ -415,8 +414,11 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		const result = new Promise<boolean>((resolve) => {
 			const disposable = vscode.tasks.onDidEndTaskProcess(e => {
 				if (e.execution === taskExecution) {
-					this._context.subscriptions.splice(this._context.subscriptions.indexOf(disposable), 1);
-					disposable.dispose();
+					const idx = this._context.subscriptions.indexOf(disposable);
+					if (idx !== -1) {
+						this._context.subscriptions.splice(idx, 1);
+						disposable.dispose();
+					}
 					// Notify the user of the result
 					const success = e.exitCode === 0 || e.exitCode === undefined;
 					if (success) {
