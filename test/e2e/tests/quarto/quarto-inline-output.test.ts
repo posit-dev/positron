@@ -2484,14 +2484,17 @@ test.describe('Quarto - Inline Output', {
 		// the output is tall (~40 visible lines), elements at the top of the widget
 		// (truncation header, gradient line) may be outside the viewport.
 		// `scrollIntoViewIfNeeded()` does not work for view zone content because
-		// Monaco controls scrolling. Instead, we navigate the editor to line 10
-		// (just after the code cell) to bring the top of the output into view,
+		// Monaco controls scrolling. Instead, we navigate the editor to line 1
+		// (the top of the file) to bring the top of the output into view,
 		// use `toHaveCount` instead of `toBeVisible` for DOM presence checks, and
 		// use `dispatchEvent` for clicks to bypass Playwright's viewport check.
 
-		// Navigate editor to the top of the output (line 10, right after the code cell)
+		// Navigate editor to the very top of the file so the inline output's
+		// truncation header (which sits in a view zone after line 9) is visible
+		// in the viewport. On CI with smaller screens, scrolling only to line 10
+		// can leave the header outside the viewport.
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('10');
+		await page.keyboard.type('1');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
