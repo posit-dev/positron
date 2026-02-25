@@ -72,7 +72,7 @@
 				;
 		"/>
 
-	<!-- --- Start Positron --- -->
+		<!--- --- Start Positron --- -->
 		<script type="importmap" nonce="0c6a828f1297">
 			{
 				"imports": {
@@ -86,7 +86,7 @@
 			}
 		</script>
 
-	<!-- Pre-create the amdLoader TrustedType policy in the original page context.
+		<!-- Pre-create the amdLoader TrustedType policy in the original page context.
 		When two import maps are present (static React + dynamic CSS), the V8 context
 		in which later module scripts create TrustedType policies can become invalid,
 		causing "callback is no longer runnable" errors. By creating the policy here
@@ -97,7 +97,7 @@
 				createScriptURL(value) { return value; }
 			});
 		</script>
-	<!-- --- End Positron --- -->
+		<!-- --- End Positron --- -->
 
 	</head>
 

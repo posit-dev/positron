@@ -18,6 +18,7 @@ import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
 import { RPackageManager } from './packages';
+import { RMetadataExtra } from './r-installation';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -322,7 +323,22 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Initialize the package manager
 		this._packageManager = new RPackageManager(this);
 
-		return await this._kernel.start();
+		const runtimeInfo = await this._kernel.start();
+
+		// Add interpreter architecture to the runtime info for mismatch detection.
+		const metadataExtra = this.runtimeMetadata.extraRuntimeData as RMetadataExtra;
+		const interpreterArch = metadataExtra?.arch;
+		if (interpreterArch) {
+			if (interpreterArch === 'arm64') {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Arm64;
+			} else if (interpreterArch === 'x86_64') {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.X64;
+			} else {
+				runtimeInfo.interpreterArch = positron.LanguageRuntimeArchitecture.Other;
+			}
+		}
+
+		return runtimeInfo;
 	}
 
 	private async onConsoleWidthChange(newWidth: number): Promise<void> {
@@ -463,6 +479,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 */
 	async showProfile() {
 		await this._kernel?.showProfile?.();
+	}
+
+	getLaunchInfo(): positron.LanguageRuntimeLaunchInfo | undefined {
+		return this._kernel?.getLaunchInfo?.();
 	}
 
 	updateSessionName(sessionName: string): void {

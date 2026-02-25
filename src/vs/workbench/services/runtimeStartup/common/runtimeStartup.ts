@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
+import * as perf from '../../../../base/common/performance.js';
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -12,7 +13,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
@@ -27,6 +28,7 @@ import { IPositronNewFolderService } from '../../positronNewFolder/common/positr
 import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Barrier } from '../../../../base/common/async.js';
+import { arch as systemArch } from '../../../../base/common/process.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -96,6 +98,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// across all extension hosts.
 	private readonly _discoveryCompleteByExtHostId = new Map<number, boolean>();
 
+	// The set of extensions that have already been activated. Used to avoid
+	// redundant activation calls across the many code paths that can trigger
+	// extension activation.
+	private readonly _activatedExtensions = new Set<string>();
+
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
@@ -114,6 +121,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	private _restoredSessions: SerializedSessionMetadata[] = [];
 	private _foundRestoredSessions: Barrier = new Barrier();
+
+	/// Tracks whether the first runtime has reached ready state
+	private _firstRuntimeReady = false;
 
 	/// A unique identifier for this window. This is used to identify the
 	/// persisted sessions that belong to it.
@@ -138,6 +148,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		super();
 
+		perf.mark('code/positron/runtimeStartupBegin');
+
 		this._onWillAutoStartRuntime = new Emitter<IRuntimeAutoStartEvent>();
 		this._onSessionRestoreFailure = new Emitter<ISessionRestoreFailedEvent>();
 		this._register(this._onSessionRestoreFailure);
@@ -157,13 +169,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
 
-		// Register the startup phase event handler.
 		this._startupPhase = _languageRuntimeService.startupPhase;
+		perf.mark(`code/positron/runtimeStartupPhase/${this._startupPhase}`);
 		this._register(
 			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				(phase) => {
 					this._logService.debug(`[Runtime startup] Phase changed to '${phase}'`);
-					this._startupPhase = phase;
+					if (this._startupPhase !== phase) {
+						this._startupPhase = phase;
+						perf.mark(`code/positron/runtimeStartupPhase/${phase}`);
+					}
 				}));
 
 
@@ -173,6 +188,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// failed to start.
 				this.saveWorkspaceSessions(e.session.metadata.sessionId);
 			}));
+			perf.mark(`code/positron/runtimeSessionWillStart/${e.session.sessionId}`);
 		}));
 
 		this._register(this._runtimeSessionService.onDidFailStartRuntime(e => {
@@ -187,7 +203,40 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._mostRecentlyStartedRuntimesByLanguageId.set(session.runtimeMetadata.languageId,
 				session.runtimeMetadata);
 
+			// Track session start time for diagnostics
+			perf.mark(`code/positron/runtimeSessionStart/${session.sessionId}`);
+
+			// Track when the first runtime reaches ready state
+			if (!this._firstRuntimeReady) {
+				// Check current state immediately (important for reconnected sessions
+				// that may already be in Ready state)
+				if (session.getRuntimeState() === RuntimeState.Ready) {
+					this._firstRuntimeReady = true;
+					perf.mark('code/positron/firstRuntimeReady');
+				} else {
+					// Listen for future state changes; dispose the listener
+					// once the first runtime is ready to avoid accumulating
+					// listeners across sessions.
+					const listener = session.onDidChangeRuntimeState((newState) => {
+						if (!this._firstRuntimeReady && newState === RuntimeState.Ready) {
+							this._firstRuntimeReady = true;
+							perf.mark('code/positron/firstRuntimeReady');
+						}
+						if (this._firstRuntimeReady) {
+							listener.dispose();
+						}
+					});
+					this._register(listener);
+				}
+			}
+
 			this.saveWorkspaceSessions();
+
+			// Check for architecture mismatch now that the session has started.
+			// runtimeInfo is available after session.start() completes.
+			if (session.runtimeInfo) {
+				this.checkArchitectureMismatch(session, session.runtimeInfo);
+			}
 
 			this._register(session.onDidEndSession(exit => {
 				// Ignore if shutting down; sessions 'exit' during shutdown as
@@ -459,8 +508,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Convenience method for setting the startup phase.
 	 */
 	private setStartupPhase(phase: RuntimeStartupPhase): void {
+		const newPhase = this._startupPhase !== phase;
 		this._startupPhase = phase;
 		this._languageRuntimeService.setStartupPhase(phase);
+		if (newPhase) {
+			perf.mark(`code/positron/runtimeStartupPhase/${phase}`);
+		}
 	}
 
 	/**
@@ -536,15 +589,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// If this is a new folder, wait for it to initialize the folder
 		// before proceeding, and then store the new folder runtime metadata.
 		// as the affiliated runtime for this workspace.
-		await this._newFolderService.initTasksComplete.wait();
-		const newRuntime = this._newFolderService.newFolderRuntimeMetadata;
-		if (newRuntime) {
-			const newAffiliation: IAffiliatedRuntimeMetadata = {
-				metadata: newRuntime,
-				lastUsed: Date.now(),
-				lastStarted: Date.now()
-			};
-			this.saveAffiliatedRuntime(newAffiliation);
+		if (!this._newFolderService.initTasksComplete.isOpen()) {
+			perf.mark('code/positron/newFolderInitTasks');
+			this.setStartupPhase(RuntimeStartupPhase.NewFolderTasks);
+			await this._newFolderService.initTasksComplete.wait();
+			const newRuntime = this._newFolderService.newFolderRuntimeMetadata;
+			if (newRuntime) {
+				const newAffiliation: IAffiliatedRuntimeMetadata = {
+					metadata: newRuntime,
+					lastUsed: Date.now(),
+					lastStarted: Date.now()
+				};
+				this.saveAffiliatedRuntime(newAffiliation);
+			}
 		}
 
 		const disabledLanguages = new Array<string>();
@@ -1182,6 +1239,38 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Activates a single extension. Always calls through to activateById() so
+	 * that in-progress activations are properly awaited. The
+	 * _activatedExtensions set is used only to deduplicate logging and
+	 * performance marks.
+	 *
+	 * @param extensionId The extension to activate.
+	 * @param languageId The language ID triggering the activation.
+	 */
+	private async activateExtension(extensionId: ExtensionIdentifier, languageId: string): Promise<void> {
+		const key = extensionId.value;
+		const firstActivation = !this._activatedExtensions.has(key);
+		if (firstActivation) {
+			this._logService.debug(`[Runtime startup] Activating extension ${key} for language ID ${languageId}`);
+		}
+		try {
+			await this._extensionService.activateById(extensionId,
+				{
+					extensionId: extensionId,
+					activationEvent: `onLanguageRuntime:${languageId}`,
+					startup: false
+				});
+			if (firstActivation) {
+				this._activatedExtensions.add(key);
+				perf.mark(`code/positron/runtimeStartup/extensionActivated/${key}`);
+			}
+		} catch (e) {
+			this._logService.debug(
+				`[Runtime startup] Error activating extension ${key}: ${e}`);
+		}
+	}
+
+	/**
 	 * Activates the extensions that provide language runtimes for the given
 	 * language IDs.
 	 *
@@ -1191,18 +1280,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const activationPromises = languageIds.map(
 			async (languageId) => {
 				for (const extension of this._languagePacks.get(languageId) || []) {
-					this._logService.debug(`[Runtime startup] Activating extension ${extension.value} for language ID ${languageId}`);
-					try {
-						await this._extensionService.activateById(extension,
-							{
-								extensionId: extension,
-								activationEvent: `onLanguageRuntime:${languageId}`,
-								startup: false
-							});
-					} catch (e) {
-						this._logService.debug(
-							`[Runtime startup] Error activating extension ${extension.value}: ${e}`);
-					}
+					await this.activateExtension(extension, languageId);
 				}
 			});
 		await Promise.all(activationPromises);
@@ -1289,26 +1367,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			newSession: false
 		});
 
-		// Activate any extensions needed for the sessions that are persistent on the machine.
-		const activatedExtensions: Array<ExtensionIdentifier> = [];
-		await Promise.all(sessions.filter(async session =>
-			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine
-		).map(async session => {
-			// If we haven't already activated the extension, activate it now.
-			// We need the extension to be active so that we can ask it to
-			// validate the session before connecting to it.
-			if (activatedExtensions.indexOf(session.runtimeMetadata.extensionId) === -1) {
-				this._logService.debug(`[Runtime startup] Activating extension ` +
-					`${session.runtimeMetadata.extensionId.value} for persisted session ` +
-					`${session.sessionName} (${session.metadata.sessionId})`);
-				activatedExtensions.push(session.runtimeMetadata.extensionId);
-				return this._extensionService.activateById(session.runtimeMetadata.extensionId,
-					{
-						extensionId: session.runtimeMetadata.extensionId,
-						activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
-						startup: false
-					});
-			}
+		// Activate any extensions needed for the sessions we want to reconnect
+		// to. We need the extension to be active so that we can ask it to
+		// validate the session before connecting to it.
+		// Note: we activate extensions for *all* sessions here, not just
+		// machine-persistent ones, because activateById() returns before the
+		// extension has fully registered its session managers. Pre-activating
+		// all extensions ensures managers are ready by the time we attempt to
+		// reconnect below.
+		await Promise.all(sessions.map(async session => {
+			await this.activateExtension(
+				session.runtimeMetadata.extensionId,
+				session.runtimeMetadata.languageId);
 		}));
 
 		// Before reconnecting, validate any sessions that need it.
@@ -1332,6 +1402,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					const valid = await this._runtimeSessionService.validateRuntimeSession(
 						session.runtimeMetadata,
 						session.metadata.sessionId);
+					perf.mark(`code/positron/runtimeSessionValidated/${session.metadata.sessionId}`);
 
 					this._logService.debug(
 						`[Runtime startup] Session ` +
@@ -1380,17 +1451,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			const marker =
 				`[Reconnect ${session.metadata.sessionId} (${idx + 1}/${sessions.length})]`;
 
-			// Activate the extension that provides the runtime. Note that this
-			// waits for the extension service to signal the extension but does
-			// not wait for the extension to activate.
-			if (!activatedExtensions.includes(session.runtimeMetadata.extensionId)) {
-				await this._extensionService.activateById(session.runtimeMetadata.extensionId,
-					{
-						extensionId: session.runtimeMetadata.extensionId,
-						activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
-						startup: false
-					});
-			}
+			// Activate the extension that provides the runtime if it hasn't
+			// been activated already (e.g. workspace-local sessions that
+			// weren't covered by the machine-session activation above).
+			await this.activateExtension(
+				session.runtimeMetadata.extensionId,
+				session.runtimeMetadata.languageId);
 
 			this._logService.debug(`${marker}: Restoring session for ` +
 				`${session.sessionName}`);
@@ -1659,6 +1725,108 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			newSession: true
 		});
 		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
+	}
+
+	// Storage key prefix for architecture mismatch dismissal
+	private readonly _archMismatchStorageKeyPrefix = 'interpreter.dismissedArchMismatch';
+
+	/**
+	 * Checks if the interpreter architecture differs from the system architecture
+	 * and shows a warning notification if so.
+	 */
+	private checkArchitectureMismatch(
+		session: ILanguageRuntimeSession,
+		runtimeInfo: { interpreterArch?: LanguageRuntimeArchitecture }
+	): void {
+		// Skip on web - the browser's architecture doesn't relate to where
+		// the interpreter is running
+		if (isWeb) {
+			return;
+		}
+
+		const interpreterArch = runtimeInfo.interpreterArch;
+		if (!interpreterArch || !systemArch) {
+			return;
+		}
+
+		// Don't warn for "Other" architectures; we only care about arm64/x64 mismatches
+		if (interpreterArch === LanguageRuntimeArchitecture.Other) {
+			return;
+		}
+
+		// Compare the enum value (which is a string like 'arm64' or 'x64') with process.arch
+		if (systemArch !== interpreterArch) {
+			this.showArchitectureMismatchWarning(
+				session.runtimeMetadata.languageId,
+				session.runtimeMetadata.runtimeName,
+				systemArch,
+				interpreterArch
+			);
+		}
+	}
+
+	/**
+	 * Shows a notification warning when an interpreter's architecture doesn't
+	 * match the system architecture.
+	 */
+	private showArchitectureMismatchWarning(
+		languageId: string,
+		runtimeName: string,
+		systemArchValue: string,
+		interpreterArch: LanguageRuntimeArchitecture
+	): void {
+		// Check if user has permanently dismissed for this language
+		const storageKey = `${this._archMismatchStorageKeyPrefix}.${languageId}`;
+		const dismissed = this._storageService.getBoolean(storageKey, StorageScope.PROFILE, false);
+		if (dismissed) {
+			return;
+		}
+
+		// Capitalize language name for display
+		const languageDisplayName = languageId === 'r' ? 'R' : languageId.charAt(0).toUpperCase() + languageId.slice(1);
+
+		// Show sticky notification
+		this._notificationService.prompt(
+			Severity.Warning,
+			nls.localize(
+				'positron.runtime.archMismatch',
+				'The interpreter "{0}" has a different architecture ({1}) than your system ({2}). This may cause problems with performance and package compatibility.',
+				runtimeName,
+				interpreterArch,
+				systemArchValue
+			),
+			[
+				{
+					label: nls.localize('positron.runtime.archMismatch.dismiss', "Don't show again for {0}", languageDisplayName),
+					run: () => {
+						this._storageService.store(storageKey, true, StorageScope.PROFILE, StorageTarget.USER);
+					}
+				}
+			],
+			{
+				sticky: true
+			}
+		);
+	}
+
+	/**
+	 * Resets the architecture mismatch warning dismissal for a specific language
+	 * or all languages.
+	 */
+	public resetArchitectureMismatchWarning(languageId?: string): void {
+		if (languageId) {
+			// Reset for specific language
+			const storageKey = `${this._archMismatchStorageKeyPrefix}.${languageId}`;
+			this._storageService.remove(storageKey, StorageScope.PROFILE);
+		} else {
+			// Reset for all languages by finding and removing all matching keys
+			const keys = this._storageService.keys(StorageScope.PROFILE, StorageTarget.USER);
+			for (const key of keys) {
+				if (key.startsWith(this._archMismatchStorageKeyPrefix)) {
+					this._storageService.remove(key, StorageScope.PROFILE);
+				}
+			}
+		}
 	}
 }
 

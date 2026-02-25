@@ -96,16 +96,16 @@ export const ActionBarWidget = (props: ActionBarWidgetProps) => {
 	const WidgetComponent = props.descriptor.componentFactory(services);
 
 	// Handler for command execution (only used for command-driven widgets)
-	const handleClick = useCallback(() => {
+	const handleClick = useCallback(async () => {
 		if (props.descriptor.commandId) {
-			commandService.executeCommand(props.descriptor.commandId, props.descriptor.commandArgs);
+			await commandService.executeCommand(props.descriptor.commandId, props.descriptor.commandArgs);
 		}
 	}, [props.descriptor.commandId, props.descriptor.commandArgs, commandService]);
 
-	const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+	const handleKeyDown = useCallback(async (e: React.KeyboardEvent) => {
 		if ((e.key === 'Enter' || e.key === ' ') && props.descriptor.commandId) {
 			e.preventDefault();
-			commandService.executeCommand(props.descriptor.commandId, props.descriptor.commandArgs);
+			await commandService.executeCommand(props.descriptor.commandId, props.descriptor.commandArgs);
 		}
 	}, [props.descriptor.commandId, props.descriptor.commandArgs, commandService]);
 

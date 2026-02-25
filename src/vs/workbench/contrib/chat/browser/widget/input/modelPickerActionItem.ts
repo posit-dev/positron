@@ -31,6 +31,8 @@ import { ILanguageModelChatMetadataAndIdentifier } from '../../../common/languag
 import { ChatInputPickerActionViewItem, IChatInputPickerOptions } from './chatInputPickerActionItem.js';
 // --- Start Positron ---
 import { getProviderIcon } from './providerIcons.js';
+import { IThemeService } from '../../../../../../platform/theme/common/themeService.js';
+import { isDark } from '../../../../../../platform/theme/common/theme.js';
 // --- End Positron ---
 
 export interface IModelPickerDelegate {
@@ -54,11 +56,12 @@ type ChatModelChangeEvent = {
 	toModel: string | TelemetryTrustedValue<string>;
 };
 
-
-function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService, pickerOptions: IChatInputPickerOptions): IActionWidgetDropdownActionProvider {
-	// --- Start Positron ---
-	// The entire body of this function has been replaced to group models by
-	// vendor with separators, and to indicate default models in the list.
+// --- Start Positron ---
+// The entire function has been replaced to group models by vendor with
+// separators, indicate default models, and pass themeService so provider
+// icons can adapt to light/dark themes.
+// function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService): IActionWidgetDropdownActionProvider {
+function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService, pickerOptions: IChatInputPickerOptions, themeService: IThemeService): IActionWidgetDropdownActionProvider {
 	return {
 		getActions: () => {
 			const models = delegate.getModels();
@@ -144,7 +147,7 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 				const providerName = firstModel.metadata.auth?.providerLabel ?? vendor;
 
 				// Get provider icon based on vendor ID
-				const providerIcon = getProviderIcon(vendor);
+				const providerIcon = getProviderIcon(vendor, isDark(themeService.getColorTheme().type));
 
 				// Use a special category prefix to indicate this is a separator
 				actions.push({
@@ -297,6 +300,9 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IProductService productService: IProductService,
+		// --- Start Positron ---
+		@IThemeService private readonly themeService: IThemeService,
+		// --- End Positron ---
 	) {
 		// Modify the original action with a different label and make it show the current model
 		const actionWithLabel: IAction = {
@@ -309,7 +315,13 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 		};
 
 		const modelPickerActionWidgetOptions: Omit<IActionWidgetDropdownOptions, 'label' | 'labelRenderer'> = {
+			// --- Start Positron ---
+			// Pass themeService so provider icons can adapt to light/dark themes
+			/*
 			actionProvider: modelDelegateToWidgetActionsProvider(delegate, telemetryService, pickerOptions),
+			*/
+			actionProvider: modelDelegateToWidgetActionsProvider(delegate, telemetryService, pickerOptions, themeService),
+			// --- End Positron ---
 			actionBarActionProvider: getModelPickerActionBarActionProvider(commandService, chatEntitlementService, productService),
 			reporter: { name: 'ChatModelPicker', includeOptions: true },
 		};
@@ -339,6 +351,13 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 			// Note: The dropdown will automatically get fresh models from getModels()
 			// when it's opened, so no need to force refresh here
 		}));
+
+		// Re-render label when theme changes so provider icons use the correct fill
+		this._register(themeService.onDidColorThemeChange(() => {
+			if (this.element) {
+				this.renderLabel(this.element);
+			}
+		}));
 		// --- End Positron ---
 	}
 
@@ -360,7 +379,7 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 		// --- Start Positron ---
 		// Add provider icon if available
 		if (this.currentModel?.metadata.vendor) {
-			const providerIcon = getProviderIcon(this.currentModel.metadata.vendor);
+			const providerIcon = getProviderIcon(this.currentModel.metadata.vendor, isDark(this.themeService.getColorTheme().type));
 			if (providerIcon?.themeIcon) {
 				const iconId = providerIcon.themeIcon.id;
 				if (iconId.startsWith('data:image/svg+xml')) {

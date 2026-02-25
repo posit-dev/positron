@@ -95,6 +95,7 @@ const RUNTIME_STATE_TO_KERNEL_STATUS: Record<RuntimeState, KernelStatus> = {
 const RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS: Record<RuntimeStartupPhase, KernelStatus> = {
 	[RuntimeStartupPhase.Initializing]: KernelStatus.Discovering,
 	[RuntimeStartupPhase.AwaitingTrust]: KernelStatus.Discovering,
+	[RuntimeStartupPhase.NewFolderTasks]: KernelStatus.Discovering,
 	[RuntimeStartupPhase.Reconnecting]: KernelStatus.Discovering,
 	[RuntimeStartupPhase.Starting]: KernelStatus.Discovering,
 	[RuntimeStartupPhase.Discovering]: KernelStatus.Unselected,

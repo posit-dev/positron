@@ -443,6 +443,19 @@ declare module 'positron' {
 		password: boolean;
 	}
 
+	/**
+	 * The CPU architecture of an interpreter.
+	 * Used to detect architecture mismatches between the interpreter and the system.
+	 */
+	export enum LanguageRuntimeArchitecture {
+		/** 64-bit ARM architecture (Apple Silicon, ARM64 Windows, etc.) */
+		Arm64 = 'arm64',
+		/** 64-bit x86 architecture (Intel/AMD) */
+		X64 = 'x64',
+		/** Architecture was detected but is not arm64 or x64 */
+		Other = 'other'
+	}
+
 	/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
 	export interface LanguageRuntimeInfo {
 		/** A startup banner */
@@ -462,6 +475,32 @@ declare module 'positron' {
 
 		/** Continuation prompt string in case user customized it */
 		continuation_prompt?: string;
+
+		/**
+		 * The interpreter's CPU architecture.
+		 * Used to detect architecture mismatches with the system.
+		 */
+		interpreterArch?: LanguageRuntimeArchitecture;
+	}
+
+	/**
+	 * Describes the kernel launch parameters used to start a runtime session.
+	 */
+	export interface LanguageRuntimeLaunchInfo {
+		/** The command line used to start the kernel */
+		argv: string[];
+
+		/** Environment variables set for the kernel process */
+		env: Record<string, string>;
+
+		/** Optional preflight command run before starting the kernel */
+		startupCommand?: string;
+
+		/** How the kernel handles interrupts */
+		interruptMode?: string;
+
+		/** The Jupyter protocol version in use */
+		protocolVersion?: string;
 	}
 
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
@@ -1297,6 +1336,13 @@ declare module 'positron' {
 		updateSessionName(sessionName: string): void;
 
 		/**
+		 * Returns the kernel launch parameters used to start this session,
+		 * if available.
+		 */
+		getLaunchInfo?(): LanguageRuntimeLaunchInfo | undefined;
+
+
+		/**
 		 * Show runtime log in output panel.
 		 *
 		 * @param channel The channel to show the output in
@@ -1542,6 +1588,9 @@ declare module 'positron' {
 		 * cursor is within. If the cursor is not within a statement, return the
 		 * range of the next statement, if one exists.
 		 *
+		 * Throw a {@link StatementRangeSyntaxError} to indicate that a statement range
+		 * cannot be provided due to a syntax error in the document.
+		 *
 		 * @param document The document in which the command was invoked.
 		 * @param position The position at which the command was invoked.
 		 * @param token A cancellation token.
@@ -1565,7 +1614,24 @@ declare module 'positron' {
 		 * The code for this statement range, if different from the document contents at this range.
 		 */
 		readonly code?: string;
+	}
 
+	/**
+	 * An error thrown by a {@link StatementRangeProvider} to indicate that a statement range
+	 * cannot be provided due to a syntax error in the document.
+	 */
+	export class StatementRangeSyntaxError extends Error {
+		/**
+		 * Zero indexed line number where the syntax error occurred.
+		 */
+		readonly line?: number;
+
+		/**
+		 * Creates a new statement range syntax error.
+		 *
+		 * @param line Zero indexed line number where the syntax error occurred.
+		 */
+		constructor(line?: number);
 	}
 
 	export interface HelpTopicProvider {
@@ -2131,6 +2197,14 @@ declare module 'positron' {
 		 * Positron core.
 		 */
 		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
+
+		/**
+		 * Emit a performance mark that can be used for telemetry and
+		 * performance monitoring. The mark is recorded at the current time.
+		 *
+		 * @param name The name of the performance mark.
+		 */
+		export function emitPerfMark(name: string): void;
 
 		/**
 		 * An event that fires when a new runtime is registered.

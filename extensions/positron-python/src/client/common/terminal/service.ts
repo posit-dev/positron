@@ -219,6 +219,9 @@ export class TerminalService implements ITerminalService, Disposable {
             this.terminal = await ensureTerminalLegacy(this.options?.resource, {
                 name: this.options?.title || 'Python',
                 hideFromUser: this.options?.hideFromUser,
+                // --- Start Positron ---
+                env: this.options?.env,
+                // --- End Positron ---
             });
             return;
         } else {
@@ -226,6 +229,9 @@ export class TerminalService implements ITerminalService, Disposable {
             this.terminal = this.terminalManager.createTerminal({
                 name: this.options?.title || 'Python',
                 hideFromUser: this.options?.hideFromUser,
+                // --- Start Positron ---
+                env: this.options?.env,
+                // --- End Positron ---
             });
             this.terminalAutoActivator.disableAutoActivation(this.terminal);
 

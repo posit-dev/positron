@@ -39,6 +39,11 @@ export interface ProviderInfo {
 	 * Setting name used in configuration (e.g., 'anthropic', 'openAI')
 	 */
 	settingName: string;
+	/**
+	 * Optional provider-specific variables setting name (e.g., 'positron.assistant.providerVariables.bedrock')
+	 * Used for providers that have additional configuration like AWS profiles/regions.
+	 */
+	providerVariablesSettingName?: string;
 }
 
 /**
@@ -50,6 +55,7 @@ export const PROVIDER_METADATA = {
 		id: 'amazon-bedrock',
 		displayName: 'Amazon Bedrock',
 		settingName: 'amazonBedrock',
+		providerVariablesSettingName: 'positron.assistant.providerVariables.bedrock',
 	},
 	anthropic: {
 		id: 'anthropic-api',

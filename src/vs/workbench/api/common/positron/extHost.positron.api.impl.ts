@@ -167,6 +167,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				 */
 				return extHostLanguageRuntime.registerClientInstance(clientInstanceId);
 			},
+			emitPerfMark(name: string): void {
+				const extensionId = extension.identifier.value;
+				return extHostLanguageRuntime.emitPerfMark(extensionId, name);
+			},
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;
 			},
@@ -525,6 +529,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			RuntimeExitReason: extHostTypes.RuntimeExitReason,
 			RuntimeMethodErrorCode: extHostTypes.RuntimeMethodErrorCode,
+			LanguageRuntimeArchitecture: extHostTypes.LanguageRuntimeArchitecture,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			LanguageRuntimeStreamName: extHostTypes.LanguageRuntimeStreamName,
 			LanguageRuntimeSessionChannel: extHostTypes.LanguageRuntimeSessionChannel,
@@ -539,6 +544,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			PlotRenderFormat: extHostTypes.PlotRenderFormat,
 			PreviewSourceType: extHostTypes.PreviewSourceType,
 			UiRuntimeNotifications: extHostTypes.UiRuntimeNotifications,
+			StatementRangeSyntaxError: extHostTypes.StatementRangeSyntaxError,
 		};
 	};
 }

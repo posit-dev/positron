@@ -286,6 +286,13 @@ export class HotKeys {
 		return this.pressHotKeys('Cmd+L F', 'Format Document');
 	}
 
+	// -----------------------
+	// ---   Publishing	   ---
+	// -----------------------
+	public publishDocument() {
+		return this.pressHotKeys('Cmd+L P', 'Publish Document');
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.

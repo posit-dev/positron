@@ -46,6 +46,9 @@ export interface IpykernelBundle {
 
     /** Paths to be appended to the PYTHONPATH environment variable in this order, if bundling is enabled. */
     paths?: string[];
+
+    /** The detected interpreter architecture (freshly queried on ARM64 systems). */
+    architecture?: Architecture;
 }
 
 /**
@@ -136,5 +139,5 @@ export async function getIpykernelBundle(
         }
     }
 
-    return { paths };
+    return { paths, architecture };
 }
