@@ -8,9 +8,7 @@ import { AwsSdkCredentialsFeatures } from '@aws-sdk/types';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 // URL to documentation on required AWS permissions for Bedrock - used in permission error messages
-// Note: This links to the latest version of docs, which may not match the user's Workbench version
-// TODO: Consider implementing version-aware documentation links or automated URL testing
-const AWS_PERMISSIONS_DOC_URL = 'https://docs.posit.co/ide/server-pro/admin/authenticating_users/aws_credentials.html#amazon-bedrock-permissions';
+const AWS_PERMISSIONS_DOC_URL = 'https://positron.posit.co/redirect/aws-bedrock-iam-permissions';
 
 // Setting ID for the Amazon Bedrock provider variables - used in settings links in error messages.
 // This is always defined on the amazonBedrock entry in PROVIDER_METADATA.
