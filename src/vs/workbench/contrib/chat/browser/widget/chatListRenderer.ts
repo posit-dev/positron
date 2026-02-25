@@ -1467,7 +1467,23 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			return errorConfirmation;
 		} else {
 			const level = content.errorDetails.level ?? ChatErrorLevel.Error;
+			// --- Start Positron ---
+			// Enable command links in error messages with specific allowlist
+			// This allows error messages to include actionable links to settings, terminal, etc.
+			const errorMarkdown = new MarkdownString(content.errorDetails.message, {
+				isTrusted: {
+					enabledCommands: [
+						'workbench.action.openSettings',
+						'workbench.action.terminal.new',
+						'workbench.action.files.openFile'
+					]
+				}
+			});
+			/*
 			return this.instantiationService.createInstance(ChatErrorContentPart, level, new MarkdownString(content.errorDetails.message), content, this.chatContentMarkdownRenderer);
+			*/
+			return this.instantiationService.createInstance(ChatErrorContentPart, level, errorMarkdown, content, this.chatContentMarkdownRenderer);
+			// --- End Positron ---
 		}
 	}
 
