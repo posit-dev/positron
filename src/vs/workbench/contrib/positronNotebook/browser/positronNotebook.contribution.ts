@@ -1579,7 +1579,7 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
 		const state = notebook.selectionStateMachine.state.get();
 		const cell = getActiveCell(state);
-		if (cell) {
+		if (cell?.isCodeCell()) {
 			notebook.clearCellOutput(cell);
 		}
 	}
