@@ -1219,6 +1219,15 @@ test.describe('Quarto - Inline Output', {
 			expect(text).not.toContain('"data":');
 		}
 
+		// Skip the reload portion in web/browser mode. The browser lifecycle
+		// service does not await async shutdown operations (the cache flush logs
+		// "Long running operations during shutdown are unsupported in the web"),
+		// so the disk cache may not be written before the page navigates away.
+		// The close-and-reopen test above covers persistence via in-memory cache.
+		if (app.web) {
+			return;
+		}
+
 		// Wait for the cache write debounce to complete before reloading
 		await page.waitForTimeout(2000);
 
