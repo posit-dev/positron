@@ -829,7 +829,13 @@ function createEditNotebookTool(participantService: ParticipantService) {
 
 					case 'clearOutputs': {
 						const { cellIndices: clearCellIndices } = options.input;
-						if (clearCellIndices && clearCellIndices.length > 0) {
+						if (clearCellIndices !== undefined) {
+							if (clearCellIndices.length === 0) {
+								return new vscode.LanguageModelToolResult([
+									new vscode.LanguageModelTextPart('No cell indices specified. Provide cell indices to clear specific cells, or omit cellIndices to clear all.')
+								]);
+							}
+
 							// Validate cell indices
 							const validation = validateCellIndices(clearCellIndices, context.cellCount);
 							if (!validation.valid) {
