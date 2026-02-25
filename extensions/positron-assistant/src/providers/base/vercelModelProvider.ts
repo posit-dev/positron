@@ -347,7 +347,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		}
 
 		// Handle token usage
-		await this.handleTokenUsage(result, model, requestId);
+		await this.handleTokenUsage(result, model, progress, requestId);
 	}
 
 	/**
@@ -367,6 +367,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	protected async handleTokenUsage(
 		result: ReturnType<typeof ai.streamText>,
 		model: vscode.LanguageModelChatInformation,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		requestId?: string
 	): Promise<void> {
 		const usage = await result.usage;
@@ -384,12 +385,6 @@ export abstract class VercelModelProvider extends ModelProvider {
 			tokens.inputTokens += metaUsage.cacheWriteInputTokens || 0;
 			tokens.cachedTokens += metaUsage.cacheReadInputTokens || 0;
 
-			// Report token usage information
-			const part: any = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
-			if (part.report) {
-				part.report(part);
-			}
-
 			this.logger.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
 		}
 
@@ -401,6 +396,10 @@ export abstract class VercelModelProvider extends ModelProvider {
 
 			this.logger.debug(`[${model.name}]: Anthropic usage: ${JSON.stringify(anthropicMeta, null, 2)}`);
 		}
+
+		// Report token usage information
+		const part = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
+		progress.report(part);
 
 		if (requestId) {
 			recordRequestTokenUsage(requestId, this.providerId, tokens);
