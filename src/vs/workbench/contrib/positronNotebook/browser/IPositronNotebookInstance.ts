@@ -229,6 +229,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	runAllCells(): Promise<void>;
 
 	/**
+	 * Clears the output of a specific cell, or the active cell if none is provided.
+	 */
+	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent?: boolean): void;
+
+	/**
 	 * Clears all output from all cells in the notebook.
 	 */
 	clearAllCellOutputs(): void;

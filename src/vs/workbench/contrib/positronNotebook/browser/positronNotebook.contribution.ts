@@ -1561,6 +1561,26 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Clear output for a cell
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.clearOutput',
+			title: localize2('positronNotebook.cell.clearOutput', "Clear Output"),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Clear,
+				order: 1,
+				when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		notebook.clearCellOutput();
+	}
+});
+
 //#endregion Cell Commands
 
 //#region Notebook Header Actions
