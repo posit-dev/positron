@@ -266,7 +266,7 @@ subfolder/
 		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
-<attachment filePath="${filePath}" description="Visible region of the active file" language="${document.languageId}" startLine="${range.start.line + 1}" endLine="${range.end.line + 1}">
+<attachment filePath="${filePath}" description="Range within the active file selected by the user" language="${document.languageId}" startLine="${range.start.line + 1}" endLine="${range.end.line + 1}">
 ${document.getText(range)}
 </attachment>
 <attachment filePath="${filePath}" description="Full contents of the active file" language="${document.languageId}">
