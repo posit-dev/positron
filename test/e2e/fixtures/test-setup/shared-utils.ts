@@ -48,6 +48,10 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 	const settingsFile = path.join(fixturesDir, settingsFileName);
 
+	console.log(`[copyUserSettings] Starting settings merge for userDir: ${userDir}`);
+	console.log(`[copyUserSettings] ALLOW_PYREFLY env var: '${process.env.ALLOW_PYREFLY}'`);
+	console.log(`[copyUserSettings] Running in Docker: ${fs.existsSync('/.dockerenv')}`);
+
 	// Start from the current settings.json in fixtures
 	let mergedSettings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
 
@@ -60,6 +64,7 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 				...mergedSettings,
 				...dockerSettings,
 			};
+			console.log(`[copyUserSettings] Merged Docker settings`);
 		}
 	}
 
@@ -72,13 +77,21 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 				...mergedSettings,
 				...skipPyreflySettings,
 			};
+			console.log(`[copyUserSettings] Merged pyrefly skip settings (pyrefly will be DISABLED)`);
+		} else {
+			console.log(`[copyUserSettings] WARNING: settingsSkipPyrefly.json not found at ${skipPyreflyFile}`);
 		}
+	} else {
+		console.log(`[copyUserSettings] ALLOW_PYREFLY=true, pyrefly will be ENABLED`);
 	}
 
 	// Write merged settings directly to user data directory (avoids race condition with shared fixture file)
 	await mkdir(userDir, { recursive: true });
 	const userSettingsFile = path.join(userDir, settingsFileName);
 	fs.writeFileSync(userSettingsFile, JSON.stringify(mergedSettings, null, 2));
+
+	console.log(`[copyUserSettings] Settings written to: ${userSettingsFile}`);
+	console.log(`[copyUserSettings] extensions.allowed: ${JSON.stringify(mergedSettings['extensions.allowed'])}`);
 
 	return userDir;
 }
