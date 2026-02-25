@@ -149,13 +149,17 @@ const ErrorState = ({ message, onClose }: ErrorStateProps) => (
  * with a label, "follow global" checkbox, and yes/no toggle.
  */
 interface SettingToggleRowProps {
+	/** Display label for the setting */
 	label: string;
+	/** Tooltip/popover description explaining what the setting does */
 	description: string;
 	/** Whether the per-notebook override is active (undefined = follow global) */
 	overrideActive: boolean;
 	/** The effective value after resolving override vs global */
 	effectiveValue: boolean;
+	/** Called when the "follow global" checkbox changes */
 	onFollowGlobalChanged: (followGlobal: boolean) => void;
+	/** Called when the yes/no toggle is clicked */
 	onToggle: () => void;
 	/** Optional callback to show a "Learn more" link in the info popover */
 	onLearnMore?: () => void;
@@ -175,6 +179,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 	onToggle,
 }) => {
 	const infoRef = useRef<HTMLSpanElement>(null);
+	const labelRef = useRef<HTMLSpanElement>(null);
 	const [showPopover, setShowPopover] = useState(false);
 	const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -204,10 +209,9 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 
 	const handleBlur = useCallback((e: React.FocusEvent) => {
 		// Don't close if focus is moving to an element within the popover
-		// (e.g., the "Learn more" link). The parent label span contains both
+		// (e.g., the "Learn more" link). The label ref contains both
 		// the info icon and the popover content.
-		const container = e.currentTarget.parentElement;
-		if (container && e.relatedTarget && container.contains(e.relatedTarget as Node)) {
+		if (labelRef.current && e.relatedTarget && labelRef.current.contains(e.relatedTarget as Node)) {
 			return;
 		}
 		handleHidePopover();
@@ -215,7 +219,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 
 	return (
 		<div className='assistant-panel-setting-row'>
-			<span className='assistant-panel-setting-label'>
+			<span ref={labelRef} className='assistant-panel-setting-label'>
 				{label}
 				<span
 					ref={infoRef}

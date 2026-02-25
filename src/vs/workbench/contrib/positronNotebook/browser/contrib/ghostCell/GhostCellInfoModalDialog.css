@@ -16,13 +16,15 @@
 	gap: 4px;
 }
 
-.ghost-cell-info-heading {
+h3.ghost-cell-info-heading {
+	margin: 0;
 	font-size: 13px;
 	font-weight: 600;
 	color: var(--vscode-foreground);
 }
 
-.ghost-cell-info-text {
+p.ghost-cell-info-text {
+	margin: 0;
 	font-size: 13px;
 	color: var(--vscode-descriptionForeground);
 	line-height: 1.4;

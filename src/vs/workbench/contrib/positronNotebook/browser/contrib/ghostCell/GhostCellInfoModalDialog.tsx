@@ -89,25 +89,25 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 		>
 			<div className='ghost-cell-info-content'>
 				<div className='ghost-cell-info-section'>
-					<div className='ghost-cell-info-heading'>{whatAreGhostCellsHeading}</div>
-					<div className='ghost-cell-info-text'>{whatAreGhostCellsText}</div>
+					<h3 className='ghost-cell-info-heading'>{whatAreGhostCellsHeading}</h3>
+					<p className='ghost-cell-info-text'>{whatAreGhostCellsText}</p>
 				</div>
 				<div className='ghost-cell-info-section'>
-					<div className='ghost-cell-info-heading'>{howDoTheyWorkHeading}</div>
-					<div className='ghost-cell-info-text'>{howDoTheyWorkText}</div>
-					<div className='ghost-cell-info-text'>
+					<h3 className='ghost-cell-info-heading'>{howDoTheyWorkHeading}</h3>
+					<p className='ghost-cell-info-text'>{howDoTheyWorkText}</p>
+					<p className='ghost-cell-info-text'>
 						{keyboardShortcutPrefix}{' '}
 						<kbd className='ghost-cell-info-kbd'>{shortcutLabel}</kbd>.
-					</div>
+					</p>
 				</div>
 				<div className='ghost-cell-info-section'>
-					<div className='ghost-cell-info-heading'>{modelSelectionHeading}</div>
+					<h3 className='ghost-cell-info-heading'>{modelSelectionHeading}</h3>
 					{modelName && (
-						<div className='ghost-cell-info-text'>
+						<p className='ghost-cell-info-text'>
 							{currentModelText} <strong>{modelName}</strong>.
-						</div>
+						</p>
 					)}
-					<div className='ghost-cell-info-text'>
+					<p className='ghost-cell-info-text'>
 						{modelExplanationTextPart1}
 						<a
 							aria-label={openModelSettingLabel}
@@ -118,11 +118,11 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 							{modelSettingsLinkText}
 						</a>
 						{modelExplanationTextPart2}
-					</div>
+					</p>
 				</div>
 				<div className='ghost-cell-info-section'>
-					<div className='ghost-cell-info-heading'>{howToDisableHeading}</div>
-					<div className='ghost-cell-info-text'>
+					<h3 className='ghost-cell-info-heading'>{howToDisableHeading}</h3>
+					<p className='ghost-cell-info-text'>
 						{howToDisableTextPart1}
 						<a
 							aria-label={openSettingLabel}
@@ -133,7 +133,7 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 							{settingsLinkText}
 						</a>
 						{howToDisableTextPart2}
-					</div>
+					</p>
 				</div>
 			</div>
 		</OKModalDialog>
