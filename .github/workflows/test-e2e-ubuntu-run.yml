@@ -375,29 +375,41 @@ jobs:
 
       - name: Verify all shard reports received
         id: verify-reports
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           EXPECTED_SHARDS=${{ inputs.shards }}
+          PROJECT="${{ inputs.project }}"
           echo "Expected shard count: $EXPECTED_SHARDS"
 
-          # Count the number of blob report artifacts that were downloaded
-          # Each shard produces a report.zip file in the blob-report directory
-          REPORT_COUNT=$(find all-blob-reports -name "report-*.zip" 2>/dev/null | wc -l)
-          echo "Found $REPORT_COUNT blob report(s)"
+          # Query GitHub API for artifacts in this run matching our pattern
+          # This is more reliable than counting files since artifact names are deterministic
+          ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[].name' | grep "^blob-report-${PROJECT}-" || true)
+          ARTIFACT_COUNT=$(echo "$ARTIFACTS" | grep -c . || echo 0)
 
-          if [ "$REPORT_COUNT" -lt "$EXPECTED_SHARDS" ]; then
-            echo "::warning::Missing blob reports! Expected $EXPECTED_SHARDS but found $REPORT_COUNT"
-            echo "This typically means one or more shards crashed before uploading their results."
+          echo "Found artifacts:"
+          echo "$ARTIFACTS"
+          echo ""
+          echo "Artifact count: $ARTIFACT_COUNT"
+
+          # Check which shards are missing
+          MISSING_SHARDS=""
+          for i in $(seq 1 $EXPECTED_SHARDS); do
+            if ! echo "$ARTIFACTS" | grep -q "^blob-report-${PROJECT}-${i}$"; then
+              MISSING_SHARDS="$MISSING_SHARDS $i"
+            fi
+          done
+
+          if [ -n "$MISSING_SHARDS" ]; then
+            echo "::warning::Missing blob reports for shards:$MISSING_SHARDS"
+            echo "This typically means these shards crashed before uploading their results."
             echo "missing_reports=true" >> $GITHUB_OUTPUT
-            echo "report_count=$REPORT_COUNT" >> $GITHUB_OUTPUT
+            echo "missing_shards=$MISSING_SHARDS" >> $GITHUB_OUTPUT
           else
             echo "All $EXPECTED_SHARDS shard reports received"
             echo "missing_reports=false" >> $GITHUB_OUTPUT
-            echo "report_count=$REPORT_COUNT" >> $GITHUB_OUTPUT
+            echo "missing_shards=" >> $GITHUB_OUTPUT
           fi
-
-          # List what we have for debugging
-          echo "Contents of all-blob-reports:"
-          ls -la all-blob-reports/ || true
 
       - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
         working-directory: playwright-merge
@@ -448,8 +460,8 @@ jobs:
           if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then
             echo ""
             echo "::error::Missing shard reports detected!"
-            echo "Expected ${{ inputs.shards }} shard reports but only received ${{ steps.verify-reports.outputs.report_count }}."
-            echo "One or more shards likely crashed or timed out before uploading results."
+            echo "Missing reports from shards:${{ steps.verify-reports.outputs.missing_shards }}"
+            echo "These shards likely crashed or timed out before uploading results."
             echo "Check the individual shard jobs above for errors."
             exit 1
           fi
