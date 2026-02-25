@@ -11,7 +11,7 @@ import * as jsonc from 'jsonc-parser';
 import { getLogger } from '../common/logger';
 import { Configuration } from '../common/configuration';
 import { generateDockerBuildCommand, generateDockerCreateCommand } from '../spec/spec-node/devContainersSpecCLI';
-import { formatCommandWithEcho, escapeShellArg } from '../spec/spec-node/commandGeneration';
+import { formatCommandWithEcho, formatCommandForShell, escapeShellArg } from '../spec/spec-node/commandGeneration';
 import { prepareFeaturesInstallation, generateFeatureInstallScript, cleanupFeaturesDir } from './featuresInstaller';
 import { Mount } from '../spec/spec-configuration/containerFeaturesConfiguration';
 
@@ -347,7 +347,7 @@ export class TerminalBuilder {
 			scriptContent += '}\n\n';
 		} else {
 			scriptContent += 'echo "==> Creating container..."\n';
-			scriptContent += `CONTAINER_ID=$(${dockerPath} ${createCmd.args.join(' ')})\n`;
+			scriptContent += `CONTAINER_ID=$(${formatCommandForShell(createCmd)})\n`;
 			scriptContent += 'echo "Container ID: $CONTAINER_ID"\n\n';
 
 			scriptContent += 'echo "==> Starting container..."\n';
