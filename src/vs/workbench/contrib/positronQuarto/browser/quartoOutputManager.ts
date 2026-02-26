@@ -57,6 +57,13 @@ export interface IQuartoOutputManager {
 	readonly onDidChangeOutputs: Event<OutputChangeEvent>;
 
 	/**
+	 * Event fired when all outputs for a specific document should be cleared.
+	 * Ensures per-editor contributions clear view zones for cached outputs
+	 * that the service may not be tracking.
+	 */
+	readonly onDidRequestClearDocument: Event<URI>;
+
+	/**
 	 * Event fired when all outputs should be cleared globally.
 	 * Used when clearing the entire output cache.
 	 */
@@ -305,6 +312,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._outputHandlingDisposables.add(this._outputManager.onDidChangeOutputs(event => {
 			if (this._featureEnabled && this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
 				this._syncOutputsFromService(event);
+			}
+		}));
+
+		// Listen for document-level clear request (e.g., Clear All Outputs command).
+		// This ensures we clear view zones for cached outputs that the service
+		// may not be tracking in its own _outputsByCell map.
+		this._outputHandlingDisposables.add(this._outputManager.onDidRequestClearDocument(documentUri => {
+			if (this._featureEnabled && this._documentUri &&
+				documentUri.toString() === this._documentUri.toString()) {
+				this.clearAllOutputs();
 			}
 		}));
 
@@ -1323,6 +1340,9 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 	private readonly _onDidChangeOutputs = this._register(new Emitter<OutputChangeEvent>());
 	readonly onDidChangeOutputs = this._onDidChangeOutputs.event;
 
+	private readonly _onDidRequestClearDocument = this._register(new Emitter<URI>());
+	readonly onDidRequestClearDocument = this._onDidRequestClearDocument.event;
+
 	private readonly _onDidRequestClearAll = this._register(new Emitter<void>());
 	readonly onDidRequestClearAll = this._onDidRequestClearAll.event;
 
@@ -1423,6 +1443,10 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 				outputs: [],
 			});
 		}
+
+		// Fire document-level clear event so per-editor contributions also
+		// clear view zones for cached outputs that the service does not track.
+		this._onDidRequestClearDocument.fire(documentUri);
 
 		// Clear entire document cache
 		this._cacheService.clearCache(documentUri);

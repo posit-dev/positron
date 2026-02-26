@@ -2159,6 +2159,11 @@ test.describe('Quarto - Inline Output', {
 		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
 		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
 
+		// Clear outputs from previous tests so leftover webview iframes
+		// don't overlay the editor and intercept pointer events.
+		await app.workbench.quickaccess.runCommand('positronQuarto.clearAllOutputs');
+		await page.waitForTimeout(500);
+
 		// Click on the editor to ensure focus
 		await editor.click();
 		await page.waitForTimeout(500);
