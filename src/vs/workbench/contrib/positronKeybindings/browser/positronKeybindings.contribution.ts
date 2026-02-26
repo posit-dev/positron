@@ -9,7 +9,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import * as nls from '../../../../nls.js';
 import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
@@ -43,6 +43,11 @@ class PositronKeybindingsContribution extends Disposable {
 
 		this._register(this._registrations);
 
+		// Migrate the setting from USER_REMOTE to USER_LOCAL if needed.
+		// Fire-and-forget; the effective merged value is still correct for
+		// the keybinding registration below.
+		this.migrateFromMachineScope();
+
 		// If the configuration setting is enabled, register the RStudio key mappings
 		const rstudioKeybindingsEnabled =
 			this._configurationService.getValue('workbench.keybindings.rstudioKeybindings');
@@ -71,6 +76,28 @@ class PositronKeybindingsContribution extends Disposable {
 				}
 			})
 		);
+	}
+
+	/**
+	 * Migrates the rstudioKeybindings setting from USER_REMOTE to USER_LOCAL.
+	 *
+	 * When this setting's scope changed from MACHINE to RESOURCE, previously
+	 * written MACHINE-scope values ended up in USER_REMOTE on remote
+	 * connections. This migration copies the value to USER_LOCAL (if not
+	 * already set there) and removes the stale USER_REMOTE entry.
+	 *
+	 * The operation is idempotent: once the USER_REMOTE value is cleared,
+	 * subsequent runs are a no-op.
+	 */
+	private async migrateFromMachineScope(): Promise<void> {
+		const key = 'workbench.keybindings.rstudioKeybindings';
+		const inspected = this._configurationService.inspect<boolean>(key);
+		if (inspected.userRemoteValue !== undefined && inspected.userRemoteValue !== false) {
+			if (inspected.userLocalValue === undefined) {
+				await this._configurationService.updateValue(key, inspected.userRemoteValue, ConfigurationTarget.USER_LOCAL);
+			}
+			await this._configurationService.updateValue(key, undefined, ConfigurationTarget.USER_REMOTE);
+		}
 	}
 
 	/**
