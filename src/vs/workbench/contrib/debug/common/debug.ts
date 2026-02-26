@@ -241,6 +241,8 @@ export interface IDebuggerMetadata {
 	// --- Start Positron ---
 	// Whether this debugger can verify breakpoints in dirty (unsaved) documents
 	verifyBreakpointsInDirtyDocuments?: boolean;
+	// Whether this debugger wants to be notified when the user selects a stack frame
+	supportsFrameSelection?: boolean;
 	// --- End Positron ---
 }
 
@@ -1010,6 +1012,9 @@ export interface IDebuggerContribution extends IPlatformSpecificAdapterContribut
 
 	// Whether this debugger can verify breakpoints in dirty (unsaved) documents
 	verifyBreakpointsInDirtyDocuments?: boolean;
+
+	// Whether this debugger wants to be notified when the user selects a stack frame
+	supportsFrameSelection?: boolean;
 	// --- End Positron ---
 
 	// debug configuration support
