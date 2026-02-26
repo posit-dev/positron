@@ -295,20 +295,20 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		// Perform vertical popup layout based on anchor mode.
 		if (anchorMode === 'avoid') {
 			/**
-			 * When extending down: top of popup aligns with top of anchor
-			 * When extending up: bottom of popup aligns with bottom of anchor
+			 * spaceAbove is the space between the top of the document and the bottom of the anchor element.
+			 * spaceBelow is the space between the bottom of the document and the top of the anchor element.
 			 *
-			 * +------------------------+  <- 0 (top of document)
+			 * +------------------------+ <- 0 (top of document)
 			 * |     LAYOUT_MARGIN      |
-			 * +------------------------+
-			 * |       spaceAbove       |
-			 * +------------------------+ <- top of popup starts here when extending down (aligning top of popup with top of anchor)
-			 * |       ANCHOR           |
-			 * +------------------------+ <- bottom of popup starts here when extending up (aligning bottom of popup with bottom of anchor)
-			 * |       spaceBelow       |
-			 * +------------------------+
+			 * +------------------------+ <- spaceAbove (top of popup has to end here)
+			 * |                        |
+			 * +---------anchorY--------+ <- spaceBelow (bottom of popup has to start here)
+			 * |         ANCHOR         |
+			 * +--anchorY+anchorHeight--+ <- spaceAbove (bottom of popup starts here)
+			 * |                        |
+			 * +------------------------+ <- spaceBelow (top of popup has to end here)
 			 * |     LAYOUT_MARGIN      |
-			 * +------------------------+  <- documentHeight
+			 * +------------------------+ <- documentHeight
 			 */
 			const spaceAbove = anchorY + anchorHeight - LAYOUT_MARGIN;
 			const spaceBelow = documentHeight - anchorY - LAYOUT_MARGIN;
@@ -347,9 +347,9 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			 * |     topAreaHeight      | <- popup goes here when positioned at the top
 			 * +------------------------+
 			 * |     LAYOUT_OFFSET      |
-			 * +------------------------+
-			 * |       ANCHOR           |
-			 * +------------------------+
+			 * +---------anchorY--------+
+			 * |         ANCHOR         |
+			 * +--anchorY+anchorHeight--+
 			 * |     LAYOUT_OFFSET      |
 			 * +------------------------+
 			 * |    bottomAreaHeight    | <- popup goes here when positioned at the bottom
