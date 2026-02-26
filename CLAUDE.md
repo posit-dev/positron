@@ -37,6 +37,7 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 ## Testing
 
 - Ensure build daemons are running before testing
+- Core tests (files under `src/`): `./scripts/test.sh --run <file>`
 - Extension tests (preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- For positron-python, see that extension's CLAUDE.md
 - E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --reporter list --grep '<pattern>'`

@@ -5,7 +5,7 @@ paths:
 
 # Core Tests
 
-Core Positron unit/integration tests in `src/`, run via `./scripts/test.sh`.
+Core Positron unit/integration tests in `src/`, run via `./scripts/test.sh`. Tests run in Electron (real Chromium), not jsdom; full DOM/layout APIs are available.
 
 ## Disposables
 
@@ -23,10 +23,6 @@ disposables.add(someDisposable);
 3. Existing `Test*` service classes - search from `src/vs/workbench/test/browser/positronWorkbenchTestServices.ts`.
 4. For many dependencies, use `positronWorkbenchInstantiationService`.
 
-## Structure
-
-- Group related tests with nested `suite()` calls, not comment headers like `// --- Section ---`.
-
 ## Mocking
 
 - Use `Partial<T>` with only the members your test needs, cast with `as T`. This might trigger `local/code-no-dangerous-type-assertions`; add `/* eslint-disable local/code-no-dangerous-type-assertions */` below the copyright header.
@@ -40,3 +36,8 @@ Prefer events/state to verify behavior (e.g. await `TestCommandService.onWillExe
 
 - Await events with `Event.toPromise(event)` instead of timeouts.
 - For debounce/throttle/scheduler logic, use `runWithFakedTimers`.
+
+## General
+
+- Group related tests with nested `suite()` calls, not comment headers like `// --- Section ---`.
+- Don't use `!` non-null assertion when a previous `assert.ok` already narrows the type.

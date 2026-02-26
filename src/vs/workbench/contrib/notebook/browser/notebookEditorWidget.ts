@@ -399,6 +399,10 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 				|| e.outputFontFamily
 				|| e.outputWordWrap
 				|| e.outputScrolling
+				// --- Start Positron ---
+				// Add missing outputLineLimit
+				|| e.outputLineLimit
+				// --- End Positron ---
 				|| e.outputLinkifyFilePaths
 				|| e.minimalError
 			) {
