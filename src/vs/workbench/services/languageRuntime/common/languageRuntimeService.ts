@@ -395,6 +395,19 @@ export enum RuntimeCodeExecutionMode {
 	Silent = 'silent'
 }
 
+/**
+ * The CPU architecture of an interpreter.
+ * Used to detect architecture mismatches between the interpreter and the system.
+ */
+export enum LanguageRuntimeArchitecture {
+	/** 64-bit ARM architecture (Apple Silicon, ARM64 Windows, etc.) */
+	Arm64 = 'arm64',
+	/** 64-bit x86 architecture (Intel/AMD) */
+	X64 = 'x64',
+	/** Architecture was detected but is not arm64 or x64 */
+	Other = 'other'
+}
+
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
 export interface ILanguageRuntimeInfo {
 	/** A startup banner */
@@ -416,6 +429,34 @@ export interface ILanguageRuntimeInfo {
 
 	/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
 	supported_features?: string[];
+
+	/**
+	 * The interpreter's CPU architecture.
+	 * Used to detect architecture mismatches with the system.
+	 */
+	interpreterArch?: LanguageRuntimeArchitecture;
+}
+
+/**
+ * ILanguageRuntimeLaunchInfo describes the kernel launch parameters used to
+ * start a runtime session. This is the information from the Jupyter kernel
+ * spec that was used to start the kernel.
+ */
+export interface ILanguageRuntimeLaunchInfo {
+	/** The command line used to start the kernel */
+	argv: string[];
+
+	/** Environment variables set for the kernel process */
+	env: Record<string, string>;
+
+	/** Optional preflight command run before starting the kernel (e.g. conda activate) */
+	startupCommand?: string;
+
+	/** How the kernel handles interrupts */
+	interruptMode?: string;
+
+	/** The Jupyter protocol version in use */
+	protocolVersion?: string;
 }
 
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
@@ -719,21 +760,28 @@ export enum RuntimeStartupPhase {
 	Reconnecting = 'reconnecting',
 
 	/**
-	 * Phase 4: Positron is starting any runtimes that are affiliated with the
+	 * Phase 4: Positron is setting up new runtimes for the workspace. We only
+	 * enter this phase when starting up a workspace for the first time via the
+	 * New Folder templates. This sets up affilated runtimes for the workspace.
+	 */
+	NewFolderTasks = 'newFolderTasks',
+
+	/**
+	 * Phase 5: Positron is starting any runtimes that are affiliated with the
 	 * workspace. We enter this phase on a fresh start of Positron, when no
 	 * existing sessions are running.
 	 */
 	Starting = 'starting',
 
 	/**
-	 * Phase 5: Positron is discovering all the runtimes on the machine. This
+	 * Phase 6: Positron is discovering all the runtimes on the machine. This
 	 * can take a while, but does precede startup for workspaces that have no
 	 * affiliated runtimes (so we don't know what to start yet).
 	 */
 	Discovering = 'discovering',
 
 	/**
-	 * Phase 6: Startup is complete. In this phase, we start any runtimes
+	 * Phase 7: Startup is complete. In this phase, we start any runtimes
 	 * recommended by extensions if nothing was started in previous phases.
 	 */
 	Complete = 'complete',

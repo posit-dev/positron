@@ -359,6 +359,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 	get onWillStartSessionStartupEmitter() {
 		return this._onWillStartSessionStartup;
 	}
+
+	resetArchitectureMismatchWarning(_languageId?: string): void {
+		// No-op in test implementation
+	}
 }
 
 const TestLanguageRuntimeMetadata: ILanguageRuntimeMetadata = {

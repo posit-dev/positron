@@ -72,6 +72,7 @@
 				;
 		"/>
 
+		<!--- --- Start Positron --- -->
 		<script type="importmap" nonce="0c6a828f1297">
 			{
 				"imports": {
@@ -84,6 +85,19 @@
 				}
 			}
 		</script>
+
+		<!-- Pre-create the amdLoader TrustedType policy in the original page context.
+		When two import maps are present (static React + dynamic CSS), the V8 context
+		in which later module scripts create TrustedType policies can become invalid,
+		causing "callback is no longer runnable" errors. By creating the policy here
+		in an inline script, amdX.ts will use it via globalThis._VSCODE_WEB_PACKAGE_TTP
+		instead of creating its own. -->
+		<script nonce="0c6a828f1297">
+			globalThis._VSCODE_WEB_PACKAGE_TTP = window.trustedTypes?.createPolicy('amdLoader', {
+				createScriptURL(value) { return value; }
+			});
+		</script>
+		<!-- --- End Positron --- -->
 
 	</head>
 

@@ -23,6 +23,7 @@ import { RadioGroup } from '../../../browser/positronComponents/positronModalDia
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { AuthMethod, AuthStatus } from './types.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { ErrorMessageWithLinks } from './components/errorMessageWithLinks.js';
 
 export const showLanguageModelModalDialog = (
 	sources: IPositronLanguageModelSource[],
@@ -52,7 +53,7 @@ const providerSourceToConfig = (source: IPositronLanguageModelSource): IPositron
 		provider: source.provider.id,
 		type: source.type
 	};
-}
+};
 
 interface LanguageModelConfigurationProps {
 	sources: IPositronLanguageModelSource[];
@@ -144,7 +145,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				return updatedSources;
 			});
 		}));
-		return () => { disposables.forEach(d => d.dispose()); }
+		return () => { disposables.forEach(d => d.dispose()); };
 	}, [props.renderer.services.positronAssistantService]);
 
 	// Keep selectedProvider in sync with providerSources
@@ -186,17 +187,17 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	/** Check if the current provider is one of the signed in providers */
 	const isSignedIn = () => {
 		return providerSources.some(source => source.provider.id === selectedProvider.provider.id && source.signedIn);
-	}
+	};
 
 	/** Check if OAuth is in progress */
 	const isOauthInProgress = () => {
 		return showProgress && getAuthMethod() === AuthMethod.OAUTH;
-	}
+	};
 
 	/** Check if API key auth is in progress */
 	const isApiKeyAuthInProgress = () => {
 		return getAuthMethod() === AuthMethod.API_KEY && !!providerConfig.apiKey && providerConfig.apiKey.length > 0;
-	}
+	};
 
 	/** Derive the auth status from the selected provider or progress state */
 	const getAuthStatus = () => {
@@ -210,7 +211,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			return AuthStatus.SIGN_IN_PENDING;
 		}
 		return AuthStatus.SIGNED_OUT;
-	}
+	};
 
 	/** Derive the auth method from the selected provider */
 	const getAuthMethod = () => {
@@ -221,7 +222,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			return AuthMethod.API_KEY;
 		}
 		return AuthMethod.NONE;
-	}
+	};
 
 	/** When the user clicks a different provider in the modal */
 	const onChangeProvider = (provider: IPositronLanguageModelSource) => {
@@ -229,7 +230,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setProviderConfig(providerSourceToConfig(provider));
 		setShowProgress(false);
 		setErrorMessage(undefined);
-	}
+	};
 
 	/** When the user clicks the Close button or presses Esc */
 	const onClose = async () => {
@@ -238,7 +239,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			props.onClose();
 			props.renderer.dispose();
 		}
-	}
+	};
 
 	/** Checks if the modal should be closed. Asks user to accept/reject modal close if auth is currently in progress. */
 	const shouldCloseModal = async () => {
@@ -252,7 +253,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				localize('positron.languageModelProviderModalDialog.oauthInProgressMessage', "The sign in flow is in progress. If you close this dialog, your sign in may not complete. Are you sure you want to close and abandon signing in?"),
 				localize('positron.languageModelProviderModalDialog.ok', "Yes"),
 				localize('positron.languageModelProviderModalDialog.cancel', "No"),
-			)
+			);
 		}
 		if (isApiKeyAuthInProgress()) {
 			return await props.renderer.services.positronModalDialogsService.showSimpleModalDialogPrompt(
@@ -260,11 +261,11 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteMessage', "You have entered an API key, but have not signed in. If you close this dialog, your API key will not be saved. Are you sure you want to close and abandon signing in?"),
 				localize('positron.languageModelProviderModalDialog.ok', "Yes"),
 				localize('positron.languageModelProviderModalDialog.cancel', "No"),
-			)
+			);
 		}
 
 		return true;
-	}
+	};
 
 	/** When the user clicks the Sign In button */
 	const onSignIn = async () => {
@@ -305,7 +306,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					...completionSource.defaults,
 					apiKey: providerConfig.apiKey,
 					oauth: providerConfig.oauth,
-				}
+				};
 				await props.onAction(
 					completionConfig,
 					selectedProvider.signedIn ? 'delete' : 'save');
@@ -315,7 +316,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		} finally {
 			setShowProgress(false);
 		}
-	}
+	};
 
 	/** Signal to the current provider that the user has requested cancellation */
 	const onCancel = async () => {
@@ -327,7 +328,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			}).finally(() => {
 				setShowProgress(false);
 			});
-	}
+	};
 
 	/** Radio buttons for the authentication method selection */
 	const authMethodRadioButtons: RadioButtonItem[] = [
@@ -392,7 +393,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 							identifier={source.provider.id}
 							selected={source.provider.id === selectedProvider.provider.id}
 							onClick={() => onChangeProvider(source)}
-						/>
+						/>;
 					})
 				}
 			</div>
@@ -415,8 +416,15 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				<ProgressBar value={progressValue} />
 			}
 			{errorMessage &&
-				<div className='language-model-error error error-msg'>{errorMessage}</div>
+				<ErrorMessageWithLinks
+					message={errorMessage}
+					openerService={props.renderer.services.openerService}
+					onLinkClick={() => {
+						props.onClose();
+						props.renderer.dispose();
+					}}
+				/>
 			}
 		</VerticalStack>
 	</OKModalDialog>;
-}
+};

@@ -55,6 +55,12 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// Main useEffect hook.
 	useEffect(() => {
+		// Re-read the current phase to close the race between the initial
+		// useState snapshot and the subscription below. If the phase changed
+		// between component construction and this effect, the update would
+		// otherwise be lost.
+		setStartupPhase(services.languageRuntimeService.startupPhase);
+
 		const disposables = services.languageRuntimeService.onDidChangeRuntimeStartupPhase(e => {
 			setStartupPhase(e);
 		});

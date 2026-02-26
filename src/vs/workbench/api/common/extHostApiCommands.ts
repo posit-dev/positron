@@ -24,6 +24,7 @@ import * as search from '../../contrib/search/common/search.js';
 import type * as vscode from 'vscode';
 // --- Start Positron ---
 import type * as positron from 'positron';
+import * as extHostTypes from './positron/extHostTypes.positron.js';
 // --- End Positron ---
 
 //#region --- NEW world
@@ -545,8 +546,23 @@ const newCommands: ApiCommand[] = [
 		'vscode.executeStatementRangeProvider', '_executeStatementRangeProvider', 'Execute statement range provider.',
 		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
 		new ApiCommandResult<languages.IStatementRange, positron.StatementRange>('A promise that resolves to a statement range.', result => {
-			// converter: convert from IRange (API type) to vscode.Range
-			return { range: typeConverters.Range.to(result.range), code: result.code };
+			switch (result.kind) {
+				case languages.StatementRangeKind.Success:
+					return {
+						range: typeConverters.Range.to(result.range),
+						code: result.code
+					} satisfies positron.StatementRange;
+				case languages.StatementRangeKind.Rejection:
+					switch (result.rejectionKind) {
+						case languages.StatementRangeRejectionKind.Syntax:
+							throw new extHostTypes.StatementRangeSyntaxError(result.line);
+						default:
+							throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${result.rejectionKind}`);
+					}
+				default:
+					throw new Error(`Unrecognized 'StatementRangeKind': ${result}`);
+
+			}
 		})
 	),
 	// -- show help topic

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -72,6 +72,14 @@ export interface SerializedSessionMetadata {
 export interface IRuntimeStartupService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
+
+	/**
+	 * Resets the architecture mismatch warning dismissal for a specific language
+	 * or all languages.
+	 *
+	 * @param languageId Optional language ID. If not provided, resets for all languages.
+	 */
+	resetArchitectureMismatchWarning(languageId?: string): void;
 
 	/**
 	 * Get the preferred runtime for a language. This approximates "the runtime

@@ -794,7 +794,8 @@
         "languages": ["r"],
         "supportsUiLaunch": false,
         "sendBreakpointsOnAllSaves": true,
-        "verifyBreakpointsInDirtyDocuments": true
+        "verifyBreakpointsInDirtyDocuments": true,
+        "supportsFrameSelection": true
       }
     ],
     "customEditors": [
@@ -1078,7 +1079,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.227"
+      "ark": "0.1.232"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

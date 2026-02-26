@@ -25,7 +25,8 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IStatementRange, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
+import { IStatementRange, IStatementRangeSuccess, StatementRangeKind, StatementRangeRejectionKind, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
+import { toAction } from '../../../../base/common/actions.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -166,6 +167,58 @@ async function executeCodeInConsole(
 		return false;
 	}
 	return true;
+}
+
+/**
+ * Show a notification for a statement range syntax rejection, with an action to jump to the syntax error line.
+ */
+function notifyStatementRangeSyntaxRejection(
+	line: number | undefined,
+	uri: URI,
+	notificationService: INotificationService,
+	editorService: IEditorService,
+): void {
+	let message = '';
+	let actions = undefined;
+
+	if (line !== undefined) {
+		const lineOneIndexed = line + 1;
+
+		message = localize(
+			'positron.executeCode.syntaxRejectionAtLine',
+			"Can't execute code due to a syntax error near line {0}.",
+			lineOneIndexed
+		);
+
+		const action = toAction({
+			id: 'positron.executeCode.jumpToSyntaxRejectionLine',
+			label: localize('positron.executeCode.jumpToSyntaxRejectionLine', "Jump to line"),
+			run: () => {
+				editorService.openEditor({
+					resource: uri,
+					options: {
+						selection: { startLineNumber: lineOneIndexed, startColumn: 1 },
+					}
+				});
+			}
+		});
+
+		actions = [action];
+	} else {
+		message = localize(
+			'positron.executeCode.syntaxRejection',
+			"Can't execute code due to a syntax error."
+		);
+	}
+
+	notificationService.notify({
+		severity: Severity.Info,
+		message: message,
+		actions: {
+			primary: actions
+		},
+		sticky: false
+	});
 }
 
 /**
@@ -493,14 +546,44 @@ export function registerPositronConsoleActions() {
 				}
 
 				if (statementRange) {
-					// If a statement was found, get the code to execute. Always use whatever the
-					// range provider returns, even if it is an empty string, as it should have
-					// returned `undefined` if it didn't think it was important.
-					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
-					codeLocation = createCodeLocation(model, model.uri, statementRange.range);
+					switch (statementRange.kind) {
+						case StatementRangeKind.Success: {
+							// If a statement was found, get the code to execute. Always use whatever the
+							// range provider returns, even if it is an empty string, as it should have
+							// returned `undefined` if it didn't think it was important.
+							code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
+							codeLocation = createCodeLocation(model, model.uri, statementRange.range);
 
-					if (advance) {
-						nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
+							if (advance) {
+								nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
+							}
+
+							break;
+						}
+						case StatementRangeKind.Rejection: {
+							switch (statementRange.rejectionKind) {
+								case StatementRangeRejectionKind.Syntax: {
+									notifyStatementRangeSyntaxRejection(
+										statementRange.line,
+										model.uri,
+										notificationService,
+										editorService
+									);
+									break;
+								}
+								default: {
+									throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${statementRange.rejectionKind}`);
+								}
+							}
+							// Rejections returned by a provider are critical issues.
+							// We should not continue with a line-based approach after receiving one.
+							// This allows the user to focus on the notification instead and deal
+							// with the reason for the rejection.
+							return undefined;
+						}
+						default: {
+							throw new Error(`Unrecognized 'StatementRangeKind': ${statementRange}`);
+						}
 					}
 				} else {
 					// The statement range provider didn't return a range. This
@@ -586,10 +669,10 @@ export function registerPositronConsoleActions() {
 		async advanceStatement(
 			model: ITextModel,
 			editor: IEditor | undefined,
-			statementRange: IStatementRange,
+			statementRange: IStatementRangeSuccess,
 			provider: StatementRangeProvider,
 			logService: ILogService,
-		): Promise<Position> {
+		): Promise<Position | undefined> {
 
 			// Calculate the next position by creating a position on the line
 			// following the statement and then invoking the
@@ -629,29 +712,59 @@ export function registerPositronConsoleActions() {
 				}
 
 				if (nextStatementRange) {
-					// If we found the next statement, determine exactly where to move
-					// the cursor to, maintaining the invariant that we should always
-					// step further down the page, never up, as this is too "jumpy".
-					// If for some reason the next statement doesn't meet this
-					// invariant, we don't use it and instead use the default
-					// `newPosition`.
-					const nextStatement = nextStatementRange.range;
-					if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
-						// If the next statement's start is after this statement's end,
-						// then move to the start of the next statement.
-						newPosition = new Position(
-							nextStatement.startLineNumber,
-							nextStatement.startColumn
-						);
-					} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
-						// If the above condition failed, but the next statement's end
-						// is after this statement's end, assume we are exiting some
-						// nested scope (like running an individual line of an R
-						// function) and move to the end of the next statement.
-						newPosition = new Position(
-							nextStatement.endLineNumber,
-							nextStatement.endColumn
-						);
+					switch (nextStatementRange.kind) {
+						case StatementRangeKind.Success: {
+							// If we found the next statement, determine exactly where to move
+							// the cursor to, maintaining the invariant that we should always
+							// step further down the page, never up, as this is too "jumpy".
+							// If for some reason the next statement doesn't meet this
+							// invariant, we don't use it and instead use the default
+							// `newPosition`.
+							const nextStatement = nextStatementRange.range;
+							if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
+								// If the next statement's start is after this statement's end,
+								// then move to the start of the next statement.
+								newPosition = new Position(
+									nextStatement.startLineNumber,
+									nextStatement.startColumn
+								);
+							} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
+								// If the above condition failed, but the next statement's end
+								// is after this statement's end, assume we are exiting some
+								// nested scope (like running an individual line of an R
+								// function) and move to the end of the next statement.
+								newPosition = new Position(
+									nextStatement.endLineNumber,
+									nextStatement.endColumn
+								);
+							}
+							break;
+						}
+						case StatementRangeKind.Rejection: {
+							switch (nextStatementRange.rejectionKind) {
+								case StatementRangeRejectionKind.Syntax: {
+									logService.warn(
+										nextStatementRange.line ?
+											`Can't compute advancement due to a syntax error on line ${nextStatementRange.line + 1}.` :
+											"Can't compute advancement due to a syntax error."
+									);
+									break;
+								}
+								default: {
+									throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${nextStatementRange.rejectionKind}`);
+								}
+							}
+							// If we got here we had a successful `statementRange`, but a rejected
+							// `nextStatementRange`. This can occur when the user executes the last
+							// line of parsable code in a file, and everything after that is unparsable.
+							// We want to step one line past the parsable code so it isn't re-executed,
+							// which is what `newPosition` already points at, and then on the next invocation
+							// of statement range they will get a rejection notification.
+							break;
+						}
+						default: {
+							throw new Error(`Unrecognized 'StatementRangeKind': ${nextStatementRange}`);
+						}
 					}
 				}
 			}

@@ -159,6 +159,10 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
 	get verifyBreakpointsInDirtyDocuments(): boolean {
 		return this.debuggerContribution.verifyBreakpointsInDirtyDocuments === true; // Defaults to false
 	}
+
+	get supportsFrameSelection(): boolean {
+		return this.debuggerContribution.supportsFrameSelection === true; // Defaults to false
+	}
 	// --- End Positron ---
 
 	get when(): ContextKeyExpression | undefined {

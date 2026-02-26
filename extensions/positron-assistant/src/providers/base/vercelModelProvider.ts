@@ -12,6 +12,7 @@ import { TokenUsage, recordRequestTokenUsage, recordTokenUsage } from '../../tok
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
+import { ErrorContext } from './errorContext';
 
 /**
  * Base class for all Vercel AI SDK-based model providers.
@@ -69,7 +70,6 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * formatting (e.g., image support).
 	 */
 	protected usesChatCompletions: boolean = false;
-
 
 	/**
 	 * Sends a test message to verify model connectivity.
@@ -292,6 +292,14 @@ export abstract class VercelModelProvider extends ModelProvider {
 		token: vscode.CancellationToken,
 		requestId?: string
 	): Promise<void> {
+		// Set chat context for error handling
+		const errorContext = {
+			isConnectionTest: false,
+			isChat: true,
+			isStartup: false,
+			requestId
+		};
+
 		let accumulatedTextDeltas: string[] = [];
 
 		const flushAccumulatedTextDeltas = () => {
@@ -321,7 +329,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
 				this.logger.warn(`[${model.name}] RECV error`, part.error);
-				const errorMsg = await this.parseProviderError(part.error) ||
+				const errorMsg = await this.parseProviderError(part.error, errorContext) ||
 					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
 				throw new Error(`[${model.name}] Error in chat response: ${errorMsg}`);
 			}
@@ -339,7 +347,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		}
 
 		// Handle token usage
-		await this.handleTokenUsage(result, model, requestId);
+		await this.handleTokenUsage(result, model, progress, requestId);
 	}
 
 	/**
@@ -359,6 +367,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	protected async handleTokenUsage(
 		result: ReturnType<typeof ai.streamText>,
 		model: vscode.LanguageModelChatInformation,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		requestId?: string
 	): Promise<void> {
 		const usage = await result.usage;
@@ -376,12 +385,6 @@ export abstract class VercelModelProvider extends ModelProvider {
 			tokens.inputTokens += metaUsage.cacheWriteInputTokens || 0;
 			tokens.cachedTokens += metaUsage.cacheReadInputTokens || 0;
 
-			// Report token usage information
-			const part: any = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
-			if (part.report) {
-				part.report(part);
-			}
-
 			this.logger.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
 		}
 
@@ -393,6 +396,10 @@ export abstract class VercelModelProvider extends ModelProvider {
 
 			this.logger.debug(`[${model.name}]: Anthropic usage: ${JSON.stringify(anthropicMeta, null, 2)}`);
 		}
+
+		// Report token usage information
+		const part = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
+		progress.report(part);
 
 		if (requestId) {
 			recordRequestTokenUsage(requestId, this.providerId, tokens);
@@ -413,7 +420,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * @param error - The error object from the provider
 	 * @returns A user-friendly error message, or undefined if not specifically handled
 	 */
-	override async parseProviderError(error: any): Promise<string | undefined> {
+	override async parseProviderError(error: any, _context?: ErrorContext): Promise<string | undefined> {
 		// Handle RetryError - the Vercel SDK wraps retried errors in this type
 		// when maxRetries is exceeded. Extract the lastError for processing.
 		if (ai.RetryError.isInstance(error) && error.lastError) {
@@ -435,11 +442,12 @@ export abstract class VercelModelProvider extends ModelProvider {
 					return errorData.error.message;
 				}
 			}
-			// Delegate to base class with the unwrapped error
-			return super.parseProviderError(error.lastError);
+			// Delegate to base class with the unwrapped error, forwarding context so
+			// connection-test suppression and other context-dependent behavior is preserved
+			return super.parseProviderError(error.lastError, _context);
 		}
 
-		return super.parseProviderError(error);
+		return super.parseProviderError(error, _context);
 	}
 
 	/**

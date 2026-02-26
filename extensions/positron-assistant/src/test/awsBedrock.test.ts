@@ -4,7 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as positron from 'positron';
 import { AWSModelProvider } from '../providers/aws/awsBedrockProvider';
+import { BedrockClient } from '@aws-sdk/client-bedrock';
+import { ModelConfig } from '../configTypes';
+import { ErrorContext } from '../providers/base/errorContext';
+import { AttributedAwsCredentialIdentity } from '@aws-sdk/types';
 
 suite('AWSModelProvider', () => {
 	suite('deriveInferenceProfileRegion', () => {
@@ -16,6 +21,492 @@ suite('AWSModelProvider', () => {
 		test('returns "apac" for ap-northeast-1', () => {
 			const result = AWSModelProvider.deriveInferenceProfileRegion('ap-northeast-1');
 			assert.strictEqual(result, 'apac');
+		});
+	});
+
+	suite('parseProviderError', () => {
+		let provider: AWSModelProvider;
+
+		setup(() => {
+			// Create a minimal provider instance for testing
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+
+			provider = new AWSModelProvider(config);
+
+			// Mock the bedrockClient with test profile and region
+			provider.bedrockClient = {
+				config: {
+					profile: 'test-profile',
+					region: 'us-west-2'
+				}
+			} as BedrockClient;
+		});
+
+		test('returns undefined for non-Error objects', async () => {
+			const result = await provider.parseProviderError('not an error');
+			assert.strictEqual(result, undefined);
+		});
+
+		test('returns undefined for errors without a message', async () => {
+			const error = new Error();
+			error.name = 'TestError';
+			error.message = '';
+			const result = await provider.parseProviderError(error);
+			assert.strictEqual(result, undefined);
+		});
+
+		test('handles generic CredentialsProviderError with profile and region context', async () => {
+			// Set SSO credential source to test SSO-specific guidance
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
+			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
+			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
+			assert.ok(result.includes('configure'), 'Expected link text for settings');
+			assert.ok(result.includes('aws sso login'), 'Expected SSO login instructions in error message');
+		});
+
+		test('includes default profile when profile is not set', async () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			provider.bedrockClient = {
+				config: {
+					profile: undefined,
+					region: 'us-west-2'
+				}
+			} as any;
+
+			// Use shared credentials source so the 'default' profile fallback in
+			// authenticationError's CREDENTIALS_PROFILE branch is exercised
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_PROFILE: 'n' });
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('default'), 'Expected "default" profile in error message');
+		});
+
+		test('handles region as async function', async () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			provider.bedrockClient = {
+				config: {
+					profile: 'test-profile',
+					region: async () => 'eu-central-1'
+				}
+			} as any;
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('eu-central-1'), 'Expected async region in error message');
+		});
+
+		test('uses default region when region is not set', async () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			provider.bedrockClient = {
+				config: {
+					profile: 'test-profile',
+					region: undefined
+				}
+			} as any;
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('us-east-1'), 'Expected default region in error message');
+		});
+
+		test('wraps non-CredentialsProviderError messages with "Amazon Bedrock error" prefix', async () => {
+			const error = new Error('Model not found');
+			error.name = 'ModelNotFoundException';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('Amazon Bedrock error'), 'Expected "Amazon Bedrock error" prefix');
+			assert.ok(result.includes('Model not found'), 'Expected original error message');
+		});
+
+		test('returns generic Bedrock error for unrecognized error names', async () => {
+			// An error with an unrecognized name and no special status code falls through
+			// to the generic "Amazon Bedrock error" handler.
+			// eslint-disable-next-line local/code-no-any-casts
+			const error = new Error('Unauthorized') as any;
+			error.name = 'UnauthorizedError';
+			error.statusCode = 401;
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('Amazon Bedrock error'), 'Expected generic "Amazon Bedrock error" prefix');
+			assert.ok(result.includes('Unauthorized'), 'Expected original error message');
+		});
+
+		test('handles IAM AccessDeniedException with documentation link', async () => {
+			const error = new Error(
+				'User: arn:aws:sts:::assumed-role/EC2_SSM_Role/session is not authorized to perform: bedrock:ListFoundationModels because no identity-based policy allows the bedrock:ListFoundationModels action'
+			);
+			error.name = 'AccessDeniedException';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
+			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
+			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
+			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
+			assert.ok(result.includes('positron.posit.co'), 'Expected documentation URL');
+			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
+			// Should not include technical details
+			assert.ok(!result.includes('EC2_SSM_Role'), 'Should not include user ARN');
+			assert.ok(!result.includes('Denied action'), 'Should not include denied action label');
+		});
+
+		test('handles IAM errors without specific action match', async () => {
+			const error = new Error('Access denied to Bedrock');
+			error.name = 'UnauthorizedException';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
+			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
+		});
+
+		test('handles errors with "is not authorized to perform" phrase', async () => {
+			const error = new Error('You are not authorized to perform: bedrock:InvokeModel');
+			error.name = 'SomeOtherError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
+			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
+		});
+
+		test('returns undefined for non-Error plain objects (AI_APICallError duck type)', async () => {
+			// Plain objects that are not real ai.APICallError instances and not Error instances
+			// are not handled by the AWS provider and return undefined.
+			// eslint-disable-next-line local/code-no-any-casts
+			const error = {
+				name: 'AI_APICallError',
+				message: 'API call failed',
+				statusCode: 403,
+				responseHeaders: {
+					'x-amzn-errortype': 'AccessDeniedException:http://internal.amazon.com/coral/com.amazon.coral.service/'
+				},
+				responseBody: JSON.stringify({
+					Message: 'User: arn:aws:sts::123456789012:assumed-role/TestRole/session is not authorized to perform: bedrock:InvokeModelWithResponseStream on resource: arn:aws:bedrock:::foundation-model/test-model because no identity-based policy allows the bedrock:InvokeModelWithResponseStream action'
+				})
+			} as any;
+
+			const result = await provider.parseProviderError(error);
+
+			assert.strictEqual(result, undefined, 'Expected undefined for duck-typed non-Error plain objects');
+		});
+
+		test('IAM error includes markdown formatting and command links', async () => {
+			const error = new Error(
+				'User: arn:aws:iam::123456789012:user/alice is not authorized to perform: bedrock:InvokeModel'
+			);
+			error.name = 'AccessDeniedException';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+
+			// Verify command link to settings
+			assert.ok(result.includes('[configure'), 'Expected link text');
+			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command URI');
+
+			// Verify documentation link
+			assert.ok(result.includes('[required permissions documentation]'), 'Expected documentation link');
+			assert.ok(result.includes('positron.posit.co'), 'Expected documentation URL');
+
+			// Verify paragraph breaks
+			assert.ok(result.includes('\n\n'), 'Expected paragraph breaks');
+
+			// Should not include technical details
+			assert.ok(!result.includes('**User:**'), 'Should not include user ARN label');
+			assert.ok(!result.includes('**Denied action:**'), 'Should not include denied action label');
+		});
+
+		test('connection test context is used to check if in connection test', async () => {
+			const error = new Error(
+				'User: arn:aws:iam::123456789012:user/alice is not authorized to perform: bedrock:InvokeModel'
+			);
+			error.name = 'AccessDeniedException';
+
+			const context: ErrorContext = {
+				isConnectionTest: true,
+				isChat: false,
+				isStartup: false
+			};
+
+			// Should not show notification when in connection test
+			const result = await provider.parseProviderError(error, context);
+
+			assert.ok(result, 'Expected error message to be returned');
+			// Manual verification: In a real scenario, we would verify that
+			// vscode.window.showErrorMessage is not called, but that requires mocking
+		});
+
+		test('credentials error uses authentication template', async () => {
+			// Set SSO credential source to test SSO-specific guidance
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('authentication failed'), 'Expected authentication failure message');
+			assert.ok(result.includes('test-profile'), 'Expected profile name');
+			assert.ok(result.includes('us-west-2'), 'Expected region');
+			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected settings link');
+			assert.ok(result.includes('command:workbench.action.terminal.new'), 'Expected terminal link');
+			assert.ok(result.includes('aws sso login'), 'Expected SSO login instructions');
+		});
+
+		test('includes credential type in error messages when available', async () => {
+			// Set a credential source on the provider
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
+
+			const error = new Error('Access denied');
+			error.name = 'AccessDeniedException';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('SSO'), 'Expected credential type in error message');
+		});
+
+		test('includes credential-specific guidance for environment variables', async () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_ENV_VARS: 'g' });
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('environment variables'), 'Expected credential type');
+			assert.ok(result.includes('AWS_ACCESS_KEY_ID'), 'Expected env var guidance');
+			assert.ok(result.includes('AWS_SECRET_ACCESS_KEY'), 'Expected env var guidance');
+			// Should not suggest SSO login for environment variables
+			assert.ok(!result.includes('aws sso login'), 'Should not suggest SSO login for env vars');
+		});
+
+		test('includes credential-specific guidance for shared credentials file', async () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_PROFILE: 'n' });
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('shared credentials file'), 'Expected credential type');
+			assert.ok(result.includes('~/.aws/credentials'), 'Expected credentials file path');
+			// Should not suggest SSO login for shared credentials file
+			assert.ok(!result.includes('aws sso login'), 'Should not suggest SSO login for shared credentials');
+		});
+
+		test('includes credential-specific guidance for EC2 instance metadata', async () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_IMDS: '0' });
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('EC2 instance metadata'), 'Expected credential type');
+			assert.ok(result.includes('IAM role'), 'Expected EC2 guidance');
+		});
+
+		test('includes credential-specific guidance for credential process', async () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_PROCESS: 'w' });
+
+			const error = new Error('Could not load credentials');
+			error.name = 'CredentialsProviderError';
+
+			const result = await provider.parseProviderError(error);
+
+			assert.ok(result, 'Expected error message to be returned');
+			assert.ok(result.includes('credential process'), 'Expected credential type');
+			assert.ok(result.includes('~/.aws/config'), 'Expected config file guidance');
+		});
+	});
+
+	suite('getCredentialSource', () => {
+		test('detects environment variable credentials', async () => {
+			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
+				accessKeyId: 'test',
+				secretAccessKey: 'test',
+				$source: { CREDENTIALS_ENV_VARS: 'g' }
+			});
+
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+
+			const provider = new AWSModelProvider(config);
+			// eslint-disable-next-line local/code-no-any-casts
+			const result = await (provider as any).getCredentialSource(mockProvider);
+
+			assert.ok(result, 'Expected credential source to be returned');
+			assert.strictEqual(result.CREDENTIALS_ENV_VARS, 'g');
+		});
+
+		test('detects SSO credentials', async () => {
+			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
+				accessKeyId: 'test',
+				secretAccessKey: 'test',
+				$source: { CREDENTIALS_SSO: 's' }
+			});
+
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+
+			const provider = new AWSModelProvider(config);
+			// eslint-disable-next-line local/code-no-any-casts
+			const result = await (provider as any).getCredentialSource(mockProvider);
+
+			assert.ok(result, 'Expected credential source to be returned');
+			assert.strictEqual(result.CREDENTIALS_SSO, 's');
+		});
+
+		test('detects EC2 instance metadata credentials', async () => {
+			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
+				accessKeyId: 'test',
+				secretAccessKey: 'test',
+				$source: { CREDENTIALS_IMDS: '0' }
+			});
+
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+
+			const provider = new AWSModelProvider(config);
+			// eslint-disable-next-line local/code-no-any-casts
+			const result = await (provider as any).getCredentialSource(mockProvider);
+
+			assert.ok(result, 'Expected credential source to be returned');
+			assert.strictEqual(result.CREDENTIALS_IMDS, '0');
+		});
+
+		test('detects shared credentials file', async () => {
+			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
+				accessKeyId: 'test',
+				secretAccessKey: 'test',
+				$source: { CREDENTIALS_PROFILE: 'n' }
+			});
+
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+
+			const provider = new AWSModelProvider(config);
+			// eslint-disable-next-line local/code-no-any-casts
+			const result = await (provider as any).getCredentialSource(mockProvider);
+
+			assert.ok(result, 'Expected credential source to be returned');
+			assert.strictEqual(result.CREDENTIALS_PROFILE, 'n');
+		});
+
+		test('returns undefined when $source is missing', async () => {
+			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
+				accessKeyId: 'test',
+				secretAccessKey: 'test'
+			});
+
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+
+			const provider = new AWSModelProvider(config);
+			// eslint-disable-next-line local/code-no-any-casts
+			const result = await (provider as any).getCredentialSource(mockProvider);
+
+			assert.strictEqual(result, undefined);
+		});
+
+		test('returns undefined when credential resolution fails', async () => {
+			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => {
+				throw new Error('Credential resolution failed');
+			};
+
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+
+			const provider = new AWSModelProvider(config);
+			// eslint-disable-next-line local/code-no-any-casts
+			const result = await (provider as any).getCredentialSource(mockProvider);
+
+			assert.strictEqual(result, undefined);
 		});
 	});
 });

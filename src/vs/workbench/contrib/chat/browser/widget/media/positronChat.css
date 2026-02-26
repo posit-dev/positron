@@ -1,13 +1,29 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/* Specificity must beat (0,3,0) from upstream chat.css. */
+.interactive-session .chat-attached-context .chat-attached-context-attachment.runtime-session-context-attachment {
+	align-items: center;
+	gap: 4px;
+	padding-inline: 4px;
+	/* Prevent the text wrapping in narrow contexts */
+	white-space: nowrap;
+}
 
+/* Reset margin-right since .monaco-icon-label already has gap: 4px. */
 .runtime-session-context-attachment .monaco-icon-label-iconpath {
 	width: 14px;
 	height: 14px;
-	padding-left: 2px;
-	margin-top: 2px;
+	margin: 0;
+	padding: 0;
+	align-self: center;
+}
+
+/* Specificity must beat (0,4,0) from upstream. */
+.interactive-session .chat-attached-context .chat-attached-context-attachment.runtime-session-context-attachment .monaco-button {
+	margin-top: 0;
+	height: 100%;
 }
 
 .chat-token-usage-status {

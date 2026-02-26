@@ -866,6 +866,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].showProfile!();
 	}
 
+	async $getLaunchInfo(handle: number): Promise<positron.LanguageRuntimeLaunchInfo | undefined> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot get launch info: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.getLaunchInfo) {
+			return undefined;
+		}
+		return session.getLaunchInfo();
+	}
 
 	$openResource(handle: number, resource: URI | string): Promise<boolean> {
 		if (handle >= this._runtimeSessions.length) {
@@ -1170,6 +1180,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return new Disposable(() => {
 			this._registeredClientIds.delete(clientInstanceId);
 		});
+	}
+
+	/**
+	 * Emits a performance mark for language runtime operations. This is used to
+	 * correlate performance events across the extension host and main thread.
+	 *
+	 * @param name The name of the performance mark
+	 */
+	public emitPerfMark(extensionId: string, name: string): void {
+		this._proxy.$emitPerfMark(extensionId, name);
 	}
 
 	public getRegisteredRuntimes(): Promise<positron.LanguageRuntimeMetadata[]> {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -95,4 +95,10 @@ export enum RuntimeState {
     Exited = 'exited',
     Offline = 'offline',
     Interrupting = 'interrupting',
+}
+
+export enum LanguageRuntimeArchitecture {
+    Arm64 = 'arm64',
+    X64 = 'x64',
+    Other = 'other',
 }

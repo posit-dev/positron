@@ -818,10 +818,11 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			lastPart.kind === 'references' ||
 			((lastPart.kind === 'toolInvocation' || lastPart.kind === 'toolInvocationSerialized') && (IChatToolInvocation.isComplete(lastPart) || lastPart.presentation === 'hidden')) ||
 			// --- Start Positron ---
-			// Show working progress if the last part is markdown content and the response is in progress
-			// This is especially helpful when running in Agent mode, when the executeCode code block is still being constructed
-			// This causes the in progress indicator to show in any mode, while markdown text is being rendered and the response is not complete
-			(lastPart.kind === 'markdownContent' && element.isComplete) ||
+			// Show working progress if the last part is markdown content and the response is in progress.
+			// The early return above already guarantees element.isComplete is false at this point.
+			// This is especially helpful when running in Agent mode, when the executeCode code block is still being constructed.
+			// This causes the in progress indicator to show in any mode, while markdown text is being rendered and the response is not complete.
+			lastPart.kind === 'markdownContent' ||
 			// --- End Positron ---
 			((lastPart.kind === 'textEditGroup' || lastPart.kind === 'notebookEditGroup') && lastPart.done && !partsToRender.some(part => part.kind === 'toolInvocation' && !IChatToolInvocation.isComplete(part))) ||
 			(lastPart.kind === 'progressTask' && lastPart.deferred.isSettled) ||
@@ -1467,7 +1468,23 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			return errorConfirmation;
 		} else {
 			const level = content.errorDetails.level ?? ChatErrorLevel.Error;
+			// --- Start Positron ---
+			// Enable command links in error messages with specific allowlist
+			// This allows error messages to include actionable links to settings, terminal, etc.
+			const errorMarkdown = new MarkdownString(content.errorDetails.message, {
+				isTrusted: {
+					enabledCommands: [
+						'workbench.action.openSettings',
+						'workbench.action.terminal.new',
+						'workbench.action.files.openFile'
+					]
+				}
+			});
+			/*
 			return this.instantiationService.createInstance(ChatErrorContentPart, level, new MarkdownString(content.errorDetails.message), content, this.chatContentMarkdownRenderer);
+			*/
+			return this.instantiationService.createInstance(ChatErrorContentPart, level, errorMarkdown, content, this.chatContentMarkdownRenderer);
+			// --- End Positron ---
 		}
 	}
 

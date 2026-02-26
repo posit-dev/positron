@@ -32,7 +32,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../common/positronNotebookConfig.js';
-import { POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../contrib/ghostCell/config.js';
+import { POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY, SHOW_GHOST_CELL_INFO_COMMAND_ID } from '../contrib/ghostCell/config.js';
 import { CellEditType } from '../../../notebook/common/notebookCommon.js';
 import { AssistantSettings, ShowDiffOverride, AutoFollowOverride, GhostCellSuggestionsOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
 import { SegmentedToggle } from '../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
@@ -53,6 +53,7 @@ const followGlobalLabel = localize('assistantPanel.followGlobal', 'follow global
 const yesLabel = localize('assistantPanel.yes', 'yes');
 const noLabel = localize('assistantPanel.no', 'no');
 const openGlobalSettingsLabel = localize('assistantPanel.settings.openGlobal', 'Open global settings');
+const learnMoreLabel = localize('assistantPanel.learnMore', 'Learn more');
 
 /**
  * Panel state for tracking notebook availability
@@ -148,14 +149,20 @@ const ErrorState = ({ message, onClose }: ErrorStateProps) => (
  * with a label, "follow global" checkbox, and yes/no toggle.
  */
 interface SettingToggleRowProps {
+	/** Display label for the setting */
 	label: string;
+	/** Tooltip/popover description explaining what the setting does */
 	description: string;
 	/** Whether the per-notebook override is active (undefined = follow global) */
 	overrideActive: boolean;
 	/** The effective value after resolving override vs global */
 	effectiveValue: boolean;
+	/** Called when the "follow global" checkbox changes */
 	onFollowGlobalChanged: (followGlobal: boolean) => void;
+	/** Called when the yes/no toggle is clicked */
 	onToggle: () => void;
+	/** Optional callback to show a "Learn more" link in the info popover */
+	onLearnMore?: () => void;
 }
 
 /**
@@ -167,10 +174,12 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 	description,
 	overrideActive,
 	effectiveValue,
+	onLearnMore,
 	onFollowGlobalChanged,
 	onToggle,
 }) => {
 	const infoRef = useRef<HTMLSpanElement>(null);
+	const labelRef = useRef<HTMLSpanElement>(null);
 	const [showPopover, setShowPopover] = useState(false);
 	const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -198,9 +207,19 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 		setShowPopover(false);
 	}, [clearHoverTimeout]);
 
+	const handleBlur = useCallback((e: React.FocusEvent) => {
+		// Don't close if focus is moving to an element within the popover
+		// (e.g., the "Learn more" link). The label ref contains both
+		// the info icon and the popover content.
+		if (labelRef.current && e.relatedTarget && labelRef.current.contains(e.relatedTarget as Node)) {
+			return;
+		}
+		handleHidePopover();
+	}, [handleHidePopover]);
+
 	return (
 		<div className='assistant-panel-setting-row'>
-			<span className='assistant-panel-setting-label'>
+			<span ref={labelRef} className='assistant-panel-setting-label'>
 				{label}
 				<span
 					ref={infoRef}
@@ -208,10 +227,10 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 					className='assistant-panel-setting-info codicon codicon-info'
 					role='button'
 					tabIndex={0}
-					onBlur={handleHidePopover}
+					onBlur={handleBlur}
 					onFocus={handleShowPopover}
 					onMouseEnter={handleShowPopover}
-					onMouseLeave={handleHidePopover}
+					onMouseLeave={clearHoverTimeout}
 				/>
 				{showPopover && infoRef.current && (
 					<Popover
@@ -220,6 +239,22 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 						onClose={() => setShowPopover(false)}
 					>
 						{description}
+						{onLearnMore && (
+							<>
+								{' '}
+								<a
+									className='monaco-link'
+									href=''
+									onClick={(e) => {
+										e.preventDefault();
+										setShowPopover(false);
+										onLearnMore();
+									}}
+								>
+									{learnMoreLabel}
+								</a>
+							</>
+						)}
 					</Popover>
 				)}
 			</span>
@@ -351,6 +386,10 @@ const ReadyState = ({
 						} else {
 							onGhostCellSuggestionsChanged(globalGhostCellSuggestions ? 'enabled' : 'disabled');
 						}
+					}}
+					onLearnMore={() => {
+						onClose();
+						commandService.executeCommand(SHOW_GHOST_CELL_INFO_COMMAND_ID);
 					}}
 					onToggle={() => onGhostCellSuggestionsChanged(effectiveGhostCellSuggestions ? 'disabled' : 'enabled')}
 				/>

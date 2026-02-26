@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as jsonc from 'jsonc-parser';
+import { URI } from 'vscode-uri';
 import { Logger } from '../common/logger';
 import { PortForwardingManager } from './portForwarding';
 import { installAndStartServer } from '../server/serverInstaller';
@@ -12,6 +15,8 @@ import { getDevContainerManager } from '../container/devContainerManager';
 import { decodeDevContainerAuthority } from '../common/authorityEncoding';
 import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
 import { getConfiguration } from '../common/configuration';
+import { Workspace } from '../common/workspace';
+import { substitute } from '../spec/spec-common/variableSubstitution';
 
 /**
  * Connection state
@@ -161,6 +166,15 @@ export class ConnectionManager {
 				this.logger.debug(`Setting CONTAINER_WORKSPACE_FOLDER: ${remoteWorkspacePath}`);
 			} else {
 				this.logger.debug('No remoteWorkspacePath available');
+			}
+
+			// Add remoteEnv from devcontainer.json to the extension host environment
+			if (localWorkspacePath) {
+				const remoteEnv = this.readRemoteEnv(localWorkspacePath);
+				if (remoteEnv) {
+					Object.assign(extensionHostEnv, remoteEnv);
+					this.logger.debug(`Merged remoteEnv from devcontainer.json: ${Object.keys(remoteEnv).join(', ')}`);
+				}
 			}
 
 			// 3. Install Positron server with environment variables
@@ -490,6 +504,51 @@ export class ConnectionManager {
 			POSITRON_REMOTE_ENV: 'devcontainer',
 			// Add other environment variables as needed
 		};
+	}
+
+	/**
+	 * Read remoteEnv from the devcontainer.json for a workspace folder.
+	 * Returns the remoteEnv record, or undefined if the config cannot be read.
+	 */
+	private readRemoteEnv(workspacePath: string): Record<string, string> | undefined {
+		try {
+			// Use Workspace helper to find the devcontainer.json path
+			const workspaceFolder: vscode.WorkspaceFolder = {
+				uri: vscode.Uri.file(workspacePath),
+				name: workspacePath.split(/[/\\]/).pop() || 'workspace',
+				index: 0
+			};
+			const paths = Workspace.getDevContainerPaths(workspaceFolder);
+			if (!paths) {
+				this.logger.debug('No devcontainer.json found for remoteEnv');
+				return undefined;
+			}
+
+			const config = jsonc.parse(fs.readFileSync(paths.devContainerJsonPath, 'utf8'));
+			if (config.remoteEnv && typeof config.remoteEnv === 'object') {
+				// Validate that all values are strings
+				const result: Record<string, string> = {};
+				for (const [key, value] of Object.entries(config.remoteEnv)) {
+					if (typeof value === 'string') {
+						result[key] = value;
+					} else if (value !== null && value !== undefined) {
+						this.logger.debug(`Skipping non-string remoteEnv value for key "${key}"`);
+					}
+				}
+
+				// Expand variable references like ${localEnv:PATH}
+				return substitute({
+					platform: process.platform,
+					configFile: URI.file(paths.devContainerJsonPath),
+					localWorkspaceFolder: workspacePath,
+					env: process.env,
+				}, result);
+			}
+			return undefined;
+		} catch (error) {
+			this.logger.debug('Failed to read remoteEnv from devcontainer.json', error);
+			return undefined;
+		}
 	}
 
 	/**
