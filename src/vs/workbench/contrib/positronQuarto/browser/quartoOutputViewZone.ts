@@ -1044,6 +1044,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	private _renderAllOutputs(): void {
+		this._disposeAllWebviews();
 		dom.clearNode(this._outputContainer);
 
 		// Check if all outputs are errors only

@@ -2184,8 +2184,10 @@ test.describe('Quarto - Inline Output', {
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
 		}).toPass({ timeout: 120000 });
 
-		// Wait for webview container to be visible (interactive content)
-		const webviewContainer = inlineOutput.locator('.quarto-output-webview-container');
+		// Wait for webview container to be visible (interactive content).
+		// Use [data-output-id] to target the actual rendered webview container,
+		// not any placeholder that may briefly coexist during re-render.
+		const webviewContainer = inlineOutput.locator('.quarto-output-webview-container[data-output-id]');
 		await expect(webviewContainer).toBeVisible({ timeout: 30000 });
 
 		// Wait for the webview to fully render
