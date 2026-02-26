@@ -149,7 +149,7 @@ suite('Conda Package Manager', () => {
             sinon.assert.calledOnce(sendCommandStub);
             const [executable, args] = sendCommandStub.firstCall.args;
             assert.strictEqual(executable, condaFile);
-            assert.deepStrictEqual(args, ['update', '--prefix', condaEnvPath, '-y', 'numpy']);
+            assert.deepStrictEqual(args, ['install', '--prefix', condaEnvPath, '-y', 'numpy']);
         });
 
         test('updates multiple packages', async () => {
@@ -159,7 +159,7 @@ suite('Conda Package Manager', () => {
 
             sinon.assert.calledOnce(sendCommandStub);
             const [, args] = sendCommandStub.firstCall.args;
-            assert.deepStrictEqual(args, ['update', '--prefix', condaEnvPath, '-y', 'numpy', 'pandas']);
+            assert.deepStrictEqual(args, ['install', '--prefix', condaEnvPath, '-y', 'numpy', 'pandas']);
         });
 
         test('does nothing for empty package list', async () => {
