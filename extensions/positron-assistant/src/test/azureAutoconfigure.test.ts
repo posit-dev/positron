@@ -71,18 +71,10 @@ suite('Azure Autoconfigure', () => {
 		const models = getAllModelDefinitions('azure');
 		assert.ok(models.length > 0, 'Azure should have built-in model definitions');
 
-		const modelRouter = models.find(m => m.identifier === 'model-router');
-		assert.ok(modelRouter, 'Model Router should be in built-in definitions');
-		assert.strictEqual(modelRouter.maxInputTokens, 128_000);
-
-		const gpt4o = models.find(m => m.identifier === 'gpt-4o');
-		assert.ok(gpt4o, 'GPT-4o should be in built-in definitions');
-		assert.strictEqual(gpt4o.maxInputTokens, 128_000);
-
-		const gpt5mini = models.find(m => m.identifier === 'gpt-5-mini');
-		assert.ok(gpt5mini, 'GPT-5 mini should be in built-in definitions');
-		assert.strictEqual(gpt5mini.maxInputTokens, 272_000);
-		assert.strictEqual(gpt5mini.maxOutputTokens, 128_000);
+		const gpt41 = models.find(m => m.identifier === 'gpt-4.1');
+		assert.ok(gpt41, 'GPT-4.1 should be in built-in definitions');
+		assert.strictEqual(gpt41.maxInputTokens, 1_047_576);
+		assert.strictEqual(gpt41.maxOutputTokens, 32_768);
 	});
 
 	test('Azure source has Custom autoconfigure type', () => {

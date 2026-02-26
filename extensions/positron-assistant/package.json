@@ -488,10 +488,10 @@
               "advanced"
             ]
           },
-          "positron.assistant.models.preference.azure": {
+          "positron.assistant.models.preference.microsoftFoundry": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.azure.description%",
+            "markdownDescription": "%configuration.models.preference.microsoftFoundry.description%",
             "tags": [
               "advanced"
             ]
@@ -747,10 +747,10 @@
               ]
             }
           },
-          "positron.assistant.models.overrides.azure": {
+          "positron.assistant.models.overrides.microsoftFoundry": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.overrides.azure.description%",
+            "markdownDescription": "%configuration.models.overrides.microsoftFoundry.description%",
             "tags": [
               "advanced"
             ],
@@ -884,10 +884,10 @@
             ],
             "order": 7
           },
-          "positron.assistant.provider.azure.enable": {
+          "positron.assistant.provider.microsoftFoundry.enable": {
             "type": "boolean",
             "default": false,
-            "markdownDescription": "%configuration.provider.azure.enable.description%",
+            "markdownDescription": "%configuration.provider.microsoftFoundry.enable.description%",
             "tags": [
               "experimental",
               "advanced"
@@ -916,6 +916,11 @@
       {
         "vendor": "amazon-bedrock",
         "displayName": "Amazon Bedrock",
+        "managementCommand": "positron-assistant.configureProviders"
+      },
+      {
+        "vendor": "azure",
+        "displayName": "Azure",
         "managementCommand": "positron-assistant.configureProviders"
       },
       {

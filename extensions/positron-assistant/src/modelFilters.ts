@@ -13,7 +13,7 @@ import { markDefaultModel } from './modelResolutionHelpers.js';
  */
 function matchesModelFilter(pattern: string, id: string, name: string): boolean {
 	const normalizedPattern = pattern.toLowerCase().trim();
-	const values = [id, name].map(v => v.toLowerCase());
+	const values = [id, name].filter(Boolean).map(v => v.toLowerCase());
 
 	// If pattern contains wildcards or regex chars, use regex matching
 	if (normalizedPattern.includes('*') || /[.+^${}()|[\]\\]/.test(normalizedPattern)) {

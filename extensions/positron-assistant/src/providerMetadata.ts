@@ -64,8 +64,8 @@ export const PROVIDER_METADATA = {
 	},
 	azure: {
 		id: 'azure',
-		displayName: 'Azure',
-		settingName: 'azure',
+		displayName: 'Microsoft Foundry',
+		settingName: 'microsoftFoundry',
 	},
 	copilot: {
 		id: 'copilot-auth',

@@ -58,7 +58,7 @@ suite('Provider Migration Tests', () => {
 		const calls = stubs.mockUpdate.getCalls();
 		const anthropicCall = calls.find(call => call.args[0] === 'provider.anthropic.enable');
 		const copilotCall = calls.find(call => call.args[0] === 'provider.githubCopilot.enable');
-		const azureCall = calls.find(call => call.args[0] === 'provider.azure.enable');
+		const azureCall = calls.find(call => call.args[0] === 'provider.microsoftFoundry.enable');
 		const removeCall = calls.find(call => call.args[0] === 'enabledProviders');
 
 		assert.ok(anthropicCall);

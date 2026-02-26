@@ -13,10 +13,6 @@ import { autoconfigureWithManagedCredentials, AZURE_MANAGED_CREDENTIALS } from '
 import { createOpenAICompatibleFetch } from '../../openai-fetch-utils.js';
 import { log } from '../../log.js';
 
-/** Auth provider constants -- contract with the Workbench VS Code extension. */
-const AUTH_PROVIDER_ID = 'posit-workbench';
-const AUTH_SCOPES = ['azure-cognitiveservices'];
-
 /**
  * Azure OpenAI Service model provider implementation.
  *
@@ -48,8 +44,8 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 		provider: PROVIDER_METADATA.azure,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'Model Router',
-			model: 'model-router',
+			name: 'GPT-4.1',
+			model: 'gpt-4.1',
 			baseUrl: undefined,
 			toolCalls: true,
 			autoconfigure: {
@@ -117,7 +113,7 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 	 * setting (which constructs an endpoint URL automatically).
 	 */
 	private static getWorkbenchConfig() {
-		const config = vscode.workspace.getConfiguration('positWorkbench.azure.openai');
+		const config = vscode.workspace.getConfiguration('positWorkbench.foundry');
 		const endpoint = config.get<string>('endpoint', '');
 		const resourceName = config.get<string>('resourceName', '');
 		return {
@@ -169,24 +165,26 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 	}
 
 	/**
-	 * Gets a fresh access token from the Workbench extension.
-	 * Uses a direct command to bypass VS Code's auth authorization layer,
-	 * which would otherwise require a user-facing approval prompt.
+	 * Gets a fresh access token via VS Code's Authentication API.
+	 * The posit-workbench provider is listed in product.json's
+	 * trustedExtensionAuthAccess, so no consent dialog is shown.
 	 * The Workbench extension handles token caching and proactive refresh.
 	 */
 	private async getAccessToken(): Promise<string> {
 		try {
-			const token = await vscode.commands.executeCommand<string | undefined>(
-				'posit-workbench.getAzureOpenAIToken'
+			const session = await vscode.authentication.getSession(
+				'posit-workbench',
+				['msfoundry'],
+				{ silent: true }
 			);
 
-			if (!token) {
+			if (!session) {
 				this.handleAuthError('No Azure credentials available. Contact your Workbench administrator.');
 				throw new Error('Azure OpenAI authentication unavailable.');
 			}
 
 			this._hasShownAuthError = false;
-			return token;
+			return session.accessToken;
 		} catch (e) {
 			if (e instanceof Error && e.message === 'Azure OpenAI authentication unavailable.') {
 				throw e;

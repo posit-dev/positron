@@ -44,6 +44,23 @@ const bedrockSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
 	<path d="M12 2L4.5 6v12l7.5 4 7.5-4V6L12 2zm5 13.17l-5 2.67-5-2.67V8.83l5-2.67 5 2.67v6.34z" fill="url(#bedrockGradient)"/>
 </svg>`;
 
+const azureAISvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+	<path clip-rule="evenodd" d="M16.233 0c.713 0 1.345.551 1.572 1.329.227.778 1.555 5.59 1.555 5.59v9.562h-4.813L14.645 0h1.588z" fill="url(#lobe-icons-azure-ai-fill-0)" fill-rule="evenodd"/>
+	<path d="M23.298 7.47c0-.34-.275-.6-.6-.6h-2.835a3.617 3.617 0 00-3.614 3.615v5.996h3.436a3.617 3.617 0 003.613-3.614V7.47z" fill="url(#lobe-icons-azure-ai-fill-1)"/>
+	<path clip-rule="evenodd" d="M16.233 0a.982.982 0 00-.989.989l-.097 18.198A4.814 4.814 0 0110.334 24H1.6a.597.597 0 01-.567-.794l7-19.981A4.819 4.819 0 0112.57 0h3.679-.016z" fill="url(#lobe-icons-azure-ai-fill-2)" fill-rule="evenodd"/>
+	<defs>
+		<linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-azure-ai-fill-0" x1="18.242" x2="14.191" y1="16.837" y2=".616">
+			<stop stop-color="#712575"/><stop offset=".09" stop-color="#9A2884"/><stop offset=".18" stop-color="#BF2C92"/><stop offset=".27" stop-color="#DA2E9C"/><stop offset=".34" stop-color="#EB30A2"/><stop offset=".4" stop-color="#F131A5"/><stop offset=".5" stop-color="#EC30A3"/><stop offset=".61" stop-color="#DF2F9E"/><stop offset=".72" stop-color="#C92D96"/><stop offset=".83" stop-color="#AA2A8A"/><stop offset=".95" stop-color="#83267C"/><stop offset="1" stop-color="#712575"/>
+		</linearGradient>
+		<linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-azure-ai-fill-1" x1="19.782" x2="19.782" y1=".34" y2="23.222">
+			<stop stop-color="#DA7ED0"/><stop offset=".08" stop-color="#B17BD5"/><stop offset=".19" stop-color="#8778DB"/><stop offset=".3" stop-color="#6276E1"/><stop offset=".41" stop-color="#4574E5"/><stop offset=".54" stop-color="#2E72E8"/><stop offset=".67" stop-color="#1D71EB"/><stop offset=".81" stop-color="#1471EC"/><stop offset="1" stop-color="#1171ED"/>
+		</linearGradient>
+		<linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-azure-ai-fill-2" x1="18.404" x2="3.236" y1=".859" y2="25.183">
+			<stop stop-color="#DA7ED0"/><stop offset=".05" stop-color="#B77BD4"/><stop offset=".11" stop-color="#9079DA"/><stop offset=".18" stop-color="#6E77DF"/><stop offset=".25" stop-color="#5175E3"/><stop offset=".33" stop-color="#3973E7"/><stop offset=".42" stop-color="#2772E9"/><stop offset=".54" stop-color="#1A71EB"/><stop offset=".68" stop-color="#1371EC"/><stop offset="1" stop-color="#1171ED"/>
+		</linearGradient>
+	</defs>
+</svg>`;
+
 const snowflakeSvg = `<svg width="24" height="24" viewBox="0 0 146.36 139.16" fill="#29b5e8" fill-rule="evenodd" style="flex:none;line-height:1" xmlns="http://www.w3.org/2000/svg">
 	<path d="M134.81,60.1l-16.47,9.49L134.81,79a8.65,8.65,0,1,1-8.67,15l-29.51-17a8.68,8.68,0,0,1-4.33-7.75,8.48,8.48,0,0,1,.31-2,8.68,8.68,0,0,1,4-5.19l29.51-16.94A8.69,8.69,0,0,1,138,48.31,8.58,8.58,0,0,1,134.81,60.1Zm-15.59,46L89.72,89.13a8.72,8.72,0,0,0-13.06,7.48v33.9a8.69,8.69,0,0,0,17.37,0v-19L110.54,121a8.66,8.66,0,1,0,8.68-15Zm-34-33.16L72.92,85.09a2.44,2.44,0,0,1-1.54.65H67.77a2.51,2.51,0,0,1-1.54-.65L54,72.9a2.45,2.45,0,0,1-.64-1.52v-3.6A2.5,2.5,0,0,1,54,66.25L66.23,54.06a2.5,2.5,0,0,1,1.54-.64h3.61a2.45,2.45,0,0,1,1.54.64L85.18,66.25a2.49,2.49,0,0,1,.63,1.53v3.6A2.44,2.44,0,0,1,85.18,72.9Zm-9.8-3.38A2.59,2.59,0,0,0,74.73,68l-3.55-3.51a2.51,2.51,0,0,0-1.54-.64h-.13a2.46,2.46,0,0,0-1.53.64L64.43,68a2.51,2.51,0,0,0-.63,1.55v.13a2.41,2.41,0,0,0,.63,1.52L68,74.7a2.48,2.48,0,0,0,1.53.64h.13a2.51,2.51,0,0,0,1.54-.64l3.55-3.53a2.49,2.49,0,0,0,.65-1.52ZM19.93,33.08,49.44,50a8.73,8.73,0,0,0,13.07-7.49V8.64a8.69,8.69,0,0,0-17.37,0v19l-16.53-9.5a8.65,8.65,0,1,0-8.68,15ZM84.69,51.16a8.64,8.64,0,0,0,5-1.13l29.5-17a8.65,8.65,0,1,0-8.68-15L94,27.61v-19a8.69,8.69,0,0,0-17.37,0v33.9A8.66,8.66,0,0,0,84.69,51.16ZM54.48,88a8.58,8.58,0,0,0-5,1.13L19.93,106.06a8.66,8.66,0,1,0,8.68,15l16.53-9.49v19a8.69,8.69,0,0,0,17.37,0V96.61A8.65,8.65,0,0,0,54.48,88Zm-8-15.87a8.61,8.61,0,0,0-4-10L13,45.14A8.69,8.69,0,0,0,1.17,48.31,8.59,8.59,0,0,0,4.35,60.1l16.47,9.49L4.35,79A8.65,8.65,0,1,0,13,94l29.48-17A8.59,8.59,0,0,0,46.47,72.13Zm93.15-56.22H138.3v1.63h1.32c.61,0,1-.28,1-.8S140.26,15.91,139.62,15.91Zm-2.94-1.5h3c1.62,0,2.7.89,2.7,2.27a2.16,2.16,0,0,1-1.08,1.9l1.17,1.68v.34h-1.69L139.62,19H138.3V20.6h-1.62Zm8.3,3.22a5.48,5.48,0,0,0-5.58-5.83c-3.31,0-5.51,2.39-5.51,5.83,0,3.28,2.2,5.82,5.51,5.82A5.47,5.47,0,0,0,145,17.63Zm1.38,0c0,3.89-2.6,7.14-7,7.14s-6.89-3.28-6.89-7.14,2.57-7.14,6.89-7.14S146.36,13.73,146.36,17.63Z"/>
 </svg>`;
@@ -87,6 +104,8 @@ export function getProviderIcon(vendor: string, isDarkTheme?: boolean): Provider
 			return createSvgIcon(geminiSvg);
 		case 'amazon-bedrock':
 			return createSvgIcon(bedrockSvg);
+		case 'azure':
+			return createSvgIcon(azureAISvg);
 		case 'posit-ai':
 			return {
 				themeIcon: ThemeIcon.fromId('positron-assistant')

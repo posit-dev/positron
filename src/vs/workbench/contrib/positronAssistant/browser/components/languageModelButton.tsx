@@ -14,6 +14,7 @@ import Bedrock from '../icons/bedrockColor.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import OpenAI from '../icons/openai.js';
 import Snowflake from '../icons/snowflake.js';
+import AzureAI from '../icons/azureAI.js';
 
 interface LanguageModelButtonProps {
 	identifier: string;
@@ -60,6 +61,8 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <Bedrock className='language-model icon' />;
 			case 'openai-api':
 				return <OpenAI className='language-model icon' />;
+			case 'azure':
+				return <AzureAI className='language-model icon' />;
 			case 'posit-ai':
 				return <div className={`language-model icon button-icon codicon codicon-positron-assistant`} />;
 			case 'snowflake-cortex':

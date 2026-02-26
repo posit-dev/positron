@@ -53,14 +53,14 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
 };
 
 /**
- * Azure OpenAI managed credentials configuration for Posit Workbench.
+ * Azure managed credentials configuration for Posit Workbench.
  * Uses the VS Code auth provider instead of environment variables.
  */
 export const AZURE_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
-	displayName: 'Azure OpenAI (Workbench)',
+	displayName: 'Azure managed credentials',
 	authProvider: {
 		id: 'posit-workbench',
-		scopes: ['azure-cognitiveservices'],
+		scopes: ['msfoundry'],
 	},
 };
 
@@ -102,7 +102,7 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 	// The provider-specific autoconfigure (e.g. AzureModelProvider) performs
 	// additional validation (Workbench settings) before returning configured.
 	if (credentialConfig.authProvider) {
-		log.info(`[${displayName}] Auto-configuring with auth provider credentials (on PWB)`);
+		log.info(`[${displayName}] Auto-configuring with auth provider credentials`);
 		return {
 			configured: true,
 			message: credentialConfig.displayName,

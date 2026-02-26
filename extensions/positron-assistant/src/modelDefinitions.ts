@@ -50,25 +50,13 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
 	]],
-	// Azure OpenAI models -- common deployments; admins can override via models.overrides.azure
+	// Microsoft Foundry / Azure OpenAI models -- common deployments; admins can override via models.overrides.microsoftFoundry
 	['azure', [
 		{
-			name: 'Model Router',
-			identifier: 'model-router',
-			maxInputTokens: 128_000,
-			maxOutputTokens: 16_384,
-		},
-		{
-			name: 'GPT-4o',
-			identifier: 'gpt-4o',
-			maxInputTokens: 128_000,
-			maxOutputTokens: 16_384,
-		},
-		{
-			name: 'GPT-5 mini',
-			identifier: 'gpt-5-mini',
-			maxInputTokens: 272_000,
-			maxOutputTokens: 128_000,
+			name: 'GPT-4.1',
+			identifier: 'gpt-4.1',
+			maxInputTokens: 1_047_576,
+			maxOutputTokens: 32_768,
 		},
 	]],
 	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api#model-availability

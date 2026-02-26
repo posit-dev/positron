@@ -298,7 +298,7 @@ function registerDeferredAzureAutoconfigure(context: vscode.ExtensionContext) {
 				type: positron.PositronLanguageModelType.Chat,
 				name: azureProvider.source.provider.displayName,
 				model: azureProvider.source.defaults.model,
-				apiKey: '', // Placeholder -- bearer token auth, not API key
+				apiKey: '',
 				toolCalls: azureProvider.source.defaults.toolCalls,
 				completions: azureProvider.source.defaults.completions,
 				autoconfigure: {
@@ -312,7 +312,7 @@ function registerDeferredAzureAutoconfigure(context: vscode.ExtensionContext) {
 			addAutoconfiguredModel(modelConfig);
 			log.info('[Azure] Deferred autoconfigure succeeded');
 		} catch (e) {
-			log.warn(`[Azure] Deferred autoconfigure failed: ${e instanceof Error ? e.message : String(e)}`);
+			log.warn(`[Azure] Deferred autoconfigure failed: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
 		}
 	}
 
