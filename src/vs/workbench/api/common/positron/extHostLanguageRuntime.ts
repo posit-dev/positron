@@ -24,6 +24,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
+import * as typeConvert from '../extHostTypeConverters.js';
 
 /**
  * Interface for code execution observers
@@ -1423,6 +1424,24 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				});
 
 		return executionObserver.promise.p;
+	}
+
+	/**
+	 * Executes set of inline cells in a source (e.g. Quarto) document.
+	 *
+	 * @param extensionId The id of the extension that requested execution
+	 * @param documentUri The URI of the document in which the cell resides
+	 * @param range The ranges of the cells to execute
+	 *
+	 * @returns A promise that resolves when the request has been sent
+	 */
+	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: any[]): Promise<void> {
+		// Convert vscode.Range objects to serializable IRange format
+		// Filter out undefined/null ranges in case any are invalid
+		const convertedRanges = cellRanges
+			.filter(r => r != null)
+			.map(r => typeConvert.Range.from(r)!);
+		return this._proxy.$executeInlineCells(extensionId, documentUri, convertedRanges);
 	}
 
 	/**
