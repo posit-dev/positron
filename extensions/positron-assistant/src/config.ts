@@ -110,7 +110,11 @@ export async function showConfigurationDialog(
 					signedIn: !!isRegistered,
 					defaults: isRegistered
 						? { ...provider.source.defaults, ...isRegistered }
-						: provider.source.defaults
+						: {
+							...provider.source.defaults,
+							baseUrl: provider.source.defaults.baseUrl
+								?? context.globalState.get<string>(`positron.assistant.lastBaseUrl.${provider.source.provider.id}`),
+						}
 				};
 				return source;
 			})
@@ -247,6 +251,11 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
+
+		// Remember the base URL for this provider so it can be pre-populated after sign-out
+		if (baseUrl) {
+			await context.globalState.update(`positron.assistant.lastBaseUrl.${newConfig.provider}`, baseUrl);
+		}
 
 		// Refresh CopilotService signed-in state if this is a copilot model
 		if (newConfig.provider === 'copilot-auth') {
