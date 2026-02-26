@@ -493,7 +493,8 @@ export function registerPositronConsoleActions() {
 						languageFeaturesService,
 						logService,
 						quartoExecutionManager,
-						editorService
+						editorService,
+						notificationService
 					);
 				} catch (error) {
 					logService.error(`[ExecuteCode] Error in quarto inline output path:`, error);
@@ -860,7 +861,8 @@ export function registerPositronConsoleActions() {
 			languageFeaturesService: ILanguageFeaturesService,
 			logService: ILogService,
 			quartoExecutionManager: IQuartoExecutionManager,
-			editorService: IEditorService
+			editorService: IEditorService,
+			notificationService: INotificationService
 		): Promise<Position | undefined> {
 			let nextPosition: Position | undefined;
 			let codeRange: IRange | undefined;
@@ -888,16 +890,41 @@ export function registerPositronConsoleActions() {
 					}
 
 					if (statementRange) {
-						codeRange = statementRange.range;
+						switch (statementRange.kind) {
+							case StatementRangeKind.Success: {
+								codeRange = statementRange.range;
 
-						if (advance) {
-							nextPosition = await this.advanceStatement(
-								model,
-								editor,
-								statementRange,
-								statementRangeProviders[0],
-								logService
-							);
+								if (advance) {
+									nextPosition = await this.advanceStatement(
+										model,
+										editor,
+										statementRange,
+										statementRangeProviders[0],
+										logService
+									);
+								}
+								break;
+							}
+							case StatementRangeKind.Rejection: {
+								switch (statementRange.rejectionKind) {
+									case StatementRangeRejectionKind.Syntax: {
+										notifyStatementRangeSyntaxRejection(
+											statementRange.line,
+											model.uri,
+											notificationService,
+											editorService
+										);
+										break;
+									}
+									default: {
+										throw new Error(`Unrecognized 'StatementRangeRejectionKind': ${statementRange.rejectionKind}`);
+									}
+								}
+								return undefined;
+							}
+							default: {
+								throw new Error(`Unrecognized 'StatementRangeKind': ${statementRange}`);
+							}
 						}
 					}
 				}
