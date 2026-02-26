@@ -178,7 +178,9 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		// Determine the anchor mode (default to 'align').
 		const anchorMode = props.anchorMode ?? 'align';
 
-		// Perform horizontal popup layout based on alignment and anchor mode.
+		// ======= HORIZONTAL LAYOUT =======
+
+		// Perform horizontal popup layout based on anchor mode.
 		if (anchorMode === 'avoid') {
 			/**
 			 * Positions the popup to the right of the anchor element (avoiding overlap).
@@ -291,6 +293,8 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Set the popup layout height.
 		popupLayout.height = props.height;
+
+		// ======= VERTICAL LAYOUT =======
 
 		// Perform vertical popup layout based on anchor mode.
 		if (anchorMode === 'avoid') {
