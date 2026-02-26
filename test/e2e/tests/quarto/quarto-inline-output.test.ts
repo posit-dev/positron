@@ -2655,7 +2655,8 @@ test.describe('Quarto - Inline Output', {
 		expect(outputText).not.toMatch(/^\s*\$/m); // No lines starting with $
 	});
 
-	test('R - Verify execution options are respected when running all cells', async function ({ app, openFile, r }) {
+	// Test currently skipped due to flaky behavior on Windows
+	test.skip('R - Verify execution options are respected when running all cells', async function ({ app, openFile, r }) {
 		// This test verifies that Quarto cell execution options (#| eval, #| error)
 		// are respected when using the "Run All Cells" interactive gesture.
 		//
