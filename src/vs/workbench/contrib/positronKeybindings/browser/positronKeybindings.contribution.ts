@@ -220,6 +220,23 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyMod.CtrlCmd | KeyCode.Enter
 		}));
 
+		// Run current cell
+		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
+			id: 'quarto.runCurrentCell',
+			weight: KeybindingWeight.BuiltinExtension,
+			when: ContextKeyExpr.and(
+				EditorContextKeys.editorTextFocus,
+				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'quarto'),
+				ContextKeyExpr.not('findInputFocussed'),
+				ContextKeyExpr.not('replaceInputFocussed')
+			),
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter,
+				secondary: [KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Enter]
+			},
+			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
+		}));
+
 		// Reindent selected lines. We only bind this if Assistant is not enabled,
 		// since this binding is used to invoke inline chat with Assistant.
 		const positronAssistantEnabled =
