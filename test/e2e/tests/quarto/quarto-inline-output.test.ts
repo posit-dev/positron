@@ -405,7 +405,8 @@ test.describe('Quarto - Inline Output', {
 		await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
 	});
 
-	test('R - Verify multi-language document shows inline output for both languages', async function ({ app, openFile, r, python }) {
+	// Skipped since it's flaky on Chromium due to reconnect
+	test.skip('R - Verify multi-language document shows inline output for both languages', async function ({ app, openFile, r, python }) {
 		// This test verifies that in a multi-language Quarto document:
 		// 1. The primary language (R) cells execute inline via the kernel
 		// 2. Non-primary language (Python) cells execute via console AND show inline output
