@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -42,7 +42,7 @@ export interface IntrinsicSize {
  */
 export interface PlotMetadata {
 	/**
-	 * A human-readable name for the plot
+	 * A unique, human-readable name for the plot
 	 */
 	name: string;
 
@@ -60,6 +60,11 @@ export interface PlotMetadata {
 	 * The code fragment that produced the plot
 	 */
 	code: string;
+
+	/**
+	 * The origin of the plot, if known
+	 */
+	origin?: PlotOrigin;
 
 }
 
@@ -97,6 +102,50 @@ export interface PlotSize {
 	 * The plot's width, in pixels
 	 */
 	width: number;
+
+}
+
+/**
+ * The origin (source) of a plot
+ */
+export interface PlotOrigin {
+	/**
+	 * The URI of the document containing the code that produced the plot, if
+	 * available
+	 */
+	uri: string;
+
+	/**
+	 * The range within the document at uri that produced the plot, if
+	 * available
+	 */
+	range?: PlotRange;
+
+}
+
+/**
+ * The range of a plot within a document
+ */
+export interface PlotRange {
+	/**
+	 * The line number on which the plot starts (0-indexed)
+	 */
+	start_line: number;
+
+	/**
+	 * The character number on which the plot starts (0-indexed)
+	 */
+	start_character: number;
+
+	/**
+	 * The line number on which the plot ends (0-indexed)
+	 */
+	end_line: number;
+
+	/**
+	 * The character number on which the plot ends (0-indexed)
+	 */
+	end_character: number;
 
 }
 

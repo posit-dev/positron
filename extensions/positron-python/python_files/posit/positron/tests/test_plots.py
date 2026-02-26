@@ -157,6 +157,46 @@ def test_mpl_get_metadata(shell: PositronShell, plots_service: PlotsService) -> 
     # execution_id and code may be empty in test context since there's no real execute_request
     assert "execution_id" in result
     assert "code" in result
+    # origin should be None when no code_location is provided
+    assert result["origin"] is None
+
+
+def test_mpl_get_metadata_with_origin(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    from positron.plot_comm import PlotOrigin, PlotRange
+
+    # Create a plot with an explicit origin.
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Manually set the origin on the plot (simulating what the backend does
+    # when a code_location is present in the execute_request).
+    plot = plots_service._plots[-1]  # noqa: SLF001
+    plot._origin = PlotOrigin(  # noqa: SLF001
+        uri="file:///path/to/analysis.py",
+        range=PlotRange(
+            start_line=5,
+            start_character=0,
+            end_line=5,
+            end_character=20,
+        ),
+    )
+
+    # Send a get_metadata request to the plot comm.
+    msg = json_rpc_request("get_metadata", {}, comm_id="dummy_comm_id")
+    plot_comm.handle_msg(msg)
+
+    # Check that the response includes the expected metadata with origin.
+    assert len(plot_comm.messages) == 1
+    response = plot_comm.messages[0]
+    result = response["data"]["result"]
+
+    assert result["origin"] is not None
+    assert result["origin"]["uri"] == "file:///path/to/analysis.py"
+    assert result["origin"]["range"]["start_line"] == 5
+    assert result["origin"]["range"]["start_character"] == 0
+    assert result["origin"]["range"]["end_line"] == 5
+    assert result["origin"]["range"]["end_character"] == 20
 
 
 def test_mpl_show(shell: PositronShell, plots_service: PlotsService) -> None:

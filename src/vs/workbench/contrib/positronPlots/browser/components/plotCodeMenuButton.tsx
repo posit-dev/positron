@@ -5,7 +5,9 @@
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { IAction } from '../../../../../base/common/actions.js';
+import { Range } from '../../../../../editor/common/core/range.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -16,6 +18,7 @@ import { CodeAttributionSource } from '../../../../services/positronConsole/comm
 const plotCodeActionsTooltip = localize('positronPlotCodeActions', "Plot code actions");
 const copyCode = localize('positronPlots.copyCode', "Copy Code");
 const revealInConsole = localize('positronPlots.revealInConsole', "Reveal Code in Console");
+const openSourceFile = localize('positronPlots.openSourceFile', "Open Source File");
 const runCodeAgain = localize('positronPlots.runCodeAgain', "Run Code Again");
 
 /**
@@ -41,6 +44,7 @@ export const PlotCodeMenuButton = (props: PlotCodeMenuButtonProps) => {
 		const executionId = metadata.execution_id;
 		const sessionId = metadata.session_id;
 		const languageId = metadata.language;
+		const origin = metadata.origin;
 
 		return [
 			{
@@ -77,6 +81,35 @@ export const PlotCodeMenuButton = (props: PlotCodeMenuButtonProps) => {
 						services.notificationService.warn(
 							localize('positronPlots.revealInConsoleError', "The code that generated this plot is no longer present in the console.")
 						);
+					}
+				}
+			},
+			{
+				id: 'openSourceFile',
+				label: openSourceFile,
+				tooltip: '',
+				class: 'codicon codicon-go-to-file',
+				enabled: !!origin?.uri,
+				run: async () => {
+					try {
+						const uri = URI.parse(origin!.uri);
+						const selection = origin!.range
+							? new Range(
+								origin!.range.start_line + 1,
+								origin!.range.start_character + 1,
+								origin!.range.end_line + 1,
+								origin!.range.end_character + 1,
+							)
+							: undefined;
+						await services.editorService.openEditor({
+							resource: uri,
+							options: {
+								selection,
+								revealIfVisible: true,
+							},
+						});
+					} catch (err) {
+						services.logService.warn(`Failed to open plot source file: ${err}`);
 					}
 				}
 			},
