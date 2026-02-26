@@ -25,7 +25,7 @@ function EffectGate({ onCleanup, children }: PropsWithChildren<{ onCleanup: () =
  * Sets up a React render root for component tests. Registers mocha `setup` and
  * `teardown` hooks that create/destroy the DOM container and React root.
  *
- * **Must be called before `ensureNoDisposablesAreLeakedInTestSuite()`** because
+ * Must be called before `ensureNoDisposablesAreLeakedInTestSuite()` because
  * mocha runs teardown hooks in FIFO order. The React teardown must run first so
  * that deferred `useEffect` cleanups dispose VS Code disposables before the leak
  * checker inspects them.
