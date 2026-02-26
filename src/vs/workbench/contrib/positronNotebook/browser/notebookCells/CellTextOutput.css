@@ -9,7 +9,18 @@
 		var(--monaco-monospace-font)
 	);
 	font-size: var(--vscode-positronNotebook-text-output-font-size);
+	/* Default: no wrapping, horizontal scroll for wide outputs like
+	 * dataframes. `white-space: pre` also overrides `word-break: break-all`
+	 * from `.output-run` (outputRun.css), which was added for the console
+	 * banding fix (#6447) but is undesirable in notebooks. */
+	white-space: pre;
+	overflow-x: auto;
+}
+
+/* When notebook.output.wordWrap is enabled, allow text to wrap. */
+.positron-notebook-text-output.word-wrap {
 	white-space: pre-wrap;
+	overflow-x: hidden;
 }
 
 .positron-notebook-text-output.long-output-scroll {

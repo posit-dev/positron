@@ -109,6 +109,10 @@ export interface NotebookOptionsChangeEvent {
 	readonly outputLineHeight?: boolean;
 	readonly outputWordWrap?: boolean;
 	readonly outputScrolling?: boolean;
+	// --- Start Positron ---
+	// Add missing outputLineLimit
+	readonly outputLineLimit?: boolean;
+	// --- End Positron ---
 	readonly outputLinkifyFilePaths?: boolean;
 	readonly minimalError?: boolean;
 	readonly readonly?: boolean;
@@ -434,6 +438,10 @@ export class NotebookOptions extends Disposable {
 		const outputLineHeight = e.affectsConfiguration(NotebookSetting.outputLineHeight);
 		const outputScrolling = e.affectsConfiguration(NotebookSetting.outputScrolling);
 		const outputWordWrap = e.affectsConfiguration(NotebookSetting.outputWordWrap);
+		// --- Start Positron ---
+		// Add missing outputLineLimit
+		const outputLineLimit = e.affectsConfiguration(NotebookSetting.textOutputLineLimit);
+		// --- End Positron ---
 		const outputLinkifyFilePaths = e.affectsConfiguration(NotebookSetting.LinkifyOutputFilePaths);
 		const minimalError = e.affectsConfiguration(NotebookSetting.minimalErrorRendering);
 		const markupFontFamily = e.affectsConfiguration(NotebookSetting.markupFontFamily);
@@ -464,6 +472,10 @@ export class NotebookOptions extends Disposable {
 			&& !outputLineHeight
 			&& !outputScrolling
 			&& !outputWordWrap
+			// --- Start Positron ---
+			// Add missing outputLineLimit
+			&& !outputLineLimit
+			// --- End Positron ---
 			&& !outputLinkifyFilePaths
 			&& !minimalError
 			&& !markupFontFamily) {
@@ -572,6 +584,12 @@ export class NotebookOptions extends Disposable {
 		if (outputScrolling) {
 			configuration.outputScrolling = this.configurationService.getValue<boolean>(NotebookSetting.outputScrolling);
 		}
+		// --- Start Positron ---
+		// Add missing outputLineLimit
+		if (outputLineLimit) {
+			configuration.outputLineLimit = this.configurationService.getValue<number>(NotebookSetting.textOutputLineLimit) ?? 30;
+		}
+		// --- End Positron ---
 
 		if (outputLinkifyFilePaths) {
 			configuration.outputLinkifyFilePaths = this.configurationService.getValue<boolean>(NotebookSetting.LinkifyOutputFilePaths);
@@ -614,6 +632,10 @@ export class NotebookOptions extends Disposable {
 			outputLineHeight,
 			outputScrolling,
 			outputWordWrap,
+			// --- Start Positron ---
+			// Add missing outputLineLimit
+			outputLineLimit,
+			// --- End Positron ---
 			outputLinkifyFilePaths,
 			minimalError,
 			markupFontFamily
