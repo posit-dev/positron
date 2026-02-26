@@ -145,7 +145,11 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                         // Use -- to ensure everything after is treated as the path, not flags
                         // This prevents paths with -m (or other dash options) from being misinterpreted
                         const command = `%run -- ${JSON.stringify(filePath)}`;
-                        positron.runtime.executeCode('python', command, false, true);
+                        const fileUri = vscode.Uri.file(filePath);
+                        positron.runtime.executeCode(
+                            'python', command, false, true,
+                            undefined, undefined, undefined, undefined,
+                            fileUri);
                     }
                 } catch (e) {
                     // This is not a valid file path, which isn't an error; it just
