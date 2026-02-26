@@ -3,23 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PropsWithChildren, ReactElement, useEffect } from 'react';
+import { ReactElement } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
 import { mainWindow } from '../../browser/window.js';
-
-/**
- * Wrapper component that resolves a promise when its useEffect cleanup runs.
- * React fires cleanup effects bottom-up (children before parent), so by the
- * time this parent's cleanup fires, all child effects -- including those that
- * create VS Code disposables -- have already been disposed.
- */
-function EffectGate({ onCleanup, children }: PropsWithChildren<{ onCleanup: () => void }>) {
-	useEffect(() => {
-		return onCleanup;
-	}, [onCleanup]);
-	return <>{children}</>;
-}
 
 /**
  * Sets up a React render root for component tests. Registers mocha `setup` and
@@ -46,34 +33,25 @@ function EffectGate({ onCleanup, children }: PropsWithChildren<{ onCleanup: () =
 export function setupReactRenderer() {
 	let root: Root;
 	let el: HTMLElement;
-	let cleanupPromise: Promise<void>;
-	let resolveCleanup: () => void;
 
 	setup(() => {
 		el = mainWindow.document.createElement('div');
 		mainWindow.document.body.appendChild(el);
 		root = createRoot(el);
-		cleanupPromise = new Promise<void>(r => { resolveCleanup = r; });
 	});
 
 	teardown(async () => {
 		root.unmount();
-		await cleanupPromise;
 		el.remove();
 	});
 
 	return {
 		/**
-		 * Render a React element synchronously via `flushSync`, wrapped in an
-		 * `EffectGate` that enables awaiting deferred cleanup effects on unmount.
+		 * Render a React element synchronously via `flushSync`.
 		 */
 		render(element: ReactElement) {
 			flushSync(() => {
-				root.render(
-					<EffectGate onCleanup={resolveCleanup}>
-						{element}
-					</EffectGate>
-				);
+				root.render(element);
 			});
 		},
 
