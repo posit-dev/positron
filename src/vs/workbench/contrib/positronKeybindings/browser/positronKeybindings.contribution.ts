@@ -22,7 +22,7 @@ configurationRegistry.registerConfiguration({
 	...positronConfigurationNodeBase,
 	properties: {
 		'workbench.keybindings.rstudioKeybindings': {
-			scope: ConfigurationScope.MACHINE,
+			scope: ConfigurationScope.RESOURCE,
 			type: 'boolean',
 			default: false,
 			description: nls.localize('keybindings.rstudioKeybindings', "Enable RStudio keybindings (requires restart)"),
