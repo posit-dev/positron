@@ -159,9 +159,23 @@ export class DebugService implements IDebugService {
 			}
 		}));
 
-		this.disposables.add(this.viewModel.onDidFocusStackFrame(() => {
+		// --- Start Positron ---
+		this.disposables.add(this.viewModel.onDidFocusStackFrame(e => {
+			// Original handler code:
 			this.onStateChange();
+
+			// Notify the DAP server which frame is selected by sending a sentinel evaluate request.
+			// Only do this if the debugger has opted in via `supportsFrameSelection`.
+			if (e.stackFrame && e.session) {
+				const dbgr = this.adapterManager.getDebugger(e.session.configuration.type);
+				if (dbgr?.supportsFrameSelection) {
+					e.session.evaluate('.positron_selected_frame', e.stackFrame.frameId, 'watch').catch(_err => {
+						// Ignore errors: the DAP server may not handle this sentinel
+					});
+				}
+			}
 		}));
+		// --- End Positron ---
 		this.disposables.add(this.viewModel.onDidFocusSession((session: IDebugSession | undefined) => {
 			this.onStateChange();
 
