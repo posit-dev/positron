@@ -794,7 +794,8 @@
         "languages": ["r"],
         "supportsUiLaunch": false,
         "sendBreakpointsOnAllSaves": true,
-        "verifyBreakpointsInDirtyDocuments": true
+        "verifyBreakpointsInDirtyDocuments": true,
+        "supportsFrameSelection": true
       }
     ],
     "customEditors": [
