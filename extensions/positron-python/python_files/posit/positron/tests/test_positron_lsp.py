@@ -1508,7 +1508,7 @@ class TestHover:
         server: PositronLanguageServer,
         text_document: TextDocument,
         position: Position,
-    ) -> PositronHover | None:
+    ) -> Optional[PositronHover]:
         from positron.positron_lsp import _handle_hover
 
         params = HoverParams(TextDocumentIdentifier(text_document.uri), position)
