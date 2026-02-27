@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
 // VS Code utilities.
 import { Delayer } from '../../../../../../base/common/async.js';
@@ -44,7 +44,7 @@ export const PositronReplaceInput = (props: PositronReplaceInputProps) => {
 		contextViewService,
 	} = props;
 	const containerRef = useRef<HTMLDivElement>(null);
-	const replaceInput = useReplaceInput(containerRef.current, replaceInputOptions, contextViewService, contextKeyService, value);
+	const replaceInput = useReplaceInput(containerRef, replaceInputOptions, contextViewService, contextKeyService, value);
 
 	return <div ref={containerRef} className='replace-input-container'>
 		{replaceInput && <ReplaceInputEffects replaceInput={replaceInput} {...props} />}
@@ -52,7 +52,7 @@ export const PositronReplaceInput = (props: PositronReplaceInputProps) => {
 };
 
 function useReplaceInput(
-	container: HTMLElement | null,
+	containerRef: RefObject<HTMLElement | null>,
 	options: IReplaceInputOptions,
 	contextViewService: IContextViewService,
 	contextKeyService: IContextKeyService,
@@ -66,12 +66,12 @@ function useReplaceInput(
 
 	// Initialize ReplaceInput widget once on mount
 	useEffect(() => {
-		if (!container) {
+		if (!containerRef.current) {
 			return;
 		}
 
 		const input = new ContextScopedReplaceInput(
-			container,
+			containerRef.current,
 			contextViewService,
 			initialOptionsRef.current,
 			contextKeyService,
@@ -89,7 +89,7 @@ function useReplaceInput(
 			input.dispose();
 			setReplaceInput(null);
 		};
-	}, [container, contextKeyService, contextViewService]);
+	}, [containerRef, contextKeyService, contextViewService]);
 
 	return replaceInput;
 }

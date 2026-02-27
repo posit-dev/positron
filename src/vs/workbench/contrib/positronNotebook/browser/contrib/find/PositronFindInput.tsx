@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
 // VS Code utilities.
 import { Delayer } from '../../../../../../base/common/async.js';
@@ -49,7 +49,7 @@ export const PositronFindInput = (props: PositronFindInputProps) => {
 		contextViewService,
 	} = props;
 	const containerRef = useRef<HTMLDivElement>(null);
-	const findInput = useFindInput(containerRef.current, findInputOptions, contextViewService, contextKeyService, value);
+	const findInput = useFindInput(containerRef, findInputOptions, contextViewService, contextKeyService, value);
 
 	return <div ref={containerRef} className='find-input-container'>
 		{findInput && <FindInputEffects findInput={findInput} {...props} />}
@@ -57,7 +57,7 @@ export const PositronFindInput = (props: PositronFindInputProps) => {
 };
 
 function useFindInput(
-	container: HTMLElement | null,
+	containerRef: RefObject<HTMLElement | null>,
 	options: IFindInputOptions,
 	contextViewService: IContextViewService,
 	contextKeyService: IContextKeyService,
@@ -71,13 +71,13 @@ function useFindInput(
 
 	// Initialize FindInput widget once on mount
 	useEffect(() => {
-		if (!container) {
+		if (!containerRef.current) {
 			return;
 		}
 
 		// Create the FindInput widget
 		const input = new ContextScopedFindInput(
-			container,
+			containerRef.current,
 			contextViewService,
 			initialOptionsRef.current,
 			contextKeyService,
@@ -94,7 +94,7 @@ function useFindInput(
 			input.dispose();
 			setFindInput(null);
 		};
-	}, [container, contextKeyService, contextViewService]);
+	}, [containerRef, contextKeyService, contextViewService]);
 
 	return findInput;
 }
