@@ -24,7 +24,7 @@ export interface PositronFindInputProps {
 	readonly matchCase?: boolean;
 	readonly matchWholeWord?: boolean;
 	readonly useRegex?: boolean;
-	readonly focus?: boolean;
+	readonly isFocused?: boolean;
 	readonly onKeyDown?: (e: IKeyboardEvent) => void;
 	readonly onValueChange: (value: string) => void;
 	readonly onMatchCaseChange: (value: boolean) => void;
@@ -39,7 +39,7 @@ export const PositronFindInput = ({
 	matchCase = false,
 	matchWholeWord = false,
 	useRegex = false,
-	focus = false,
+	isFocused = false,
 	findInputOptions,
 	contextKeyService,
 	contextViewService,
@@ -53,6 +53,7 @@ export const PositronFindInput = ({
 }: PositronFindInputProps) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [findInput, setFindInput] = useState<FindInput | null>(null);
+	const wasFocused = useRef(false);
 
 	// Delayer for history updates (500ms like SimpleFindWidget)
 	const historyDelayerRef = useRef<Delayer<void>>(new Delayer(500));
@@ -198,11 +199,14 @@ export const PositronFindInput = ({
 
 	// Focus input when requested
 	useEffect(() => {
-		if (findInput && focus) {
-			findInput.focus();
-			findInput.select();
+		if (findInput) {
+			if (!wasFocused.current && isFocused) {
+				findInput.focus();
+				findInput.select();
+			}
+			wasFocused.current = isFocused;
 		}
-	}, [findInput, focus]);
+	}, [findInput, isFocused]);
 
 	return <div ref={containerRef} className='find-input-container' />;
 };
