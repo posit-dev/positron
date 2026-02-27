@@ -164,6 +164,7 @@ export const MemoryUsageMeter = () => {
 				{segments}
 			</div>
 			<span className='memory-size-label'>{sizeLabel}</span>
+			<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 		</div>
 	);
 };

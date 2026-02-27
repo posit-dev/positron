@@ -5,6 +5,7 @@
 
 import * as os from 'os';
 import { promises as fs } from 'fs';
+import { execFile } from 'child_process';
 
 /** Standard page size on Linux (4 KB). Used to convert /proc/[pid]/statm pages to bytes. */
 const PAGE_SIZE = 4096;
@@ -73,8 +74,74 @@ async function readNumericFile(path: string): Promise<number | undefined> {
 }
 
 /**
- * Get system memory (total and free) respecting cgroups on Linux.
- * On non-Linux platforms, uses os.totalmem()/os.freemem().
+ * Parse the output of macOS `vm_stat` to compute available memory.
+ *
+ * On macOS, os.freemem() only reports "free" pages (completely unused),
+ * which is misleadingly low because macOS aggressively uses RAM for file
+ * cache. Available memory is better approximated as:
+ *   (free + inactive + purgeable) * pageSize
+ * This matches how Activity Monitor computes available memory.
+ */
+async function getMacOSAvailableMemory(): Promise<number | undefined> {
+	return new Promise((resolve) => {
+		execFile('/usr/bin/vm_stat', (error, stdout) => {
+			if (error) {
+				resolve(undefined);
+				return;
+			}
+
+			// vm_stat reports a page size on the first line and then
+			// per-category page counts. Parse what we need.
+			const lines = stdout.split('\n');
+
+			// First line: "Mach Virtual Memory Statistics: (page size of NNNN bytes)"
+			let pageSize = 4096; // default assumption
+			const pageSizeMatch = lines[0]?.match(/page size of (\d+) bytes/);
+			if (pageSizeMatch) {
+				pageSize = parseInt(pageSizeMatch[1], 10);
+			}
+
+			let freePages = 0;
+			let inactivePages = 0;
+			let purgeablePages = 0;
+			let speculativePages = 0;
+
+			for (const line of lines) {
+				// Each stat line looks like: "Pages free:   123456."
+				const match = line.match(/^(.+?):\s+(\d+)\./);
+				if (!match) {
+					continue;
+				}
+				const key = match[1].trim();
+				const value = parseInt(match[2], 10);
+				if (isNaN(value)) {
+					continue;
+				}
+				switch (key) {
+					case 'Pages free':
+						freePages = value;
+						break;
+					case 'Pages inactive':
+						inactivePages = value;
+						break;
+					case 'Pages purgeable':
+						purgeablePages = value;
+						break;
+					case 'Pages speculative':
+						speculativePages = value;
+						break;
+				}
+			}
+
+			const availableBytes = (freePages + inactivePages + purgeablePages + speculativePages) * pageSize;
+			resolve(availableBytes);
+		});
+	});
+}
+
+/**
+ * Get system memory (total and free) respecting cgroups on Linux
+ * and using vm_stat on macOS for accurate available memory.
  */
 export async function getSystemMemory(): Promise<{ total: number; free: number }> {
 	if (process.platform === 'linux') {
@@ -98,6 +165,16 @@ export async function getSystemMemory(): Promise<{ total: number; free: number }
 					free: Math.max(0, limit - usage),
 				};
 			}
+		}
+	}
+
+	if (process.platform === 'darwin') {
+		const available = await getMacOSAvailableMemory();
+		if (available !== undefined) {
+			return {
+				total: os.totalmem(),
+				free: available,
+			};
 		}
 	}
 

@@ -30,18 +30,17 @@
 }
 
 .memory-usage-dropdown .usage-name {
-	flex: 0 0 auto;
+	flex: 0 0 120px;
 	font-size: 12px;
-	min-width: 70px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
 .memory-usage-dropdown .usage-size {
-	flex: 0 0 auto;
-	font-size: 12px;
-	min-width: 60px;
+	flex: 0 0 65px;
+	font-size: 11px;
+	font-family: var(--monaco-monospace-font);
 	text-align: right;
 	white-space: nowrap;
 	color: var(--vscode-descriptionForeground);
@@ -58,17 +57,13 @@
 
 .memory-usage-dropdown .usage-bar {
 	height: 100%;
+	border: 1px solid var(--vscode-editorWidget-border);
 	border-radius: 1px;
+	box-sizing: border-box;
 }
 
 .memory-usage-dropdown .usage-bar.kernel {
-	background: repeating-linear-gradient(
-		-45deg,
-		var(--vscode-charts-blue),
-		var(--vscode-charts-blue) 2px,
-		transparent 2px,
-		transparent 4px
-	);
+	background-color: var(--vscode-charts-purple);
 }
 
 .memory-usage-dropdown .usage-bar.positron {
@@ -76,10 +71,9 @@
 }
 
 .memory-usage-dropdown .usage-bar.other {
-	background-color: var(--vscode-charts-lines);
+	background-color: var(--vscode-panel-border);
 }
 
 .memory-usage-dropdown .usage-bar.free {
-	border: 1px solid var(--vscode-editorWidget-border);
-	box-sizing: border-box;
+	background-color: transparent;
 }

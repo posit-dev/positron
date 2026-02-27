@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as os from 'os';
 import { app } from 'electron';
 import { IPositronMemoryInfoProvider, IPositronProcessMemoryInfo } from '../common/positronMemoryUsage.js';
 import { getSystemMemory } from '../node/positronMemoryUsageUtils.js';
@@ -27,21 +26,12 @@ export class PositronMemoryUsageMainService implements IPositronMemoryInfoProvid
 			positronProcessMemory += metric.memory.workingSetSize * 1024;
 		}
 
-		// Get system memory (respects cgroups on Linux)
-		let total: number;
-		let free: number;
-		if (process.platform === 'linux') {
-			const systemMem = await getSystemMemory();
-			total = systemMem.total;
-			free = systemMem.free;
-		} else {
-			total = os.totalmem();
-			free = os.freemem();
-		}
+		// Get system memory (respects cgroups on Linux, uses vm_stat on macOS)
+		const systemMem = await getSystemMemory();
 
 		return {
-			totalSystemMemory: total,
-			freeSystemMemory: free,
+			totalSystemMemory: systemMem.total,
+			freeSystemMemory: systemMem.free,
 			positronProcessMemory,
 		};
 	}
