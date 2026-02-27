@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -38,9 +38,7 @@ test.describe('Plot File Attribution', { tag: [tags.PLOTS] }, () => {
 			await cleanup.removeTestFiles([R_PLOT_FILE]);
 		});
 
-		test('R - Plot origin shows source file after line execution', {
-			tag: [tags.CRITICAL]
-		}, async function ({ app, page, openFile }) {
+		test('R - Plot origin shows source file after line execution', async function ({ app, page, openFile }) {
 
 			await test.step('Open R file and execute line with Cmd+Enter', async () => {
 				await openFile(R_PLOT_FILE);
@@ -70,9 +68,7 @@ test.describe('Plot File Attribution', { tag: [tags.PLOTS] }, () => {
 			});
 		});
 
-		test('R - Plot origin shows source file after source() command', {
-			tag: [tags.CRITICAL]
-		}, async function ({ app, page, openFile, runCommand }) {
+		test('R - Plot origin shows source file after source() command', async function ({ app, page, openFile, runCommand }) {
 
 			await test.step('Open R file and source it', async () => {
 				await openFile(R_PLOT_FILE);
@@ -133,9 +129,7 @@ test.describe('Plot File Attribution', { tag: [tags.PLOTS] }, () => {
 			await cleanup.removeTestFiles([PY_PLOT_FILE]);
 		});
 
-		test('Python - Plot origin shows source file after line execution', {
-			tag: [tags.CRITICAL]
-		}, async function ({ app, page, openFile }) {
+		test('Python - Plot origin shows source file after line execution', async function ({ app, page, openFile }) {
 
 			await test.step('Open Python file and execute lines with Cmd+Enter', async () => {
 				await openFile(PY_PLOT_FILE);
@@ -170,9 +164,7 @@ test.describe('Plot File Attribution', { tag: [tags.PLOTS] }, () => {
 			});
 		});
 
-		test('Python - Plot origin shows source file after Run Python File in Console', {
-			tag: [tags.CRITICAL]
-		}, async function ({ app, page, openFile, runCommand }) {
+		test('Python - Plot origin shows source file after Run Python File in Console', async function ({ app, page, openFile, runCommand }) {
 
 			await test.step('Open Python file and run it in console', async () => {
 				await openFile(PY_PLOT_FILE);
