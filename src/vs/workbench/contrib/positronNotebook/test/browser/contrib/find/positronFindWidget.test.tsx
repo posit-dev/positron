@@ -80,7 +80,7 @@ suite('PositronFindWidget', () => {
 			renderWidget();
 
 			const widget = container().querySelector('.positron-find-widget.visible');
-			assert.ok(widget, 'Expected .positron-find-widget.visible to exist');
+			assert.ok(widget, 'Expected PositronFindWidget to exist');
 		});
 
 		test('hidden when not visible', () => {
@@ -91,7 +91,7 @@ suite('PositronFindWidget', () => {
 			assert.ok(widget, 'Expected .positron-find-widget to exist');
 			assert.ok(
 				!widget.classList.contains('visible'),
-				'Expected widget to lack .visible class'
+				'Expected PositronFindWidget to not exist'
 			);
 		});
 
@@ -102,7 +102,7 @@ suite('PositronFindWidget', () => {
 			renderWidget();
 
 			const results = container().querySelector('.positron-find-widget .results');
-			assert.ok(results, 'Expected .results to exist');
+			assert.ok(results, 'Expected to find results');
 			assert.strictEqual(results.textContent, 'No results');
 		});
 
@@ -156,7 +156,8 @@ suite('PositronFindWidget', () => {
 			renderWidget();
 
 			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
-			const prevButton = buttons[0] as HTMLButtonElement;
+			const buttons = container().querySelectorAll<HTMLButtonElement>('.navigation-buttons button');
+			const prevButton = buttons[0];
 			assert.ok(prevButton, 'Expected previous button to exist');
 			assert.strictEqual(prevButton.disabled, true, 'Expected previous button to be disabled');
 		});
