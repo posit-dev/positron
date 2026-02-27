@@ -22,7 +22,6 @@ from positron._vendor.lsprotocol.types import (
     CompletionItem,
     CompletionParams,
     DidOpenNotebookDocumentParams,
-    Hover,
     HoverParams,
     InitializeParams,
     InsertReplaceEdit,
@@ -43,6 +42,7 @@ from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
 from positron.positron_lsp import (
     HelpTopicParams,
+    PositronHover,
     PositronInitializationOptions,
     PositronLanguageServer,
     _get_expression_at_position,
@@ -1184,6 +1184,52 @@ class TestCompletions:
 
         assert set(labels) == {"%%timeit", "%%time"}
 
+    def test_completion_priority_namespace_variable(self) -> None:
+        """Namespace variable completions get high priority."""
+        server = create_test_server(namespace={"x": 42})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "x")
+        completions = self._completions(server, text_document)
+
+        item = next(c for c in completions if c.label == "x")
+        assert isinstance(item.data, dict)
+        assert item.data["priority"] == 1
+
+    def test_completion_priority_magic_commands(self) -> None:
+        """Magic command completions get low priority."""
+        server = create_test_server()
+        assert server.shell is not None
+        server.shell.magics_manager.lsmagic.return_value = {
+            "line": {"timeit": None},
+            "cell": {},
+        }
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "%ti")
+        completions = self._completions(server, text_document)
+
+        item = next(c for c in completions if c.label == "%timeit")
+        assert isinstance(item.data, dict)
+        assert item.data["priority"] == -1
+
+    def test_completion_priority_path(self, tmp_path: Path) -> None:
+        """Path completions get high priority."""
+        (tmp_path / "data.csv").write_text("")
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '""')
+        completions = self._completions(server, text_document, character=1)
+
+        assert len(completions) == 1
+        assert isinstance(completions[0].data, dict)
+        assert completions[0].data["priority"] == 1
+
+    def test_completion_priority_dict_key(self) -> None:
+        """Dict key completions get high priority."""
+        server = create_test_server(namespace={"x": {"a": 0}})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, 'x["')
+        completions = self._completions(server, text_document)
+
+        item = next(c for c in completions if "a" in c.label)
+        assert isinstance(item.data, dict)
+        assert item.data["priority"] == 1
+
     @pytest.mark.parametrize(
         ("source", "namespace", "character"),
         [
@@ -1462,7 +1508,7 @@ class TestHover:
         server: PositronLanguageServer,
         text_document: TextDocument,
         position: Position,
-    ) -> Optional[Hover]:
+    ) -> PositronHover | None:
         from positron.positron_lsp import _handle_hover
 
         params = HoverParams(TextDocumentIdentifier(text_document.uri), position)
@@ -1476,10 +1522,11 @@ class TestHover:
         hover = self._hover(server, text_document, Position(0, 0))
 
         assert hover is not None
-        assert getattr(hover.contents, "value", "").startswith("""**x**: `int`
+        assert getattr(hover["contents"], "value", "").startswith("""**x**: `int`
 
 ---
 int([x]) -> integer""")
+        assert hover["data"]["priority"] == -1
 
     def test_hover_on_dataframe(self) -> None:
         """Hover should work on DataFrames."""
@@ -1490,7 +1537,7 @@ int([x]) -> integer""")
         hover = self._hover(server, text_document, Position(0, 0))
 
         assert hover is not None
-        assert getattr(hover.contents, "value", "").startswith("""**df**: `DataFrame`
+        assert getattr(hover["contents"], "value", "").startswith("""**df**: `DataFrame`
 
 ```
    col1
@@ -1501,6 +1548,7 @@ int([x]) -> integer""")
 
 ---
 Two-dimensional,""")
+        assert hover["data"]["priority"] == 1
 
 
 class TestHelpTopic:

@@ -7244,10 +7244,10 @@ declare namespace monaco.languages {
 		 */
 		canDecreaseVerbosity?: boolean;
 		/**
-		 * Id of the extension that provided this hover.
-		 * Used to filter duplicate hovers from certain extensions.
+		 * Priority for deduplication. Only the hover(s) with the highest
+		 * priority are shown; all others are suppressed.
 		 */
-		extensionId?: string;
+		priority?: number;
 	}
 
 	/**
@@ -7437,6 +7437,11 @@ declare namespace monaco.languages {
 		 * A command that should be run upon acceptance of this item.
 		 */
 		action?: Command;
+		/**
+		 * Priority for deduplication and sorting. Higher priority items win
+		 * dedup contests and sort before lower priority items.
+		 */
+		priority?: number;
 	}
 
 	export interface CompletionList {

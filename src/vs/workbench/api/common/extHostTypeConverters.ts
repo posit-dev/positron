@@ -973,6 +973,9 @@ export namespace Hover {
 			contents: MarkdownString.fromMany(hover.contents),
 			canIncreaseVerbosity: hover.canIncreaseVerbosity,
 			canDecreaseVerbosity: hover.canDecreaseVerbosity,
+			// --- Start Positron ---
+			priority: hover.priority,
+			// --- End Positron ---
 		};
 		return convertedHover;
 	}
