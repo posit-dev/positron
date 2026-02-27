@@ -159,7 +159,7 @@ const selectLanguageRuntimeSession = async (
 				id: session.sessionId,
 				label: session.dynState.sessionName,
 				detail: session.runtimeMetadata.runtimePath,
-				description: isForegroundSession ? 'Currently Selected' : undefined,
+				description: isForegroundSession ? nls.localize('positron.languageRuntime.currentlySelected', 'Currently Selected') : undefined,
 				iconPath: {
 					dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
 				},
