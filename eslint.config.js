@@ -176,6 +176,16 @@ export default tseslint.config(
 			'jsx-a11y/no-static-element-interactions': 'error',
 		},
 	},
+	// React Tests
+	{
+		files: [
+			'src/vs/**/*.test.tsx',
+			'.eslint-plugin-local/**/*.tsx',
+		],
+		rules: {
+			'local/code-setup-react-renderer-before-disposables-check': 'error',
+		}
+	},
 	// --- End Positron ---
 	// TS
 	{
