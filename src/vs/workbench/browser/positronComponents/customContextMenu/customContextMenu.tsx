@@ -77,6 +77,12 @@ export interface CustomContextMenuProps {
 	readonly minWidth?: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
 	readonly onClose?: () => void;
+	/**
+	 * Callback to dismiss parent menus in the hierarchy.
+	 * When an item is selected, each menu calls dismiss() then onDismissParentMenus(),
+	 * which chains up through parent menus.
+	 */
+	readonly onDismissParentMenus?: () => void;
 }
 
 /**
@@ -89,6 +95,7 @@ export interface CustomContextMenuProps {
  * @param minWidth The minimum width.
  * @param entries The context menu entries.
  * @param onClose The callback to call when the context menu is closed/disposed.
+ * @param onDismissParentMenus Callback to dismiss parent menus when an item is selected.
  */
 export const showCustomContextMenu = ({
 	anchorElement,
@@ -100,6 +107,7 @@ export const showCustomContextMenu = ({
 	minWidth,
 	entries,
 	onClose,
+	onDismissParentMenus,
 }: CustomContextMenuProps) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -130,6 +138,7 @@ export const showCustomContextMenu = ({
 			popupPosition={popupPosition}
 			renderer={renderer}
 			width={width}
+			onDismissParentMenus={onDismissParentMenus}
 		/>
 	);
 };
@@ -147,6 +156,7 @@ interface CustomContextMenuModalPopupProps {
 	readonly width: number | 'auto';
 	readonly minWidth: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
+	readonly onDismissParentMenus?: () => void;
 }
 
 /**
@@ -159,10 +169,19 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	const services = usePositronReactServicesContext();
 
 	/**
-	 * Dismisses the modal popup.
+	 * Dismisses this modal popup.
 	 */
 	const dismiss = () => {
 		props.renderer.dispose();
+	};
+
+	/**
+	 * Dismisses this menu and the parent menus, if there are any.
+	 * Called when an item is selected from a submenu.
+	 */
+	const dismissAllMenus = () => {
+		dismiss();
+		props.onDismissParentMenus?.();
 	};
 
 	/**
@@ -214,7 +233,8 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				)}
 				disabled={options.disabled}
 				onPressed={e => {
-					dismiss();
+					// Ensure we close the menu and the parent menus when a menu item selection is made.
+					dismissAllMenus();
 					options.onWillSelect?.();
 					if (options.commandId) {
 						services.commandService.executeCommand(options.commandId);
@@ -285,10 +305,8 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				anchorMode: 'avoid',
 				// Evaluate the entries now to ensure things like the checked state is up to date when submenu opens.
 				entries: options.entries(),
-				onClose: () => {
-					// When submenu closes, focus returns to parent menu item that opened the submenu.
-					buttonRef.current?.focus();
-				}
+				// Passing down a function that will allow the submenu to dismiss the parent menus.
+				onDismissParentMenus: dismissAllMenus,
 			});
 		};
 
