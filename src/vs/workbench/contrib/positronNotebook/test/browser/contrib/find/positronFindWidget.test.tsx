@@ -117,7 +117,7 @@ suite('PositronFindWidget', () => {
 				matchIndex={matchIndex}
 				matchWholeWord={matchWholeWord}
 				replace={useReplace ? {
-					expanded: replaceExpanded,
+					isVisible: replaceExpanded,
 					replaceText,
 					preserveCase,
 					replaceInputFocused,

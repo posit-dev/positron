@@ -19,6 +19,7 @@ import { Codicon } from '../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../nls.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
+import { useRef } from 'react';
 
 // Localized strings
 const previousMatchLabel = localize('positronNotebook.find.previousMatch', "Previous Match");
@@ -32,7 +33,7 @@ const matchCountLabel = (matchIndex: number, matchCount: number) =>
 	localize('positronNotebook.find.matchCount', "{0} of {1}", matchIndex, matchCount);
 
 export interface PositronFindWidgetReplaceProps {
-	readonly expanded: ISettableObservable<boolean>;
+	readonly isVisible: ISettableObservable<boolean>;
 	readonly replaceText: ISettableObservable<string>;
 	readonly preserveCase: ISettableObservable<boolean>;
 	readonly replaceInputFocused: ISettableObservable<boolean>;
@@ -74,6 +75,8 @@ export const PositronFindWidget = ({
 	onPreviousMatch,
 	onNextMatch,
 }: PositronFindWidgetProps) => {
+	const replaceButtonRef = useRef<HTMLButtonElement>(null);
+
 	const _findText = useObservedValue(findText);
 	const _matchCase = useObservedValue(matchCase);
 	const _matchWholeWord = useObservedValue(matchWholeWord);
@@ -82,13 +85,13 @@ export const PositronFindWidget = ({
 	const _matchCount = useObservedValue(matchCount);
 	const _isVisible = useObservedValue(isVisible);
 	const _inputFocused = useObservedValue(inputFocused);
-	const _replaceExpanded = useObservedValue(replace?.expanded, false);
+	const _isReplaceVisible = useObservedValue(replace?.isVisible, false);
 	const _replaceText = useObservedValue(replace?.replaceText, '');
 	const _preserveCase = useObservedValue(replace?.preserveCase, false);
 
 	const noMatches = !_matchCount;
 	const hasNoResults = _findText && _matchCount === 0;
-	const noFindText = !_findText;
+	const replaceButtonsEnabled = !!_findText;
 
 	const findPart = (
 		<div className='find-part'>
@@ -102,9 +105,18 @@ export const PositronFindWidget = ({
 				useRegex={_useRegex}
 				value={_findText}
 				onBlur={() => inputFocused.set(false, undefined)}
+				onCaseSensitiveKeyDown={(e) => {
+					// TODO: focus
+				}}
 				onFocus={() => inputFocused.set(true, undefined)}
+				onKeyDown={(e) => {
+					// TODO: focus
+				}}
 				onMatchCaseChange={(value) => matchCase.set(value, undefined)}
 				onMatchWholeWordChange={(value) => matchWholeWord.set(value, undefined)}
+				onRegexKeyDown={(e) => {
+					// TODO: focus
+				}}
 				onUseRegexChange={(value) => useRegex.set(value, undefined)}
 				onValueChange={(value) => findText.set(value, undefined)}
 			/>
@@ -149,14 +161,14 @@ export const PositronFindWidget = ({
 				<ActionButton
 					ariaLabel={toggleReplaceLabel}
 					className='action-button toggle-replace'
-					onPressed={() => replace.expanded.set(!replace.expanded.get(), undefined)}
+					onPressed={() => replace.isVisible.set(!replace.isVisible.get(), undefined)}
 				>
-					<ThemeIcon icon={_replaceExpanded ? Codicon.chevronDown : Codicon.chevronRight} />
+					<ThemeIcon icon={_isReplaceVisible ? Codicon.chevronDown : Codicon.chevronRight} />
 				</ActionButton>
 			)}
 			<div className='find-replace-rows'>
 				{findPart}
-				{replace && _replaceExpanded && (
+				{replace && _isReplaceVisible && (
 					<div className='replace-part'>
 						<PositronReplaceInput
 							contextKeyService={contextKeyService}
@@ -164,16 +176,17 @@ export const PositronFindWidget = ({
 							preserveCase={_preserveCase}
 							replaceInputOptions={replace.replaceInputOptions}
 							value={_replaceText}
-							onInputBlur={() => replace.replaceInputFocused.set(false, undefined)}
-							onInputFocus={() => replace.replaceInputFocused.set(true, undefined)}
+							onBlur={() => replace.replaceInputFocused.set(false, undefined)}
+							onFocus={() => replace.replaceInputFocused.set(true, undefined)}
 							onPreserveCaseChange={(value) => replace.preserveCase.set(value, undefined)}
 							onValueChange={(value) => replace.replaceText.set(value, undefined)}
 						/>
 						<div className='replace-actions'>
 							<ActionButton
+								ref={replaceButtonRef}
 								ariaLabel={replaceLabel}
 								className='action-button replace-button'
-								disabled={noFindText}
+								disabled={!replaceButtonsEnabled}
 								onPressed={() => replace.onReplace()}
 							>
 								<ThemeIcon icon={Codicon.replace} />
@@ -181,7 +194,7 @@ export const PositronFindWidget = ({
 							<ActionButton
 								ariaLabel={replaceAllLabel}
 								className='action-button replace-all-button'
-								disabled={noFindText}
+								disabled={!replaceButtonsEnabled}
 								onPressed={() => replace.onReplaceAll()}
 							>
 								<ThemeIcon icon={Codicon.replaceAll} />

@@ -120,7 +120,7 @@ export class PositronFindInstance extends Disposable {
 			let replaceProps: PositronFindWidgetReplaceProps | undefined;
 			if (this._options.replaceInputOptions) {
 				replaceProps = {
-					expanded: this.replaceExpanded,
+					isVisible: this.replaceExpanded,
 					replaceText: this.replaceText,
 					preserveCase: this.preserveCase,
 					replaceInputFocused: this._replaceInputFocused,

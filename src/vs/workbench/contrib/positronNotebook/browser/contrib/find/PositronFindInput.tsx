@@ -16,6 +16,7 @@ import { ContextScopedFindInput } from '../../../../../../platform/history/brows
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { useDisposableEffect } from '../../useDisposableEffect.js';
+import { useDelayer } from './useDelayer.js';
 
 interface BaseFindInputProps {
 	readonly value?: string;
@@ -177,15 +178,3 @@ const FindInputEffects = ({
 	// create effects only once findInput is instantiated.
 	return null;
 };
-
-function useDelayer(createDelayer: () => Delayer<void>) {
-	const delayerRef = useRef<Delayer<void> | undefined>(undefined);
-	if (!delayerRef.current) {
-		delayerRef.current = createDelayer();
-	}
-
-	// Dispose on unmount
-	useDisposableEffect(() => delayerRef.current!, []);
-
-	return delayerRef.current!;
-}
