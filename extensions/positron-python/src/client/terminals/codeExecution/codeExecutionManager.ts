@@ -147,9 +147,16 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                         const command = `%run -- ${JSON.stringify(filePath)}`;
                         const fileUri = vscode.Uri.file(filePath);
                         positron.runtime.executeCode(
-                            'python', command, false, true,
-                            undefined, undefined, undefined, undefined,
-                            fileUri);
+                            'python',
+                            command,
+                            false,
+                            true,
+                            undefined,
+                            undefined,
+                            undefined,
+                            undefined,
+                            fileUri,
+                        );
                     }
                 } catch (e) {
                     // This is not a valid file path, which isn't an error; it just
