@@ -73,6 +73,7 @@ import './services/browserElements/browser/webBrowserElementsService.js';
 
 // --- Start Positron ---
 import './services/ephemeralState/browser/ephemeralStateService.js';
+import './services/positronMemoryUsage/browser/positronMemoryUsageRemoteProvider.js';
 // --- End Positron ---
 
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';

@@ -18,6 +18,7 @@ import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { SortingMenuButton } from './sortingMenuButton.js';
 import { GroupingMenuButton } from './groupingMenuButton.js';
+import { MemoryUsageMeter } from './memoryUsageMeter.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
@@ -129,6 +130,8 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<MemoryUsageMeter />
+						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRefreshObjects}

@@ -1,0 +1,85 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.memory-usage-dropdown {
+	padding: 10px 12px;
+	color: var(--vscode-editorWidget-foreground);
+}
+
+.memory-usage-dropdown .section-header {
+	font-size: 9px;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+	color: var(--vscode-descriptionForeground);
+	margin: 0;
+	padding: 6px 0 4px 0;
+	user-select: none;
+}
+
+.memory-usage-dropdown .section-header:first-child {
+	padding-top: 0;
+}
+
+.memory-usage-dropdown .usage-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 2px 0;
+}
+
+.memory-usage-dropdown .usage-name {
+	flex: 0 0 auto;
+	font-size: 12px;
+	min-width: 70px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.memory-usage-dropdown .usage-size {
+	flex: 0 0 auto;
+	font-size: 12px;
+	min-width: 60px;
+	text-align: right;
+	white-space: nowrap;
+	color: var(--vscode-descriptionForeground);
+}
+
+.memory-usage-dropdown .usage-bar-container {
+	flex: 1 1 auto;
+	height: 10px;
+	border-radius: 1px;
+	overflow: hidden;
+	background-color: transparent;
+	min-width: 40px;
+}
+
+.memory-usage-dropdown .usage-bar {
+	height: 100%;
+	border-radius: 1px;
+}
+
+.memory-usage-dropdown .usage-bar.kernel {
+	background: repeating-linear-gradient(
+		-45deg,
+		var(--vscode-charts-blue),
+		var(--vscode-charts-blue) 2px,
+		transparent 2px,
+		transparent 4px
+	);
+}
+
+.memory-usage-dropdown .usage-bar.positron {
+	background-color: var(--vscode-charts-blue);
+}
+
+.memory-usage-dropdown .usage-bar.other {
+	background-color: var(--vscode-charts-lines);
+}
+
+.memory-usage-dropdown .usage-bar.free {
+	border: 1px solid var(--vscode-editorWidget-border);
+	box-sizing: border-box;
+}

@@ -1,0 +1,66 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.memory-usage-meter {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+	padding: 0 4px;
+	height: 100%;
+}
+
+.memory-usage-meter .memory-label {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+	user-select: none;
+}
+
+.memory-usage-meter .memory-bar-container {
+	width: 100px;
+	height: 14px;
+	border: 1px solid var(--vscode-editorWidget-border);
+	border-radius: 2px;
+	display: flex;
+	overflow: hidden;
+	background-color: transparent;
+}
+
+.memory-usage-meter .memory-bar-segment {
+	height: 100%;
+	flex-shrink: 0;
+}
+
+.memory-usage-meter .memory-bar-segment.kernel {
+	background: repeating-linear-gradient(
+		-45deg,
+		var(--vscode-charts-blue),
+		var(--vscode-charts-blue) 2px,
+		transparent 2px,
+		transparent 4px
+	);
+}
+
+.memory-usage-meter .memory-bar-segment.positron {
+	background-color: var(--vscode-charts-blue);
+}
+
+.memory-usage-meter .memory-bar-segment.other {
+	background-color: var(--vscode-charts-lines);
+}
+
+.memory-usage-meter .memory-bar-separator {
+	width: 1px;
+	height: 100%;
+	flex-shrink: 0;
+}
+
+.memory-usage-meter .memory-size-label {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+	user-select: none;
+}
