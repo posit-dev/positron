@@ -232,7 +232,7 @@ suite('PositronFindWidget', () => {
 			matchCount.set(0, undefined);
 			renderWidget();
 
-			const navButtons = container().querySelectorAll('.positron-find-widget .navigation-buttons button') as NodeListOf<HTMLButtonElement>;
+			const navButtons = container().querySelectorAll<HTMLButtonElement>('.positron-find-widget .navigation-buttons button');
 			for (const btn of navButtons) {
 				assert.strictEqual(btn.disabled, true, `Expected navigation button "${btn.ariaLabel}" to be disabled`);
 			}
