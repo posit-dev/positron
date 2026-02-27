@@ -15,7 +15,8 @@ import { URI } from '../../../base/common/uri.js';
 import { Schemas } from '../../../base/common/network.js';
 import * as platform from '../../../base/common/platform.js';
 import { toLocalResource } from '../../../base/common/resources.js';
-import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
+import { ANSIOutputRun } from '../../../base/common/ansiOutput.js';
+import { ansiCSSPropertiesToCamelCase, computeAnsiStyles, resolveAnsiColor } from '../../../base/common/ansiStyles.js';
 import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
@@ -30,14 +31,6 @@ const fileURLWithLineAndColumn = /^(file:\/\/\/.+):(\d+):(\d+)$/;
 // OutputRunProps interface.
 export interface OutputRunProps {
 	readonly outputRun: ANSIOutputRun;
-}
-
-/**
- * ColorType enumeration.
- */
-enum ColorType {
-	Foreground,
-	Background
 }
 
 /**
@@ -166,201 +159,31 @@ export const OutputRun = (props: OutputRunProps) => {
 		}
 	};
 
-	/**
-	 * Computes the styles.
-	 * @param styles The ANSIStyle array to compute.
-	 * @returns A CSSProperties that represents the styles.
-	 */
-	const computeStyles = (styles?: ANSIStyle[]): CSSProperties => {
-		// Compute CSS properties from the styles.
-		let cssProperties: CSSProperties = {};
-		if (styles) {
-			styles.forEach(style => {
-				switch (style) {
-					// Bold.
-					case ANSIStyle.Bold: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								fontWeight: 'bold'
-							}
-						};
-						break;
-					}
-
-					// Dim.
-					case ANSIStyle.Dim: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								fontWeight: 'lighter'
-							}
-						};
-						break;
-					}
-
-					// Italic.
-					case ANSIStyle.Italic: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								fontStyle: 'italic'
-							}
-						};
-						break;
-					}
-
-					// Underlined.
-					case ANSIStyle.Underlined: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								textDecorationLine: 'underline',
-								textDecorationStyle: 'solid'
-							}
-						};
-						break;
-					}
-
-					// Slow blink.
-					case ANSIStyle.SlowBlink: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								animation: 'positronOutputRun-blink 1s linear infinite'
-							}
-						};
-						break;
-					}
-
-					// Rapid blink.
-					case ANSIStyle.RapidBlink: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								animation: 'positronOutputRun-blink 0.5s linear infinite'
-							}
-						};
-						break;
-					}
-
-					// Hidden.
-					case ANSIStyle.Hidden: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								visibility: 'hidden'
-							}
-						};
-						break;
-					}
-
-					// CrossedOut.
-					case ANSIStyle.CrossedOut: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								textDecorationLine: 'line-through',
-								textDecorationStyle: 'solid'
-							}
-						};
-						break;
-					}
-
-					// TODO Fraktur
-
-					// DoubleUnderlined.
-					case ANSIStyle.DoubleUnderlined: {
-						cssProperties = {
-							...cssProperties,
-							...{
-								textDecorationLine: 'underline',
-								textDecorationStyle: 'double'
-							}
-						};
-						break;
-					}
-
-					// TODO Framed
-					// TODO Encircled
-					// TODO Overlined
-					// TODO Superscript
-					// TODO Subscript
-				}
-			});
-		}
-
-		// Return the CSS properties.
-		return cssProperties;
-	};
-
-	/**
-	 * Computes the foreground or background color.
-	 * @param colorType The color type (foreground or background).
-	 * @param color The color. This can be one of the standard ANSI colors from the ANSIColor
-	 * enumeration or a string with an RGB color.
-	 * @returns A CSSProperties that represents the foreground or background color.
-	 */
-	const computeForegroundBackgroundColor = (
-		colorType: ColorType,
-		color?: ANSIColor | string
-	): CSSProperties => {
-		switch (color) {
-			// Undefined.
-			case undefined: {
-				return {};
-			}
-
-			// One of the standard colors.
-			case ANSIColor.Black:
-			case ANSIColor.Red:
-			case ANSIColor.Green:
-			case ANSIColor.Yellow:
-			case ANSIColor.Blue:
-			case ANSIColor.Magenta:
-			case ANSIColor.Cyan:
-			case ANSIColor.White:
-			case ANSIColor.BrightBlack:
-			case ANSIColor.BrightRed:
-			case ANSIColor.BrightGreen:
-			case ANSIColor.BrightYellow:
-			case ANSIColor.BrightBlue:
-			case ANSIColor.BrightMagenta:
-			case ANSIColor.BrightCyan:
-			case ANSIColor.BrightWhite: {
-				if (colorType === ColorType.Foreground) {
-					return { color: `var(--vscode-positronConsole-${color})` };
-				} else {
-					return { background: `var(--vscode-positronConsole-${color})` };
-				}
-			}
-
-			// TODO@softwarenerd - This isn't hooked up.
-			default: {
-				if (colorType === ColorType.Foreground) {
-					return { color: color };
-				} else {
-					return { background: color };
-				}
-			}
-		}
-	};
-
 	// Computes the CSS properties for an output run.
 	const computeCSSProperties = (outputRun: ANSIOutputRun): CSSProperties => {
-		return !outputRun.format ?
-			{} :
-			{
-				...computeStyles(outputRun.format.styles),
-				...computeForegroundBackgroundColor(
-					ColorType.Foreground,
-					outputRun.format.foregroundColor
-				),
-				...computeForegroundBackgroundColor(
-					ColorType.Background,
-					outputRun.format.backgroundColor
-				),
-			};
+		if (!outputRun.format) {
+			return {};
+		}
+		const css: CSSProperties = {};
+
+		// Apply styles.
+		if (outputRun.format.styles) {
+			Object.assign(css, ansiCSSPropertiesToCamelCase(
+				computeAnsiStyles(outputRun.format.styles)
+			));
+		}
+
+		// Apply foreground color.
+		if (outputRun.format.foregroundColor) {
+			css.color = resolveAnsiColor(outputRun.format.foregroundColor);
+		}
+
+		// Apply background color.
+		if (outputRun.format.backgroundColor) {
+			css.background = resolveAnsiColor(outputRun.format.backgroundColor);
+		}
+
+		return css;
 	};
 
 	// Render.

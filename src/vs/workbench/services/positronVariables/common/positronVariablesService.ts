@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -23,6 +23,7 @@ import { IPositronConsoleService } from '../../positronConsole/browser/interface
 import { PositronNotebookEditorInput } from '../../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../positronConsole/common/positronConsoleCodeExecution.js';
+import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 
 /**
  * PositronVariablesService class.
@@ -83,6 +84,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeNotebookKernelService private readonly _runtimeNotebookKernelService: IRuntimeNotebookKernelService,
+		@IQuartoExecutionManager private readonly _quartoExecutionManager: IQuartoExecutionManager,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
@@ -131,6 +133,11 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		// List for notebook code execution events
 		this._register(this._runtimeNotebookKernelService.onDidExecuteCode(e => {
 			this._watchForCodeExecution(e);
+		}));
+
+		// Listen for Quarto code execution events
+		this._register(this._quartoExecutionManager.onDidExecuteCode(e => {
+			this._watchForCodeExecution(e)
 		}));
 
 		// Listen for editor changes
@@ -306,6 +313,23 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			// If the editor is not for a jupyter notebook, just leave variables session as is.
 			if (!notebookSession) { return; }
 			this._setActivePositronVariablesBySession(notebookSession.sessionId);
+		} else if (editorInput?.resource?.path.endsWith('.qmd')) {
+			// If this is a Quarto document (.qmd file), check if there's a kernel session
+			// associated with it. QMD sessions are started with LanguageRuntimeSessionMode.Notebook
+			// and have their document URI stored in metadata.notebookUri.
+			const qmdSession = this._runtimeSessionService.activeSessions.find(
+				s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
+			);
+			// If there's a session for this QMD file, switch to it; otherwise fall back to
+			// the foreground console session.
+			if (qmdSession) {
+				this._setActivePositronVariablesBySession(qmdSession.sessionId);
+			} else if (this._runtimeSessionService.foregroundSession) {
+				this._setActivePositronVariablesBySession(
+					this._runtimeSessionService.foregroundSession.sessionId);
+			} else {
+				this._setActivePositronVariablesInstance();
+			}
 		} else if (this._runtimeSessionService.foregroundSession) {
 			// Revert to the most recent console session if we're not in a notebook editor
 			this._setActivePositronVariablesBySession(

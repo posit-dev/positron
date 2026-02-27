@@ -45,6 +45,7 @@ import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookK
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
+import { Range, IRange } from '../../../../editor/common/core/range.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
@@ -53,6 +54,7 @@ import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../servic
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState, LanguageRuntimePackage } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
+import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 import * as perf from '../../../../base/common/performance.js';
 
 /**
@@ -1505,6 +1507,7 @@ export class MainThreadLanguageRuntime
 		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IPositronConnectionsService private readonly _positronConnectionsService: IPositronConnectionsService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IQuartoExecutionManager private readonly _quartoExecutionManager: IQuartoExecutionManager,
 		@IPathService private readonly _pathService: IPathService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
@@ -1868,6 +1871,13 @@ export class MainThreadLanguageRuntime
 
 		return this._positronConsoleService.executeCode(
 			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
+	}
+
+	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: IRange[]): Promise<void> {
+		const revivedUri = URI.revive(documentUri);
+		// Convert IRange objects (with startLineNumber, etc.) to editor Range objects
+		const cellRanges = ranges.map(r => Range.lift(r));
+		return this._quartoExecutionManager.executeInlineCells(revivedUri, cellRanges);
 	}
 
 	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {
