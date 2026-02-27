@@ -21,7 +21,7 @@ import { TestInstantiationService } from '../../../instantiation/test/common/ins
 import { Event } from '../../../../base/common/event.js';
 
 suite('ActionBarWidget', () => {
-	const { render, container } = setupReactRenderer();
+	const { render } = setupReactRenderer();
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	let mockServicesAccessor: PositronReactServices;
@@ -29,7 +29,7 @@ suite('ActionBarWidget', () => {
 
 	/** Helper to render ActionBarWidget with context. */
 	function renderWidget(descriptor: IPositronActionBarWidgetDescriptor) {
-		render(
+		return render(
 			<PositronReactServicesContext.Provider value={mockServicesAccessor}>
 				<ActionBarWidget descriptor={descriptor} />
 			</PositronReactServicesContext.Provider>
@@ -61,9 +61,9 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span className='test-widget-content'>Test Widget</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const widgetContent = container().querySelector('.test-widget-content');
+		const widgetContent = container.querySelector('.test-widget-content');
 		assert.ok(widgetContent, 'Expected to find widget content');
 		assert.strictEqual(widgetContent.textContent, 'Test Widget');
 	});
@@ -98,9 +98,9 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Command Widget</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const button = container().querySelector('button.action-bar-widget');
+		const button = container.querySelector('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button element');
 		assert.strictEqual(button.getAttribute('aria-label'), 'Test Command');
 		assert.strictEqual(button.getAttribute('title'), 'Execute test command');
@@ -120,9 +120,9 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Click Me</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const button = container().querySelector('button.action-bar-widget') as HTMLButtonElement;
+		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate click
@@ -148,9 +148,9 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Enter</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const button = container().querySelector('button.action-bar-widget') as HTMLButtonElement;
+		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate Enter key press
@@ -175,9 +175,9 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Space</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const button = container().querySelector('button.action-bar-widget') as HTMLButtonElement;
+		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate Space key press
@@ -198,12 +198,12 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Self Contained</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const div = container().querySelector('div.action-bar-widget');
+		const div = container.querySelector('div.action-bar-widget');
 		assert.ok(div, 'Expected to find div element');
 
-		const button = container().querySelector('button.action-bar-widget');
+		const button = container.querySelector('button.action-bar-widget');
 		assert.strictEqual(button, null, 'Should not render as button when self-contained');
 	});
 
@@ -216,12 +216,12 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Legacy Widget</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const div = container().querySelector('div.action-bar-widget');
+		const div = container.querySelector('div.action-bar-widget');
 		assert.ok(div, 'Expected to find div element for legacy widget');
 
-		const button = container().querySelector('button.action-bar-widget');
+		const button = container.querySelector('button.action-bar-widget');
 		assert.strictEqual(button, null, 'Legacy widget should not render as button');
 	});
 
@@ -241,9 +241,9 @@ suite('ActionBarWidget', () => {
 		// Suppress console.error for this test since we expect an error
 		const consoleErrorStub = sinon.stub(console, 'error');
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const errorIndicator = container().querySelector('.action-bar-widget-error');
+		const errorIndicator = container.querySelector('.action-bar-widget-error');
 		assert.ok(errorIndicator, 'Expected to find error indicator');
 
 		const errorIcon = errorIndicator.querySelector('.codicon-error');
@@ -270,9 +270,9 @@ suite('ActionBarWidget', () => {
 		// Suppress console.error for this test
 		const consoleErrorStub = sinon.stub(console, 'error');
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const errorIndicator = container().querySelector('.action-bar-widget-error') as HTMLElement;
+		const errorIndicator = container.querySelector<HTMLElement>('.action-bar-widget-error');
 		assert.ok(errorIndicator, 'Expected to find error indicator');
 
 		const title = errorIndicator.getAttribute('title');

@@ -14,5 +14,5 @@ Use `setupReactRenderer()` from `base/test/browser/react.js` to manage the DOM c
 ## General
 
 - Place tests in `test/browser/` adjacent to source.
-- `container()` is a function -- call it inside tests, not at suite-definition time.
-- `querySelector` requires `/* eslint-disable no-restricted-syntax */` below the copyright header.
+- `render()` returns the DOM container -- query it for assertions.
+- `querySelector<T>` requires `/* eslint-disable no-restricted-syntax */` below the copyright header.

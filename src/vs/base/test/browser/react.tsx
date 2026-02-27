@@ -20,12 +20,12 @@ import { mainWindow } from '../../browser/window.js';
  * @example
  * ```ts
  * suite('MyWidget', () => {
- *     const { render, container } = setupReactRenderer();
+ *     const { render } = setupReactRenderer();
  *     ensureNoDisposablesAreLeakedInTestSuite();
  *
  *     test('renders', () => {
- *         render(<MyWidget />);
- *         assert.ok(container().querySelector('.my-widget'));
+ *         const container = render(<MyWidget />);
+ *         assert.ok(container.querySelector('.my-widget'));
  *     });
  * });
  * ```
@@ -47,19 +47,16 @@ export function setupReactRenderer() {
 
 	return {
 		/**
-		 * Render a React element synchronously via `flushSync`.
+		 * Render a React element synchronously via `flushSync` and return the
+		 * DOM container the React root is mounted into.
 		 */
-		render(element: ReactElement) {
+		render(element: ReactElement): HTMLElement {
+			if (root === undefined) {
+				throw new Error('React root is not initialized. Did you try to render before setup?');
+			}
 			flushSync(() => {
 				root.render(element);
 			});
-		},
-
-		/**
-		 * Returns the DOM container the React root is mounted into.
-		 * Call inside tests (after `setup` has run), not at suite-definition time.
-		 */
-		container(): HTMLElement {
 			return el;
 		},
 	};

@@ -94,7 +94,7 @@ function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryD
 }
 
 suite('ColumnSummaryCell', () => {
-	const { render, container } = setupReactRenderer();
+	const { render } = setupReactRenderer();
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	const columnSchema = getColumnSchema('test_column', 0, 'string', ColumnDisplayType.String);
@@ -102,7 +102,7 @@ suite('ColumnSummaryCell', () => {
 	function renderRoot(
 		mockTableSummaryDataGridInstance: TableSummaryDataGridInstance,
 	) {
-		render(
+		return render(
 			<ColumnSummaryCell
 				columnIndex={0}
 				columnSchema={columnSchema}
@@ -122,9 +122,9 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 0,
 		});
 
-		renderRoot(mockTableSummaryDataGridInstance);
+		const container = renderRoot(mockTableSummaryDataGridInstance);
 
-		const nullPercentElement = container().querySelector('.text-percent');
+		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
 		assert.strictEqual(nullPercentElement.textContent, '0%', 'Expected to find 0% for 0% input');
 	});
@@ -135,9 +135,9 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1,
 		});
 
-		renderRoot(mockTableSummaryDataGridInstance);
+		const container = renderRoot(mockTableSummaryDataGridInstance);
 
-		const nullPercentElement = container().querySelector('.text-percent');
+		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
 		assert.strictEqual(nullPercentElement.textContent, '<1%', 'Expected to find <1% for 0.5% input');
 	});
@@ -148,9 +148,9 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 999,
 		});
 
-		renderRoot(mockTableSummaryDataGridInstance);
+		const container = renderRoot(mockTableSummaryDataGridInstance);
 
-		const nullPercentElement = container().querySelector('.text-percent');
+		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
 		assert.strictEqual(nullPercentElement.textContent, '99%', 'Expected to find 99% for 99.9% input');
 	});
@@ -161,9 +161,9 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1000,
 		});
 
-		renderRoot(mockTableSummaryDataGridInstance);
+		const container = renderRoot(mockTableSummaryDataGridInstance);
 
-		const nullPercentElement = container().querySelector('.text-percent');
+		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
 		assert.strictEqual(nullPercentElement.textContent, '100%', 'Expected to find 100% for 100% input');
 	});
