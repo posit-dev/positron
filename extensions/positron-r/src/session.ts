@@ -127,10 +127,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private _packageCache: Map<string, RPackageInstallation> = new Map();
 
 	/** Cache of RStudio addins from installed packages */
-	private _addinsCache: RStudioAddin[] | null = null;
+	private _addinsCache?: RStudioAddin[];
 
 	/** Cache of R Markdown templates from installed packages */
-	private _templatesCache: RmdTemplate[] | null = null;
+	private _templatesCache?: RmdTemplate[];
 
 	/** Package manager for this session */
 	private _packageManager?: RPackageManager;
@@ -555,7 +555,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * @returns Array of addin metadata from all installed packages
 	 */
 	public async getAddins(refresh: boolean = false): Promise<RStudioAddin[]> {
-		if (!refresh && this._addinsCache !== null) {
+		if (!refresh && this._addinsCache !== undefined) {
 			return this._addinsCache;
 		}
 
@@ -576,7 +576,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * @returns Array of template metadata from all installed packages
 	 */
 	public async getRmdTemplates(refresh: boolean = false): Promise<RmdTemplate[]> {
-		if (!refresh && this._templatesCache !== null) {
+		if (!refresh && this._templatesCache !== undefined) {
 			return this._templatesCache;
 		}
 
@@ -595,8 +595,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * Should be called after package install/remove operations.
 	 */
 	public invalidatePackageResourceCaches(): void {
-		this._addinsCache = null;
-		this._templatesCache = null;
+		this._addinsCache = undefined;
+		this._templatesCache = undefined;
 	}
 
 	/**
