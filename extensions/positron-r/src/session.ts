@@ -107,6 +107,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** Package manager for this session */
 	private _packageManager?: RPackageManager;
 
+	/** Whether the packages script has been sourced for this session */
+	private _packagesScriptSourced: boolean = false;
+
 	/** Disposables. Disposed of after main resources (LSP, kernel, etc) */
 	private _disposables: vscode.Disposable[] = [];
 
@@ -760,6 +763,32 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		return this._packageManager.searchPackageVersions(name);
 	}
 
+	/**
+	 * Source the packages script if it hasn't been sourced yet.
+	 * Called when the environments feature is enabled mid-session.
+	 */
+	async sourcePackagesScriptIfNeeded(): Promise<void> {
+		if (this._packagesScriptSourced) {
+			return;
+		}
+
+		if (!this._packageManager) {
+			return;
+		}
+
+		// Only source if the session is ready
+		if (this._state !== positron.RuntimeState.Ready) {
+			return;
+		}
+
+		try {
+			await this._packageManager.sourcePackagesScript();
+			this._packagesScriptSourced = true;
+		} catch {
+			// Fail silently as requested
+		}
+	}
+
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
 		this.adapterApi = await supervisorApi();
 
@@ -1064,7 +1093,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				.get<boolean>('enable', false);
 
 			if (environmentsEnabled) {
-				promises.push(this._packageManager!.sourcePackagesScript());
+				promises.push(this._packageManager!.sourcePackagesScript().then(() => {
+					this._packagesScriptSourced = true;
+				}));
 			}
 
 			await Promise.all(promises);

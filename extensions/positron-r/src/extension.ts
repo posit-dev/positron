@@ -12,6 +12,7 @@ import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
 import { RSessionManager } from './session-manager';
+import { getActiveRSessions } from './session';
 import { registerUriHandler } from './uri-handler';
 import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
@@ -71,7 +72,44 @@ export function activate(context: vscode.ExtensionContext) {
 		if (event.affectsConfiguration('positron.r.testing')) {
 			refreshTestExplorer(context);
 		}
+		if (event.affectsConfiguration('positron.environments.enable')) {
+			await sourcePackagesScriptForActiveSessions();
+		}
 	});
+}
+
+/**
+ * Source the packages script for active R sessions when the environments
+ * feature is enabled mid-session. Only sources for the first session per
+ * unique R interpreter to avoid redundant calls.
+ */
+async function sourcePackagesScriptForActiveSessions(): Promise<void> {
+	// Check if the feature is now enabled
+	const environmentsEnabled = vscode.workspace
+		.getConfiguration('positron.environments')
+		.get<boolean>('enable', false);
+
+	if (!environmentsEnabled) {
+		return;
+	}
+
+	const sessions = await getActiveRSessions();
+
+	// Track which interpreters we've already processed
+	const processedInterpreters = new Set<string>();
+
+	for (const session of sessions) {
+		const interpreterPath = session.runtimeMetadata.runtimePath;
+
+		// Only process the first session per interpreter
+		if (processedInterpreters.has(interpreterPath)) {
+			continue;
+		}
+		processedInterpreters.add(interpreterPath);
+
+		// Source the packages script (fails silently if already sourced or errors)
+		await session.sourcePackagesScriptIfNeeded();
+	}
 }
 
 export async function supervisorApi(): Promise<PositronSupervisorApi> {
