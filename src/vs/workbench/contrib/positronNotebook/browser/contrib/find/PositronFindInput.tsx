@@ -17,22 +17,24 @@ import { IContextKeyService } from '../../../../../../platform/contextkey/common
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { useDisposableEffect } from '../../useDisposableEffect.js';
 
-interface FindInputProps {
+interface BaseFindInputProps {
 	readonly value?: string;
 	readonly matchCase?: boolean;
 	readonly matchWholeWord?: boolean;
 	readonly useRegex?: boolean;
 	readonly isFocused?: boolean;
 	readonly onKeyDown?: (e: IKeyboardEvent) => void;
+	readonly onCaseSensitiveKeyDown?: (e: IKeyboardEvent) => void;
+	readonly onRegexKeyDown?: (e: IKeyboardEvent) => void;
 	readonly onValueChange: (value: string) => void;
 	readonly onMatchCaseChange: (value: boolean) => void;
 	readonly onMatchWholeWordChange: (value: boolean) => void;
 	readonly onUseRegexChange: (value: boolean) => void;
-	readonly onInputFocus?: () => void;
-	readonly onInputBlur?: () => void;
+	readonly onFocus?: () => void;
+	readonly onBlur?: () => void;
 }
 
-export interface PositronFindInputProps extends FindInputProps {
+export interface PositronFindInputProps extends BaseFindInputProps {
 	readonly findInputOptions: IFindInputOptions;
 	readonly contextKeyService: IContextKeyService;
 	readonly contextViewService: IContextViewService;
@@ -96,8 +98,10 @@ function useFindInput(
 	return findInput;
 }
 
-interface FindInputEffectsProps extends FindInputProps {
+interface FindInputEffectsProps extends BaseFindInputProps {
 	readonly findInput: FindInput;
+	readonly onFocus?: () => void;
+	readonly onBlur?: () => void;
 }
 
 const FindInputEffects = ({
@@ -108,12 +112,14 @@ const FindInputEffects = ({
 	useRegex = false,
 	isFocused = false,
 	onKeyDown,
+	onCaseSensitiveKeyDown,
+	onRegexKeyDown,
 	onValueChange,
 	onMatchCaseChange,
 	onMatchWholeWordChange,
 	onUseRegexChange,
-	onInputFocus,
-	onInputBlur,
+	onFocus,
+	onBlur,
 }: FindInputEffectsProps) => {
 	/** Track whether the input was previously focused */
 	const wasFocused = useRef(false);
@@ -128,8 +134,10 @@ const FindInputEffects = ({
 
 	// Connect find input events to component callbacks
 	useDisposableEffect(() => onKeyDown && findInput.onKeyDown((e) => onKeyDown(e)), [findInput, onKeyDown]);
-	useDisposableEffect(() => onInputFocus && findInput.inputBox.onDidFocus(() => onInputFocus()), [findInput.inputBox, onInputFocus]);
-	useDisposableEffect(() => onInputBlur && findInput.inputBox.onDidBlur(() => onInputBlur()), [findInput.inputBox, onInputBlur]);
+	useDisposableEffect(() => onFocus && findInput.inputBox.onDidFocus(() => onFocus()), [findInput.inputBox, onFocus]);
+	useDisposableEffect(() => onBlur && findInput.inputBox.onDidBlur(() => onBlur()), [findInput.inputBox, onBlur]);
+	useDisposableEffect(() => onCaseSensitiveKeyDown && findInput.onCaseSensitiveKeyDown((e) => onCaseSensitiveKeyDown(e)), [findInput, onCaseSensitiveKeyDown]);
+	useDisposableEffect(() => onRegexKeyDown && findInput.onRegexKeyDown((e) => onRegexKeyDown(e)), [findInput, onRegexKeyDown]);
 
 	// Use separate callbacks for each option
 	useDisposableEffect(() => findInput.onDidOptionChange(() => {

@@ -101,8 +101,8 @@ export const PositronFindWidget = ({
 				matchWholeWord={_matchWholeWord}
 				useRegex={_useRegex}
 				value={_findText}
-				onInputBlur={() => inputFocused.set(false, undefined)}
-				onInputFocus={() => inputFocused.set(true, undefined)}
+				onBlur={() => inputFocused.set(false, undefined)}
+				onFocus={() => inputFocused.set(true, undefined)}
 				onMatchCaseChange={(value) => matchCase.set(value, undefined)}
 				onMatchWholeWordChange={(value) => matchWholeWord.set(value, undefined)}
 				onUseRegexChange={(value) => useRegex.set(value, undefined)}
