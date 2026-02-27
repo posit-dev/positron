@@ -89,6 +89,14 @@ test.describe('Positron Notebooks: .qmd Support', {
 
 		const { notebooksPositron } = app.workbench;
 
+		const originalContent = [
+			'---',
+			'title: "Diamond sizes"',
+			'date: 2022-09-12',
+			'format: html',
+			'---',
+		];
+
 		const content = ['---', 'title: new title', '---'];
 
 		// Open the .qmd file
@@ -107,5 +115,12 @@ test.describe('Positron Notebooks: .qmd Support', {
 		await notebooksPositron.openNotebook(QUARTO_BASIC_PATH);
 		await notebooksPositron.expectCellCountToBe(4);
 		await notebooksPositron.expectCellContentAtIndexToBe(0, content);
+
+		// Restore the original content so other tests aren't affected
+		await notebooksPositron.editModeAtIndex(0);
+		await hotKeys.selectAll();
+		await editor.pressSequentially(originalContent.join('\n'));
+		await hotKeys.save();
+		await hotKeys.closeTab();
 	});
 });
