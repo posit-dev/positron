@@ -7,15 +7,13 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
-import { flushSync } from 'react-dom';
-import { createRoot, Root } from 'react-dom/client';
 import { ActionBarWidget } from '../../browser/components/actionBarWidget.js';
 import { IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
 import { MenuId } from '../../../actions/common/actions.js';
 import { ICommandService, CommandsRegistry } from '../../../commands/common/commands.js';
 import { ServiceIdentifier, ServicesAccessor } from '../../../instantiation/common/instantiation.js';
-import { mainWindow } from '../../../../base/browser/window.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { setupReactRenderer } from '../../../../base/test/browser/react.js';
 import { PositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { TestCommandService } from '../../../../editor/test/browser/editorTestServices.js';
@@ -23,32 +21,22 @@ import { TestInstantiationService } from '../../../instantiation/test/common/ins
 import { Event } from '../../../../base/common/event.js';
 
 suite('ActionBarWidget', () => {
+	const { render } = setupReactRenderer();
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	let root: Root;
-	let container: HTMLElement;
 	let mockServicesAccessor: PositronReactServices;
 	let commandService: TestCommandService;
 
 	/** Helper to render ActionBarWidget with context. */
 	function renderWidget(descriptor: IPositronActionBarWidgetDescriptor) {
-		// Render the widget and wait for React to flush
-		flushSync(() => {
-			root.render(
-				<PositronReactServicesContext.Provider value={mockServicesAccessor}>
-					<ActionBarWidget descriptor={descriptor} />
-				</PositronReactServicesContext.Provider>
-			);
-		});
+		return render(
+			<PositronReactServicesContext.Provider value={mockServicesAccessor}>
+				<ActionBarWidget descriptor={descriptor} />
+			</PositronReactServicesContext.Provider>
+		);
 	}
 
 	setup(() => {
-		// Create a container element for React to render into
-		container = mainWindow.document.createElement('div');
-		mainWindow.document.body.appendChild(container);
-		root = createRoot(container);
-
-		// Create mock services
 		const instantiationService = disposables.add(new TestInstantiationService());
 		commandService = new TestCommandService(instantiationService);
 		mockServicesAccessor = ({
@@ -62,11 +50,6 @@ suite('ActionBarWidget', () => {
 	});
 
 	teardown(() => {
-		// Clean up the React root and container
-		root.unmount();
-		container.remove();
-
-		// Restore spies and stubs
 		sinon.restore();
 	});
 
@@ -78,7 +61,7 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span className='test-widget-content'>Test Widget</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
 		const widgetContent = container.querySelector('.test-widget-content');
 		assert.ok(widgetContent, 'Expected to find widget content');
@@ -115,7 +98,7 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Command Widget</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
 		const button = container.querySelector('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button element');
@@ -137,9 +120,9 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Click Me</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
+		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate click
@@ -165,9 +148,9 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Enter</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
+		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate Enter key press
@@ -192,9 +175,9 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Press Space</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
+		const button = container.querySelector<HTMLButtonElement>('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button');
 
 		// Simulate Space key press
@@ -215,7 +198,7 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Self Contained</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
 		assert.ok(div, 'Expected to find div element');
@@ -233,7 +216,7 @@ suite('ActionBarWidget', () => {
 			componentFactory: () => () => <span>Legacy Widget</span>
 		};
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
 		const div = container.querySelector('div.action-bar-widget');
 		assert.ok(div, 'Expected to find div element for legacy widget');
@@ -258,7 +241,7 @@ suite('ActionBarWidget', () => {
 		// Suppress console.error for this test since we expect an error
 		const consoleErrorStub = sinon.stub(console, 'error');
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
 		const errorIndicator = container.querySelector('.action-bar-widget-error');
 		assert.ok(errorIndicator, 'Expected to find error indicator');
@@ -287,9 +270,9 @@ suite('ActionBarWidget', () => {
 		// Suppress console.error for this test
 		const consoleErrorStub = sinon.stub(console, 'error');
 
-		renderWidget(descriptor);
+		const container = renderWidget(descriptor);
 
-		const errorIndicator = container.querySelector('.action-bar-widget-error') as HTMLElement;
+		const errorIndicator = container.querySelector<HTMLElement>('.action-bar-widget-error');
 		assert.ok(errorIndicator, 'Expected to find error indicator');
 
 		const title = errorIndicator.getAttribute('title');

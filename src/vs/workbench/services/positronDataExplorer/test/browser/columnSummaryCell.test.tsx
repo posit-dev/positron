@@ -7,15 +7,12 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
-import { flushSync } from 'react-dom';
-import { createRoot, Root } from 'react-dom/client';
-import { mainWindow } from '../../../../../base/browser/window.js';
-
 import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType, SupportedFeatures } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { setupReactRenderer } from '../../../../../base/test/browser/react.js';
 import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 
@@ -97,38 +94,25 @@ function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryD
 }
 
 suite('ColumnSummaryCell', () => {
-	let root: Root;
-	let container: HTMLElement;
+	const { render } = setupReactRenderer();
+	ensureNoDisposablesAreLeakedInTestSuite();
+
 	const columnSchema = getColumnSchema('test_column', 0, 'string', ColumnDisplayType.String);
 
 	function renderRoot(
 		mockTableSummaryDataGridInstance: TableSummaryDataGridInstance,
 	) {
-		// Render the widget and wait for React to flush
-		flushSync(() => {
-			root.render(
-				<ColumnSummaryCell
-					columnIndex={0}
-					columnSchema={columnSchema}
-					instance={mockTableSummaryDataGridInstance}
-					onDoubleClick={() => { }}
-				/>
-			);
-		});
+		return render(
+			<ColumnSummaryCell
+				columnIndex={0}
+				columnSchema={columnSchema}
+				instance={mockTableSummaryDataGridInstance}
+				onDoubleClick={() => { }}
+			/>
+		);
 	}
 
-	setup(() => {
-		// Create a container element for React to render into
-		container = mainWindow.document.createElement('div');
-		mainWindow.document.body.appendChild(container);
-		root = createRoot(container);
-	});
-
 	teardown(() => {
-		// Clean up the React root and container
-		root.unmount();
-		container.remove();
-		// Restore spies and stubs
 		sinon.restore();
 	});
 
@@ -138,7 +122,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 0,
 		});
 
-		renderRoot(mockTableSummaryDataGridInstance);
+		const container = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -151,7 +135,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1,
 		});
 
-		renderRoot(mockTableSummaryDataGridInstance);
+		const container = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -164,7 +148,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 999,
 		});
 
-		renderRoot(mockTableSummaryDataGridInstance);
+		const container = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -177,13 +161,11 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1000,
 		});
 
-		renderRoot(mockTableSummaryDataGridInstance);
+		const container = renderRoot(mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
 		assert.strictEqual(nullPercentElement.textContent, '100%', 'Expected to find 100% for 100% input');
 	});
 
-	// Ensure that all disposables are cleaned up.
-	ensureNoDisposablesAreLeakedInTestSuite();
 });

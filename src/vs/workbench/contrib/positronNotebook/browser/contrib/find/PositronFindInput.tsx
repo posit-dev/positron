@@ -205,4 +205,4 @@ export const PositronFindInput = ({
 	}, [findInput, focus]);
 
 	return <div ref={containerRef} className='find-input-container' />;
-}
+};
