@@ -770,11 +770,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			return;
 		}
 
-		// Only source if the session is ready
-		if (this._state !== positron.RuntimeState.Ready) {
-			return;
-		}
-
 		try {
 			await this._packageManager.sourcePackagesScript();
 		} catch {
