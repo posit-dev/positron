@@ -12,7 +12,7 @@ import which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, ModuleMetadata } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, isRVersionsMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
@@ -231,6 +231,8 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 
 /**
  * Deduplicate a list of R binaries, merging the reasons for each binary.
+ * When the same binary is found via multiple sources, prefer r-versions metadata
+ * with a label since it provides a custom display name.
  * @param binaries Binaries to deduplicate
  * @returns Deduplicated binaries
  */
@@ -239,7 +241,14 @@ function deduplicateRBinaries(binaries: RBinary[]) {
 		if (acc.has(binary.path)) {
 			const existingBinary = acc.get(binary.path)!;
 			const mergedReasons = Array.from(new Set([...existingBinary.reasons, ...binary.reasons]));
-			acc.set(binary.path, { ...existingBinary, reasons: mergedReasons });
+
+			// Prefer r-versions metadata with a label over other metadata
+			let preferredMetadata = existingBinary.packagerMetadata;
+			if (binary.packagerMetadata && isRVersionsMetadata(binary.packagerMetadata) && binary.packagerMetadata.label) {
+				preferredMetadata = binary.packagerMetadata;
+			}
+
+			acc.set(binary.path, { ...existingBinary, reasons: mergedReasons, packagerMetadata: preferredMetadata });
 		} else {
 			acc.set(binary.path, binary);
 		}
@@ -295,15 +304,23 @@ export async function makeMetadata(
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
 
 	// Full name shown to users
-	let packagerAmendment = '';
-	if (isModuleInstallation && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
-		packagerAmendment = ` (Module: ${rInst.packagerMetadata.environmentName})`;
-	} else if (isCondaInstallation && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
-		packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
-	} else if (isPixiInstallation && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
-		packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
+	// If r-versions metadata has a custom label, use it as the complete runtime name
+	let runtimeName: string;
+	if (rInst.packagerMetadata && isRVersionsMetadata(rInst.packagerMetadata) && rInst.packagerMetadata.label) {
+		runtimeName = rInst.packagerMetadata.label;
+	} else {
+		let packagerAmendment = '';
+		if (isModuleInstallation && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
+			packagerAmendment = ` (Module: ${rInst.packagerMetadata.environmentName})`;
+		} else if (isCondaInstallation && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
+			packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
+		} else if (isPixiInstallation && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
+			packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
+		} else if (isHomebrewInstallation) {
+			packagerAmendment = ' (Homebrew)';
+		}
+		runtimeName = `R ${runtimeShortName}${packagerAmendment}`;
 	}
-	const runtimeName = `R ${runtimeShortName}${packagerAmendment}`;
 
 	// Get the version of this extension from package.json so we can pass it
 	// to the adapter as the implementation version.

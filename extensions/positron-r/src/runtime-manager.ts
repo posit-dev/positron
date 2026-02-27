@@ -185,9 +185,9 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			// More thoughts in this issue:
 			// https://github.com/posit-dev/positron/issues/2659
 			curBin.reasons.unshift(ReasonDiscovered.affiliated);
-			inst = new RInstallation(curBin.path, true, curBin.reasons);
+			inst = new RInstallation(curBin.path, true, curBin.reasons, metadataExtra.packagerMetadata);
 		} else {
-			inst = new RInstallation(metadataExtra.binpath, curBin?.path === metadataExtra.binpath, [ReasonDiscovered.affiliated]);
+			inst = new RInstallation(metadataExtra.binpath, curBin?.path === metadataExtra.binpath, [ReasonDiscovered.affiliated], metadataExtra.packagerMetadata);
 		}
 
 		// Check the installation for validity
