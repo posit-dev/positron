@@ -40,7 +40,6 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 - Extension tests (preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- For positron-python, see that extension's CLAUDE.md
 - E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --reporter list --grep '<pattern>'`
-- Core tests (for core IDE unit/integration testing): `./scripts/test.sh --grep <pattern> --run <file>`
 
 ## Directory Structure
 
@@ -63,3 +62,4 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 ## General
 
 - Use the `gh` CLI for GitHub interactions
+- Do not use unscoped search tools - they will search large compiled data and hang. Always use the builtin search tool

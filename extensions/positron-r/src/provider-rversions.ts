@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { RBinary } from './provider.js';
-import { ReasonDiscovered } from './r-installation.js';
+import { ReasonDiscovered, RVersionsMetadata } from './r-installation.js';
 import { LOGGER } from './extension.js';
 
 /**
@@ -214,10 +214,17 @@ export async function discoverRVersionsBinaries(): Promise<RBinary[]> {
 			continue;
 		}
 
+		// Build metadata from r-versions entry fields
+		const metadata: RVersionsMetadata = {
+			type: 'rversions',
+			label: entry.label,
+			// Future PRs will add: script, repo, library
+		};
+
 		binaries.push({
 			path: binPath,
 			reasons: [ReasonDiscovered.RVERSIONS],
-			// Future PRs will add metadata for label, script, repo, library
+			packagerMetadata: metadata,
 		});
 
 		LOGGER.info(`Found R at ${binPath} from r-versions file`);

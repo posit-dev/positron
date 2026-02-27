@@ -1,0 +1,377 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Outer wrapper for view zone (Monaco sets height on this element) */
+.quarto-inline-output-wrapper {
+	/* No visible styling - just a container for Monaco to control */
+	box-sizing: border-box;
+	/* Ensure the wrapper receives mouse events even when Monaco tries to suppress them */
+	pointer-events: auto !important;
+	/* Enable text selection - override Monaco's user-select: none on .lines-content */
+	user-select: text !important;
+	-webkit-user-select: text !important;
+
+	/*
+	Position above Monaco's view-lines element to receive mouse events and enable text selection.
+	Monaco's view-lines sits on top of view-zones in DOM order, so we need z-index to fix this.
+	*/
+	position: relative;
+	z-index: 5;
+}
+
+/* Main container for inline output view zone */
+.quarto-inline-output {
+	position: relative;
+	padding: 8px 12px;
+	padding-right: 32px;
+	/* Space for close button */
+	margin: 4px 0;
+	background: var(--vscode-notebook-cellEditorBackground);
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+	border-radius: 4px;
+	top: 2px;
+	/* Font is applied via JavaScript using editor font settings */
+	/* No overflow or max-height - renders at natural height, editor handles scrolling */
+	box-sizing: border-box;
+}
+
+/* Focus outline for keyboard navigation */
+.quarto-inline-output:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Recomputing state - shown when cell is re-executing and waiting for new output */
+.quarto-inline-output.quarto-output-recomputing {
+	opacity: 0.8;
+	border-style: dotted;
+}
+
+/* Disable action buttons (except stop) during recomputing state */
+.quarto-inline-output.quarto-output-recomputing .quarto-output-popout,
+.quarto-inline-output.quarto-output-recomputing .quarto-output-copy,
+.quarto-inline-output.quarto-output-recomputing .quarto-output-save {
+	opacity: 0.3;
+	pointer-events: none;
+}
+
+/* Button container for close and copy buttons */
+.quarto-output-button-container {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	z-index: 10;
+}
+
+/* Shared button styles */
+.quarto-output-close,
+.quarto-output-popout,
+.quarto-output-copy,
+.quarto-output-save {
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--vscode-foreground);
+	opacity: 0.5;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 3px;
+	pointer-events: auto;
+}
+
+.quarto-output-close:hover,
+.quarto-output-popout:hover,
+.quarto-output-copy:hover,
+.quarto-output-save:hover {
+	opacity: 1;
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.quarto-output-close:focus,
+.quarto-output-popout:focus,
+.quarto-output-copy:focus,
+.quarto-output-save:focus {
+	opacity: 1;
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Copy button success state */
+.quarto-output-copy.copy-success {
+	opacity: 1;
+	color: var(--vscode-testing-iconPassed, #388A34);
+}
+
+.quarto-output-copy.copy-success:hover {
+	background: transparent;
+}
+
+/* Output content container */
+.quarto-output-content {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+/* Individual output item */
+.quarto-output-item {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+/* Standard output (stdout) */
+.quarto-output-stdout {
+	margin: 0;
+	padding: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	color: var(--vscode-foreground);
+	/* Font is inherited from container which uses editor font settings */
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+/* Error output (stderr) */
+.quarto-output-stderr {
+	margin: 0;
+	padding: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	color: var(--vscode-errorForeground);
+	/* Font is inherited from container which uses editor font settings */
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+/* Error output container (when widget contains non-error outputs too) */
+.quarto-output-error {
+	padding: 8px;
+	background: var(--vscode-inputValidation-errorBackground);
+	border: 1px solid var(--vscode-inputValidation-errorBorder);
+	border-radius: 2px;
+	color: var(--vscode-errorForeground);
+}
+
+.quarto-output-error pre {
+	margin: 0;
+	padding: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	/* Font is inherited from container which uses editor font settings */
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+/* Widget-level error styling (when only output is an error) */
+.quarto-inline-output.quarto-output-error-only {
+	background: var(--vscode-inputValidation-errorBackground);
+	border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+/* Remove individual error styling when widget has error style */
+.quarto-inline-output.quarto-output-error-only .quarto-output-error {
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: 0;
+}
+
+/* Image output container */
+.quarto-output-image-container {
+	display: flex;
+	justify-content: flex-start;
+	align-items: flex-start;
+}
+
+/* Image output */
+.quarto-output-image {
+	max-width: 100%;
+	height: auto;
+	border-radius: 2px;
+}
+
+/* HTML output */
+.quarto-output-html {
+	color: var(--vscode-foreground);
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.quarto-output-html table {
+	border-collapse: collapse;
+	margin: 4px 0;
+}
+
+.quarto-output-html th,
+.quarto-output-html td {
+	border: 1px solid var(--vscode-panel-border);
+	padding: 4px 8px;
+}
+
+.quarto-output-html th {
+	background: var(--vscode-editor-lineHighlightBackground);
+	font-weight: bold;
+}
+
+/* Warning message for unsafe content */
+.quarto-output-warning {
+	padding: 4px 8px;
+	background: var(--vscode-inputValidation-warningBackground);
+	border: 1px solid var(--vscode-inputValidation-warningBorder);
+	border-radius: 2px;
+	color: var(--vscode-inputValidation-warningForeground);
+	font-size: 12px;
+	margin-bottom: 4px;
+}
+
+/* High contrast theme support */
+.hc-black .quarto-inline-output,
+.hc-light .quarto-inline-output {
+	border-width: 2px;
+}
+
+.hc-black .quarto-output-close:focus,
+.hc-light .quarto-output-close:focus,
+.hc-black .quarto-output-popout:focus,
+.hc-light .quarto-output-popout:focus,
+.hc-black .quarto-output-copy:focus,
+.hc-light .quarto-output-copy:focus,
+.hc-black .quarto-output-save:focus,
+.hc-light .quarto-output-save:focus {
+	outline-width: 2px;
+}
+
+.hc-black .quarto-inline-output:focus,
+.hc-light .quarto-inline-output:focus {
+	outline-width: 2px;
+}
+
+/* Webview container for rich output (interactive plots, widgets) */
+.quarto-output-webview-container {
+	position: relative;
+	min-height: 100px;
+	/* Height is dynamically set based on webview content via webviewMetrics messages */
+	border: none;
+	background: var(--vscode-editor-background);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+/* Legacy selector for backward compatibility */
+.quarto-output-webview {
+	min-height: 100px;
+	border: none;
+	background: var(--vscode-editor-background);
+}
+
+/* Escaped HTML output (fallback when webview unavailable) */
+.quarto-output-html-escaped {
+	margin: 0;
+	padding: 8px;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	/* Font is inherited from container which uses editor font settings, but slightly smaller */
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+	background: var(--vscode-textCodeBlock-background);
+	border-radius: 2px;
+	/* No max-height or overflow - renders at natural height */
+}
+
+/* Loading indicator for async content */
+.quarto-output-loading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.quarto-output-loading::before {
+	content: '';
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--vscode-progressBar-background);
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: quarto-spin 1s linear infinite;
+}
+
+@keyframes quarto-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Truncation indicator (legacy) */
+.quarto-output-truncated {
+	padding: 4px 8px;
+	background: var(--vscode-inputValidation-infoBackground);
+	border: 1px solid var(--vscode-inputValidation-infoBorder);
+	border-radius: 2px;
+	color: var(--vscode-inputValidation-infoForeground);
+	font-size: 12px;
+	font-style: italic;
+}
+
+/* Truncation header for long text output */
+.quarto-output-truncation-header {
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 4px;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* Clickable link in truncation header */
+.quarto-output-open-in-editor {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.quarto-output-open-in-editor:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
+.quarto-output-open-in-editor:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+/* Container for truncated output content */
+.quarto-output-truncated-content {
+	position: relative;
+}
+
+/* Gradient effect on first line of truncated output */
+.quarto-output-first-line-gradient {
+	position: relative;
+	-webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 30%, rgba(0, 0, 0, 0.7) 60%, black 100%);
+	mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 30%, rgba(0, 0, 0, 0.7) 60%, black 100%);
+}
+
+/* Widget-level error styling (when only output is an error) */
+.quarto-inline-output.quarto-output-error-only {
+	background: var(--vscode-inputValidation-errorBackground);
+	border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+/* Remove individual error styling when widget has error style */
+.quarto-inline-output.quarto-output-error-only .quarto-output-error {
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: 0;
+}
