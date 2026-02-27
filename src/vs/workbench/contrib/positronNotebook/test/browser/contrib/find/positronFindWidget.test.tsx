@@ -8,17 +8,58 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
+import { flushSync } from 'react-dom';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../../../base/test/browser/react.js';
-import { ISettableObservable, observableValue, transaction } from '../../../../../../../base/common/observable.js';
+import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
 import { unthemedToggleStyles } from '../../../../../../../base/browser/ui/toggle/toggle.js';
 import { PositronFindWidget } from '../../../../browser/contrib/find/PositronFindWidget.js';
 
+class PositronFindWidgetFixture {
+	constructor(public readonly container: HTMLDivElement) { }
+
+	get results() {
+		const el = this.container.querySelector('.results');
+		assert.ok(el, 'Expected results element to exist');
+		return el;
+	}
+
+	get navigationButtons() {
+		return this.container.querySelectorAll<HTMLButtonElement>('.navigation-buttons button');
+	}
+
+	get previousButton() {
+		const button = this.navigationButtons[0];
+		assert.ok(button, 'Expected previous button to exist');
+		return button;
+	}
+
+	get nextButton() {
+		const button = this.navigationButtons[1];
+		assert.ok(button, 'Expected next button to exist');
+		return button;
+	}
+
+	get closeButton() {
+		const button = this.container.querySelector<HTMLButtonElement>('button.close-button');
+		assert.ok(button, 'Expected close button to exist');
+		return button;
+	}
+
+	get isVisible() {
+		return this.container.classList.contains('visible');
+	}
+
+	get hasErrorStyling() {
+		return this.container.classList.contains('no-results');
+	}
+}
+
 suite('PositronFindWidget', () => {
-	const { render, container } = setupReactRenderer();
+	const { render } = setupReactRenderer();
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	let findText: ISettableObservable<string>;
@@ -33,7 +74,7 @@ suite('PositronFindWidget', () => {
 	let onNextMatch: sinon.SinonStub;
 
 	function renderWidget() {
-		render(
+		const container = render(
 			<PositronFindWidget
 				contextKeyService={new MockContextKeyService()}
 				// ContextViewService is only used by FindInput for validation message
@@ -56,6 +97,9 @@ suite('PositronFindWidget', () => {
 				onPreviousMatch={onPreviousMatch}
 			/>
 		);
+		const widgetContainer = container.querySelector<HTMLDivElement>('.positron-find-widget');
+		assert.ok(widgetContainer, 'Expected PositronFindWidget to be rendered');
+		return new PositronFindWidgetFixture(widgetContainer);
 	}
 
 	setup(() => {
@@ -75,217 +119,92 @@ suite('PositronFindWidget', () => {
 		sinon.restore();
 	});
 
-	suite('Rendering & Visibility', () => {
-		test('renders when visible', () => {
-			renderWidget();
+	test('is visible after first render', () => {
+		const widget = renderWidget();
 
-			const widget = container().querySelector('.positron-find-widget.visible');
-			assert.ok(widget, 'Expected PositronFindWidget to exist');
-		});
-
-		test('hidden when not visible', () => {
-			isVisible.set(false, undefined);
-			renderWidget();
-
-			const widget = container().querySelector('.positron-find-widget');
-			assert.ok(widget, 'Expected .positron-find-widget to exist');
-			assert.ok(
-				!widget.classList.contains('visible'),
-				'Expected PositronFindWidget to not exist'
-			);
-		});
-
+		assert.ok(widget.isVisible, 'Expected find widget to be visible');
 	});
 
-	suite('FindResult display', () => {
-		test('shows "No results" when find text is empty', () => {
-			renderWidget();
+	test('hides when close button is clicked', () => {
+		const widget = renderWidget();
 
-			const results = container().querySelector('.positron-find-widget .results');
-			assert.ok(results, 'Expected to find results');
-			assert.strictEqual(results.textContent, 'No results');
-		});
+		flushSync(() => widget.closeButton.click());
 
-		test('shows empty results when matchCount is undefined', () => {
-			findText.set('foo', undefined);
-			renderWidget();
-
-			const results = container().querySelector('.positron-find-widget .results');
-			assert.ok(results, 'Expected .results to exist');
-			assert.strictEqual(results.textContent, '');
-		});
-
-		test('shows "No results" with error styling when no matches', () => {
-			findText.set('foo', undefined);
-			matchCount.set(0, undefined);
-			renderWidget();
-
-			const results = container().querySelector('.positron-find-widget .results');
-			assert.ok(results, 'Expected .results to exist');
-			assert.strictEqual(results.textContent, 'No results');
-
-			const widget = container().querySelector('.positron-find-widget.no-results');
-			assert.ok(widget, 'Expected widget to have .no-results class');
-		});
-
-		test('shows match count when matches exist', () => {
-			findText.set('foo', undefined);
-			matchCount.set(5, undefined);
-			matchIndex.set(2, undefined);
-			renderWidget();
-
-			const results = container().querySelector('.positron-find-widget .results');
-			assert.ok(results, 'Expected .results to exist');
-			assert.strictEqual(results.textContent, '3 of 5');
-		});
-
-		test('shows "1 of N" when matchIndex is undefined', () => {
-			findText.set('foo', undefined);
-			matchCount.set(3, undefined);
-			renderWidget();
-
-			const results = container().querySelector('.positron-find-widget .results');
-			assert.ok(results, 'Expected .results to exist');
-			assert.strictEqual(results.textContent, '1 of 3');
-		});
+		assert.ok(!widget.isVisible, 'Expected find widget to be hidden after close');
+		assert.ok(!isVisible.get(), 'Expected isVisible observable to be false after close');
 	});
 
-	suite('Navigation buttons', () => {
-		test('previous match button disabled when no matches', () => {
-			matchCount.set(0, undefined);
-			renderWidget();
+	test('hides when isVisible changes', () => {
+		const widget = renderWidget();
 
-			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
-			const buttons = container().querySelectorAll<HTMLButtonElement>('.navigation-buttons button');
-			const prevButton = buttons[0];
-			assert.ok(prevButton, 'Expected previous button to exist');
-			assert.strictEqual(prevButton.disabled, true, 'Expected previous button to be disabled');
-		});
+		flushSync(() => isVisible.set(false, undefined));
 
-		test('next match button disabled when no matches', () => {
-			matchCount.set(0, undefined);
-			renderWidget();
-
-			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
-			const nextButton = buttons[1] as HTMLButtonElement;
-			assert.ok(nextButton, 'Expected next button to exist');
-			assert.strictEqual(nextButton.disabled, true, 'Expected next button to be disabled');
-		});
-
-		test('previous match button enabled when matches exist', () => {
-			matchCount.set(3, undefined);
-			renderWidget();
-
-			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
-			const prevButton = buttons[0] as HTMLButtonElement;
-			assert.ok(prevButton, 'Expected previous button to exist');
-			assert.strictEqual(prevButton.disabled, false, 'Expected previous button to be enabled');
-		});
-
-		test('next match button enabled when matches exist', () => {
-			matchCount.set(3, undefined);
-			renderWidget();
-
-			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
-			const nextButton = buttons[1] as HTMLButtonElement;
-			assert.ok(nextButton, 'Expected next button to exist');
-			assert.strictEqual(nextButton.disabled, false, 'Expected next button to be enabled');
-		});
-
-		test('previous match button calls onPreviousMatch', () => {
-			matchCount.set(3, undefined);
-			renderWidget();
-
-			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
-			const prevButton = buttons[0] as HTMLButtonElement;
-			prevButton.click();
-
-			assert.ok(onPreviousMatch.calledOnce, 'Expected onPreviousMatch to be called once');
-		});
-
-		test('next match button calls onNextMatch', () => {
-			matchCount.set(3, undefined);
-			renderWidget();
-
-			const buttons = container().querySelectorAll('.positron-find-widget .navigation-buttons button');
-			const nextButton = buttons[1] as HTMLButtonElement;
-			nextButton.click();
-
-			assert.ok(onNextMatch.calledOnce, 'Expected onNextMatch to be called once');
-		});
+		assert.ok(!widget.isVisible, 'Expected find widget to be hidden');
 	});
 
-	suite('Close button', () => {
-		test('sets isVisible to false', () => {
-			renderWidget();
+	test('has no error styling when there is no query', () => {
+		const widget = renderWidget();
 
-			const closeButton = container().querySelector('.positron-find-widget button.close-button') as HTMLButtonElement;
-			assert.ok(closeButton, 'Expected close button to exist');
-			closeButton.click();
-
-			assert.strictEqual(isVisible.get(), false, 'Expected isVisible to be false after close');
-		});
+		assert.strictEqual(widget.results.textContent, 'No results');
+		assert.ok(!widget.hasErrorStyling, 'Expected find widget to have no error styling without a query');
 	});
 
-	suite('Tab order', () => {
-		test('disabled navigation buttons are excluded from tab order', () => {
-			matchCount.set(0, undefined);
-			renderWidget();
+	test('has error styling when there is a query but no matches', () => {
+		findText.set('foo', undefined);
+		matchCount.set(0, undefined);
+		const widget = renderWidget();
 
-			const navButtons = container().querySelectorAll<HTMLButtonElement>('.positron-find-widget .navigation-buttons button');
-			for (const btn of navButtons) {
-				assert.strictEqual(btn.disabled, true, `Expected navigation button "${btn.ariaLabel}" to be disabled`);
-			}
-
-			// Close button should still be enabled
-			const closeButton = container().querySelector('.positron-find-widget button.close-button') as HTMLButtonElement;
-			assert.strictEqual(closeButton.disabled, false, 'Expected close button to remain enabled');
-		});
+		assert.strictEqual(widget.results.textContent, 'No results');
+		assert.ok(widget.hasErrorStyling, 'Expected find widget to indicate no results found');
 	});
 
-	suite('Reactivity', () => {
-		test('re-renders when matchCount changes', () => {
-			transaction((tx) => {
-				findText.set('foo', tx);
-				matchCount.set(3, tx);
-				matchIndex.set(0, tx);
-			});
-			renderWidget();
+	test('shows empty results while matchCount is loading', () => {
+		findText.set('foo', undefined);
+		const widget = renderWidget();
 
-			let results = container().querySelector('.positron-find-widget .results');
-			assert.strictEqual(results?.textContent, '1 of 3');
+		assert.strictEqual(widget.results.textContent, '');
+	});
 
-			matchCount.set(5, undefined);
-			renderWidget();
+	test('navigation buttons are disabled when there are no matches', () => {
+		matchCount.set(0, undefined);
+		const widget = renderWidget();
 
-			results = container().querySelector('.positron-find-widget .results');
-			assert.strictEqual(results?.textContent, '1 of 5');
-		});
+		assert.ok(widget.previousButton.disabled, 'Expected previous button to be disabled');
+		assert.ok(widget.nextButton.disabled, 'Expected next button to be disabled');
+	});
 
-		test('re-renders when findText changes', () => {
-			renderWidget();
+	test('previous match button calls onPreviousMatch', () => {
+		matchCount.set(3, undefined);
+		const widget = renderWidget();
 
-			let results = container().querySelector('.positron-find-widget .results');
-			assert.strictEqual(results?.textContent, 'No results');
+		widget.previousButton.click();
 
-			findText.set('foo', undefined);
-			renderWidget();
+		assert.ok(onPreviousMatch.calledOnce, 'Expected onPreviousMatch to be called once');
+	});
 
-			results = container().querySelector('.positron-find-widget .results');
-			assert.strictEqual(results?.textContent, '');
-		});
+	test('next match button calls onNextMatch', () => {
+		matchCount.set(3, undefined);
+		const widget = renderWidget();
 
-		test('re-renders when visibility changes', () => {
-			renderWidget();
+		widget.nextButton.click();
 
-			let widget = container().querySelector('.positron-find-widget');
-			assert.ok(widget?.classList.contains('visible'), 'Expected widget to be visible');
+		assert.ok(onNextMatch.calledOnce, 'Expected onNextMatch to be called once');
+	});
 
-			isVisible.set(false, undefined);
-			renderWidget();
+	test('shows "1 of N" when matchIndex is undefined', () => {
+		findText.set('foo', undefined);
+		matchCount.set(3, undefined);
+		const widget = renderWidget();
 
-			widget = container().querySelector('.positron-find-widget');
-			assert.ok(widget?.classList.contains('visible') === false, 'Expected widget to not be visible');
-		});
+		assert.strictEqual(widget.results.textContent, '1 of 3');
+	});
+
+	test('shows match index and count', () => {
+		findText.set('foo', undefined);
+		matchCount.set(5, undefined);
+		matchIndex.set(2, undefined);
+		const widget = renderWidget();
+
+		assert.strictEqual(widget.results.textContent, '3 of 5');
 	});
 });
