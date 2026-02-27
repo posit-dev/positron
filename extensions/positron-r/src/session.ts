@@ -107,9 +107,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** Package manager for this session */
 	private _packageManager?: RPackageManager;
 
-	/** Whether the packages script has been sourced for this session */
-	private _packagesScriptSourced: boolean = false;
-
 	/** Disposables. Disposed of after main resources (LSP, kernel, etc) */
 	private _disposables: vscode.Disposable[] = [];
 
@@ -764,14 +761,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
-	 * Source the packages script if it hasn't been sourced yet.
+	 * Source the packages script for this session.
 	 * Called when the environments feature is enabled mid-session.
+	 * Safe to call multiple times since sourcing is idempotent.
 	 */
 	async sourcePackagesScriptIfNeeded(): Promise<void> {
-		if (this._packagesScriptSourced) {
-			return;
-		}
-
 		if (!this._packageManager) {
 			return;
 		}
@@ -783,9 +777,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 		try {
 			await this._packageManager.sourcePackagesScript();
-			this._packagesScriptSourced = true;
 		} catch {
-			// Fail silently as requested
+			// Fail silently
 		}
 	}
 
@@ -1093,9 +1086,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				.get<boolean>('enable', false);
 
 			if (environmentsEnabled) {
-				promises.push(this._packageManager!.sourcePackagesScript().then(() => {
-					this._packagesScriptSourced = true;
-				}));
+				promises.push(this._packageManager!.sourcePackagesScript());
 			}
 
 			await Promise.all(promises);
