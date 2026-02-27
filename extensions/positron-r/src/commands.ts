@@ -561,13 +561,13 @@ interface AddinQuickPickItem extends vscode.QuickPickItem {
  * Shows a QuickPick with all addins found in installed packages.
  */
 async function browseAddins(): Promise<void> {
-	const session = await RSessionManager.instance.getConsoleSession();
-	if (!session) {
-		vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
-		return;
-	}
-
 	try {
+		const session = await RSessionManager.instance.getConsoleSession();
+		if (!session) {
+			vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
+			return;
+		}
+
 		const addins = await session.getAddins();
 
 		if (addins.length === 0) {
@@ -622,13 +622,13 @@ async function browseRmdTemplates(): Promise<void> {
 		return;
 	}
 
-	const session = await RSessionManager.instance.getConsoleSession();
-	if (!session) {
-		vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
-		return;
-	}
-
 	try {
+		const session = await RSessionManager.instance.getConsoleSession();
+		if (!session) {
+			vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
+			return;
+		}
+
 		const templates = await session.getRmdTemplates();
 
 		if (templates.length === 0) {
