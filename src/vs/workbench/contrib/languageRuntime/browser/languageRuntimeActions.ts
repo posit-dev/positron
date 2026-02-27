@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -26,7 +26,6 @@ import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { localize } from '../../../../nls.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
@@ -172,7 +171,7 @@ const selectLanguageRuntimeSession = async (
 	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
 		{
-			label: localize('positron.languageRuntime.activeSessions', 'Active Interpreter Sessions'),
+			label: nls.localize('positron.languageRuntime.activeSessions', 'Active Interpreter Sessions'),
 			type: 'separator',
 		},
 		...activeRuntimeItems,
@@ -183,13 +182,13 @@ const selectLanguageRuntimeSession = async (
 
 	if (options?.allowStartSession) {
 		quickPickItems.push({
-			label: localize('positron.languageRuntime.newSession', 'New Interpreter Session...'),
+			label: nls.localize('positron.languageRuntime.newSession', 'New Interpreter Session...'),
 			id: startNewRuntimeId,
 			alwaysShow: true
 		});
 	}
 	const result = await quickInputService.pick(quickPickItems, {
-		title: options?.title || localize('positron.languageRuntime.selectSession', 'Select Interpreter Session'),
+		title: options?.title || nls.localize('positron.languageRuntime.selectSession', 'Select Interpreter Session'),
 		canPickMany: false,
 		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
 	});
@@ -321,7 +320,7 @@ const selectNewLanguageRuntime = async (
 	if (suggestedRuntimes.length > 0) {
 		runtimeItems.push({
 			type: 'separator',
-			label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
+			label: nls.localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
 		});
 
 		suggestedRuntimes.forEach(runtime => {
@@ -410,7 +409,7 @@ const selectNewLanguageRuntime = async (
 	const selectedRuntime = await quickInputService.pick(
 		runtimeItems,
 		{
-			title: localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
+			title: nls.localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
 			canPickMany: false
 		}
 	);
@@ -453,7 +452,7 @@ const renameLanguageRuntimeSession = async (
 		sessionService.updateSessionName(sessionId, newSessionName);
 	} catch (error) {
 		notificationService.error(
-			localize('positron.console.renameSession.error',
+			nls.localize('positron.console.renameSession.error',
 				"Failed to rename session {0}: {1}",
 				sessionId,
 				error
@@ -591,7 +590,7 @@ export function registerLanguageRuntimeActions() {
 				icon: Codicon.plus,
 				id: LANGUAGE_RUNTIME_START_NEW_SESSION_ID,
 				title: {
-					value: localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
+					value: nls.localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
 					original: 'Start New Interpreter Session'
 				},
 				category,
@@ -650,7 +649,7 @@ export function registerLanguageRuntimeActions() {
 				icon: Codicon.plus,
 				id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID,
 				title: {
-					value: localize('positron.languageRuntime.duplicateSession.title', 'Duplicate Active Interpreter Session'),
+					value: nls.localize('positron.languageRuntime.duplicateSession.title', 'Duplicate Active Interpreter Session'),
 					original: 'Duplicate Session'
 				},
 				category,
@@ -680,7 +679,7 @@ export function registerLanguageRuntimeActions() {
 			}
 
 			if (currentSession.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
-				notificationService.error(localize('positron.languageRuntime.duplicate.notConsole', 'Cannot duplicate session. The current session is not a console session.'));
+				notificationService.error(nls.localize('positron.languageRuntime.duplicate.notConsole', 'Cannot duplicate session. The current session is not a console session.'));
 				return;
 			}
 
