@@ -218,7 +218,8 @@ export async function discoverRVersionsBinaries(): Promise<RBinary[]> {
 		const metadata: RVersionsMetadata = {
 			type: 'rversions',
 			label: entry.label,
-			// Future PRs will add: script, repo, library
+			script: entry.script,
+			// Future PRs will add: repo, library
 		};
 
 		binaries.push({
