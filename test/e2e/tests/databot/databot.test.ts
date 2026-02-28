@@ -35,7 +35,7 @@ test.describe('Databot', {
 			});
 
 			test('Execute Python code via Databot', async function ({ app, sessions }) {
-				await sessions.start('python', { reuse: false });
+				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.databot.open();
 				await app.workbench.databot.waitForReady();
 
@@ -44,10 +44,11 @@ test.describe('Databot', {
 				await app.workbench.databot.allowToolOnce();
 				await app.workbench.databot.waitForResponseComplete();
 				await app.workbench.console.waitForConsoleContents('hello world', { expectedCount: 2 });
+				await sessions.delete(session.id);
 			});
 
 			test('Execute R code via Databot', async function ({ app, sessions }) {
-				await sessions.start('r', { reuse: false });
+				const session = await sessions.start('r', { reuse: false });
 				await app.workbench.databot.open();
 				await app.workbench.databot.waitForReady();
 
@@ -56,10 +57,11 @@ test.describe('Databot', {
 				await app.workbench.databot.allowToolOnce();
 				await app.workbench.databot.waitForResponseComplete();
 				await app.workbench.console.waitForConsoleContents('hello world', { expectedCount: 2 });
+				await sessions.delete(session.id);
 			});
 
 			test('Allow once prompts again on next tool call', async function ({ app, sessions }) {
-				await sessions.start('python', { reuse: false });
+				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.databot.open();
 				await app.workbench.databot.waitForReady();
 
@@ -75,10 +77,11 @@ test.describe('Databot', {
 				await app.workbench.databot.allowToolOnce();
 				await app.workbench.databot.waitForResponseComplete();
 				await app.workbench.console.waitForConsoleContents('second', { expectedCount: 2 });
+				await sessions.delete(session.id);
 			});
 
 			test('Allow for session does not prompt again on next tool call', async function ({ app, sessions }) {
-				await sessions.start('python', { reuse: false });
+				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.databot.open();
 				await app.workbench.databot.waitForReady();
 
@@ -91,10 +94,11 @@ test.describe('Databot', {
 				// Second tool call - should execute without prompting
 				await app.workbench.databot.sendMessage('Print "second" in python', true, { newConversation: false });
 				await app.workbench.console.waitForConsoleContents('second', { expectedCount: 2 });
+				await sessions.delete(session.id);
 			});
 
 			test('Create data visualization via Databot', async function ({ app, sessions }) {
-				await sessions.start('r', { reuse: false });
+				const session = await sessions.start('r', { reuse: false });
 				await app.workbench.plots.clearPlots();
 				await app.workbench.databot.open();
 				await app.workbench.databot.waitForReady();
@@ -109,6 +113,7 @@ test.describe('Databot', {
 
 				// Verify plot appears in the Positron plots pane
 				await app.workbench.plots.waitForCurrentPlot();
+				await sessions.delete(session.id);
 			});
 		});
 	}
