@@ -271,8 +271,8 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		// Commands for R Markdown templates
-		vscode.commands.registerCommand('r.browseRmdTemplates', async () => {
-			await browseRmdTemplates();
+		vscode.commands.registerCommand('r.newRmdFromTemplate', async () => {
+			await newRmdFromTemplate();
 		}),
 	);
 }
@@ -612,10 +612,10 @@ interface TemplateQuickPickItem extends vscode.QuickPickItem {
 }
 
 /**
- * Browse installed R Markdown templates.
- * Shows a QuickPick with all templates found in installed packages.
+ * Create a new R Markdown document from an installed template.
+ * Shows a QuickPick to select a template, then a save dialog for the destination.
  */
-async function browseRmdTemplates(): Promise<void> {
+async function newRmdFromTemplate(): Promise<void> {
 	// Check that rmarkdown is installed first
 	const isInstalled = await checkInstalled('rmarkdown');
 	if (!isInstalled) {
