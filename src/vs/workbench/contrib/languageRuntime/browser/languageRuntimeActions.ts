@@ -595,10 +595,7 @@ export function registerLanguageRuntimeActions() {
 			super({
 				icon: Codicon.plus,
 				id: LANGUAGE_RUNTIME_START_NEW_SESSION_ID,
-				title: {
-					value: nls.localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
-					original: 'Start New Interpreter Session'
-				},
+				title: nls.localize2('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
 				category,
 				f1: true,
 				menu: [{
@@ -654,10 +651,7 @@ export function registerLanguageRuntimeActions() {
 			super({
 				icon: Codicon.plus,
 				id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID,
-				title: {
-					value: nls.localize('positron.languageRuntime.duplicateSession.title', 'Duplicate Active Interpreter Session'),
-					original: 'Duplicate Session'
-				},
+				title: nls.localize2('positron.languageRuntime.duplicateSession.title', 'Duplicate Active Interpreter Session'),
 				category,
 				f1: true,
 				menu: [{
