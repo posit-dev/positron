@@ -1515,7 +1515,7 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Collapse,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
 				order: 1,
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
@@ -1542,7 +1542,7 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Collapse,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
 				order: 2,
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
@@ -1557,6 +1557,30 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell?.isCodeCell()) {
 			cell.expandOutput();
+		}
+	}
+});
+
+// Clear output for a cell
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.clearOutput',
+			title: localize2('positronNotebook.cell.clearOutput', "Clear Output"),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
+				order: 3,
+				when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			notebook.clearCellOutput(cell);
 		}
 	}
 });

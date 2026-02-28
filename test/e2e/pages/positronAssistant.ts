@@ -974,34 +974,46 @@ export class Assistant {
 	}
 
 	/**
+	 * Asserts that a model item with the given text exists in the picker dropdown.
+	 * The dropdown must already be open before calling this method.
+	 * @param text The text to match (string for contains, RegExp for exact matching)
+	 */
+	async expectModelInPicker(text: string | RegExp): Promise<void> {
+		await test.step(`Expect model in picker: ${text}`, async () => {
+			const locator = this.code.driver.page.locator('.monaco-list-row.action span.title', { hasText: text });
+			await expect(locator).toHaveCount(1);
+		});
+	}
+
+	/**
+	 * Asserts that a vendor separator with the given name exists in the picker dropdown.
+	 * The dropdown must already be open before calling this method.
+	 * @param vendor The vendor name to match
+	 */
+	async expectVendorSeparator(vendor: string): Promise<void> {
+		await test.step(`Expect vendor separator: ${vendor}`, async () => {
+			const locator = this.code.driver.page.locator('.monaco-list-row.separator span.separator-label', { hasText: vendor });
+			await expect(locator).toHaveCount(1);
+		});
+	}
+
+	/**
 	 * Gets all model items from the model picker dropdown.
 	 * Returns an array of objects containing the model label and whether it's marked as default.
 	 * The dropdown must already be open before calling this method.
 	 */
 	async getModelPickerItems(): Promise<Array<{ label: string; isDefault: boolean }>> {
-		const items = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM);
-		const count = await items.count();
-		const modelItems: Array<{ label: string; isDefault: boolean }> = [];
+		// Select only action items (models), excluding separators (vendor headers)
+		const modelRows = this.code.driver.page.locator('.monaco-list-row.action');
+		const titles = await modelRows.locator('span.title').allTextContents();
 
-		for (let i = 0; i < count; i++) {
-			const item = items.nth(i);
-			const titleSpan = item.locator('span.title');
-			const text = await titleSpan.textContent();
-
-			if (text) {
-				const trimmedText = text.trim();
-				// Check if this is a separator (vendor header) - they don't have the same structure
-				const isSeparator = await item.locator('.separator').isVisible().catch(() => false);
-				if (!isSeparator && trimmedText) {
-					modelItems.push({
-						label: trimmedText,
-						isDefault: trimmedText.includes('(default)')
-					});
-				}
-			}
-		}
-
-		return modelItems;
+		return titles
+			.map(text => text.trim())
+			.filter(text => text.length > 0)
+			.map(label => ({
+				label,
+				isDefault: label.includes('(default)')
+			}));
 	}
 
 	/**
@@ -1011,43 +1023,31 @@ export class Assistant {
 	 * @param vendor The vendor name to filter by (e.g., 'Echo', 'Anthropic')
 	 */
 	async getModelPickerItemsForVendor(vendor: string): Promise<Array<{ label: string; isDefault: boolean }>> {
-		const allItems = this.code.driver.page.locator('.monaco-list-row');
-		const count = await allItems.count();
+		const allRows = this.code.driver.page.locator('.monaco-list-row');
+		const count = await allRows.count();
 		const vendorModels: Array<{ label: string; isDefault: boolean }> = [];
 		let inVendorSection = false;
 
 		for (let i = 0; i < count; i++) {
-			const item = allItems.nth(i);
+			const item = allRows.nth(i);
+			const classAttr = await item.getAttribute('class') || '';
 
-			// Check if this is a separator (vendor header) by looking for the 'separator' class
-			const isSeparator = await item.evaluate(el => el.classList.contains('separator'));
-
-			if (isSeparator) {
-				// Get the vendor name from the separator-label span
-				const separatorLabel = item.locator('span.separator-label');
-				const labelText = await separatorLabel.textContent().catch(() => null);
-
-				// Check if this is the vendor we're looking for
-				if (labelText) {
-					inVendorSection = labelText.trim().toLowerCase() === vendor.toLowerCase();
-				}
+			// Check if this is a separator (vendor header)
+			if (classAttr.includes('separator')) {
+				const labelText = await item.locator('span.separator-label').textContent();
+				inVendorSection = labelText?.trim().toLowerCase() === vendor.toLowerCase();
 				continue;
 			}
 
 			// If we're in the vendor section and this is an action item, collect the model
-			if (inVendorSection) {
-				const isAction = await item.evaluate(el => el.classList.contains('action'));
-				if (isAction) {
-					const titleSpan = item.locator('span.title');
-					const titleText = await titleSpan.textContent().catch(() => null);
-
-					if (titleText) {
-						const trimmedText = titleText.trim();
-						vendorModels.push({
-							label: trimmedText,
-							isDefault: trimmedText.includes('(default)')
-						});
-					}
+			if (inVendorSection && classAttr.includes('action')) {
+				const titleText = await item.locator('span.title').textContent();
+				if (titleText) {
+					const label = titleText.trim();
+					vendorModels.push({
+						label,
+						isDefault: label.includes('(default)')
+					});
 				}
 			}
 		}
