@@ -653,12 +653,24 @@ async function browseRmdTemplates(): Promise<void> {
 		});
 
 		if (selected) {
-			// For now, just show the template info. Full implementation in a later PR.
 			const t = selected.template;
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('Selected template: {0} from {1} (template dir: {2})',
-					t.name, t.package, t.template)
-			);
+
+			// Get save location from user
+			const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri
+				?? vscode.Uri.file(os.homedir());
+
+			const saveUri = await vscode.window.showSaveDialog({
+				defaultUri: vscode.Uri.joinPath(defaultUri, 'Untitled.Rmd')
+			});
+
+			if (!saveUri) {
+				return;
+			}
+
+			// Create document using rmarkdown::draft() and open via rstudioapi
+			const draftPath = saveUri.fsPath;
+			const code = `rmarkdown::draft(${JSON.stringify(draftPath)}, template = "${t.template}", package = "${t.package}")`;
+			await positron.runtime.executeCode('r', code, true);
 		}
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
