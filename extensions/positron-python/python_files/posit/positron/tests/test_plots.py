@@ -161,9 +161,7 @@ def test_mpl_get_metadata(shell: PositronShell, plots_service: PlotsService) -> 
     assert result["origin"] is None
 
 
-def test_mpl_get_metadata_with_origin(
-    shell: PositronShell, plots_service: PlotsService
-) -> None:
+def test_mpl_get_metadata_with_origin(shell: PositronShell, plots_service: PlotsService) -> None:
     from positron.plot_comm import PlotOrigin, PlotRange
 
     # Create a plot with an explicit origin.
