@@ -162,6 +162,16 @@
         "command": "r.loadRDataFileWithPicker",
         "category": "R",
         "title": "%r.command.loadRDataFileWithPicker.title%"
+      },
+      {
+        "command": "r.browseAddins",
+        "category": "R",
+        "title": "%r.command.browseAddins.title%"
+      },
+      {
+        "command": "r.browseRmdTemplates",
+        "category": "R",
+        "title": "%r.command.browseRmdTemplates.title%"
       }
     ],
     "configuration": [

@@ -85,6 +85,7 @@ export class RPackageManager {
 
 		const code = `.ps.packages.install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
+		this._session.invalidatePackageResourceCaches();
 	}
 
 	/**
@@ -110,6 +111,7 @@ export class RPackageManager {
 
 		const code = `.ps.packages.install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
+		this._session.invalidatePackageResourceCaches();
 	}
 
 	/**
@@ -119,6 +121,7 @@ export class RPackageManager {
 		const hasPak = await this._ensurePak();
 		const code = `.ps.packages.update_all_packages(method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
+		this._session.invalidatePackageResourceCaches();
 	}
 
 	/**
@@ -134,6 +137,7 @@ export class RPackageManager {
 		const pkgVector = this._formatPackageVector(packageNames);
 		const code = `.ps.packages.uninstall_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
 		await this._executeAndWait(code);
+		this._session.invalidatePackageResourceCaches();
 	}
 
 	/**

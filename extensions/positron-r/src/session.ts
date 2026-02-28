@@ -41,6 +41,28 @@ interface Locale {
 }
 
 /**
+ * Metadata for an RStudio addin discovered from a package's inst/rstudio/addins.dcf
+ */
+export interface RStudioAddin {
+	name: string;
+	description: string;
+	binding: string;
+	interactive: boolean;
+	package: string;
+}
+
+/**
+ * Metadata for an R Markdown template discovered from a package's inst/rmarkdown/templates/
+ */
+export interface RmdTemplate {
+	name: string;
+	description: string;
+	create_dir: boolean;
+	package: string;
+	template: string;
+}
+
+/**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
  */
@@ -103,6 +125,12 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	/** Cache of installed packages and associated version info */
 	private _packageCache: Map<string, RPackageInstallation> = new Map();
+
+	/** Cache of RStudio addins from installed packages */
+	private _addinsCache?: RStudioAddin[];
+
+	/** Cache of R Markdown templates from installed packages */
+	private _templatesCache?: RmdTemplate[];
 
 	/** Package manager for this session */
 	private _packageManager?: RPackageManager;
@@ -521,6 +549,57 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
+	 * Get all installed RStudio Addins.
+	 * Results are cached; use refresh=true to force re-scan.
+	 * @param refresh If true, bypasses cache and re-scans packages
+	 * @returns Array of addin metadata from all installed packages
+	 */
+	public async getAddins(refresh: boolean = false): Promise<RStudioAddin[]> {
+		if (!refresh && this._addinsCache !== undefined) {
+			return this._addinsCache;
+		}
+
+		try {
+			const addins = await this.callMethod('getAddins') as RStudioAddin[] | null;
+			this._addinsCache = addins ?? [];
+			return this._addinsCache;
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			throw new Error(`Error getting addins: ${runtimeError.message} (${runtimeError.code})`);
+		}
+	}
+
+	/**
+	 * Get all installed R Markdown templates.
+	 * Results are cached; use refresh=true to force re-scan.
+	 * @param refresh If true, bypasses cache and re-scans packages
+	 * @returns Array of template metadata from all installed packages
+	 */
+	public async getRmdTemplates(refresh: boolean = false): Promise<RmdTemplate[]> {
+		if (!refresh && this._templatesCache !== undefined) {
+			return this._templatesCache;
+		}
+
+		try {
+			const templates = await this.callMethod('getRmdTemplates') as RmdTemplate[] | null;
+			this._templatesCache = templates ?? [];
+			return this._templatesCache;
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			throw new Error(`Error getting R Markdown templates: ${runtimeError.message} (${runtimeError.code})`);
+		}
+	}
+
+	/**
+	 * Invalidate the addins and templates caches.
+	 * Should be called after package install/remove operations.
+	 */
+	public invalidatePackageResourceCaches(): void {
+		this._addinsCache = undefined;
+		this._templatesCache = undefined;
+	}
+
+	/**
 	 * Gets information from the runtime about a specific installed package (or maybe not
 	 *   installed). This method caches the results of the package check and, by default, consults
 	 *   this cache in subsequent calls. If positron-r initiates package installation via
@@ -666,6 +745,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 		// Wait for the the runtime to be idle, or for the timeout:
 		await Promise.race([promise, timeout(2e4, 'waiting for package installation')]);
+
+		// Invalidate addins/templates cache since new package may have them
+		this.invalidatePackageResourceCaches();
 
 		pkgInst = await this.packageVersion(pkgName, minimumVersion, true);
 		compatible = pkgInst?.compatible ?? false;
