@@ -474,7 +474,7 @@ export function registerLanguageRuntimeActions() {
 	 */
 	const registerLanguageRuntimeAction = (
 		id: string,
-		title: string,
+		title: nls.ILocalizedString,
 		action: (accessor: ServicesAccessor) => Promise<void>,
 		keybinding: Omit<IKeybindingRule, 'id'>[] | undefined = undefined): void => {
 		registerAction2(class extends Action2 {
@@ -482,7 +482,7 @@ export function registerLanguageRuntimeActions() {
 			constructor() {
 				super({
 					id,
-					title: { value: title, original: title },
+					title,
 					f1: true,
 					category,
 					keybinding
@@ -523,60 +523,66 @@ export function registerLanguageRuntimeActions() {
 	/**
 	 * Action that allows the user to remove a runtime from the list of offiliated runtimes.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.clearAffiliatedRuntime', 'Clear Saved Interpreter', async accessor => {
-		const runtimeSessionService = accessor.get(IRuntimeStartupService);
-		const quickInputService = accessor.get(IQuickInputService);
-		const notificationService = accessor.get(INotificationService);
+	registerLanguageRuntimeAction(
+		'workbench.action.languageRuntime.clearAffiliatedRuntime',
+		nls.localize2('positron.languageRuntime.clearSavedInterpreter', 'Clear Saved Interpreter'),
+		async accessor => {
+			const runtimeSessionService = accessor.get(IRuntimeStartupService);
+			const quickInputService = accessor.get(IQuickInputService);
+			const notificationService = accessor.get(INotificationService);
 
-		// Build the language runtime quick pick items.
-		const runtimes = runtimeSessionService.getAffiliatedRuntimes();
-		const runtimeQuickPickItems = runtimes.map<LanguageRuntimeQuickPickItem>(runtime => ({
-			id: runtime.runtimeId,
-			label: `${runtime.languageName}: ${runtime.runtimeName}`,
-			description: runtime.runtimePath,
-			runtime
-		} satisfies LanguageRuntimeQuickPickItem));
+			// Build the language runtime quick pick items.
+			const runtimes = runtimeSessionService.getAffiliatedRuntimes();
+			const runtimeQuickPickItems = runtimes.map<LanguageRuntimeQuickPickItem>(runtime => ({
+				id: runtime.runtimeId,
+				label: `${runtime.languageName}: ${runtime.runtimeName}`,
+				description: runtime.runtimePath,
+				runtime
+			} satisfies LanguageRuntimeQuickPickItem));
 
-		if (runtimeQuickPickItems.length === 0) {
-			notificationService.info(nls.localize('noInterpretersSaved', 'No interpreters are currently saved in this workspace.'));
-			return;
-		}
+			if (runtimeQuickPickItems.length === 0) {
+				notificationService.info(nls.localize('noInterpretersSaved', 'No interpreters are currently saved in this workspace.'));
+				return;
+			}
 
-		// Prompt the user to select a language runtime.
-		const quickPickItem = await quickInputService
-			.pick<LanguageRuntimeQuickPickItem>(runtimeQuickPickItems, {
-				canPickMany: false,
-				placeHolder: nls.localize('selectInterpreterToClear', 'Select interpreter to clear')
-			});
+			// Prompt the user to select a language runtime.
+			const quickPickItem = await quickInputService
+				.pick<LanguageRuntimeQuickPickItem>(runtimeQuickPickItems, {
+					canPickMany: false,
+					placeHolder: nls.localize('selectInterpreterToClear', 'Select interpreter to clear')
+				});
 
-		// User didn't select a runtime.
-		if (!quickPickItem) {
-			return;
-		}
+			// User didn't select a runtime.
+			if (!quickPickItem) {
+				return;
+			}
 
-		// Clear the selected interpreter.
-		runtimeSessionService.clearAffiliatedRuntime(quickPickItem.runtime.languageId);
-		notificationService.info(nls.localize('interpreterCleared', 'The {0} interpreter has been cleared from this workspace.', quickPickItem.runtime.runtimeName));
-	});
+			// Clear the selected interpreter.
+			runtimeSessionService.clearAffiliatedRuntime(quickPickItem.runtime.languageId);
+			notificationService.info(nls.localize('interpreterCleared', 'The {0} interpreter has been cleared from this workspace.', quickPickItem.runtime.runtimeName));
+		});
 
 	/**
 	 * Action that allows the user to change the foreground session.
 	 */
-	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_SELECT_SESSION_ID, 'Select Interpreter Session', async accessor => {
-		// Access services.
-		const commandService = accessor.get(ICommandService);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+	registerLanguageRuntimeAction(
+		LANGUAGE_RUNTIME_SELECT_SESSION_ID,
+		nls.localize2('positron.languageRuntime.selectInterpreterSession', 'Select Interpreter Session'),
+		async accessor => {
+			// Access services.
+			const commandService = accessor.get(ICommandService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
-		// Prompt the user to select a runtime to use.
-		const newActiveSession = await selectLanguageRuntimeSession(accessor, { allowStartSession: true });
+			// Prompt the user to select a runtime to use.
+			const newActiveSession = await selectLanguageRuntimeSession(accessor, { allowStartSession: true });
 
-		// If the user selected a specific session, set it as the active session if it still exists
-		if (newActiveSession) {
-			// Drive focus into the Positron console.
-			commandService.executeCommand('workbench.panel.positronConsole.focus');
-			runtimeSessionService.foregroundSession = newActiveSession;
-		}
-	});
+			// If the user selected a specific session, set it as the active session if it still exists
+			if (newActiveSession) {
+				// Drive focus into the Positron console.
+				commandService.executeCommand('workbench.panel.positronConsole.focus');
+				runtimeSessionService.foregroundSession = newActiveSession;
+			}
+		});
 
 	/**
 	 * Action that allows the user to create a new session from a list of registered runtimes.
@@ -791,7 +797,7 @@ export function registerLanguageRuntimeActions() {
 	 */
 	registerLanguageRuntimeAction(
 		LANGUAGE_RUNTIME_RESTART_ACTIVE_SESSION_ID,
-		'Restart Active Interpreter Session',
+		nls.localize2('positron.languageRuntime.restartActiveInterpreterSession', 'Restart Active Interpreter Session'),
 		async accessor => {
 			const sessionService = accessor.get(IRuntimeSessionService);
 
@@ -822,62 +828,74 @@ export function registerLanguageRuntimeActions() {
 	/**
 	 * Action that allows the user to interrupt the active session.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Active Interpreter Session', async accessor => {
-		const sessionService = accessor.get(IRuntimeSessionService);
+	registerLanguageRuntimeAction(
+		'workbench.action.languageRuntime.interrupt',
+		nls.localize2('positron.languageRuntime.interruptActiveInterpreterSession', 'Interrupt Active Interpreter Session'),
+		async accessor => {
+			const sessionService = accessor.get(IRuntimeSessionService);
 
-		// Get the active session
-		const session = sessionService.foregroundSession;
-		if (!session) {
-			return;
-		}
+			// Get the active session
+			const session = sessionService.foregroundSession;
+			if (!session) {
+				return;
+			}
 
-		session.interrupt();
-	});
+			session.interrupt();
+		});
 
 	/**
 	 * Action that allows the user to force-quit the active session.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.forceQuit', 'Force Quit Active Interpreter Session', async accessor => {
-		const sessionService = accessor.get(IRuntimeSessionService);
+	registerLanguageRuntimeAction(
+		'workbench.action.languageRuntime.forceQuit',
+		nls.localize2('positron.languageRuntime.forceQuitActiveInterpreterSession', 'Force Quit Active Interpreter Session'),
+		async accessor => {
+			const sessionService = accessor.get(IRuntimeSessionService);
 
-		// Get the active session
-		const session = sessionService.foregroundSession;
-		if (!session) {
-			return;
-		}
+			// Get the active session
+			const session = sessionService.foregroundSession;
+			if (!session) {
+				return;
+			}
 
-		session.forceQuit();
-	});
+			session.forceQuit();
+		});
 
 	/**
 	 * Action that allows the user to show the output channel for the active session.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show Active Interpreter Session Output', async accessor => {
-		const sessionService = accessor.get(IRuntimeSessionService);
+	registerLanguageRuntimeAction(
+		'workbench.action.languageRuntime.showOutput',
+		nls.localize2('positron.languageRuntime.showActiveInterpreterSessionOutput', 'Show Active Interpreter Session Output'),
+		async accessor => {
+			const sessionService = accessor.get(IRuntimeSessionService);
 
-		// Get the active session
-		const session = sessionService.foregroundSession;
-		if (!session) {
-			return;
-		}
+			// Get the active session
+			const session = sessionService.foregroundSession;
+			if (!session) {
+				return;
+			}
 
-		session.showOutput();
-	});
+			session.showOutput();
+		});
 
 	/**
 	 * Action that allows the user to show the profile report for an active session.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.showProfile', 'Show Active Interpreter Session Profile Report', async accessor => {
-		const sessionService = accessor.get(IRuntimeSessionService);
+	registerLanguageRuntimeAction(
+		'workbench.action.languageRuntime.showProfile',
+		nls.localize2('positron.languageRuntime.showActiveInterpreterSessionProfileReport', 'Show Active Interpreter Session Profile Report'),
+		async accessor => {
+			const sessionService = accessor.get(IRuntimeSessionService);
 
-		// Get the active session
-		const session = sessionService.foregroundSession;
-		if (!session) {
-			return;
-		}
+			// Get the active session
+			const session = sessionService.foregroundSession;
+			if (!session) {
+				return;
+			}
 
-		session.showProfile();
-	});
+			session.showProfile();
+		});
 
 	registerAction2(class ExecuteCodeInConsoleAction extends Action2 {
 
