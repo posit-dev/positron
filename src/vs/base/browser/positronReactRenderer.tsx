@@ -5,6 +5,7 @@
 
 // React.
 import { ReactElement } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
 
 // Other dependencies.
@@ -146,11 +147,20 @@ export class PositronReactRenderer extends Disposable {
 	 */
 	public render(reactElement: ReactElement) {
 		if (this._root) {
-			this._root.render(
-				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
-					{reactElement}
-				</PositronReactServicesContext.Provider>
-			);
+			// React 19 changed to use microtask-based scheduling for root.render(). During the
+			// first ~150ms of Electron renderer startup (specifically around t=2800-2930ms), the
+			// event loop silently drops queueMicrotask callbacks. If React's scheduling microtask
+			// is dropped, the render never completes (didScheduleMicrotask stays true forever).
+			// flushSync forces synchronous rendering, bypassing the microtask queue entirely.
+			// This issue only occurs on the first cold startup; subsequent reloads work fine
+			// because the event loop is already "warm" and microtasks fire normally.
+			flushSync(() => {
+				this._root!.render(
+					<PositronReactServicesContext.Provider value={PositronReactServices.services}>
+						{reactElement}
+					</PositronReactServicesContext.Provider>
+				);
+			});
 		}
 	}
 

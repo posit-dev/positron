@@ -234,6 +234,12 @@ export class PositronModalReactRenderer extends Disposable {
 			this._root = createRoot(this._overlay);
 
 			// Render the ReactElement that was supplied.
+			// Unlike PositronReactRenderer, we don't need flushSync here because modal popups
+			// are user-triggered (context menus, dropdowns, dialogs) and occur well after the
+			// critical Electron startup window (~t=2800-2930ms) where microtasks are dropped.
+			// By the time a user interacts with the UI, the event loop is "warm" and React 19's
+			// microtask-based scheduling works normally. Note: If we ever show programmatic modal
+			// dialogs automatically during the critical startup window, we would need flushSync.
 			this._root.render(
 				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
 					{reactElement}
