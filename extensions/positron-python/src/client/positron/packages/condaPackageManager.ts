@@ -11,6 +11,12 @@ import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { IPackageManager, MessageEmitter } from './types';
 
+/** Package info returned by `conda search --json` */
+interface CondaPackageInfo {
+    version: string;
+    timestamp: number;
+}
+
 /**
  * Conda Package Manager
  *
@@ -94,17 +100,17 @@ export class CondaPackageManager implements IPackageManager {
         try {
             // Use wildcard pattern for partial matching
             const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json']);
-            const json = JSON.parse(result) as Record<string, Array<{ version: string }>>;
+            const json = JSON.parse(result) as Record<string, CondaPackageInfo[]>;
 
-            // Return unique package names with the latest version
+            // Return unique package names with the latest version (sorted by timestamp)
             return Object.keys(json).map((name) => {
                 const versions = json[name];
-                const latestVersion = versions[versions.length - 1]?.version ?? '0';
+                const latest = versions.reduce((a, b) => (a.timestamp > b.timestamp ? a : b));
                 return {
                     id: name,
                     name: name,
                     displayName: name,
-                    version: latestVersion,
+                    version: latest.version,
                 };
             });
         } catch {
@@ -118,7 +124,7 @@ export class CondaPackageManager implements IPackageManager {
 
         try {
             const result = await this._executeCondaWithOutput(['search', name, '--json']);
-            const json = JSON.parse(result) as Record<string, Array<{ version: string }>>;
+            const json = JSON.parse(result) as Record<string, CondaPackageInfo[]>;
 
             // Get all unique versions for this package
             const packageInfo = json[name];
@@ -126,8 +132,9 @@ export class CondaPackageManager implements IPackageManager {
                 return [];
             }
 
-            // Extract unique versions, maintaining order
-            const versions = [...new Set(packageInfo.map((p) => p.version))];
+            // Sort by timestamp descending and extract unique versions
+            const sorted = [...packageInfo].sort((a, b) => b.timestamp - a.timestamp);
+            const versions = [...new Set(sorted.map((p) => p.version))];
             return versions;
         } catch {
             return [];
