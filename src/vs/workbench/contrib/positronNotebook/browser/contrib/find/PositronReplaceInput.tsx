@@ -18,7 +18,7 @@ import { IContextViewService } from '../../../../../../platform/contextview/brow
 import { useDisposableEffect } from '../../useDisposableEffect.js';
 import { useDelayer } from './useDelayer.js';
 
-interface BaseReplaceInputProps {
+export interface PositronReplaceInputProps {
 	readonly value?: string;
 	readonly preserveCase?: boolean;
 	readonly isFocused?: boolean;
@@ -28,27 +28,102 @@ interface BaseReplaceInputProps {
 	readonly onPreserveCaseChange: (value: boolean) => void;
 	readonly onFocus?: () => void;
 	readonly onBlur?: () => void;
-}
-
-export interface PositronReplaceInputProps extends BaseReplaceInputProps {
 	readonly replaceInputOptions: IReplaceInputOptions;
 	readonly contextKeyService: IContextKeyService;
 	readonly contextViewService: IContextViewService;
 }
 
-export const PositronReplaceInput = (props: PositronReplaceInputProps) => {
-	const {
-		value,
-		replaceInputOptions,
-		contextKeyService,
-		contextViewService,
-	} = props;
+export const PositronReplaceInput = ({
+	value,
+	preserveCase = false,
+	isFocused = false,
+	onKeyDown,
+	onPreserveCaseKeyDown,
+	onValueChange,
+	onPreserveCaseChange,
+	onFocus,
+	onBlur,
+	replaceInputOptions,
+	contextKeyService,
+	contextViewService,
+}: PositronReplaceInputProps) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const { inputRef, isReady } = useReplaceInput(containerRef, replaceInputOptions, contextViewService, contextKeyService, value);
 
-	return <div ref={containerRef} className='replace-input-container'>
-		{isReady && inputRef.current && <ReplaceInputEffects replaceInput={inputRef.current} {...props} />}
-	</div>;
+	/** Track whether the input was previously focused */
+	const wasFocused = useRef(false);
+
+	/** Delayer/throttler for history updates (500ms like SimpleFindWidget) */
+	const delayer = useDelayer(() => new Delayer<void>(500));
+
+	/** Add the current replace input value to the history (no delay) */
+	const updateHistory = useCallback(() => {
+		if (!inputRef.current) { return; }
+		inputRef.current.inputBox.addToHistory();
+	}, [inputRef]);
+
+	// Connect replace input events to component callbacks
+	useDisposableEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		return onKeyDown && inputRef.current.onKeyDown((e) => onKeyDown(e));
+	}, [isReady, inputRef, onKeyDown]);
+	useDisposableEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		return onFocus && inputRef.current.inputBox.onDidFocus(() => onFocus());
+	}, [isReady, inputRef, onFocus]);
+	useDisposableEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		return onBlur && inputRef.current.inputBox.onDidBlur(() => onBlur());
+	}, [isReady, inputRef, onBlur]);
+	useDisposableEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		return onPreserveCaseKeyDown && inputRef.current.onPreserveCaseKeyDown((e) => onPreserveCaseKeyDown(e));
+	}, [isReady, inputRef, onPreserveCaseKeyDown]);
+
+	// Handle option change (preserve case toggle)
+	useDisposableEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		const input = inputRef.current;
+		return input.onDidOptionChange(() => {
+			onPreserveCaseChange(input.getPreserveCase());
+			delayer.trigger(updateHistory);
+		});
+	}, [isReady, inputRef, onPreserveCaseChange, delayer, updateHistory]);
+
+	// Update value and trigger delayed history update on input
+	useDisposableEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		const input = inputRef.current;
+		return input.onInput(() => {
+			onValueChange(input.getValue());
+			delayer.trigger(updateHistory);
+		});
+	}, [isReady, inputRef, onValueChange, delayer, updateHistory]);
+
+	// Connect scalar props to replace input
+	useEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		const newValue = value || '';
+		if (inputRef.current.getValue() !== newValue) {
+			inputRef.current.setValue(newValue);
+		}
+	}, [isReady, inputRef, value]);
+	useEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		inputRef.current.setPreserveCase(preserveCase);
+	}, [isReady, inputRef, preserveCase]);
+
+	// Focus input when requested
+	useEffect(() => {
+		if (!isReady || !inputRef.current) { return; }
+		if (!wasFocused.current && isFocused) {
+			inputRef.current.focus();
+			inputRef.current.select();
+		}
+		wasFocused.current = isFocused;
+	}, [isReady, inputRef, isFocused]);
+
+	return <div ref={containerRef} className='replace-input-container' />;
 };
 
 interface UseReplaceInputResult {
@@ -102,70 +177,3 @@ function useReplaceInput(
 	return { inputRef, isReady };
 }
 
-interface ReplaceInputEffectsProps extends BaseReplaceInputProps {
-	readonly replaceInput: ReplaceInput;
-}
-
-const ReplaceInputEffects = ({
-	replaceInput,
-	value,
-	preserveCase = false,
-	isFocused = false,
-	onKeyDown,
-	onPreserveCaseKeyDown,
-	onValueChange,
-	onPreserveCaseChange,
-	onFocus,
-	onBlur,
-}: ReplaceInputEffectsProps) => {
-	/** Track whether the input was previously focused */
-	const wasFocused = useRef(false);
-
-	/** Delayer/throttler for history updates (500ms like SimpleFindWidget) */
-	const delayer = useDelayer(() => new Delayer<void>(500));
-
-	/** Add the current replace input value to the history (no delay) */
-	const updateHistory = useCallback(() => {
-		replaceInput.inputBox.addToHistory();
-	}, [replaceInput.inputBox]);
-
-	// Connect replace input events to component callbacks
-	useDisposableEffect(() => onKeyDown && replaceInput.onKeyDown((e) => onKeyDown(e)), [replaceInput, onKeyDown]);
-	useDisposableEffect(() => onFocus && replaceInput.inputBox.onDidFocus(() => onFocus()), [replaceInput.inputBox, onFocus]);
-	useDisposableEffect(() => onBlur && replaceInput.inputBox.onDidBlur(() => onBlur()), [replaceInput.inputBox, onBlur]);
-	useDisposableEffect(() => onPreserveCaseKeyDown && replaceInput.onPreserveCaseKeyDown((e) => onPreserveCaseKeyDown(e)), [replaceInput, onPreserveCaseKeyDown]);
-
-	// Handle option change (preserve case toggle)
-	useDisposableEffect(() => replaceInput.onDidOptionChange(() => {
-		onPreserveCaseChange(replaceInput.getPreserveCase());
-		delayer.trigger(updateHistory);
-	}), [replaceInput, onPreserveCaseChange, delayer, updateHistory]);
-
-	// Update value and trigger delayed history update on input
-	useDisposableEffect(() => replaceInput.onInput(() => {
-		onValueChange(replaceInput.getValue());
-		delayer.trigger(updateHistory);
-	}), [replaceInput, onValueChange, delayer, updateHistory]);
-
-	// Connect scalar props to replace input
-	useEffect(() => {
-		const newValue = value || '';
-		if (replaceInput.getValue() !== newValue) {
-			replaceInput.setValue(newValue);
-		}
-	}, [replaceInput, value]);
-	useEffect(() => replaceInput.setPreserveCase(preserveCase), [replaceInput, preserveCase]);
-
-	// Focus input when requested
-	useEffect(() => {
-		if (!wasFocused.current && isFocused) {
-			replaceInput.focus();
-			replaceInput.select();
-		}
-		wasFocused.current = isFocused;
-	}, [replaceInput, isFocused]);
-
-	// Don't actually render anything. This component exists to conditionally
-	// create effects only once replaceInput is instantiated.
-	return null;
-};
