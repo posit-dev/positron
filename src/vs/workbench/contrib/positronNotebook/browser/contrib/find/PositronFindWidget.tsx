@@ -20,6 +20,7 @@ import { localize } from '../../../../../../nls.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { useRef } from 'react';
+import { KeyCode } from '../../../../../../base/common/keyCodes.js';
 
 // Localized strings
 const previousMatchLabel = localize('positronNotebook.find.previousMatch', "Previous Match");
@@ -86,6 +87,7 @@ export const PositronFindWidget = ({
 	const _isVisible = useObservedValue(isVisible);
 	const _inputFocused = useObservedValue(inputFocused);
 	const _isReplaceVisible = useObservedValue(replace?.isVisible, false);
+	const _replaceInputFocused = useObservedValue(replace?.replaceInputFocused, false);
 	const _replaceText = useObservedValue(replace?.replaceText, '');
 	const _preserveCase = useObservedValue(replace?.preserveCase, false);
 
@@ -110,7 +112,10 @@ export const PositronFindWidget = ({
 				}}
 				onFocus={() => inputFocused.set(true, undefined)}
 				onKeyDown={(e) => {
-					// TODO: focus
+					if (e.equals(KeyCode.Tab) && replace && _isReplaceVisible) {
+						e.preventDefault();
+						replace.replaceInputFocused.set(true, undefined);
+					}
 				}}
 				onMatchCaseChange={(value) => matchCase.set(value, undefined)}
 				onMatchWholeWordChange={(value) => matchWholeWord.set(value, undefined)}
@@ -173,11 +178,18 @@ export const PositronFindWidget = ({
 						<PositronReplaceInput
 							contextKeyService={contextKeyService}
 							contextViewService={contextViewService}
+							isFocused={_replaceInputFocused}
 							preserveCase={_preserveCase}
 							replaceInputOptions={replace.replaceInputOptions}
 							value={_replaceText}
 							onBlur={() => replace.replaceInputFocused.set(false, undefined)}
 							onFocus={() => replace.replaceInputFocused.set(true, undefined)}
+							onKeyDown={(e) => {
+								if (e.equals(KeyCode.Tab)) {
+									e.preventDefault();
+									// TODO: Need to be able to focus on case sensitive button... continue here!
+								}
+							}}
 							onPreserveCaseChange={(value) => replace.preserveCase.set(value, undefined)}
 							onValueChange={(value) => replace.replaceText.set(value, undefined)}
 						/>

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
 // VS Code utilities.
 import { Delayer } from '../../../../../../base/common/async.js';
@@ -41,7 +41,7 @@ export interface PositronFindInputProps extends BaseFindInputProps {
 	readonly contextViewService: IContextViewService;
 }
 
-export const PositronFindInput = (props: PositronFindInputProps) => {
+export const PositronFindInput = forwardRef<FindInput, PositronFindInputProps>((props, ref) => {
 	const {
 		value,
 		findInputOptions,
@@ -54,7 +54,7 @@ export const PositronFindInput = (props: PositronFindInputProps) => {
 	return <div ref={containerRef} className='find-input-container'>
 		{findInput && <FindInputEffects findInput={findInput} {...props} />}
 	</div>;
-};
+});
 
 function useFindInput(
 	containerRef: RefObject<HTMLElement | null>,
