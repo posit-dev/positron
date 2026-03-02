@@ -13,7 +13,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 		properties: {
 			'positron.memoryUsage.pollingIntervalMs': {
 				type: 'number',
-				default: 2000,
+				default: 10000,
 				minimum: 500,
 				maximum: 60000,
 				markdownDescription: localize('positron.memoryUsage.pollingIntervalMs', "How often to poll for system memory usage, in milliseconds."),

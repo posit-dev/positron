@@ -10,6 +10,8 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { IHostService } from '../../host/browser/host.js';
+import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import {
 	IMemorySessionUsage,
 	IMemoryUsageSnapshot,
@@ -17,12 +19,19 @@ import {
 	IPositronMemoryUsageService,
 } from '../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 
-const DEFAULT_POLLING_INTERVAL_MS = 2000;
+const DEFAULT_POLLING_INTERVAL_MS = 10000;
+const UNFOCUSED_POLLING_INTERVAL_MS = 60000;
+const POST_EXECUTION_DELAY_MS = 2000;
 const POLLING_INTERVAL_SETTING = 'positron.memoryUsage.pollingIntervalMs';
 
 /**
  * Browser-side aggregation service that combines kernel memory events with
  * polled OS/process memory from the provider, and emits periodic snapshots.
+ *
+ * Polling optimizations:
+ * - Uses the configured polling interval when the window is focused (default 10s).
+ * - Slows to 60s when the window loses focus.
+ * - Schedules an extra poll 2s after all kernels become idle (debounced).
  */
 export class PositronMemoryUsageService extends Disposable implements IPositronMemoryUsageService {
 	readonly _serviceBrand: undefined;
@@ -45,13 +54,26 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	/** Whether the provider is available. */
 	private _providerAvailable = true;
 
+	/** Whether the host window currently has focus. */
+	private _windowFocused: boolean;
+
+	/** The user-configured polling interval (or default). */
+	private _configuredIntervalMs: number;
+
+	/** Handle for the debounced post-execution poll. */
+	private _postExecutionTimer: ReturnType<typeof setTimeout> | undefined;
+
 	constructor(
 		@IPositronMemoryInfoProvider private readonly _provider: IPositronMemoryInfoProvider,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IHostService private readonly _hostService: IHostService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
+
+		this._windowFocused = this._hostService.hasFocus;
+		this._configuredIntervalMs = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
 
 		// Subscribe to new sessions
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
@@ -68,17 +90,57 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 			this._removeSessionListener(sessionId);
 		}));
 
-		// Start polling
-		const intervalMs = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
-		this._startPolling(intervalMs);
+		// Schedule a poll after code execution finishes. We listen to the
+		// service-level state change event and debounce so that only after
+		// all kernels have been idle for POST_EXECUTION_DELAY_MS do we poll.
+		this._register(this._runtimeSessionService.onDidChangeRuntimeState(e => {
+			if (e.old_state === RuntimeState.Busy && (e.new_state === RuntimeState.Idle || e.new_state === RuntimeState.Ready)) {
+				this._schedulePostExecutionPoll();
+			}
+		}));
+
+		// Start polling with the appropriate interval
+		this._startPolling(this._effectiveInterval());
+
+		// Adjust polling when window focus changes
+		this._register(this._hostService.onDidChangeFocus(focused => {
+			this._windowFocused = focused;
+			this._restartPolling(this._effectiveInterval());
+			// Poll immediately when regaining focus so the UI updates right away
+			if (focused) {
+				this._poll();
+			}
+		}));
 
 		// Listen for config changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(POLLING_INTERVAL_SETTING)) {
-				const newInterval = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
-				this._restartPolling(newInterval);
+				this._configuredIntervalMs = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
+				this._restartPolling(this._effectiveInterval());
 			}
 		}));
+	}
+
+	/**
+	 * Returns the polling interval to use based on whether the window is focused.
+	 */
+	private _effectiveInterval(): number {
+		return this._windowFocused ? this._configuredIntervalMs : UNFOCUSED_POLLING_INTERVAL_MS;
+	}
+
+	/**
+	 * Schedule a single extra poll POST_EXECUTION_DELAY_MS after the last
+	 * Busy -> Idle transition. If another kernel goes Busy -> Idle before
+	 * the timer fires, the timer is reset (debounce).
+	 */
+	private _schedulePostExecutionPoll(): void {
+		if (this._postExecutionTimer !== undefined) {
+			clearTimeout(this._postExecutionTimer);
+		}
+		this._postExecutionTimer = setTimeout(() => {
+			this._postExecutionTimer = undefined;
+			this._poll();
+		}, POST_EXECUTION_DELAY_MS);
 	}
 
 	private _addSessionListener(session: { sessionId: string; dynState: { sessionName: string }; runtimeMetadata: { runtimeName: string; languageId: string }; onDidUpdateResourceUsage: Event<{ memory_bytes: number }> }): void {
@@ -157,6 +219,10 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	}
 
 	override dispose(): void {
+		if (this._postExecutionTimer !== undefined) {
+			clearTimeout(this._postExecutionTimer);
+			this._postExecutionTimer = undefined;
+		}
 		for (const disposables of this._sessionListeners.values()) {
 			disposables.dispose();
 		}
