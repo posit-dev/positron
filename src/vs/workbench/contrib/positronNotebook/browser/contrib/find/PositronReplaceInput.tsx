@@ -33,7 +33,18 @@ export interface PositronReplaceInputProps {
 	readonly contextViewService: IContextViewService;
 }
 
-export const PositronReplaceInput = ({
+export const PositronReplaceInput = (props: PositronReplaceInputProps) => {
+	const { value, replaceInputOptions, contextKeyService, contextViewService } = props;
+	const containerRef = useRef<HTMLDivElement>(null);
+	const replaceInput = useReplaceInput(containerRef, replaceInputOptions, contextViewService, contextKeyService, value);
+
+	return <div ref={containerRef} className='replace-input-container'>
+		{replaceInput && <ReplaceInputEffects replaceInput={replaceInput} {...props} />}
+	</div>;
+};
+
+const ReplaceInputEffects = ({
+	replaceInput,
 	value,
 	preserveCase = false,
 	isFocused = false,
@@ -43,13 +54,7 @@ export const PositronReplaceInput = ({
 	onPreserveCaseChange,
 	onFocus,
 	onBlur,
-	replaceInputOptions,
-	contextKeyService,
-	contextViewService,
-}: PositronReplaceInputProps) => {
-	const containerRef = useRef<HTMLDivElement>(null);
-	const replaceInput = useReplaceInput(containerRef, replaceInputOptions, contextViewService, contextKeyService, value);
-
+}: { replaceInput: ReplaceInput } & PositronReplaceInputProps) => {
 	/** Track whether the input was previously focused */
 	const wasFocused = useRef(false);
 
@@ -58,61 +63,38 @@ export const PositronReplaceInput = ({
 
 	/** Add the current replace input value to the history (no delay) */
 	const updateHistory = useCallback(() => {
-		replaceInput?.inputBox.addToHistory();
-	}, [replaceInput]);
+		replaceInput.inputBox.addToHistory();
+	}, [replaceInput.inputBox]);
 
 	// Connect replace input events to component callbacks
-	useDisposableEffect(() => {
-		if (!replaceInput) { return; }
-		return onKeyDown && replaceInput.onKeyDown((e) => onKeyDown(e));
-	}, [replaceInput, onKeyDown]);
-	useDisposableEffect(() => {
-		if (!replaceInput) { return; }
-		return onFocus && replaceInput.inputBox.onDidFocus(() => onFocus());
-	}, [replaceInput, onFocus]);
-	useDisposableEffect(() => {
-		if (!replaceInput) { return; }
-		return onBlur && replaceInput.inputBox.onDidBlur(() => onBlur());
-	}, [replaceInput, onBlur]);
-	useDisposableEffect(() => {
-		if (!replaceInput) { return; }
-		return onPreserveCaseKeyDown && replaceInput.onPreserveCaseKeyDown((e) => onPreserveCaseKeyDown(e));
-	}, [replaceInput, onPreserveCaseKeyDown]);
+	useDisposableEffect(() => onKeyDown && replaceInput.onKeyDown((e) => onKeyDown(e)), [replaceInput, onKeyDown]);
+	useDisposableEffect(() => onFocus && replaceInput.inputBox.onDidFocus(() => onFocus()), [replaceInput.inputBox, onFocus]);
+	useDisposableEffect(() => onBlur && replaceInput.inputBox.onDidBlur(() => onBlur()), [replaceInput.inputBox, onBlur]);
+	useDisposableEffect(() => onPreserveCaseKeyDown && replaceInput.onPreserveCaseKeyDown((e) => onPreserveCaseKeyDown(e)), [replaceInput, onPreserveCaseKeyDown]);
 
 	// Handle option change (preserve case toggle)
-	useDisposableEffect(() => {
-		if (!replaceInput) { return; }
-		return replaceInput.onDidOptionChange(() => {
-			onPreserveCaseChange(replaceInput.getPreserveCase());
-			delayer.trigger(updateHistory);
-		});
-	}, [replaceInput, onPreserveCaseChange, delayer, updateHistory]);
+	useDisposableEffect(() => replaceInput.onDidOptionChange(() => {
+		onPreserveCaseChange(replaceInput.getPreserveCase());
+		delayer.trigger(updateHistory);
+	}), [replaceInput, onPreserveCaseChange, delayer, updateHistory]);
 
 	// Update value and trigger delayed history update on input
-	useDisposableEffect(() => {
-		if (!replaceInput) { return; }
-		return replaceInput.onInput(() => {
-			onValueChange(replaceInput.getValue());
-			delayer.trigger(updateHistory);
-		});
-	}, [replaceInput, onValueChange, delayer, updateHistory]);
+	useDisposableEffect(() => replaceInput.onInput(() => {
+		onValueChange(replaceInput.getValue());
+		delayer.trigger(updateHistory);
+	}), [replaceInput, onValueChange, delayer, updateHistory]);
 
 	// Connect scalar props to replace input
 	useEffect(() => {
-		if (!replaceInput) { return; }
 		const newValue = value || '';
 		if (replaceInput.getValue() !== newValue) {
 			replaceInput.setValue(newValue);
 		}
 	}, [replaceInput, value]);
-	useEffect(() => {
-		if (!replaceInput) { return; }
-		replaceInput.setPreserveCase(preserveCase);
-	}, [replaceInput, preserveCase]);
+	useEffect(() => replaceInput.setPreserveCase(preserveCase), [replaceInput, preserveCase]);
 
 	// Focus input when requested
 	useEffect(() => {
-		if (!replaceInput) { return; }
 		if (!wasFocused.current && isFocused) {
 			replaceInput.focus();
 			replaceInput.select();
@@ -120,7 +102,7 @@ export const PositronReplaceInput = ({
 		wasFocused.current = isFocused;
 	}, [replaceInput, isFocused]);
 
-	return <div ref={containerRef} className='replace-input-container' />;
+	return null;
 };
 
 function useReplaceInput(
