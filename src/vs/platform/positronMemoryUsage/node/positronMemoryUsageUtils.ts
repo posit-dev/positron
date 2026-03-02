@@ -207,9 +207,14 @@ export async function readProcRss(pid: number): Promise<number | undefined> {
 /**
  * Get the RSS of a process and all its descendant processes on Linux.
  * Walks /proc/[pid]/task/[tid]/children recursively.
- * Returns total bytes.
+ *
+ * @param pid The root process ID to start from.
+ * @param excludePids Optional set of PIDs whose entire subtrees should be
+ *   skipped. This is used to exclude kernel processes that self-report their
+ *   memory, avoiding double-counting.
+ * @returns Total RSS in bytes.
  */
-export async function getProcessTreeRss(pid: number): Promise<number> {
+export async function getProcessTreeRss(pid: number, excludePids?: Set<number>): Promise<number> {
 	let totalRss = 0;
 
 	const selfRss = await readProcRss(pid);
@@ -228,7 +233,11 @@ export async function getProcessTreeRss(pid: number): Promise<number> {
 				for (const childPidStr of childPids) {
 					const childPid = parseInt(childPidStr, 10);
 					if (!isNaN(childPid)) {
-						totalRss += await getProcessTreeRss(childPid);
+						// Skip kernel subtrees that self-report memory
+						if (excludePids?.has(childPid)) {
+							continue;
+						}
+						totalRss += await getProcessTreeRss(childPid, excludePids);
 					}
 				}
 			} catch {

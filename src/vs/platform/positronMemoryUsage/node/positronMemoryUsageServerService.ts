@@ -16,12 +16,15 @@ import { getProcessTreeRss, getSystemMemory } from './positronMemoryUsageUtils.j
 export class PositronMemoryUsageServerService implements IPositronMemoryInfoProvider {
 	readonly _serviceBrand: undefined;
 
-	async getMemoryInfo(): Promise<IPositronProcessMemoryInfo> {
+	async getMemoryInfo(excludePids?: number[]): Promise<IPositronProcessMemoryInfo> {
 		let positronProcessMemory: number;
 
+		const exclude = excludePids?.length ? new Set(excludePids) : undefined;
+
 		if (process.platform === 'linux') {
-			// Walk the server's process tree via /proc
-			positronProcessMemory = await getProcessTreeRss(process.pid);
+			// Walk the server's process tree via /proc, excluding kernel
+			// subtrees to avoid double-counting their self-reported memory.
+			positronProcessMemory = await getProcessTreeRss(process.pid, exclude);
 		} else {
 			// macOS dev/fallback: use process.memoryUsage().rss for the server process
 			positronProcessMemory = process.memoryUsage().rss;

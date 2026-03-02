@@ -27,7 +27,11 @@ export interface IPositronProcessMemoryInfo {
  */
 export interface IPositronMemoryInfoProvider {
 	readonly _serviceBrand: undefined;
-	getMemoryInfo(): Promise<IPositronProcessMemoryInfo>;
+	/**
+	 * @param excludePids Optional set of kernel PIDs whose subtrees should be
+	 *   excluded from the Positron process memory total to avoid double-counting.
+	 */
+	getMemoryInfo(excludePids?: number[]): Promise<IPositronProcessMemoryInfo>;
 }
 
 export const IPositronMemoryInfoProvider = createDecorator<IPositronMemoryInfoProvider>('positronMemoryInfoProvider');
@@ -45,6 +49,8 @@ export interface IMemorySessionUsage {
 	sessionName: string;
 	languageId: string;
 	memoryBytes: number;
+	/** The OS process ID of the kernel, if known */
+	processId?: number;
 }
 
 /**

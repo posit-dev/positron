@@ -34,11 +34,11 @@ export class BrowserPositronMemoryInfoProvider implements IPositronMemoryInfoPro
 		}
 	}
 
-	async getMemoryInfo(): Promise<IPositronProcessMemoryInfo> {
+	async getMemoryInfo(excludePids?: number[]): Promise<IPositronProcessMemoryInfo> {
 		if (!this._channel) {
 			throw new Error('Cannot get memory info; no remote connection.');
 		}
-		return this._channel.getMemoryInfo();
+		return this._channel.getMemoryInfo(excludePids);
 	}
 }
 

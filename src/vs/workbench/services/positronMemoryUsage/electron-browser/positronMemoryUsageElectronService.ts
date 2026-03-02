@@ -27,8 +27,8 @@ export class ElectronPositronMemoryInfoProvider implements IPositronMemoryInfoPr
 		);
 	}
 
-	getMemoryInfo(): Promise<IPositronProcessMemoryInfo> {
-		return this._channel.getMemoryInfo();
+	getMemoryInfo(excludePids?: number[]): Promise<IPositronProcessMemoryInfo> {
+		return this._channel.getMemoryInfo(excludePids);
 	}
 }
 

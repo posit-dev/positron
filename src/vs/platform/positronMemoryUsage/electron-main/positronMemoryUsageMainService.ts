@@ -17,7 +17,7 @@ import { getSystemMemory } from '../node/positronMemoryUsageUtils.js';
 export class PositronMemoryUsageMainService implements IPositronMemoryInfoProvider {
 	readonly _serviceBrand: undefined;
 
-	async getMemoryInfo(): Promise<IPositronProcessMemoryInfo> {
+	async getMemoryInfo(_excludePids?: number[]): Promise<IPositronProcessMemoryInfo> {
 		// Sum memory across all Electron-managed processes.
 		// workingSetSize is in kilobytes.
 		const metrics = app.getAppMetrics();

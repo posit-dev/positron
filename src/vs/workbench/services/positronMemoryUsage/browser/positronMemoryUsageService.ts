@@ -143,7 +143,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		}, POST_EXECUTION_DELAY_MS);
 	}
 
-	private _addSessionListener(session: { sessionId: string; dynState: { sessionName: string }; runtimeMetadata: { runtimeName: string; languageId: string }; onDidUpdateResourceUsage: Event<{ memory_bytes: number }> }): void {
+	private _addSessionListener(session: { sessionId: string; dynState: { sessionName: string }; runtimeMetadata: { runtimeName: string; languageId: string }; onDidUpdateResourceUsage: Event<{ memory_bytes: number; process_id?: number }> }): void {
 		if (this._sessionListeners.has(session.sessionId)) {
 			return;
 		}
@@ -156,6 +156,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 				sessionName: session.dynState.sessionName || session.runtimeMetadata.runtimeName,
 				languageId: session.runtimeMetadata.languageId,
 				memoryBytes: usage.memory_bytes,
+				processId: usage.process_id,
 			});
 		}));
 
@@ -191,9 +192,17 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		}
 
 		try {
-			const info = await this._provider.getMemoryInfo();
-
+			// Collect known kernel PIDs so the provider can exclude their
+			// subtrees from the Positron process memory walk.
 			const kernelSessions = Array.from(this._kernelMemory.values());
+			const excludePids = kernelSessions
+				.map(s => s.processId)
+				.filter((pid): pid is number => pid !== undefined && pid > 0);
+
+			const info = await this._provider.getMemoryInfo(
+				excludePids.length > 0 ? excludePids : undefined
+			);
+
 			const kernelTotalBytes = kernelSessions.reduce((sum, s) => sum + s.memoryBytes, 0);
 			const positronOverheadBytes = info.positronProcessMemory;
 			const usedBySystem = info.totalSystemMemory - info.freeSystemMemory;

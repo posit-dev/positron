@@ -16,10 +16,11 @@ export { POSITRON_MEMORY_INFO_CHANNEL_NAME };
 export class PositronMemoryInfoChannel implements IServerChannel {
 	constructor(private readonly service: IPositronMemoryInfoProvider) { }
 
-	async call<T>(_ctx: unknown, command: string, _args?: unknown, _cancellationToken?: CancellationToken): Promise<T> {
+	async call<T>(_ctx: unknown, command: string, args?: unknown, _cancellationToken?: CancellationToken): Promise<T> {
 		switch (command) {
 			case 'getMemoryInfo': {
-				return await this.service.getMemoryInfo() as T;
+				const excludePids = Array.isArray(args) ? args as number[] : undefined;
+				return await this.service.getMemoryInfo(excludePids) as T;
 			}
 		}
 		throw new Error(`Command not found: ${command}`);
@@ -38,7 +39,7 @@ export class PositronMemoryInfoChannelClient implements IPositronMemoryInfoProvi
 
 	constructor(private readonly _channel: IChannel) { }
 
-	getMemoryInfo(): Promise<IPositronProcessMemoryInfo> {
-		return this._channel.call('getMemoryInfo');
+	getMemoryInfo(excludePids?: number[]): Promise<IPositronProcessMemoryInfo> {
+		return this._channel.call('getMemoryInfo', excludePids);
 	}
 }
