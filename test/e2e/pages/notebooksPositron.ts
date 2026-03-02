@@ -783,22 +783,23 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string | string[]): Promise<void> {
 		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
-			const actualContent = await this.getCellContent(cellIndex);
+			await expect(async () => {
+				const actualContent = await this.getCellContent(cellIndex);
 
-			if (Array.isArray(expectedContent)) {
-				// Compare arrays line by line
-				expect(actualContent.length).toBe(expectedContent.length);
-				for (let i = 0; i < expectedContent.length; i++) {
-					expect(actualContent[i]).toBe(expectedContent[i]);
+				if (Array.isArray(expectedContent)) {
+					// Compare arrays line by line
+					expect(actualContent.length).toBe(expectedContent.length);
+					for (let i = 0; i < expectedContent.length; i++) {
+						expect(actualContent[i]).toBe(expectedContent[i]);
+					}
+				} else {
+					// Single string comparison
+					if (actualContent.length !== 1) {
+						throw new Error(`Expected single line content but got ${actualContent.length} lines: ${actualContent.join('\n')}`);
+					}
+					expect(actualContent[0]).toBe(expectedContent);
 				}
-				return;
-			} else {
-				// Single string comparison
-				if (actualContent.length !== 1) {
-					throw new Error(`Expected single line content but got ${actualContent.length} lines: ${actualContent.join('\n')}`);
-				}
-				expect(actualContent[0]).toBe(expectedContent);
-			}
+			}).toPass({ timeout: 2000 });
 		});
 	}
 
