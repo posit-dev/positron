@@ -49,12 +49,17 @@ export const PositronFindInput = forwardRef<FindInput, PositronFindInputProps>((
 		contextViewService,
 	} = props;
 	const containerRef = useRef<HTMLDivElement>(null);
-	const findInput = useFindInput(containerRef, findInputOptions, contextViewService, contextKeyService, value);
+	const { inputRef, isReady } = useFindInput(containerRef, findInputOptions, contextViewService, contextKeyService, value);
 
 	return <div ref={containerRef} className='find-input-container'>
-		{findInput && <FindInputEffects findInput={findInput} {...props} />}
+		{isReady && inputRef.current && <FindInputEffects findInput={inputRef.current} {...props} />}
 	</div>;
 });
+
+interface UseFindInputResult {
+	readonly inputRef: RefObject<FindInput | null>;
+	readonly isReady: boolean;
+}
 
 function useFindInput(
 	containerRef: RefObject<HTMLElement | null>,
@@ -62,8 +67,9 @@ function useFindInput(
 	contextViewService: IContextViewService,
 	contextKeyService: IContextKeyService,
 	value?: string,
-): FindInput | null {
-	const [findInput, setFindInput] = useState<FindInput | null>(null);
+): UseFindInputResult {
+	const inputRef = useRef<FindInput | null>(null);
+	const [isReady, setIsReady] = useState(false);
 
 	// Capture initial options to avoid recreating FindInput on prop changes
 	const initialOptionsRef = useRef(options);
@@ -88,15 +94,17 @@ function useFindInput(
 			input.setValue(initialValueRef.current);
 		}
 
-		setFindInput(input);
+		inputRef.current = input;
+		setIsReady(true);
 
 		return () => {
 			input.dispose();
-			setFindInput(null);
+			inputRef.current = null;
+			// Do NOT call setIsReady(false) -- avoid state updates during unmount
 		};
 	}, [containerRef, contextKeyService, contextViewService]);
 
-	return findInput;
+	return { inputRef, isReady };
 }
 
 interface FindInputEffectsProps extends BaseFindInputProps {

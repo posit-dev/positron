@@ -44,12 +44,17 @@ export const PositronReplaceInput = (props: PositronReplaceInputProps) => {
 		contextViewService,
 	} = props;
 	const containerRef = useRef<HTMLDivElement>(null);
-	const replaceInput = useReplaceInput(containerRef, replaceInputOptions, contextViewService, contextKeyService, value);
+	const { inputRef, isReady } = useReplaceInput(containerRef, replaceInputOptions, contextViewService, contextKeyService, value);
 
 	return <div ref={containerRef} className='replace-input-container'>
-		{replaceInput && <ReplaceInputEffects replaceInput={replaceInput} {...props} />}
+		{isReady && inputRef.current && <ReplaceInputEffects replaceInput={inputRef.current} {...props} />}
 	</div>;
 };
+
+interface UseReplaceInputResult {
+	readonly inputRef: RefObject<ReplaceInput | null>;
+	readonly isReady: boolean;
+}
 
 function useReplaceInput(
 	containerRef: RefObject<HTMLElement | null>,
@@ -57,8 +62,9 @@ function useReplaceInput(
 	contextViewService: IContextViewService,
 	contextKeyService: IContextKeyService,
 	value?: string,
-): ReplaceInput | null {
-	const [replaceInput, setReplaceInput] = useState<ReplaceInput | null>(null);
+): UseReplaceInputResult {
+	const inputRef = useRef<ReplaceInput | null>(null);
+	const [isReady, setIsReady] = useState(false);
 
 	// Capture initial options to avoid recreating ReplaceInput on prop changes
 	const initialOptionsRef = useRef(options);
@@ -83,15 +89,17 @@ function useReplaceInput(
 			input.setValue(initialValueRef.current);
 		}
 
-		setReplaceInput(input);
+		inputRef.current = input;
+		setIsReady(true);
 
 		return () => {
 			input.dispose();
-			setReplaceInput(null);
+			inputRef.current = null;
+			// Do NOT call setIsReady(false) -- avoid state updates during unmount
 		};
 	}, [containerRef, contextKeyService, contextViewService]);
 
-	return replaceInput;
+	return { inputRef, isReady };
 }
 
 interface ReplaceInputEffectsProps extends BaseReplaceInputProps {
