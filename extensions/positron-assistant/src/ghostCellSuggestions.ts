@@ -97,22 +97,27 @@ export async function generateGhostCellSuggestion(
 	const variablesSummaryPromise = fetchSessionVariablesSummary(uri, log);
 
 	// Get the model to use for generation (with timeout to prevent hanging
-	// if a VS Code API call stalls)
+	// if a VS Code API call stalls). A dedicated CancellationTokenSource
+	// lets getModel() bail out between API calls when the timeout fires,
+	// avoiding stale work in the background.
 	let modelSelectionTimedOut = false;
 	let modelSelectionTimer: ReturnType<typeof setTimeout> | undefined;
+	const modelSelectionCts = new vscode.CancellationTokenSource();
 	let modelSelection: ModelSelectionResult | null;
 	try {
 		modelSelection = await Promise.race([
-			getModel(participantService, log),
+			getModel(participantService, log, modelSelectionCts.token),
 			new Promise<null>(resolve => {
 				modelSelectionTimer = setTimeout(() => {
 					modelSelectionTimedOut = true;
+					modelSelectionCts.cancel();
 					resolve(null);
 				}, 10000);
 			})
 		]);
 	} finally {
 		clearTimeout(modelSelectionTimer);
+		modelSelectionCts.dispose();
 	}
 	if (!modelSelection) {
 		log.warn(modelSelectionTimedOut
@@ -379,7 +384,16 @@ async function parseStreamingXML(
 		return null;
 	} finally {
 		cancelListener.dispose();
-		await iterator.return?.();
+		// Clean up the iterator, but don't block indefinitely if the
+		// provider's iterator.return() is stalled (mirrors the same concern
+		// that motivated the cancellation racing above).
+		const returnPromise = iterator.return?.();
+		if (returnPromise) {
+			await Promise.race([
+				returnPromise,
+				new Promise<void>(resolve => setTimeout(resolve, 1000))
+			]);
+		}
 	}
 
 	// Validate result
@@ -521,10 +535,12 @@ interface ModelSelectionResult {
  */
 async function getModel(
 	participantService: ParticipantService,
-	log: vscode.LogOutputChannel
+	log: vscode.LogOutputChannel,
+	token?: vscode.CancellationToken
 ): Promise<ModelSelectionResult | null> {
 	// Log all available models for debugging
 	const allModels = await vscode.lm.selectChatModels();
+	if (token?.isCancellationRequested) { return null; }
 	log.debug(`[ghost-cell] Available models: ${allModels.length} total`);
 
 	// Check configuration setting first (highest priority)
@@ -559,6 +575,8 @@ async function getModel(
 		log.warn(`[ghost-cell] Configured model patterns not found: ${JSON.stringify(configuredPatterns)}`);
 	}
 
+	if (token?.isCancellationRequested) { return null; }
+
 	// Check for the latest chat session and use its model
 	const sessionModelId = participantService.getCurrentSessionModel();
 	if (sessionModelId) {
@@ -569,8 +587,11 @@ async function getModel(
 		}
 	}
 
+	if (token?.isCancellationRequested) { return null; }
+
 	// Fall back to the first model for the currently selected provider
 	const currentProvider = await positron.ai.getCurrentProvider();
+	if (token?.isCancellationRequested) { return null; }
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
 		if (models && models.length > 0) {
@@ -578,6 +599,8 @@ async function getModel(
 			return { model: models[0], usedFallback: hasConfiguredModel };
 		}
 	}
+
+	if (token?.isCancellationRequested) { return null; }
 
 	// Fall back to any available model
 	const [firstModel] = await vscode.lm.selectChatModels();
