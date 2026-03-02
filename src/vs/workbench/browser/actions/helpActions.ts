@@ -445,4 +445,25 @@ registerAction2(class extends Action2 {
 		);
 	}
 });
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.openPositronNewsletterSignup',
+			title: localize2('openPositronNewsletterSignup', 'Sign Up for Positron Updates'),
+			category: Categories.Help,
+			f1: true,
+			menu: {
+				id: MenuId.MenubarHelpMenu,
+				group: '1_welcome',
+				order: 8
+			}
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const openerService = accessor.get(IOpenerService);
+		openerService.open(URI.parse('https://posit.co/positron-updates-signup/'));
+	}
+});
 // --- End Positron ---

@@ -31,7 +31,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.expectFooterToBeVisible();
 			await welcome.expectTabTitleToBe('Welcome');
 			await welcome.expectStartToContain(['New Notebook', 'New File']);
-			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a bug']);
+			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a Bug', 'Sign Up for Positron Updates']);
 			await welcome.expectRecentToContain([]);
 			app.web
 				? await welcome.expectConnectToBeVisible(false)
@@ -109,7 +109,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.expectFooterToBeVisible();
 
 			await welcome.expectStartToContain(['Open Folder...', 'New Folder...', 'New from Git...']);
-			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a bug']);
+			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a Bug', 'Sign Up for Positron Updates']);
 			await welcome.expectRecentToContain(['qa-example-content']);
 		});
 
