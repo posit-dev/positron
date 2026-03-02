@@ -164,7 +164,7 @@ export default tseslint.config(
 			// Make react-hooks/exhaustive-deps an error. Bad dependencies leads invariably to hard
 			// to find bugs.
 			'react-hooks/exhaustive-deps': ['error', {
-				'additionalHooks': '(useDisposableEffect|useEventEffect)'
+				'additionalHooks': '(useDisposableEffect)'
 			}],
 			'react/jsx-sort-props': [
 				'error',
