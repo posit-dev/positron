@@ -3,6 +3,29 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* Summary header at top of popup */
+
+.memory-usage-dropdown-summary {
+	padding: 12px 12px 8px 12px;
+	text-align: center;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
+.memory-usage-dropdown-summary .summary-text {
+	font-size: 14px;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	color: var(--vscode-editorWidget-foreground);
+	margin-bottom: 8px;
+	user-select: none;
+}
+
+.memory-usage-dropdown-summary .summary-bar {
+	width: 100%;
+	height: 16px;
+}
+
+/* Breakdown table */
+
 .memory-usage-dropdown {
 	padding: 10px 12px;
 	color: var(--vscode-editorWidget-foreground);

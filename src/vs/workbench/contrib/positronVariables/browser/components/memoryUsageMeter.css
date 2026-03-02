@@ -12,16 +12,9 @@
 	height: 100%;
 }
 
-.memory-usage-meter .memory-label {
-	font-size: 11px;
-	color: var(--vscode-descriptionForeground);
-	white-space: nowrap;
-	user-select: none;
-}
+/* Shared memory bar styles (used by both toolbar meter and dropdown) */
 
-.memory-usage-meter .memory-bar-container {
-	width: 100px;
-	height: 10px;
+.memory-bar-container {
 	border: 1px solid var(--vscode-editorWidget-border);
 	border-radius: 2px;
 	display: flex;
@@ -29,27 +22,28 @@
 	background-color: transparent;
 }
 
-.memory-usage-meter .memory-bar-segment {
+.memory-bar-segment {
 	height: 100%;
 	flex-shrink: 0;
 }
 
-.memory-usage-meter .memory-bar-segment.kernel {
+.memory-bar-segment.kernel {
 	background-color: var(--vscode-charts-purple);
 }
 
-.memory-usage-meter .memory-bar-segment.positron {
+.memory-bar-segment.positron {
 	background-color: var(--vscode-charts-blue);
 }
 
-.memory-usage-meter .memory-bar-segment.other {
+.memory-bar-segment.other {
 	background-color: var(--vscode-panel-border);
 }
 
-.memory-usage-meter .memory-bar-separator {
-	width: 1px;
-	height: 100%;
-	flex-shrink: 0;
+/* Toolbar-specific bar sizing */
+
+.memory-usage-meter .memory-bar-container {
+	width: 100px;
+	height: 10px;
 }
 
 .memory-usage-meter .memory-size-label {

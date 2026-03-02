@@ -7,7 +7,7 @@
 import './memoryUsageMeter.css';
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -18,6 +18,7 @@ import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsag
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { MemoryUsageDropdown } from './memoryUsageDropdown.js';
+import { MemoryUsageBar } from './memoryUsageBar.js';
 
 /**
  * MemoryUsageMeter component.
@@ -49,13 +50,7 @@ export const MemoryUsageMeter = () => {
 		return null;
 	}
 
-	const { totalSystemMemory, kernelTotalBytes, positronOverheadBytes, otherProcessesBytes } = snapshot;
-
-	// Compute segment percentages.
-	const total = totalSystemMemory || 1; // avoid division by zero
-	const kernelPct = (kernelTotalBytes / total) * 100;
-	const positronPct = (positronOverheadBytes / total) * 100;
-	const otherPct = (otherProcessesBytes / total) * 100;
+	const { totalSystemMemory, kernelTotalBytes, positronOverheadBytes } = snapshot;
 
 	// Positron's total footprint for the label.
 	const positronTotalBytes = kernelTotalBytes + positronOverheadBytes;
@@ -67,7 +62,7 @@ export const MemoryUsageMeter = () => {
 		"Kernels: {0} | Positron: {1} | Other: {2} | Free: {3}",
 		ByteSize.formatSize(kernelTotalBytes),
 		ByteSize.formatSize(positronOverheadBytes),
-		ByteSize.formatSize(otherProcessesBytes),
+		ByteSize.formatSize(snapshot.otherProcessesBytes),
 		ByteSize.formatSize(snapshot.freeSystemMemory)
 	);
 
@@ -99,54 +94,6 @@ export const MemoryUsageMeter = () => {
 		);
 	};
 
-	// Build segments. Only render separators when both adjacent segments are non-zero.
-	const segments: React.ReactElement[] = [];
-	const hasKernel = kernelPct > 0;
-	const hasPositron = positronPct > 0;
-	const hasOther = otherPct > 0;
-
-	if (hasKernel) {
-		segments.push(
-			<div
-				key='kernel'
-				className='memory-bar-segment kernel'
-				style={{ flexBasis: `${kernelPct}%` }}
-			/>
-		);
-	}
-
-	if (hasKernel && hasPositron) {
-		segments.push(
-			<div key='sep-1' className='memory-bar-separator' />
-		);
-	}
-
-	if (hasPositron) {
-		segments.push(
-			<div
-				key='positron'
-				className='memory-bar-segment positron'
-				style={{ flexBasis: `${positronPct}%` }}
-			/>
-		);
-	}
-
-	if ((hasKernel || hasPositron) && hasOther) {
-		segments.push(
-			<div key='sep-2' className='memory-bar-separator' />
-		);
-	}
-
-	if (hasOther) {
-		segments.push(
-			<div
-				key='other'
-				className='memory-bar-segment other'
-				style={{ flexBasis: `${otherPct}%` }}
-			/>
-		);
-	}
-
 	return (
 		<div
 			ref={meterRef}
@@ -159,10 +106,7 @@ export const MemoryUsageMeter = () => {
 			title={tooltipText}
 			onClick={handleClick}
 		>
-			<span className='memory-label'>MEM</span>
-			<div className='memory-bar-container'>
-				{segments}
-			</div>
+			<MemoryUsageBar snapshot={snapshot} />
 			<span className='memory-size-label'>{sizeLabel}</span>
 			<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 		</div>

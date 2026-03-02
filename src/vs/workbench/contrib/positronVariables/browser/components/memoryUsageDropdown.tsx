@@ -12,6 +12,7 @@ import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { MemoryUsageBar } from './memoryUsageBar.js';
 
 // Localized strings.
 const sessionsHeader = localize('positron.memoryUsage.sessions', "Sessions");
@@ -45,6 +46,13 @@ interface UsageRowEntry {
  */
 export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 	const { snapshot } = props;
+
+	// Compute summary percentage and total for the header.
+	const usedBytes = snapshot.totalSystemMemory - snapshot.freeSystemMemory;
+	const usedPct = snapshot.totalSystemMemory > 0
+		? Math.round((usedBytes / snapshot.totalSystemMemory) * 100)
+		: 0;
+	const totalGB = ByteSize.formatSize(snapshot.totalSystemMemory);
 
 	// Build all rows to find the max value for scaling bars.
 	const sessionRows: UsageRowEntry[] = snapshot.kernelSessions.map(s => ({
@@ -92,6 +100,17 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 			renderer={props.renderer}
 			width={320}
 		>
+			<div className='memory-usage-dropdown-summary'>
+				<div className='summary-text'>
+					{localize(
+						'positron.memoryUsage.summaryPct',
+						"{0}% of {1}",
+						usedPct,
+						totalGB
+					)}
+				</div>
+				<MemoryUsageBar className='summary-bar' snapshot={snapshot} />
+			</div>
 			<div aria-label={localize('positron.memoryUsage.breakdown', "Memory usage breakdown")} className='memory-usage-dropdown' role='table'>
 				{sessionRows.length > 0 && (
 					<>
