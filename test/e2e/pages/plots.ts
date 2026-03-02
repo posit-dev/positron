@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,14 +11,16 @@ import { ContextMenu } from './dialog-contextMenu.js';
 
 const CURRENT_PLOT = '.plot-instance img';
 const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';
-const CLEAR_PLOTS = '.positron-plots-container .positron-action-bar .codicon-clear-all';
-const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Show next plot"]';
-const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Show previous plot"]';
-const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Clear all plots"]';
-const PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button';
-const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]';
-const COPY_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
-const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Fit"]';
+const CLEAR_PLOTS = '.positron-plots-container .positron-dynamic-action-bar .codicon-clear-all';
+const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show next plot"]';
+const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show previous plot"]';
+const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Clear all plots"]';
+const PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button';
+const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Save plot"]';
+const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
+const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
+const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Select where to open plot"]';
+const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
 const OUTER_WEBVIEW_FRAME = '.webview';
 const INNER_WEBVIEW_FRAME = '#active-frame';
 
@@ -176,11 +178,36 @@ export class Plots {
 			'editor tab to the side': /Open in editor tab to the Side$/
 		};
 		await test.step(`Open plot in: ${plotLocation}`, async () => {
-			await this.contextMenu.triggerAndClick({
-				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
-				menuItemLabel: menuItemRegex[plotLocation],
-				menuItemType: 'menuitemcheckbox'
-			});
+			// The "Open in Editor" button may be visible in the action bar or overflowed into the overflow menu.
+			// First check if the dropdown button is visible, otherwise use the overflow menu.
+
+			const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);
+			const overflowButton = this.code.driver.page.locator(OVERFLOW_MENU_BUTTON);
+
+			if (await openInEditorButton.isVisible()) {
+				// Button is visible in action bar - use the dropdown
+				await this.contextMenu.triggerAndClick({
+					menuTrigger: openInEditorButton,
+					menuItemLabel: menuItemRegex[plotLocation],
+					menuItemType: 'menuitemcheckbox'
+				});
+			} else if (await overflowButton.isVisible()) {
+				// Button overflowed - use the overflow menu and its submenu
+				await overflowButton.click();
+				const overflowMenu = this.code.driver.page.locator('.custom-context-menu-items');
+				await expect(overflowMenu).toBeVisible();
+
+				// Click on the "Open in Editor" menu option to see submenu entries
+				const openInEditorSubmenu = overflowMenu.getByText('Open in Editor');
+				await openInEditorSubmenu.click();
+
+				// Wait for submenu to appear and click the appropriate item
+				const submenuItem = this.code.driver.page.locator('.custom-context-menu-items').last().getByText(menuItemRegex[plotLocation]);
+				await expect(submenuItem).toBeVisible();
+				await submenuItem.click();
+			} else {
+				throw new Error('Could not find "Open in Editor" button in action bar or overflow menu');
+			}
 		});
 	}
 

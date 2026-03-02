@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -95,7 +95,7 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	 * @returns A Promise<void> that resolves when the menu is shown.
 	 */
 	const showMenu = async () => {
-		const actions = await getActions()
+		const actions = await getActions();
 		// Get the actions. If there are no actions, return.
 		if (!actions.length) {
 			return;
