@@ -184,8 +184,8 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.53.0",
-			"sha256sum": "c9648feff6e74eacc16d7344d7474d1c1e96413d13a3774b638c11ccc65e641d",
+			"version": "0.54.0",
+			"sha256sum": "51ad9a40dfe24b59cf3a6e843352a0c3177527c4f8a7d7e55109072295b73fc1",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -215,7 +215,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.31.8",
+			"version": "1.35.3",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -266,8 +266,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.126.0",
-			"sha256": "5de58a6aef55114e2e514ddb71173a3114dd5f25bda096ebf57880b5bd13f379",
+			"version": "0.128.0",
+			"sha256": "ced05271c027d3c2b65cee44cfa65e60844f68041b15659afd6c854955d8343b",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
