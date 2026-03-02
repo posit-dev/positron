@@ -145,7 +145,7 @@ export class PositronReactRenderer extends Disposable {
 	 * @param reactElement The React element.
 	 */
 	public render(reactElement: ReactElement) {
-		if (this._root) {
+		if (this._root !== undefined) {
 			this._root.render(
 				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
 					{reactElement}
