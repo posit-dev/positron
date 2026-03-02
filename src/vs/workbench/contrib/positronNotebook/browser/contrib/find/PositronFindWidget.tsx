@@ -70,9 +70,10 @@ export interface PositronFindWidgetProps {
 export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronFindWidgetProps>((props, ref) => {
 	const findInputRef = useRef<PositronFindInputHandle>(null);
 	const replaceInputRef = useRef<PositronReplaceInputHandle>(null);
-	const prevBtnRef = useRef<HTMLButtonElement>(null);
-	const closeBtnRef = useRef<HTMLButtonElement>(null);
-	const replaceBtnRef = useRef<HTMLButtonElement>(null);
+	const prevButtonRef = useRef<HTMLButtonElement>(null);
+	const nextButtonRef = useRef<HTMLButtonElement>(null);
+	const closeButtonRef = useRef<HTMLButtonElement>(null);
+	const replaceButtonRef = useRef<HTMLButtonElement>(null);
 
 	useImperativeHandle(ref, () => ({
 		focusFindInput() {
@@ -138,7 +139,7 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 		// Tab from close button with replace visible -> focus replace button
 		if (e.key === 'Tab' && !e.shiftKey && isReplaceVisible) {
 			e.preventDefault();
-			replaceBtnRef.current?.focus();
+			replaceButtonRef.current?.focus();
 		}
 	};
 
@@ -156,10 +157,14 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 	};
 
 	const handlePreserveCaseKeyDown = (e: IKeyboardEvent) => {
-		// Tab from preserve case -> focus prev button
+		// Tab from preserve case -> focus first enabled: prev, next, close
 		if (e.equals(KeyCode.Tab)) {
 			e.preventDefault();
-			prevBtnRef.current?.focus();
+			if (!noMatches) {
+				prevButtonRef.current?.focus();
+			} else {
+				closeButtonRef.current?.focus();
+			}
 		}
 	};
 
@@ -167,7 +172,7 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 		// Shift+Tab from replace button -> focus close button
 		if (e.key === 'Tab' && e.shiftKey) {
 			e.preventDefault();
-			closeBtnRef.current?.focus();
+			closeButtonRef.current?.focus();
 		}
 	};
 
@@ -200,7 +205,7 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 				/>
 				<div className='navigation-buttons'>
 					<ActionButton
-						ref={prevBtnRef}
+						ref={prevButtonRef}
 						ariaLabel={previousMatchLabel}
 						className='action-button'
 						disabled={noMatches}
@@ -209,6 +214,7 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 						<ThemeIcon icon={Codicon.arrowUp} />
 					</ActionButton>
 					<ActionButton
+						ref={nextButtonRef}
 						ariaLabel={nextMatchLabel}
 						className='action-button'
 						disabled={noMatches}
@@ -218,7 +224,7 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 					</ActionButton>
 				</div>
 				<ActionButton
-					ref={closeBtnRef}
+					ref={closeButtonRef}
 					ariaLabel={closeLabel}
 					className='action-button close-button'
 					onKeyDown={handleCloseButtonKeyDown}
@@ -261,7 +267,7 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 						/>
 						<div className='replace-actions'>
 							<ActionButton
-								ref={replaceBtnRef}
+								ref={replaceButtonRef}
 								ariaLabel={replaceLabel}
 								className='action-button replace-button'
 								disabled={!replaceButtonsEnabled}
