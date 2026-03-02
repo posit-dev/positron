@@ -54,13 +54,6 @@ export interface BedrockProviderVariables {
  */
 export class AWSModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
-	 * Anthropic-specific Bedrock provider that uses the native Anthropic API
-	 * through Bedrock's InvokeModel endpoint for better feature compatibility.
-	 * Used for Anthropic models; non-Anthropic models use the generic Bedrock provider.
-	 */
-	private _bedrockAnthropicProvider!: BedrockAnthropicProvider;
-
-	/**
 	 * Bedrock client for API calls to list models and inference profiles.
 	 */
 	bedrockClient: BedrockClient;
@@ -231,7 +224,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		// Use the Anthropic-specific provider for Anthropic models (native API
 		// through InvokeModel for better feature compatibility) and the generic
 		// Bedrock provider for all other models (Converse API).
-		this._bedrockAnthropicProvider = createBedrockAnthropic({
+		const bedrockAnthropicProvider = createBedrockAnthropic({
 			region,
 			credentialProvider: credentials
 		});
@@ -241,7 +234,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		});
 		this.aiProvider = (id: string) => {
 			if (id.includes('anthropic')) {
-				return this._bedrockAnthropicProvider(id);
+				return bedrockAnthropicProvider(id);
 			}
 			return bedrockProvider(id);
 		};
