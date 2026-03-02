@@ -180,5 +180,6 @@ export class PositronFindInstance extends Disposable {
 	 */
 	public hide(): void {
 		this._isVisible.set(false, undefined);
+		this.replaceIsVisible.set(false, undefined);
 	}
 }

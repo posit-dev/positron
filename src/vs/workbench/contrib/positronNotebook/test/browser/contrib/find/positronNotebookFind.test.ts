@@ -760,6 +760,19 @@ suite('PositronNotebookFindController', () => {
 			assert.strictEqual(find.isVisible.get(), false);
 		});
 
+		test('hide resets replace visibility', () => {
+			const { controller, find } = findFixture([['hello', 'python', CellKind.Code]]);
+
+			// Show with replace visible
+			controller.start({ replace: true });
+			assert.strictEqual(find.replaceIsVisible.get(), true);
+
+			// Hide and re-show without replace
+			controller.hide();
+			controller.start();
+			assert.strictEqual(find.replaceIsVisible.get(), false);
+		});
+
 		test('hide before start is no-op', () => {
 			const notebook = createNotebook([['hello', 'python', CellKind.Code]]);
 			const controller = getController(notebook);
