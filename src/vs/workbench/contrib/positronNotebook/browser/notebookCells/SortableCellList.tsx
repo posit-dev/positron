@@ -130,7 +130,13 @@ export function SortableCellList({
 			});
 		};
 
-		if (!over || active.id === over.id) {
+		// Minimum vertical displacement to commit a reorder. Because
+		// closestCenterExcludingActive excludes the active item from collision
+		// candidates, very small movements resolve to a neighbor cell. This
+		// prevents accidental reorders when the user activates the drag
+		// (10px threshold) but releases without meaningful movement.
+		const MIN_REORDER_DISTANCE = 25;
+		if (!over || active.id === over.id || Math.abs(event.delta.y) < MIN_REORDER_DISTANCE) {
 			clearDragState();
 			return;
 		}
