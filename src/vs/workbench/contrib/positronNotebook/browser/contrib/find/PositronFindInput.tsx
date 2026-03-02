@@ -39,15 +39,19 @@ export interface PositronFindInputProps {
 }
 
 export const PositronFindInput = forwardRef<FindInput, PositronFindInputProps>((props, ref) => {
-	const { value, findInputOptions, contextKeyService, contextViewService } = props;
 	const containerRef = useRef<HTMLDivElement>(null);
-	const findInput = useFindInput(containerRef, findInputOptions, contextViewService, contextKeyService, value);
+	const findInput = useFindInput({ containerRef, ...props });
 
 	return <div ref={containerRef} className='find-input-container'>
 		{findInput && <FindInputEffects findInput={findInput} {...props} />}
 	</div>;
 });
 
+/**
+ * Internal component that wires up effects between the FindInput widget and React props.
+ * Rendered conditionally so that hooks only run when the widget is available, avoiding
+ * null guards in every effect.
+ */
 const FindInputEffects = ({
 	findInput,
 	value,
@@ -120,17 +124,19 @@ const FindInputEffects = ({
 	return null;
 };
 
-function useFindInput(
-	containerRef: RefObject<HTMLElement | null>,
-	options: IFindInputOptions,
-	contextViewService: IContextViewService,
-	contextKeyService: IContextKeyService,
-	value?: string,
-): FindInput | null {
+function useFindInput({
+	containerRef,
+	findInputOptions,
+	contextViewService,
+	contextKeyService,
+	value,
+}: {
+	containerRef: RefObject<HTMLElement | null>;
+} & Pick<PositronFindInputProps, 'findInputOptions' | 'contextViewService' | 'contextKeyService' | 'value'>): FindInput | null {
 	const [findInput, setFindInput] = useState<FindInput | null>(null);
 
 	// Capture initial options to avoid recreating FindInput on prop changes
-	const initialOptionsRef = useRef(options);
+	const initialOptionsRef = useRef(findInputOptions);
 	const initialValueRef = useRef(value);
 
 	// Initialize FindInput widget once on mount

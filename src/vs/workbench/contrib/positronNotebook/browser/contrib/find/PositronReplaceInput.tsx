@@ -34,15 +34,19 @@ export interface PositronReplaceInputProps {
 }
 
 export const PositronReplaceInput = (props: PositronReplaceInputProps) => {
-	const { value, replaceInputOptions, contextKeyService, contextViewService } = props;
 	const containerRef = useRef<HTMLDivElement>(null);
-	const replaceInput = useReplaceInput(containerRef, replaceInputOptions, contextViewService, contextKeyService, value);
+	const replaceInput = useReplaceInput({ containerRef, ...props });
 
 	return <div ref={containerRef} className='replace-input-container'>
 		{replaceInput && <ReplaceInputEffects replaceInput={replaceInput} {...props} />}
 	</div>;
 };
 
+/**
+ * Internal component that wires up effects between the ReplaceInput widget and React props.
+ * Rendered conditionally so that hooks only run when the widget is available, avoiding
+ * null guards in every effect.
+ */
 const ReplaceInputEffects = ({
 	replaceInput,
 	value,
@@ -105,17 +109,19 @@ const ReplaceInputEffects = ({
 	return null;
 };
 
-function useReplaceInput(
-	containerRef: RefObject<HTMLElement | null>,
-	options: IReplaceInputOptions,
-	contextViewService: IContextViewService,
-	contextKeyService: IContextKeyService,
-	value?: string,
-): ReplaceInput | null {
+function useReplaceInput({
+	containerRef,
+	replaceInputOptions,
+	contextViewService,
+	contextKeyService,
+	value,
+}: {
+	containerRef: RefObject<HTMLElement | null>;
+} & Pick<PositronReplaceInputProps, 'replaceInputOptions' | 'contextViewService' | 'contextKeyService' | 'value'>): ReplaceInput | null {
 	const [replaceInput, setReplaceInput] = useState<ReplaceInput | null>(null);
 
 	// Capture initial options to avoid recreating ReplaceInput on prop changes
-	const initialOptionsRef = useRef(options);
+	const initialOptionsRef = useRef(replaceInputOptions);
 	const initialValueRef = useRef(value);
 
 	// Initialize ReplaceInput widget once on mount
