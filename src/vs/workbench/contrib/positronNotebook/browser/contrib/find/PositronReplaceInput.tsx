@@ -117,7 +117,11 @@ function useReplaceInput({
 	value,
 }: {
 	containerRef: RefObject<HTMLElement | null>;
-} & Pick<PositronReplaceInputProps, 'replaceInputOptions' | 'contextViewService' | 'contextKeyService' | 'value'>): ReplaceInput | null {
+	replaceInputOptions: IReplaceInputOptions;
+	contextViewService: IContextViewService;
+	contextKeyService: IContextKeyService;
+	value?: string;
+}): ReplaceInput | null {
 	const [replaceInput, setReplaceInput] = useState<ReplaceInput | null>(null);
 
 	// Capture initial options to avoid recreating ReplaceInput on prop changes

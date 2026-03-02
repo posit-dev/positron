@@ -132,7 +132,11 @@ function useFindInput({
 	value,
 }: {
 	containerRef: RefObject<HTMLElement | null>;
-} & Pick<PositronFindInputProps, 'findInputOptions' | 'contextViewService' | 'contextKeyService' | 'value'>): FindInput | null {
+	findInputOptions: IFindInputOptions;
+	contextViewService: IContextViewService;
+	contextKeyService: IContextKeyService;
+	value?: string;
+}): FindInput | null {
 	const [findInput, setFindInput] = useState<FindInput | null>(null);
 
 	// Capture initial options to avoid recreating FindInput on prop changes
