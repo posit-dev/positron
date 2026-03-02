@@ -86,16 +86,18 @@ suite('PositronFindWidget', () => {
 	let matchIndex: ISettableObservable<number | undefined>;
 	let matchCount: ISettableObservable<number | undefined>;
 	let isVisible: ISettableObservable<boolean>;
-	let inputFocused: ISettableObservable<boolean>;
 	let onPreviousMatch: sinon.SinonStub;
 	let onNextMatch: sinon.SinonStub;
+	let onFindInputFocus: sinon.SinonStub;
+	let onFindInputBlur: sinon.SinonStub;
 	// Replace props
-	let replaceExpanded: ISettableObservable<boolean>;
+	let replaceIsVisible: ISettableObservable<boolean>;
 	let replaceText: ISettableObservable<string>;
 	let preserveCase: ISettableObservable<boolean>;
-	let replaceInputFocused: ISettableObservable<boolean>;
 	let onReplace: sinon.SinonStub;
 	let onReplaceAll: sinon.SinonStub;
+	let onReplaceInputFocus: sinon.SinonStub;
+	let onReplaceInputBlur: sinon.SinonStub;
 
 	function renderWidget({ useReplace } = { useReplace: false }) {
 		const container = render(
@@ -110,17 +112,15 @@ suite('PositronFindWidget', () => {
 					toggleStyles: unthemedToggleStyles,
 				}}
 				findText={findText}
-				inputFocused={inputFocused}
 				isVisible={isVisible}
 				matchCase={matchCase}
 				matchCount={matchCount}
 				matchIndex={matchIndex}
 				matchWholeWord={matchWholeWord}
 				replace={useReplace ? {
-					isVisible: replaceExpanded,
+					isVisible: replaceIsVisible,
 					replaceText,
 					preserveCase,
-					replaceInputFocused,
 					replaceInputOptions: {
 						label: 'Replace',
 						inputBoxStyles: unthemedInboxStyles,
@@ -128,8 +128,12 @@ suite('PositronFindWidget', () => {
 					},
 					onReplace,
 					onReplaceAll,
+					onReplaceInputFocus,
+					onReplaceInputBlur,
 				} : undefined}
 				useRegex={useRegex}
+				onFindInputBlur={onFindInputBlur}
+				onFindInputFocus={onFindInputFocus}
 				onNextMatch={onNextMatch}
 				onPreviousMatch={onPreviousMatch}
 			/>
@@ -148,17 +152,19 @@ suite('PositronFindWidget', () => {
 		matchIndex = observableValue<number | undefined>('matchIndex', undefined);
 		matchCount = observableValue<number | undefined>('matchCount', undefined);
 		isVisible = observableValue('isVisible', true);
-		inputFocused = observableValue('inputFocused', false);
 		onPreviousMatch = sinon.stub();
 		onNextMatch = sinon.stub();
+		onFindInputFocus = sinon.stub();
+		onFindInputBlur = sinon.stub();
 
 		// Replace props
-		replaceExpanded = observableValue('replaceExpanded', false);
+		replaceIsVisible = observableValue('replaceIsVisible', false);
 		replaceText = observableValue('replaceText', '');
 		preserveCase = observableValue('preserveCase', false);
-		replaceInputFocused = observableValue('replaceInputFocused', false);
 		onReplace = sinon.stub();
 		onReplaceAll = sinon.stub();
+		onReplaceInputFocus = sinon.stub();
+		onReplaceInputBlur = sinon.stub();
 	});
 
 	teardown(() => {
@@ -177,6 +183,18 @@ suite('PositronFindWidget', () => {
 			const widget = renderWidget();
 
 			assert.ok(!widget.isVisible, 'Expected find widget to be hidden');
+		});
+
+		test('focuses find input when becoming visible', () => {
+			isVisible.set(false, undefined);
+			const widget = renderWidget();
+
+			flushSync(() => isVisible.set(true, undefined));
+
+			assert.ok(
+				widget.container.contains(document.activeElement),
+				'Expected focus to be inside the find widget',
+			);
 		});
 
 		test('hidden when close button is clicked', () => {
@@ -262,15 +280,15 @@ suite('PositronFindWidget', () => {
 	});
 
 	suite('Replace', () => {
-		test('hidden when replaceExpanded is false', () => {
+		test('hidden when replaceIsVisible is false', () => {
 			const widget = renderWidget({ useReplace: true });
 
 			assert.ok(widget.toggleReplaceButton, 'Expected toggle replace button to exist');
 			assert.strictEqual(widget.replacePart, null, 'Expected replace part to be hidden');
 		});
 
-		test('visible when replaceExpanded is true', () => {
-			replaceExpanded.set(true, undefined);
+		test('visible when replaceIsVisible is true', () => {
+			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
 			assert.ok(widget.toggleReplaceButton, 'Expected toggle replace button to exist');
@@ -285,17 +303,17 @@ suite('PositronFindWidget', () => {
 			flushSync(() => widget.toggleReplaceButton!.click());
 
 			assert.ok(widget.replacePart, 'Expected replace part to be visible when expanded');
-			assert.ok(replaceExpanded.get(), 'Expected replaceExpanded to be true');
+			assert.ok(replaceIsVisible.get(), 'Expected replaceIsVisible to be true');
 
 			flushSync(() => widget.toggleReplaceButton!.click());
 
 			assert.strictEqual(widget.replacePart, null, 'Expected replace part to be hidden');
-			assert.ok(!replaceExpanded.get(), 'Expected replaceExpanded to be false');
+			assert.ok(!replaceIsVisible.get(), 'Expected replaceIsVisible to be false');
 		});
 
 		test('replace button calls onReplace', () => {
 			findText.set('foo', undefined);
-			replaceExpanded.set(true, undefined);
+			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
 			flushSync(() => widget.replaceButton!.click());
@@ -304,7 +322,7 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('replace all button calls onReplaceAll', () => {
-			replaceExpanded.set(true, undefined);
+			replaceIsVisible.set(true, undefined);
 			findText.set('foo', undefined);
 			const widget = renderWidget({ useReplace: true });
 
@@ -314,7 +332,7 @@ suite('PositronFindWidget', () => {
 		});
 
 		test('replace buttons are disabled when there is no query', () => {
-			replaceExpanded.set(true, undefined);
+			replaceIsVisible.set(true, undefined);
 			const widget = renderWidget({ useReplace: true });
 
 			assert.ok(widget.replaceButton!.disabled, 'Expected replace button to be disabled');

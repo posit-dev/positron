@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, RefObject, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // VS Code utilities.
 import { Delayer } from '../../../../../../base/common/async.js';
@@ -18,10 +18,15 @@ import { IContextViewService } from '../../../../../../platform/contextview/brow
 import { useDisposableEffect } from '../../useDisposableEffect.js';
 import { useDelayer } from './useDelayer.js';
 
+export interface PositronReplaceInputHandle {
+	focus(): void;
+	select(): void;
+	focusOnPreserveCase(): void;
+}
+
 export interface PositronReplaceInputProps {
 	readonly value?: string;
 	readonly preserveCase?: boolean;
-	readonly isFocused?: boolean;
 	readonly onKeyDown?: (e: IKeyboardEvent) => void;
 	readonly onPreserveCaseKeyDown?: (e: IKeyboardEvent) => void;
 	readonly onValueChange: (value: string) => void;
@@ -33,14 +38,20 @@ export interface PositronReplaceInputProps {
 	readonly contextViewService: IContextViewService;
 }
 
-export const PositronReplaceInput = (props: PositronReplaceInputProps) => {
+export const PositronReplaceInput = forwardRef<PositronReplaceInputHandle, PositronReplaceInputProps>((props, ref) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const replaceInput = useReplaceInput({ containerRef, ...props });
+
+	useImperativeHandle(ref, () => ({
+		focus() { replaceInput?.focus(); },
+		select() { replaceInput?.select(); },
+		focusOnPreserveCase() { replaceInput?.focusOnPreserve(); },
+	}), [replaceInput]);
 
 	return <div ref={containerRef} className='replace-input-container'>
 		{replaceInput && <ReplaceInputEffects replaceInput={replaceInput} {...props} />}
 	</div>;
-};
+});
 
 /**
  * Internal component that wires up effects between the ReplaceInput widget and React props.
@@ -51,7 +62,6 @@ const ReplaceInputEffects = ({
 	replaceInput,
 	value,
 	preserveCase = false,
-	isFocused = false,
 	onKeyDown,
 	onPreserveCaseKeyDown,
 	onValueChange,
@@ -59,9 +69,6 @@ const ReplaceInputEffects = ({
 	onFocus,
 	onBlur,
 }: { replaceInput: ReplaceInput } & PositronReplaceInputProps) => {
-	/** Track whether the input was previously focused */
-	const wasFocused = useRef(false);
-
 	/** Delayer/throttler for history updates (500ms like SimpleFindWidget) */
 	const delayer = useDelayer(() => new Delayer<void>(500));
 
@@ -96,15 +103,6 @@ const ReplaceInputEffects = ({
 		}
 	}, [replaceInput, value]);
 	useEffect(() => replaceInput.setPreserveCase(preserveCase), [replaceInput, preserveCase]);
-
-	// Focus input when requested
-	useEffect(() => {
-		if (!wasFocused.current && isFocused) {
-			replaceInput.focus();
-			replaceInput.select();
-		}
-		wasFocused.current = isFocused;
-	}, [replaceInput, isFocused]);
 
 	return null;
 };

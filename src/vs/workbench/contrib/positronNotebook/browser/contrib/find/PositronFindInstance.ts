@@ -9,7 +9,7 @@ import * as DOM from '../../../../../../base/browser/dom.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { IObservable, observableValue, transaction } from '../../../../../../base/common/observable.js';
-import { PositronFindWidget, type PositronFindWidgetReplaceProps } from './PositronFindWidget.js';
+import { PositronFindWidget, PositronFindWidgetHandle, type PositronFindWidgetReplaceProps } from './PositronFindWidget.js';
 import type { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import type { IReplaceInputOptions } from '../../../../../../base/browser/ui/findinput/replaceInput.js';
 import { PositronReactRenderer } from '../../../../../../base/browser/positronReactRenderer.js';
@@ -54,6 +54,7 @@ export interface IPositronFindInstanceOptions {
 export class PositronFindInstance extends Disposable {
 	private _container?: HTMLElement;
 	private _renderer?: PositronReactRenderer;
+	private readonly _widgetRef = React.createRef<PositronFindWidgetHandle>();
 
 	// Events for user actions
 	private readonly _onDidRequestFindNext = this._register(new Emitter<void>());
@@ -77,7 +78,7 @@ export class PositronFindInstance extends Disposable {
 
 	// Observable state for replace operations
 	public readonly replaceText = observableValue('findStateReplaceText', '');
-	public readonly replaceExpanded = observableValue('findStateReplaceExpanded', false);
+	public readonly replaceIsVisible = observableValue('findStateReplaceExpanded', false);
 
 	// Observable state for visibility and focus
 	private readonly _isVisible = observableValue('findStateIsVisible', false);
@@ -102,9 +103,9 @@ export class PositronFindInstance extends Disposable {
 
 	/**
 	 * Shows the find widget.
-	 * @param options.expandReplace If true, expands the replace section.
+	 * @param options.replace If true, expands the replace section.
 	 */
-	public show(options?: { expandReplace?: boolean }): void {
+	public show(options?: { replace?: boolean }): void {
 		// Only create renderer and widget on first show
 		if (!this._renderer) {
 			// Create widget container
@@ -120,48 +121,58 @@ export class PositronFindInstance extends Disposable {
 			let replaceProps: PositronFindWidgetReplaceProps | undefined;
 			if (this._options.replaceInputOptions) {
 				replaceProps = {
-					isVisible: this.replaceExpanded,
+					isVisible: this.replaceIsVisible,
 					replaceText: this.replaceText,
 					preserveCase: this.preserveCase,
-					replaceInputFocused: this._replaceInputFocused,
 					replaceInputOptions: this._options.replaceInputOptions,
 					onReplace: () => this._onDidRequestReplace.fire(),
 					onReplaceAll: () => this._onDidRequestReplaceAll.fire(),
+					onReplaceInputFocus: () => this._replaceInputFocused.set(true, undefined),
+					onReplaceInputBlur: () => this._replaceInputFocused.set(false, undefined),
 				};
 			}
 
 			// Create the find widget
 			const findWidget = React.createElement(PositronFindWidget, {
+				ref: this._widgetRef,
 				contextKeyService: this._options.contextKeyService,
 				contextViewService: this._options.contextViewService,
 				findInputOptions: this._options.findInputOptions,
 				findText: this.searchString,
-				inputFocused: this._inputFocused,
 				isVisible: this._isVisible,
 				matchCase: this.matchCase,
-				matchWholeWord: this.wholeWord,
-				useRegex: this.isRegex,
-				matchIndex: this.matchIndex,
 				matchCount: this.matchCount,
+				matchIndex: this.matchIndex,
+				matchWholeWord: this.wholeWord,
 				replace: replaceProps,
-				onPreviousMatch: () => this._onDidRequestFindPrevious.fire(),
+				useRegex: this.isRegex,
+				onFindInputBlur: () => this._inputFocused.set(false, undefined),
+				onFindInputFocus: () => this._inputFocused.set(true, undefined),
 				onNextMatch: () => this._onDidRequestFindNext.fire(),
+				onPreviousMatch: () => this._onDidRequestFindPrevious.fire(),
 			});
 
 			// Render the widget
 			this._renderer.render(findWidget);
 		}
 
+		// Set input-focused synchronously so that the find widget's keybindings
+		// take effect immediately. Without this, cells can consume keyboard
+		// events (e.g. Enter to edit the active cell) before the context key
+		// propagates through the async DOM focus path.
 		transaction((tx) => {
-			// Set visible state and request focus
 			this._isVisible.set(true, tx);
 			this._inputFocused.set(true, tx);
 
-			// Optionally expand replace
-			if (options?.expandReplace) {
-				this.replaceExpanded.set(true, tx);
+			if (options?.replace) {
+				this.replaceIsVisible.set(true, tx);
 			}
 		});
+
+		// Re-focus when the widget is already visible (e.g. Cmd+F while open).
+		// When transitioning from hidden to visible, the widget's useEffect
+		// handles focus after React re-renders and the container is displayed.
+		this._widgetRef.current?.focusFindInput();
 	}
 
 	/**

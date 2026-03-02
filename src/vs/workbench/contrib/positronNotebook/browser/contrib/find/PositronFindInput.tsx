@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { forwardRef, RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, RefObject, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // VS Code utilities.
 import { Delayer } from '../../../../../../base/common/async.js';
@@ -18,12 +18,17 @@ import { IContextViewService } from '../../../../../../platform/contextview/brow
 import { useDisposableEffect } from '../../useDisposableEffect.js';
 import { useDelayer } from './useDelayer.js';
 
+export interface PositronFindInputHandle {
+	focus(): void;
+	select(): void;
+	focusOnCaseSensitive(): void;
+}
+
 export interface PositronFindInputProps {
 	readonly value?: string;
 	readonly matchCase?: boolean;
 	readonly matchWholeWord?: boolean;
 	readonly useRegex?: boolean;
-	readonly isFocused?: boolean;
 	readonly onKeyDown?: (e: IKeyboardEvent) => void;
 	readonly onCaseSensitiveKeyDown?: (e: IKeyboardEvent) => void;
 	readonly onRegexKeyDown?: (e: IKeyboardEvent) => void;
@@ -38,9 +43,15 @@ export interface PositronFindInputProps {
 	readonly contextViewService: IContextViewService;
 }
 
-export const PositronFindInput = forwardRef<FindInput, PositronFindInputProps>((props, ref) => {
+export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFindInputProps>((props, ref) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const findInput = useFindInput({ containerRef, ...props });
+
+	useImperativeHandle(ref, () => ({
+		focus() { findInput?.focus(); },
+		select() { findInput?.select(); },
+		focusOnCaseSensitive() { findInput?.focusOnCaseSensitive(); },
+	}), [findInput]);
 
 	return <div ref={containerRef} className='find-input-container'>
 		{findInput && <FindInputEffects findInput={findInput} {...props} />}
@@ -58,7 +69,6 @@ const FindInputEffects = ({
 	matchCase = false,
 	matchWholeWord = false,
 	useRegex = false,
-	isFocused = false,
 	onKeyDown,
 	onCaseSensitiveKeyDown,
 	onRegexKeyDown,
@@ -69,9 +79,6 @@ const FindInputEffects = ({
 	onFocus,
 	onBlur,
 }: { findInput: FindInput } & PositronFindInputProps) => {
-	/** Track whether the input was previously focused */
-	const wasFocused = useRef(false);
-
 	/** Delayer/throttler for history updates (500ms like SimpleFindWidget) */
 	const delayer = useDelayer(() => new Delayer<void>(500));
 
@@ -111,15 +118,6 @@ const FindInputEffects = ({
 	useEffect(() => findInput.setCaseSensitive(matchCase), [findInput, matchCase]);
 	useEffect(() => findInput.setWholeWords(matchWholeWord), [findInput, matchWholeWord]);
 	useEffect(() => findInput.setRegex(useRegex), [findInput, useRegex]);
-
-	// Focus input when requested
-	useEffect(() => {
-		if (!wasFocused.current && isFocused) {
-			findInput.focus();
-			findInput.select();
-		}
-		wasFocused.current = isFocused;
-	}, [findInput, isFocused]);
 
 	return null;
 };
@@ -161,6 +159,12 @@ function useFindInput({
 		if (initialValueRef.current !== undefined) {
 			input.setValue(initialValueRef.current);
 		}
+
+		// Auto-focus on creation. The React tree is lazily mounted on first
+		// show(), so creation always coincides with the widget becoming visible.
+		// Re-shows are handled by the instance calling the widget handle directly.
+		input.focus();
+		input.select();
 
 		setFindInput(input);
 

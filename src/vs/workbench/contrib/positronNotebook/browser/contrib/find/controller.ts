@@ -245,9 +245,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	/**
 	 * Shows the find widget and starts the find operation.
-	 * @param options.expandReplace If true, expands the replace section.
+	 * @param options.replace If true, expands the replace section.
 	 */
-	public start(options?: { expandReplace?: boolean }): void {
+	public start(options?: { replace?: boolean }): void {
 		const findInstance = this.getOrCreateFindInstance();
 		findInstance.show(options);
 	}

@@ -152,7 +152,7 @@ registerPositronNotebookFindAction({
 		mac: { primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyF },
 		weight: KeybindingWeight.EditorContrib
 	}],
-	run: (controller) => controller.start({ expandReplace: true })
+	run: (controller) => controller.start({ replace: true })
 });
 
 // Replace the current match

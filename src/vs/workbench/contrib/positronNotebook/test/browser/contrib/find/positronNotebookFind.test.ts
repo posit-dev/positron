@@ -711,16 +711,22 @@ suite('PositronNotebookFindController', () => {
 			);
 		});
 
-		test('context key FIND_INPUT_FOCUSED is true after show and false after hide', () => {
-			const { notebook, controller } = findFixture([['hello', 'python', CellKind.Code]]);
+		test('context key FIND_INPUT_FOCUSED is true immediately after show', () => {
+			// Must be set synchronously so that cells don't consume keyboard
+			// events (e.g. Enter to edit the active cell) before the find
+			// widget's keybindings take effect.
+			const { notebook } = findFixture([['hello', 'python', CellKind.Code]]);
 
-			// After show(), find input is focused
 			assert.strictEqual(
 				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_INPUT_FOCUSED.key),
 				true
 			);
+		});
 
-			// Hide resets the context key
+		test('context key FIND_INPUT_FOCUSED is false after hide', () => {
+			const { notebook, controller } = findFixture([['hello', 'python', CellKind.Code]]);
+
+			// Verify hide resets the context key.
 			controller.hide();
 			assert.strictEqual(
 				notebook.scopedContextKeyService.getContextKeyValue(CONTEXT_FIND_INPUT_FOCUSED.key),
