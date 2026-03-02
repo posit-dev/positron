@@ -47,9 +47,12 @@ export function setupReactRenderer() {
 	});
 
 	teardown(() => {
-		const { root, container } = context!;
-		root.unmount();
-		container.remove();
+		if (context) {
+			const { root, container } = context;
+			root.unmount();
+			container.remove();
+			context = undefined;
+		}
 	});
 
 	return {
