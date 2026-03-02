@@ -12,6 +12,7 @@ import { Event } from '../common/event.js';
 import { Disposable, IDisposable } from '../common/lifecycle.js';
 import { PositronReactServices } from './positronReactServices.js';
 import { PositronReactServicesContext } from './positronReactRendererContext.js';
+import { flushSync } from 'react-dom';
 
 /**
  * ISize interface.
@@ -145,13 +146,15 @@ export class PositronReactRenderer extends Disposable {
 	 * @param reactElement The React element.
 	 */
 	public render(reactElement: ReactElement) {
-		if (this._root !== undefined) {
-			this._root.render(
-				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
-					{reactElement}
-				</PositronReactServicesContext.Provider>
-			);
-		}
+		flushSync(() => {
+			if (this._root) {
+				this._root.render(
+					<PositronReactServicesContext.Provider value={PositronReactServices.services}>
+						{reactElement}
+					</PositronReactServicesContext.Provider>
+				);
+			}
+		});
 	}
 
 	/**
