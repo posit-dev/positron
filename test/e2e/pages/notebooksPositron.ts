@@ -437,8 +437,7 @@ export class PositronNotebooks extends Notebooks {
 
 			// Ensure source cell is visible and get drag handle
 			await sourceCell.scrollIntoViewIfNeeded();
-			// Small wait for scroll to settle before starting drag
-			await this.code.driver.page.waitForTimeout(100);
+			await expect(sourceCell).toBeVisible();
 
 			await sourceCell.hover();
 			await expect(dragHandle).toBeVisible({ timeout: 2000 });
@@ -526,8 +525,8 @@ export class PositronNotebooks extends Notebooks {
 				const finalCheck = await isTargetReachable();
 				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
 					await this.code.driver.page.mouse.move(startX, finalCheck.targetY, { steps: 10 });
-					// Small stabilization wait before drop
-					await this.code.driver.page.waitForTimeout(50);
+					// Wait one frame for dnd-kit to process the final position
+					await this.code.driver.page.evaluate(() => new Promise(requestAnimationFrame));
 					await this.code.driver.page.mouse.up();
 					return;
 				}
