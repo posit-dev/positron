@@ -304,14 +304,22 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			)
 		);
 
-		const scopedContextKeyService = this._renderReact();
+		// Get the scoped context key service before rendering.
+		const scopedContextKeyService = this._containerScopedContextKeyService;
+		if (!scopedContextKeyService) {
+			throw new Error('Scoped context key service is not set.');
+		}
 
+		// Attach the view first so that React components can access scopedContextKeyService during render.
 		notebookInstance.attachView(
 			this._notebookContainer!,
 			scopedContextKeyService,
 			this._overlayContainer!,
 			this._editorContainer!
 		);
+
+		// Now render the React component tree.
+		this._renderReact();
 	}
 
 	/**
@@ -379,7 +387,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		}
 	}
 
-	private _renderReact(): IScopedContextKeyService {
+	private _renderReact(): void {
 		this._logService.debug(this._identifier, 'renderReact');
 
 		if (!this.notebookInstance) {
@@ -403,10 +411,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			throw new Error('Scoped context key service is not set.');
 		}
 
-		// Set the editor container for focus tracking
+		// Set the editor container for focus tracking.
 		this.notebookInstance.setEditorContainer(this._editorContainer);
 
-		// Create renderer if it doesn't exist, otherwise reuse existing renderer
+		// Create renderer if it doesn't exist, otherwise reuse existing renderer.
 		if (!this._positronReactRenderer) {
 			this._positronReactRenderer = new PositronReactRenderer(this._notebookContainer);
 		}
@@ -424,8 +432,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 				</NotebookInstanceProvider>
 			</NotebookVisibilityProvider>
 		);
-
-		return scopedContextKeyService;
 	}
 
 
