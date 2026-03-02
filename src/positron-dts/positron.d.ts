@@ -2140,6 +2140,13 @@ declare module 'positron' {
 			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
 
 		/**
+		 * Interrupt a running session.
+		 *
+		 * @param sessionId The ID of the session to interrupt.
+		 */
+		export function interruptSession(sessionId: string): Thenable<void>;
+
+		/**
 		 * Restart a running session.
 		 *
 		 * @param sessionId The ID of the session to restart.

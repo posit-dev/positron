@@ -201,14 +201,15 @@ export const ExecuteNotebookTool = vscode.lm.registerTool<ExecuteNotebookInput>(
 				}
 
 				case 'interrupt': {
-					// Verify the active notebook matches the target to avoid interrupting the wrong notebook
-					const activeEditor = vscode.window.activeNotebookEditor;
-					if (!activeEditor || activeEditor.notebook.uri.toString() !== context.uri) {
+					const notebookUri = vscode.Uri.parse(context.uri);
+					const session = await positron.runtime.getNotebookSession(notebookUri);
+					if (!session) {
 						return new vscode.LanguageModelToolResult([
-							new vscode.LanguageModelTextPart('Cannot interrupt: the active notebook has changed. Please ensure the target notebook is focused.')
+							new vscode.LanguageModelTextPart('No active kernel session found for this notebook. The kernel may not be started.')
 						]);
 					}
-					await vscode.commands.executeCommand('notebook.cancelExecution');
+
+					await positron.runtime.interruptSession(session.metadata.sessionId);
 					return new vscode.LanguageModelToolResult([
 						new vscode.LanguageModelTextPart('Successfully interrupted notebook execution.')
 					]);
