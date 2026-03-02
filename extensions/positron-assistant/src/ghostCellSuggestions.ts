@@ -96,10 +96,28 @@ export async function generateGhostCellSuggestion(
 	// Start variable fetch concurrently with model selection
 	const variablesSummaryPromise = fetchSessionVariablesSummary(uri, log);
 
-	// Get the model to use for generation
-	const modelSelection = await getModel(participantService, log);
+	// Get the model to use for generation (with timeout to prevent hanging
+	// if a VS Code API call stalls)
+	let modelSelectionTimedOut = false;
+	let modelSelectionTimer: ReturnType<typeof setTimeout> | undefined;
+	let modelSelection: ModelSelectionResult | null;
+	try {
+		modelSelection = await Promise.race([
+			getModel(participantService, log),
+			new Promise<null>(resolve => {
+				modelSelectionTimer = setTimeout(() => {
+					modelSelectionTimedOut = true;
+					resolve(null);
+				}, 10000);
+			})
+		]);
+	} finally {
+		clearTimeout(modelSelectionTimer);
+	}
 	if (!modelSelection) {
-		log.warn('[ghost-cell] No language model available');
+		log.warn(modelSelectionTimedOut
+			? '[ghost-cell] Model selection timed out'
+			: '[ghost-cell] No language model available');
 		return null;
 	}
 	const { model, usedFallback } = modelSelection;
@@ -144,6 +162,12 @@ export async function generateGhostCellSuggestion(
 		'utf8'
 	);
 
+	// Cancel in-flight generation work if the timeout fires or the caller
+	// cancels, so we don't leave stalled streams alive in the background.
+	const generationCts = new vscode.CancellationTokenSource();
+	const parentCancelListener = token.onCancellationRequested(() => generationCts.cancel());
+	let generationTimer: ReturnType<typeof setTimeout> | undefined;
+
 	try {
 		// Construct messages for the request
 		const systemMessage = new vscode.LanguageModelChatMessage(
@@ -152,17 +176,23 @@ export async function generateGhostCellSuggestion(
 		);
 		const userMessage = vscode.LanguageModelChatMessage.User(contextMessage);
 
-		// Send request to LLM with timeout
+		// Timeout covers the entire generation process (request + streaming).
+		// Previously the timeout only covered sendRequest(), so a stalled
+		// stream from the model provider could hang indefinitely.
 		const timeoutMs = 30000;
-		const timeoutPromise = new Promise<never>((_, reject) => {
-			setTimeout(() => reject(new Error('Ghost cell suggestion timed out')), timeoutMs);
-		});
-
-		const responsePromise = model.sendRequest([systemMessage, userMessage], {}, token);
-		const response = await Promise.race([responsePromise, timeoutPromise]);
-
-		// Parse streaming XML response
-		const result = await parseStreamingXML(response.text, log, token, language, onProgress);
+		const generationPromise = (async () => {
+			const response = await model.sendRequest([systemMessage, userMessage], {}, generationCts.token);
+			return parseStreamingXML(response.text, log, generationCts.token, language, onProgress);
+		})();
+		const result = await Promise.race([
+			generationPromise,
+			new Promise<never>((_, reject) => {
+				generationTimer = setTimeout(() => {
+					generationCts.cancel();
+					reject(new Error('Ghost cell suggestion timed out'));
+				}, timeoutMs);
+			})
+		]);
 		if (result) {
 			result.modelName = modelName;
 			result.usedFallback = usedFallback;
@@ -178,6 +208,10 @@ export async function generateGhostCellSuggestion(
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		log.error(`[ghost-cell] Error generating suggestion: ${errorMessage}`);
 		return null;
+	} finally {
+		clearTimeout(generationTimer);
+		parentCancelListener.dispose();
+		generationCts.dispose();
 	}
 }
 
@@ -313,20 +347,39 @@ async function parseStreamingXML(
 		}
 	});
 
-	// Stream the response through the lexer
+	// Stream the response through the lexer, racing each chunk against
+	// cancellation so we can break out of a stalled stream promptly.
+	// The original for-await loop only checked cancellation between
+	// chunks, so a blocked iterator would never reach the check.
+	let rejectOnCancel!: (error: Error) => void;
+	const cancelledPromise = new Promise<never>((_, reject) => {
+		rejectOnCancel = reject;
+	});
+	const cancelListener = token.onCancellationRequested(() => {
+		rejectOnCancel(new Error('Cancelled'));
+	});
+
+	const iterator = textStream[Symbol.asyncIterator]();
 	try {
-		for await (const delta of textStream) {
-			if (token.isCancellationRequested) {
+		while (true) {
+			const iterResult = await Promise.race([iterator.next(), cancelledPromise]);
+			if (iterResult.done) {
 				break;
 			}
-			await lexer.process(delta);
+			await lexer.process(iterResult.value);
 		}
 
 		// Flush any remaining content
 		await lexer.flush();
 	} catch (error) {
+		if (token.isCancellationRequested) {
+			return null;
+		}
 		log.error(`[ghost-cell] Error during XML streaming: ${error}`);
 		return null;
+	} finally {
+		cancelListener.dispose();
+		await iterator.return?.();
 	}
 
 	// Validate result
