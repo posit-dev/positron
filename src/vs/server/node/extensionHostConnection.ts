@@ -22,6 +22,9 @@ import { getNLSConfiguration } from './remoteLanguagePacks.js';
 import { IServerEnvironmentService } from './serverEnvironmentService.js';
 import { IPCExtHostConnection, SocketExtHostConnection, writeExtHostConnection } from '../../workbench/services/extensions/common/extensionHostEnv.js';
 import { IExtHostReadyMessage, IExtHostReduceGraceTimeMessage, IExtHostSocketMessage } from '../../workbench/services/extensions/common/extensionHostProtocol.js';
+// --- Start Positron ---
+import { IPositronServerProcessTracker } from '../../platform/positronMemoryUsage/node/positronServerProcessTracker.js';
+// --- End Positron ---
 
 export async function buildUserEnvironment(startParamsEnv: { [key: string]: string | null } = {}, withUserShellEnvironment: boolean, language: string, environmentService: IServerEnvironmentService, logService: ILogService, configurationService: IConfigurationService): Promise<IProcessEnvironment> {
 	const nlsConfig = await getNLSConfiguration(language, environmentService.userDataPath);
@@ -125,7 +128,10 @@ export class ExtensionHostConnection extends Disposable {
 		@IServerEnvironmentService private readonly _environmentService: IServerEnvironmentService,
 		@ILogService private readonly _logService: ILogService,
 		@IExtensionHostStatusService private readonly _extensionHostStatusService: IExtensionHostStatusService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- Start Positron ---
+		@IPositronServerProcessTracker private readonly _processTracker: IPositronServerProcessTracker,
+		// --- End Positron ---
 	) {
 		super();
 		// --- Start PWB ---
@@ -277,6 +283,9 @@ export class ExtensionHostConnection extends Disposable {
 			this._extensionHostProcess.kill();
 			this._extensionHostProcess = null;
 		}
+		// --- Start Positron ---
+		this._processTracker.untrack(this._reconnectionToken);
+		// --- End Positron ---
 		this._onClose.fire(undefined);
 	}
 
@@ -324,6 +333,12 @@ export class ExtensionHostConnection extends Disposable {
 			this._extensionHostProcess = cp.fork(FileAccess.asFileUri('bootstrap-fork').fsPath, args, opts);
 			const pid = this._extensionHostProcess.pid;
 			this._log(`<${pid}> Launched Extension Host Process.`);
+
+			// --- Start Positron ---
+			if (pid) {
+				this._processTracker.track(this._reconnectionToken, 'extension-host', pid);
+			}
+			// --- End Positron ---
 
 			// Catch all output coming from the extension host process
 			this._extensionHostProcess.stdout!.setEncoding('utf8');

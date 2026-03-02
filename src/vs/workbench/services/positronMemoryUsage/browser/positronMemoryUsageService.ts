@@ -18,6 +18,7 @@ import {
 	IPositronMemoryInfoProvider,
 	IPositronMemoryUsageService,
 } from '../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
 
 const DEFAULT_POLLING_INTERVAL_MS = 10000;
 const UNFOCUSED_POLLING_INTERVAL_MS = 60000;
@@ -69,6 +70,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IHostService private readonly _hostService: IHostService,
 		@ILogService private readonly _logService: ILogService,
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
 	) {
 		super();
 
@@ -192,6 +194,15 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		}
 
 		try {
+			// Prune sessions that have exited or been shut down so they
+			// no longer appear in the memory usage snapshot.
+			for (const sessionId of [...this._kernelMemory.keys()]) {
+				const session = this._runtimeSessionService.getSession(sessionId);
+				if (!session || session.getRuntimeState() === RuntimeState.Exited) {
+					this._kernelMemory.delete(sessionId);
+				}
+			}
+
 			// Collect known kernel PIDs so the provider can exclude their
 			// subtrees from the Positron process memory walk.
 			const kernelSessions = Array.from(this._kernelMemory.values());
@@ -216,6 +227,10 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 				kernelTotalBytes,
 				positronOverheadBytes,
 				otherProcessesBytes,
+				isRemote: !!this._environmentService.remoteAuthority,
+				electronOrServerBytes: info.electronOrServerBytes ?? 0,
+				extensionsBytes: info.extensionsBytes ?? 0,
+				terminalsBytes: info.terminalsBytes ?? 0,
 			};
 
 			this._currentSnapshot = snapshot;

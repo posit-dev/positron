@@ -41,6 +41,11 @@ export class PtyHostService extends Disposable implements IPtyHostService {
 		this._ensurePtyHost();
 		return this.__connection!;
 	}
+
+	// --- Start Positron ---
+	/** The PID of the pty host child process, if running. */
+	get ptyHostPid(): number | undefined { return this.__connection?.pid; }
+	// --- End Positron ---
 	private get _proxy(): IPtyService {
 		this._ensurePtyHost();
 		return this.__proxy!;

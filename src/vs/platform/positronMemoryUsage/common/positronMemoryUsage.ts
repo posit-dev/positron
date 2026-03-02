@@ -19,6 +19,12 @@ export interface IPositronProcessMemoryInfo {
 	freeSystemMemory: number;
 	/** Memory used by Positron processes (Electron or server) in bytes. */
 	positronProcessMemory: number;
+	/** Memory used by the Electron main/renderer/GPU processes or the remote server process tree (excluding exthost and ptyhost). */
+	electronOrServerBytes: number;
+	/** Memory used by extension host processes. */
+	extensionsBytes: number;
+	/** Memory used by pty host (terminal) processes. */
+	terminalsBytes: number;
 }
 
 /**
@@ -65,6 +71,14 @@ export interface IMemoryUsageSnapshot {
 	kernelTotalBytes: number;
 	positronOverheadBytes: number;
 	otherProcessesBytes: number;
+	/** Whether the session is connected to a remote server (vs local Electron). */
+	isRemote: boolean;
+	/** Memory used by the Electron main/renderer/GPU processes or the remote server. */
+	electronOrServerBytes: number;
+	/** Memory used by extension host processes. */
+	extensionsBytes: number;
+	/** Memory used by pty host (terminal) processes. */
+	terminalsBytes: number;
 }
 
 // --- Consumer-facing service ---

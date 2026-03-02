@@ -205,15 +205,70 @@ export async function readProcRss(pid: number): Promise<number | undefined> {
 }
 
 /**
- * Get the RSS of a process and all its descendant processes on Linux.
- * Walks /proc/[pid]/task/[tid]/children recursively.
+ * Cross-platform: get the RSS of a process subtree using `ps` on macOS/BSD
+ * and /proc on Linux. This is used by the Electron main process to measure
+ * child process memory (e.g. terminal shells under the pty host).
  *
- * @param pid The root process ID to start from.
- * @param excludePids Optional set of PIDs whose entire subtrees should be
- *   skipped. This is used to exclude kernel processes that self-report their
- *   memory, avoiding double-counting.
+ * On macOS, `ps -o pid=,ppid=,rss=` lists all processes. We reconstruct the
+ * tree and sum RSS for the subtree rooted at `pid`, skipping `excludePids`.
+ * On Linux, delegates to the /proc-based `getProcessTreeRss`.
+ *
+ * @param pid Root process.
+ * @param excludePids PIDs whose subtrees should be skipped.
  * @returns Total RSS in bytes.
  */
+export async function getProcessSubtreeRss(pid: number, excludePids?: Set<number>): Promise<number> {
+	if (process.platform === 'linux') {
+		return getProcessTreeRss(pid, excludePids);
+	}
+
+	// macOS / other: use `ps` to list all processes and reconstruct the tree.
+	return new Promise<number>((resolve) => {
+		execFile('/bin/ps', ['-ax', '-o', 'pid=,ppid=,rss='], (error, stdout) => {
+			if (error) {
+				resolve(0);
+				return;
+			}
+
+			// Build parent -> children map and pid -> rss map.
+			const children = new Map<number, number[]>();
+			const rssMap = new Map<number, number>();
+			for (const line of stdout.split('\n')) {
+				const match = line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)$/);
+				if (!match) {
+					continue;
+				}
+				const p = parseInt(match[1], 10);
+				const ppid = parseInt(match[2], 10);
+				const rssKb = parseInt(match[3], 10);
+				rssMap.set(p, rssKb * 1024); // ps reports RSS in KB
+				if (!children.has(ppid)) {
+					children.set(ppid, []);
+				}
+				children.get(ppid)!.push(p);
+			}
+
+			// BFS to sum the subtree.
+			let total = 0;
+			const queue = [pid];
+			while (queue.length > 0) {
+				const current = queue.shift()!;
+				if (excludePids?.has(current)) {
+					continue;
+				}
+				total += rssMap.get(current) ?? 0;
+				const kids = children.get(current);
+				if (kids) {
+					for (const kid of kids) {
+						queue.push(kid);
+					}
+				}
+			}
+			resolve(total);
+		});
+	});
+}
+
 export async function getProcessTreeRss(pid: number, excludePids?: Set<number>): Promise<number> {
 	let totalRss = 0;
 

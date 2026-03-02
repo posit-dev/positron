@@ -92,6 +92,11 @@ export class Client implements IChannelClient, IDisposable {
 	private readonly _onDidProcessExit = new Emitter<{ code: number; signal: string }>();
 	readonly onDidProcessExit = this._onDidProcessExit.event;
 
+	// --- Start Positron ---
+	/** The PID of the child process, if it has been spawned. */
+	get pid(): number | undefined { return this.child?.pid; }
+	// --- End Positron ---
+
 	constructor(private modulePath: string, private options: IIPCOptions) {
 		const timeout = options.timeout || 60000;
 		this.disposeDelayer = new Delayer<void>(timeout);

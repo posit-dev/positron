@@ -21,10 +21,13 @@ import { MemoryUsageBar } from './memoryUsageBar.js';
 
 // Localized strings.
 const sessionsHeader = localize('positron.memoryUsage.sessions', "Sessions");
-const overheadHeader = localize('positron.memoryUsage.overhead', "Overhead");
+const platformHeader = localize('positron.memoryUsage.platform', "Platform");
 const summaryHeader = localize('positron.memoryUsage.summary', "Summary");
 const positronLabel = localize('positron.memoryUsage.positron', "Positron");
-const editorLabel = localize('positron.memoryUsage.editorAndIde', "Editor and IDE");
+const electronLabel = localize('positron.memoryUsage.electron', "Electron");
+const serverLabel = localize('positron.memoryUsage.server', "Server");
+const extensionsLabel = localize('positron.memoryUsage.extensions', "Extensions");
+const terminalsLabel = localize('positron.memoryUsage.terminals', "Terminals");
 const otherLabel = localize('positron.memoryUsage.other', "Other");
 const freeLabel = localize('positron.memoryUsage.free', "Free");
 
@@ -77,15 +80,49 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 		: 0;
 	const totalGB = ByteSize.formatSize(snapshot.totalSystemMemory);
 
-	// Build all rows to find the max value for scaling bars.
-	const sessionRows: UsageRowEntry[] = snapshot.kernelSessions.map(s => ({
-		name: s.sessionName,
-		bytes: s.memoryBytes,
-		barClass: 'kernel',
-	}));
+	// Build session rows sorted by memory usage descending.
+	// When there are more than 8 sessions, show the top 7 individually
+	// and aggregate the rest into an "Others" row.
+	const MAX_VISIBLE_SESSIONS = 7;
+	const MAX_SESSIONS_BEFORE_COLLAPSE = 8;
+	const sortedSessions = [...snapshot.kernelSessions]
+		.sort((a, b) => b.memoryBytes - a.memoryBytes);
 
-	const overheadRows: UsageRowEntry[] = [
-		{ name: editorLabel, bytes: snapshot.positronOverheadBytes, barClass: 'positron' },
+	let sessionRows: UsageRowEntry[];
+	if (sortedSessions.length > MAX_SESSIONS_BEFORE_COLLAPSE) {
+		const visible = sortedSessions.slice(0, MAX_VISIBLE_SESSIONS);
+		const rest = sortedSessions.slice(MAX_VISIBLE_SESSIONS);
+		const othersBytes = rest.reduce((sum, s) => sum + s.memoryBytes, 0);
+		sessionRows = visible.map(s => ({
+			name: s.sessionName,
+			bytes: s.memoryBytes,
+			barClass: 'kernel',
+		}));
+		sessionRows.push({
+			name: localize(
+				'positron.memoryUsage.others',
+				"Others ({0})",
+				rest.length
+			),
+			bytes: othersBytes,
+			barClass: 'kernel',
+		});
+	} else {
+		sessionRows = sortedSessions.map(s => ({
+			name: s.sessionName,
+			bytes: s.memoryBytes,
+			barClass: 'kernel',
+		}));
+	}
+
+	const platformRows: UsageRowEntry[] = [
+		{
+			name: snapshot.isRemote ? serverLabel : electronLabel,
+			bytes: snapshot.electronOrServerBytes,
+			barClass: 'positron',
+		},
+		{ name: extensionsLabel, bytes: snapshot.extensionsBytes, barClass: 'positron' },
+		{ name: terminalsLabel, bytes: snapshot.terminalsBytes, barClass: 'positron' },
 	];
 
 	// Positron total = kernels + editor overhead (same value as the action bar meter).
@@ -107,11 +144,11 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 		{ name: freeLabel, bytes: snapshot.freeSystemMemory, barClass: 'free' },
 	];
 
-	const allRows = [...sessionRows, ...overheadRows, ...summaryRows, ...systemRows];
+	const allRows = [...sessionRows, ...platformRows, ...summaryRows, ...systemRows];
 	const maxBytes = Math.max(...allRows.map(r => r.bytes), 1);
 
 	const renderRow = (row: UsageRowEntry, index: number) => {
-		const barWidthPct = (row.bytes / maxBytes) * 100;
+		const barWidthPct = maxBytes > 0 ? ((row.bytes || 0) / maxBytes) * 100 : 0;
 		return (
 			<div key={`${row.barClass}-${index}`} className='usage-row' role='row'>
 				<span className='usage-name' role='cell'>{row.name}</span>
@@ -178,9 +215,9 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 					</>
 				)}
 				<div className='section-header' role='row'>
-					<span role='columnheader'>{overheadHeader}</span>
+					<span role='columnheader'>{platformHeader}</span>
 				</div>
-				{overheadRows.map((row, i) => renderRow(row, i))}
+				{platformRows.map((row, i) => renderRow(row, i))}
 				<div className='section-header' role='row'>
 					<span role='columnheader'>{summaryHeader}</span>
 				</div>

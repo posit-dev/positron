@@ -104,6 +104,7 @@ import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platf
 import { PositronMemoryUsageServerService } from '../../platform/positronMemoryUsage/node/positronMemoryUsageServerService.js';
 import { POSITRON_MEMORY_INFO_CHANNEL_NAME, PositronMemoryInfoChannel } from '../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
 import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentEnvironment.js';
+import { IPositronServerProcessTracker, PositronServerProcessTracker } from '../../platform/positronMemoryUsage/node/positronServerProcessTracker.js';
 // --- End Positron ---
 
 const eventPrefix = 'monacoworkbench';
@@ -261,6 +262,12 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	// --- Start Positron ---
 	const ephemeralStateService = new EphemeralStateService();
 	services.set(IEphemeralStateService, ephemeralStateService);
+
+	// Process tracker for memory attribution (extension hosts, pty host).
+	// Must be registered before InstantiationService so it can be injected
+	// into ExtensionHostConnection via DI.
+	const processTracker = new PositronServerProcessTracker();
+	services.set(IPositronServerProcessTracker, processTracker);
 	// --- End Positron ---
 
 	instantiationService.invokeFunction(accessor => {
@@ -301,9 +308,20 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		socketServer.registerChannel(EPHEMERAL_STATE_CHANNEL_NAME, ephemeralStateChannel);
 
 		// Memory Usage
-		const memoryUsageServerService = new PositronMemoryUsageServerService();
+		const memoryUsageServerService = new PositronMemoryUsageServerService(processTracker);
 		const memoryInfoChannel = new PositronMemoryInfoChannel(memoryUsageServerService);
 		socketServer.registerChannel(POSITRON_MEMORY_INFO_CHANNEL_NAME, memoryInfoChannel);
+
+		// Track the pty host process for memory attribution.
+		ptyHostService.onPtyHostStart(() => {
+			const pid = ptyHostService.ptyHostPid;
+			if (pid) {
+				processTracker.track('pty-host', 'pty-host', pid);
+			}
+		});
+		ptyHostService.onPtyHostExit(() => {
+			processTracker.untrack('pty-host');
+		});
 		// --- End Positron ---
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());

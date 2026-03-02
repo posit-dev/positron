@@ -50,7 +50,10 @@ export class NodePtyHostStarter extends Disposable implements IPtyHostStarter {
 		return {
 			client,
 			store,
-			onDidProcessExit: client.onDidProcessExit
+			onDidProcessExit: client.onDidProcessExit,
+			// --- Start Positron ---
+			get pid() { return client.pid; },
+			// --- End Positron ---
 		};
 	}
 }

@@ -11,6 +11,10 @@ export interface IPtyHostConnection {
 	readonly client: IChannelClient;
 	readonly store: DisposableStore;
 	readonly onDidProcessExit: Event<{ code: number; signal: string }>;
+	// --- Start Positron ---
+	/** The PID of the pty host child process, if available. */
+	readonly pid?: number;
+	// --- End Positron ---
 }
 
 export interface IPtyHostStarter extends IDisposable {
