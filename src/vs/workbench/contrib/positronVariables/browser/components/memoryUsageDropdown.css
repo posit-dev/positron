@@ -100,3 +100,24 @@
 .memory-usage-dropdown .usage-bar.free {
 	background-color: transparent;
 }
+
+/* Segmented bar (multi-color, used for Positron total in Summary) */
+
+.memory-usage-dropdown .usage-bar.segmented {
+	display: flex;
+	overflow: hidden;
+	background-color: transparent;
+}
+
+.memory-usage-dropdown .usage-bar.segmented .usage-bar-segment {
+	height: 100%;
+	flex-shrink: 0;
+}
+
+.memory-usage-dropdown .usage-bar.segmented .usage-bar-segment.kernel {
+	background-color: var(--vscode-charts-purple);
+}
+
+.memory-usage-dropdown .usage-bar.segmented .usage-bar-segment.positron {
+	background-color: var(--vscode-charts-blue);
+}

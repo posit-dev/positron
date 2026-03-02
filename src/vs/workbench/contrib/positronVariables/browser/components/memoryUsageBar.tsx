@@ -26,11 +26,19 @@ export const MemoryUsageBar = (props: MemoryUsageBarProps) => {
 	const { snapshot, className } = props;
 	const { totalSystemMemory, kernelTotalBytes, positronOverheadBytes, otherProcessesBytes } = snapshot;
 
-	// Compute segment percentages.
+	// Compute segment percentages, clamping to 100% total so that
+	// double-counted memory does not cause visual overflow.
 	const total = totalSystemMemory || 1; // avoid division by zero
-	const kernelPct = (kernelTotalBytes / total) * 100;
-	const positronPct = (positronOverheadBytes / total) * 100;
-	const otherPct = (otherProcessesBytes / total) * 100;
+	let kernelPct = (kernelTotalBytes / total) * 100;
+	let positronPct = (positronOverheadBytes / total) * 100;
+	let otherPct = (otherProcessesBytes / total) * 100;
+	const sumPct = kernelPct + positronPct + otherPct;
+	if (sumPct > 100) {
+		const scale = 100 / sumPct;
+		kernelPct *= scale;
+		positronPct *= scale;
+		otherPct *= scale;
+	}
 
 	// Build segments.
 	const segments: React.ReactElement[] = [];

@@ -88,6 +88,7 @@ export const MemoryUsageMeter = () => {
 		renderer.render(
 			<MemoryUsageDropdown
 				anchorElement={meterRef.current}
+				onDidUpdateMemoryUsage={services.positronMemoryUsageService.onDidUpdateMemoryUsage}
 				renderer={renderer}
 				snapshot={snapshot}
 			/>
