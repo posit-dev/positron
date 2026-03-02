@@ -62,10 +62,6 @@ export function SortableCellList({
 	// Use both state (for rendering) and ref (for reliable access in callbacks)
 	const [activeCells, setActiveCells] = React.useState<IPositronNotebookCell[]>([]);
 	const activeCellsRef = React.useRef<IPositronNotebookCell[]>([]);
-	// Track which cell the user actually started dragging (the "primary" cell)
-	// This may differ from activeCells[0] when dragging a non-topmost selected cell
-	const [primaryDragHandleId, setPrimaryDragHandleId] = React.useState<string | null>(null);
-
 	// Require 10px movement before drag starts (prevents accidental drags)
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -98,7 +94,6 @@ export function SortableCellList({
 				const sortedCells = [...selectedCells].sort((a, b) => a.index - b.index);
 				activeCellsRef.current = sortedCells;
 				setActiveCells(sortedCells);
-				setPrimaryDragHandleId(draggedCell.handleId);
 				DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
 				return;
 			}
@@ -107,7 +102,6 @@ export function SortableCellList({
 		// Single cell drag (either no multi-selection or dragging an unselected cell)
 		activeCellsRef.current = [draggedCell];
 		setActiveCells([draggedCell]);
-		setPrimaryDragHandleId(draggedCell.handleId);
 		DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
 	}, [cells, getSelectedCells, onMultiReorder]);
 
@@ -117,15 +111,12 @@ export function SortableCellList({
 		const draggedCells = activeCellsRef.current;
 
 		// Helper to clear drag state - deferred to next frame to allow dnd-kit
-		// to complete its internal cleanup before we change sortableItems
+		// to complete its internal cleanup before we update React state
 		const clearDragState = () => {
 			// Clear ref immediately so subsequent callbacks don't see stale data
 			activeCellsRef.current = [];
-			// Defer React state update to next frame - this prevents sortableItems
-			// from changing while dnd-kit is still cleaning up, which causes crashes
 			DOM.getActiveWindow().requestAnimationFrame(() => {
 				setActiveCells([]);
-				setPrimaryDragHandleId(null);
 				DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 			});
 		};
@@ -166,10 +157,8 @@ export function SortableCellList({
 
 	const handleDragCancel = React.useCallback(() => {
 		activeCellsRef.current = [];
-		// Defer state update to next frame to allow dnd-kit cleanup
 		DOM.getActiveWindow().requestAnimationFrame(() => {
 			setActiveCells([]);
-			setPrimaryDragHandleId(null);
 			DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 		});
 	}, []);
@@ -180,23 +169,12 @@ export function SortableCellList({
 		activeCellIndices: activeCells.map(c => c.index),
 	}), [activeCells]);
 
-	// Filter out secondary drag participants from sortable items
-	// This prevents dnd-kit from showing drop positions around collapsed cells
+	// Always include all cells in sortable items. Removing items mid-drag
+	// corrupts dnd-kit's internal state and crashes the renderer. The visual
+	// collapse of secondary cells is handled purely by CSS (.secondary-drag).
 	const sortableItems = React.useMemo(() => {
-		if (activeCells.length <= 1) {
-			return cells.map(c => c.handleId);
-		}
-		// Exclude secondary cells (all except the actually-dragged primary cell)
-		// This allows dragging any cell in a multi-selection, not just the topmost
-		const secondaryIds = new Set(
-			activeCells
-				.filter(c => c.handleId !== primaryDragHandleId)
-				.map(c => c.handleId)
-		);
-		return cells
-			.filter(c => !secondaryIds.has(c.handleId))
-			.map(c => c.handleId);
-	}, [cells, activeCells, primaryDragHandleId]);
+		return cells.map(c => c.handleId);
+	}, [cells]);
 
 	// If disabled (read-only mode), don't enable drag-and-drop
 	if (disabled) {
