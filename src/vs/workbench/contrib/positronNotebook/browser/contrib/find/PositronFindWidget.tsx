@@ -230,7 +230,7 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 					onKeyDown={handleCloseButtonKeyDown}
 					onPressed={() => props.isVisible.set(false, undefined)}
 				>
-					<div className='codicon codicon-close' />
+					<ThemeIcon icon={Codicon.close} />
 				</ActionButton>
 			</div>
 		</div>
