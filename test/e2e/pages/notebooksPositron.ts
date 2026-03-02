@@ -354,44 +354,44 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async dragCellToPosition(fromIndex: number, toIndex: number): Promise<void> {
 		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex}`, async () => {
-			const sourceCell = this.sortableCellAtIndex(fromIndex);
 			const targetCell = this.sortableCellAtIndex(toIndex);
 			const dragHandle = this.dragHandleAtIndex(fromIndex);
 
 			// Hover over the source cell to make the drag handle visible
-			await sourceCell.hover();
+			await this.sortableCellAtIndex(fromIndex).hover();
 			await expect(dragHandle).toBeVisible({ timeout: 2000 });
 
-			// Get bounding boxes for precise drag operation
 			const handleBox = await dragHandle.boundingBox();
-			const targetBox = await targetCell.boundingBox();
-
-			if (!handleBox || !targetBox) {
-				throw new Error('Could not get bounding boxes for drag operation');
+			if (!handleBox) {
+				throw new Error('Could not get bounding box for drag handle');
 			}
 
-			// Calculate positions
 			const startX = handleBox.x + handleBox.width / 2;
 			const startY = handleBox.y + handleBox.height / 2;
 
-			// Target the middle of the destination cell
-			// If dragging down, aim for the bottom half; if up, aim for the top half
-			const targetY = fromIndex < toIndex
-				? targetBox.y + targetBox.height * 0.75
+			// Start drag and move past activation threshold (10px in SortableCellList.tsx)
+			await this.code.driver.page.mouse.move(startX, startY);
+			await this.code.driver.page.mouse.down();
+			await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
+
+			// Query target position AFTER drag activates. dnd-kit shifts cells via
+			// CSS transforms during drag, so pre-drag coordinates are stale.
+			const targetBox = await targetCell.boundingBox();
+			if (!targetBox) {
+				throw new Error('Could not get bounding box for target cell during drag');
+			}
+
+			// Target the upper portion of the cell. closestCenter uses dnd-kit's
+			// sorted positions (not visual positions), so targeting the upper
+			// portion ensures we resolve to the correct cell. For index 0,
+			// target the very top edge since there's minimal room above.
+			const targetY = toIndex === 0
+				? targetBox.y + 2
 				: targetBox.y + targetBox.height * 0.25;
 			const targetX = targetBox.x + targetBox.width / 2;
 
-			// Perform the drag operation with mouse events
-			await this.code.driver.page.mouse.move(startX, startY);
-			await this.code.driver.page.mouse.down();
-			// Move past the activation threshold (10px defined in SortableCellList.tsx)
-			// Using 15px to ensure we exceed the constraint
-			await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
-			// Move to target
 			await this.code.driver.page.mouse.move(targetX, targetY, { steps: 10 });
 			await this.code.driver.page.mouse.up();
-			// Note: No explicit wait needed - calling test's expectCellContentsToBe()
-			// uses Playwright's assertion retries to wait for the reorder to complete
 		});
 	}
 

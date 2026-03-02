@@ -1386,23 +1386,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Move a single cell from one index to another (for drag-and-drop).
 	 * @param fromIndex The current index of the cell
-	 * @param toIndex The target index (final position the cell should end up at)
+	 * @param toIndex The final position the cell should end up at (from dnd-kit's sorted index)
 	 */
 	moveCell(fromIndex: number, toIndex: number): void {
+		this._assertTextModel();
 		const cells = this.cells.get();
-		if (fromIndex < 0 || fromIndex >= cells.length || toIndex < 0 || toIndex > cells.length) {
+		if (fromIndex < 0 || fromIndex >= cells.length || toIndex < 0 || toIndex >= cells.length) {
 			return;
 		}
 		if (fromIndex === toIndex) {
-			return; // No movement needed
+			return;
 		}
 
-		const cellToMove = cells[fromIndex];
-		// When moving down, add 1 to counteract the adjustment in moveCells.
-		// dnd-kit gives us the final position, but moveCells expects the insertion
-		// point before adjustment (it subtracts length when moving down).
-		const adjustedToIndex = toIndex > fromIndex ? toIndex + 1 : toIndex;
-		this.moveCells([cellToMove], adjustedToIndex);
+		this._applyCellMoveEdit(fromIndex, 1, toIndex);
 	}
 
 	/**

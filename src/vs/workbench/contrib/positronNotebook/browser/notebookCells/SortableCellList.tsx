@@ -11,6 +11,7 @@ import {
 	DndContext,
 	DragOverlay,
 	closestCenter,
+	CollisionDetection,
 	PointerSensor,
 	KeyboardSensor,
 	useSensor,
@@ -49,6 +50,14 @@ const DragStateContext = React.createContext<DragStateContextValue>({
 export function useDragState(): DragStateContextValue {
 	return React.useContext(DragStateContext);
 }
+
+// Wraps closestCenter but excludes the active item from candidates.
+// Without this, dragging to the very first/last position can resolve
+// over=active (sorted position matches cursor), causing a no-op.
+const closestCenterExcludingActive: CollisionDetection = (args) => {
+	const filtered = args.droppableContainers.filter(c => c.id !== args.active.id);
+	return closestCenter({ ...args, droppableContainers: filtered });
+};
 
 export function SortableCellList({
 	cells,
@@ -126,23 +135,24 @@ export function SortableCellList({
 			return;
 		}
 
+		// Use over.id to find the target index. closestCenter with
+		// verticalListSortingStrategy uses sorted positions, so this gives
+		// arrayMove semantics: the dragged item takes the over item's position.
 		const targetIndex = cells.findIndex(c => c.handleId === over.id);
 		if (targetIndex === -1) {
 			clearDragState();
 			return;
 		}
 
-		// Multi-cell drag
+		// Multi-cell drag: moveCells expects an insertion-point target, not an
+		// arrayMove target. Add 1 when moving down to convert from over-index
+		// to insertion-point semantics (moveCells subtracts length internally).
 		if (draggedCells.length > 1 && onMultiReorder) {
-			// When moving down, add 1 to counteract the adjustment in moveCells.
-			// dnd-kit gives us the position of the element we're over, but moveCells
-			// expects the insertion point before adjustment (it subtracts length when
-			// moving down). This matches how moveCell handles single-cell drags.
 			const firstDraggedIndex = draggedCells[0].index;
-			const adjustedTargetIndex = targetIndex > firstDraggedIndex
+			const adjustedTarget = targetIndex > firstDraggedIndex
 				? targetIndex + 1
 				: targetIndex;
-			onMultiReorder(draggedCells, adjustedTargetIndex);
+			onMultiReorder(draggedCells, adjustedTarget);
 			clearDragState();
 			return;
 		}
@@ -183,7 +193,7 @@ export function SortableCellList({
 
 	return (
 		<DndContext
-			collisionDetection={closestCenter}
+			collisionDetection={closestCenterExcludingActive}
 			sensors={sensors}
 			onDragCancel={handleDragCancel}
 			onDragEnd={handleDragEnd}
