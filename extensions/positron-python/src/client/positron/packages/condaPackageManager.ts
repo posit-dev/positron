@@ -28,7 +28,7 @@ export class CondaPackageManager implements IPackageManager {
         private readonly _pythonPath: string,
         _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
-    ) {}
+    ) { }
 
     /**
      * Check if conda is available.
@@ -70,19 +70,9 @@ export class CondaPackageManager implements IPackageManager {
     }
 
     async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
-        if (packages.length === 0) {
-            return;
-        }
-
-        await this._ensureConda();
-
-        const packageSpecs = this._formatPackageSpecs(packages);
-        const envPrefix = await this._getEnvironmentPrefix();
-        // Use 'install' instead of 'update' because conda update doesn't support version specs.
+        // Use installPackages() because conda update doesn't support version specs.
         // conda install will update (or downgrade) to the specified version.
-        const args = ['install', '--prefix', envPrefix, '-y', ...packageSpecs];
-
-        await this._executeCondaInTerminal(args);
+        return this.installPackages(packages);
     }
 
     async updateAllPackages(): Promise<void> {
@@ -165,7 +155,7 @@ export class CondaPackageManager implements IPackageManager {
         if (!condaEnvInfo?.path) {
             throw new Error(
                 'Could not determine conda environment path. ' +
-                    'Ensure this Python interpreter is part of a conda environment.',
+                'Ensure this Python interpreter is part of a conda environment.',
             );
         }
 
