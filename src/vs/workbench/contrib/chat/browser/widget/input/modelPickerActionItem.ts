@@ -27,7 +27,7 @@ import { ITelemetryService } from '../../../../../../platform/telemetry/common/t
 import { TelemetryTrustedValue } from '../../../../../../platform/telemetry/common/telemetryUtils.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../../../services/chat/common/chatEntitlementService.js';
 import { MANAGE_CHAT_COMMAND_ID } from '../../../common/constants.js';
-import { ILanguageModelChatMetadataAndIdentifier } from '../../../common/languageModels.js';
+import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from '../../../common/languageModels.js';
 import { ChatInputPickerActionViewItem, IChatInputPickerOptions } from './chatInputPickerActionItem.js';
 // --- Start Positron ---
 import { getProviderIcon } from './providerIcons.js';
@@ -61,7 +61,7 @@ type ChatModelChangeEvent = {
 // separators, indicate default models, and pass themeService so provider
 // icons can adapt to light/dark themes.
 // function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService): IActionWidgetDropdownActionProvider {
-function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService, pickerOptions: IChatInputPickerOptions, themeService: IThemeService): IActionWidgetDropdownActionProvider {
+function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService, pickerOptions: IChatInputPickerOptions, themeService: IThemeService, languageModelsService: ILanguageModelsService): IActionWidgetDropdownActionProvider {
 	return {
 		getActions: () => {
 			const models = delegate.getModels();
@@ -144,7 +144,8 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 				// Add separator with provider name before each group
 				// Get provider display name from the first model in the group
 				const firstModel = vendorModels[0];
-				const providerName = firstModel.metadata.auth?.providerLabel ?? vendor;
+				const vendorDescriptor = languageModelsService.getVendors().find(v => v.vendor === vendor);
+				const providerName = firstModel.metadata.auth?.providerLabel ?? vendorDescriptor?.displayName ?? vendor;
 
 				// Get provider icon based on vendor ID
 				const providerIcon = getProviderIcon(vendor, isDark(themeService.getColorTheme().type));
@@ -302,6 +303,7 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 		@IProductService productService: IProductService,
 		// --- Start Positron ---
 		@IThemeService private readonly themeService: IThemeService,
+		@ILanguageModelsService languageModelsService: ILanguageModelsService,
 		// --- End Positron ---
 	) {
 		// Modify the original action with a different label and make it show the current model
@@ -320,7 +322,7 @@ export class ModelPickerActionItem extends ChatInputPickerActionViewItem {
 			/*
 			actionProvider: modelDelegateToWidgetActionsProvider(delegate, telemetryService, pickerOptions),
 			*/
-			actionProvider: modelDelegateToWidgetActionsProvider(delegate, telemetryService, pickerOptions, themeService),
+			actionProvider: modelDelegateToWidgetActionsProvider(delegate, telemetryService, pickerOptions, themeService, languageModelsService),
 			// --- End Positron ---
 			actionBarActionProvider: getModelPickerActionBarActionProvider(commandService, chatEntitlementService, productService),
 			reporter: { name: 'ChatModelPicker', includeOptions: true },
