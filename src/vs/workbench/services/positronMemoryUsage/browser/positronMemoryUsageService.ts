@@ -204,9 +204,10 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 			);
 
 			const kernelTotalBytes = kernelSessions.reduce((sum, s) => sum + s.memoryBytes, 0);
+			const extensionHostOverheadBytes = info.extensionHostMemory;
 			const positronOverheadBytes = info.positronProcessMemory;
 			const usedBySystem = info.totalSystemMemory - info.freeSystemMemory;
-			const otherProcessesBytes = Math.max(0, usedBySystem - positronOverheadBytes - kernelTotalBytes);
+			const otherProcessesBytes = Math.max(0, usedBySystem - positronOverheadBytes - extensionHostOverheadBytes - kernelTotalBytes);
 
 			const snapshot: IMemoryUsageSnapshot = {
 				timestamp: Date.now(),
@@ -215,6 +216,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 				kernelSessions,
 				kernelTotalBytes,
 				positronOverheadBytes,
+				extensionHostOverheadBytes,
 				otherProcessesBytes,
 			};
 

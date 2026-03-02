@@ -24,7 +24,8 @@ const sessionsHeader = localize('positron.memoryUsage.sessions', "Sessions");
 const overheadHeader = localize('positron.memoryUsage.overhead', "Overhead");
 const summaryHeader = localize('positron.memoryUsage.summary', "Summary");
 const positronLabel = localize('positron.memoryUsage.positron', "Positron");
-const editorLabel = localize('positron.memoryUsage.editorAndIde', "Editor and IDE");
+const platformLabel = localize('positron.memoryUsage.platform', "Platform");
+const extensionsLabel = localize('positron.memoryUsage.extensions', "Extensions");
 const otherLabel = localize('positron.memoryUsage.other', "Other");
 const freeLabel = localize('positron.memoryUsage.free', "Free");
 
@@ -85,11 +86,12 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 	}));
 
 	const overheadRows: UsageRowEntry[] = [
-		{ name: editorLabel, bytes: snapshot.positronOverheadBytes, barClass: 'positron' },
+		{ name: platformLabel, bytes: snapshot.positronOverheadBytes, barClass: 'positron' },
+		{ name: extensionsLabel, bytes: snapshot.extensionHostOverheadBytes, barClass: 'positron' },
 	];
 
-	// Positron total = kernels + editor overhead (same value as the action bar meter).
-	const positronTotalBytes = snapshot.kernelTotalBytes + snapshot.positronOverheadBytes;
+	// Positron total = kernels + platform overhead + extension host overhead.
+	const positronTotalBytes = snapshot.kernelTotalBytes + snapshot.positronOverheadBytes + snapshot.extensionHostOverheadBytes;
 	const summaryRows: UsageRowEntry[] = [
 		{
 			name: positronLabel,
@@ -97,7 +99,7 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 			barClass: 'positron-total',
 			segments: [
 				{ bytes: snapshot.kernelTotalBytes, barClass: 'kernel' },
-				{ bytes: snapshot.positronOverheadBytes, barClass: 'positron' },
+				{ bytes: snapshot.positronOverheadBytes + snapshot.extensionHostOverheadBytes, barClass: 'positron' },
 			],
 		},
 	];

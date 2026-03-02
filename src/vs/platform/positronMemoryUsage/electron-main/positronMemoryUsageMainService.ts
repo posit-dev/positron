@@ -22,8 +22,16 @@ export class PositronMemoryUsageMainService implements IPositronMemoryInfoProvid
 		// workingSetSize is in kilobytes.
 		const metrics = app.getAppMetrics();
 		let positronProcessMemory = 0;
+		let extensionHostMemory = 0;
 		for (const metric of metrics) {
-			positronProcessMemory += metric.memory.workingSetSize * 1024;
+			const bytes = metric.memory.workingSetSize * 1024;
+			positronProcessMemory += bytes;
+			// Extension host utility processes have a name like
+			// "extensionHost-1", "extensionHost-2", etc. (set via the
+			// serviceName option passed to utilityProcess.fork()).
+			if (metric.type === 'Utility' && metric.name?.startsWith('extensionHost-')) {
+				extensionHostMemory += bytes;
+			}
 		}
 
 		// Get system memory (respects cgroups on Linux, uses vm_stat on macOS)
@@ -33,6 +41,7 @@ export class PositronMemoryUsageMainService implements IPositronMemoryInfoProvid
 			totalSystemMemory: systemMem.total,
 			freeSystemMemory: systemMem.free,
 			positronProcessMemory,
+			extensionHostMemory,
 		};
 	}
 }

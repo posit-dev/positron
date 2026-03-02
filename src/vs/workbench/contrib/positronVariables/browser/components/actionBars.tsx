@@ -131,7 +131,6 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<MemoryUsageMeter />
-						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRefreshObjects}

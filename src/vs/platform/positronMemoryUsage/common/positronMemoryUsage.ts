@@ -19,6 +19,8 @@ export interface IPositronProcessMemoryInfo {
 	freeSystemMemory: number;
 	/** Memory used by Positron processes (Electron or server) in bytes. */
 	positronProcessMemory: number;
+	/** Memory used by the extension host process(es) and their children, in bytes. */
+	extensionHostMemory: number;
 }
 
 /**
@@ -64,6 +66,7 @@ export interface IMemoryUsageSnapshot {
 	kernelSessions: IMemorySessionUsage[];
 	kernelTotalBytes: number;
 	positronOverheadBytes: number;
+	extensionHostOverheadBytes: number;
 	otherProcessesBytes: number;
 }
 
