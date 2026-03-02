@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { execSync } from 'child_process';
 
 import { JupyterKernelSpec } from './positron-supervisor';
@@ -419,9 +420,15 @@ export async function createJupyterKernelSpec(
 	}
 
 	// Set the default repositories
+	// Check if r-versions entry specifies a repo (takes precedence over settings)
+	const rVersionsRepoArgs = getRVersionsRepoArgs(packagerMetadata);
+	if (rVersionsRepoArgs) {
+		argv.push(...rVersionsRepoArgs);
+	}
+
 	const defaultRepos = config.get<string>('defaultRepositories') ?? 'auto';
 	const ppmRepo = config.get<string>('packageManagerRepository');
-	if (defaultRepos === 'auto') {
+	if (!rVersionsRepoArgs && defaultRepos === 'auto') {
 		const reposConf = findReposConf();
 		if (reposConf) {
 			// If there's a `repos.conf` file in a well-known directory, use
@@ -440,7 +447,7 @@ export async function createJupyterKernelSpec(
 		// In all other cases when `auto` is set, we don't specify
 		// `--default-repos` at all, and let Ark choose an appropriate
 		// repository (usually `cran.rstudio.com)
-	} else {
+	} else if (!rVersionsRepoArgs) {
 		// Warn the user about inconsistent PPM settings.
 		if (ppmRepo) {
 			const openSettings = vscode.l10n.t('Open Settings');
@@ -510,7 +517,7 @@ export async function createJupyterKernelSpec(
  * Attempt to find a `repos.conf` file in Positron or RStudio XDG
  * configuration directories.
  *
- * Returns the path to the file if found, or `undefined` if no
+ * Returns the path to the file if found, or `undefined` if not.
  */
 function findReposConf(): string | undefined {
 	const xdg = require('xdg-portable/cjs');
@@ -529,4 +536,52 @@ function findReposConf(): string | undefined {
 		}
 	}
 	return;
+}
+
+/**
+ * Cache for temporary repos.conf files created from r-versions URLs.
+ * Maps URL -> temp file path. Reused across sessions during extension lifetime.
+ */
+const rVersionsReposConfCache = new Map<string, string>();
+
+/**
+ * Get repository configuration args from r-versions metadata.
+ *
+ * The Repo field can be either a file path to a repos.conf file or a URL.
+ * For URLs, a temporary repos.conf file is created and cached for reuse.
+ * Returns the appropriate argv entries, or `undefined` if no repo is specified.
+ */
+function getRVersionsRepoArgs(packagerMetadata?: PackagerMetadata): string[] | undefined {
+	if (!packagerMetadata || !isRVersionsMetadata(packagerMetadata) || !packagerMetadata.repo) {
+		return undefined;
+	}
+
+	const repo = packagerMetadata.repo;
+
+	// Check if this is a URL
+	if (repo.startsWith('http://') || repo.startsWith('https://')) {
+		// Check cache first
+		const cachedPath = rVersionsReposConfCache.get(repo);
+		if (cachedPath && fs.existsSync(cachedPath)) {
+			LOGGER.info(`Using cached repos.conf for r-versions URL: ${cachedPath}`);
+			return ['--repos-conf', cachedPath];
+		}
+
+		// Create a temporary repos.conf file for the URL
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-r-repos-'));
+		const tempReposConf = path.join(tempDir, 'repos.conf');
+		fs.writeFileSync(tempReposConf, `CRAN=${repo}\n`);
+		rVersionsReposConfCache.set(repo, tempReposConf);
+		LOGGER.info(`Created temporary repos.conf for r-versions URL: ${tempReposConf}`);
+		return ['--repos-conf', tempReposConf];
+	}
+
+	// Treat as a file path
+	if (fs.existsSync(repo) && fs.statSync(repo).isFile()) {
+		LOGGER.info(`Using r-versions repos.conf: ${repo}`);
+		return ['--repos-conf', repo];
+	}
+
+	LOGGER.warn(`r-versions Repo field is not a valid URL or file path: ${repo}`);
+	return undefined;
 }
