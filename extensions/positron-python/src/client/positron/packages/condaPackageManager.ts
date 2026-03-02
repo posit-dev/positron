@@ -64,7 +64,7 @@ export class CondaPackageManager implements IPackageManager {
         private readonly _pythonPath: string,
         _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
-    ) { }
+    ) {}
 
     /**
      * Check if conda is available.
@@ -191,7 +191,7 @@ export class CondaPackageManager implements IPackageManager {
         if (!condaEnvInfo?.path) {
             throw new Error(
                 'Could not determine conda environment path. ' +
-                'Ensure this Python interpreter is part of a conda environment.',
+                    'Ensure this Python interpreter is part of a conda environment.',
             );
         }
 
