@@ -17,6 +17,42 @@ interface CondaPackageInfo {
     timestamp: number;
 }
 
+type CondaSearchResult = Record<string, CondaPackageInfo[]>;
+
+/**
+ * Parse and validate conda search JSON output.
+ * TODO: Replace with an alternative like Zod at some point.
+ */
+function parseCondaSearchResult(jsonString: string): CondaSearchResult {
+    const parsed: unknown = JSON.parse(jsonString);
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        throw new Error('Expected conda search result to be an object');
+    }
+
+    const result: CondaSearchResult = {};
+    for (const [name, packages] of Object.entries(parsed)) {
+        if (!Array.isArray(packages)) {
+            throw new Error(`Expected packages for "${name}" to be an array`);
+        }
+        result[name] = packages.map((pkg, index) => {
+            if (typeof pkg !== 'object' || pkg === null) {
+                throw new Error(`Expected package at ${name}[${index}] to be an object`);
+            }
+            const { version, timestamp } = pkg as Record<string, unknown>;
+            if (typeof version !== 'string') {
+                throw new Error(`Expected version at ${name}[${index}] to be a string`);
+            }
+            if (typeof timestamp !== 'number') {
+                throw new Error(`Expected timestamp at ${name}[${index}] to be a number`);
+            }
+            return { version, timestamp };
+        });
+    }
+
+    return result;
+}
+
 /**
  * Conda Package Manager
  *
@@ -28,7 +64,7 @@ export class CondaPackageManager implements IPackageManager {
         private readonly _pythonPath: string,
         _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
-    ) {}
+    ) { }
 
     /**
      * Check if conda is available.
@@ -90,7 +126,7 @@ export class CondaPackageManager implements IPackageManager {
         try {
             // Use wildcard pattern for partial matching
             const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json']);
-            const json = JSON.parse(result) as Record<string, CondaPackageInfo[]>;
+            const json = parseCondaSearchResult(result);
 
             // Return unique package names with the latest version (sorted by timestamp)
             return Object.keys(json).map((name) => {
@@ -114,7 +150,7 @@ export class CondaPackageManager implements IPackageManager {
 
         try {
             const result = await this._executeCondaWithOutput(['search', name, '--json']);
-            const json = JSON.parse(result) as Record<string, CondaPackageInfo[]>;
+            const json = parseCondaSearchResult(result);
 
             // Get all unique versions for this package
             const packageInfo = json[name];
@@ -155,7 +191,7 @@ export class CondaPackageManager implements IPackageManager {
         if (!condaEnvInfo?.path) {
             throw new Error(
                 'Could not determine conda environment path. ' +
-                    'Ensure this Python interpreter is part of a conda environment.',
+                'Ensure this Python interpreter is part of a conda environment.',
             );
         }
 
