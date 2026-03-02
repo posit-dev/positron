@@ -13,6 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
+import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 
 /**
  * Interface for emitting messages to the Positron console
@@ -131,6 +132,14 @@ export class UvPackageManager {
             const args = ['pip', 'install', '--upgrade', '--python', this._pythonPath, ...packageNames];
             await this._executeUvInTerminal(args);
         }
+    }
+
+    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+        return searchPyPI(query);
+    }
+
+    async searchPackageVersions(name: string): Promise<string[]> {
+        return searchPyPIVersions(name);
     }
 
     // =========================================================================
