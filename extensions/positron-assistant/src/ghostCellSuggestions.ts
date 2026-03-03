@@ -110,22 +110,15 @@ export async function generateGhostCellSuggestion(
 	// lets getModel() bail out between API calls when the timeout fires,
 	// avoiding stale work in the background.
 	let modelSelectionTimedOut = false;
-	let modelSelectionTimer: ReturnType<typeof setTimeout> | undefined;
 	const modelSelectionCts = new vscode.CancellationTokenSource();
-	let modelSelection: ModelSelectionResult | null;
+	let modelSelection: ModelSelectionResult | null | undefined;
 	try {
-		modelSelection = await Promise.race([
+		modelSelection = await raceTimeout(
 			getModel(participantService, log, modelSelectionCts.token),
-			new Promise<null>(resolve => {
-				modelSelectionTimer = setTimeout(() => {
-					modelSelectionTimedOut = true;
-					modelSelectionCts.cancel();
-					resolve(null);
-				}, MODEL_SELECTION_TIMEOUT_MS);
-			})
-		]);
+			MODEL_SELECTION_TIMEOUT_MS,
+			() => { modelSelectionTimedOut = true; modelSelectionCts.cancel(); }
+		);
 	} finally {
-		clearTimeout(modelSelectionTimer);
 		modelSelectionCts.dispose();
 	}
 	if (!modelSelection) {
@@ -180,7 +173,6 @@ export async function generateGhostCellSuggestion(
 	// cancels, so we don't leave stalled streams alive in the background.
 	const generationCts = new vscode.CancellationTokenSource();
 	const parentCancelListener = token.onCancellationRequested(() => generationCts.cancel());
-	let generationTimer: ReturnType<typeof setTimeout> | undefined;
 
 	try {
 		// Construct messages for the request
@@ -193,20 +185,18 @@ export async function generateGhostCellSuggestion(
 		// Timeout covers the entire generation process (request + streaming).
 		// Previously the timeout only covered sendRequest(), so a stalled
 		// stream from the model provider could hang indefinitely.
-		const timeoutMs = GENERATION_TIMEOUT_MS;
 		const generationPromise = (async () => {
 			const response = await model.sendRequest([systemMessage, userMessage], {}, generationCts.token);
 			return parseStreamingXML(response.text, log, generationCts.token, language, onProgress);
 		})();
-		const result = await Promise.race([
+		const result = await raceTimeout(
 			generationPromise,
-			new Promise<never>((_, reject) => {
-				generationTimer = setTimeout(() => {
-					generationCts.cancel();
-					reject(new Error('Ghost cell suggestion timed out'));
-				}, timeoutMs);
-			})
-		]);
+			GENERATION_TIMEOUT_MS,
+			() => generationCts.cancel()
+		);
+		if (result === undefined) {
+			throw new Error('Ghost cell suggestion timed out');
+		}
 		if (result) {
 			result.modelName = modelName;
 			result.usedFallback = usedFallback;
@@ -223,7 +213,6 @@ export async function generateGhostCellSuggestion(
 		log.error(`[ghost-cell] Error generating suggestion: ${errorMessage}`);
 		return null;
 	} finally {
-		clearTimeout(generationTimer);
 		parentCancelListener.dispose();
 		generationCts.dispose();
 	}
@@ -399,10 +388,7 @@ async function parseStreamingXML(
 		// that motivated the cancellation racing above).
 		const returnPromise = iterator.return?.();
 		if (returnPromise) {
-			await Promise.race([
-				returnPromise,
-				new Promise<void>(resolve => setTimeout(resolve, ITERATOR_CLEANUP_TIMEOUT_MS))
-			]);
+			await raceTimeout(returnPromise, ITERATOR_CLEANUP_TIMEOUT_MS);
 		}
 	}
 
@@ -528,6 +514,32 @@ async function fetchVariablesFromSession(
  */
 function escapeRegExp(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Race a promise against a timeout. Returns the promise result, or
+ * `undefined` if the timeout fires first. The timer is cleaned up
+ * internally. An optional `onTimeout` callback runs when the timeout fires.
+ */
+async function raceTimeout<T>(
+	promise: Promise<T>,
+	timeoutMs: number,
+	onTimeout?: () => void
+): Promise<T | undefined> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<undefined>(resolve => {
+				timer = setTimeout(() => {
+					onTimeout?.();
+					resolve(undefined);
+				}, timeoutMs);
+			})
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 /**
