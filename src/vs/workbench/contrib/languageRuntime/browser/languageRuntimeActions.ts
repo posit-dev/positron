@@ -170,7 +170,7 @@ const selectLanguageRuntimeSession = async (
 	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
 		{
-			label: localize('positron.languageRuntime.activeSessions', 'Console Sessions'),
+			label: localize('positron.languageRuntime.activeConsoleSessions', 'Console Sessions'),
 			type: 'separator',
 		},
 		...activeRuntimeItems,
@@ -181,7 +181,7 @@ const selectLanguageRuntimeSession = async (
 
 	if (options?.allowStartSession) {
 		quickPickItems.push({
-			label: localize('positron.languageRuntime.newSession', 'New Console Session...'),
+			label: localize('positron.languageRuntime.newConsoleSession', 'New Console Session...'),
 			id: startNewRuntimeId,
 			alwaysShow: true
 		});
