@@ -186,7 +186,7 @@ test.describe('R Debugging', {
 		await console.waitForConsoleContents('Found 2 fruits!');
 	});
 
-	test.skip('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
+	test('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
 		const { debug, console } = app.workbench;
 
 		await openFile('workspaces/r-debugging/fruit_avg.r');
