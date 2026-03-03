@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -28,7 +28,7 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { Range } from '../../../../../editor/common/core/range.js';
+import { openPlotOriginFile } from '../plotUtils.js';
 
 /**
  * PlotContainerProps interface.
@@ -404,30 +404,11 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	 * Navigates to the source file that generated the current plot.
 	 */
 	const navigateToOrigin = async () => {
-		const origin = currentPlotInstance?.metadata.origin;
-		if (!origin?.uri) {
-			return;
-		}
-		try {
-			const uri = URI.parse(origin.uri);
-			const selection = origin.range
-				? new Range(
-					origin.range.start_line + 1,
-					origin.range.start_character + 1,
-					origin.range.end_line + 1,
-					origin.range.end_character + 1,
-				)
-				: undefined;
-			await services.editorService.openEditor({
-				resource: uri,
-				options: {
-					selection,
-					revealIfVisible: true,
-				},
-			});
-		} catch (err) {
-			services.logService.warn(`Failed to navigate to plot origin: ${err}`);
-		}
+		await openPlotOriginFile(
+			currentPlotInstance?.metadata.origin,
+			services.editorService,
+			services.logService
+		);
 	};
 
 	/**

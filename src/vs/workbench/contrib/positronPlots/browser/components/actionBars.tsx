@@ -34,8 +34,7 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
-import { URI } from '../../../../../base/common/uri.js';
-import { Range } from '../../../../../editor/common/core/range.js';
+import { openPlotOriginFile } from '../plotUtils.js';
 
 
 // Constants.
@@ -545,26 +544,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				class: 'codicon codicon-go-to-file',
 				enabled: !!origin?.uri,
 				run: async () => {
-					try {
-						const uri = URI.parse(origin!.uri);
-						const selection = origin!.range
-							? new Range(
-								origin!.range.start_line + 1,
-								origin!.range.start_character + 1,
-								origin!.range.end_line + 1,
-								origin!.range.end_character + 1,
-							)
-							: undefined;
-						await services.editorService.openEditor({
-							resource: uri,
-							options: {
-								selection,
-								revealIfVisible: true,
-							},
-						});
-					} catch (err) {
-						services.logService.warn(`Failed to open plot source file: ${err}`);
-					}
+					await openPlotOriginFile(origin, services.editorService, services.logService);
 				}
 			}
 		];
