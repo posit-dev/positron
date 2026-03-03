@@ -29,16 +29,14 @@ import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNoteboo
 
 interface SortableCellListProps {
 	cells: IPositronNotebookCell[];
-	onReorder: (oldIndex: number, newIndex: number) => void;
-	onMultiReorder?: (cells: IPositronNotebookCell[], targetIndex: number) => void;
+	onReorder: (cells: IPositronNotebookCell[], targetIndex: number) => void;
 	getSelectedCells?: () => IPositronNotebookCell[];
 	children: React.ReactNode;
-	disabled?: boolean; // For read-only mode
 }
 
 // Context to share active drag state with SortableCell components
 interface DragStateContextValue {
-	activeDragHandleIds: string[];
+	activeDragHandleIds: number[];
 	activeCellIndices: number[];  // Sorted indices of all selected cells
 }
 
@@ -62,10 +60,8 @@ const closestCenterExcludingActive: CollisionDetection = (args) => {
 export function SortableCellList({
 	cells,
 	onReorder,
-	onMultiReorder,
 	getSelectedCells,
 	children,
-	disabled = false,
 }: SortableCellListProps) {
 	// Track the cells being dragged - can be a single cell or multiple selected cells
 	// Use both state (for rendering) and ref (for reliable access in callbacks)
@@ -84,7 +80,7 @@ export function SortableCellList({
 	);
 
 	const handleDragStart = React.useCallback((event: DragStartEvent) => {
-		const draggedCell = cells.find(c => c.handleId === event.active.id);
+		const draggedCell = cells.find(c => c.handle === event.active.id);
 		if (!draggedCell) {
 			activeCellsRef.current = [];
 			setActiveCells([]);
@@ -92,12 +88,12 @@ export function SortableCellList({
 		}
 
 		// Check if this cell is part of a multi-selection
-		if (getSelectedCells && onMultiReorder) {
+		if (getSelectedCells) {
 			const selectedCells = getSelectedCells();
 			// Only use multi-drag if:
 			// 1. There are multiple cells selected
-			// 2. The dragged cell is part of the selection (compare by handleId for robustness)
-			const isDraggedCellSelected = selectedCells.some(c => c.handleId === draggedCell.handleId);
+			// 2. The dragged cell is part of the selection (compare by handle for robustness)
+			const isDraggedCellSelected = selectedCells.some(c => c.handle === draggedCell.handle);
 			if (selectedCells.length > 1 && isDraggedCellSelected) {
 				// Sort by index to maintain relative order
 				const sortedCells = [...selectedCells].sort((a, b) => a.index - b.index);
@@ -112,7 +108,7 @@ export function SortableCellList({
 		activeCellsRef.current = [draggedCell];
 		setActiveCells([draggedCell]);
 		DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
-	}, [cells, getSelectedCells, onMultiReorder]);
+	}, [cells, getSelectedCells]);
 
 	const handleDragEnd = React.useCallback((event: DragEndEvent) => {
 		const { active, over } = event;
@@ -144,32 +140,21 @@ export function SortableCellList({
 		// Use over.id to find the target index. closestCenter with
 		// verticalListSortingStrategy uses sorted positions, so this gives
 		// arrayMove semantics: the dragged item takes the over item's position.
-		const targetIndex = cells.findIndex(c => c.handleId === over.id);
+		const targetIndex = cells.findIndex(c => c.handle === over.id);
 		if (targetIndex === -1) {
 			clearDragState();
 			return;
 		}
 
-		// Multi-cell drag: moveCells expects an insertion-point target, not an
-		// arrayMove target. Add 1 when moving down to convert from over-index
-		// to insertion-point semantics (moveCells subtracts length internally).
-		if (draggedCells.length > 1 && onMultiReorder) {
-			const firstDraggedIndex = draggedCells[0].index;
-			const adjustedTarget = targetIndex > firstDraggedIndex
-				? targetIndex + 1
-				: targetIndex;
-			onMultiReorder(draggedCells, adjustedTarget);
-			clearDragState();
-			return;
-		}
-
-		// Single cell drag
-		const oldIndex = cells.findIndex(c => c.handleId === active.id);
-		if (oldIndex !== -1) {
-			onReorder(oldIndex, targetIndex);
-		}
+		// Convert from dnd-kit's over-index to insertion-point semantics.
+		// When moving down, add 1 because moveCells subtracts length internally.
+		const firstDraggedIndex = draggedCells[0].index;
+		const adjustedTarget = targetIndex > firstDraggedIndex
+			? targetIndex + 1
+			: targetIndex;
+		onReorder(draggedCells, adjustedTarget);
 		clearDragState();
-	}, [cells, onReorder, onMultiReorder]);
+	}, [cells, onReorder]);
 
 	const handleDragCancel = React.useCallback(() => {
 		activeCellsRef.current = [];
@@ -181,7 +166,7 @@ export function SortableCellList({
 
 	// Memoize the context value to avoid unnecessary re-renders
 	const dragStateValue = React.useMemo(() => ({
-		activeDragHandleIds: activeCells.map(c => c.handleId),
+		activeDragHandleIds: activeCells.map(c => c.handle),
 		activeCellIndices: activeCells.map(c => c.index),
 	}), [activeCells]);
 
@@ -189,13 +174,8 @@ export function SortableCellList({
 	// corrupts dnd-kit's internal state and crashes the renderer. The visual
 	// collapse of secondary cells is handled purely by CSS (.secondary-drag).
 	const sortableItems = React.useMemo(() => {
-		return cells.map(c => c.handleId);
+		return cells.map(c => c.handle);
 	}, [cells]);
-
-	// If disabled (read-only mode), don't enable drag-and-drop
-	if (disabled) {
-		return <>{children}</>;
-	}
 
 	return (
 		<DndContext

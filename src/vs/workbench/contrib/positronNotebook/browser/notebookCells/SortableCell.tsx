@@ -12,8 +12,10 @@ import React from 'react';
 // Other dependencies.
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { useDragState } from './SortableCellList.js';
@@ -34,7 +36,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 		transform,
 		transition,
 		isDragging,
-	} = useSortable({ id: cell.handleId });
+	} = useSortable({ id: cell.handle });
 
 	// Calculate max height for dragging state (1/3 of container height)
 	// Use a minimum of 200px to ensure the cell remains visible
@@ -48,7 +50,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 	// Detect if this cell is a secondary participant in a multi-drag
 	// (i.e., it's selected but not the one being actively dragged)
 	const isSecondaryDragParticipant =
-		activeDragHandleIds.includes(cell.handleId) && !isDragging;
+		activeDragHandleIds.includes(cell.handle) && !isDragging;
 
 	// Calculate how many selected cells are above/below this cell for multi-drag visualization
 	const { cellsAbove, cellsBelow } = React.useMemo(() => {
@@ -95,7 +97,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 				{...attributes}
 				{...listeners}
 			>
-				<span className='codicon codicon-gripper' />
+				<ThemeIcon icon={Codicon.gripper} />
 			</button>
 			{/* Lines above for multi-drag */}
 			{isDragging && cellsAbove > 0 && (

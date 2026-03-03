@@ -1293,13 +1293,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
 		const length = lastIndex - firstIndex + 1;
-		const newIdx = firstIndex - 1;
+		const toIndex = firstIndex - 1;
 
-		if (newIdx < 0) {
+		if (toIndex < 0) {
 			return;
 		}
 
-		this._applyCellMoveEdit(firstIndex, length, newIdx);
+		this._applyCellMoveEdit(firstIndex, length, toIndex);
 
 		// Reveal the active cell at its new position so the viewport follows the move
 		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
@@ -1322,13 +1322,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
 		const length = lastIndex - firstIndex + 1;
-		const newIdx = firstIndex + 1; // insert immediately after the block we're crossing
+		const toIndex = firstIndex + 1; // insert immediately after the block we're crossing
 
 		if (lastIndex >= cells.length - 1) {
 			return;
 		}
 
-		this._applyCellMoveEdit(firstIndex, length, newIdx);
+		this._applyCellMoveEdit(firstIndex, length, toIndex);
 
 		// Reveal the active cell at its new position so the viewport follows the move
 		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
@@ -1381,24 +1381,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._applyCellMoveEdit(firstIndex, length, adjustedTarget);
-	}
-
-	/**
-	 * Move a single cell from one index to another (for drag-and-drop).
-	 * @param fromIndex The current index of the cell
-	 * @param toIndex The final position the cell should end up at (from dnd-kit's sorted index)
-	 */
-	moveCell(fromIndex: number, toIndex: number): void {
-		this._assertTextModel();
-		const cells = this.cells.get();
-		if (fromIndex < 0 || fromIndex >= cells.length || toIndex < 0 || toIndex >= cells.length) {
-			return;
-		}
-		if (fromIndex === toIndex) {
-			return;
-		}
-
-		this._applyCellMoveEdit(fromIndex, 1, toIndex);
 	}
 
 	/**
@@ -1697,7 +1679,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Applies a Move edit to the text model with undo/redo support and fires the content change event.
 	 * Callers must call `_assertTextModel()` before invoking this method.
 	 */
-	private _applyCellMoveEdit(firstIndex: number, length: number, newIdx: number): void {
+	private _applyCellMoveEdit(firstIndex: number, length: number, toIndex: number): void {
 		const textModel = this.textModel!;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const focusRange = { start: firstIndex, end: firstIndex + length };
@@ -1706,7 +1688,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			editType: CellEditType.Move,
 			index: firstIndex,
 			length: length,
-			newIdx: newIdx
+			newIdx: toIndex
 		}],
 			true,
 			{
@@ -1716,8 +1698,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			},
 			() => ({
 				kind: SelectionStateType.Index,
-				focus: { start: newIdx, end: newIdx + length },
-				selections: [{ start: newIdx, end: newIdx + length }]
+				focus: { start: toIndex, end: toIndex + length },
+				selections: [{ start: toIndex, end: toIndex + length }]
 			}),
 			undefined,
 			computeUndoRedo

@@ -186,6 +186,21 @@ test.describe('Notebook Cell Reordering', {
 		await notebooksPositron.expectCellCountToBe(3);
 	});
 
+	test('Drag-and-drop: reorder markdown cells', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Setup: Create notebook with 2 code cells and 2 markdown cells
+		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 2 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '### Cell 2', '### Cell 3']);
+
+		// Drag the first markdown cell (index 2) to the beginning
+		await notebooksPositron.dragCellToPosition(2, 0);
+
+		// Verify the markdown cell moved to the beginning
+		await notebooksPositron.expectCellContentsToBe(['### Cell 2', '# Cell 0', '# Cell 1', '### Cell 3']);
+		await notebooksPositron.expectCellCountToBe(4);
+	});
+
 	test('Drag-and-drop: move cell to end', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 

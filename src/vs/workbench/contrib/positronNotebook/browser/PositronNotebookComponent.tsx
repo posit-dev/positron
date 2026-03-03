@@ -91,13 +91,8 @@ export function PositronNotebookComponent() {
 	// Determine if scroll decoration should be shown
 	const showDecoration = isScrolled || isFindWidgetVisible;
 
-	// Handler for drag-and-drop reordering of cells
-	const handleReorder = React.useCallback((oldIndex: number, newIndex: number) => {
-		notebookInstance.moveCell(oldIndex, newIndex);
-	}, [notebookInstance]);
-
-	// Handler for multi-cell drag-and-drop reordering
-	const handleMultiReorder = React.useCallback((cells: IPositronNotebookCell[], targetIndex: number) => {
+	// Handler for drag-and-drop reordering of cells (single or multi)
+	const handleReorder = React.useCallback((cells: IPositronNotebookCell[], targetIndex: number) => {
 		notebookInstance.moveCells(cells, targetIndex);
 	}, [notebookInstance]);
 
@@ -105,9 +100,6 @@ export function PositronNotebookComponent() {
 	const getSelectedCellsCallback = React.useCallback(() => {
 		return getSelectedCells(notebookInstance.selectionStateMachine.state.get());
 	}, [notebookInstance]);
-
-	// Check if notebook is read-only
-	const isReadOnly = notebookInstance.isReadOnly;
 
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
@@ -122,9 +114,7 @@ export function PositronNotebookComponent() {
 				<AddCellButtons index={0} />
 				<SortableCellList
 					cells={notebookCells}
-					disabled={isReadOnly}
 					getSelectedCells={getSelectedCellsCallback}
-					onMultiReorder={handleMultiReorder}
 					onReorder={handleReorder}
 				>
 					{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}

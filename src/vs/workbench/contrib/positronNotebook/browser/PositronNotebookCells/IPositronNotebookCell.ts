@@ -40,12 +40,6 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	get index(): number;
 
 	/**
-	 * Stable identifier for drag-and-drop operations.
-	 * Uses the cell's internal handle ID which persists across renders.
-	 */
-	readonly handleId: string;
-
-	/**
 	 * Cell specific uri for the cell within the notebook
 	 */
 	get uri(): URI;

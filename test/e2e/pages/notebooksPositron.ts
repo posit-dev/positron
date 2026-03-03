@@ -348,6 +348,34 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Internal helper: activate a drag on a cell's handle.
+	 * Hovers the cell, waits for the handle, presses mouse down, and moves
+	 * past the 10px activation threshold. Returns the start coordinates.
+	 */
+	private async _activateDrag(cellIndex: number): Promise<{ startX: number; startY: number }> {
+		const sourceCell = this.sortableCellAtIndex(cellIndex);
+		const dragHandle = this.dragHandleAtIndex(cellIndex);
+
+		await sourceCell.hover();
+		await expect(dragHandle).toBeVisible({ timeout: 2000 });
+
+		const handleBox = await dragHandle.boundingBox();
+		if (!handleBox) {
+			throw new Error('Could not get bounding box for drag handle');
+		}
+
+		const startX = handleBox.x + handleBox.width / 2;
+		const startY = handleBox.y + handleBox.height / 2;
+
+		// Start drag and move past activation threshold (10px in SortableCellList.tsx)
+		await this.code.driver.page.mouse.move(startX, startY);
+		await this.code.driver.page.mouse.down();
+		await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
+
+		return { startX, startY };
+	}
+
+	/**
 	 * Action: Drag a cell from one position to another using the drag handle.
 	 * @param fromIndex - The index of the cell to drag
 	 * @param toIndex - The index of the cell to drop onto
@@ -355,24 +383,8 @@ export class PositronNotebooks extends Notebooks {
 	async dragCellToPosition(fromIndex: number, toIndex: number): Promise<void> {
 		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex}`, async () => {
 			const targetCell = this.sortableCellAtIndex(toIndex);
-			const dragHandle = this.dragHandleAtIndex(fromIndex);
 
-			// Hover over the source cell to make the drag handle visible
-			await this.sortableCellAtIndex(fromIndex).hover();
-			await expect(dragHandle).toBeVisible({ timeout: 2000 });
-
-			const handleBox = await dragHandle.boundingBox();
-			if (!handleBox) {
-				throw new Error('Could not get bounding box for drag handle');
-			}
-
-			const startX = handleBox.x + handleBox.width / 2;
-			const startY = handleBox.y + handleBox.height / 2;
-
-			// Start drag and move past activation threshold (10px in SortableCellList.tsx)
-			await this.code.driver.page.mouse.move(startX, startY);
-			await this.code.driver.page.mouse.down();
-			await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
+			await this._activateDrag(fromIndex);
 
 			// Query target position AFTER drag activates. dnd-kit shifts cells via
 			// CSS transforms during drag, so pre-drag coordinates are stale.
@@ -401,24 +413,7 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async startDragCell(cellIndex: number): Promise<void> {
 		await test.step(`Start dragging cell at index ${cellIndex}`, async () => {
-			const sourceCell = this.sortableCellAtIndex(cellIndex);
-			const dragHandle = this.dragHandleAtIndex(cellIndex);
-
-			await sourceCell.hover();
-			await expect(dragHandle).toBeVisible({ timeout: 2000 });
-
-			const handleBox = await dragHandle.boundingBox();
-			if (!handleBox) {
-				throw new Error('Could not get bounding box for drag handle');
-			}
-
-			const startX = handleBox.x + handleBox.width / 2;
-			const startY = handleBox.y + handleBox.height / 2;
-
-			// Start drag and move past activation threshold (10px defined in SortableCellList.tsx)
-			await this.code.driver.page.mouse.move(startX, startY);
-			await this.code.driver.page.mouse.down();
-			await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
+			await this._activateDrag(cellIndex);
 			// Leave mouse down - caller controls what happens next
 		});
 	}
@@ -432,21 +427,12 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async dragCellToPositionWithScroll(fromIndex: number, toIndex: number): Promise<void> {
 		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex} (with auto-scroll)`, async () => {
+			// Ensure source cell is visible before activating drag
 			const sourceCell = this.sortableCellAtIndex(fromIndex);
-			const dragHandle = this.dragHandleAtIndex(fromIndex);
-
-			// Ensure source cell is visible and get drag handle
 			await sourceCell.scrollIntoViewIfNeeded();
 			await expect(sourceCell).toBeVisible();
 
-			await sourceCell.hover();
-			await expect(dragHandle).toBeVisible({ timeout: 2000 });
-
-			// Get bounding box with retry logic for animation stability
-			const handleBox = await dragHandle.boundingBox();
-			if (!handleBox) {
-				throw new Error('Could not get bounding box for drag handle');
-			}
+			const { startX } = await this._activateDrag(fromIndex);
 
 			// Get the notebook container for viewport bounds
 			const notebookContainer = this.positronNotebook;
@@ -454,15 +440,6 @@ export class PositronNotebooks extends Notebooks {
 			if (!containerBox) {
 				throw new Error('Could not get notebook container bounding box');
 			}
-
-			// Start the drag
-			const startX = handleBox.x + handleBox.width / 2;
-			const startY = handleBox.y + handleBox.height / 2;
-			await this.code.driver.page.mouse.move(startX, startY);
-			await this.code.driver.page.mouse.down();
-
-			// Move past activation threshold (10px defined in SortableCellList.tsx)
-			await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
 
 			// Determine scroll direction
 			const scrollingDown = toIndex > fromIndex;

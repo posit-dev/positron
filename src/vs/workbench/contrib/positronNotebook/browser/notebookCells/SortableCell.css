@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Drag handle for sortable cells */
+/* Drag handle for sortable cells - overlaps cell edge like the action bar */
 .cell-drag-handle {
 	position: absolute;
-	left: -13px; /* Aligned with left gutter: -25px + 12px cell margin = -13px from sortable-cell */
+	left: 0;
 	top: 4px;
 	width: 16px;
 	height: 24px;
@@ -39,7 +39,7 @@
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
-.cell-drag-handle .codicon {
+.cell-drag-handle > * {
 	cursor: inherit;
 }
 
