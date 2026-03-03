@@ -10,7 +10,6 @@ import React from 'react';
 import {
 	DndContext,
 	DragOverlay,
-	closestCenter,
 	CollisionDetection,
 	PointerSensor,
 	KeyboardSensor,
@@ -49,12 +48,51 @@ export function useDragState(): DragStateContextValue {
 	return React.useContext(DragStateContext);
 }
 
-// Wraps closestCenter but excludes the active item from candidates.
-// Without this, dragging to the very first/last position can resolve
-// over=active (sorted position matches cursor), causing a no-op.
-const closestCenterExcludingActive: CollisionDetection = (args) => {
-	const filtered = args.droppableContainers.filter(c => c.id !== args.active.id);
-	return closestCenter({ ...args, droppableContainers: filtered });
+// Custom collision detection: find the gap between cells closest to the
+// cursor and resolve to the droppable on the appropriate side of that gap.
+// This gives "insertion point" semantics rather than "which cell center am
+// I nearest to," which feels more natural for reordering.
+const closestGap: CollisionDetection = (args) => {
+	const { droppableContainers, active, collisionRect } = args;
+	const pointerY = collisionRect.top + collisionRect.height / 2;
+
+	// Get candidates sorted by vertical position (exclude active item)
+	const candidates = droppableContainers
+		.filter(c => c.id !== active.id && c.rect.current)
+		.sort((a, b) => a.rect.current!.top - b.rect.current!.top);
+
+	if (candidates.length === 0) {
+		return [];
+	}
+
+	// Build gap positions: each gap sits between two adjacent cells.
+	// A gap maps to the cell BELOW it (dropping into that gap means
+	// the active item takes that cell's position).
+	const gaps: { y: number; id: typeof candidates[0]['id'] }[] = [];
+
+	// Gap above the first cell
+	gaps.push({ y: candidates[0].rect.current!.top, id: candidates[0].id });
+
+	// Gaps between adjacent cells
+	for (let i = 0; i < candidates.length - 1; i++) {
+		const bottomOfCurrent = candidates[i].rect.current!.top + candidates[i].rect.current!.height;
+		const topOfNext = candidates[i + 1].rect.current!.top;
+		const gapY = (bottomOfCurrent + topOfNext) / 2;
+		gaps.push({ y: gapY, id: candidates[i + 1].id });
+	}
+
+	// Find the gap closest to the pointer
+	let closestId = gaps[0].id;
+	let minDist = Math.abs(pointerY - gaps[0].y);
+	for (let i = 1; i < gaps.length; i++) {
+		const dist = Math.abs(pointerY - gaps[i].y);
+		if (dist < minDist) {
+			minDist = dist;
+			closestId = gaps[i].id;
+		}
+	}
+
+	return [{ id: closestId }];
 };
 
 export function SortableCellList({
@@ -179,7 +217,7 @@ export function SortableCellList({
 
 	return (
 		<DndContext
-			collisionDetection={closestCenterExcludingActive}
+			collisionDetection={closestGap}
 			sensors={sensors}
 			onDragCancel={handleDragCancel}
 			onDragEnd={handleDragEnd}
