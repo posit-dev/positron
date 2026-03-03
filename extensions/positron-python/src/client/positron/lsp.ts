@@ -138,8 +138,9 @@ export class PythonLsp implements vscode.Disposable {
         // Override default output channel with our persistant one that is reused across sessions.
         this._clientOptions.outputChannel = this._outputChannel;
 
-        // Add middleware to set priorities and filter diagnostics for Quarto virtual documents:
+        // Add middleware to filter diagnostics for Quarto virtual documents:
         // https://github.com/quarto-dev/quarto/issues/855
+        // Also set the priorities for completion items and hovers based on Positron LSP server extensions.
         this._clientOptions.middleware = {
             handleDiagnostics(uri, diagnostics, next) {
                 // Only check file URIs because vdocs are files on disk
