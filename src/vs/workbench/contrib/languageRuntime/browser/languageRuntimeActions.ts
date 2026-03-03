@@ -437,7 +437,7 @@ const renameLanguageRuntimeSession = async (
 	const sessionName = await quickInputService.input({
 		value: '',
 		placeHolder: '',
-		prompt: localize('positron.console.renameSession.prompt', "Enter the new session name"),
+		prompt: localize('positron.languageRuntime.renameSession.prompt', "Enter the new session name"),
 	});
 
 	// Validate the new session name
@@ -451,7 +451,7 @@ const renameLanguageRuntimeSession = async (
 		sessionService.updateSessionName(sessionId, newSessionName);
 	} catch (error) {
 		notificationService.error(
-			localize('positron.console.renameSession.error',
+			localize('positron.languageRuntime.renameSession.error',
 				"Failed to rename session {0}: {1}",
 				sessionId,
 				error
@@ -705,7 +705,7 @@ export function registerLanguageRuntimeActions() {
 		constructor() {
 			super({
 				id: LANGUAGE_RUNTIME_RENAME_SESSION_ID,
-				title: localize2('positron.console.renameSesison', "Rename Interpreter Session"),
+				title: localize2('positron.languageRuntime.renameSession', "Rename Interpreter Session"),
 				category,
 				f1: true,
 			});
@@ -748,7 +748,7 @@ export function registerLanguageRuntimeActions() {
 		constructor() {
 			super({
 				id: LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID,
-				title: localize2('positron.console.renameActiveSesison', "Rename Active Interpreter Session"),
+				title: localize2('positron.languageRuntime.renameActiveSession', "Rename Active Interpreter Session"),
 				category,
 				f1: true,
 				keybinding: {
