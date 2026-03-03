@@ -59,24 +59,24 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 			className={className}
 			style={style}
 		>
-			{isDragging ? (
-				// Drop position indicator -- thin line where the cell will land
-				<div className='drag-drop-indicator' />
-			) : (
-				<>
-					<button
-						ref={setActivatorNodeRef}
-						aria-label='Drag to reorder cell'
-						className='cell-drag-handle'
-						type='button'
-						{...attributes}
-						{...listeners}
-					>
-						<ThemeIcon icon={Codicon.gripper} />
-					</button>
-					{children}
-				</>
+			{!isDragging && (
+				<button
+					ref={setActivatorNodeRef}
+					aria-label='Drag to reorder cell'
+					className='cell-drag-handle'
+					type='button'
+					{...attributes}
+					{...listeners}
+				>
+					<ThemeIcon icon={Codicon.gripper} />
+				</button>
 			)}
+			{/* Always render children to preserve measured height for dnd-kit
+				collision detection. When dragging, hide visually with CSS. */}
+			<div className={isDragging ? 'drag-placeholder' : undefined}>
+				{children}
+			</div>
+			{isDragging && <div className='drag-drop-indicator' />}
 		</div>
 	);
 }

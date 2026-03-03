@@ -53,13 +53,22 @@ body.dragging-notebook-cell * {
 	cursor: grabbing !important;
 }
 
-/* --- Drop indicator (replaces cell content at original position while dragging) --- */
+/* --- Drop placeholder and indicator --- */
 
+/* Hide cell content visually but preserve layout height for collision detection */
+.drag-placeholder {
+	visibility: hidden;
+}
+
+/* Thin indicator line overlaid on the placeholder to show drop position */
 .drag-drop-indicator {
+	position: absolute;
+	top: 0;
+	left: 12px;
+	right: 0;
 	height: 3px;
 	border-radius: 2px;
 	background-color: var(--vscode-focusBorder, #007acc);
-	margin: 2px 12px;
 }
 
 /* --- Floating overlay preview (follows cursor) --- */
