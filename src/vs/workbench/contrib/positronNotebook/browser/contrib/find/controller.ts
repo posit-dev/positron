@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
-import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
+import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../../editor/contrib/find/browser/findModel.js';
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
@@ -18,6 +18,7 @@ import { CellEditorRange } from '../../../common/editor/range.js';
 import { NotebookCellsChangeType } from '../../../../notebook/common/notebookCommon.js';
 import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
 import { RunOnceScheduler } from '../../../../../../base/common/async.js';
+import { Constants } from '../../../../../../base/common/uint.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { getActiveCell } from '../../selectionMachine.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
@@ -26,7 +27,10 @@ import { showHistoryKeybindingHint } from '../../../../../../platform/history/br
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
 import { FindWidgetSearchHistory } from '../../../../../../editor/contrib/find/browser/findWidgetSearchHistory.js';
+import { ReplaceWidgetHistory } from '../../../../../../editor/contrib/find/browser/replaceWidgetHistory.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
+import { IBulkEditService, ResourceTextEdit } from '../../../../../../editor/browser/services/bulkEditService.js';
+import { ReplacePattern, parseReplaceString } from '../../../../../../editor/contrib/find/browser/replacePattern.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -42,6 +46,9 @@ export class CurrentPositronCellMatch {
 		public readonly matchIndex: number,
 	) { }
 }
+
+/** Maximum matches returned by research() for decorations. */
+const MATCHES_LIMIT = 999;
 
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
@@ -75,6 +82,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
+		@IBulkEditService private readonly _bulkEditService: IBulkEditService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextViewService private readonly _contextViewService: IContextViewService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
@@ -137,9 +145,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			// Bind context keys
 			const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);
 			const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
+			const replaceInputFocused = CONTEXT_REPLACE_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
 
 			// Create the find instance
 			const findWidgetSearchHistory = FindWidgetSearchHistory.getOrCreate(this._storageService);
+			const replaceWidgetHistory = ReplaceWidgetHistory.getOrCreate(this._storageService);
 			const findInstance = this._register(new PositronFindInstance({
 				container: this._notebook.overlayContainer,
 				findInputOptions: {
@@ -151,6 +161,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					showHistoryHint: () => showHistoryKeybindingHint(this._keybindingService),
 					history: findWidgetSearchHistory,
 				},
+				replaceInputOptions: {
+					label: localize('positronNotebook.replace.label', "Replace"),
+					placeholder: localize('positronNotebook.replace.placeholder', "Replace"),
+					inputBoxStyles: defaultInputBoxStyles,
+					toggleStyles: defaultToggleStyles,
+					showHistoryHint: () => showHistoryKeybindingHint(this._keybindingService),
+					history: replaceWidgetHistory,
+				},
 				contextKeyService: this._notebook.scopedContextKeyService,
 				contextViewService: this._contextViewService,
 			}));
@@ -159,6 +177,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			// Subscribe to user action events
 			this._register(findInstance.onDidRequestFindNext(() => this.findNext()));
 			this._register(findInstance.onDidRequestFindPrevious(() => this.findPrevious()));
+			this._register(findInstance.onDidRequestReplace(() => this.replace()));
+			this._register(findInstance.onDidRequestReplaceAll(() => this.replaceAll()));
 
 			// Subscribe to visibility changes
 			this._register(autorun((reader) => {
@@ -169,6 +189,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					// Reset context keys
 					findWidgetVisible.reset();
 					findInputFocused.reset();
+					replaceInputFocused.reset();
 
 					// Clear state
 					transaction((tx) => {
@@ -188,6 +209,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					findInputFocused.set(true);
 				} else {
 					findInputFocused.reset();
+				}
+			}));
+
+			this._register(autorun((reader) => {
+				const focused = findInstance.replaceInputFocused.read(reader);
+				if (focused) {
+					replaceInputFocused.set(true);
+				} else {
+					replaceInputFocused.reset();
 				}
 			}));
 
@@ -215,10 +245,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	/**
 	 * Shows the find widget and starts the find operation.
+	 * @param options.replace If true, expands the replace section.
 	 */
-	public start(): void {
+	public start(options?: { replace?: boolean }): void {
 		const findInstance = this.getOrCreateFindInstance();
-		findInstance.show();
+		findInstance.show(options);
 	}
 
 	/**
@@ -246,20 +277,30 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	/**
-	 * Performs a search across all notebook cells.
+	 * Finds matches across all notebook cells.
 	 */
-	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean): PositronCellFindMatch[] {
+	private _findMatchesInCells(
+		searchString: string,
+		isRegex: boolean,
+		matchCase: boolean,
+		wholeWord: boolean,
+		captureMatches: boolean,
+		limitResultCount?: number,
+	): PositronCellFindMatch[] {
+		const wordSeparators = wholeWord
+			? this._configurationService.inspect<string>('editor.wordSeparators').value || null
+			: null;
 		const cellMatches: PositronCellFindMatch[] = [];
 		for (const [cellIndex, cell] of this._notebook.cells.get().entries()) {
 			if (cell.model.textModel) {
-				const wordSeparators = this._configurationService.inspect<string>('editor.wordSeparators').value;
 				const matches = cell.model.textModel.findMatches(
 					searchString,
 					null,
 					isRegex,
 					matchCase,
-					wholeWord ? wordSeparators || null : null,
-					isRegex,
+					wordSeparators,
+					captureMatches,
+					limitResultCount,
 				);
 				for (const match of matches) {
 					const cellRange = new CellEditorRange(cellIndex, match.range);
@@ -268,6 +309,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				}
 			}
 		}
+		return cellMatches;
+	}
+
+	/**
+	 * Performs a search across all notebook cells and updates state.
+	 */
+	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean, moveCursor = false): PositronCellFindMatch[] {
+		const cellMatches = this._findMatchesInCells(searchString, isRegex, matchCase, wholeWord, false, MATCHES_LIMIT);
 
 		// Set the match index to the first match after the cursor
 		let matchIndex: number | undefined = undefined;
@@ -293,12 +342,28 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			}
 		}
 
-		// Update matches, match count and index
+		// Invalidate currentMatch if its range no longer exists in the new matches
+		const currentMatch = this._currentMatch.get();
+		const isCurrentMatchStale = currentMatch !== undefined && !cellMatches.some(
+			({ cellRange }) => cellRange.equalsRange(currentMatch.cellMatch.cellRange)
+		);
+
+		// Update state
 		transaction((tx) => {
 			this._matches.set(cellMatches, tx);
 			this._findInstance?.matchCount.set(cellMatches.length, tx);
 			this._findInstance?.matchIndex.set(matchIndex, tx);
+			if (isCurrentMatchStale) {
+				this._currentMatch.set(undefined, tx);
+			}
 		});
+
+		if (moveCursor && cellMatches.length > 0) {
+			const nextIndex = matchIndex !== undefined
+				? (matchIndex + 1) % cellMatches.length
+				: 0;
+			this.navigateToMatch(nextIndex);
+		}
 
 		return cellMatches;
 	}
@@ -351,7 +416,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					cellRange.containsPosition(cursorPosition) ||
 					cursorPosition.isBefore(cellRange.getStartPosition())
 				);
-				return nextMatchIndex;
+				// Wrap to first match when cursor is past all matches
+				return nextMatchIndex !== -1 ? nextMatchIndex : 0;
 			}
 		}
 
@@ -437,5 +503,125 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			// Update current match tracking
 			this._currentMatch.set({ cellMatch, matchIndex: matchIndex }, tx);
 		});
+	}
+
+	/**
+	 * Builds a ReplacePattern from the current replace text and regex state.
+	 * When regex is on, interprets $1, \n, etc. as special sequences.
+	 * When regex is off, treats the string literally.
+	 */
+	private _getReplacePattern(): ReplacePattern {
+		const replaceString = this._findInstance?.replaceText.get() ?? '';
+		if (this._findInstance?.isRegex.get()) {
+			return parseReplaceString(replaceString);
+		}
+		return ReplacePattern.fromStaticValue(replaceString);
+	}
+
+	/**
+	 * Replaces the current match. Two-step behavior:
+	 * 1. If no current match, navigates to the first match (does not replace).
+	 * 2. If a current match exists, replaces it and advances to the next match.
+	 */
+	public async replace(): Promise<void> {
+		const matches = this._matches.get();
+		if (matches.length === 0) {
+			return;
+		}
+
+		const currentMatch = this._currentMatch.get();
+		if (currentMatch === undefined) {
+			// First call: navigate to first match without replacing
+			this.findNext();
+			return;
+		}
+
+		const findInstance = this._findInstance;
+		if (!findInstance) {
+			return;
+		}
+
+		const { cell, cellRange } = currentMatch.cellMatch;
+		const replacePattern = this._getReplacePattern();
+		const preserveCase = findInstance.preserveCase.get();
+
+		// Get captures only when the replacement pattern needs them
+		let capturedMatches: string[] | null = null;
+		if (replacePattern.hasReplacementPatterns || preserveCase) {
+			const textModel = cell.model.textModel;
+			if (textModel) {
+				const wordSeparators = findInstance.wholeWord.get()
+					? this._configurationService.inspect<string>('editor.wordSeparators').value || null
+					: null;
+				const cellMatches = textModel.findMatches(
+					findInstance.searchString.get(),
+					cellRange.range,
+					findInstance.isRegex.get(),
+					findInstance.matchCase.get(),
+					wordSeparators,
+					true, // captureMatches
+					1,    // limitResultCount
+				);
+				capturedMatches = cellMatches[0]?.matches ?? null;
+			}
+		}
+
+		const replacementText = replacePattern.buildReplaceString(capturedMatches, preserveCase);
+
+		// Apply the edit
+		await this._bulkEditService.apply(
+			[new ResourceTextEdit(cell.uri, { range: cellRange.range, text: replacementText })],
+			{ quotableLabel: localize('positronNotebook.replace', "Notebook Replace") },
+		);
+
+		// Immediate research with fresh positions, then navigate to next match
+		this.research(
+			findInstance.searchString.get(),
+			findInstance.isRegex.get(),
+			findInstance.matchCase.get(),
+			findInstance.wholeWord.get(),
+			true, // moveCursor
+		);
+	}
+
+	/**
+	 * Replaces all matches in a single bulk edit operation (one undo step).
+	 */
+	public async replaceAll(): Promise<void> {
+		const findInstance = this._findInstance;
+		if (!findInstance) {
+			return;
+		}
+
+		const replacePattern = this._getReplacePattern();
+		const preserveCase = findInstance.preserveCase.get();
+		const needsCaptures = replacePattern.hasReplacementPatterns || preserveCase;
+
+		// Fresh uncapped search to ensure all matches are found
+		const allMatches = this._findMatchesInCells(
+			findInstance.searchString.get(),
+			findInstance.isRegex.get(),
+			findInstance.matchCase.get(),
+			findInstance.wholeWord.get(),
+			needsCaptures,
+			Constants.MAX_SAFE_SMALL_INTEGER,
+		);
+
+		if (allMatches.length === 0) {
+			return;
+		}
+
+		// Build edits for all matches
+		const edits: ResourceTextEdit[] = [];
+		for (const match of allMatches) {
+			const replacementText = replacePattern.buildReplaceString(match.matches, preserveCase);
+			edits.push(new ResourceTextEdit(match.cell.uri, { range: match.cellRange.range, text: replacementText }));
+		}
+
+		// Apply all edits in a single operation
+		await this._bulkEditService.apply(
+			edits,
+			{ quotableLabel: localize('positronNotebook.replaceAll', "Notebook Replace All") },
+		);
 	}
 }

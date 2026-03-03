@@ -5,6 +5,7 @@
 
 import { IServiceContainer } from '../../ioc/types';
 import { EnvironmentType } from '../../pythonEnvironments/info';
+import { CondaPackageManager } from './condaPackageManager';
 import { PipPackageManager } from './pipPackageManager';
 import { IPackageManager, MessageEmitter } from './types';
 import { UvPackageManager } from './uvPackageManager';
@@ -13,9 +14,7 @@ import { UvPackageManager } from './uvPackageManager';
  * Factory for creating the appropriate package manager based on environment type.
  *
  * This factory examines the Python environment type and returns the corresponding
- * package manager implementation:
- * - Uv environments use UvPackageManager
- * - All other environments use PipPackageManager as the default
+ * package manager implementation, with a fallback to PipPackageManager.
  */
 export class PackageManagerFactory {
     /**
@@ -33,15 +32,20 @@ export class PackageManagerFactory {
         messageEmitter: MessageEmitter,
         serviceContainer: IServiceContainer,
     ): IPackageManager {
-        // Check if the environment is a uv-managed environment
         if (runtimeSource === EnvironmentType.Uv) {
             return new UvPackageManager(pythonPath, messageEmitter, serviceContainer);
-        } else if (runtimeSource === EnvironmentType.Venv) {
+        }
+
+        if (runtimeSource === EnvironmentType.Conda) {
+            return new CondaPackageManager(pythonPath, messageEmitter, serviceContainer);
+        }
+
+        if (runtimeSource === EnvironmentType.Venv) {
             return new PipPackageManager(pythonPath, messageEmitter, serviceContainer);
         }
 
         // Default to PipPackageManager for all other environment types
-        // This includes Conda, Pyenv, Global, System, VirtualEnv, etc.
+        // This includes Pyenv, Global, System, VirtualEnv, etc.
         return new PipPackageManager(pythonPath, messageEmitter, serviceContainer);
     }
 }
