@@ -134,9 +134,9 @@
 }
 
 .memory-usage-dropdown .usage-bar.segmented .usage-bar-segment.kernel {
-	background-color: var(--vscode-charts-purple);
+	background-color: var(--vscode-charts-foreground);
 }
 
 .memory-usage-dropdown .usage-bar.segmented .usage-bar-segment.positron {
-	background-color: var(--vscode-charts-blue);
+	background-color: var(--vscode-gauge-foreground);
 }
