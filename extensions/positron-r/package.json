@@ -162,6 +162,16 @@
         "command": "r.loadRDataFileWithPicker",
         "category": "R",
         "title": "%r.command.loadRDataFileWithPicker.title%"
+      },
+      {
+        "command": "r.browseAddins",
+        "category": "R",
+        "title": "%r.command.browseAddins.title%"
+      },
+      {
+        "command": "r.browseRmdTemplates",
+        "category": "R",
+        "title": "%r.command.browseRmdTemplates.title%"
       }
     ],
     "configuration": [
@@ -1079,7 +1089,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.232"
+      "ark": "0.1.235"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

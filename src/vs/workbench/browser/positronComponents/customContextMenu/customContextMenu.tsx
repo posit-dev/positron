@@ -19,7 +19,7 @@ import { PositronReactServices } from '../../../../base/browser/positronReactSer
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from './customContextMenuItem.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
+import { AnchorMode, AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 
 /**
  * CustomContextMenuEntry type.
@@ -72,10 +72,17 @@ export interface CustomContextMenuProps {
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
 	readonly popupAlignment: PopupAlignment;
+	readonly anchorMode?: AnchorMode;
 	readonly width?: number | 'auto';
 	readonly minWidth?: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
 	readonly onClose?: () => void;
+	/**
+	 * Callback to dismiss parent menus in the hierarchy.
+	 * When an item is selected, each menu calls dismiss() then onDismissParentMenus(),
+	 * which chains up through parent menus.
+	 */
+	readonly onDismissParentMenus?: () => void;
 }
 
 /**
@@ -88,16 +95,19 @@ export interface CustomContextMenuProps {
  * @param minWidth The minimum width.
  * @param entries The context menu entries.
  * @param onClose The callback to call when the context menu is closed/disposed.
+ * @param onDismissParentMenus Callback to dismiss parent menus when an item is selected.
  */
 export const showCustomContextMenu = ({
 	anchorElement,
 	anchorPoint,
 	popupPosition,
 	popupAlignment,
+	anchorMode,
 	width,
 	minWidth,
 	entries,
 	onClose,
+	onDismissParentMenus,
 }: CustomContextMenuProps) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -120,6 +130,7 @@ export const showCustomContextMenu = ({
 	renderer.render(
 		<CustomContextMenuModalPopup
 			anchorElement={anchorElement}
+			anchorMode={anchorMode}
 			anchorPoint={anchorPoint}
 			entries={entries}
 			minWidth={minWidth}
@@ -127,6 +138,7 @@ export const showCustomContextMenu = ({
 			popupPosition={popupPosition}
 			renderer={renderer}
 			width={width}
+			onDismissParentMenus={onDismissParentMenus}
 		/>
 	);
 };
@@ -140,9 +152,11 @@ interface CustomContextMenuModalPopupProps {
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
 	readonly popupAlignment: PopupAlignment;
+	readonly anchorMode?: AnchorMode;
 	readonly width: number | 'auto';
 	readonly minWidth: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
+	readonly onDismissParentMenus?: () => void;
 }
 
 /**
@@ -155,10 +169,19 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	const services = usePositronReactServicesContext();
 
 	/**
-	 * Dismisses the modal popup.
+	 * Dismisses this modal popup.
 	 */
 	const dismiss = () => {
 		props.renderer.dispose();
+	};
+
+	/**
+	 * Dismisses this menu and the parent menus, if there are any.
+	 * Called when an item is selected from a submenu.
+	 */
+	const dismissAllMenus = () => {
+		dismiss();
+		props.onDismissParentMenus?.();
 	};
 
 	/**
@@ -210,7 +233,8 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				)}
 				disabled={options.disabled}
 				onPressed={e => {
-					dismiss();
+					// Ensure we close the menu and the parent menus when a menu item selection is made.
+					dismissAllMenus();
 					options.onWillSelect?.();
 					if (options.commandId) {
 						services.commandService.executeCommand(options.commandId);
@@ -271,26 +295,18 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				return;
 			}
 
-			// Get the anchor point to position the submenu to the top right of the parent menu item.
-			const rect = buttonRef.current.getBoundingClientRect();
-			const anchorPoint: AnchorPoint = {
-				clientX: rect.right,
-				clientY: rect.top
-			};
-
 			// Show the submenu by creating a new custom context menu instance.
-			// Use 'auto' positioning to let the popup system determine the best placement.
+			// We use 'avoid' anchor mode to position the submenu adjacent to the parent menu item,
+			// instead of below the parent menu item so the parent menu item is not covered up.
 			showCustomContextMenu({
 				anchorElement: buttonRef.current,
-				anchorPoint,
 				popupPosition: 'auto',
 				popupAlignment: 'auto',
+				anchorMode: 'avoid',
 				// Evaluate the entries now to ensure things like the checked state is up to date when submenu opens.
 				entries: options.entries(),
-				onClose: () => {
-					// When submenu closes, focus returns to parent menu item that opened the submenu.
-					buttonRef.current?.focus();
-				}
+				// Passing down a function that will allow the submenu to dismiss the parent menus.
+				onDismissParentMenus: dismissAllMenus,
 			});
 		};
 
@@ -377,6 +393,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
+			anchorMode={props.anchorMode}
 			anchorPoint={props.anchorPoint}
 			height={'auto'}
 			keyboardNavigationStyle='menu'

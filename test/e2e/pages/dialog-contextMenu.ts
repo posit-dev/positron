@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -67,6 +67,7 @@ export class ContextMenu {
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
 	 * @param menuItemType The type of the menu item, either 'menuitemcheckbox' or 'menuitem'
+	 * @param menuTriggerButton The mouse button to use when clicking the menu trigger (default: 'left')
 	 */
 	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem', menuTriggerButton = 'left' }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {

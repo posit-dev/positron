@@ -18,6 +18,7 @@ import React, {
 // Other dependencies.
 import { FixedSizeList as List } from 'react-window';
 import * as DOM from '../../../../../base/browser/dom.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
@@ -217,11 +218,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				})}
 				style={props.style}
 				onMouseDown={(e) => {
-					if (e.button === 0) { // Left Click
-						// Select the item.
-						setSelectedItem(id);
-					} else if (e.button === 2) { // Right Click
-						// Show the context menu.
+					// Show context menu on right-click or Ctrl+Click on macOS
+					if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
 						services.contextMenuService.showContextMenu({
 							getActions: () => [
 								{
@@ -261,6 +259,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							],
 							getAnchor: () => ({ x: e.clientX, y: e.clientY })
 						});
+					} else if (e.button === 0) {
+						// Left click without Ctrl on Mac - select the item
+						setSelectedItem(id);
 					}
 				}}
 			>

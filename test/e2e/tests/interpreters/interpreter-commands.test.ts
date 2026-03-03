@@ -52,7 +52,7 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 		await anyPythonSession.waitFor({ state: 'visible' });
 		await page.keyboard.press('Enter');
 		await app.workbench.quickInput.waitForQuickInputClosed();
-		await app.workbench.toasts.expectToBeVisible(/Python .* interpreter has been cleared/);
+		await app.workbench.toasts.expectToastWithTitle(/Python .* interpreter has been cleared/);
 
 	});
 
@@ -63,7 +63,7 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 		await anyRSession.waitFor({ state: 'visible' });
 		await page.keyboard.press('Enter');
 		await app.workbench.quickInput.waitForQuickInputClosed();
-		await app.workbench.toasts.expectToBeVisible(/R .* interpreter has been cleared/);
+		await app.workbench.toasts.expectToastWithTitle(/R .* interpreter has been cleared/);
 	});
 
 });

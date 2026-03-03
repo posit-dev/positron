@@ -133,7 +133,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			// verify copy to clipboard behavior - use un-normalized code (with newlines)
 			await dataExplorer.convertToCodeModal.clickOK();
 			await clipboard.expectClipboardTextToBe(expectedGeneratedCode);
-			await toasts.expectToBeVisible('Copied to clipboard');
+			await toasts.expectToastWithTitle('Copied to clipboard');
 		});
 	});
 });

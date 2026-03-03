@@ -121,4 +121,13 @@
         "key": "cmd+l p",
         "command": "posit.publisher.deployWithEntrypoint" // Publish Document
     },
+    {
+        "key": "cmd+l q",
+        "command": "quarto.runCurrentCell" // Quarto: Run Current Cell
+    },
+    {
+        "key": "cmd+l r",
+        "command": "quarto.runCurrent" // Quarto: Run Current Code
+
+    }
 ]
