@@ -566,7 +566,7 @@ export function registerLanguageRuntimeActions() {
 	 */
 	registerLanguageRuntimeAction(
 		LANGUAGE_RUNTIME_SELECT_SESSION_ID,
-		localize2('positron.languageRuntime.selectInterpreterSession', 'Select Console Session'),
+		localize2('positron.languageRuntime.selectSession.commandTitle', 'Select Session'),
 		async accessor => {
 			// Access services.
 			const commandService = accessor.get(ICommandService);
