@@ -215,17 +215,42 @@ export class Code {
 		return measureAndLog(() => new Promise<void>(resolve => {
 			// If no main process (external server mode), just close the driver
 			if (!this.mainProcess) {
-				this.driver.close();
-				resolve();
+				this.driver.close().finally(() => resolve());
 				return;
 			}
 
 			const pid = this.mainProcess.pid!;
 
-			let done = false;
+			let processExited = false;
+			let driverClosed = false;
+			let driverCloseTimeout: NodeJS.Timeout | undefined;
 
-			// Start the exit flow via driver
-			this.driver.close();
+			// Helper to resolve when both process has exited AND driver.close() has completed
+			const maybeResolve = () => {
+				if (processExited && driverClosed) {
+					if (driverCloseTimeout) {
+						clearTimeout(driverCloseTimeout);
+					}
+					resolve();
+				} else if (processExited && !driverClosed && !driverCloseTimeout) {
+					// Process exited but driver.close() hasn't completed yet.
+					// Start a failsafe timeout to prevent hanging if driver.close() wedges.
+					driverCloseTimeout = setTimeout(() => {
+						if (!driverClosed) {
+							this.logger.log('Smoke test exit(): WARNING - driver.close() did not complete within 5s after process exit, resolving anyway to prevent hang');
+							driverClosed = true;
+							resolve();
+						}
+					}, 5000);
+				}
+			};
+
+			// Start the exit flow via driver - track when it completes
+			this.driver.close().finally(() => {
+				this.logger.log('Smoke test exit(): driver.close() completed');
+				driverClosed = true;
+				maybeResolve();
+			});
 
 			let safeToKill = false;
 			this.safeToKill?.then(() => {
@@ -236,14 +261,14 @@ export class Code {
 			// Await the exit of the application
 			(async () => {
 				let retries = 0;
-				while (!done) {
+				while (!processExited) {
 					retries++;
 
 					if (safeToKill) {
 						this.logger.log('Smoke test exit(): call did not terminate the process yet, but safeToKill is true, so we can kill it');
 						await this.killProcessTree(pid);
-						done = true;
-						resolve();
+						processExited = true;
+						maybeResolve();
 						return;
 					}
 
@@ -263,8 +288,8 @@ export class Code {
 						case 20: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
 							await this.killProcessTree(pid);
-							done = true;
-							resolve();
+							processExited = true;
+							maybeResolve();
 							return;
 						}
 
@@ -272,8 +297,8 @@ export class Code {
 						case 40: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
 							await this.killProcessTree(pid);
-							done = true;
-							resolve();
+							processExited = true;
+							maybeResolve();
 							return;
 						}
 					}
@@ -283,8 +308,8 @@ export class Code {
 						await this.wait(500);
 					} catch (error) {
 						this.logger.log('Smoke test exit(): call terminated process successfully');
-						done = true;
-						resolve();
+						processExited = true;
+						maybeResolve();
 					}
 				}
 			})();
