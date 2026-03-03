@@ -37,6 +37,15 @@ export type GhostCellProgressCallback = (partial: Partial<GhostCellSuggestionRes
 /** Timeout for fetching session variables (ms) */
 const VARIABLE_FETCH_TIMEOUT_MS = 3000;
 
+/** Timeout for model selection (ms) */
+const MODEL_SELECTION_TIMEOUT_MS = 10000;
+
+/** Timeout for the entire generation process including streaming (ms) */
+const GENERATION_TIMEOUT_MS = 30000;
+
+/** Timeout for iterator cleanup on cancellation (ms) */
+const ITERATOR_CLEANUP_TIMEOUT_MS = 1000;
+
 /**
  * Valid XML tag names for parsing ghost cell suggestions
  */
@@ -112,7 +121,7 @@ export async function generateGhostCellSuggestion(
 					modelSelectionTimedOut = true;
 					modelSelectionCts.cancel();
 					resolve(null);
-				}, 10000);
+				}, MODEL_SELECTION_TIMEOUT_MS);
 			})
 		]);
 	} finally {
@@ -184,7 +193,7 @@ export async function generateGhostCellSuggestion(
 		// Timeout covers the entire generation process (request + streaming).
 		// Previously the timeout only covered sendRequest(), so a stalled
 		// stream from the model provider could hang indefinitely.
-		const timeoutMs = 30000;
+		const timeoutMs = GENERATION_TIMEOUT_MS;
 		const generationPromise = (async () => {
 			const response = await model.sendRequest([systemMessage, userMessage], {}, generationCts.token);
 			return parseStreamingXML(response.text, log, generationCts.token, language, onProgress);
@@ -360,6 +369,7 @@ async function parseStreamingXML(
 	const cancelledPromise = new Promise<never>((_, reject) => {
 		rejectOnCancel = reject;
 	});
+	cancelledPromise.catch(() => { });
 	const cancelListener = token.onCancellationRequested(() => {
 		rejectOnCancel(new Error('Cancelled'));
 	});
@@ -371,7 +381,7 @@ async function parseStreamingXML(
 			if (iterResult.done) {
 				break;
 			}
-			await lexer.process(iterResult.value);
+			await Promise.race([lexer.process(iterResult.value), cancelledPromise]);
 		}
 
 		// Flush any remaining content
@@ -391,7 +401,7 @@ async function parseStreamingXML(
 		if (returnPromise) {
 			await Promise.race([
 				returnPromise,
-				new Promise<void>(resolve => setTimeout(resolve, 1000))
+				new Promise<void>(resolve => setTimeout(resolve, ITERATOR_CLEANUP_TIMEOUT_MS))
 			]);
 		}
 	}
