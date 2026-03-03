@@ -194,8 +194,32 @@ export function SortableCellList({
 				</DragStateContext.Provider>
 			</SortableContext>
 
-			{/* DragOverlay disabled - cells move in place without floating copy */}
-			<DragOverlay>{null}</DragOverlay>
+			<DragOverlay dropAnimation={null}>
+				{activeCells.length > 0 && (
+					<DragPreview cells={activeCells} />
+				)}
+			</DragOverlay>
 		</DndContext>
+	);
+}
+
+/**
+ * Compact floating preview shown in the DragOverlay while dragging.
+ * Shows a snippet of the cell content with a cell count badge for multi-drag.
+ */
+function DragPreview({ cells }: { cells: IPositronNotebookCell[] }) {
+	const firstCell = cells[0];
+	const content = firstCell.getContent();
+	// Show first line, truncated
+	const firstLine = content.split('\n')[0].slice(0, 80) || '(empty cell)';
+	const isMulti = cells.length > 1;
+
+	return (
+		<div className='drag-overlay-preview'>
+			<div className='drag-overlay-content'>{firstLine}</div>
+			{isMulti && (
+				<div className='drag-overlay-badge'>{cells.length} cells</div>
+			)}
+		</div>
 	);
 }
