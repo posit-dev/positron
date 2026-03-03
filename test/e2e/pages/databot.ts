@@ -51,9 +51,13 @@ const CODE_BLOCK_COPY_BUTTON = 'button[aria-label="Copy"]';
 const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 const TOOL_CONFIRM_TITLE = 'h4.font-semibold';
-const TOOL_ALLOW_SESSION_BUTTON = 'button:has-text("Allow for session")';
-const TOOL_ALLOW_ONCE_BUTTON = 'button:has-text("Allow once")';
-const TOOL_DECLINE_BUTTON = 'button:has-text("Decline")';
+// The tool confirmation UI uses a split button: the main "Allow" button (left half)
+// executes the default allow-once action; the chevron (right half) opens a dropdown
+// with "Allow once", "Allow for session", and "Always allow for project" options.
+const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
+const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
+const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
+const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
 
 /**
  * Page object for the Databot extension.
@@ -244,17 +248,18 @@ export class Databot {
 	}
 
 	/**
-	 * Clicks "Allow for session" on the tool confirmation dialog.
+	 * Selects "Allow for this session" from the tool confirmation dropdown.
 	 */
 	async allowToolForSession(): Promise<void> {
-		await this.frame.locator(TOOL_ALLOW_SESSION_BUTTON).click();
+		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
+		await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
 	}
 
 	/**
-	 * Clicks "Allow once" on the tool confirmation dialog.
+	 * Clicks the main "Allow" button on the tool confirmation dialog (allow once).
 	 */
 	async allowToolOnce(): Promise<void> {
-		await this.frame.locator(TOOL_ALLOW_ONCE_BUTTON).click();
+		await this.frame.locator(TOOL_ALLOW_BUTTON).click();
 	}
 
 	/**

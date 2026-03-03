@@ -58,14 +58,41 @@ export interface AnchorPoint {
 }
 
 /**
- * PopupPosition type.
+ * The vertical position of the popup relative to the anchor element or point.
+
+ * - 'bottom': Position the popup below the anchor.
+ * - 'top': Position the popup above the anchor.
+ * - 'auto': Automatically choose 'bottom' or 'top' based on available space.
  */
 export type PopupPosition = 'bottom' | 'top' | 'auto';
 
 /**
- * PopupAlignment type.
+ * The horizontal alignment of the popup relative to the anchor element or point.
+ *
+ * - 'left': Align the popup's left edge with the anchor's left edge (popup extends right).
+ * - 'right': Align the popup's right edge with the anchor's right edge (popup extends left).
+ * - 'auto': Automatically choose 'left' or 'right' based on available space.
  */
 export type PopupAlignment = 'left' | 'right' | 'auto';
+
+/**
+ * The anchor mode determines how the popup is positioned relative to the anchor.
+ *
+ * - 'align': Align the popup's edge with the anchor's edge (may overlap the anchor).
+ *            This is the default behavior for dropdown menus that appear above/below the anchor.
+ * 			  visual:
+ *			  |<------------------------ documentWidth ------------------------->|
+ *			  [LAYOUT_MARGIN][            ][ ANCHOR ][            ][LAYOUT_MARGIN]
+ *			                 |<--- spaceToLeft ---->|
+ *			                               |<--- spaceToRight --->|
+ * - 'avoid': Position the popup adjacent to the anchor without overlapping it.
+ *            This is used for submenus that appear beside the anchor element.
+ * 			  visual:
+ * 			  |<-------------------------------- documentWidth -------------------------------->|
+ * 			  [LAYOUT_MARGIN][                   ][ ANCHOR ][                    ][LAYOUT_MARGIN]
+ * 			                 |<-- spaceToLeft -->|          |<-- spaceToRight -->|
+ */
+export type AnchorMode = 'align' | 'avoid';
 
 /**
  * KeyboardNavigationStyle type.
@@ -81,6 +108,7 @@ export interface PositronModalPopupProps {
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
 	readonly popupAlignment: PopupAlignment;
+	readonly anchorMode?: AnchorMode;
 	readonly width: number | 'auto';
 	readonly minWidth?: number | 'auto';
 	readonly height: number | 'auto';
@@ -144,78 +172,230 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			anchorHeight = 0;
 		}
 
-		// Calculate the left and right area widths. This is the space that is available for laying
-		// out the modal popup anchored to the left or right of the anchor point or element.
-		const leftAreaWidth = anchorX + anchorWidth - LAYOUT_MARGIN;
-		const rightAreaWidth = documentWidth - anchorX - LAYOUT_MARGIN;
-
 		// Create the popup layout.
 		const popupLayout = new PopupLayout();
 
-		/**
-		 * Positions the popup aligned with the left edge of the anchor element.
-		 */
-		const positionLeft = () => {
-			popupLayout.left = anchorX;
-		};
+		// Determine the anchor mode (default to 'align').
+		const anchorMode = props.anchorMode ?? 'align';
 
-		/**
-		 * Positions the popup aligned with the right edge of the anchor element.
-		 */
-		const positionRight = () => {
-			if (isNumber(props.width)) {
-				popupLayout.left = (anchorX + anchorWidth) - props.width;
+		// ======= HORIZONTAL LAYOUT =======
+
+		// Perform horizontal popup layout based on anchor mode.
+		if (anchorMode === 'avoid') {
+			/**
+			 * Positions the popup to the right of the anchor element (avoiding overlap).
+			 */
+			const positionAvoidRight = () => {
+				popupLayout.left = anchorX + anchorWidth;
+			};
+
+			/**
+			 * Positions the popup to the left of the anchor element (avoiding overlap).
+			 */
+			const positionAvoidLeft = () => {
+				popupLayout.right = documentWidth - anchorX;
+			};
+
+			// Get the popup width to determine if it fits.
+			const popupWidth = isNumber(props.width)
+				? props.width
+				: popupChildrenRef.current.offsetWidth;
+
+			/**
+			 * Calculate available space on each side of the anchor element.
+			 *
+			 * visual:
+			 * |<-------------------------------- documentWidth -------------------------------->|
+			 * [LAYOUT_MARGIN][                   ][ ANCHOR ][                    ][LAYOUT_MARGIN]
+			 *                |<-- spaceToLeft -->|          |<-- spaceToRight -->|
+			 */
+			const spaceToRight = documentWidth - (anchorX + anchorWidth) - LAYOUT_MARGIN;
+			const spaceToLeft = anchorX - LAYOUT_MARGIN;
+
+			// In 'avoid' mode, we position the popup adjacent to the anchor without
+			// laying it over the anchor element.
+			if (props.popupAlignment === 'left') {
+				// Prefer left (popup appears to the left of anchor).
+				if (spaceToLeft >= popupWidth) {
+					positionAvoidLeft();
+				} else {
+					positionAvoidRight();
+				}
+			} else if (props.popupAlignment === 'right') {
+				// Prefer right (popup appears to the right of anchor).
+				if (spaceToRight >= popupWidth) {
+					positionAvoidRight();
+				} else {
+					positionAvoidLeft();
+				}
 			} else {
-				popupLayout.right = documentWidth - (anchorX + anchorWidth);
+				// Auto: choose based on available space.
+				if (spaceToRight >= popupWidth) {
+					positionAvoidRight();
+				} else {
+					positionAvoidLeft();
+				}
 			}
-		};
 
-		// Perform horizontal popup layout.
-		if (props.popupAlignment === 'left') {
-			positionLeft();
-		} else if (props.popupAlignment === 'right') {
-			positionRight();
-		} else if (props.popupAlignment === 'auto') {
-			if (leftAreaWidth > rightAreaWidth) {
-				positionRight();
+		} else {
+			/**
+			 * Positions the popup aligned with the left edge of the anchor element.
+			 */
+			const positionAlignLeft = () => {
+				popupLayout.left = anchorX;
+			};
+
+			/**
+			 * Positions the popup aligned with the right edge of the anchor element.
+			 */
+			const positionAlignRight = () => {
+				if (isNumber(props.width)) {
+					popupLayout.left = (anchorX + anchorWidth) - props.width;
+				} else {
+					popupLayout.right = documentWidth - (anchorX + anchorWidth);
+				}
+			};
+
+			/**
+			 * Calculate the left and right area widths. This is the space that is available for laying
+			 * out the modal popup anchored to the left or right of the anchor point or element.
+			 * This calculation is used for the 'align' anchor mode where overlap with the anchor
+			 * is allowed and the popup is aligned with an edge of the anchor.
+			 *
+			 * visual:
+			 * |<------------------------ documentWidth ------------------------->|
+			 * [LAYOUT_MARGIN][            ][ ANCHOR ][            ][LAYOUT_MARGIN]
+			 *                |<--- spaceToLeft ---->|
+			 *                              |<--- spaceToRight --->|
+			 */
+			const spaceToLeft = anchorX + anchorWidth - LAYOUT_MARGIN;
+			const spaceToRight = documentWidth - anchorX - LAYOUT_MARGIN;
+
+			// In 'align' mode, align the popup's edge with the anchor's edge.
+			if (props.popupAlignment === 'left') {
+				positionAlignLeft();
+			} else if (props.popupAlignment === 'right') {
+				positionAlignRight();
 			} else {
-				positionLeft();
+				// Auto: choose based on available space.
+				if (spaceToLeft > spaceToRight) {
+					positionAlignRight();
+				} else {
+					positionAlignLeft();
+				}
 			}
 		}
 
-		// Calculate the top and bottom area heights. This is the space that is available for laying
-		// out the modal popup anchored to the top or bottom of the anchor point or element.
-		const topAreaHeight = anchorY - LAYOUT_OFFSET - LAYOUT_MARGIN;
-		const bottomAreaHeight = documentHeight -
-			(anchorY + anchorHeight + LAYOUT_OFFSET + LAYOUT_MARGIN);
+		// Get the effective height for positioning calculations.
+		const layoutHeight = props.height === 'auto'
+			? popupChildrenRef.current.offsetHeight + 2 // Adding 2 for the border.
+			: props.height;
 
-		// Perform vertical popup layout.
-		if (props.height === 'auto') {
-			// Set the popup layout height.
-			popupLayout.height = props.height;
+		// Set the popup layout height.
+		popupLayout.height = props.height;
 
-			// Calculate the layout height. (Adding 2 for the border.)
-			const layoutHeight = popupChildrenRef.current.offsetHeight + 2;
+		// ======= VERTICAL LAYOUT =======
 
-			// Position the popup at the bottom.
+		// Perform vertical popup layout based on anchor mode.
+		if (anchorMode === 'avoid') {
+			/**
+			 * spaceAbove is the space between the top of the document and the bottom of the anchor element.
+			 * spaceBelow is the space between the bottom of the document and the top of the anchor element.
+			 *
+			 * +------------------------+ <- 0 (top of document)
+			 * |     LAYOUT_MARGIN      |
+			 * +------------------------+ <- spaceAbove (top of popup has to end here)
+			 * |                        |
+			 * +---------anchorY--------+ <- spaceBelow (bottom of popup has to start here)
+			 * |         ANCHOR         |
+			 * +--anchorY+anchorHeight--+ <- spaceAbove (bottom of popup starts here)
+			 * |                        |
+			 * +------------------------+ <- spaceBelow (top of popup has to end here)
+			 * |     LAYOUT_MARGIN      |
+			 * +------------------------+ <- documentHeight
+			 */
+			const spaceAbove = anchorY + anchorHeight - LAYOUT_MARGIN;
+			const spaceBelow = documentHeight - anchorY - LAYOUT_MARGIN;
+
+			// In 'avoid' mode, align edges with the anchor (no offset).
+			if (layoutHeight <= spaceBelow) {
+				// Enough space below - align top of popup with top of anchor.
+				popupLayout.top = anchorY;
+				popupLayout.maxHeight = spaceBelow;
+				popupLayout.shadow = 'bottom';
+			} else if (layoutHeight <= spaceAbove) {
+				// Not enough space below, but enough above - align bottom of popup with bottom of anchor.
+				popupLayout.top = anchorY + anchorHeight - layoutHeight;
+				popupLayout.maxHeight = spaceAbove;
+				popupLayout.shadow = 'top';
+			} else {
+				// Not enough space in either direction - use the larger area.
+				if (spaceBelow >= spaceAbove) {
+					popupLayout.top = anchorY;
+					popupLayout.maxHeight = spaceBelow;
+					popupLayout.shadow = 'bottom';
+				} else {
+					popupLayout.top = Math.max(LAYOUT_MARGIN, anchorY + anchorHeight - layoutHeight);
+					popupLayout.maxHeight = spaceAbove;
+					popupLayout.shadow = 'top';
+				}
+			}
+		} else {
+			/**
+			 * Calculate the top and bottom area heights. This is the space that is available for laying
+			 * out the modal popup anchored to the top or bottom of the anchor point or element.
+			 *
+			 * +------------------------+  <- 0 (top of document)
+			 * |     LAYOUT_MARGIN      |
+			 * +------------------------+
+			 * |     topAreaHeight      | <- popup goes here when positioned at the top
+			 * +------------------------+
+			 * |     LAYOUT_OFFSET      |
+			 * +---------anchorY--------+
+			 * |         ANCHOR         |
+			 * +--anchorY+anchorHeight--+
+			 * |     LAYOUT_OFFSET      |
+			 * +------------------------+
+			 * |    bottomAreaHeight    | <- popup goes here when positioned at the bottom
+			 * +------------------------+
+			 * |     LAYOUT_MARGIN      |
+			 * +------------------------+  <- documentHeight
+			 */
+			const topAreaHeight = anchorY - LAYOUT_OFFSET - LAYOUT_MARGIN;
+			const bottomAreaHeight = documentHeight - (anchorY + anchorHeight + LAYOUT_OFFSET + LAYOUT_MARGIN);
+
+			/**
+			 * Position the popup at the bottom.
+			 */
 			const positionBottom = () => {
 				popupLayout.top = anchorY + anchorHeight + LAYOUT_OFFSET;
-				if (props.fixedHeight) {
-					popupLayout.top = Math.min(popupLayout.top, documentHeight - layoutHeight - LAYOUT_MARGIN);
+				if (props.height === 'auto') {
+					if (props.fixedHeight) {
+						popupLayout.top = Math.min(popupLayout.top, documentHeight - layoutHeight - LAYOUT_MARGIN);
+					} else {
+						popupLayout.maxHeight = documentHeight - popupLayout.top - LAYOUT_MARGIN;
+					}
 				} else {
-					popupLayout.maxHeight = documentHeight - popupLayout.top - LAYOUT_MARGIN;
+					popupLayout.maxHeight = bottomAreaHeight;
 				}
 				popupLayout.shadow = 'bottom';
 			};
 
-			// Position the popup at the top.
+			/**
+			 * Position the popup at the top.
+			 */
 			const positionTop = () => {
 				const drawHeight = Math.min(topAreaHeight, layoutHeight);
-				popupLayout.top = Math.max(anchorY - drawHeight - LAYOUT_OFFSET, LAYOUT_MARGIN);
+				if (props.height === 'auto') {
+					popupLayout.top = Math.max(anchorY - drawHeight - LAYOUT_OFFSET, LAYOUT_MARGIN);
+				} else {
+					popupLayout.top = anchorY - drawHeight - LAYOUT_OFFSET;
+				}
 				popupLayout.maxHeight = drawHeight;
 				popupLayout.shadow = 'top';
 			};
 
+			// In 'align' mode, position below or above the anchor with an offset.
 			// Adjust the popup layout for the popup position.
 			if (props.popupPosition === 'bottom') {
 				positionBottom();
@@ -234,42 +414,11 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 					}
 				}
 			}
-		} else {
-			// Set the popup layout height.
-			popupLayout.height = props.height;
-
-			// Position the popup at the bottom.
-			const positionBottom = () => {
-				popupLayout.top = anchorY + anchorHeight + LAYOUT_OFFSET;
-				popupLayout.maxHeight = bottomAreaHeight;
-				popupLayout.shadow = 'bottom';
-			};
-
-			// Position the popup at the top.
-			const positionTop = (height: number) => {
-				const drawHeight = Math.min(topAreaHeight, height);
-				popupLayout.top = anchorY - drawHeight - LAYOUT_OFFSET;
-				popupLayout.maxHeight = drawHeight;//topAreaHeight;
-				popupLayout.shadow = 'top';
-			};
-
-			// Adjust the popup layout for the popup position.
-			if (props.popupPosition === 'bottom') {
-				positionBottom();
-			} else if (props.popupPosition === 'top') {
-				positionTop(props.height);
-			} else {
-				if (bottomAreaHeight > topAreaHeight) {
-					positionBottom();
-				} else {
-					positionTop(props.height);
-				}
-			}
 		}
 
 		// Set the popup layout.
 		setPopupLayout(popupLayout);
-	}, [props.anchorElement, props.anchorPoint, props.height, props.popupAlignment, props.popupPosition, props.width, props.fixedHeight]);
+	}, [props.anchorElement, props.anchorPoint, props.anchorMode, props.height, props.popupAlignment, props.popupPosition, props.width, props.fixedHeight]);
 
 	// Layout.
 	useLayoutEffect(() => {
