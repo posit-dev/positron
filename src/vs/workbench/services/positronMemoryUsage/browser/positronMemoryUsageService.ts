@@ -93,8 +93,13 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		// Schedule a poll after code execution finishes. We listen to the
 		// service-level state change event and debounce so that only after
 		// all kernels have been idle for POST_EXECUTION_DELAY_MS do we poll.
+		// Also remove sessions that have exited so they no longer appear
+		// in the memory meter (a session can exit without being deleted).
 		this._register(this._runtimeSessionService.onDidChangeRuntimeState(e => {
-			if (e.old_state === RuntimeState.Busy && (e.new_state === RuntimeState.Idle || e.new_state === RuntimeState.Ready)) {
+			if (e.new_state === RuntimeState.Exited) {
+				this._removeSessionListener(e.session_id);
+				this._poll();
+			} else if (e.old_state === RuntimeState.Busy && (e.new_state === RuntimeState.Idle || e.new_state === RuntimeState.Ready)) {
 				this._schedulePostExecutionPoll();
 			}
 		}));
