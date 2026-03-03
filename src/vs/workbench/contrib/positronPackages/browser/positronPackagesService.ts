@@ -101,11 +101,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	private cleanupSession(sessionId: string): void {
 		const instance = this._instancesBySessionId.get(sessionId);
 		if (instance) {
-			// If this was the active instance, clear it
-			if (this._activeInstance === instance) {
-				this.setActiveInstance(undefined);
-			}
-
 			// Dispose the instance and remove it from our map
 			this._instancesBySessionId.deleteAndDispose(sessionId);
 			this._onDidStopPositronPackagesInstanceEmitter.fire(instance);
