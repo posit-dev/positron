@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
-import { CacheBreakpointProvider, processMessages, toAIMessage } from '../../utils';
+import { CacheBreakpointProvider, isMaxTokensFinishReason, processMessages, toAIMessage } from '../../utils';
 import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { TokenUsage, recordRequestTokenUsage, recordTokenUsage } from '../../tokens';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
@@ -354,7 +354,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		// even when truncated, so we also check if outputTokens hit the configured limit.
 		const finishReason = await result.finishReason;
 		const usage = await result.usage;
-		const wasTruncated = finishReason === 'length' ||
+		const wasTruncated = isMaxTokensFinishReason(finishReason) ||
 			(finishReason === 'unknown' && maxOutputTokens !== undefined &&
 				usage?.outputTokens !== undefined && usage.outputTokens >= maxOutputTokens);
 		if (wasTruncated) {

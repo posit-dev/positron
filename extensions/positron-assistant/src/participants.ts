@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
-import { isChatImageMimeType, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
+import { isChatImageMimeType, isMaxTokensFinishReason, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
@@ -670,7 +670,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const tokenUsage = getRequestTokenUsage(request.id);
 
 		// Warn if the response was truncated due to max output tokens
-		if (finishReason === 'length' || finishReason === 'max_tokens') {
+		if (isMaxTokensFinishReason(finishReason)) {
 			const maxTokensArg = encodeURIComponent(JSON.stringify(['positron.assistant.maxOutputTokens']));
 			const maxTokensUri = `command:workbench.action.openSettings?${maxTokensArg}`;
 			const overridesArg = encodeURIComponent(JSON.stringify(['positron.assistant.models.overrides']));
