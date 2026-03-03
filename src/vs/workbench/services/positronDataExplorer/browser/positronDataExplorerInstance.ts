@@ -164,8 +164,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		// Create the table data data grid instance.
 		this._register(this._tableDataDataGridInstance = new TableDataDataGridInstance(
 			this._dataExplorerClientInstance,
-			this._tableDataCache,
-			this._tableSummaryCache
+			this._tableDataCache
 		));
 		// Add the onDidClose event handler.
 		this._register(this._dataExplorerClientInstance.onDidClose(() => {
@@ -190,6 +189,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._tableDataDataGridInstance.onDidChangePinnedColumns(async pinnedColumns => {
 				// Update the pinned rows in the summary data grid instance.
 				await this._tableSchemaDataGridInstance.updatePinnedRows(pinnedColumns);
+			})
+		);
+
+		// Add the onDidSetRowFilters event handler.
+		// Refresh summary panel column profiles after row filters change.
+		this._register(
+			this._tableDataDataGridInstance.onDidSetRowFilters(async () => {
+				await this._tableSchemaDataGridInstance.fetchData(true);
 			})
 		);
 

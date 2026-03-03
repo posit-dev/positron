@@ -168,8 +168,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			// Update layout entries and fetch data with cache invalidation.
 			await this.updateLayoutEntries(state);
 
-			// DISABLED: Fetching data here causes double-fetching in some scenarios.
-			// await this.fetchData(true);
+			// Do not fetch data here. For backend-initiated events,
+			// onDidUpdateBackendState fires before onDidSchemaUpdate /
+			// onDidDataUpdate. Fetching here would compute profiles
+			// twice -- once here and again in the schema/data handler.
+			// UI-initiated operations (setRowFilters, sortData) handle
+			// their own cache updates explicitly.
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.

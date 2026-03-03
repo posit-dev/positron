@@ -22,7 +22,6 @@ import { CustomContextMenuSeparator } from '../../../browser/positronComponents/
 import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGrid/classes/layoutManager.js';
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
-import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { BackendState, ColumnSchema, ExportFormat, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardData, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
@@ -68,6 +67,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private readonly _onDidChangePinnedColumns = this._register(new Emitter<number[]>());
 
 	/**
+	 * The onDidSetRowFilters event emitter.
+	 * Fired after row filters are applied so the coordinator can refresh
+	 * the summary panel's column profiles.
+	 */
+	private readonly _onDidSetRowFilters = this._register(new Emitter<void>());
+
+	/**
 	 * Whether the data explorer is currently visible.
 	 * When not visible, expensive operations are deferred.
 	 */
@@ -89,11 +95,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private _initialLoadComplete = false;
 
-	/**
-	 * Reference to the updateLayoutEntries function for use in setVisible().
-	 */
-	private _updateLayoutEntries!: (state?: BackendState) => Promise<void>;
-
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -102,12 +103,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Constructor.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 * @param _tableDataCache The table data cache.
-	 * @param _tableSummaryCache The table summary cache.
 	 */
 	constructor(
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableDataCache: TableDataCache,
-		private readonly _tableSummaryCache: TableSummaryCache,
 	) {
 		// Call the base class's constructor.
 		super({
@@ -141,72 +140,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		this._hoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
 		this._hoverManager.setCustomHoverDelay(500);
 
-		/**
-		 * Updates the layout entries.
-		 * @param state The backend state, if known; otherwise, undefined.
-		 */
-		this._updateLayoutEntries = async (state?: BackendState) => {
-			// Get the backend state, if was not provided.
-			if (!state) {
-				state = await this._dataExplorerClientInstance.getBackendState();
-			}
-
-			// Notify the user if the dataset exceeds the advanced layout limits which will
-			// cause advanced features to be disabled to improve performance.
-			// See https://github.com/posit-dev/positron/issues/9265
-			const exceedsColumnLimit = await this.exceedsAdvancedLayoutLimits(state);
-			if (exceedsColumnLimit) {
-				const message = localize(
-					'positron.dataExplorer.largeDatasetNotificationColumns',
-					"Dataset '{0}' has {1} columns, which exceeds the size to fully support all features for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
-					state.display_name,
-					state.table_shape.num_columns.toLocaleString()
-				);
-
-				// Show a sticky notification that persists until dismissed
-				this._services.notificationService.notify({
-					id: `dataExplorer.largeDataset.${this._dataExplorerClientInstance.identifier}`,
-					severity: Severity.Warning,
-					message: message,
-					sticky: true,
-					source: localize('positron.dataExplorer.source', 'Data Explorer')
-				});
-			}
-
-			// Calculate column widths.
-			const columnWidths = await this._tableDataCache.calculateColumnWidths(
-				this.minimumColumnWidth,
-				this.maximumColumnWidth
-			);
-
-			// Set the layout entries.
-			this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
-			this._rowLayoutManager.setEntries(state.table_shape.num_rows);
-
-			// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
-			if (state.table_shape.num_rows === 0) {
-				this._verticalScrollOffset = 0;
-				this._horizontalScrollOffset = 0;
-				// Force a layout recomputation and repaint
-				this.softReset();
-				this.fireOnDidUpdateEvent();
-			} else {
-				// Adjust the vertical scroll offset, if needed.
-				if (!this.firstRow) {
-					this._verticalScrollOffset = 0;
-				} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
-					this._verticalScrollOffset = this.maximumVerticalScrollOffset;
-				}
-
-				// Adjust the horizontal scroll offset, if needed.
-				if (!this.firstColumn) {
-					this._horizontalScrollOffset = 0;
-				} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
-					this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
-				}
-			}
-		};
-
 		// Add the data explorer client onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// If not visible, defer the update until we become visible.
@@ -234,11 +167,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			await this._updateLayoutEntries(state);
+			await this.updateLayoutEntries(state);
+
+			// Rebuild sort keys on every backend state change to keep the
+			// data grid's sort indicators in sync with the backend's sort
+			// state (e.g., sort keys may be affected by schema changes).
 			this.rebuildSortKeysFromCache();
 
-			// DISABLED: Fetching data here causes double-fetching in some scenarios.
-			// await this.fetchData(InvalidateCacheFlags.Data);
+			// Do not fetch data here. For backend-initiated events,
+			// onDidUpdateBackendState fires before onDidSchemaUpdate /
+			// onDidDataUpdate. Fetching here would compute data twice --
+			// once here and again in the schema/data handler.
+			// UI-initiated operations (setRowFilters, sortData) handle
+			// their own cache updates explicitly.
 		}));
 
 		// Add the table data cache onDidUpdate event handler.
@@ -782,6 +723,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	readonly onDidChangePinnedColumns = this._onDidChangePinnedColumns.event;
 
+	/**
+	 * The onDidSetRowFilters event.
+	 */
+	readonly onDidSetRowFilters = this._onDidSetRowFilters.event;
+
 	//#region Public Methods
 
 	/**
@@ -833,7 +779,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Update layout entries to reflect the new row count after filtering.
 		// Note: The onDidUpdateBackendState handler also does this, but since the
 		// handler runs asynchronously we need to ensure it's done before we proceed.
-		await this._updateLayoutEntries();
+		await this.updateLayoutEntries();
 
 		// Update the data cache with the visible data range, or invalidate with empty arrays
 		// if there's no visible data (e.g., zero rows after filtering).
@@ -850,11 +796,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				: []
 		});
 
-		// Update the summary cache to refresh column profiles after filtering.
-		await this._tableSummaryCache.update({
-			invalidateCache: true,
-			columnIndices
-		});
+		// Notify the coordinator to refresh the summary panel's column
+		// profiles now that the data cache has been updated.
+		this._onDidSetRowFilters.fire();
 	}
 
 	/**
@@ -882,7 +826,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			this._initialLoadComplete = true;
 			this._pendingSchemaUpdate = false;
 			this._pendingDataUpdate = false;
-			await this._updateLayoutEntries();
+			await this.updateLayoutEntries();
 			this.rebuildSortKeysFromCache();
 			await this.fetchData(InvalidateCacheFlags.All);
 			return;
@@ -903,10 +847,76 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Updates the layout entries.
+	 * @param state The backend state, if known; otherwise, undefined.
+	 */
+	private async updateLayoutEntries(state?: BackendState): Promise<void> {
+		// Get the backend state, if it was not provided.
+		if (!state) {
+			state = await this._dataExplorerClientInstance.getBackendState();
+		}
+
+		// Notify the user if the dataset exceeds the advanced layout limits which will
+		// cause advanced features to be disabled to improve performance.
+		// See https://github.com/posit-dev/positron/issues/9265
+		const exceedsColumnLimit = await this.exceedsAdvancedLayoutLimits(state);
+		if (exceedsColumnLimit) {
+			const message = localize(
+				'positron.dataExplorer.largeDatasetNotificationColumns',
+				"Dataset '{0}' has {1} columns, which exceeds the size to fully support all features for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
+				state.display_name,
+				state.table_shape.num_columns.toLocaleString()
+			);
+
+			// Show a sticky notification that persists until dismissed
+			this._services.notificationService.notify({
+				id: `dataExplorer.largeDataset.${this._dataExplorerClientInstance.identifier}`,
+				severity: Severity.Warning,
+				message: message,
+				sticky: true,
+				source: localize('positron.dataExplorer.source', 'Data Explorer')
+			});
+		}
+
+		// Calculate column widths.
+		const columnWidths = await this._tableDataCache.calculateColumnWidths(
+			this.minimumColumnWidth,
+			this.maximumColumnWidth
+		);
+
+		// Set the layout entries.
+		this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
+		this._rowLayoutManager.setEntries(state.table_shape.num_rows);
+
+		// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
+		if (state.table_shape.num_rows === 0) {
+			this._verticalScrollOffset = 0;
+			this._horizontalScrollOffset = 0;
+			// Force a layout recomputation and repaint
+			this.softReset();
+			this.fireOnDidUpdateEvent();
+		} else {
+			// Adjust the vertical scroll offset, if needed.
+			if (!this.firstRow) {
+				this._verticalScrollOffset = 0;
+			} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+			}
+
+			// Adjust the horizontal scroll offset, if needed.
+			if (!this.firstColumn) {
+				this._horizontalScrollOffset = 0;
+			} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
+				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
+			}
+		}
+	}
+
+	/**
 	 * Handles a schema update from the backend.
 	 */
 	private async handleSchemaUpdate(): Promise<void> {
-		await this._updateLayoutEntries();
+		await this.updateLayoutEntries();
 		this.rebuildSortKeysFromCache();
 		this.softReset();
 		await this.fetchData(InvalidateCacheFlags.All);
@@ -916,7 +926,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Handles a data update from the backend.
 	 */
 	private async handleDataUpdate(): Promise<void> {
-		await this._updateLayoutEntries();
+		await this.updateLayoutEntries();
 		this.rebuildSortKeysFromCache();
 		await this.fetchData(InvalidateCacheFlags.Data);
 	}
