@@ -280,6 +280,17 @@ export class HotKeys {
 	}
 
 	// -----------------------
+	// --- Quarto Actions  ---
+	// -----------------------
+	public runCurrentQuartoCell() {
+		return this.pressHotKeys('Cmd+L Q', 'Quarto: Run Current Cell');
+	}
+
+	public runCurrentQuartoCode() {
+		return this.pressHotKeys('Cmd+L R', 'Quarto: Run Current Code');
+	}
+
+	// -----------------------
 	// ---   Formatting	   ---
 	// -----------------------
 	public formatDocument() {

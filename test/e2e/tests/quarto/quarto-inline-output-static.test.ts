@@ -25,18 +25,18 @@ test.describe('Quarto - Inline Output: Static Content', {
 	});
 
 	test('Verify markdown image preview appears below image declaration', async function ({ app, openFile }) {
-		const { editors, quartoInlineOutput } = app.workbench;
+		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
 		await openFile(join('workspaces', 'quarto_inline_output', 'images_and_equations.qmd'));
 		await editors.waitForActiveTab('images_and_equations.qmd');
-		await quartoInlineOutput.expectKernelStatusVisible();
+		await inlineQuarto.expectKernelStatusVisible();
 
 
 		// Wait for image preview
 		await editors.clickTab('images_and_equations.qmd');
-		await quartoInlineOutput.gotoLine(10);
-		await expect(quartoInlineOutput.imagePreviewWrapper.first()).toBeVisible({ timeout: 1000 });
+		await inlineQuarto.gotoLine(10);
+		await expect(inlineQuarto.imagePreviewWrapper.first()).toBeVisible({ timeout: 1000 });
 
 		// Verify specific image
 		const mandelbrotImage = app.code.driver.page.locator('.quarto-image-preview[alt="The Mandlebrot Set"]');
@@ -53,17 +53,17 @@ test.describe('Quarto - Inline Output: Static Content', {
 	});
 
 	test('Verify missing image shows error message in preview', async function ({ app, openFile }) {
-		const { editors, quartoInlineOutput } = app.workbench;
+		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
 		await openFile(join('workspaces', 'quarto_inline_output', 'images_and_equations.qmd'));
 		await editors.waitForActiveTab('images_and_equations.qmd');
-		await quartoInlineOutput.expectKernelStatusVisible();
+		await inlineQuarto.expectKernelStatusVisible();
 
 		// Wait for error preview
 		await editors.clickTab('images_and_equations.qmd');
-		await quartoInlineOutput.gotoLine(20);
-		await expect(quartoInlineOutput.imagePreviewError).toHaveCount(1, { timeout: 1000 });
+		await inlineQuarto.gotoLine(20);
+		await expect(inlineQuarto.imagePreviewError).toHaveCount(1, { timeout: 1000 });
 
 		// Verify error message
 		const errorText = app.code.driver.page.locator('.quarto-image-preview-error-text');
@@ -72,32 +72,32 @@ test.describe('Quarto - Inline Output: Static Content', {
 		expect(errorContent).toContain('julia.jpg');
 		expect(errorContent).toContain('not found');
 
-		await expect(quartoInlineOutput.imagePreviewError).toHaveCount(1, { timeout: 5000 });
+		await expect(inlineQuarto.imagePreviewError).toHaveCount(1, { timeout: 5000 });
 	});
 
 	test('Bash - Verify inline output appears after running a bash code cell', async function ({ app, openFile }) {
-		const { editors, quartoInlineOutput } = app.workbench;
+		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
 		await openFile(join('workspaces', 'quarto_inline_output', 'multiple_languages.qmd'));
 		await editors.waitForActiveTab('multiple_languages.qmd');
-		await quartoInlineOutput.expectKernelStatusVisible();
+		await inlineQuarto.expectKernelStatusVisible();
 
 		// Position at bash cell and run via toolbar
 		await editors.clickTab('multiple_languages.qmd');
-		await quartoInlineOutput.gotoLine(28);
-		await expect(quartoInlineOutput.cellToolbar.last()).toBeVisible({ timeout: 10000 });
-		const runButton = quartoInlineOutput.cellToolbar.last().locator('.quarto-toolbar-run');
+		await inlineQuarto.gotoLine(28);
+		await expect(inlineQuarto.cellToolbar.last()).toBeVisible({ timeout: 10000 });
+		const runButton = inlineQuarto.cellToolbar.last().locator('.quarto-toolbar-run');
 		await runButton.click();
 
 		// Wait for output
-		await quartoInlineOutput.gotoLine(35);
-		await expect(quartoInlineOutput.inlineOutput.last()).toBeVisible();
+		await inlineQuarto.gotoLine(35);
+		await expect(inlineQuarto.inlineOutput.last()).toBeVisible();
 
 		// Verify output content
-		await expect(quartoInlineOutput.inlineOutput.last().locator('.quarto-output-content')).toBeVisible({ timeout: 10000 });
+		await expect(inlineQuarto.inlineOutput.last().locator('.quarto-output-content')).toBeVisible({ timeout: 10000 });
 
-		const outputText = await quartoInlineOutput.inlineOutput.last().locator('.quarto-output-content').textContent();
+		const outputText = await inlineQuarto.inlineOutput.last().locator('.quarto-output-content').textContent();
 		expect(outputText).toBeTruthy();
 		expect(outputText).toContain('Your home directory is');
 		expect(outputText).not.toContain('echo');

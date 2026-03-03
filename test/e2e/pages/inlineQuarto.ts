@@ -6,6 +6,7 @@
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
+import { HotKeys } from './hotKeys.js';
 
 // --- Selectors ---
 
@@ -33,9 +34,10 @@ const OPEN_IN_EDITOR = '.quarto-output-open-in-editor';
 /**
  * Page Object Model for Quarto Inline Output feature.
  */
-export class QuartoInlineOutput {
+export class InlineQuarto {
 	private code: Code;
 	private quickaccess: QuickAccess;
+	private hotKeys: HotKeys;
 
 	// --- Locators ---
 
@@ -61,9 +63,10 @@ export class QuartoInlineOutput {
 	readonly truncationHeader: Locator;
 	readonly openInEditorLink: Locator;
 
-	constructor(code: Code, quickaccess: QuickAccess) {
+	constructor(code: Code, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		this.code = code;
 		this.quickaccess = quickaccess;
+		this.hotKeys = hotKeys;
 		const page = code.driver.page;
 
 		this.kernelStatusWidget = page.locator(KERNEL_STATUS_WIDGET);
@@ -121,14 +124,19 @@ export class QuartoInlineOutput {
 		});
 	}
 
-	async runCurrentCell({ via = 'keyboard' }: { via?: 'keyboard' | 'command' } = {}): Promise<void> {
+	async runCurrentCell({ via = 'hotkey' }: { via?: 'command' | 'hotkey' } = {}): Promise<void> {
 		await test.step(`Run current Quarto cell via ${via}`, async () => {
-			if (via === 'keyboard') {
-				const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-				await this.code.driver.page.keyboard.press(`${modifier}+Enter`);
-			} else {
-				await this.quickaccess.runCommand('quarto.runCurrentCell');
-			}
+			via === 'hotkey'
+				? await this.hotKeys.runCurrentQuartoCell()
+				: await this.quickaccess.runCommand('quarto.runCurrentCell');
+		});
+	}
+
+	async runCurrentCode({ via = 'hotkey' }: { via?: 'command' | 'hotkey' } = {}): Promise<void> {
+		await test.step(`Run current Quarto code via ${via}`, async () => {
+			via === 'hotkey'
+				? await this.hotKeys.runCurrentQuartoCode()
+				: await this.quickaccess.runCommand('quarto.runCurrent');
 		});
 	}
 
@@ -145,9 +153,18 @@ export class QuartoInlineOutput {
 	}
 
 	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
-		await test.step(`Run cell at line ${cellLine} and wait for output`, async () => {
+		await test.step(`Run cell at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this.gotoLine(cellLine);
-			await this.runCurrentCell({ via: 'command' });
+			await this.runCurrentCell();
+			await this.gotoLine(outputLine);
+			await expect(this.inlineOutput).toBeVisible({ timeout });
+		});
+	}
+
+	async runCodeAndWaitForOutput({ cellLine, outputLine, timeout = 120000 }: { cellLine: number, outputLine: number, timeout?: number }): Promise<void> {
+		await test.step(`Run code at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
+			await this.gotoLine(cellLine);
+			await this.runCurrentCode();
 			await this.gotoLine(outputLine);
 			await expect(this.inlineOutput).toBeVisible({ timeout });
 		});
@@ -347,12 +364,8 @@ export class QuartoInlineOutput {
 		let kernelText: string | null = null;
 		await test.step('Verify kernel is running', async () => {
 			const kernelLabel = this.kernelStatusWidget.locator('.kernel-label');
-			await expect(async () => {
-				kernelText = await kernelLabel.textContent();
-				expect(kernelText).not.toBe('No Kernel');
-				expect(kernelText).not.toBe('Starting...');
-				expect(kernelText).toBeTruthy();
-			}).toPass({ timeout });
+			await expect(kernelLabel).toBeVisible({ timeout });
+			await expect(kernelLabel).not.toHaveText(/No Kernel|Starting\.\.\./, { timeout });
 		});
 		return kernelText!;
 	}

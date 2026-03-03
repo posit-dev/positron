@@ -25,18 +25,18 @@ test.describe('Quarto - Inline Output: Persistence', {
 	});
 
 	test('Python - Verify inline output persists after closing and reopening file', async function ({ app, python, openFile, hotKeys }) {
-		const { editors, quartoInlineOutput } = app.workbench;
+		const { editors, inlineQuarto } = app.workbench;
 		const filePath = join('workspaces', 'quarto_inline_output', 'simple_plot.qmd');
 
 		// Open a Quarto file and wait for the kernel to be ready
 		await openFile(filePath);
 		await editors.waitForActiveTab('simple_plot.qmd');
-		await quartoInlineOutput.expectKernelStatusVisible();
+		await inlineQuarto.expectKernelStatusVisible();
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await quartoInlineOutput.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
-		await quartoInlineOutput.expectOutputVisible();
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.expectOutputVisible();
 
 		// Close and reopen the file
 		await hotKeys.closeAllEditors();
@@ -44,33 +44,33 @@ test.describe('Quarto - Inline Output: Persistence', {
 		await editors.waitForActiveTab('simple_plot.qmd');
 
 		// Verify output persisted
-		await quartoInlineOutput.gotoLine(25);
-		await quartoInlineOutput.expectOutputVisible();
+		await inlineQuarto.gotoLine(25);
+		await inlineQuarto.expectOutputVisible();
 	});
 
 	test('Python - Verify kernel status persists after window reload', async function ({ app, python, openFile, hotKeys }) {
-		const { editors, quartoInlineOutput } = app.workbench;
+		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
 		await openFile(join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'));
 		await editors.waitForActiveTab('simple_plot.qmd');
-		await quartoInlineOutput.expectKernelStatusVisible();
+		await inlineQuarto.expectKernelStatusVisible();
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await quartoInlineOutput.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
 
 		// Get initial kernel text
-		const initialKernelText = await quartoInlineOutput.getKernelText();
+		await inlineQuarto.expectKernelRunning();
+		const initialKernelText = await inlineQuarto.getKernelText();
 
 		// Reload window and wait for kernel status to be visible again
 		await hotKeys.reloadWindow(true);
-		await quartoInlineOutput.expectKernelStatusVisible();
-		await quartoInlineOutput.expectKernelToHaveText(initialKernelText);
+		await inlineQuarto.expectKernelToHaveText(initialKernelText);
 	});
 
 	test('Python - Verify inline output works in untitled Quarto document and persists through save', async function ({ app, python, page, runCommand, hotKeys, saveFileAs }) {
-		const { editors, quartoInlineOutput } = app.workbench;
+		const { editors, inlineQuarto } = app.workbench;
 
 		// Set up a unique filename for the untitled document
 		const savedFileName = `untitled-test-${Math.random().toString(36).substring(7)}.qmd`;
@@ -78,7 +78,7 @@ test.describe('Quarto - Inline Output: Persistence', {
 		// Open a new untitled Quarto document
 		await runCommand('quarto.newDocument');
 		await editors.waitForActiveTab('Untitled-1');
-		await quartoInlineOutput.expectKernelStatusVisible();
+		await inlineQuarto.expectKernelStatusVisible();
 
 		// Add a Python code cell
 		await editors.clickTab('Untitled-1');
@@ -89,30 +89,30 @@ print("Hello from untitled!")
 \`\`\``);
 
 		// Run using toolbar and verify output
-		await quartoInlineOutput.clickToolbarRunButton(0);
-		await quartoInlineOutput.gotoLine(10);
-		await quartoInlineOutput.expectOutputVisible();
-		await quartoInlineOutput.expectStdoutContains('Hello from untitled!');
+		await inlineQuarto.clickToolbarRunButton(0);
+		await inlineQuarto.gotoLine(10);
+		await inlineQuarto.expectOutputVisible();
+		await inlineQuarto.expectStdoutContains('Hello from untitled!');
 
 		// Save the file as a new Quarto document
 		await saveFileAs(join(app.workspacePathOrFolder, savedFileName));
 
 		// Wait for tab to update and kernel status to be visible again
 		await editors.waitForActiveTab(savedFileName, false);
-		await quartoInlineOutput.expectKernelStatusVisible();
+		await inlineQuarto.expectKernelStatusVisible();
 
 		// Verify output still visible after save
-		await quartoInlineOutput.gotoLine(10);
-		await quartoInlineOutput.expectOutputVisible();
-		await quartoInlineOutput.expectStdoutContains('Hello from untitled!');
+		await inlineQuarto.gotoLine(10);
+		await inlineQuarto.expectOutputVisible();
+		await inlineQuarto.expectStdoutContains('Hello from untitled!');
 
 		// Reload and wait for kernel status to be visible again
 		await hotKeys.reloadWindow(true);
-		await quartoInlineOutput.expectKernelStatusVisible();
+		await inlineQuarto.expectKernelStatusVisible();
 
 		// Verify output still visible after reload
-		await quartoInlineOutput.gotoLine(10);
-		await quartoInlineOutput.expectOutputVisible();
-		await quartoInlineOutput.expectStdoutContains('Hello from untitled!');
+		await inlineQuarto.gotoLine(10);
+		await inlineQuarto.expectOutputVisible();
+		await inlineQuarto.expectStdoutContains('Hello from untitled!');
 	});
 });
