@@ -195,6 +195,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 			messages: aiMessages,
 			tools: modelTools,
 			abortSignal: signal,
+			maxOutputTokens: options.modelOptions?.maxTokens ?? model.maxOutputTokens,
 		});
 
 		try {
