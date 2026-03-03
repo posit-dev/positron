@@ -21,6 +21,8 @@ test.describe('Extensions', {
 		await openFile('workspaces/r-formatting/bad-formatting.r');
 		await hotKeys.formatDocument(); // Air is default for R document formatting
 
+		await hotKeys.minimizeBottomPanel();
+
 		await app.workbench.editor.waitForEditorContents('bad-formatting.r', (contents: string) => {
 			return contents.includes(formattedFile);
 		});
