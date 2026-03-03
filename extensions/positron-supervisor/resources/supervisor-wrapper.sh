@@ -58,9 +58,9 @@ fi
 SHELL_NAME=$(basename "$DEFAULT_SHELL")
 
 # Check if the shell is one we know how to work with. If not, fall back to
-# bash or sh so that we don't break on exotic shells (e.g. fish, elvish, etc.)
+# bash or sh so that we don't break on exotic shells (e.g. nushell, elvish, etc.)
 case "$SHELL_NAME" in
-	bash|zsh|dash|sh|ksh|ash|csh|tcsh|nu|nushell)
+	bash|zsh|dash|sh|ksh|ash|csh|tcsh|fish)
 		# Known shell; use it as-is
 		;;
 	*)
@@ -81,27 +81,12 @@ fi
 # Print the command line to the log file
 echo "$DEFAULT_SHELL" $SHELL_FLAGS "$@" >> "$output_file"
 
-# Determine if we need to prefix the command with ^ for nushell.
-# In nushell, external commands must be prefixed with ^ so that the shell
-# does not try to parse the command name as a nushell expression.
-IS_NUSHELL=false
-if [ "$SHELL_NAME" = "nu" ] || [ "$SHELL_NAME" = "nushell" ]; then
-	IS_NUSHELL=true
-fi
-
 # Quote the arguments to handle single quotes and spaces correctly.
 QUOTED_ARGS=""
-first=true
 for arg in "$@"; do
 	# Escape any single quotes in the argument
 	escaped_arg=$(printf "%s" "$arg" | sed "s/'/'\\\\''/g")
-	# Prefix the first argument (the command) with ^ when running under nushell
-	if [ "$first" = true ] && [ "$IS_NUSHELL" = true ]; then
-		QUOTED_ARGS=" ^'${escaped_arg}'"
-	else
-		QUOTED_ARGS="${QUOTED_ARGS} '${escaped_arg}'"
-	fi
-	first=false
+	QUOTED_ARGS="${QUOTED_ARGS} '${escaped_arg}'"
 done
 
 # Run the program with its arguments, redirecting stdout and stderr to the output file
