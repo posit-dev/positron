@@ -159,7 +159,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-workbench-ubuntu-logs
           path: test-logs
