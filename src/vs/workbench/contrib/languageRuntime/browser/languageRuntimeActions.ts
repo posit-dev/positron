@@ -43,7 +43,7 @@ export const LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID = 'workbench.action.l
 export const LANGUAGE_RUNTIME_RESTART_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.restartActiveSession';
 export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
-export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveSession';
+export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveConsoleSession';
 export const LANGUAGE_RUNTIME_SELECT_RUNTIME_ID = 'workbench.action.languageRuntime.selectRuntime';
 export const LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID = 'workbench.action.language.runtime.discoverAllRuntimes';
 
@@ -642,15 +642,15 @@ export function registerLanguageRuntimeActions() {
 	});
 
 	/**
-	 * Action that allows the user to create a new session based off the current active session.
+	 * Action that allows the user to create a new console session based off the current active console session.
 	 * This utilizes the runtime data from the current session to create a new session.
 	 */
 	registerAction2(class extends Action2 {
 		constructor() {
 			super({
 				icon: Codicon.plus,
-				id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID,
-				title: localize2('positron.languageRuntime.duplicateSession.title', 'Duplicate Active Interpreter Session'),
+				id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID,
+				title: localize2('positron.languageRuntime.duplicateActiveConsoleSession.title', 'Duplicate Active Console Session'),
 				category,
 				f1: true,
 				menu: [{
