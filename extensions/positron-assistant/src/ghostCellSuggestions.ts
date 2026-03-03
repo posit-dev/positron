@@ -594,6 +594,7 @@ async function getModel(
 	if (token?.isCancellationRequested) { return null; }
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
+		if (token?.isCancellationRequested) { return null; }
 		if (models && models.length > 0) {
 			log.debug(`[ghost-cell] Using provider model: ${models[0].name}`);
 			return { model: models[0], usedFallback: hasConfiguredModel };
@@ -604,6 +605,7 @@ async function getModel(
 
 	// Fall back to any available model
 	const [firstModel] = await vscode.lm.selectChatModels();
+	if (token?.isCancellationRequested) { return null; }
 	if (firstModel) {
 		log.debug(`[ghost-cell] Using fallback model: ${firstModel.name}`);
 		return { model: firstModel, usedFallback: hasConfiguredModel };
