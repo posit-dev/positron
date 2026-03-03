@@ -39,7 +39,7 @@ interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeCli
 
 // Action IDs
 export const LANGUAGE_RUNTIME_SELECT_SESSION_ID = 'workbench.action.language.runtime.selectSession';
-export const LANGUAGE_RUNTIME_START_NEW_SESSION_ID = 'workbench.action.language.runtime.startNewSession';
+export const LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.startNewConsoleSession';
 export const LANGUAGE_RUNTIME_RESTART_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.restartActiveSession';
 export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
@@ -194,8 +194,8 @@ const selectLanguageRuntimeSession = async (
 
 	// Handle the user's selection.
 	if (result?.id === startNewRuntimeId) {
-		// If the user selected "All Runtimes...", execute the command to show all runtimes.
-		const sessionId: string | undefined = await commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);
+		// If the user selected "New Console Session...", execute the command to start a new console session.
+		const sessionId: string | undefined = await commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID);
 		if (sessionId) {
 			return runtimeSessionService.activeSessions.find(session => session.sessionId === sessionId);
 		}
@@ -584,7 +584,7 @@ export function registerLanguageRuntimeActions() {
 		});
 
 	/**
-	 * Action that allows the user to create a new session from a list of registered runtimes.
+	 * Action that allows the user to create a new console session from a list of registered runtimes.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -593,8 +593,8 @@ export function registerLanguageRuntimeActions() {
 		constructor() {
 			super({
 				icon: Codicon.plus,
-				id: LANGUAGE_RUNTIME_START_NEW_SESSION_ID,
-				title: localize2('positron.languageRuntime.startSession', 'Start New Console Session'),
+				id: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID,
+				title: localize2('positron.languageRuntime.startConsoleSession', 'Start New Console Session'),
 				category,
 				f1: true,
 				menu: [{
