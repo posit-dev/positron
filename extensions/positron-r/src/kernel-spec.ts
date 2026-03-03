@@ -7,7 +7,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as os from 'os';
 import { execSync } from 'child_process';
 
 import { JupyterKernelSpec } from './positron-supervisor';
@@ -539,16 +538,11 @@ function findReposConf(): string | undefined {
 }
 
 /**
- * Cache for temporary repos.conf files created from r-versions URLs.
- * Maps URL -> temp file path. Reused across sessions during extension lifetime.
- */
-const rVersionsReposConfCache = new Map<string, string>();
-
-/**
  * Get repository configuration args from r-versions metadata.
  *
  * The Repo field can be either a file path to a repos.conf file or a URL.
- * For URLs, a temporary repos.conf file is created and cached for reuse.
+ * For URLs, use ark's --default-cran-repo.
+ * For file paths, use ark's --repos-conf.
  * Returns the appropriate argv entries, or `undefined` if no repo is specified.
  */
 function getRVersionsRepoArgs(packagerMetadata?: PackagerMetadata): string[] | undefined {
@@ -558,25 +552,13 @@ function getRVersionsRepoArgs(packagerMetadata?: PackagerMetadata): string[] | u
 
 	const repo = packagerMetadata.repo;
 
-	// Check if this is a URL
+	// Check if this is a URL, to pass directly to ark's --default-cran-repo
 	if (repo.startsWith('http://') || repo.startsWith('https://')) {
-		// Check cache first
-		const cachedPath = rVersionsReposConfCache.get(repo);
-		if (cachedPath && fs.existsSync(cachedPath)) {
-			LOGGER.info(`Using cached repos.conf for r-versions URL: ${cachedPath}`);
-			return ['--repos-conf', cachedPath];
-		}
-
-		// Create a temporary repos.conf file for the URL
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-r-repos-'));
-		const tempReposConf = path.join(tempDir, 'repos.conf');
-		fs.writeFileSync(tempReposConf, `CRAN=${repo}\n`);
-		rVersionsReposConfCache.set(repo, tempReposConf);
-		LOGGER.info(`Created temporary repos.conf for r-versions URL: ${tempReposConf}`);
-		return ['--repos-conf', tempReposConf];
+		LOGGER.info(`Using r-versions repo URL: ${repo}`);
+		return ['--default-cran-repo', repo];
 	}
 
-	// Treat as a file path
+	// Otherwise treat as a file path, to use with --repos-conf
 	if (fs.existsSync(repo) && fs.statSync(repo).isFile()) {
 		LOGGER.info(`Using r-versions repos.conf: ${repo}`);
 		return ['--repos-conf', repo];
