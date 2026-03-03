@@ -98,7 +98,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 		// Clicking denies with toast message (base packages are unsafe)
 		await console.activeConsole.locator('span', { hasText: 'utils::sessionInfo()' }).nth(3).click();
-		await toasts.expectToBeVisible('Code hyperlink not recognized.');
+		await toasts.expectToastWithTitle('Code hyperlink not recognized.');
 	});
 
 	test('R - Verify runnable code link for stringr', async function ({ app, r }) {
