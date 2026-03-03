@@ -95,7 +95,6 @@ test.describe('Quarto - Inline Output: Static Content', {
 		await expect(quartoInlineOutput.inlineOutput.last()).toBeVisible();
 
 		// Verify output content
-		const outputContent = quartoInlineOutput.getOutputContentAt(-1); // last output
 		await expect(quartoInlineOutput.inlineOutput.last().locator('.quarto-output-content')).toBeVisible({ timeout: 10000 });
 
 		const outputText = await quartoInlineOutput.inlineOutput.last().locator('.quarto-output-content').textContent();
