@@ -7,7 +7,7 @@
 import './actionBars.css';
 
 // React.
-import { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -15,16 +15,20 @@ import { PositronActionBar } from '../../../../../platform/positronActionBar/bro
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
-import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { SortingMenuButton } from './sortingMenuButton.js';
 import { GroupingMenuButton } from './groupingMenuButton.js';
-import { MemoryUsageMeter } from './memoryUsageMeter.js';
+import { MemoryUsageMeter, MEMORY_METER_FIXED_WIDTH, MEMORY_METER_COMPACT_FIXED_WIDTH } from './memoryUsageMeter.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { ByteSize } from '../../../../../platform/files/common/files.js';
+import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { PositronDynamicActionBar, DynamicActionBarAction, DEFAULT_ACTION_BAR_BUTTON_WIDTH, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, DEFAULT_ACTION_BAR_SEPARATOR_WIDTH } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -46,11 +50,49 @@ const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete al
 export const ActionBars = (props: PropsWithChildren<{}>) => {
 	// Context hooks.
 	const positronVariablesContext = usePositronVariablesContext();
+	const services = usePositronReactServicesContext();
 
 	// State hooks.
 	const [filterText, setFilterText] = useState(positronVariablesContext.activePositronVariablesInstance?.getFilterText() ?? '');
 	const filterRef = useRef<ActionBarFilterHandle>(null);
 	const prevActiveInstance = useRef(positronVariablesContext.activePositronVariablesInstance);
+
+	// Track the action bar container width so we can decide whether to
+	// include the memory meter before passing actions to the
+	// DynamicActionBar. This avoids the meter getting highest layout
+	// priority simply because it is first in the visual order.
+	const actionBarsRef = useRef<HTMLDivElement>(null);
+	const [actionBarWidth, setActionBarWidth] = useState(0);
+
+	useLayoutEffect(() => {
+		const el = actionBarsRef.current;
+		if (!el) {
+			return;
+		}
+		const disposables = new DisposableStore();
+		setActionBarWidth(el.offsetWidth);
+		const observer = new ResizeObserver(() => {
+			setActionBarWidth(el.offsetWidth);
+		});
+		observer.observe(el);
+		disposables.add(toDisposable(() => observer.disconnect()));
+		return () => disposables.dispose();
+	}, []);
+
+	// Memory usage snapshot state (lifted up so we can pass the label text
+	// to the DynamicActionBarAction for width measurement).
+	const [memorySnapshot, setMemorySnapshot] = useState<IMemoryUsageSnapshot | undefined>(
+		() => services.positronMemoryUsageService.currentSnapshot
+	);
+
+	// Subscribe to memory usage updates.
+	useEffect(() => {
+		const disposables = new DisposableStore();
+		disposables.add(services.positronMemoryUsageService.onDidUpdateMemoryUsage(s => {
+			setMemorySnapshot(s);
+		}));
+		return () => disposables.dispose();
+	}, [services.positronMemoryUsageService]);
 
 	// Find text change handler.
 	useEffect(() => {
@@ -114,40 +156,122 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		return null;
 	}
 
+	// Build left actions for the primary action bar.
+	const leftActions: DynamicActionBarAction[] = [
+		{
+			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			separator: false,
+			component: <GroupingMenuButton />
+		},
+		{
+			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			separator: false,
+			component: <SortingMenuButton />
+		},
+	];
+
+	// Build right actions for the primary action bar.
+	// The memory meter is first for visual ordering (meter | refresh | clear).
+	const rightActions: DynamicActionBarAction[] = [];
+
+	// Compute the minimum width needed for all actions *without* the meter:
+	// left actions + right actions + separators + overflow button + padding.
+	const baseWidth =
+		(DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH * 2) + // grouping + sorting
+		(DEFAULT_ACTION_BAR_BUTTON_WIDTH * 2) +          // refresh + delete
+		(DEFAULT_ACTION_BAR_SEPARATOR_WIDTH * 1) +        // separator between refresh and delete
+		DEFAULT_ACTION_BAR_BUTTON_WIDTH +                 // overflow button reserved by DynamicActionBar
+		kPaddingLeft + kPaddingRight;
+
+	// Include the memory meter when the action bar is wide enough.
+	// Three states: full (bar + label), compact (label only), hidden.
+	if (memorySnapshot) {
+		const positronTotalBytes =
+			memorySnapshot.kernelTotalBytes +
+			memorySnapshot.positronOverheadBytes +
+			memorySnapshot.extensionHostOverheadBytes;
+		const sizeLabel = ByteSize.formatSize(positronTotalBytes);
+		// Approximate the text width at 12px font. The DynamicActionBar
+		// measures precisely via Canvas; this just needs to be close enough
+		// for the show/hide threshold (slightly under is fine -- the
+		// DynamicActionBar handles overflow gracefully if we're off by a few px).
+		const textWidth = sizeLabel.length * 5.5;
+		const fullMeterWidth = MEMORY_METER_FIXED_WIDTH + textWidth + DEFAULT_ACTION_BAR_SEPARATOR_WIDTH;
+		const compactMeterWidth = MEMORY_METER_COMPACT_FIXED_WIDTH + textWidth + DEFAULT_ACTION_BAR_SEPARATOR_WIDTH;
+
+		if (actionBarWidth >= baseWidth + fullMeterWidth) {
+			// Full meter: bar + label + arrow.
+			rightActions.push({
+				fixedWidth: MEMORY_METER_FIXED_WIDTH,
+				text: sizeLabel,
+				separator: true,
+				component: <MemoryUsageMeter snapshot={memorySnapshot} />
+			});
+		} else if (actionBarWidth >= baseWidth + compactMeterWidth) {
+			// Compact meter: label + arrow only (no bar).
+			rightActions.push({
+				fixedWidth: MEMORY_METER_COMPACT_FIXED_WIDTH,
+				text: sizeLabel,
+				separator: true,
+				component: <MemoryUsageMeter snapshot={memorySnapshot} compact />
+			});
+		}
+		// Otherwise: hidden entirely.
+	}
+
+	rightActions.push(
+		{
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: true,
+			component: (
+				<ActionBarButton
+					align='right'
+					ariaLabel={positronRefreshObjects}
+					icon={ThemeIcon.fromId('positron-refresh')}
+					tooltip={positronRefreshObjects}
+					onPressed={refreshObjectsHandler}
+				/>
+			),
+			overflowContextMenuItem: {
+				commandId: 'positron.refreshObjects',
+				icon: 'positron-refresh',
+				label: positronRefreshObjects,
+				onSelected: refreshObjectsHandler
+			}
+		},
+		{
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<ActionBarButton
+					align='right'
+					ariaLabel={positronDeleteAllObjects}
+					icon={ThemeIcon.fromId('clear-all')}
+					tooltip={positronDeleteAllObjects}
+					onPressed={deleteAllObjectsHandler}
+				/>
+			),
+			overflowContextMenuItem: {
+				commandId: 'positron.deleteAllObjects',
+				icon: 'clear-all',
+				label: positronDeleteAllObjects,
+				onSelected: deleteAllObjectsHandler
+			}
+		},
+	);
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
-			<div className='action-bars'>
-				<PositronActionBar
+			<div ref={actionBarsRef} className='action-bars'>
+				<PositronDynamicActionBar
 					borderBottom={true}
 					borderTop={true}
+					leftActions={leftActions}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
-				>
-					<ActionBarRegion location='left'>
-						<GroupingMenuButton />
-						<SortingMenuButton />
-						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
-					</ActionBarRegion>
-					<ActionBarRegion location='right'>
-						<MemoryUsageMeter />
-						<ActionBarButton
-							align='right'
-							ariaLabel={positronRefreshObjects}
-							icon={ThemeIcon.fromId('positron-refresh')}
-							tooltip={positronRefreshObjects}
-							onPressed={refreshObjectsHandler}
-						/>
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='right'
-							ariaLabel={positronDeleteAllObjects}
-							icon={ThemeIcon.fromId('clear-all')}
-							tooltip={positronDeleteAllObjects}
-							onPressed={deleteAllObjectsHandler}
-						/>
-					</ActionBarRegion>
-				</PositronActionBar>
+					rightActions={rightActions}
+				/>
 				<PositronActionBar
 					borderBottom={true}
 					gap={kSecondaryActionBarGap}
