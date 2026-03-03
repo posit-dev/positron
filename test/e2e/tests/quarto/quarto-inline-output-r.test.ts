@@ -151,16 +151,11 @@ test.describe('Quarto - Inline Output: R', {
 		await inlineQuarto.gotoLine(15);
 		await inlineQuarto.expectOutputContainsText('middle statement');
 
-		// This does not work, alternatively running from line 24 does :shrug:
-		// await inlineQuarto.gotoLine(19);
-		// await hotKeys.runCurrentQuartoCode();
-		// await inlineQuarto.expectOutputsExist(2);
-		// await inlineQuarto.expectOutputContainsText('6', { index: 1, timeout: 2000 });
-
-		await inlineQuarto.gotoLine(24); // Bug? Has to be run from exactly line 24 to work.
+		// Test inline execution of a single line with multiple statements
+		await inlineQuarto.gotoLine(19);
 		await hotKeys.runCurrentQuartoCode();
 		await inlineQuarto.expectOutputsExist(2);
-		await inlineQuarto.expectOutputContainsText('10', { index: 1, timeout: 2000 });
+		await inlineQuarto.expectOutputContainsText('6', { index: 1, timeout: 2000 });
 	});
 
 	test('R - Verify execution options are respected when running all cells', async function ({ app, openFile }) {

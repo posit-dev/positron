@@ -25,6 +25,10 @@ test.describe('Quarto - Inline Output: Popout', {
 		await hotKeys.closeAllEditors();
 	});
 
+	test.afterAll(async function ({ cleanup }) {
+		await cleanup.discardAllChanges();
+	});
+
 	test('Python - Verify save button saves plot to file', async function ({ app, openFile, page }) {
 		const { editors, inlineQuarto, quickInput, toasts } = app.workbench;
 

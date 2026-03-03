@@ -24,6 +24,10 @@ test.describe('Quarto - Inline Output: Persistence', {
 		await hotKeys.closeAllEditors();
 	});
 
+	test.afterAll(async function ({ cleanup }) {
+		await cleanup.discardAllChanges();
+	});
+
 	test('Python - Verify inline output persists after closing and reopening file', async function ({ app, python, openFile, hotKeys }) {
 		const { editors, inlineQuarto } = app.workbench;
 		const filePath = join('workspaces', 'quarto_inline_output', 'simple_plot.qmd');
