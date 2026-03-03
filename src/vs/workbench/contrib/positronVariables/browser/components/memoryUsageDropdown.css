@@ -104,15 +104,15 @@
 }
 
 .memory-usage-dropdown .usage-bar.kernel {
-	background-color: var(--vscode-charts-purple);
+	background-color: var(--vscode-charts-foreground);
 }
 
 .memory-usage-dropdown .usage-bar.positron {
-	background-color: var(--vscode-charts-blue);
+	background-color: var(--vscode-gauge-foreground);
 }
 
 .memory-usage-dropdown .usage-bar.other {
-	background-color: var(--vscode-panel-border);
+	background-color: var(--vscode-gauge-background);
 }
 
 .memory-usage-dropdown .usage-bar.free {

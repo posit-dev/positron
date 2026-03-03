@@ -33,15 +33,15 @@
 }
 
 .memory-bar-segment.kernel {
-	background-color: var(--vscode-charts-purple);
+	background-color: var(--vscode-charts-foreground);
 }
 
 .memory-bar-segment.positron {
-	background-color: var(--vscode-charts-blue);
+	background-color: var(--vscode-gauge-foreground);
 }
 
 .memory-bar-segment.other {
-	background-color: var(--vscode-panel-border);
+	background-color: var(--vscode-gauge-background);
 }
 
 /* Toolbar-specific bar sizing */
