@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-const DATABOT_PROVIDERS: ModelProvider[] = ['posit-ai', 'anthropic-api'];
+const DATABOT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 
 test.describe('Databot', {
 	tag: [tags.ASSISTANT, tags.DATABOT, tags.WEB, tags.WIN, tags.SOFT_FAIL],
