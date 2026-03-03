@@ -355,7 +355,8 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const finishReason = await result.finishReason;
 		const usage = await result.usage;
 		const wasTruncated = finishReason === 'length' ||
-			(finishReason === 'unknown' && maxOutputTokens !== undefined && usage.outputTokens >= maxOutputTokens);
+			(finishReason === 'unknown' && maxOutputTokens !== undefined &&
+				usage?.outputTokens !== undefined && usage.outputTokens >= maxOutputTokens);
 		if (wasTruncated) {
 			this.logger.info(`[${model.name}] Response may be incomplete because it reached the maximum output token limit (finish reason: '${finishReason}', output tokens: ${usage.outputTokens}, max: ${maxOutputTokens})`);
 		} else {

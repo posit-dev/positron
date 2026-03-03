@@ -675,9 +675,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			const maxTokensUri = `command:workbench.action.openSettings?${maxTokensArg}`;
 			const overridesArg = encodeURIComponent(JSON.stringify(['positron.assistant.models.overrides']));
 			const overridesUri = `command:workbench.action.openSettings?${overridesArg}`;
-			const tokenLimit = maxOutputTokens ?? tokenUsage?.tokens.outputTokens;
+			const tokenLimitSuffix = maxOutputTokens ? ` (${maxOutputTokens} tokens)` : '';
 			const message = new vscode.MarkdownString(
-				`This response may be incomplete because it reached the maximum output token limit (${tokenLimit} tokens). ` +
+				`This response may be incomplete because it reached the maximum output token limit${tokenLimitSuffix}. ` +
 				`To allow longer responses, increase [Max Output Tokens](${maxTokensUri}) or ` +
 				`configure [Model Overrides](${overridesUri}) in Settings.`
 			);
