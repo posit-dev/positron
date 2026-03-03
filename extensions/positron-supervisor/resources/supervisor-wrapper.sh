@@ -44,36 +44,49 @@ DEFAULT_SHELL=$SHELL
 
 # If $SHELL is not set, try to use the environment
 if [ -z "$DEFAULT_SHELL" ]; then
-    # Fall back to bash as a reasonable default
-    DEFAULT_SHELL=$(which bash 2>/dev/null || which sh)
+	# Fall back to bash as a reasonable default
+	DEFAULT_SHELL=$(which bash 2>/dev/null || which sh)
 fi
 
 # Ensure we have a valid shell
 if [ -z "$DEFAULT_SHELL" ] || [ ! -x "$DEFAULT_SHELL" ]; then
-    echo "Error: Could not determine a valid shell." >&2
-    exit 1
+	echo "Error: Could not determine a valid shell." >&2
+	exit 1
 fi
 
 # Determine shell flags based on shell type
+SHELL_NAME=$(basename "$DEFAULT_SHELL")
+
+# Check if the shell is one we know how to work with. If not, fall back to
+# bash or sh so that we don't break on exotic shells (e.g. nushell, elvish, etc.)
+case "$SHELL_NAME" in
+	bash|zsh|dash|sh|ksh|ash|csh|tcsh|fish)
+		# Known shell; use it as-is
+		;;
+	*)
+		# Unknown shell; fall back to bash or sh
+		DEFAULT_SHELL=$(which bash 2>/dev/null || which sh)
+		SHELL_NAME=$(basename "$DEFAULT_SHELL")
+		;;
+esac
+
 # csh and tcsh don't support -l and -c together; use -d instead of -l
 # (in csh, -d loads the directory stack even in non-login shells)
-SHELL_NAME=$(basename "$DEFAULT_SHELL")
 if [ "$SHELL_NAME" = "csh" ] || [ "$SHELL_NAME" = "tcsh" ]; then
-    SHELL_FLAGS="-d -c"
+	SHELL_FLAGS="-d -c"
 else
-    SHELL_FLAGS="-l -c"
+	SHELL_FLAGS="-l -c"
 fi
 
 # Print the command line to the log file
 echo "$DEFAULT_SHELL" $SHELL_FLAGS "$@" >> "$output_file"
 
-# Quote the arguments to handle single quotes and spaces correctly
+# Quote the arguments to handle single quotes and spaces correctly.
 QUOTED_ARGS=""
 for arg in "$@"; do
-    # Escape any single quotes in the argument
-    escaped_arg=$(printf "%s" "$arg" | sed "s/'/'\\\\''/g")
-    # Add the escaped argument with single quotes
-    QUOTED_ARGS="${QUOTED_ARGS} '${escaped_arg}'"
+	# Escape any single quotes in the argument
+	escaped_arg=$(printf "%s" "$arg" | sed "s/'/'\\\\''/g")
+	QUOTED_ARGS="${QUOTED_ARGS} '${escaped_arg}'"
 done
 
 # Run the program with its arguments, redirecting stdout and stderr to the output file
