@@ -55,6 +55,8 @@
 .memory-usage-meter .memory-size-label {
 	flex-shrink: 0;
 	font-size: 10px;
+	min-width: 35px;
+	text-align: right;
 	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
 	user-select: none;
