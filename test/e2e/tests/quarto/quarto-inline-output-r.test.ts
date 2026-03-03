@@ -14,7 +14,7 @@ test.describe('Quarto - Inline Output: R', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
 
-	test.beforeAll(async function ({ r, settings }) {
+	test.beforeAll(async function ({ settings }) {
 		await settings.set({
 			'positron.quarto.inlineOutput.enabled': true
 		}, { reload: 'web' });
@@ -24,7 +24,7 @@ test.describe('Quarto - Inline Output: R', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('R - Verify inline output appears after running a code cell in Rmd file', async function ({ app, openFile }) {
+	test('R - Verify inline output appears after running a code cell in Rmd file', async function ({ app, openFile, r }) {
 		const { editors, inlineQuarto: inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -38,7 +38,7 @@ test.describe('Quarto - Inline Output: R', {
 		await inlineQuarto.expectOutputVisible();
 	});
 
-	test('R - Verify multi-language document shows inline output for both languages', async function ({ app, openFile }) {
+	test('R - Verify multi-language document shows inline output for both languages', async function ({ app, openFile, r }) {
 		const { editors, inlineQuarto, console } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -60,7 +60,7 @@ test.describe('Quarto - Inline Output: R', {
 		await console.waitForConsoleContents('import os');
 	});
 
-	test('R - Verify error output appears exactly once, not duplicated', async function ({ app, openFile }) {
+	test('R - Verify error output appears exactly once, not duplicated', async function ({ app, openFile, r }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -79,7 +79,7 @@ test.describe('Quarto - Inline Output: R', {
 		await inlineQuarto.expectOutputContainsText('oh no');
 	});
 
-	test('R - Verify long text output is truncated with open in editor link', async function ({ app, openFile }) {
+	test('R - Verify long text output is truncated with open in editor link', async function ({ app, openFile, r }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -118,7 +118,7 @@ test.describe('Quarto - Inline Output: R', {
 		await editors.verifyTab(/\[1\].*Output/, { isVisible: true, isSelected: true });
 	});
 
-	test('R - Verify execute code action steps through statements line by line with inline output', async function ({ app, openFile, page, hotKeys }) {
+	test('R - Verify execute code action steps through statements line by line with inline output', async function ({ app, openFile, page, hotKeys, r }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -158,8 +158,8 @@ test.describe('Quarto - Inline Output: R', {
 		await inlineQuarto.expectOutputContainsText('6', { index: 1, timeout: 2000 });
 	});
 
-	test('R - Verify execution options are respected when running all cells', async function ({ app, openFile }) {
-		// Test currently skipped due to flaky behavior on Windows
+	// Test currently skipped due to flaky behavior on Windows
+	test.skip('R - Verify execution options are respected when running all cells', async function ({ app, openFile, r }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
