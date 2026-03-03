@@ -112,8 +112,20 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 	const allRows = [...sessionRows, ...overheadRows, ...summaryRows, ...systemRows];
 	const maxBytes = Math.max(...allRows.map(r => r.bytes), 1);
 
+	// Total bytes for Sessions and Overhead groups.
+	const sessionsTotalBytes = sessionRows.reduce((sum, r) => sum + r.bytes, 0);
+	const overheadTotalBytes = overheadRows.reduce((sum, r) => sum + r.bytes, 0);
+
 	const renderRow = (row: UsageRowEntry, index: number) => {
-		const barWidthPct = (row.bytes / maxBytes) * 100;
+		// Scale bars so the longest one uses 85% of the container width,
+		// reserving the remaining space for the percentage label.
+		const barWidthPct = (row.bytes / maxBytes) * 85;
+		const pctOfTotal = snapshot.totalSystemMemory > 0
+			? (row.bytes / snapshot.totalSystemMemory) * 100
+			: 0;
+		const pctLabel = pctOfTotal < 1 && pctOfTotal > 0
+			? '<1%'
+			: `${Math.round(pctOfTotal)}%`;
 		return (
 			<div key={`${row.barClass}-${index}`} className='usage-row' role='row'>
 				<span className='usage-name' role='cell'>{row.name}</span>
@@ -122,7 +134,7 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 					{row.segments ? (
 						<div
 							className='usage-bar segmented'
-							style={{ width: `${barWidthPct}%` }}
+							style={{ flexBasis: `${barWidthPct}%` }}
 						>
 							{row.segments.map((seg, j) => {
 								const segPct = row.bytes > 0
@@ -140,9 +152,10 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 					) : (
 						<div
 							className={`usage-bar ${row.barClass}`}
-							style={{ width: `${barWidthPct}%` }}
+							style={{ flexBasis: `${barWidthPct}%` }}
 						/>
 					)}
+					<span className='usage-pct-label'>{pctLabel}</span>
 				</div>
 			</div>
 		);
@@ -157,7 +170,7 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 			popupAlignment='right'
 			popupPosition='bottom'
 			renderer={props.renderer}
-			width={320}
+			width={400}
 		>
 			<div className='memory-usage-dropdown-summary'>
 				<div className='summary-text'>
@@ -174,13 +187,23 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 				{sessionRows.length > 0 && (
 					<>
 						<div className='section-header' role='row'>
-							<span role='columnheader'>{sessionsHeader}</span>
+							<span role='columnheader'>
+								{sessionsHeader}
+								<span className='section-header-total'>
+									{' ('}{ByteSize.formatSize(sessionsTotalBytes)}{')'}
+								</span>
+							</span>
 						</div>
 						{sessionRows.map((row, i) => renderRow(row, i))}
 					</>
 				)}
 				<div className='section-header' role='row'>
-					<span role='columnheader'>{overheadHeader}</span>
+					<span role='columnheader'>
+						{overheadHeader}
+						<span className='section-header-total'>
+							{' ('}{ByteSize.formatSize(overheadTotalBytes)}{')'}
+						</span>
+					</span>
 				</div>
 				{overheadRows.map((row, i) => renderRow(row, i))}
 				<div className='section-header' role='row'>
