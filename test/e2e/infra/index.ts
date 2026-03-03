@@ -54,4 +54,5 @@ export * from '../pages/databot';
 export * from '../pages/utils/aws';
 export * from '../pages/dialog-contextMenu';
 export * from '../pages/utils/settingsFile';
+export * from '../pages/utils/storageFile';
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';
