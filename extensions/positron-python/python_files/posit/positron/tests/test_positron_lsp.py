@@ -1522,11 +1522,11 @@ class TestHover:
         hover = self._hover(server, text_document, Position(0, 0))
 
         assert hover is not None
-        assert getattr(hover["contents"], "value", "").startswith("""**x**: `int`
+        assert hover.contents.value.startswith("""**x**: `int`
 
 ---
 int([x]) -> integer""")
-        assert hover["data"]["priority"] == -1
+        assert hover.data["priority"] == -1
 
     def test_hover_on_dataframe(self) -> None:
         """Hover should work on DataFrames."""
@@ -1537,7 +1537,7 @@ int([x]) -> integer""")
         hover = self._hover(server, text_document, Position(0, 0))
 
         assert hover is not None
-        assert getattr(hover["contents"], "value", "").startswith("""**df**: `DataFrame`
+        assert hover.contents.value.startswith("""**df**: `DataFrame`
 
 ```
    col1
@@ -1548,7 +1548,7 @@ int([x]) -> integer""")
 
 ---
 Two-dimensional,""")
-        assert hover["data"]["priority"] == 1
+        assert hover.data["priority"] == 1
 
 
 class TestHelpTopic:

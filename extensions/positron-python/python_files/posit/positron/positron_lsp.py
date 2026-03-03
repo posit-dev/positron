@@ -33,7 +33,7 @@ import threading
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Callable, Generator, NamedTuple, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Generator, NamedTuple, Optional
 
 from ._vendor import attrs, cattrs
 from ._vendor.lsprotocol import types
@@ -64,17 +64,16 @@ _PRIORITY_HIGH = 1
 _PRIORITY_LOW = -1
 
 
-class PositronHover(TypedDict):
+@attrs.define
+class PositronHover:
     """Hover response with an extra ``data`` field for priority.
 
-    A dict (not types.Hover) so pygls serializes the ``data`` field as-is;
-    types.Hover is slotted and doesn't support extra attributes.
-
+    Extends lsprotocol's Hover with a ``data`` field carrying priority info.
     See the patch to the client's protocol in positron-python/src/client/positron/lsp.ts.
     """
 
-    contents: types.MarkupContent
-    data: dict[str, int]
+    contents: types.MarkupContent = attrs.field()
+    data: dict[str, int] = attrs.field()
 
 
 # Pre-compiled regex patterns used throughout the LSP server
