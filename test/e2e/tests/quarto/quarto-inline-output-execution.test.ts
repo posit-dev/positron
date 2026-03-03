@@ -94,7 +94,7 @@ One more line for good measure.
 		expect(pid).toBeGreaterThan(0);
 	});
 
-	test('Python - Verify cancel button removes queued cell from execution queue', async function ({ python, app, page, openFile }) {
+	test('Python - Verify cancel button removes queued cell from execution queue', async function ({ python, app, openFile }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -104,23 +104,18 @@ One more line for good measure.
 
 		// Position at second cell and run all
 		await editors.clickTab('cancel_execution.qmd');
-		const secondToolbarRunButton = inlineQuarto.cellToolbar.nth(1).locator('.quarto-toolbar-run');
 
 		// Run all cells and verify second cell is queued
 		await inlineQuarto.gotoLine(17);
 		await inlineQuarto.runAllCells();
-		await expect(secondToolbarRunButton).toBeVisible({ timeout: 5000 });
-		await expect(secondToolbarRunButton).toHaveClass(/queued/, { timeout: 5000 });
+		await inlineQuarto.expectPendingExecution();
 
 		// Cancel the queued cell
-		await secondToolbarRunButton.click();
-
-		// Wait for first cell to complete
-		await page.waitForTimeout(4000);
+		await inlineQuarto.clickToolbarCancelButton();
 
 		// Verify first cell output
 		await inlineQuarto.gotoLine(14);
-		await inlineQuarto.expectOutputVisible({ timeout: 120000 });
+		await inlineQuarto.expectOutputVisible();
 		await inlineQuarto.expectOutputContainsText('Time\'s up');
 
 		// Verify only one output (second cell was cancelled)

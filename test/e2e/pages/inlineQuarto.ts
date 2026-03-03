@@ -47,6 +47,7 @@ export class InlineQuarto {
 	readonly outputItem: Locator;
 	readonly cellToolbar: Locator;
 	readonly toolbarRunButton: Locator;
+	readonly toolbarCancelButton: Locator;
 	readonly closeButton: Locator;
 	readonly copyButton: Locator;
 	readonly saveButton: Locator;
@@ -75,6 +76,7 @@ export class InlineQuarto {
 		this.outputItem = page.locator(`${INLINE_OUTPUT} ${OUTPUT_ITEM}`);
 		this.cellToolbar = page.locator(CELL_TOOLBAR);
 		this.toolbarRunButton = page.locator(`${CELL_TOOLBAR} ${TOOLBAR_RUN}`);
+		this.toolbarCancelButton = page.getByRole('button', { name: 'Cancel pending execution' });
 		this.closeButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_CLOSE}`);
 		this.copyButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_COPY}`);
 		this.saveButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_SAVE}`);
@@ -178,9 +180,14 @@ export class InlineQuarto {
 		});
 	}
 
+	async clickToolbarCancelButton(): Promise<void> {
+		await test.step(`Click cancel button on cell toolbar`, async () => {
+			await this.toolbarCancelButton.click();
+		});
+	}
+
 	async closeOutput(): Promise<void> {
 		await test.step('Close inline output', async () => {
-			await expect(this.closeButton).toBeVisible({ timeout: 5000 });
 			await this.closeButton.click();
 			await expect(this.inlineOutput).not.toBeVisible({ timeout: 5000 });
 		});
@@ -188,9 +195,8 @@ export class InlineQuarto {
 
 	async copyOutput(): Promise<void> {
 		await test.step('Copy inline output', async () => {
-			await expect(this.copyButton).toBeVisible({ timeout: 5000 });
 			await this.copyButton.click();
-			await expect(this.copyButton).toHaveClass(/copy-success/, { timeout: 2000 });
+			await expect(this.copyButton).toHaveClass(/copy-success/);
 		});
 	}
 
@@ -202,8 +208,6 @@ export class InlineQuarto {
 
 	async popoutOutput(): Promise<void> {
 		await test.step('Popout inline output', async () => {
-			await this.popoutButton.scrollIntoViewIfNeeded({ timeout: 10000 });
-			await expect(this.popoutButton).toBeVisible({ timeout: 10000 });
 			await this.popoutButton.click();
 		});
 	}
@@ -368,5 +372,11 @@ export class InlineQuarto {
 			await expect(kernelLabel).not.toHaveText(/No Kernel|Starting\.\.\./, { timeout });
 		});
 		return kernelText!;
+	}
+
+	async expectPendingExecution({ timeout }: { timeout?: number } = { timeout: 5000 }): Promise<void> {
+		await test.step(`Expect cell is pending execution`, async () => {
+			await expect(this.toolbarCancelButton).toBeVisible({ timeout });
+		});
 	}
 }

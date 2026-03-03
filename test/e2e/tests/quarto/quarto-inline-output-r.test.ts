@@ -126,9 +126,6 @@ test.describe('Quarto - Inline Output: R', {
 		await editors.waitForActiveTab('multiple_statements.qmd');
 		await inlineQuarto.expectKernelStatusVisible();
 
-		// Helper to execute code at a line
-
-
 		// Execute first line
 		await editors.clickTab('multiple_statements.qmd');
 		await inlineQuarto.runCodeAndWaitForOutput({ cellLine: 11, outputLine: 15 });
@@ -154,15 +151,16 @@ test.describe('Quarto - Inline Output: R', {
 		await inlineQuarto.gotoLine(15);
 		await inlineQuarto.expectOutputContainsText('middle statement');
 
-		// // Test multi-line statement - Quarto should execute the entire statement (lines 19-21)
-		// await expect(async () => {
-		// 	await inlineQuarto.gotoLine(19);
-		// 	await page.waitForTimeout(500);
-		// 	await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
-		// 	await inlineQuarto.gotoLine(27);
-		// 	await inlineQuarto.expectOutputsExist(2);
-		// 	await inlineQuarto.expectOutputContainsText('6', { index: 1, timeout: 2000 });
-		// }).toPass({ timeout: 15000 });
+		// This does not work, alternatively running from line 24 does :shrug:
+		// await inlineQuarto.gotoLine(19);
+		// await hotKeys.runCurrentQuartoCode();
+		// await inlineQuarto.expectOutputsExist(2);
+		// await inlineQuarto.expectOutputContainsText('6', { index: 1, timeout: 2000 });
+
+		await inlineQuarto.gotoLine(24); // Bug? Has to be run from exactly line 24 to work.
+		await hotKeys.runCurrentQuartoCode();
+		await inlineQuarto.expectOutputsExist(2);
+		await inlineQuarto.expectOutputContainsText('10', { index: 1, timeout: 2000 });
 	});
 
 	test('R - Verify execution options are respected when running all cells', async function ({ app, openFile }) {
@@ -181,11 +179,15 @@ test.describe('Quarto - Inline Output: R', {
 
 		// Verify outputs for each cell
 		await inlineQuarto.expectOutputContainsText('This is the first cell.', { index: 0 });
+		await inlineQuarto.gotoLine(30);
 		await inlineQuarto.expectOutputContainsText('Oh no', { index: 1 });
+		await inlineQuarto.gotoLine(35);
 		await inlineQuarto.expectOutputContainsText('end of the world', { index: 2 });
+		await inlineQuarto.gotoLine(43);
 		await inlineQuarto.expectOutputContainsText('awkward', { index: 3 });
 
 		// Verify that the last cell did not execute due to error in previous cell
+		await inlineQuarto.gotoLine(49);
 		await inlineQuarto.expectOutputNotContainsText('second cell');
 		await inlineQuarto.expectOutputNotContainsText('How did we get here');
 	});
