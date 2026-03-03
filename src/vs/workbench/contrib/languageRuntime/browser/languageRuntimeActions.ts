@@ -573,7 +573,12 @@ export function registerLanguageRuntimeActions() {
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// Prompt the user to select a runtime to use.
-			const newActiveSession = await selectLanguageRuntimeSession(accessor, { allowStartSession: true });
+			const newActiveSession = await selectLanguageRuntimeSession(accessor,
+				{
+					allowStartSession: true,
+					title: localize('positron.languageRuntime.changeForegroundSession.quickPickTitle', 'Running Interpreter Sessions')
+				}
+			);
 
 			// If the user selected a specific session, set it as the active session if it still exists
 			if (newActiveSession) {
@@ -581,7 +586,8 @@ export function registerLanguageRuntimeActions() {
 				commandService.executeCommand('workbench.panel.positronConsole.focus');
 				runtimeSessionService.foregroundSession = newActiveSession;
 			}
-		});
+		}
+	);
 
 	/**
 	 * Action that allows the user to create a new console session from a list of registered runtimes.
