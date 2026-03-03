@@ -170,7 +170,7 @@ const selectLanguageRuntimeSession = async (
 	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
 		{
-			label: localize('positron.languageRuntime.activeSessions', 'Active Interpreter Sessions'),
+			label: localize('positron.languageRuntime.activeSessions', 'Console Sessions'),
 			type: 'separator',
 		},
 		...activeRuntimeItems,
@@ -181,13 +181,13 @@ const selectLanguageRuntimeSession = async (
 
 	if (options?.allowStartSession) {
 		quickPickItems.push({
-			label: localize('positron.languageRuntime.newSession', 'New Interpreter Session...'),
+			label: localize('positron.languageRuntime.newSession', 'New Console Session...'),
 			id: startNewRuntimeId,
 			alwaysShow: true
 		});
 	}
 	const result = await quickInputService.pick(quickPickItems, {
-		title: options?.title || localize('positron.languageRuntime.selectSession', 'Select Interpreter Session'),
+		title: options?.title || localize('positron.languageRuntime.selectSession.quickPickTitle', 'Select Interpreter Session'),
 		canPickMany: false,
 		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
 	});
@@ -566,7 +566,7 @@ export function registerLanguageRuntimeActions() {
 	 */
 	registerLanguageRuntimeAction(
 		LANGUAGE_RUNTIME_SELECT_SESSION_ID,
-		localize2('positron.languageRuntime.selectInterpreterSession', 'Select Interpreter Session'),
+		localize2('positron.languageRuntime.selectInterpreterSession', 'Select Console Session'),
 		async accessor => {
 			// Access services.
 			const commandService = accessor.get(ICommandService);
@@ -594,7 +594,7 @@ export function registerLanguageRuntimeActions() {
 			super({
 				icon: Codicon.plus,
 				id: LANGUAGE_RUNTIME_START_NEW_SESSION_ID,
-				title: localize2('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
+				title: localize2('positron.languageRuntime.startSession', 'Start New Console Session'),
 				category,
 				f1: true,
 				menu: [{
@@ -724,7 +724,7 @@ export function registerLanguageRuntimeActions() {
 
 			// Prompt the user to select a session they want to rename.
 			const session = await selectLanguageRuntimeSession(
-				accessor, { title: 'Select Interpreter Session To Rename' });
+				accessor, { title: localize('positron.languageRuntime.selectSessionToRename', 'Select Session To Rename') });
 			if (!session) {
 				return;
 			}
