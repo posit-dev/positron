@@ -184,13 +184,17 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		kPaddingLeft + kPaddingRight;
 
 	// Include the memory meter when the action bar is wide enough.
-	// Three states: full (bar + label), compact (label only), hidden.
-	if (memorySnapshot) {
-		const positronTotalBytes =
-			memorySnapshot.kernelTotalBytes +
-			memorySnapshot.positronOverheadBytes +
-			memorySnapshot.extensionHostOverheadBytes;
-		const sizeLabel = ByteSize.formatSize(positronTotalBytes);
+	// Three visual states: full (bar + label), compact (label only), hidden.
+	// When no snapshot is available yet, show in loading state with "Mem" label.
+	{
+		const loading = !memorySnapshot;
+		const sizeLabel = loading
+			? 'Mem'
+			: ByteSize.formatSize(
+				memorySnapshot.kernelTotalBytes +
+				memorySnapshot.positronOverheadBytes +
+				memorySnapshot.extensionHostOverheadBytes
+			);
 		// Approximate the text width at 12px font. The DynamicActionBar
 		// measures precisely via Canvas; this just needs to be close enough
 		// for the show/hide threshold (slightly under is fine -- the
@@ -205,7 +209,7 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				fixedWidth: MEMORY_METER_FIXED_WIDTH,
 				text: sizeLabel,
 				separator: true,
-				component: <MemoryUsageMeter snapshot={memorySnapshot} />
+				component: <MemoryUsageMeter snapshot={memorySnapshot} loading={loading} />
 			});
 		} else if (actionBarWidth >= baseWidth + compactMeterWidth) {
 			// Compact meter: label + arrow only (no bar).
@@ -213,7 +217,7 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				fixedWidth: MEMORY_METER_COMPACT_FIXED_WIDTH,
 				text: sizeLabel,
 				separator: true,
-				component: <MemoryUsageMeter snapshot={memorySnapshot} compact />
+				component: <MemoryUsageMeter snapshot={memorySnapshot} compact loading={loading} />
 			});
 		}
 		// Otherwise: hidden entirely.

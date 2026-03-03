@@ -16,6 +16,7 @@ import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { MemoryUsageDropdown } from './memoryUsageDropdown.js';
 import { MemoryUsageBar } from './memoryUsageBar.js';
 
@@ -36,24 +37,78 @@ export const MEMORY_METER_FIXED_WIDTH = 134;
 export const MEMORY_METER_COMPACT_FIXED_WIDTH = 28;
 
 /**
+ * The label shown while memory data is still being computed.
+ */
+const memLabel = localize('positron.memoryUsage.memLabel', "Mem");
+
+/**
+ * The text shown in the loading dropdown popup.
+ */
+const computingLabel = localize('positron.memoryUsage.computing', "Computing memory usage...");
+
+/**
  * MemoryUsageMeterProps interface.
  */
 interface MemoryUsageMeterProps {
-	snapshot: IMemoryUsageSnapshot;
+	snapshot?: IMemoryUsageSnapshot;
 	compact?: boolean;
+	loading?: boolean;
 }
 
 /**
  * MemoryUsageMeter component.
  * Renders a segmented memory bar in the Variables pane action bar.
  * Layout and overflow are handled by the parent PositronDynamicActionBar.
+ *
+ * When `loading` is true, renders an empty bar with a "Mem" label. Clicking
+ * in this state shows a popup with a "Computing memory usage..." message.
  */
-export const MemoryUsageMeter = ({ snapshot, compact }: MemoryUsageMeterProps) => {
+export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMeterProps) => {
 	// Services.
 	const services = usePositronReactServicesContext();
 
 	// Ref for the meter element (used for popup anchoring).
 	const meterRef = useRef<HTMLDivElement>(undefined!);
+
+	// Loading state: draw an empty bar with a "Mem" label.
+	if (loading || !snapshot) {
+		const handleLoadingClick = () => {
+			if (!meterRef.current) {
+				return;
+			}
+
+			const renderer = new PositronModalReactRenderer({
+				container: services.workbenchLayoutService.getContainer(DOM.getWindow(meterRef.current)),
+				parent: meterRef.current,
+			});
+
+			renderer.render(
+				<MemoryUsageLoadingDropdown
+					anchorElement={meterRef.current}
+					renderer={renderer}
+				/>
+			);
+		};
+
+		return (
+			<div
+				ref={meterRef}
+				aria-label={computingLabel}
+				className='memory-usage-meter'
+				role='meter'
+				title={computingLabel}
+				onClick={handleLoadingClick}
+			>
+				{!compact && (
+					<div className='memory-bar-container'>
+						{/* Empty bar -- no segments */}
+					</div>
+				)}
+				<span className='memory-size-label'>{memLabel}</span>
+				<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+			</div>
+		);
+	}
 
 	const { totalSystemMemory, kernelTotalBytes, positronOverheadBytes, extensionHostOverheadBytes } = snapshot;
 
@@ -116,5 +171,36 @@ export const MemoryUsageMeter = ({ snapshot, compact }: MemoryUsageMeterProps) =
 			<span className='memory-size-label'>{sizeLabel}</span>
 			<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 		</div>
+	);
+};
+
+/**
+ * MemoryUsageLoadingDropdown props.
+ */
+interface MemoryUsageLoadingDropdownProps {
+	anchorElement: HTMLElement;
+	renderer: PositronModalReactRenderer;
+}
+
+/**
+ * MemoryUsageLoadingDropdown component.
+ * Renders a simple popup indicating that memory usage is being computed.
+ */
+const MemoryUsageLoadingDropdown = (props: MemoryUsageLoadingDropdownProps) => {
+	return (
+		<PositronModalPopup
+			anchorElement={props.anchorElement}
+			fixedHeight={true}
+			height='auto'
+			keyboardNavigationStyle='dialog'
+			popupAlignment='right'
+			popupPosition='bottom'
+			renderer={props.renderer}
+			width='auto'
+		>
+			<div className='memory-usage-loading-message'>
+				{computingLabel}
+			</div>
+		</PositronModalPopup>
 	);
 };
