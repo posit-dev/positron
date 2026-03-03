@@ -190,16 +190,17 @@ export abstract class VercelModelProvider extends ModelProvider {
 		this.logger.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 
 		// Stream the response
+		const maxOutputTokens = options.modelOptions?.maxTokens ?? model.maxOutputTokens;
 		const result = ai.streamText({
 			model: aiModel,
 			messages: aiMessages,
 			tools: modelTools,
 			abortSignal: signal,
-			maxOutputTokens: options.modelOptions?.maxTokens ?? model.maxOutputTokens,
+			maxOutputTokens,
 		});
 
 		try {
-			await this.handleStreamResponse(result, model, progress, token, requestId);
+			await this.handleStreamResponse(result, model, progress, token, requestId, maxOutputTokens);
 		} catch (error) {
 			// Allow subclasses to handle provider-specific errors
 			this.handleStreamError(error);
@@ -291,7 +292,8 @@ export abstract class VercelModelProvider extends ModelProvider {
 		model: vscode.LanguageModelChatInformation,
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken,
-		requestId?: string
+		requestId?: string,
+		maxOutputTokens?: number
 	): Promise<void> {
 		// Set chat context for error handling
 		const errorContext = {
@@ -346,6 +348,24 @@ export abstract class VercelModelProvider extends ModelProvider {
 				this.logger.warn(`[${model.id}] ${warning}`);
 			}
 		}
+
+		// Report finish reason so consumers can detect truncated responses.
+		// Some providers (e.g. Snowflake Cortex) return 'unknown' as the finish reason
+		// even when truncated, so we also check if outputTokens hit the configured limit.
+		const finishReason = await result.finishReason;
+		const usage = await result.usage;
+		const wasTruncated = finishReason === 'length' ||
+			(finishReason === 'unknown' && maxOutputTokens !== undefined && usage.outputTokens >= maxOutputTokens);
+		if (wasTruncated) {
+			this.logger.info(`[${model.name}] Response may be incomplete because it reached the maximum output token limit (finish reason: '${finishReason}', output tokens: ${usage.outputTokens}, max: ${maxOutputTokens})`);
+		} else {
+			this.logger.debug(`[${model.name}] Finish reason: ${finishReason}`);
+		}
+		progress.report(vscode.LanguageModelDataPart.json({
+			type: 'finishReason',
+			data: wasTruncated ? 'length' : finishReason,
+			maxOutputTokens,
+		}));
 
 		// Handle token usage
 		await this.handleTokenUsage(result, model, progress, requestId);
