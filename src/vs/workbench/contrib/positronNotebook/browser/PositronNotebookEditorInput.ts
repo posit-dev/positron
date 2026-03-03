@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,13 +17,15 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ExtUri, joinPath, isEqual } from '../../../../base/common/resources.js';
-import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { FileFilter, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
+import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { NotebookProviderInfo } from '../../notebook/common/notebookProvider.js';
+import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 
 /**
  * Options for Positron notebook editor input, including backup support.
@@ -75,19 +77,17 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * `EditorInputWithPreferredResource` for more info.
 	 * @param options Options for the notebook editor input.
 	 */
-	static getOrCreate(instantiationService: IInstantiationService, resource: URI, preferredResource: URI | undefined, options: PositronNotebookEditorInputOptions = {}) {
+	static getOrCreate(instantiationService: IInstantiationService, resource: URI, preferredResource: URI | undefined, viewType: string, options: PositronNotebookEditorInputOptions = {}) {
 
 		// In the vscode-notebooks there is some caching work done here for looking for editors that
 		// exist etc. We may need that eventually but not now.
-		return instantiationService.createInstance(PositronNotebookEditorInput, resource, options);
+		return instantiationService.createInstance(PositronNotebookEditorInput, resource, options, viewType);
 	}
 
 
 	// TODO: Describe why this is here.
 	// This is a reference to the model that is currently being edited in the editor.
 	private _editorModelReference: IReference<IResolvedNotebookEditorModel> | null = null;
-
-	public readonly viewType = 'jupyter-notebook' as const;
 
 	notebookInstance: PositronNotebookInstance;
 
@@ -100,6 +100,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	constructor(
 		readonly resource: URI,
 		public readonly options: PositronNotebookEditorInputOptions = {},
+		public readonly viewType: string,
 		// Borrow notebook resolver service from vscode notebook renderer.
 		@INotebookEditorModelResolverService private readonly _notebookModelResolverService: INotebookEditorModelResolverService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
@@ -259,13 +260,18 @@ export class PositronNotebookEditorInput extends EditorInput {
 		const pathCandidate = await this._suggestName(provider, suggestedName);
 
 		// Ask the user where to save the file with proper filters
+		let filters: FileFilter[];
+		if (this.viewType === QMD_VIEW_TYPE) {
+			filters = [{ name: localize('positron.notebook.fileType.qmd', 'Quarto Document'), extensions: ['qmd'] }];
+		} else if (this.viewType === IPYNB_VIEW_TYPE) {
+			filters = [{ name: localize('positron.notebook.fileType', 'Jupyter Notebook'), extensions: ['ipynb'] }];
+		} else {
+			filters = [];
+		}
 		const target = await this._fileDialogService.showSaveDialog({
 			title: localize('positron.notebook.saveAs', "Save Notebook As"),
 			defaultUri: pathCandidate,
-			filters: [
-				// This will ensure that the saved file has the .ipynb extension.
-				{ name: localize('positron.notebook.fileType', 'Jupyter Notebook'), extensions: ['ipynb'] }
-			],
+			filters,
 			availableFileSystems: options?.availableFileSystems
 		});
 		if (!target) {

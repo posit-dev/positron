@@ -103,9 +103,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly uri: URI;
 
 	/**
-	 * The notebook view type. Only Jupyter notebooks are supported currently.
+	 * The notebook view type (e.g., 'jupyter-notebook' or 'quarto-notebook').
 	 */
-	readonly viewType: 'jupyter-notebook';
+	readonly viewType: string;
 
 	/**
 	 * Indicates whether this notebook instance is currently connected to a view/editor.
@@ -227,6 +227,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @returns Promise that resolves when all cells have completed execution
 	 */
 	runAllCells(): Promise<void>;
+
+	/**
+	 * Clears the output of a specific cell, or the active cell if none is provided.
+	 */
+	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent?: boolean): void;
 
 	/**
 	 * Clears all output from all cells in the notebook.

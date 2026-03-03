@@ -72,6 +72,7 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT, tags.ARK]
 			logger.log('Install R Package with base R and Restart R');
 			await settings.set({ 'positron.r.localPackageInstallMethod': 'base' });
 			await app.workbench.quickaccess.runCommand('workbench.action.terminal.clear');
+			await app.workbench.console.clearButton.click();
 			await app.workbench.quickaccess.runCommand('r.packageInstall');
 
 			await app.workbench.console.waitForConsoleContents('restarted', { timeout: 30000 });

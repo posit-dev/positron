@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -23,11 +23,11 @@ import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../
 import { isNotebookLanguageRuntimeSession, isNotebookRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
+import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';

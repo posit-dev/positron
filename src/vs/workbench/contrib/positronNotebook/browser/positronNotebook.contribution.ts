@@ -36,12 +36,13 @@ import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../s
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { isEqual } from '../../../../base/common/resources.js';
+import { extname, isEqual } from '../../../../base/common/resources.js';
 import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
+import { INotebookEditorOptions, IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -57,12 +58,13 @@ import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js'
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
-import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
+import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
 
 export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 	POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
 	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),
+	CONTEXT_REPLACE_INPUT_FOCUSED.toNegated(),
 );
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
@@ -77,6 +79,26 @@ enum PositronNotebookCellActionGroup {
 }
 
 /**
+ * Infer the notebook view type from a resource's file extension.
+ */
+function inferViewTypeFromExtension(resource: URI): string {
+	if (extname(resource) === '.qmd') {
+		return QMD_VIEW_TYPE;
+	}
+	return IPYNB_VIEW_TYPE;
+}
+
+/**
+ * Configuration for registering a notebook editor with the editor resolver service.
+ */
+interface NotebookEditorRegistration {
+	detail: string;
+	extension: string;
+	globPattern: string;
+	viewType: string;
+}
+
+/**
  * PositronNotebookContribution class.
  */
 class PositronNotebookContribution extends Disposable {
@@ -87,7 +109,7 @@ class PositronNotebookContribution extends Disposable {
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IFileService private readonly fileService: IFileService,
-		@INotebookService private readonly notebookService: INotebookService
+		@INotebookService private readonly notebookService: INotebookService,
 	) {
 		super();
 
@@ -95,44 +117,72 @@ class PositronNotebookContribution extends Disposable {
 	}
 
 	private registerEditor(): void {
-		// Determine notebook/cell editor priority based on whether Positron notebooks are enabled
-		const getPriority = () => usingPositronNotebooks(this.configurationService)
+		this.registerNotebookEditor({
+			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support (Alpha)'),
+			extension: '.ipynb',
+			globPattern: '*.ipynb',
+			viewType: IPYNB_VIEW_TYPE,
+		});
+
+		this.registerNotebookEditor({
+			detail: localize('positronNotebook.qmd.detail', 'Experimental .qmd Support (Alpha)'),
+			extension: '.qmd',
+			globPattern: '*.qmd',
+			viewType: QMD_VIEW_TYPE,
+		});
+	}
+
+	private getPriority(viewType: string): RegisteredEditorPriority {
+		// Always use `option` priority while .qmd support is experimental
+		if (viewType === QMD_VIEW_TYPE) {
+			return RegisteredEditorPriority.option;
+		}
+		return usingPositronNotebooks(this.configurationService)
 			? RegisteredEditorPriority.default
 			: RegisteredEditorPriority.option;
+	}
 
-		const getCellPriority = () => usingPositronNotebooks(this.configurationService)
+	private getCellPriority(viewType: string): RegisteredEditorPriority {
+		// Always use `option` priority while .qmd support is experimental
+		if (viewType === QMD_VIEW_TYPE) {
+			return RegisteredEditorPriority.option;
+		}
+		return usingPositronNotebooks(this.configurationService)
 			? RegisteredEditorPriority.exclusive
 			: RegisteredEditorPriority.option;
+	}
 
-		const notebookEditorInfo: RegisteredEditorInfo = {
+	private registerNotebookEditor(info: NotebookEditorRegistration): void {
+		const editorInfo: RegisteredEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
-			detail: localize('positronNotebook.detail', "Native .ipynb Support (Alpha)"),
-			priority: getPriority(),
+			detail: info.detail,
+			priority: this.getPriority(info.viewType),
 		};
-		const notebookCellEditorInfo: RegisteredEditorInfo =
-			{ ...notebookEditorInfo, priority: getCellPriority() };
+		const cellEditorInfo: RegisteredEditorInfo = {
+			...editorInfo,
+			priority: this.getCellPriority(info.viewType),
+		};
 
 		// Listen for configuration changes to update priorities dynamically
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
-				notebookEditorInfo.priority = getPriority();
-				notebookCellEditorInfo.priority = getCellPriority();
+				editorInfo.priority = this.getPriority(info.viewType);
+				cellEditorInfo.priority = this.getCellPriority(info.viewType);
 			}
 		}));
 
-		// Register for .ipynb files
+		// Register file editor
 		this._register(this.editorResolverService.registerEditor(
-			'*.ipynb',
-			notebookEditorInfo,
+			info.globPattern,
+			editorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// Support untitled notebooks and any file system that has a provider
-					// This handles: file://, vscode-remote://, vscode-userdata://, etc.
-					return resource.scheme === Schemas.untitled ||
-						resource.scheme === Schemas.vscodeNotebookCell ||
-						this.fileService.hasProvider(resource);
+					return extname(resource) === info.extension &&
+						(resource.scheme === Schemas.untitled ||
+							resource.scheme === Schemas.vscodeNotebookCell ||
+							this.fileService.hasProvider(resource));
 				}
 			},
 			{
@@ -146,6 +196,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
+						info.viewType,
 					);
 					return { editor: notebookEditorInput, options };
 				},
@@ -154,6 +205,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						resource,
 						undefined,
+						info.viewType,
 					);
 					return { editor: notebookEditorInput, options };
 				},
@@ -193,19 +245,20 @@ class PositronNotebookContribution extends Disposable {
 			},
 		));
 
-		// Register for cells in .ipynb files
+		// Register cell editor
 		this._register(this.editorResolverService.registerEditor(
-			`${Schemas.vscodeNotebookCell}:/**/*.ipynb`,
+			`${Schemas.vscodeNotebookCell}:/**/*${info.extension}`,
 			// The cell handler is specifically for opening and focusing a cell by URI
 			// e.g. vscode.window.showTextDocument(cell.document).
 			// The editor resolver service expects a single handler with 'exclusive' priority.
 			// This one is only registered if Positron notebooks are enabled.
 			// This does not seem to be an issue for file schemes (registered above).
-			notebookCellEditorInfo,
+			cellEditorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					return resource.scheme === Schemas.vscodeNotebookCell;
+					return extname(resource) === info.extension &&
+						resource.scheme === Schemas.vscodeNotebookCell;
 				}
 			},
 			{
@@ -218,6 +271,7 @@ class PositronNotebookContribution extends Disposable {
 						this.instantiationService,
 						parsed.notebook,
 						undefined,
+						info.viewType,
 					);
 					// Create notebook editor options from base text editor options
 					const notebookEditorOptions: INotebookEditorOptions = {
@@ -258,8 +312,9 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
-		// Always handle .ipynb files
-		if (!workingCopy.resource.path.endsWith('.ipynb')) {
+		// Handle .ipynb and .qmd files
+		const path = workingCopy.resource.path;
+		if (!path.endsWith('.ipynb') && !path.endsWith('.qmd')) {
 			return false;
 		}
 
@@ -284,15 +339,17 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
+		const viewType = this.getViewType(workingCopy) ?? inferViewTypeFromExtension(workingCopy.resource);
 		return PositronNotebookEditorInput.getOrCreate(
 			this.instantiationService,
 			workingCopy.resource,
 			undefined,
+			viewType,
 			{
 				// Mark as dirty since we're restoring from a backup
 				startDirty: true,
 				_workingCopy: workingCopy
-			}
+			},
 		);
 	}
 
@@ -328,7 +385,7 @@ registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNo
 
 
 
-type SerializedPositronNotebookEditorData = { resource: URI; options?: PositronNotebookEditorInputOptions };
+type SerializedPositronNotebookEditorData = { resource: URI; viewType?: string; options?: PositronNotebookEditorInputOptions };
 class PositronNotebookEditorSerializer implements IEditorSerializer {
 	canSerialize(): boolean {
 		return true;
@@ -337,22 +394,22 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 		assertType(input instanceof PositronNotebookEditorInput);
 		const data: SerializedPositronNotebookEditorData = {
 			resource: input.resource,
+			viewType: input.viewType,
 			options: input.options
 		};
 		return JSON.stringify(data);
 	}
 	deserialize(instantiationService: IInstantiationService, raw: string) {
 		const data = <SerializedPositronNotebookEditorData>parse(raw);
-		if (!data) {
-			return undefined;
-		}
 		const { resource, options } = data;
 		if (!data || !URI.isUri(resource)) {
 			return undefined;
 		}
 
-		const input = PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, options);
-		return input;
+		// Use persisted viewType, falling back to extension-based inference
+		// for backwards compatibility with existing serialized data
+		const viewType = data.viewType ?? inferViewTypeFromExtension(resource);
+		return PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, viewType, options);
 	}
 }
 
@@ -1456,7 +1513,7 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Collapse,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
 				order: 1,
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
@@ -1483,7 +1540,7 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Collapse,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
 				order: 2,
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
@@ -1498,6 +1555,30 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell?.isCodeCell()) {
 			cell.expandOutput();
+		}
+	}
+});
+
+// Clear output for a cell
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.clearOutput',
+			title: localize2('positronNotebook.cell.clearOutput', "Clear Output"),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
+				order: 3,
+				when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			notebook.clearCellOutput(cell);
 		}
 	}
 });

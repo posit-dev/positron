@@ -1,0 +1,51 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Outer wrapper for image preview view zone */
+.quarto-image-preview-wrapper {
+	box-sizing: border-box;
+	pointer-events: auto !important;
+	user-select: none;
+	-webkit-user-select: none;
+	position: relative;
+	z-index: 5;
+}
+
+/* Image container - no borders or styling, just the image */
+.quarto-image-preview-container {
+	display: flex;
+	justify-content: flex-start;
+	align-items: flex-start;
+	padding: 4px 0;
+}
+
+/* The image itself - no borders, no background, just the image */
+.quarto-image-preview {
+	max-width: 100%;
+	max-height: 400px;
+	height: auto;
+	/* No border, no background - just the image */
+}
+
+/* Error container - styled consistently with quarto inline output errors */
+.quarto-image-preview-error {
+	padding: 8px 12px;
+	margin: 8px 0;
+	background: var(--vscode-inputValidation-errorBackground);
+	border: 1px solid var(--vscode-inputValidation-errorBorder);
+	border-radius: 2px;
+	color: var(--vscode-errorForeground);
+	display: flex;
+	align-items: center;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* Error text */
+.quarto-image-preview-error-text {
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	line-height: 1.4;
+}

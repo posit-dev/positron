@@ -116,10 +116,23 @@ export interface ModuleMetadata {
 }
 
 /**
- * Packager metadata - Conda, Pixi, or Module.
- * Check ReasonDiscovered.CONDA, ReasonDiscovered.PIXI, or ReasonDiscovered.MODULE to determine which type.
+ * Metadata for an R installation from an r-versions configuration file.
  */
-export type PackagerMetadata = CondaMetadata | PixiMetadata | ModuleMetadata;
+export interface RVersionsMetadata {
+	/** Identifies this as an r-versions entry */
+	readonly type: 'rversions';
+	/** User-friendly display name from the Label field */
+	readonly label?: string;
+	/** Shell script to source before launching R */
+	readonly script?: string;
+	// Future PRs will add: repo, library
+}
+
+/**
+ * Packager metadata - Conda, Pixi, Module, or RVersions.
+ * Check ReasonDiscovered.CONDA, ReasonDiscovered.PIXI, ReasonDiscovered.MODULE, or ReasonDiscovered.RVERSIONS to determine which type.
+ */
+export type PackagerMetadata = CondaMetadata | PixiMetadata | ModuleMetadata | RVersionsMetadata;
 
 /**
  * Type guard to check if packager metadata is from Pixi (has manifestPath).
@@ -140,6 +153,13 @@ export function isCondaMetadata(metadata: PackagerMetadata): metadata is CondaMe
  */
 export function isModuleMetadata(metadata: PackagerMetadata): metadata is ModuleMetadata {
 	return 'type' in metadata && metadata.type === 'module';
+}
+
+/**
+ * Type guard to check if packager metadata is from an r-versions configuration file (has type: 'rversions').
+ */
+export function isRVersionsMetadata(metadata: PackagerMetadata): metadata is RVersionsMetadata {
+	return 'type' in metadata && metadata.type === 'rversions';
 }
 
 export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {

@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
+import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter } from './types';
 
 /**
@@ -108,6 +109,14 @@ export class PipPackageManager implements IPackageManager {
         const args = ['install', '--upgrade', ...flags, ...packageNames];
 
         await this._executePipInTerminal(args);
+    }
+
+    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+        return searchPyPI(query);
+    }
+
+    async searchPackageVersions(name: string): Promise<string[]> {
+        return searchPyPIVersions(name);
     }
 
     // =========================================================================

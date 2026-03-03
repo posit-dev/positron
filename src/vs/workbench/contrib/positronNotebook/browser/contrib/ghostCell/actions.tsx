@@ -9,10 +9,13 @@ import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/con
 import { KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IAction2Options, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
 import { GhostCellController } from './controller.js';
+import { REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID, SHOW_GHOST_CELL_INFO_COMMAND_ID } from './config.js';
+import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 
 // Helper function matching the FindController pattern (contrib/find/actions.ts)
 function registerGhostCellAction(
@@ -34,7 +37,7 @@ function registerGhostCellAction(
 
 // Request ghost cell suggestion - works from any state when the notebook editor is focused
 registerGhostCellAction({
-	id: 'positronNotebook.requestGhostCellSuggestion',
+	id: REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID,
 	title: localize2('positronNotebook.requestGhostCellSuggestion', 'Request Ghost Cell Suggestion'),
 	keybinding: {
 		// Require notebook DOM focus and exclude cell editor focus to avoid
@@ -57,4 +60,19 @@ registerGhostCellAction({
 	f1: true,
 	category: localize2('positronNotebook.category', 'Positron Notebook'),
 	run: (controller) => controller.enableGhostCellSuggestionsForNotebook(),
+});
+
+// Show ghost cell info dialog - opens the informational dialog about ghost cell suggestions
+registerGhostCellAction({
+	id: SHOW_GHOST_CELL_INFO_COMMAND_ID,
+	title: localize2('positronNotebook.showGhostCellInfo', 'About Ghost Cell Suggestions'),
+	f1: true,
+	category: localize2('positronNotebook.category', 'Positron Notebook'),
+	precondition: ContextKeyExpr.equals('activeEditor', 'workbench.editor.positronNotebook'),
+	run: (controller) => {
+		const state = controller.ghostCellState.get();
+		const modelName = state.status === 'ready' ? state.modelName : undefined;
+		const renderer = new PositronModalReactRenderer();
+		renderer.render(<GhostCellInfoModalDialog modelName={modelName} renderer={renderer} />);
+	},
 });

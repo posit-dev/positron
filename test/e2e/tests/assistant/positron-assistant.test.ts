@@ -214,38 +214,28 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 	 * 1. The model picker shows "(default)" suffix next to the model name
 	 * 2. The default model appears first in the vendor group
 	 */
-	test('Verify default model indicator and ordering for single provider', async function ({ app, settings }) {
+	test('Verify default model indicator and ordering for single provider', async function ({ settings, assistant }) {
 		// Configure the Echo Language Model v2 as the default for the echo provider
 		await settings.set({
 			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
 		}, { reload: true });
 
 		// Open the model picker dropdown
-		await expect(async () => {
-			await app.workbench.assistant.pickModel();
+		await assistant.pickModel();
 
-			// Get all models from the picker
-			const models = await app.workbench.assistant.getModelPickerItems();
+		// Verify that Echo Language Model v2 shows "(default)" suffix
+		await assistant.expectModelInPicker('Echo Language Model v2 (default)');
 
-			// Verify that Echo Language Model v2 shows "(default)" suffix
-			const defaultModel = models.find(m => m.label === 'Echo Language Model v2 (default)');
-			expect(defaultModel, 'Expected Echo Language Model v2 to have "(default)" indicator').toBeDefined();
-			expect(defaultModel?.isDefault).toBe(true);
+		// Verify that the other Echo model does NOT have "(default)" suffix
+		await assistant.expectModelInPicker(/^Echo$/);
 
-			// Verify that the other Echo model does NOT have "(default)" suffix
-			const nonDefaultModel = models.find(m => m.label === 'Echo');
-			expect(nonDefaultModel, 'Expected Echo Language Model to exist without "(default)" indicator').toBeDefined();
-			expect(nonDefaultModel?.isDefault).toBe(false);
-
-			// Verify default model appears first in vendor group
-			const echoModels = await app.workbench.assistant.getModelPickerItemsForVendor('Echo');
-			expect(echoModels.length).toBeGreaterThanOrEqual(2);
-			expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
-			expect(echoModels[0].isDefault).toBe(true);
-		}).toPass({ timeout: 30000 });
+		// Verify default model appears first in vendor group
+		const echoModels = await assistant.getModelPickerItemsForVendor('Echo');
+		expect(echoModels.length).toBeGreaterThanOrEqual(2);
+		expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
 
 		// Close the dropdown
-		await app.workbench.assistant.closeModelPickerDropdown();
+		await assistant.closeModelPickerDropdown();
 
 		// Clean up: reset the setting
 		await settings.set({
@@ -292,7 +282,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	 * 1. Each provider shows its respective default model with "(default)" suffix
 	 * 2. Each default model appears first in its provider group
 	 */
-	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings, runCommand }) {
+	test('Verify default model indicators and ordering for multiple providers', async function ({ settings, assistant }) {
 		// Configure defaults for both Anthropic and Echo providers
 		await settings.set({
 			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
@@ -300,58 +290,44 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 		}, { reload: true });
 
 		// Sign in to Anthropic (method handles auto-sign-in detection)
-		await app.workbench.assistant.loginModelProvider('anthropic-api');
+		await assistant.loginModelProvider('anthropic-api');
+		await assistant.pickModel();
 
-		await expect(async () => {
-			try {
-				await app.workbench.assistant.pickModel();
+		// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
+		await assistant.expectModelInPicker('Claude Haiku 4.5 (default)');
 
-				// Get all models from the picker
-				const models = await app.workbench.assistant.getModelPickerItems();
+		// Verify other Anthropic models do NOT have "(default)"
+		await assistant.expectModelInPicker(/^Claude Sonnet 4$/);
 
-				// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
-				const anthropicDefault = models.find(m => m.label === 'Claude Haiku 4.5 (default)');
-				expect(anthropicDefault, 'Expected Claude Haiku 4.5 to have "(default)" indicator').toBeDefined();
-				expect(anthropicDefault?.isDefault).toBe(true);
+		// Verify Echo default - Echo Language Model v2 should have "(default)"
+		await assistant.expectModelInPicker('Echo Language Model v2 (default)');
 
-				// Verify other Anthropic models do NOT have "(default)"
-				const anthropicNonDefault = models.find(m => m.label === 'Claude Sonnet 4' && !m.isDefault);
-				expect(anthropicNonDefault, 'Expected Claude Sonnet 4 to exist without "(default)" indicator').toBeDefined();
+		// Verify other Echo model does NOT have "(default)"
+		await assistant.expectModelInPicker(/^Echo$/);
 
-				// Verify Echo default - Echo Language Model v2 should have "(default)"
-				const echoDefault = models.find(m => m.label === 'Echo Language Model v2 (default)');
-				expect(echoDefault, 'Expected Echo Language Model v2 to have "(default)" indicator').toBeDefined();
-				expect(echoDefault?.isDefault).toBe(true);
+		// Verify vendor separators are visible
+		await assistant.expectVendorSeparator('Anthropic');
+		await assistant.expectVendorSeparator('Echo');
 
-				// Verify other Echo model does NOT have "(default)"
-				const echoNonDefault = models.find(m => m.label === 'Echo' && !m.isDefault);
-				expect(echoNonDefault, 'Expected Echo to exist without "(default)" indicator').toBeDefined();
+		// Verify ordering by getting all model items and checking vendor group order
+		const anthropicModels = await assistant.getModelPickerItemsForVendor('Anthropic');
+		expect(anthropicModels.length).toBeGreaterThanOrEqual(2);
+		expect(anthropicModels[0].label).toBe('Claude Haiku 4.5 (default)');
 
-				// Verify default models appear first in their respective vendor groups
-				// Check Anthropic vendor group - Haiku should be first
-				const anthropicModels = await app.workbench.assistant.getModelPickerItemsForVendor('Anthropic');
-				expect(anthropicModels.length).toBeGreaterThanOrEqual(2);
-				expect(anthropicModels[0].label).toBe('Claude Haiku 4.5 (default)');
-				expect(anthropicModels[0].isDefault).toBe(true);
+		const echoModels = await assistant.getModelPickerItemsForVendor('Echo');
+		expect(echoModels.length).toBeGreaterThanOrEqual(2);
+		expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
 
-				// Check Echo vendor group - v2 should be first
-				const echoModels = await app.workbench.assistant.getModelPickerItemsForVendor('Echo');
-				expect(echoModels.length).toBeGreaterThanOrEqual(2);
-				expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
-				expect(echoModels[0].isDefault).toBe(true);
-			} finally {
-				// Always close dropdown to ensure clean state for retry
-				await app.workbench.assistant.closeModelPickerDropdown().catch(() => { });
-			}
-		}).toPass({ timeout: 30000 });
+		// Close dropdown
+		await assistant.closeModelPickerDropdown();
 	});
 });
 
 // Test suite for verifying token usage is displayed.
 test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT] }, () => {
-	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
-		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.loginModelProvider('echo');
+	test.beforeAll('Enable Assistant', async function ({ assistant }) {
+		await assistant.openPositronAssistantChat();
+		await assistant.loginModelProvider('echo');
 	});
 
 	test.beforeEach('Clear chat', async function ({ app, settings }) {
@@ -364,60 +340,57 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.logoutModelProvider('echo');
 	});
 
-	test('Token usage is displayed in chat response', async function ({ app }) {
+	test('Token usage is displayed in chat response', async function ({ app, assistant }) {
 		const message = 'What is the meaning of life?';
-		await app.workbench.assistant.sendChatMessageAndWait(message);
-		await app.workbench.assistant.verifyTokenUsageVisible();
-		const tokenUsage = await app.workbench.assistant.getTokenUsage();
+		await assistant.sendChatMessageAndWait(message);
+		await assistant.verifyTokenUsageVisible();
+		const tokenUsage = await assistant.getTokenUsage();
 		expect(tokenUsage).toMatchObject({
 			inputTokens: message.length,
 			outputTokens: message.length
 		});
 	});
 
-	test('Token usage is not displayed when setting is disabled', async function ({ app, settings }) {
+	test('Token usage is not displayed when setting is disabled', async function ({ app, settings, assistant }) {
 		await settings.set({ 'positron.assistant.showTokenUsage.enable': false }, { reload: 'web' });
-		await app.workbench.assistant.sendChatMessageAndWait('What is the meaning of life?');
+		await assistant.sendChatMessageAndWait('What is the meaning of life?');
 
-		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+		expect(await assistant.verifyTokenUsageNotVisible());
 	});
 
-	test('Token usage is not displayed for non-supported providers', async function ({ app, settings }) {
+	test('Token usage is not displayed for non-supported providers', async function ({ app, settings, assistant }) {
 		await settings.set({ 'positron.assistant.approximateTokenCount': [] }, { reload: 'web' });
-		await app.workbench.assistant.sendChatMessageAndWait('What is the meaning of life?');
+		await assistant.sendChatMessageAndWait('What is the meaning of life?');
 
-		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+		expect(await assistant.verifyTokenUsageNotVisible());
 	});
 
-	test('Token usage updates when settings change', async function ({ app, settings }) {
-		await app.workbench.assistant.sendChatMessageAndWait('What is the meaning of life?');
-		await app.workbench.assistant.verifyTokenUsageVisible();
+	test('Token usage updates when settings change', async function ({ app, settings, assistant }) {
+		await assistant.sendChatMessageAndWait('What is the meaning of life?');
+		await assistant.verifyTokenUsageVisible();
 
 		await settings.set({ 'positron.assistant.approximateTokenCount': [] }, { reload: 'web' });
-		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+		expect(await assistant.verifyTokenUsageNotVisible());
 
 		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] }, { reload: 'web' });
-		await app.workbench.assistant.verifyTokenUsageVisible();
+		await assistant.verifyTokenUsageVisible();
 
 		await settings.set({ 'positron.assistant.showTokenUsage.enable': false }, { reload: 'web' });
-		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+		expect(await assistant.verifyTokenUsageNotVisible());
 
 		await settings.set({ 'positron.assistant.showTokenUsage.enable': true }, { reload: 'web' });
-		await app.workbench.assistant.verifyTokenUsageVisible();
+		await assistant.verifyTokenUsageVisible();
 	});
 
 	// Only reports tokens used by first message.
-	test('Total token usage is displayed in chat header', async function ({ app }) {
+	test('Total token usage is displayed in chat header', async function ({ app, assistant }) {
 		const message1 = 'What is the meaning of life?';
 		const message2 = 'Forty-two';
 
-		await app.workbench.assistant.sendChatMessageAndWait(message1);
-		// await app.workbench.assistant.waitForReadyToSend();
-		await app.workbench.assistant.sendChatMessageAndWait(message2);
+		await assistant.sendChatMessageAndWait(message1);
+		await assistant.sendChatMessageAndWait(message2);
 
-		// await app.workbench.assistant.waitForReadyToSend();
-
-		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
+		const totalTokens = await assistant.getTotalTokenUsage();
 		expect(totalTokens).toBeDefined();
 		expect(totalTokens).toMatchObject({
 			inputTokens: message1.length + message2.length,

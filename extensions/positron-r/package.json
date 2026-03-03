@@ -162,6 +162,16 @@
         "command": "r.loadRDataFileWithPicker",
         "category": "R",
         "title": "%r.command.loadRDataFileWithPicker.title%"
+      },
+      {
+        "command": "r.browseAddins",
+        "category": "R",
+        "title": "%r.command.browseAddins.title%"
+      },
+      {
+        "command": "r.browseRmdTemplates",
+        "category": "R",
+        "title": "%r.command.browseRmdTemplates.title%"
       }
     ],
     "configuration": [
@@ -794,7 +804,8 @@
         "languages": ["r"],
         "supportsUiLaunch": false,
         "sendBreakpointsOnAllSaves": true,
-        "verifyBreakpointsInDirtyDocuments": true
+        "verifyBreakpointsInDirtyDocuments": true,
+        "supportsFrameSelection": true
       }
     ],
     "customEditors": [
@@ -1078,7 +1089,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.231"
+      "ark": "0.1.234"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

@@ -303,6 +303,15 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			}
 		}
 
+		// Skip if nothing would change, to avoid spurious DidChangeNotebookDocument
+		// notifications that can disrupt language server initialization (e.g. Pyrefly).
+		// eslint-disable-next-line local/code-no-any-casts, @typescript-eslint/no-explicit-any
+		const existingMetadata = notebook.metadata?.metadata as any;
+		const existingLanguage = existingMetadata?.language_info?.name;
+		if (existingLanguage === languageId && cellEdits.length === 0) {
+			return;
+		}
+
 		// Apply the edits.
 		notebook.applyEdits(
 			[documentMetadataEdit, ...cellEdits],

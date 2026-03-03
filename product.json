@@ -3,7 +3,7 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"version": "",
-	"positronVersion": "2026.03.0",
+	"positronVersion": "2026.04.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -258,7 +258,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.20.0",
+			"version": "0.22.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",

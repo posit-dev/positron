@@ -13,7 +13,7 @@ import { JupyterKernelSpec } from './positron-supervisor';
 import { getArkKernelPath, getArkEnvironmentVariables } from './kernel';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { findCondaExe } from './provider-conda';
-import { PackagerMetadata, isPixiMetadata, isCondaMetadata, isModuleMetadata } from './r-installation';
+import { PackagerMetadata, isPixiMetadata, isCondaMetadata, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { findPixiExe } from './provider-pixi';
 import { LOGGER } from './extension';
 
@@ -377,6 +377,15 @@ export async function createJupyterKernelSpec(
 			// Use the pre-computed startup command from the module resolver
 			startup_command = packagerMetadata.startupCommand;
 			LOGGER.info(`Using module startup command: ${startup_command}`);
+		}
+	}
+
+	// If this R is from an r-versions entry with a script, source it before launching R
+	if (packagerMetadata && isRVersionsMetadata(packagerMetadata)) {
+		if (packagerMetadata.script) {
+			// Use POSIX-compatible source syntax (.) for portability
+			startup_command = `. ${packagerMetadata.script}`;
+			LOGGER.info(`Using r-versions startup script: ${packagerMetadata.script}`);
 		}
 	}
 
