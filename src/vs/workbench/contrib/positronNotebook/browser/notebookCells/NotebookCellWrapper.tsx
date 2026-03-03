@@ -21,7 +21,7 @@ import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
-import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
+import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 
 export function NotebookCellWrapper({ cell, children }: {
 	cell: IPositronNotebookCell;
@@ -68,7 +68,8 @@ export function NotebookCellWrapper({ cell, children }: {
 		const wasEditingCodeCell = prevStatus === CellSelectionStatus.Editing &&
 			(cell.isCodeCell() || cell.isRawCell());
 		const findWidgetFocused = notebookInstance.scopedContextKeyService &&
-			CONTEXT_FIND_INPUT_FOCUSED.getValue(notebookInstance.scopedContextKeyService);
+			(CONTEXT_FIND_INPUT_FOCUSED.getValue(notebookInstance.scopedContextKeyService) ||
+				CONTEXT_REPLACE_INPUT_FOCUSED.getValue(notebookInstance.scopedContextKeyService));
 		if (isActiveCell &&
 			// 1. In editing mode (the Monaco editor should have focus then)
 			selectionStatus !== CellSelectionStatus.Editing &&
