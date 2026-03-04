@@ -331,8 +331,8 @@ export function SortableCellList({
 			>
 				<DragStateContext.Provider value={dragStateValue}>
 					{children}
+					<EndSentinelDroppable />
 				</DragStateContext.Provider>
-				<EndSentinelDroppable />
 			</SortableContext>
 
 			<DragOverlay dropAnimation={null} modifiers={overlayModifiers}>
