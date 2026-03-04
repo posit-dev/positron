@@ -666,6 +666,77 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Evaluates a code fragment silently in the runtime and returns the
+	 * JSON-serialized result, without displaying output in the console.
+	 *
+	 * @param code The code string to evaluate
+	 * @returns A promise that resolves with the result of the evaluation
+	 */
+	evaluate(code: string): Promise<any> {
+		const promise = new PromiseHandles<any>;
+
+		// Find the UI comm
+		const uiComm = Array.from(this._clients.values())
+			.find(c => c.target === positron.RuntimeClientType.Ui);
+
+		if (!uiComm) {
+			promise.reject(new Error('No UI comm is open; cannot evaluate code'));
+			return promise.promise;
+		}
+
+		// Build the JSON-RPC request for evaluate_code
+		const request = {
+			jsonrpc: '2.0',
+			method: 'evaluate_code',
+			params: {
+				code
+			},
+			id: createUniqueId(),
+		};
+
+		const commMsg: JupyterCommMsg = {
+			comm_id: uiComm.id,
+			data: request
+		};
+
+		const commRequest = new CommMsgRequest(createUniqueId(), commMsg);
+		this.sendRequest(commRequest).then((reply) => {
+			const response = reply.data;
+
+			// If the response is an error, throw it
+			if (Object.keys(response).includes('error')) {
+				const error = response.error as any;
+				error.name = `RPC Error ${error.code}`;
+				promise.reject(error);
+				return;
+			}
+
+			// JSON-RPC specifies that the return value must have either a
+			// 'result' or an 'error'; make sure we got a result.
+			if (!Object.keys(response).includes('result')) {
+				const error: positron.RuntimeMethodError = {
+					code: positron.RuntimeMethodErrorCode.InternalError,
+					message: `Invalid response from UI comm: no 'result' field. ` +
+						`(response = ${JSON.stringify(response)})`,
+					name: `InvalidResponseError`,
+					data: {},
+				};
+				promise.reject(error);
+				return;
+			}
+
+			// Return the result
+			promise.resolve(response.result);
+		})
+			.catch((err) => {
+				this.log(`Failed to send evaluate_code request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+				promise.reject(err);
+			});
+
+		return promise.promise;
+	}
+
+	/**
 	 * Gets the path to the kernel's log file, if any.
 	 *
 	 * @returns The kernel's log file.
