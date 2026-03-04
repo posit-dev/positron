@@ -108,16 +108,11 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 	/**
 	 * Reads Foundry config from the Workbench extension's VS Code settings.
 	 * Only used in Workbench managed mode.
-	 *
-	 * Supports both the new `endpoint` setting and the deprecated `resourceName`
-	 * setting (which constructs an endpoint URL automatically).
 	 */
 	private static getWorkbenchConfig() {
 		const config = vscode.workspace.getConfiguration('positWorkbench.foundry');
-		const endpoint = config.get<string>('endpoint', '');
-		const resourceName = config.get<string>('resourceName', '');
 		return {
-			endpoint: endpoint || (resourceName ? `https://${resourceName}.openai.azure.com` : ''),
+			endpoint: config.get<string>('endpoint', ''),
 		};
 	}
 
