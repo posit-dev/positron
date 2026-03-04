@@ -134,6 +134,76 @@ export async function isUvInstalled(): Promise<boolean> {
 }
 
 /**
+ * Information about a Python version that uv would install.
+ */
+export interface UvPythonVersionInfo {
+    /** The full version string (e.g., "3.14.0a5") */
+    version: string;
+    /** Whether this is a pre-release version (alpha, beta, or release candidate) */
+    isPrerelease: boolean;
+    /** The path to the Python executable */
+    path?: string;
+}
+
+/**
+ * Checks what Python version uv would install for a given version request.
+ * Uses `uv python find` to determine the version without actually installing.
+ * @param requestedVersion The version requested (e.g., "3.14", "3.13")
+ * @returns Information about the Python version, or undefined if not found
+ */
+export async function getUvPythonVersionInfo(requestedVersion: string): Promise<UvPythonVersionInfo | undefined> {
+    const uvUtils = await UvUtils.getUvUtils();
+    if (!uvUtils) {
+        return undefined;
+    }
+
+    try {
+        // Use `uv python find` to see what version would be used
+        const result = await exec(uvUtils.command, ['python', 'find', requestedVersion], { throwOnStdErr: false });
+        const pythonPath = result?.stdout.trim();
+
+        if (!pythonPath) {
+            return undefined;
+        }
+
+        // Extract version from the path (e.g., "cpython-3.14.0a5-macos-aarch64-none")
+        // The path typically contains the version in a format like:
+        // /Users/.../uv/python/cpython-3.14.0a5-macos-aarch64-none/bin/python
+        const versionMatch = pythonPath.match(/cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i);
+        let version = requestedVersion;
+
+        if (versionMatch) {
+            version = versionMatch[1];
+        } else {
+            // Try to get the version by running the Python executable
+            try {
+                const versionResult = await exec(pythonPath, ['--version'], { throwOnStdErr: false });
+                const versionOutput = versionResult?.stdout.trim() || versionResult?.stderr.trim();
+                // Output format: "Python 3.14.0a5"
+                const match = versionOutput?.match(/Python\s+(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i);
+                if (match) {
+                    version = match[1];
+                }
+            } catch (ex) {
+                traceVerbose(`Could not get Python version from executable: ${ex}`);
+            }
+        }
+
+        // Check if it's a pre-release (contains 'a' for alpha, 'b' for beta, or 'rc' for release candidate)
+        const isPrerelease = /\d+\.\d+\.\d+(a|b|rc)\d+/i.test(version);
+
+        return {
+            version,
+            isPrerelease,
+            path: pythonPath,
+        };
+    } catch (ex) {
+        traceVerbose(`Error checking uv Python version: ${ex}`);
+        return undefined;
+    }
+}
+
+/**
  * Find all places uv puts global interpreters. These can differ by OS and env vars.
  * @returns {Set<string>} Set of directories where uv interpreters are located.
  */
