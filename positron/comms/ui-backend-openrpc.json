@@ -89,6 +89,27 @@
 					"type": "null"
 				}
 			}
+		},
+		{
+			"name": "frontend_ready",
+			"summary": "Notify backend that the frontend is ready",
+			"description": "Sent after the UI comm is opened and the frontend is fully initialized. The runtime can use this as a signal to run session initialization hooks (e.g., positron.sessionInit, rstudio.sessionInit).",
+			"params": [
+				{
+					"name": "is_new_session",
+					"description": "True if this is a new session, false if reconnecting to existing session",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "frontend_ready_result",
+					"description": "Unused response to notification",
+					"type": "null"
+				}
+			}
 		}
 	]
 }

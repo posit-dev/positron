@@ -306,4 +306,14 @@ export class UiClientInstance extends Disposable {
 	public async editorContextChanged(documentUri: string, isExecutionSource: boolean): Promise<void> {
 		await this._comm.editorContextChanged(documentUri, isExecutionSource);
 	}
+
+	/**
+	 * Notify the backend that the frontend is ready.
+	 * This triggers session initialization hooks in the runtime.
+	 *
+	 * @param isNewSession true if this is a new session, false if reconnecting
+	 */
+	public async frontendReady(isNewSession: boolean): Promise<void> {
+		await this._comm.frontendReady(isNewSession);
+	}
 }

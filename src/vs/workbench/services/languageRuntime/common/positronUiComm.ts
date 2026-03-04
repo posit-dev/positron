@@ -69,6 +69,17 @@ export interface EditorContextChangedParams {
 }
 
 /**
+ * Parameters for the FrontendReady method.
+ */
+export interface FrontendReadyParams {
+	/**
+	 * True if this is a new session, false if reconnecting to existing
+	 * session
+	 */
+	is_new_session: boolean;
+}
+
+/**
  * Editor metadata
  */
 export interface EditorContext {
@@ -980,7 +991,8 @@ export enum UiFrontendRequest {
 export enum UiBackendRequest {
 	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 	CallMethod = 'call_method',
-	EditorContextChanged = 'editor_context_changed'
+	EditorContextChanged = 'editor_context_changed',
+	FrontendReady = 'frontend_ready'
 }
 
 export class PositronUiComm extends PositronBaseComm {
@@ -1053,6 +1065,23 @@ export class PositronUiComm extends PositronBaseComm {
 	 */
 	editorContextChanged(documentUri: string, isExecutionSource: boolean): Promise<null> {
 		return super.performRpc('editor_context_changed', ['document_uri', 'is_execution_source'], [documentUri, isExecutionSource]);
+	}
+
+	/**
+	 * Notify backend that the frontend is ready
+	 *
+	 * Sent after the UI comm is opened and the frontend is fully
+	 * initialized. The runtime can use this as a signal to run session
+	 * initialization hooks (e.g., positron.sessionInit,
+	 * rstudio.sessionInit).
+	 *
+	 * @param isNewSession True if this is a new session, false if
+	 * reconnecting to existing session
+	 *
+	 * @returns Unused response to notification
+	 */
+	frontendReady(isNewSession: boolean): Promise<null> {
+		return super.performRpc('frontend_ready', ['is_new_session'], [isNewSession]);
 	}
 
 
