@@ -141,6 +141,13 @@ body.dragging-notebook-cell .positron-notebook-cells-container {
 	top: calc(-2 * var(--_positron-notebook-cell-gap) - var(--_positron-notebook-add-cell-buttons-height));
 }
 
+/* Drop indicator inside the end-of-list sentinel (after the last cell).
+	Positioned at the top of its container without the gutter offsets. */
+.drag-drop-indicator.end-sentinel-indicator {
+	top: 0;
+	transform: none;
+}
+
 /* --- Floating overlay preview (follows cursor) --- */
 
 .drag-overlay-preview {
