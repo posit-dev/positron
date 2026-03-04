@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import TYPE_CHECKING, Callable, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol, cast
 
 from .plot_comm import (
     GetIntrinsicSizeRequest,
@@ -17,6 +17,8 @@ from .plot_comm import (
     PlotBackendMessageContent,
     PlotFrontendEvent,
     PlotMetadata,
+    PlotRenderFormat,
+    PlotRenderSettings,
     PlotResult,
     PlotSize,
     PlotUnit,
@@ -60,6 +62,8 @@ class Plot:
         The code fragment that produced the plot.
     figure_num
         The matplotlib figure number, used for generating plot names.
+    plots_service
+        Reference to the plots service for accessing render settings.
     on_close
         An optional callback to invoke when the plot is closed. Used to clean up
         external resources (e.g., closing the matplotlib figure).
@@ -74,6 +78,7 @@ class Plot:
         execution_id: str,
         code: str,
         figure_num: int | str,
+        plots_service: PlotsService,
         on_close: Callable[[], None] | None = None,
     ) -> None:
         self._comm = comm
@@ -83,6 +88,7 @@ class Plot:
         self._execution_id = execution_id
         self._code = code
         self._figure_num = figure_num
+        self._plots_service = plots_service
         self._on_close = on_close
 
         self._closed = False
@@ -121,7 +127,9 @@ class Plot:
             # No need to send a show event since opening the comm will trigger a render from the frontend.
             self._open()
         else:
-            self._comm.send_event(PlotFrontendEvent.Show, {})
+            pre_render = self._generate_pre_render()
+            params: JsonRecord = cast("JsonRecord", {"pre_render": pre_render.dict()}) if pre_render else {}
+            self._comm.send_event(PlotFrontendEvent.Show, params)
 
     def update(self) -> None:
         """Notify the frontend that the plot needs to be rerendered."""
@@ -129,7 +137,25 @@ class Plot:
             # No need to send an update event since opening the comm will trigger a render from the frontend.
             self._open()
         else:
-            self._comm.send_event(PlotFrontendEvent.Update, {})
+            pre_render = self._generate_pre_render()
+            params: JsonRecord = cast("JsonRecord", {"pre_render": pre_render.dict()}) if pre_render else {}
+            self._comm.send_event(PlotFrontendEvent.Update, params)
+
+    def _generate_pre_render(self) -> PlotResult | None:
+        """Generate a pre-render using the current render settings."""
+        settings = self._plots_service.get_render_settings()
+        if settings is None:
+            return None
+        try:
+            rendered = self._render(settings.size, settings.pixel_ratio, settings.format.value)
+            return PlotResult(
+                data=base64.b64encode(rendered).decode(),
+                mime_type=MIME_TYPE[settings.format.value],
+                settings=settings,
+            )
+        except Exception:
+            logger.warning("Failed to generate pre-render", exc_info=True)
+            return None
 
     def _handle_msg(
         self, msg: CommMessage[PlotBackendMessageContent], _raw_msg: JsonRecord
@@ -156,7 +182,16 @@ class Plot:
     ) -> None:
         rendered = self._render(size, pixel_ratio, format_)
         data = base64.b64encode(rendered).decode()
-        result = PlotResult(data=data, mime_type=MIME_TYPE[format_]).dict()
+
+        # Track render settings for future pre-renders
+        settings = None
+        if size is not None:
+            settings = PlotRenderSettings(
+                size=size, pixel_ratio=pixel_ratio, format=PlotRenderFormat(format_)
+            )
+            self._plots_service.update_render_settings(settings)
+
+        result = PlotResult(data=data, mime_type=MIME_TYPE[format_], settings=settings).dict()
         self._comm.send_result(data=result)
 
     def _handle_get_intrinsic_size(self) -> None:
@@ -210,6 +245,21 @@ class PlotsService:
 
         self._plots: list[Plot] = []
 
+        # Track the most recent render settings for pre-rendering
+        self._current_render_settings: PlotRenderSettings | None = PlotRenderSettings(
+            size=PlotSize(width=640, height=480),
+            pixel_ratio=1.0,
+            format=PlotRenderFormat.Png,
+        )
+
+    def update_render_settings(self, settings: PlotRenderSettings) -> None:
+        """Update the current render settings used for pre-rendering."""
+        self._current_render_settings = settings
+
+    def get_render_settings(self) -> PlotRenderSettings | None:
+        """Get the current render settings used for pre-rendering."""
+        return self._current_render_settings
+
     def create_plot(
         self,
         render: Renderer,
@@ -246,9 +296,44 @@ class PlotsService:
         """
         comm_id = str(uuid.uuid4())
         logger.info(f"Creating plot with comm {comm_id}")
-        plot_comm = PositronComm.create(self._target_name, comm_id)
+
+        # Build data to send with comm_open
+        open_data: dict = {}
+
+        # Include intrinsic_size so frontend doesn't need to request it
+        if intrinsic_size is not None:
+            open_data["intrinsic_size"] = IntrinsicSize(
+                width=intrinsic_size[0],
+                height=intrinsic_size[1],
+                unit=PlotUnit.Inches,
+                source=kind,
+            ).dict()
+
+        # Generate pre-render
+        if self._current_render_settings is not None:
+            try:
+                settings = self._current_render_settings
+                rendered = render(settings.size, settings.pixel_ratio, settings.format.value)
+                pre_render = PlotResult(
+                    data=base64.b64encode(rendered).decode(),
+                    mime_type=MIME_TYPE[settings.format.value],
+                    settings=settings,
+                )
+                open_data["pre_render"] = pre_render.dict()
+            except Exception:
+                logger.warning("Failed to generate pre-render for comm_open", exc_info=True)
+
+        plot_comm = PositronComm.create(self._target_name, comm_id, data=open_data or None)
         plot = Plot(
-            plot_comm, render, intrinsic_size, kind, execution_id, code, figure_num, on_close
+            plot_comm,
+            render,
+            intrinsic_size,
+            kind,
+            execution_id,
+            code,
+            figure_num,
+            self,
+            on_close,
         )
         self._plots.append(plot)
         return plot

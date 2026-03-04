@@ -186,6 +186,11 @@ export interface UpdateEvent {
  * Event: Show a plot.
  */
 export interface ShowEvent {
+	/**
+	 * Optional pre-rendering data for immediate display
+	 */
+	pre_render?: PlotResult;
+
 }
 
 export enum PlotFrontendEvent {
@@ -206,7 +211,7 @@ export class PositronPlotComm extends PositronBaseComm {
 	) {
 		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', ['pre_render']);
-		this.onDidShow = super.createEventEmitter('show', []);
+		this.onDidShow = super.createEventEmitter('show', ['pre_render']);
 	}
 
 	/**

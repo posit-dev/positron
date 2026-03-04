@@ -310,8 +310,28 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			}
 		}));
 
-		// Listn for plot show events
-		this._register(this._commProxy.onDidShowPlot(async (_evt) => {
+		// Listen for plot show events
+		this._register(this._commProxy.onDidShowPlot(async (evt) => {
+			const preRender = evt.pre_render;
+
+			// If there's a pre-rendering, use it for immediate display
+			if (preRender && preRender.settings) {
+				const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
+				const preRenderPlot: IRenderedPlot = {
+					uri,
+					size: preRender.settings.size,
+					pixel_ratio: preRender.settings.pixel_ratio,
+					format: preRender.settings.format,
+					renderTimeMs: 0,
+				};
+
+				// Store the pre-rendering as the last render
+				this._lastRender = preRenderPlot;
+
+				// Fire the complete render event to update the plot display
+				this._completeRenderEmitter.fire(preRenderPlot);
+			}
+
 			this._didShowPlotEmitter.fire();
 		}));
 	}
