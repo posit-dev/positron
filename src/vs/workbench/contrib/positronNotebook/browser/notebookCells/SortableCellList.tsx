@@ -352,8 +352,9 @@ function CursorFollowingOverlay({ cells }: { cells: IPositronNotebookCell[] }) {
 		const el = overlayRef.current;
 		if (!el) { return; }
 
+		const halfHeight = el.offsetHeight / 2;
 		const onPointerMove = (e: PointerEvent) => {
-			el.style.transform = `translate(${e.clientX + 12}px, ${e.clientY + 12}px)`;
+			el.style.transform = `translate(${e.clientX + 12}px, ${e.clientY - halfHeight}px)`;
 			el.style.opacity = '1';
 		};
 
