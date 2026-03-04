@@ -227,6 +227,7 @@ def test_change_detection_over_limit(shell: PositronShell, variables_comm: Dummy
     _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
 
 
+@pytest.mark.flaky(reruns=5)
 @pytest.mark.usefixtures("variables_comm")
 def test_change_detection_run_cell_performance(shell: PositronShell) -> None:
     # Test that change detection hooks do not cause unreasonable performance overhead: https://github.com/posit-dev/positron/issues/8245

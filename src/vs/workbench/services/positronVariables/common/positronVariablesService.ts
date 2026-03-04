@@ -24,6 +24,7 @@ import { PositronNotebookEditorInput } from '../../../contrib/positronNotebook/b
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../positronConsole/common/positronConsoleCodeExecution.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
+import { PositronDataExplorerEditorInput } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput.js';
 
 /**
  * PositronVariablesService class.
@@ -304,6 +305,14 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		}
 
 		const editorInput = this._editorService.activeEditor;
+
+		// If a data explorer is opened, don't change the Variables pane session.
+		// The data explorer should not impact session following, keeping the
+		// Variables pane on whichever session spawned the data being viewed.
+		if (editorInput instanceof PositronDataExplorerEditorInput) {
+			return;
+		}
+
 		if (editorInput instanceof NotebookEditorInput || editorInput instanceof PositronNotebookEditorInput) {
 			// If this is a notebook editor try and set the active variables session to the one
 			// that corresponds with it.
