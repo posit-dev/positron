@@ -91,8 +91,12 @@ export function PositronNotebookComponent() {
 	// Determine if scroll decoration should be shown
 	const showDecoration = isScrolled || isFindWidgetVisible;
 
-	// Handler for drag-and-drop reordering of cells (single or multi)
+	// Handler for drag-and-drop reordering of cells (single or multi).
+	// Guard against read-only notebooks to prevent unintended reorders.
 	const handleReorder = React.useCallback((cells: IPositronNotebookCell[], targetIndex: number) => {
+		if (notebookInstance.isReadOnly) {
+			return;
+		}
 		notebookInstance.moveCells(cells, targetIndex);
 	}, [notebookInstance]);
 

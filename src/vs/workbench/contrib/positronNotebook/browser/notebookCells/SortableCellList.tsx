@@ -17,6 +17,8 @@ import {
 	useSensors,
 	DragStartEvent,
 	DragEndEvent,
+	DragOverEvent,
+	UniqueIdentifier,
 } from '@dnd-kit/core';
 import {
 	SortableContext,
@@ -36,12 +38,20 @@ interface SortableCellListProps {
 // Context to share active drag state with SortableCell components
 interface DragStateContextValue {
 	activeDragHandleIds: number[];
-	activeCellIndices: number[];  // Sorted indices of all selected cells
+	/** The id of the cell the drop indicator should appear above. */
+	overTargetId: UniqueIdentifier | null;
+	/** The id of the cell directly above the drop indicator. */
+	aboveOverTargetId: UniqueIdentifier | null;
+	/** True when the over target is right after the dragged cell, creating a
+	 *  double gutter that the indicator needs to center within. */
+	overTargetAdjacentToDragged: boolean;
 }
 
 const DragStateContext = React.createContext<DragStateContextValue>({
 	activeDragHandleIds: [],
-	activeCellIndices: [],
+	overTargetId: null,
+	aboveOverTargetId: null,
+	overTargetAdjacentToDragged: false,
 });
 
 export function useDragState(): DragStateContextValue {
@@ -53,8 +63,20 @@ export function useDragState(): DragStateContextValue {
 // This gives "insertion point" semantics rather than "which cell center am
 // I nearest to," which feels more natural for reordering.
 const closestGap: CollisionDetection = (args) => {
-	const { droppableContainers, active, collisionRect } = args;
-	const pointerY = collisionRect.top + collisionRect.height / 2;
+	const { droppableContainers, active, collisionRect, pointerCoordinates } = args;
+	// Use actual cursor position when available; fall back to collisionRect
+	// center for keyboard-driven reordering (pointerCoordinates is null).
+	const pointerY = pointerCoordinates?.y
+		?? (collisionRect.top + collisionRect.height / 2);
+
+	// When a cell starts being dragged it collapses to height:0 via CSS.
+	// dnd-kit's cached rects still reflect the pre-collapse layout, so
+	// cells below the active item appear further down than they actually
+	// are. Subtract the full cached height to compensate.
+	const activeRect = droppableContainers
+		.find(c => c.id === active.id)?.rect.current;
+	const heightDelta = activeRect?.height ?? 0;
+	const activeTop = activeRect?.top ?? 0;
 
 	// Get candidates sorted by vertical position (exclude active item)
 	const candidates = droppableContainers
@@ -65,21 +87,34 @@ const closestGap: CollisionDetection = (args) => {
 		return [];
 	}
 
+	// Adjusted top position: cells below the dragged cell shifted up when
+	// it collapsed, but the cached rects don't reflect that.
+	const adjustedTop = (c: typeof candidates[0]) => {
+		const top = c.rect.current!.top;
+		return top > activeTop ? top - heightDelta : top;
+	};
+
 	// Build gap positions: each gap sits between two adjacent cells.
 	// A gap maps to the cell BELOW it (dropping into that gap means
 	// the active item takes that cell's position).
 	const gaps: { y: number; id: typeof candidates[0]['id'] }[] = [];
 
 	// Gap above the first cell
-	gaps.push({ y: candidates[0].rect.current!.top, id: candidates[0].id });
+	gaps.push({ y: adjustedTop(candidates[0]), id: candidates[0].id });
 
 	// Gaps between adjacent cells
 	for (let i = 0; i < candidates.length - 1; i++) {
-		const bottomOfCurrent = candidates[i].rect.current!.top + candidates[i].rect.current!.height;
-		const topOfNext = candidates[i + 1].rect.current!.top;
+		const bottomOfCurrent = adjustedTop(candidates[i]) + candidates[i].rect.current!.height;
+		const topOfNext = adjustedTop(candidates[i + 1]);
 		const gapY = (bottomOfCurrent + topOfNext) / 2;
 		gaps.push({ y: gapY, id: candidates[i + 1].id });
 	}
+
+	// Gap below the last cell -- maps to the last candidate so dragging
+	// past the bottom resolves to "after last cell"
+	const last = candidates[candidates.length - 1];
+	const lastBottom = adjustedTop(last) + last.rect.current!.height;
+	gaps.push({ y: lastBottom, id: last.id });
 
 	// Find the gap closest to the pointer
 	let closestId = gaps[0].id;
@@ -105,6 +140,8 @@ export function SortableCellList({
 	// Use both state (for rendering) and ref (for reliable access in callbacks)
 	const [activeCells, setActiveCells] = React.useState<IPositronNotebookCell[]>([]);
 	const activeCellsRef = React.useRef<IPositronNotebookCell[]>([]);
+	// Track which cell the drop indicator should appear above
+	const [overTargetId, setOverTargetId] = React.useState<UniqueIdentifier | null>(null);
 	// Require 10px movement before drag starts (prevents accidental drags)
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -148,6 +185,10 @@ export function SortableCellList({
 		DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
 	}, [cells, getSelectedCells]);
 
+	const handleDragOver = React.useCallback((event: DragOverEvent) => {
+		setOverTargetId(event.over?.id ?? null);
+	}, []);
+
 	const handleDragEnd = React.useCallback((event: DragEndEvent) => {
 		const { active, over } = event;
 		// Use ref for reliable access (state may be stale in callback)
@@ -160,6 +201,7 @@ export function SortableCellList({
 			activeCellsRef.current = [];
 			DOM.getActiveWindow().requestAnimationFrame(() => {
 				setActiveCells([]);
+				setOverTargetId(null);
 				DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 			});
 		};
@@ -184,13 +226,10 @@ export function SortableCellList({
 			return;
 		}
 
-		// Convert from dnd-kit's over-index to insertion-point semantics.
-		// When moving down, add 1 because moveCells subtracts length internally.
-		const firstDraggedIndex = draggedCells[0].index;
-		const adjustedTarget = targetIndex > firstDraggedIndex
-			? targetIndex + 1
-			: targetIndex;
-		onReorder(draggedCells, adjustedTarget);
+		// The collision detection maps each gap to the cell below it, so
+		// over.id gives us the cell the dragged item should be inserted before.
+		// moveCells handles the removal-offset adjustment internally.
+		onReorder(draggedCells, targetIndex);
 		clearDragState();
 	}, [cells, onReorder]);
 
@@ -198,15 +237,39 @@ export function SortableCellList({
 		activeCellsRef.current = [];
 		DOM.getActiveWindow().requestAnimationFrame(() => {
 			setActiveCells([]);
+			setOverTargetId(null);
 			DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 		});
 	}, []);
 
 	// Memoize the context value to avoid unnecessary re-renders
-	const dragStateValue = React.useMemo(() => ({
-		activeDragHandleIds: activeCells.map(c => c.handle),
-		activeCellIndices: activeCells.map(c => c.index),
-	}), [activeCells]);
+	const dragStateValue = React.useMemo(() => {
+		// Find the visible (non-dragged) cell directly above the over target
+		let aboveOverTargetId: UniqueIdentifier | null = null;
+		let overTargetAdjacentToDragged = false;
+		if (overTargetId !== null) {
+			const dragHandles = new Set(activeCells.map(c => c.handle));
+			const visibleCells = cells.filter(c => !dragHandles.has(c.handle));
+			const overIdx = visibleCells.findIndex(c => c.handle === overTargetId);
+			if (overIdx > 0) {
+				aboveOverTargetId = visibleCells[overIdx - 1].handle;
+			}
+
+			// Check if the over target sits right after the dragged cell in
+			// the original order. The collapsed cell's two gutters merge into
+			// a double-wide gap that the indicator should center within.
+			const overOrigIdx = cells.findIndex(c => c.handle === overTargetId);
+			if (overOrigIdx > 0 && dragHandles.has(cells[overOrigIdx - 1].handle)) {
+				overTargetAdjacentToDragged = true;
+			}
+		}
+		return {
+			activeDragHandleIds: activeCells.map(c => c.handle),
+			overTargetId,
+			aboveOverTargetId,
+			overTargetAdjacentToDragged,
+		};
+	}, [activeCells, overTargetId, cells]);
 
 	// Always include all cells in sortable items. Removing items mid-drag
 	// corrupts dnd-kit's internal state and crashes the renderer. The visual
@@ -221,6 +284,7 @@ export function SortableCellList({
 			sensors={sensors}
 			onDragCancel={handleDragCancel}
 			onDragEnd={handleDragEnd}
+			onDragOver={handleDragOver}
 			onDragStart={handleDragStart}
 		>
 			<SortableContext

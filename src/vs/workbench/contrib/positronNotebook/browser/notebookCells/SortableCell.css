@@ -24,9 +24,26 @@
 	z-index: 10; /* Ensure handle is above cell content */
 }
 
-/* Ensure drag handle isn't clipped */
+/* Ensure drag handle and drop indicator aren't clipped */
 .sortable-cell {
+	position: relative;
 	overflow: visible;
+	transition: transform 150ms ease;
+}
+
+/* Subtle nudge: cells flanking the drop indicator shift apart slightly */
+.sortable-cell.nudge-down {
+	transform: translateY(3px);
+}
+
+.sortable-cell.nudge-up {
+	transform: translateY(-3px);
+}
+
+/* Counter the parent nudge-down so the indicator stays centered in
+	the gutter instead of shifting with the cell. */
+.sortable-cell.nudge-down > .drag-drop-indicator {
+	transform: translateY(calc(-50% - 3px));
 }
 
 .sortable-cell:hover .cell-drag-handle,
@@ -53,22 +70,47 @@ body.dragging-notebook-cell * {
 	cursor: grabbing !important;
 }
 
-/* --- Drop placeholder and indicator --- */
-
-/* Hide cell content visually but preserve layout height for collision detection */
-.drag-placeholder {
-	visibility: hidden;
+/* Suppress hover effects (action bars, add-cell buttons) while dragging.
+	The scroll container is the parent so scrolling still works, and dnd-kit
+	uses document-level listeners so collision detection is unaffected. */
+body.dragging-notebook-cell .positron-notebook-cells-container {
+	pointer-events: none;
 }
 
-/* Thin indicator line overlaid on the placeholder to show drop position */
+/* Keep handle mounted during drag for focus continuity, but hide it */
+.cell-drag-handle.drag-handle-hidden {
+	visibility: hidden;
+	pointer-events: none;
+}
+
+/* --- Drop indicator --- */
+
+/* Collapse the dragged cell so neighbors shift up naturally */
+.sortable-cell.dragging {
+	height: 0;
+	overflow: hidden;
+}
+
+/* Thin indicator line rendered above the current drop target,
+	centered in the gutter between cells. Uses the notebook's CSS
+	variables so it stays correct if spacing changes. */
 .drag-drop-indicator {
 	position: absolute;
-	top: 0;
+	top: calc(-1 * var(--_positron-notebook-cell-gap) - var(--_positron-notebook-add-cell-buttons-height) / 2);
+	transform: translateY(-50%);
 	left: 12px;
 	right: 0;
 	height: 3px;
 	border-radius: 2px;
 	background-color: var(--vscode-focusBorder, #007acc);
+	z-index: 10;
+	pointer-events: none;
+}
+
+/* When the over target is right after the dragged cell, two gutters
+	merge into one double-wide gap. Center the indicator in that space. */
+.drag-drop-indicator.double-gutter {
+	top: calc(-2 * var(--_positron-notebook-cell-gap) - var(--_positron-notebook-add-cell-buttons-height));
 }
 
 /* --- Floating overlay preview (follows cursor) --- */

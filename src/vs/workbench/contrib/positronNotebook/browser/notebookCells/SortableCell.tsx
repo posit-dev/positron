@@ -11,7 +11,6 @@ import React from 'react';
 
 // Other dependencies.
 import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
@@ -24,14 +23,12 @@ interface SortableCellProps {
 }
 
 export function SortableCell({ cell, children }: SortableCellProps) {
-	const { activeDragHandleIds } = useDragState();
+	const { activeDragHandleIds, overTargetId, aboveOverTargetId, overTargetAdjacentToDragged } = useDragState();
 	const {
 		attributes,
 		listeners,
 		setNodeRef,
 		setActivatorNodeRef,
-		transform,
-		transition,
 		isDragging,
 	} = useSortable({ id: cell.handle });
 
@@ -40,43 +37,37 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 	const isSecondaryDragParticipant =
 		activeDragHandleIds.includes(cell.handle) && !isDragging;
 
-	const style: React.CSSProperties = {
-		transform: CSS.Transform.toString(transform),
-		transition,
-		position: 'relative',
-	};
+	// Show the drop indicator above this cell when it's the current target.
+	const isOverTarget = overTargetId === cell.handle && !isDragging;
+	const isAboveOverTarget = aboveOverTargetId === cell.handle;
 
 	// Build className based on drag state
 	const className = positronClassNames(
 		'sortable-cell',
 		{ 'dragging': isDragging },
-		{ 'secondary-drag': isSecondaryDragParticipant }
+		{ 'secondary-drag': isSecondaryDragParticipant },
+		{ 'nudge-down': isOverTarget },
+		{ 'nudge-up': isAboveOverTarget }
 	);
 
 	return (
 		<div
 			ref={setNodeRef}
 			className={className}
-			style={style}
 		>
-			{!isDragging && (
-				<button
-					ref={setActivatorNodeRef}
-					aria-label='Drag to reorder cell'
-					className='cell-drag-handle'
-					type='button'
-					{...attributes}
-					{...listeners}
-				>
-					<ThemeIcon icon={Codicon.gripper} />
-				</button>
-			)}
-			{/* Always render children to preserve measured height for dnd-kit
-				collision detection. When dragging, hide visually with CSS. */}
-			<div className={isDragging ? 'drag-placeholder' : undefined}>
-				{children}
-			</div>
-			{isDragging && <div className='drag-drop-indicator' />}
+			{isOverTarget && <div className={positronClassNames('drag-drop-indicator', { 'double-gutter': overTargetAdjacentToDragged })} />}
+			<button
+				ref={setActivatorNodeRef}
+				aria-label='Drag to reorder cell'
+				className={positronClassNames('cell-drag-handle', { 'drag-handle-hidden': isDragging })}
+				type='button'
+				{...attributes}
+				{...listeners}
+				tabIndex={isDragging ? -1 : 0}
+			>
+				<ThemeIcon icon={Codicon.gripper} />
+			</button>
+			{isDragging ? null : children}
 		</div>
 	);
 }
