@@ -46,6 +46,7 @@ export class PositronNotebooks extends Notebooks {
 	// Drag handle is a sibling of the cell inside .sortable-cell parent
 	sortableCellAtIndex = (index: number) => this.code.driver.page.locator('.sortable-cell').nth(index);
 	dragHandleAtIndex = (index: number) => this.sortableCellAtIndex(index).getByRole('button', { name: /Drag to reorder cell/i });
+	dragZoneAtIndex = (index: number) => this.sortableCellAtIndex(index).locator('.cell-drag-zone');
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
@@ -353,10 +354,10 @@ export class PositronNotebooks extends Notebooks {
 	 * past the 10px activation threshold. Returns the start coordinates.
 	 */
 	private async _activateDrag(cellIndex: number): Promise<{ startX: number; startY: number }> {
-		const sourceCell = this.sortableCellAtIndex(cellIndex);
 		const dragHandle = this.dragHandleAtIndex(cellIndex);
 
-		await sourceCell.hover();
+		// Hover the left-edge drag zone to reveal the handle via CSS :hover
+		await this.dragZoneAtIndex(cellIndex).hover();
 		await expect(dragHandle).toBeVisible({ timeout: 2000 });
 
 		const handleBox = await dragHandle.boundingBox();
@@ -382,27 +383,31 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async dragCellToPosition(fromIndex: number, toIndex: number): Promise<void> {
 		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex}`, async () => {
+			const { startX } = await this._activateDrag(fromIndex);
+
+			// Wait for the dragged cell to collapse and CSS transitions to settle.
+			// The dragged cell gets `height: 0` which shifts siblings.
+			await this.code.driver.page.waitForTimeout(200);
+
+			// Get the target cell's position after collapse settles
 			const targetCell = this.sortableCellAtIndex(toIndex);
-
-			await this._activateDrag(fromIndex);
-
-			// Query target position AFTER drag activates. dnd-kit shifts cells via
-			// CSS transforms during drag, so pre-drag coordinates are stale.
 			const targetBox = await targetCell.boundingBox();
 			if (!targetBox) {
 				throw new Error('Could not get bounding box for target cell during drag');
 			}
 
-			// Target the upper portion of the cell. closestCenter uses dnd-kit's
-			// sorted positions (not visual positions), so targeting the upper
-			// portion ensures we resolve to the correct cell. For index 0,
-			// target the very top edge since there's minimal room above.
-			const targetY = toIndex === 0
-				? targetBox.y + 2
-				: targetBox.y + targetBox.height * 0.25;
-			const targetX = targetBox.x + targetBox.width / 2;
+			// For downward drags, target just past the bottom of the target cell.
+			// For upward drags, target just above the top.
+			// dnd-kit uses closestCenter, so we need to be clearly past the
+			// center of the target cell.
+			const targetY = toIndex > fromIndex
+				? targetBox.y + targetBox.height + 5
+				: targetBox.y - 5;
 
-			await this.code.driver.page.mouse.move(targetX, targetY, { steps: 10 });
+			// Keep X on the same column as the drag handle start position.
+			// Moving diagonally across the page can take the cursor outside
+			// the notebook area during long drags.
+			await this.code.driver.page.mouse.move(startX, targetY, { steps: 20 });
 			await this.code.driver.page.mouse.up();
 		});
 	}
@@ -433,6 +438,9 @@ export class PositronNotebooks extends Notebooks {
 			await expect(sourceCell).toBeVisible();
 
 			const { startX } = await this._activateDrag(fromIndex);
+
+			// Wait for the dragged cell to collapse and CSS transitions to settle
+			await this.code.driver.page.waitForTimeout(200);
 
 			// Get the notebook container for viewport bounds
 			const notebookContainer = this.positronNotebook;
@@ -523,7 +531,8 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async hoverCell(cellIndex: number): Promise<void> {
 		await test.step(`Hover over cell at index ${cellIndex}`, async () => {
-			await this.sortableCellAtIndex(cellIndex).hover();
+			// Hover the left-edge drag zone to trigger drag handle visibility
+			await this.dragZoneAtIndex(cellIndex).hover();
 		});
 	}
 
