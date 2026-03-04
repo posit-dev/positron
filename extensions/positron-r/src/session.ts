@@ -263,6 +263,14 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
+	evaluate(code: string): Promise<any> {
+		if (this._kernel) {
+			return this._kernel.evaluate(code);
+		} else {
+			throw new Error(`Cannot evaluate '${code}'; kernel not started`);
+		}
+	}
+
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
 		if (this._kernel) {
 			return this._kernel.isCodeFragmentComplete(code);

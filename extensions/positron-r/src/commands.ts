@@ -274,6 +274,11 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		vscode.commands.registerCommand('r.browseRmdTemplates', async () => {
 			await browseRmdTemplates();
 		}),
+
+		// Command to show R version info
+		vscode.commands.registerCommand('r.showRVersion', async () => {
+			await showRVersion();
+		}),
 	);
 }
 
@@ -663,5 +668,54 @@ async function browseRmdTemplates(): Promise<void> {
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		vscode.window.showErrorMessage(vscode.l10n.t('Error loading R Markdown templates: {0}', message));
+	}
+}
+
+/**
+ * Show R version information in a modal dialog.
+ * Uses `JupyterLanguageRuntimeSession.evaluate()` to get `R.version` and
+ * displays a friendly summary via a Positron modal dialog.
+ */
+async function showRVersion(): Promise<void> {
+	try {
+		const session = await RSessionManager.instance.getConsoleSession();
+		if (!session) {
+			vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
+			return;
+		}
+
+		const result = await session.evaluate('as.list(R.version)');
+
+		const v = result as Record<string, string>;
+		const title = v['version.string'] || 'R';
+
+		const lines: string[] = [];
+		if (v.nickname) {
+			lines.push(vscode.l10n.t('Nickname: "{0}"', v.nickname));
+		}
+		if (v.platform) {
+			lines.push(vscode.l10n.t('Platform: {0}', v.platform));
+		}
+		if (v.arch) {
+			lines.push(vscode.l10n.t('Architecture: {0}', v.arch));
+		}
+		if (v.os) {
+			lines.push(vscode.l10n.t('OS: {0}', v.os));
+		}
+		if (v.major && v.minor) {
+			lines.push(vscode.l10n.t('Version: {0}.{1}', v.major, v.minor));
+		}
+		if (v['svn rev']) {
+			lines.push(vscode.l10n.t('SVN revision: {0}', v['svn rev']));
+		}
+		if (v.year && v.month && v.day) {
+			lines.push(vscode.l10n.t('Release date: {0}-{1}-{2}', v.year, v.month, v.day));
+		}
+
+		const message = lines.join('\n');
+		await positron.window.showSimpleModalDialogMessage(title, message);
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		vscode.window.showErrorMessage(vscode.l10n.t('Error getting R version: {0}', message));
 	}
 }

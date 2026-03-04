@@ -172,6 +172,11 @@
         "command": "r.browseRmdTemplates",
         "category": "R",
         "title": "%r.command.browseRmdTemplates.title%"
+      },
+      {
+        "command": "r.showRVersion",
+        "category": "R",
+        "title": "%r.command.showRVersion.title%"
       }
     ],
     "configuration": [
