@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { createAmazonBedrock, AmazonBedrockProvider } from '@ai-sdk/amazon-bedrock';
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { createBedrockAnthropic, BedrockAnthropicProvider } from '@ai-sdk/amazon-bedrock/anthropic';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AttributedAwsCredentialIdentity, AwsCredentialIdentityProvider, AwsSdkCredentialsFeatures } from '@aws-sdk/types';
 import {
@@ -52,8 +53,6 @@ export interface BedrockProviderVariables {
  * while maintaining custom AWS SDK integration for authentication and model discovery.
  */
 export class AWSModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
-	protected declare aiProvider: AmazonBedrockProvider;
-
 	/**
 	 * Bedrock client for API calls to list models and inference profiles.
 	 */
@@ -221,11 +220,24 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			`inference profile region: ${this._inferenceProfileRegion}`
 		);
 
-		// Initialize Vercel AI SDK provider for chat generation
-		this.aiProvider = createAmazonBedrock({
+		// Initialize Vercel AI SDK providers for chat generation.
+		// Use the Anthropic-specific provider for Anthropic models (native API
+		// through InvokeModel for better feature compatibility) and the generic
+		// Bedrock provider for all other models (Converse API).
+		const bedrockAnthropicProvider = createBedrockAnthropic({
 			region,
 			credentialProvider: credentials
 		});
+		const bedrockProvider = createAmazonBedrock({
+			region,
+			credentialProvider: credentials
+		});
+		this.aiProvider = (id: string) => {
+			if (id.includes('anthropic')) {
+				return bedrockAnthropicProvider(id);
+			}
+			return bedrockProvider(id);
+		};
 
 		// Initialize Bedrock SDK client for model listing
 		this.bedrockClient = new BedrockClient({
@@ -242,11 +254,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	): Promise<void> {
-		const aiModel = this.aiProvider(model.id);
-
 		// Only select Bedrock models support cache breakpoints
 		const bedrockCacheBreakpoint = this.providerId === 'amazon-bedrock' &&
-			!aiModel.modelId.includes('anthropic.claude-3-5');
+			!model.id.includes('anthropic.claude-3-5');
 
 		// Provide the response using the base class implementation
 		return super.provideVercelResponse(

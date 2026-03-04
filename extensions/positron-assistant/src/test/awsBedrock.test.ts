@@ -509,4 +509,32 @@ suite('AWSModelProvider', () => {
 			assert.strictEqual(result, undefined);
 		});
 	});
+
+	suite('provider routing', () => {
+		let provider: AWSModelProvider;
+
+		setup(() => {
+			const config: ModelConfig = {
+				id: 'test-bedrock-model',
+				name: 'Test Provider',
+				provider: 'amazon-bedrock',
+				model: 'test-model',
+				apiKey: 'test-key',
+				type: positron.PositronLanguageModelType.Chat
+			};
+			provider = new AWSModelProvider(config);
+		});
+
+		test('routes Anthropic models to the Bedrock Anthropic provider', () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			const model = (provider as any).aiProvider('us.anthropic.claude-sonnet-4-20250514-v1:0');
+			assert.strictEqual(model.provider, 'bedrock.anthropic.messages');
+		});
+
+		test('routes non-Anthropic models to the generic Bedrock provider', () => {
+			// eslint-disable-next-line local/code-no-any-casts
+			const model = (provider as any).aiProvider('us.meta.llama3-1-70b-instruct-v1:0');
+			assert.strictEqual(model.provider, 'amazon-bedrock');
+		});
+	});
 });
