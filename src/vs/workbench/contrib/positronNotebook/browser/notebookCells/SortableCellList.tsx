@@ -11,7 +11,6 @@ import {
 	DndContext,
 	DragOverlay,
 	CollisionDetection,
-	Modifier,
 	PointerSensor,
 	KeyboardSensor,
 	useSensor,
@@ -33,18 +32,6 @@ import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNoteboo
 /** Sentinel id for the droppable zone after the last cell. */
 const END_SENTINEL_ID = '__positron-notebook-end-sentinel__';
 
-/**
- * Creates a modifier that compensates for the dragged cell collapsing to
- * height:0 during drag. The DragOverlay computes its position from the
- * initial grab offset, but once the source cell collapses, that offset
- * is too large by the cell's original height, pushing the overlay down.
- */
-function makeCollapseCompensation(heightRef: React.RefObject<number>): Modifier {
-	return ({ transform }) => ({
-		...transform,
-		y: transform.y - (heightRef.current ?? 0),
-	});
-}
 
 interface SortableCellListProps {
 	cells: IPositronNotebookCell[];
@@ -160,12 +147,6 @@ export function SortableCellList({
 	const activeCellsRef = React.useRef<IPositronNotebookCell[]>([]);
 	// Track which cell the drop indicator should appear above
 	const [overTargetId, setOverTargetId] = React.useState<UniqueIdentifier | null>(null);
-	// Height of the dragged cell before collapse, used to fix overlay position
-	const draggedCellHeightRef = React.useRef(0);
-	const overlayModifiers = React.useMemo(
-		() => [makeCollapseCompensation(draggedCellHeightRef)],
-		[]
-	);
 	// Require 10px movement before drag starts (prevents accidental drags)
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -179,10 +160,6 @@ export function SortableCellList({
 	);
 
 	const handleDragStart = React.useCallback((event: DragStartEvent) => {
-		// Capture the dragged cell's height before it collapses to height:0.
-		// This is used by the overlay modifier to fix the vertical offset.
-		draggedCellHeightRef.current = event.active.rect.current.initial?.height ?? 0;
-
 		const draggedCell = cells.find(c => c.handle === event.active.id);
 		if (!draggedCell) {
 			activeCellsRef.current = [];
@@ -335,7 +312,7 @@ export function SortableCellList({
 				</DragStateContext.Provider>
 			</SortableContext>
 
-			<DragOverlay dropAnimation={null} modifiers={overlayModifiers}>
+			<DragOverlay dropAnimation={null}>
 				{activeCells.length > 0 && (
 					<DragPreview cells={activeCells} />
 				)}
