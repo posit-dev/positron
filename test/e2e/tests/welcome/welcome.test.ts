@@ -72,7 +72,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await editors.expectActiveEditorIconClassToMatch(/python-lang-file-icon/);
 		});
 
-		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, r }) {
+		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, sessions, r }) {
 			const { welcome, popups, editors, notebooks } = app.workbench;
 
 			await welcome.newNotebookButton.click();
@@ -80,6 +80,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
 			await notebooks.expectKernelToBe(availableRuntimes['r'].name);
+			await sessions.deleteAll();
 		});
 
 		test('R - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, r }) {
