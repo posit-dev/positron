@@ -38,7 +38,7 @@ interface CellOutputsSectionProps {
 }
 
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
-	const sectionRef = React.useRef<HTMLElement | null>(null);
+	const innerRef = React.useRef<HTMLDivElement | null>(null);
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
@@ -75,15 +75,14 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
 		)}>
 			<CellOutputLeftActionMenu cell={cell} />
-			<CellOutputsOverflowProvider containerRef={sectionRef}>
+			<CellOutputsOverflowProvider containerRef={innerRef}>
 				<section
-					ref={sectionRef}
 					aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
 					className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
 					data-testid='cell-output'
 					onContextMenu={handleContextMenu}
 				>
-					<div className='positron-notebook-code-cell-outputs-inner'>
+					<div ref={innerRef} className='positron-notebook-code-cell-outputs-inner'>
 						{isCollapsed
 							? <Button
 								ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}

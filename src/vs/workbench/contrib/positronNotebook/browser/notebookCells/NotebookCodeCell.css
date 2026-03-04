@@ -36,15 +36,21 @@
 	}
 
 	.positron-notebook-cell-outputs {
-		/* This element owns horizontal scrolling for all outputs so the
-		 * scrollbar sits on the element with border-radius, clipping
-		 * the track corners to the rounded cell shape. overflow-y is
-		 * hidden to clip vertical content (upgraded to auto for long
-		 * outputs below). */
-		overflow-x: auto;
-		overflow-y: hidden;
+		/* Clips the inner div's custom scrollbar track corners to the
+		 * rounded cell shape. Chromium's ::-webkit-scrollbar elements
+		 * are not clipped by the scroll container's own border-radius,
+		 * so the non-scrolling parent must clip them instead. */
+		overflow: hidden;
 		border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
 		border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
+	}
+
+	.positron-notebook-code-cell-outputs-inner {
+		/* This element owns scrolling for all outputs. The parent
+		 * .positron-notebook-cell-outputs clips the scrollbar corners
+		 * to the cell's border-radius. */
+		overflow-x: auto;
+		overflow-y: hidden;
 
 		/* Force visible (non-overlay) scrollbars on macOS. */
 		&::-webkit-scrollbar {
@@ -52,15 +58,12 @@
 			height: 8px;
 		}
 
-		/* When a long output is present, also enable vertical scrolling
-		 * so the vertical scrollbar stays at the cell's right edge. */
+		/* When a long output is present, also enable vertical scrolling. */
 		&:has(.long-output-scroll) {
 			max-height: 400px;
 			overflow: auto;
 		}
-	}
 
-	.positron-notebook-code-cell-outputs-inner {
 		/* Horizontal padding is on children (& > *) instead of the container
 		 * so the scrollbar track spans the full cell width without needing
 		 * a separate margin-inline offset. The extra 1px absorbs the border
