@@ -306,7 +306,7 @@ function buildContextMessage(
 /**
  * Parse streaming XML response and build the suggestion result
  */
-async function parseStreamingXML(
+export async function parseStreamingXML(
 	textStream: AsyncIterable<string>,
 	log: vscode.LogOutputChannel,
 	token: vscode.CancellationToken,
