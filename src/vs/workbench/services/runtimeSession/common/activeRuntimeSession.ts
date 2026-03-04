@@ -304,6 +304,16 @@ export class ActiveRuntimeSession extends Disposable {
 		// Forward UI client to interested services
 		this._onUiClientStartedEmitter.fire(uiClient);
 
+		// Signal to the backend that the frontend is ready.
+		try {
+			const isNewSession = this.session.isNewSession?.() ?? true;
+			await uiClient.frontendReady(isNewSession);
+			this._logService.debug(`Sent frontend_ready to runtime ${sessionId}, new=${isNewSession}`);
+		} catch (err) {
+			// Ignore if backend doesn't handle this notification yet
+			this._logService.warn(`Backend did not handle frontend_ready notification: ${err}`);
+		}
+
 		return client.getClientId();
 	}
 }

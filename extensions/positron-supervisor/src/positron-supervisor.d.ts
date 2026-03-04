@@ -213,6 +213,11 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * Return logfile path
 	 */
 	getKernelLogFile(): string;
+
+	/**
+	 * Indicates whether this is a new session or a reconnected session.
+	 */
+	isNewSession?(): boolean;
 }
 
 /**

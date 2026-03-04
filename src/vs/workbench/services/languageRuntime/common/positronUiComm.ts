@@ -1140,4 +1140,3 @@ export class PositronUiComm extends PositronBaseComm {
 	 */
 	onDidClearWebviewPreloads: Event<ClearWebviewPreloadsEvent>;
 }
-

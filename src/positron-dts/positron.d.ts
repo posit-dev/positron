@@ -1407,6 +1407,12 @@ declare module 'positron' {
 		 */
 		getLaunchInfo?(): LanguageRuntimeLaunchInfo | undefined;
 
+		/**
+		 * Indicates whether this is a new session or a reconnected session.
+		 *
+		 * @returns true if this is a newly created session, false if reconnecting to existing session
+		 */
+		isNewSession?(): boolean;
 
 		/**
 		 * Show runtime log in output panel.
