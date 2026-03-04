@@ -36,33 +36,27 @@
 	}
 
 	.positron-notebook-cell-outputs {
-		overflow: hidden;
-		/* Clip scrollbar corners to match the cell's rounded bottom edges. */
+		/* This element owns horizontal scrolling for all outputs so the
+		 * scrollbar sits on the element with border-radius, clipping
+		 * the track corners to the rounded cell shape. overflow-y is
+		 * hidden to clip vertical content (upgraded to auto for long
+		 * outputs below). */
+		overflow-x: auto;
+		overflow-y: hidden;
 		border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
 		border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
 
-		/* Force visible (non-overlay) scrollbars on macOS so users can
-		 * see that scrolling is available. Applies to both this element
-		 * (long-output-scroll mode) and the inner container (normal mode)
-		 * via inheritance of the ::-webkit-scrollbar sizing. */
-		&::-webkit-scrollbar,
-		& ::-webkit-scrollbar {
+		/* Force visible (non-overlay) scrollbars on macOS. */
+		&::-webkit-scrollbar {
 			width: 8px;
 			height: 8px;
 		}
 
-		/* When a long output is present, this element owns both scroll
-		 * axes so the vertical scrollbar stays at the cell's right edge
-		 * (not hidden behind horizontal scroll). */
+		/* When a long output is present, also enable vertical scrolling
+		 * so the vertical scrollbar stays at the cell's right edge. */
 		&:has(.long-output-scroll) {
 			max-height: 400px;
 			overflow: auto;
-		}
-
-		/* Disable inner horizontal scroll -- content width propagates
-		 * through visible overflow up to cell-outputs which handles it. */
-		&:has(.long-output-scroll) > .positron-notebook-code-cell-outputs-inner {
-			overflow-x: visible;
 		}
 	}
 
@@ -72,11 +66,6 @@
 		 * a separate margin-inline offset. The extra 1px absorbs the border
 		 * overlap from the overlaid cell border. */
 		padding-block: 0.5rem;
-		overflow-x: auto;
-		/* Match the cell's rounded bottom corners so the horizontal
-		 * scrollbar track clips to the rounded shape. */
-		border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
-		border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
 
 		& > * {
 			padding-inline: calc(0.5rem + 1px);

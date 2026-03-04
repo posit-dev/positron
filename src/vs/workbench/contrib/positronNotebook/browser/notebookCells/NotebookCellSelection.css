@@ -39,7 +39,8 @@
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	border-top-left-radius: 0;
 	border-top-right-radius: 0;
-	overflow: hidden;
+	/* overflow is managed by NotebookCodeCell.css (overflow-x: auto for
+	 * horizontal scrolling, overflow-y: hidden / auto for long outputs). */
 }
 
 /* === Selection States: Selected === */
