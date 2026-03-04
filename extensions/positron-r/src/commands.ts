@@ -629,7 +629,7 @@ async function newRmdFromTemplate(): Promise<void> {
 			return;
 		}
 
-		const templates = await session.getRmdTemplates();
+		const templates = await session.getRmdTemplates(true);
 
 		if (templates.length === 0) {
 			// The rmarkdown package itself has templates, so something must go really wrong to get here:
