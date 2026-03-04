@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -1043,8 +1043,8 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private get quickInputTitleBar(): Locator { return this.code.driver.page.locator('.quick-input-titlebar'); }
-	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/); }
-	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(/Start New Interpreter Session/); }
+	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(/(Running Interpreter Sessions)|(Start New Console Session)/); }
+	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(/Start New Console Session/); }
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -1063,9 +1063,9 @@ export class SessionQuickPick {
 				}
 
 				if (viewAllRuntimes) {
-					await this.code.driver.page.getByRole('textbox', { name: /(Select Interpreter Session|New Interpreter Session)/ }).fill('New Session');
+					await this.code.driver.page.getByRole('textbox', { name: /(Running Interpreter Sessions|New Console Session)/ }).fill('New Session');
 					await this.code.driver.page.keyboard.press('Enter');
-					await expect(this.code.driver.page.getByText(/Start New Interpreter Session/)).toBeVisible({ timeout: 1000 });
+					await expect(this.code.driver.page.getByText(/Start New Console Session/)).toBeVisible({ timeout: 1000 });
 				}
 			}, 'Open Session QuickPick Menu').toPass({ intervals: [500], timeout: 10000 });
 		});
@@ -1111,7 +1111,7 @@ export class SessionQuickPick {
 
 			// Filter out the one with "New Session..."
 			const filteredSessions = activeSessions
-				.filter(session => !session.name.includes('New Interpreter Session...'));
+				.filter(session => !session.name.includes('New Console Session...'));
 
 			await this.closeSessionQuickPickMenu();
 			return filteredSessions;
