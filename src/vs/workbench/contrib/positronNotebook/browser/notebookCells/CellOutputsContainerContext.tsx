@@ -49,7 +49,6 @@ export function useCellOutputsContainerOverflows(): boolean | null {
 	// this is a no-op --the useEffect fallback below handles that case.
 	// No deps array: the measurement is cheap (two property reads) and
 	// must re-run whenever children change the container's content height.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
 	React.useLayoutEffect(measure);
 
 	// Fallback for the initial render when the ref isn't assigned yet
