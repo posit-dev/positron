@@ -48,8 +48,9 @@ async function createUvVenv(
         cwd: workspace.uri.fsPath,
     });
 
-    const venvPath = `${workspace.uri.fsPath}${os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
-        }`;
+    const venvPath = `${workspace.uri.fsPath}${
+        os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
+    }`;
 
     out.subscribe(
         (value) => {
@@ -232,9 +233,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                         const newVersionInfo = await getUvPythonVersionInfo(version);
                         if (newVersionInfo?.isPrerelease) {
                             // Still a pre-release after update - warn user but continue
-                            traceWarn(
-                                `After uv update, still getting pre-release Python ${newVersionInfo.version}`,
-                            );
+                            traceWarn(`After uv update, still getting pre-release Python ${newVersionInfo.version}`);
                             vscode.window.showWarningMessage(
                                 CreateEnv.Uv.stillPrereleaseWarning.replace('{0}', newVersionInfo.version),
                             );
