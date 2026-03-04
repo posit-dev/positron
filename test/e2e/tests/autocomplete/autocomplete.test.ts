@@ -40,8 +40,11 @@ test.describe('Autocomplete', {
 		await console.typeToConsole('pd.DataF', false, 250);
 		await console.expectSuggestionListCount(0);
 
-		// Open a new Python file
+		// Open a new Python file and wait for LSP clients to sync it.
+		// Without this delay, didChange can race ahead of didOpen on the
+		// server due to async notification ordering in vscode-languageclient.
 		await runCommand('Python: New Python File');
+		await app.code.wait(1000);
 
 		// Session 1 - trigger and verify editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: pySession1, retrigger: false });
@@ -112,8 +115,9 @@ test.describe('Autocomplete', {
 		await console.typeToConsole('read_p', false, 250);
 		await console.expectSuggestionListCount(0);
 
-		// Open a new R file
+		// Open a new R file and wait for LSP clients to sync it.
 		await runCommand('R: New R File');
+		await app.code.wait(1000);
 
 		// Session 1 - trigger and verify editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: rSession1, retrigger: false });
