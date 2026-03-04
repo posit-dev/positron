@@ -278,8 +278,10 @@ const createInterpreterGroups = (
  * @returns
  */
 const selectNewLanguageRuntime = async (
-	accessor: ServicesAccessor
-): Promise<ILanguageRuntimeMetadata | undefined> => {
+	accessor: ServicesAccessor,
+	options?: {
+		title?: string;
+	}): Promise<ILanguageRuntimeMetadata | undefined> => {
 	// Access services.
 	const quickInputService = accessor.get(IQuickInputService);
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
@@ -408,7 +410,7 @@ const selectNewLanguageRuntime = async (
 	const selectedRuntime = await quickInputService.pick(
 		runtimeItems,
 		{
-			title: localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
+			title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
 			canPickMany: false
 		}
 	);
@@ -501,7 +503,7 @@ export function registerLanguageRuntimeActions() {
 	/**
 	 * Action used to select a registered language runtime (aka interpreter).
 	 *
-	 * NOTE: This is a convenience action that is used by the notebook services
+	 * NOTE: This is a convenience action that is used by the legacy notebook service
 	 */
 	registerAction2(class PickInterpreterAction extends Action2 {
 		constructor() {
@@ -626,7 +628,10 @@ export function registerLanguageRuntimeActions() {
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// Prompt the user to select a runtime to start
-			const selectedRuntime = await selectNewLanguageRuntime(accessor);
+			const selectedRuntime = await selectNewLanguageRuntime(
+				accessor,
+				{ title: localize('positron.languageRuntime.startConsoleSession', 'Start New Console Session') }
+			);
 
 			// If the user selected a runtime, set it as the active runtime
 			if (selectedRuntime?.runtimeId) {
