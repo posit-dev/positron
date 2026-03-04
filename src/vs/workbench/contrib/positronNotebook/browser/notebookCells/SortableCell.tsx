@@ -55,6 +55,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 			ref={setNodeRef}
 			className={className}
 		>
+			<div className='cell-drag-zone' />
 			{isOverTarget && <div className={positronClassNames('drag-drop-indicator', { 'double-gutter': overTargetAdjacentToDragged })} />}
 			<button
 				ref={setActivatorNodeRef}

@@ -48,9 +48,21 @@
 	transform: translateY(calc(-50% - 3px));
 }
 
-.sortable-cell:hover .cell-drag-handle,
+/* Invisible hover zone covering the left gutter. When the cursor enters
+ * this strip the adjacent drag handle fades in via the sibling combinator. */
+.cell-drag-zone {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 24px;
+	height: 100%;
+	z-index: 9; /* Below handle (z:10) so handle hover takes priority */
+}
+
+/* Reveal handle at full opacity so the background stays solid */
+.cell-drag-zone:hover ~ .cell-drag-handle,
 .cell-drag-handle:focus-visible {
-	opacity: 0.6;
+	opacity: 1;
 }
 
 .cell-drag-handle:hover {
