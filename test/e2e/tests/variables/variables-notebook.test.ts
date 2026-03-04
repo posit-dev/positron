@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -87,6 +87,29 @@ test.describe('Variables Pane - Notebook', {
 		await notebooks.assertCellOutput('Hello from first cell', 0);
 		await notebooks.assertCellOutput('Sum of numbers: 15');
 		await notebooks.assertCellOutput('Modified numbers: [1, 2, 3, 4, 5, 6]');
+	});
+
+	test('Python - Verify Variables pane stays on notebook session after opening Data Explorer', {
+		tag: [tags.DATA_EXPLORER]
+	}, async function ({ app, hotKeys }) {
+		const { notebooks, variables, editors } = app.workbench;
+
+		// Create a dataframe in a notebook
+		await notebooks.createNewNotebook();
+		await notebooks.selectInterpreter('Python');
+		await notebooks.addCodeToCellAtIndex(0, 'import pandas as pd\ndf = pd.DataFrame({"a": [1, 2, 3]})');
+		await notebooks.executeCodeInCell();
+
+		// Verify we're on the notebook session
+		await hotKeys.fullSizeSecondarySidebar();
+		await variables.expectSessionToBe(FILENAME);
+
+		// Open the Data Explorer by double-clicking the variable
+		await variables.doubleClickVariableRow('df');
+		await editors.verifyTab('Data: df', { isVisible: true });
+
+		// Verify Variables pane stayed on the notebook session (regression test for #7539)
+		await variables.expectSessionToBe(FILENAME);
 	});
 });
 
