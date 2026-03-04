@@ -6,8 +6,10 @@
 /* Drag handle for sortable cells - overlaps cell edge like the action bar */
 .cell-drag-handle {
 	position: absolute;
-	left: 0;
-	top: 4px;
+	/* Center the handle on the cell's 1px left border:
+	 * cell margin-left (12px) - handle width (16px)/2 + border (1px)/2 */
+	left: 4.5px;
+	top: 6px;
 	width: 16px;
 	height: 24px;
 	display: flex;
@@ -18,8 +20,8 @@
 	transition: opacity 0.15s ease;
 	color: var(--vscode-foreground);
 	border-radius: 3px;
-	border: none;
-	background: transparent;
+	border: 1px solid var(--vscode-positronNotebook-border-color);
+	background: var(--vscode-editor-background);
 	padding: 0;
 	z-index: 10; /* Ensure handle is above cell content */
 }
