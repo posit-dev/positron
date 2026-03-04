@@ -140,9 +140,9 @@ const TruncationMessage = ({ truncationResult, commandService }: { truncationRes
 	return <i className='notebook-output-truncation-message'>
 		{msg + ' '}
 		<button
-			type='button'
 			aria-label='notebook output settings'
 			className='notebook-output-settings-link'
+			type='button'
 			onClick={openSettings}
 		>Change behavior.</button>
 	</i>;
