@@ -68,7 +68,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 			>
 				<ThemeIcon icon={Codicon.gripper} />
 			</button>
-			{isDragging ? null : children}
+			{children}
 		</div>
 	);
 }

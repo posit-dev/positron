@@ -21,6 +21,7 @@
 	transition: opacity 0.15s ease, transform 0.15s ease;
 	color: var(--vscode-foreground);
 	border-radius: 3px;
+	box-sizing: border-box;
 	border: 1px solid var(--vscode-positronNotebook-border-color);
 	background: var(--vscode-editor-background);
 	padding: 0;
@@ -78,7 +79,8 @@
 	border-color: var(--vscode-focusBorder);
 }
 
-.sortable-cell:has(.positron-notebook-cell:not(.selected):not(.editing):hover) > .cell-drag-handle {
+.sortable-cell:has(.positron-notebook-cell:not(.selected):not(.editing):hover) > .cell-drag-handle,
+.cell-drag-handle:hover {
 	border-color: var(--vscode-editorWidget-border);
 }
 
