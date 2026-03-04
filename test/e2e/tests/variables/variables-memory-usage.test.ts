@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Variables: Memory Usage', {
-	tag: [tags.WEB, tags.WIN, tags.VARIABLES, tags.SESSIONS]
+	tag: [tags.WIN, tags.VARIABLES, tags.SESSIONS]
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {
@@ -21,7 +21,7 @@ test.describe('Variables: Memory Usage', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('Shut-down session is removed from memory usage meter', async function ({ app, page, sessions, settings }) {
+	test('Shut-down session is removed from memory usage meter', { tag: [tags.WEB] }, async function ({ app, page, sessions, settings }) {
 		const { console, variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly
@@ -120,7 +120,7 @@ test.describe('Variables: Memory Usage', {
 		await page.keyboard.press('Escape');
 	});
 
-	test('Restarted session reappears in memory usage meter', async function ({ app, page, sessions, settings }) {
+	test('Restarted session reappears in memory usage meter', { tag: [tags.WEB] }, async function ({ app, page, sessions, settings }) {
 		const { variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly

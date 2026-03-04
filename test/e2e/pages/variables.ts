@@ -163,7 +163,7 @@ export class Variables {
 	 */
 	async selectSession(name: string) {
 		await this.contextMenu.triggerAndClick({
-			menuTrigger: this.code.driver.page.locator('.positron-variables .positron-action-bar').nth(1).locator('button'),
+			menuTrigger: this.code.driver.page.locator('.positron-variables .positron-action-bar').first().locator('button'),
 			menuItemLabel: name,
 		});
 	}
