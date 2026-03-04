@@ -56,7 +56,7 @@ test.describe('Sessions: Management', {
 				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6036' },
 				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6843' } // <-- main issue for the test, session do not consistently restore
 			]
-		}, async function ({ app, sessions, runCommand }) {
+		}, async function ({ app, sessions, hotKeys }) {
 			const { console, plots, variables } = app.workbench;
 
 			// Ensure sessions exist and are idle
@@ -85,7 +85,7 @@ test.describe('Sessions: Management', {
 			await variables.expectVariableToBe('test', '3');
 
 			// Reload app
-			await runCommand('workbench.action.reloadWindow');
+			await hotKeys.reloadWindow(true);
 
 			// Verify all sessions reload and are idle
 			await sessions.expectSessionCountToBe(3);

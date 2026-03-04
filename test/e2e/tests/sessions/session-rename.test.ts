@@ -23,7 +23,7 @@ test.describe('Sessions: Rename', {
 
 	test('Validate can rename sessions and name persists', {
 		tag: process.platform === 'win32' ? [tags.SOFT_FAIL] : [] //only soft fail on windows since this is marked as critical and only flakey on windows.
-	}, async function ({ sessions, runCommand }) {
+	}, async function ({ sessions, hotKeys }) {
 		const [pySession, pySessionAlt, rSession, rSessionAlt] = await sessions.start(['python', 'pythonAlt', 'r', 'rAlt']);
 
 		// Rename sessions
@@ -40,7 +40,7 @@ test.describe('Sessions: Rename', {
 
 		// Test may be flaky due to issue 6843
 		// Reload window
-		await runCommand('workbench.action.reloadWindow');
+		await hotKeys.reloadWindow(true);
 		await sessions.expectAllSessionsToBeReady();
 
 		// Verify session names persist
