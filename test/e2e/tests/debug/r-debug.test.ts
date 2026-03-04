@@ -144,12 +144,12 @@ test.describe('R Debugging', {
 		// Step into the next line using 's'
 		await page.keyboard.type('s');
 		await page.keyboard.press('Enter');
-		await console.waitForConsoleContents(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/);
+		await debug.expectCurrentLineToBe(3);
 
 		// Step over to next line using 'n'
 		await page.keyboard.type('n');
 		await page.keyboard.press('Enter');
-		await console.waitForConsoleContents(/debug at .*#4: mini_dat <- dat\[, cols\]/);
+		await debug.expectCurrentLineToBe(4);
 
 		// Continue execution with 'c'
 		await page.keyboard.type('c');
@@ -175,18 +175,18 @@ test.describe('R Debugging', {
 
 		// Step into using the debugger UI controls
 		await debug.stepInto();
-		await console.waitForConsoleContents(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/);
+		await debug.expectCurrentLineToBe(3);
 
 		// Step over using the debugger UI controls
 		await debug.stepOver();
-		await console.waitForConsoleContents(/debug at .*#4: mini_dat <- dat\[, cols\]/);
+		await debug.expectCurrentLineToBe(4);
 
 		// Continue execution and check final message
 		await debug.continue();
 		await console.waitForConsoleContents('Found 2 fruits!');
 	});
 
-	test.skip('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
+	test('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
 		const { debug, console } = app.workbench;
 
 		await openFile('workspaces/r-debugging/fruit_avg.r');

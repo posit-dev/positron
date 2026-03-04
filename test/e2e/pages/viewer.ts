@@ -3,12 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { FrameLocator, Locator } from '@playwright/test';
+import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REFRESH_BUTTON = '.codicon-positron-refresh';
+const VIEWER_PANEL = '[id="workbench.panel.positronPreview"]';
 
 const FULL_APP = 'body';
 
@@ -43,5 +44,11 @@ export class Viewer {
 
 	async openViewerToEditor() {
 		await this.code.driver.page.locator('.codicon-go-to-file').click();
+	}
+
+	async expectViewerPanelVisible(timeout = 10000): Promise<void> {
+		await test.step('Expect viewer panel visible', async () => {
+			await expect(this.code.driver.page.locator(VIEWER_PANEL)).toBeVisible({ timeout });
+		});
 	}
 }

@@ -12,6 +12,7 @@ import { localize } from '../../../../nls.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { QuartoNotebookSerializer } from './quartoNotebookSerializer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 
 /** Mock extension identifier for notebook serializer registration */
 const QUARTO_NOTEBOOK_EXTENSION_ID = new ExtensionIdentifier('positron.quarto-notebook');
@@ -31,8 +32,15 @@ class QuartoNotebookContribution extends Disposable implements IWorkbenchContrib
 
 		this._logService.info('[QuartoNotebookContribution] Registering Quarto notebook contribution');
 
-		// Register the .qmd notebook type if not already registered e.g. after a window reload
+		// Register the .qmd notebook type if not already registered e.g. after
+		// a window reload. Use `option` priority so that .qmd files are not
+		// considered "supported notebooks" by default. Without this,
+		// hasSupportedNotebooks() returns true for all .qmd files, which
+		// breaks Positron Assistant editing: it treats .qmd as a notebook and
+		// produces .ipynb-like JSON diffs instead of plain text edits.
+		// https://github.com/posit-dev/positron/issues/12221
 		const info = this._notebookService.getContributedNotebookType(QMD_VIEW_TYPE);
+		const priority = RegisteredEditorPriority.option;
 		if (!info) {
 			this._register(this._notebookService.registerContributedNotebookType(
 				QMD_VIEW_TYPE,
@@ -40,8 +48,16 @@ class QuartoNotebookContribution extends Disposable implements IWorkbenchContrib
 					displayName: localize('quartoNotebook.displayName', 'Quarto Notebook'),
 					providerDisplayName: localize('quartoNotebook.providerDisplayName', 'Positron'),
 					filenamePattern: ['*.qmd'],
+					priority,
 				}
 			));
+		} else if (info.priority !== priority) {
+			// Fix stale memento cache entries that were saved with the wrong
+			// priority. The NotebookProviderInfoStore persists notebook type
+			// info across sessions, and there's no API to re-register or
+			// update priority. Cast to bypass readonly. The memento self-heals
+			// on the next _setupHandler save, so this is a one-off migration.
+			(info as { priority: RegisteredEditorPriority }).priority = priority;
 		}
 
 		// Register the .qmd notebook serializer

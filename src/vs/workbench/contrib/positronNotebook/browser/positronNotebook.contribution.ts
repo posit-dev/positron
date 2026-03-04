@@ -58,12 +58,13 @@ import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js'
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
-import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
+import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
 
 export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 	POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
 	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),
+	CONTEXT_REPLACE_INPUT_FOCUSED.toNegated(),
 );
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
@@ -400,9 +401,6 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 	}
 	deserialize(instantiationService: IInstantiationService, raw: string) {
 		const data = <SerializedPositronNotebookEditorData>parse(raw);
-		if (!data) {
-			return undefined;
-		}
 		const { resource, options } = data;
 		if (!data || !URI.isUri(resource)) {
 			return undefined;

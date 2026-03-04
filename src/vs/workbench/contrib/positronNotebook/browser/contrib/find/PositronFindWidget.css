@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -43,7 +43,7 @@
 
 	/* Layout */
 	display: flex;
-	align-items: center;
+	align-items: stretch;
 	gap: 3px;
 
 	/* Capture pointer events */
@@ -55,9 +55,33 @@
 	transition: transform 0ms linear;
 }
 
-.positron-find-widget .find-input-container {
-	/* Let the find input grow with the widget */
+/* Toggle replace button spans full container height.
+ * Uses .action-button.toggle-replace to override .action-button's height: 20px. */
+.positron-find-widget .action-button.toggle-replace {
+	align-self: stretch;
+	height: auto;
+}
+
+/* Rows container: grid aligns input and actions columns across find/replace rows. */
+.positron-find-widget .find-replace-rows {
 	flex: 1;
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 3px;
+	min-width: 0;
+}
+
+/* Rows use display:contents so their children participate in the parent grid */
+.positron-find-widget .find-part,
+.positron-find-widget .replace-part {
+	display: contents;
+}
+
+
+.positron-find-widget .find-actions {
+	display: flex;
+	align-items: center;
+	gap: 3px;
 }
 
 .positron-find-widget .action-button {
@@ -109,4 +133,10 @@
 
 .positron-find-widget .close-button {
 	margin-left: 2px;
+}
+
+.positron-find-widget .replace-actions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
 }
