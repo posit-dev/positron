@@ -10,6 +10,8 @@ import { localize } from '../../../../nls.js';
 // Register the configuration setting for memory usage polling interval.
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({
+		id: 'positronMemoryUsage',
+		title: localize('positron.memoryUsage', "Memory Usage"),
 		properties: {
 			'positron.memoryUsage.pollingIntervalMs': {
 				type: 'number',

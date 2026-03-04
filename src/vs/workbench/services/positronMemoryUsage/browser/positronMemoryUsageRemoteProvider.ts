@@ -6,7 +6,6 @@
 import { IPositronMemoryInfoProvider, IPositronProcessMemoryInfo, POSITRON_MEMORY_INFO_CHANNEL_NAME } from '../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { PositronMemoryInfoChannelClient } from '../../../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IRemoteAgentService } from '../../remote/common/remoteAgentService.js';
 
@@ -19,14 +18,12 @@ export class BrowserPositronMemoryInfoProvider implements IPositronMemoryInfoPro
 	private readonly _channel: PositronMemoryInfoChannelClient | undefined;
 
 	constructor(
-		@IInstantiationService instantiationService: IInstantiationService,
 		@IRemoteAgentService remoteAgentService: IRemoteAgentService,
 		@ILogService logService: ILogService,
 	) {
 		const connection = remoteAgentService.getConnection();
 		if (connection) {
-			this._channel = instantiationService.createInstance(
-				PositronMemoryInfoChannelClient,
+			this._channel = new PositronMemoryInfoChannelClient(
 				connection.getChannel(POSITRON_MEMORY_INFO_CHANNEL_NAME)
 			);
 		} else {

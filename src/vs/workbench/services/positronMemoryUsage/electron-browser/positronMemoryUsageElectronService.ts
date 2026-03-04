@@ -6,7 +6,6 @@
 import { IPositronMemoryInfoProvider, IPositronProcessMemoryInfo, POSITRON_MEMORY_INFO_CHANNEL_NAME } from '../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { PositronMemoryInfoChannelClient } from '../../../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 
 /**
@@ -18,11 +17,9 @@ export class ElectronPositronMemoryInfoProvider implements IPositronMemoryInfoPr
 	private readonly _channel: PositronMemoryInfoChannelClient;
 
 	constructor(
-		@IInstantiationService instantiationService: IInstantiationService,
 		@IMainProcessService mainProcessService: IMainProcessService,
 	) {
-		this._channel = instantiationService.createInstance(
-			PositronMemoryInfoChannelClient,
+		this._channel = new PositronMemoryInfoChannelClient(
 			mainProcessService.getChannel(POSITRON_MEMORY_INFO_CHANNEL_NAME)
 		);
 	}

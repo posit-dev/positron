@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { promises as fs } from 'fs';
+import { execFile } from 'child_process';
 import { IPositronMemoryInfoProvider, IPositronProcessMemoryInfo } from '../common/positronMemoryUsage.js';
 import { getProcessTreeRss, getSystemMemory } from './positronMemoryUsageUtils.js';
 
@@ -51,11 +52,77 @@ async function getDirectChildPids(pid: number): Promise<number[]> {
 }
 
 /**
+ * A child process entry from `ps`, with its PID, RSS in bytes, and command.
+ */
+interface PsEntry {
+	pid: number;
+	rss: number;
+	command: string;
+}
+
+/**
+ * List all descendant processes of `rootPid` on macOS using `ps`.
+ * Returns entries for the root and all descendants.
+ */
+async function getMacOSProcessTree(rootPid: number): Promise<PsEntry[]> {
+	return new Promise((resolve) => {
+		// -A: all processes, -o: custom fields. RSS is reported in kilobytes.
+		execFile('/bin/ps', ['-A', '-o', 'pid=,ppid=,rss=,command='], (error, stdout) => {
+			if (error) {
+				resolve([]);
+				return;
+			}
+
+			// Build a parent -> children map.
+			const children = new Map<number, PsEntry[]>();
+			const entries = new Map<number, PsEntry>();
+
+			for (const line of stdout.split('\n')) {
+				const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/);
+				if (!match) {
+					continue;
+				}
+				const pid = parseInt(match[1], 10);
+				const ppid = parseInt(match[2], 10);
+				const rss = parseInt(match[3], 10) * 1024; // kB -> bytes
+				const command = match[4].trim();
+				const entry: PsEntry = { pid, rss, command };
+				entries.set(pid, entry);
+				if (!children.has(ppid)) {
+					children.set(ppid, []);
+				}
+				children.get(ppid)!.push(entry);
+			}
+
+			// BFS from rootPid to collect all descendants.
+			const result: PsEntry[] = [];
+			const rootEntry = entries.get(rootPid);
+			if (rootEntry) {
+				result.push(rootEntry);
+			}
+			const queue = [rootPid];
+			while (queue.length > 0) {
+				const parentPid = queue.shift()!;
+				const kids = children.get(parentPid);
+				if (kids) {
+					for (const kid of kids) {
+						result.push(kid);
+						queue.push(kid.pid);
+					}
+				}
+			}
+
+			resolve(result);
+		});
+	});
+}
+
+/**
  * Remote server implementation of IPositronMemoryInfoProvider.
  *
  * On Linux (primary server target), reads /proc for process RSS and uses
- * cgroups-aware system memory. On macOS (dev fallback), uses process.memoryUsage().rss
- * and os.totalmem()/os.freemem().
+ * cgroups-aware system memory. On macOS (dev fallback), uses `ps` to walk
+ * the server's process tree and identify extension host children.
  */
 export class PositronMemoryUsageServerService implements IPositronMemoryInfoProvider {
 	readonly _serviceBrand: undefined;
@@ -97,8 +164,24 @@ export class PositronMemoryUsageServerService implements IPositronMemoryInfoProv
 				extensionHostMemory += await getProcessTreeRss(pid);
 			}
 		} else {
-			// macOS dev/fallback: use process.memoryUsage().rss for the server process
-			positronProcessMemory = process.memoryUsage().rss;
+			// macOS dev/fallback: use `ps` to walk the process tree.
+			const excludeSet = new Set(excludePids ?? []);
+			const tree = await getMacOSProcessTree(process.pid);
+			positronProcessMemory = 0;
+			for (const entry of tree) {
+				if (excludeSet.has(entry.pid)) {
+					continue;
+				}
+				if (entry.command.includes('--type=extensionHost')) {
+					extensionHostMemory += entry.rss;
+				} else {
+					positronProcessMemory += entry.rss;
+				}
+			}
+			// Ensure we report at least the current process RSS.
+			if (positronProcessMemory === 0) {
+				positronProcessMemory = process.memoryUsage().rss;
+			}
 		}
 
 		const systemMem = await getSystemMemory();

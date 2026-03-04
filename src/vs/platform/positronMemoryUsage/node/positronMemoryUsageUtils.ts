@@ -7,9 +7,6 @@ import * as os from 'os';
 import { promises as fs } from 'fs';
 import { execFile } from 'child_process';
 
-/** Standard page size on Linux (4 KB). Used to convert /proc/[pid]/statm pages to bytes. */
-const PAGE_SIZE = 4096;
-
 /**
  * Detected cgroup version on this system.
  * Cached after first detection since it cannot change at runtime.
@@ -186,27 +183,31 @@ export async function getSystemMemory(): Promise<{ total: number; free: number }
 }
 
 /**
- * Read the RSS (resident set size) of a process from /proc/[pid]/statm on Linux.
+ * Read the RSS (resident set size) of a process from /proc/[pid]/status on Linux.
+ * Reads the VmRSS field which reports in kB, avoiding page-size assumptions
+ * (Linux supports 4 KB, 16 KB, and 64 KB pages depending on architecture).
  * Returns bytes, or undefined if the file cannot be read.
  */
 export async function readProcRss(pid: number): Promise<number | undefined> {
 	try {
-		const content = await fs.readFile(`/proc/${pid}/statm`, 'utf8');
-		const fields = content.trim().split(/\s+/);
-		// Field index 1 is the resident set size in pages
-		const residentPages = parseInt(fields[1], 10);
-		if (isNaN(residentPages)) {
+		const content = await fs.readFile(`/proc/${pid}/status`, 'utf8');
+		const match = content.match(/^VmRSS:\s+(\d+)\s+kB$/m);
+		if (!match) {
 			return undefined;
 		}
-		return residentPages * PAGE_SIZE;
+		return parseInt(match[1], 10) * 1024;
 	} catch {
 		return undefined;
 	}
 }
 
+/** Maximum depth to walk when traversing process trees via /proc. */
+const MAX_TREE_DEPTH = 10;
+
 /**
  * Get the RSS of a process and all its descendant processes on Linux.
- * Walks /proc/[pid]/task/[tid]/children recursively.
+ * Uses an iterative breadth-first walk of /proc/[pid]/task/[tid]/children
+ * with a depth limit to avoid unbounded recursion.
  *
  * @param pid The root process ID to start from.
  * @param excludePids Optional set of PIDs whose entire subtrees should be
@@ -217,35 +218,47 @@ export async function readProcRss(pid: number): Promise<number | undefined> {
 export async function getProcessTreeRss(pid: number, excludePids?: Set<number>): Promise<number> {
 	let totalRss = 0;
 
-	const selfRss = await readProcRss(pid);
-	if (selfRss !== undefined) {
-		totalRss += selfRss;
-	}
+	// Work queue of { pid, depth } entries for breadth-first traversal.
+	const queue: { pid: number; depth: number }[] = [{ pid, depth: 0 }];
 
-	// Read children from /proc/[pid]/task/[tid]/children
-	try {
-		const taskDir = `/proc/${pid}/task`;
-		const tids = await fs.readdir(taskDir);
-		for (const tid of tids) {
-			try {
-				const childrenContent = await fs.readFile(`${taskDir}/${tid}/children`, 'utf8');
-				const childPids = childrenContent.trim().split(/\s+/).filter(s => s.length > 0);
-				for (const childPidStr of childPids) {
-					const childPid = parseInt(childPidStr, 10);
-					if (!isNaN(childPid)) {
-						// Skip kernel subtrees that self-report memory
-						if (excludePids?.has(childPid)) {
-							continue;
-						}
-						totalRss += await getProcessTreeRss(childPid, excludePids);
-					}
-				}
-			} catch {
-				// Child may have exited; ignore
-			}
+	while (queue.length > 0) {
+		const item = queue.shift()!;
+
+		const rss = await readProcRss(item.pid);
+		if (rss !== undefined) {
+			totalRss += rss;
 		}
-	} catch {
-		// /proc/[pid]/task may not exist; ignore
+
+		// Stop descending if we have reached the depth limit.
+		if (item.depth >= MAX_TREE_DEPTH) {
+			continue;
+		}
+
+		// Discover children from /proc/[pid]/task/[tid]/children.
+		try {
+			const taskDir = `/proc/${item.pid}/task`;
+			const tids = await fs.readdir(taskDir);
+			for (const tid of tids) {
+				try {
+					const childrenContent = await fs.readFile(`${taskDir}/${tid}/children`, 'utf8');
+					const childPids = childrenContent.trim().split(/\s+/).filter(s => s.length > 0);
+					for (const childPidStr of childPids) {
+						const childPid = parseInt(childPidStr, 10);
+						if (!isNaN(childPid)) {
+							// Skip kernel subtrees that self-report memory
+							if (excludePids?.has(childPid)) {
+								continue;
+							}
+							queue.push({ pid: childPid, depth: item.depth + 1 });
+						}
+					}
+				} catch {
+					// Child may have exited; ignore
+				}
+			}
+		} catch {
+			// /proc/[pid]/task may not exist; ignore
+		}
 	}
 
 	return totalRss;

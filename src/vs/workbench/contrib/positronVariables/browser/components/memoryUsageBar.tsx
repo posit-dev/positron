@@ -15,7 +15,6 @@ import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsag
 interface MemoryUsageBarProps {
 	snapshot: IMemoryUsageSnapshot;
 	className?: string;
-	ref?: React.Ref<HTMLDivElement>;
 }
 
 /**
@@ -24,7 +23,7 @@ interface MemoryUsageBarProps {
  * meter and the dropdown popup.
  */
 export const MemoryUsageBar = (props: MemoryUsageBarProps) => {
-	const { snapshot, className, ref } = props;
+	const { snapshot, className } = props;
 	const { totalSystemMemory, kernelTotalBytes, positronOverheadBytes, extensionHostOverheadBytes, otherProcessesBytes } = snapshot;
 
 	// Compute segment percentages, clamping to 100% total so that
@@ -79,7 +78,7 @@ export const MemoryUsageBar = (props: MemoryUsageBarProps) => {
 		: 'memory-bar-container';
 
 	return (
-		<div ref={ref} className={containerClass}>
+		<div className={containerClass}>
 			{segments}
 		</div>
 	);
