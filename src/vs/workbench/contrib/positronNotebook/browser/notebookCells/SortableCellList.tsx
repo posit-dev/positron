@@ -165,7 +165,7 @@ export function SortableCellList({
 		// Track pointer origin so the overlay can initialize at the right spot.
 		// Keyboard-initiated drags produce a KeyboardEvent, not PointerEvent;
 		// the cursor-following overlay is only shown for pointer drags.
-		if (event.activatorEvent instanceof PointerEvent) {
+		if (DOM.isPointerEvent(event.activatorEvent)) {
 			setDragPointerOrigin({ x: event.activatorEvent.clientX, y: event.activatorEvent.clientY });
 		} else {
 			setDragPointerOrigin(null);
