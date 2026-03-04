@@ -29,13 +29,13 @@
 .plots-container .plot-info-header .plot-info-text {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	width: 100%;
 	white-space: nowrap;
 	overflow: hidden;
 }
 
-.plots-container .plot-info-header .plot-session-name {
+.plots-container .plot-info-header .plot-session-name,
+.plots-container .plot-info-header .plot-origin-file {
 	font-size: 11px;
 	color: var(--vscode-foreground);
 	opacity: 0.8;
@@ -47,10 +47,17 @@
 	cursor: pointer;
 }
 
+.plots-container .plot-info-header .plot-session-name:hover,
+.plots-container .plot-info-header .plot-origin-file:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	opacity: 1;
+}
+
 .plots-container .plot-info-header .plot-name {
 	font-size: 12px;
 	color: var(--vscode-foreground);
 	opacity: 0.8;
+	margin-left: auto;
 	margin-right: 5px;
 }
 

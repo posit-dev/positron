@@ -6,7 +6,7 @@
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient, IZoomablePlotClient, ZoomLevel } from '../../positronPlots/common/positronPlots.js';
-import { IntrinsicSize, PlotResult, PlotRenderFormat, PlotSize } from './positronPlotComm.js';
+import { IntrinsicSize, PlotOrigin, PlotResult, PlotRenderFormat, PlotSize } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
@@ -90,6 +90,9 @@ export interface IPositronPlotMetadata {
 
 	/** The zoom level for displaying the plot */
 	zoom_level?: ZoomLevel;
+
+	/** The origin (source file location) of the plot, if known. */
+	origin?: PlotOrigin;
 }
 
 /**

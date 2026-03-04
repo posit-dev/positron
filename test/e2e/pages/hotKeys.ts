@@ -228,7 +228,7 @@ export class HotKeys {
 		await this.code.driver.page.waitForTimeout(3000);
 		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		if (waitForReady) {
-			await expect(this.code.driver.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|^Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.code.driver.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		}
 	}
 
@@ -277,6 +277,17 @@ export class HotKeys {
 	// -----------------------
 	public clearPlots() {
 		return this.pressHotKeys('Cmd+L C', 'Clear Plots');
+	}
+
+	// -----------------------
+	// --- Quarto Actions  ---
+	// -----------------------
+	public runCurrentQuartoCell() {
+		return this.pressHotKeys('Cmd+L Q', 'Quarto: Run Current Cell');
+	}
+
+	public runCurrentQuartoCode() {
+		return this.pressHotKeys('Cmd+L R', 'Quarto: Run Current Code');
 	}
 
 	// -----------------------

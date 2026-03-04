@@ -46,7 +46,7 @@ export class Modals {
 			await this.expectToBeVisible(undefined, { timeout: 5000 });
 			await this.clickButton('Install');
 			this.code.logger.log('Installing ipykernel');
-			await this.toasts.expectToBeVisible();
+			await this.toasts.expectToastWithTitle();
 			await this.toasts.expectNotToBeVisible();
 			this.code.logger.log('Installed ipykernel');
 			// after toast disappears console may not yet be refreshed (still on old interpreter)
