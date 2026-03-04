@@ -21,7 +21,7 @@ import {
     CreateEnvironmentOptions,
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
-import { getUvPythonVersionInfo, isUvInstalled } from '../../common/environmentManagers/uv';
+import { getUvPythonVersionInfo, isUvInstalled, updateUv } from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
@@ -48,9 +48,8 @@ async function createUvVenv(
         cwd: workspace.uri.fsPath,
     });
 
-    const venvPath = `${workspace.uri.fsPath}${
-        os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
-    }`;
+    const venvPath = `${workspace.uri.fsPath}${os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
+        }`;
 
     out.subscribe(
         (value) => {
@@ -210,33 +209,47 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                     traceWarn(
                         `uv would install pre-release Python ${versionInfo.version} for requested version ${version}`,
                     );
-                    const updateUv = 'Update uv';
-                    const proceedAnyway = 'Proceed Anyway';
-                    const cancel = 'Cancel';
                     const choice = await vscode.window.showWarningMessage(
-                        `Your uv installation would use Python ${versionInfo.version}, which is a pre-release version. ` +
-                            `Pre-release Python versions may cause compatibility issues. ` +
-                            `Run "uv self update" to get the latest stable Python versions.`,
+                        CreateEnv.Uv.prereleaseWarning.replace('{0}', versionInfo.version),
                         { modal: false },
-                        updateUv,
-                        proceedAnyway,
-                        cancel,
+                        CreateEnv.Uv.updateUv,
+                        CreateEnv.Uv.proceedAnyway,
+                        Common.cancel,
                     );
 
-                    if (choice === updateUv) {
-                        // Open a terminal and run uv self update
-                        const terminal = vscode.window.createTerminal('uv update');
-                        terminal.show();
-                        terminal.sendText('uv self update');
-                        // Return undefined to cancel the environment creation
-                        // User can retry after updating uv
-                        return undefined;
-                    } else if (choice !== proceedAnyway) {
+                    if (choice === CreateEnv.Uv.updateUv) {
+                        // Run uv self update and wait for it to complete
+                        progress.report({ message: CreateEnv.Uv.updatingUv });
+                        traceInfo('Updating uv...');
+                        const updateSuccess = await updateUv();
+                        if (!updateSuccess) {
+                            traceError('Failed to update uv');
+                            throw new Error(CreateEnv.Uv.errorUpdatingUv);
+                        }
+                        traceInfo('uv updated successfully, re-checking Python version...');
+
+                        // Re-check if the version is still a pre-release after updating
+                        const newVersionInfo = await getUvPythonVersionInfo(version);
+                        if (newVersionInfo?.isPrerelease) {
+                            // Still a pre-release after update - warn user but continue
+                            traceWarn(
+                                `After uv update, still getting pre-release Python ${newVersionInfo.version}`,
+                            );
+                            vscode.window.showWarningMessage(
+                                CreateEnv.Uv.stillPrereleaseWarning.replace('{0}', newVersionInfo.version),
+                            );
+                        } else {
+                            traceInfo(
+                                `After uv update, now getting stable Python ${newVersionInfo?.version ?? version}`,
+                            );
+                        }
+                        // Continue with environment creation
+                    } else if (choice !== CreateEnv.Uv.proceedAnyway) {
                         // User cancelled or closed the dialog
                         return undefined;
                     }
-                    // User chose to proceed anyway
-                    traceInfo(`User chose to proceed with pre-release Python ${versionInfo.version}`);
+                    // User chose to proceed anyway or update completed
+                    traceInfo(`Proceeding with Python ${versionInfo.version}`);
                 }
 
                 envPath = await createUvVenv(workspace, version, progress, token, options?.envName);

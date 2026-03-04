@@ -16,7 +16,7 @@ import { splitLines } from '../../../common/stringUtils';
 class UvUtils {
     private static uvPromise: Promise<UvUtils | undefined>;
 
-    constructor(public readonly command: string) {}
+    constructor(public readonly command: string) { }
 
     public static async getUvUtils(): Promise<UvUtils | undefined> {
         if (UvUtils.uvPromise === undefined || isTestExecution()) {
@@ -158,36 +158,34 @@ export async function getUvPythonVersionInfo(requestedVersion: string): Promise<
     }
 
     try {
-        // Use `uv python find` to see what version would be used
-        const result = await exec(uvUtils.command, ['python', 'find', requestedVersion], { throwOnStdErr: false });
-        const pythonPath = result?.stdout.trim();
+        // Use `uv python list VERSION` to see available versions
+        // Output format:
+        //   cpython-3.15.0a6-macos-aarch64-none    <download available>
+        //   cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ...
+        const result = await exec(uvUtils.command, ['python', 'list', requestedVersion], { throwOnStdErr: false });
+        const output = result?.stdout.trim();
 
-        if (!pythonPath) {
+        if (!output) {
             return undefined;
         }
 
-        // Extract version from the path (e.g., "cpython-3.14.0a5-macos-aarch64-none")
-        // The path typically contains the version in a format like:
-        // /Users/.../uv/python/cpython-3.14.0a5-macos-aarch64-none/bin/python
-        const versionMatch = pythonPath.match(/cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i);
-        let version = requestedVersion;
-
-        if (versionMatch) {
-            version = versionMatch[1];
-        } else {
-            // Try to get the version by running the Python executable
-            try {
-                const versionResult = await exec(pythonPath, ['--version'], { throwOnStdErr: false });
-                const versionOutput = versionResult?.stdout.trim() || versionResult?.stderr.trim();
-                // Output format: "Python 3.14.0a5"
-                const match = versionOutput?.match(/Python\s+(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i);
-                if (match) {
-                    version = match[1];
-                }
-            } catch (ex) {
-                traceVerbose(`Could not get Python version from executable: ${ex}`);
-            }
+        const lines = output.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+        if (lines.length === 0) {
+            return undefined;
         }
+
+        // Check if any version is already installed locally (has a path, not just "<download available>")
+        const hasLocalInstall = lines.some((line) => !line.includes('<download available>'));
+        if (hasLocalInstall) {
+            // Python is already installed locally, no need to warn about pre-release
+            return undefined;
+        }
+
+        // All versions are download-only. Get the version from the first line.
+        // Format: "cpython-3.15.0a6-macos-aarch64-none    <download available>"
+        const firstLine = lines[0];
+        const versionMatch = firstLine.match(/cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i);
+        const version = versionMatch ? versionMatch[1] : requestedVersion;
 
         // Check if it's a pre-release (contains 'a' for alpha, 'b' for beta, or 'rc' for release candidate)
         const isPrerelease = /\d+\.\d+\.\d+(a|b|rc)\d+/i.test(version);
@@ -195,11 +193,32 @@ export async function getUvPythonVersionInfo(requestedVersion: string): Promise<
         return {
             version,
             isPrerelease,
-            path: pythonPath,
+            path: undefined,
         };
     } catch (ex) {
         traceVerbose(`Error checking uv Python version: ${ex}`);
         return undefined;
+    }
+}
+
+/**
+ * Runs `uv self update` to update uv to the latest version.
+ * @returns true if the update succeeded, false otherwise
+ */
+export async function updateUv(): Promise<boolean> {
+    const uvUtils = await UvUtils.getUvUtils();
+    if (!uvUtils) {
+        return false;
+    }
+
+    try {
+        traceVerbose('Running uv self update...');
+        await exec(uvUtils.command, ['self', 'update'], { throwOnStdErr: false });
+        traceVerbose('uv self update completed successfully');
+        return true;
+    } catch (ex) {
+        traceVerbose(`Error running uv self update: ${ex}`);
+        return false;
     }
 }
 
