@@ -17,6 +17,7 @@
 	justify-content: center;
 	cursor: grab;
 	opacity: 0;
+	transform: scaleX(0);
 	transition: opacity 0.15s ease, transform 0.15s ease;
 	color: var(--vscode-foreground);
 	border-radius: 3px;
@@ -59,10 +60,11 @@
 	z-index: 9; /* Below handle (z:10) so handle hover takes priority */
 }
 
-/* Reveal handle at full opacity so the background stays solid */
+/* Reveal handle: slide out from the cell border and fade in */
 .cell-drag-zone:hover ~ .cell-drag-handle,
 .cell-drag-handle:focus-visible {
 	opacity: 1;
+	transform: scaleX(1);
 }
 
 .cell-drag-handle:hover {
