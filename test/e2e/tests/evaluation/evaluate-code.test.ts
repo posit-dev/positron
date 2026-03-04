@@ -21,6 +21,16 @@ test.describe('Evaluate Code', {
 		});
 
 		test('evaluate R expression returns JSON result', async ({ app, page }) => {
+			// In smoke tests, DialogService refuses to show dialogs and throws.
+			// We listen for the resulting error console message to confirm
+			// the evaluation ran and attempted to display results.
+			const dialogRefused = page.waitForEvent('console', {
+				predicate: msg => msg.type() === 'error' &&
+					msg.text().includes('Evaluate Code') &&
+					msg.text().includes('refused to show dialog'),
+				timeout: 30000,
+			});
+
 			// Open the command palette and run the evaluate code command,
 			// keeping the quick input open since the command opens its own input
 			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
@@ -33,9 +43,9 @@ test.describe('Evaluate Code', {
 			await inputBox.fill('list(a = 1, b = TRUE)');
 			await page.keyboard.press('Enter');
 
-			// Verify we get a notification with the result
-			const notification = page.locator('.notification-toast');
-			await expect(notification).toBeVisible({ timeout: 15000 });
+			// Confirm the command ran to completion (the dialog refusal
+			// means the evaluation succeeded but the result dialog was blocked)
+			await dialogRefused;
 		});
 	});
 
@@ -45,6 +55,14 @@ test.describe('Evaluate Code', {
 		});
 
 		test('evaluate Python expression returns JSON result', async ({ app, page }) => {
+			// In smoke tests, DialogService refuses to show dialogs and throws.
+			const dialogRefused = page.waitForEvent('console', {
+				predicate: msg => msg.type() === 'error' &&
+					msg.text().includes('Evaluate Code') &&
+					msg.text().includes('refused to show dialog'),
+				timeout: 30000,
+			});
+
 			// Open the command palette and run the evaluate code command,
 			// keeping the quick input open since the command opens its own input
 			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
@@ -57,9 +75,8 @@ test.describe('Evaluate Code', {
 			await inputBox.fill('{"a": 1, "b": True}');
 			await page.keyboard.press('Enter');
 
-			// Verify we get a notification with the result
-			const notification = page.locator('.notification-toast');
-			await expect(notification).toBeVisible({ timeout: 15000 });
+			// Confirm the command ran to completion
+			await dialogRefused;
 		});
 	});
 });

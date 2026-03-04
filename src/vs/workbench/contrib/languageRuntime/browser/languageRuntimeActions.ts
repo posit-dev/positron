@@ -23,11 +23,17 @@ import { dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
+import { MarkdownString } from '../../../../base/common/htmlContent.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import Severity from '../../../../base/common/severity.js';
+import { getErrorMessage } from '../../../../base/common/errors.js';
+import { escape } from '../../../../base/common/strings.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -1215,6 +1221,9 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
+		const dialogService = accessor.get(IDialogService);
+		const progressService = accessor.get(IProgressService);
+		const editorService = accessor.get(IEditorService);
 
 		// Get the foreground session
 		const foregroundSession = runtimeSessionService.foregroundSession;
@@ -1246,16 +1255,67 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 			return;
 		}
 
+		// Truncate code for display in progress title
+		const codeLabel = code.length > 50 ? code.substring(0, 50) + '...' : code;
+
 		try {
-			const result = await activeSession.uiClient.evaluateCode(code);
+			const result = await progressService.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: localize('positron.evaluateCode.evaluating', "Evaluating: {0}", codeLabel),
+					delay: 500,
+					cancellable: false,
+				},
+				() => activeSession.uiClient!.evaluateCode(code)
+			);
+
 			const resultStr = JSON.stringify(result, null, 2);
-			notificationService.info(
-				localize('positron.evaluateCode.result', "Result: {0}", resultStr)
-			);
+			const markdown = new MarkdownString(undefined, { supportHtml: true });
+			markdown.appendMarkdown(`<pre><code>${escape(resultStr)}</code></pre>`);
+
+			await dialogService.prompt({
+				type: Severity.Info,
+				message: localize('positron.evaluateCode.resultOf', "Result of: {0}", code),
+				custom: {
+					markdownDetails: [{
+						markdown,
+						classes: ['evaluate-code-result'],
+					}],
+				},
+				buttons: [
+					{
+						label: localize('positron.evaluateCode.ok', "OK"),
+						run: () => { },
+					},
+					{
+						label: localize('positron.evaluateCode.openInEditor', "Open in Editor"),
+						run: () => {
+							editorService.openEditor({
+								resource: undefined,
+								contents: resultStr,
+								languageId: 'json',
+							});
+						},
+					},
+				],
+			});
 		} catch (err) {
-			notificationService.error(
-				localize('positron.evaluateCode.error', "Evaluation error: {0}", String(err))
-			);
+			const errorMessage = getErrorMessage(err);
+
+			const markdown = new MarkdownString(undefined, { supportHtml: true });
+			markdown.appendMarkdown(`<pre><code>${escape(errorMessage)}</code></pre>`);
+
+			await dialogService.prompt({
+				type: Severity.Error,
+				message: localize('positron.evaluateCode.errorOf', "Error evaluating: {0}", code),
+				custom: {
+					markdownDetails: [{
+						markdown,
+						classes: ['evaluate-code-result'],
+					}],
+				},
+				cancelButton: localize('positron.evaluateCode.ok', "OK"),
+			});
 		}
 	}
 });
