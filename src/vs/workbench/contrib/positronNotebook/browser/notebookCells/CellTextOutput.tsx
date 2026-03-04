@@ -39,24 +39,31 @@ type TruncationResult =
 function useLongOutputBehavior(content: string, options: LongOutputOptions) {
 	const containerRef = React.useRef<HTMLDivElement | null>(null);
 	const truncation = truncateToNumberOfLines(content, options);
+	const [actuallyOverflows, setActuallyOverflows] = React.useState(true);
 
-	React.useEffect(() => {
+	// useLayoutEffect runs synchronously after DOM mutations, before the
+	// browser paints, so we avoid a visible flash of scroll chrome when
+	// the content fits within the max-height.
+	React.useLayoutEffect(() => {
 		if (truncation.mode !== 'scroll' || !containerRef.current) { return; }
 
 		// The max-height lives on the .positron-notebook-cell-outputs ancestor
 		// (applied via :has(.long-output-scroll) in NotebookCodeCell.css).
 		// Check whether the content actually overflows that ancestor. If not,
-		// remove the marker class so scrollbars and the truncation message
-		// are hidden.
+		// downgrade to 'normal' so scroll chrome is hidden.
 		const scrollParent = containerRef.current.closest('.positron-notebook-cell-outputs');
 		if (!scrollParent) { return; }
 
-		if (scrollParent.scrollHeight <= scrollParent.clientHeight) {
-			containerRef.current.classList.remove('long-output-scroll');
-		}
-	}, [truncation.mode]);
+		setActuallyOverflows(scrollParent.scrollHeight > scrollParent.clientHeight);
+	}, [truncation.mode, content]);
 
-	return { containerRef, truncation };
+	// When in scroll mode but content doesn't actually overflow the
+	// max-height container, downgrade to 'normal' so the scroll chrome
+	// (max-height, scrollbars, truncation message) is hidden.
+	const effectiveMode = truncation.mode === 'scroll' && !actuallyOverflows
+		? 'normal' : truncation.mode;
+
+	return { containerRef, truncation, effectiveMode };
 }
 
 function useCellTextOutputOptions(): CellTextOutputOptions {
@@ -106,13 +113,13 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
 	const services = usePositronReactServicesContext();
 	const { outputLineLimit, outputScrolling, outputWordWrap } = useCellTextOutputOptions();
-	const { containerRef, truncation } = useLongOutputBehavior(content, { outputLineLimit, outputScrolling });
+	const { containerRef, truncation, effectiveMode } = useLongOutputBehavior(content, { outputLineLimit, outputScrolling });
 
 	return <>
 		<div ref={containerRef} className={positronClassNames(
 			`notebook-${type}`,
 			'positron-notebook-text-output',
-			`long-output-${truncation.mode}`,
+			`long-output-${effectiveMode}`,
 			{ 'word-wrap': outputWordWrap }
 		)}>
 			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />

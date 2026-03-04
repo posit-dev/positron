@@ -95,6 +95,7 @@ suite('CellTextOutput', () => {
 	function renderCellTextOutput(
 		props: ParsedTextOutput,
 		options?: Partial<LayoutOptions>,
+		wrapperOptions?: { scrollAncestorMaxHeight: string },
 	) {
 		if (options !== undefined) {
 			layoutConfig = { ...layoutConfig, ...options };
@@ -110,13 +111,19 @@ suite('CellTextOutput', () => {
 			contextKeyService,
 		} as unknown as PositronReactServices;
 
-		const container = render(
+		const inner = (
 			<PositronReactServicesContext.Provider value={services}>
 				<NotebookInstanceProvider instance={instance}>
 					<CellTextOutput {...props} />
 				</NotebookInstanceProvider>
 			</PositronReactServicesContext.Provider>
 		);
+
+		const element = wrapperOptions
+			? <div className='positron-notebook-cell-outputs' style={{ maxHeight: wrapperOptions.scrollAncestorMaxHeight, overflow: 'auto' }}>{inner}</div>
+			: inner;
+
+		const container = render(element);
 		return new CellTextOutputFixture(container);
 	}
 
@@ -199,6 +206,31 @@ suite('CellTextOutput', () => {
 		const message = fixture.truncationMessage;
 		assert.ok(message, 'Expected scroll truncation message');
 		assert.ok(message.textContent?.includes('Scrolling long outputs'), 'Expected scroll message text');
+	});
+
+	test('removes scroll class when content fits, re-applies when it overflows', () => {
+		// 6 lines exceeds the limit of 5 → scroll mode, but fits in 500px.
+		const shortContent = makeLines(6);
+		const fixture = renderCellTextOutput(
+			{ content: shortContent, type: 'stdout' },
+			{ outputLineLimit: 5, outputScrolling: true },
+			{ scrollAncestorMaxHeight: '500px' },
+		);
+
+		// Content fits within the 500px ancestor, so the overflow check
+		// downgrades the mode from 'scroll' to 'normal'.
+		assert.ok(!fixture.hasClass('long-output-scroll'), 'Expected scroll class removed when content fits');
+		assert.ok(fixture.hasClass('long-output-normal'), 'Expected normal mode when content fits');
+
+		// Re-render with long content that overflows 500px.
+		const longContent = makeLines(200);
+		const fixture2 = renderCellTextOutput(
+			{ content: longContent, type: 'stdout' },
+			{ outputLineLimit: 5, outputScrolling: true },
+			{ scrollAncestorMaxHeight: '500px' },
+		);
+
+		assert.ok(fixture2.hasClass('long-output-scroll'), 'Expected scroll class re-applied when content overflows');
 	});
 
 	test('wraps text when word wrap is enabled', () => {

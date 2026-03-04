@@ -66,12 +66,18 @@
 
 		& > * {
 			padding-inline: calc(0.5rem + 1px);
-			/* Size to content so padding-right appears after the content,
-			 * not at the parent's right edge. min-width ensures short
-			 * content still fills the container. */
+			box-sizing: border-box;
+		}
+
+		/* Size text outputs to their content so padding-right appears after
+		 * the content, not at the parent's right edge. min-width ensures
+		 * short content still fills the container. Scoped to text outputs
+		 * to avoid regressing non-text outputs (HTML widgets, data explorer,
+		 * custom renderers) that manage their own sizing. */
+		& > .positron-notebook-text-output,
+		& > .notebook-output-truncation-message {
 			width: max-content;
 			min-width: 100%;
-			box-sizing: border-box;
 		}
 
 		& .notebook-error,
