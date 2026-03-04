@@ -240,16 +240,16 @@ suite('CellTextOutput', () => {
 		assert.ok(!fixture.hasClass('long-output-scroll'), 'Expected scroll class removed when content fits');
 		assert.ok(fixture.hasClass('long-output-normal'), 'Expected normal mode when content fits');
 
-		// Re-render with long content that overflows 500px.
+		// Re-render the same mounted instance with long content that overflows 500px.
 		const longContent = makeLines(200);
-		const fixture2 = renderCellTextOutput(
+		renderCellTextOutput(
 			{ content: longContent, type: 'stdout' },
 			{ outputLineLimit: 5, outputScrolling: true },
 			{ scrollAncestorMaxHeight: '500px' },
 		);
 		await timeout(0);
 
-		assert.ok(fixture2.hasClass('long-output-scroll'), 'Expected scroll class re-applied when content overflows');
+		assert.ok(fixture.hasClass('long-output-scroll'), 'Expected scroll class re-applied when content overflows');
 	});
 
 	test('wraps text when word wrap is enabled', () => {
