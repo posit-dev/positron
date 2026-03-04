@@ -32,8 +32,9 @@
 	opacity: 0.8;
 }
 
-/* Style the settings button as an inline link. */
-.notebook-output-settings-link {
+/* Style the settings button as an inline link.
+ * `button.class` specificity needed to override `.monaco-workbench button { color: inherit }`. */
+button.notebook-output-settings-link {
 	background: none;
 	border: none;
 	padding: 0;
@@ -41,8 +42,8 @@
 	cursor: pointer;
 	color: var(--vscode-textLink-foreground);
 }
-.notebook-output-settings-link:hover,
-.notebook-output-settings-link:active {
+button.notebook-output-settings-link:hover,
+button.notebook-output-settings-link:active {
 	color: var(--vscode-textLink-activeForeground);
 }
 
