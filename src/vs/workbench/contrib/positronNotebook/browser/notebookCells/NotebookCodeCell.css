@@ -37,16 +37,28 @@
 
 	.positron-notebook-cell-outputs {
 		overflow: hidden;
+		/* Clip scrollbar corners to match the cell's rounded bottom edges. */
+		border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
+		border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
 	}
 
 	.positron-notebook-code-cell-outputs-inner {
-		padding-inline: 0.5rem;
+		/* Horizontal padding is on children (& > *) instead of the container
+		 * so the scrollbar track spans the full cell width without needing
+		 * a separate margin-inline offset. The extra 1px absorbs the border
+		 * overlap from the overlaid cell border. */
 		padding-block: 0.5rem;
-
-		/* Avoid overlap with border which is overlaid from another element so
-		the layout doesn't automatically avoid it*/
-		margin-inline: 1px;
 		overflow-x: auto;
+
+		& > * {
+			padding-inline: calc(0.5rem + 1px);
+			/* Size to content so padding-right appears after the content,
+			 * not at the parent's right edge. min-width ensures short
+			 * content still fills the container. */
+			width: max-content;
+			min-width: 100%;
+			box-sizing: border-box;
+		}
 
 		& .notebook-error,
 		& .notebook-stderr {
@@ -90,4 +102,76 @@
 			outline-offset: 2px !important;
 		}
 	}
+}
+
+/*
+ * Output scrollbar: invisible by default, fades in on hover.
+ *
+ * Chromium does not support CSS transitions on ::-webkit-scrollbar-*
+ * pseudo-elements. To work around this, we use a CSS Houdini registered
+ * custom property (@property) for the thumb color. Registering it with
+ * `syntax: "<color>"` tells the browser it is interpolatable, so we can
+ * transition the property value on a real element (the outputs section)
+ * and the scrollbar thumb picks up the animated value via var().
+ * Technique from https://stackoverflow.com/a/74050413 (CC BY-SA 4.0).
+ *
+ * Fade timings (100ms in, 800ms out) match the VS Code custom scrollbar
+ * widget (src/vs/base/browser/ui/scrollbar/media/scrollbars.css).
+ *
+ * These rules live outside the main nesting block because they need
+ * high specificity to override the unscoped ::-webkit-scrollbar-thumb
+ * rule in variablesInstance.css (which uses !important). The thumb:hover
+ * rule must also target the owning element directly --- Chromium does
+ * not reliably resolve ::-webkit-scrollbar-thumb:hover when chained
+ * with an ancestor :hover pseudo-class.
+ */
+
+/* Scrollbar dimensions approximate macOS overlay scrollbars. */
+.positron-notebook-code-cell-contents ::-webkit-scrollbar {
+	height: 8px;
+	width: 8px;
+}
+
+/* Inset the scrollbar track to match the content padding. */
+.positron-notebook-code-cell-contents ::-webkit-scrollbar-track:horizontal {
+	margin-inline: calc(0.5rem + 1px);
+}
+
+
+/* Register the thumb color as an animatable <color> property. */
+@property --_positron-notebook-code-cell-output-scrollbar-thumb-bg {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
+/* The scrollbar thumb reads the custom property for its background.
+ * Transparent border + background-clip shrinks the visible thumb to a
+ * slim pill (~6px) inside the full track hit area (~8px), similar to
+ * macOS overlay scrollbars. */
+.positron-notebook-code-cell-contents ::-webkit-scrollbar-thumb {
+	/* Use background-color (not background shorthand) to avoid resetting
+	 * background-clip, which creates the inset padding around the thumb. */
+	background-color: var(--_positron-notebook-code-cell-output-scrollbar-thumb-bg) !important;
+	/* border: 1px solid transparent; */
+	background-clip: padding-box;
+	/* border-radius: 4px; */
+}
+
+/* Default state: transparent thumb, slow fade out when mouse leaves. */
+.positron-notebook-code-cell-contents .positron-notebook-outputs-section {
+	transition: --_positron-notebook-code-cell-output-scrollbar-thumb-bg 800ms linear;
+}
+
+/* Hover state: set the thumb color, fast fade in when mouse enters. */
+.positron-notebook-code-cell-contents .positron-notebook-outputs-section:hover {
+	--_positron-notebook-code-cell-output-scrollbar-thumb-bg: var(--vscode-scrollbarSlider-background);
+	transition: --_positron-notebook-code-cell-output-scrollbar-thumb-bg 100ms linear;
+}
+
+/* Brighter highlight when hovering directly over the thumb. This must
+ * target the owning element (outputs-inner) directly, not via an
+ * ancestor :hover, due to Chromium pseudo-element hover limitations. */
+.positron-notebook-code-cell-contents .positron-notebook-outputs-section .positron-notebook-code-cell-outputs-inner::-webkit-scrollbar-thumb:hover {
+	background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
 }

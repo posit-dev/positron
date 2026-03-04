@@ -19,7 +19,8 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 	private static fixedEditorOptions: IEditorOptions = {
 		scrollBeyondLastLine: false,
 		scrollbar: {
-			verticalScrollbarSize: 14,
+			verticalScrollbarSize: 8,
+			horizontalScrollbarSize: 8,
 			horizontal: 'auto',
 			useShadows: true,
 			verticalHasArrows: false,

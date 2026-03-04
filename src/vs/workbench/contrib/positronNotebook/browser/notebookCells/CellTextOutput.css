@@ -31,6 +31,10 @@
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	padding: 0.15rem 0.25rem;
 	position: relative;
+
+	&::-webkit-scrollbar-thumb:hover {
+		background: var(--vscode-scrollbarSlider-hoverBackground) !important;
+	}
 }
 
 
