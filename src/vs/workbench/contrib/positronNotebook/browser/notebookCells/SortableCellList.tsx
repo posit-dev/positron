@@ -147,6 +147,8 @@ export function SortableCellList({
 	const activeCellsRef = React.useRef<IPositronNotebookCell[]>([]);
 	// Track which cell the drop indicator should appear above
 	const [overTargetId, setOverTargetId] = React.useState<UniqueIdentifier | null>(null);
+	// Track initial pointer position for cursor-following overlay (null = keyboard drag)
+	const [dragPointerOrigin, setDragPointerOrigin] = React.useState<{ x: number; y: number } | null>(null);
 	// Require 10px movement before drag starts (prevents accidental drags)
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -160,6 +162,15 @@ export function SortableCellList({
 	);
 
 	const handleDragStart = React.useCallback((event: DragStartEvent) => {
+		// Track pointer origin so the overlay can initialize at the right spot.
+		// Keyboard-initiated drags produce a KeyboardEvent, not PointerEvent;
+		// the cursor-following overlay is only shown for pointer drags.
+		if (event.activatorEvent instanceof PointerEvent) {
+			setDragPointerOrigin({ x: event.activatorEvent.clientX, y: event.activatorEvent.clientY });
+		} else {
+			setDragPointerOrigin(null);
+		}
+
 		const draggedCell = cells.find(c => c.handle === event.active.id);
 		if (!draggedCell) {
 			activeCellsRef.current = [];
@@ -207,6 +218,7 @@ export function SortableCellList({
 			DOM.getActiveWindow().requestAnimationFrame(() => {
 				setActiveCells([]);
 				setOverTargetId(null);
+				setDragPointerOrigin(null);
 				DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 			});
 		};
@@ -245,6 +257,7 @@ export function SortableCellList({
 		DOM.getActiveWindow().requestAnimationFrame(() => {
 			setActiveCells([]);
 			setOverTargetId(null);
+			setDragPointerOrigin(null);
 			DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 		});
 	}, []);
@@ -316,8 +329,8 @@ export function SortableCellList({
 				usesDragOverlay flag stays set, which zeroes out nodeRectDelta
 				and prevents double-compensation in collision detection. */}
 			<DragOverlay dropAnimation={null} />
-			{activeCells.length > 0 && (
-				<CursorFollowingOverlay cells={activeCells} />
+			{activeCells.length > 0 && dragPointerOrigin && (
+				<CursorFollowingOverlay cells={activeCells} initialPosition={dragPointerOrigin} />
 			)}
 		</DndContext>
 	);
@@ -345,7 +358,10 @@ function EndSentinelDroppable() {
  * Bypasses dnd-kit's DragOverlay positioning which can drift when the
  * dragged cell's collapse triggers scroll clamping (common for bottom cells).
  */
-function CursorFollowingOverlay({ cells }: { cells: IPositronNotebookCell[] }) {
+function CursorFollowingOverlay({ cells, initialPosition }: {
+	cells: IPositronNotebookCell[];
+	initialPosition: { x: number; y: number };
+}) {
 	const overlayRef = React.useRef<HTMLDivElement>(null);
 
 	React.useEffect(() => {
@@ -353,15 +369,20 @@ function CursorFollowingOverlay({ cells }: { cells: IPositronNotebookCell[] }) {
 		if (!el) { return; }
 
 		const halfHeight = el.offsetHeight / 2;
+
+		// Show immediately at the drag-start position so the overlay is
+		// visible from the first frame (no flicker).
+		el.style.transform = `translate(${initialPosition.x + 12}px, ${initialPosition.y - halfHeight}px)`;
+		el.style.opacity = '1';
+
 		const onPointerMove = (e: PointerEvent) => {
 			el.style.transform = `translate(${e.clientX + 12}px, ${e.clientY - halfHeight}px)`;
-			el.style.opacity = '1';
 		};
 
 		const win = DOM.getActiveWindow();
 		win.addEventListener('pointermove', onPointerMove);
 		return () => win.removeEventListener('pointermove', onPointerMove);
-	}, []);
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps -- runs once per drag lifecycle
 
 	return (
 		<div
