@@ -67,7 +67,17 @@
 
 .cell-drag-handle:hover {
 	opacity: 1;
-	transform: scale(1.15);
+	transform: scale(1.1);
+}
+
+/* Mirror the cell's border color on the drag handle */
+.sortable-cell:has(.positron-notebook-cell.selected) > .cell-drag-handle,
+.sortable-cell:has(.positron-notebook-cell.editing) > .cell-drag-handle {
+	border-color: var(--vscode-focusBorder);
+}
+
+.sortable-cell:has(.positron-notebook-cell:not(.selected):not(.editing):hover) > .cell-drag-handle {
+	border-color: var(--vscode-editorWidget-border);
 }
 
 .cell-drag-handle > * {
