@@ -319,23 +319,23 @@ export class Code {
 		}), 'Code#exit()', this.logger);
 	}
 
-	private kill(pid: number): void {
-		try {
-			process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
-		} catch (e) {
-			this.logger.log('Smoke test kill(): returning early because process does not exist anymore');
-			return;
-		}
-
-		try {
-			this.logger.log(`Smoke test kill(): Trying to SIGTERM process: ${pid}`);
-			process.kill(pid);
-		} catch (e) {
-			this.logger.log('Smoke test kill(): SIGTERM failed', e);
-		}
-	}
-
 	// --- Start Positron ---
+	// private kill(pid: number): void {
+	// 	try {
+	// 		process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
+	// 	} catch (e) {
+	// 		this.logger.log('Smoke test kill(): returning early because process does not exist anymore');
+	// 		return;
+	// 	}
+
+	// 	try {
+	// 		this.logger.log(`Smoke test kill(): Trying to SIGTERM process: ${pid}`);
+	// 		process.kill(pid);
+	// 	} catch (e) {
+	// 		this.logger.log('Smoke test kill(): SIGTERM failed', e);
+	// 	}
+	// }
+
 	/**
 	 * Kill the entire process tree starting from the given PID.
 	 * This ensures child processes (kernels, language servers, etc.) are also terminated.
@@ -395,6 +395,7 @@ export class Code {
 		// The shared dbus session (started in xvfb setup) should handle all Electron instances
 		// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
 	}
+	// --- End Positron ---
 
 	async getElement(selector: string): Promise<IElement | undefined> {
 		return (await this.driver.getElements(selector))?.[0];
