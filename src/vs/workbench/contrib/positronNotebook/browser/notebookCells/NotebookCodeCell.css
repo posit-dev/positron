@@ -41,6 +41,16 @@
 		border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
 		border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
 
+		/* Force visible (non-overlay) scrollbars on macOS so users can
+		 * see that scrolling is available. Applies to both this element
+		 * (long-output-scroll mode) and the inner container (normal mode)
+		 * via inheritance of the ::-webkit-scrollbar sizing. */
+		&::-webkit-scrollbar,
+		& ::-webkit-scrollbar {
+			width: 8px;
+			height: 8px;
+		}
+
 		/* When a long output is present, this element owns both scroll
 		 * axes so the vertical scrollbar stays at the cell's right edge
 		 * (not hidden behind horizontal scroll). */
