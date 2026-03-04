@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -140,8 +140,8 @@ export async function generateCommitMessage(
 ) {
 	await vscode.commands.executeCommand('setContext', generatingGitCommitKey, true);
 
-	const model = await getModel(participantService);
-	log.info(`[git] Generating commit message. Selected model (${model.vendor}) ${model.id} for commit message generation.`);
+	const candidates = await getCandidateModels(participantService);
+	log.info(`[git] Found ${candidates.length} candidate model(s) for commit message generation: ${candidates.map(m => `(${m.vendor}) ${m.id}`).join(', ')}`);
 
 	const tokenSource: vscode.CancellationTokenSource = new vscode.CancellationTokenSource();
 	const cancelDisposable = vscode.commands.registerCommand('positron-assistant.cancelGenerateCommitMessage', () => {
@@ -159,18 +159,37 @@ export async function generateCommitMessage(
 	try {
 		await Promise.all(gitChanges.map(async ({ repo, changes }) => {
 			if (changes.length > 0) {
-				const response = await model.sendRequest([
+				const repoLabel = path.basename(repo.rootUri.fsPath);
+				const messages = [
 					new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
 					vscode.LanguageModelChatMessage.User(changes.map(change => change.summary).join('\n')),
-				], {}, tokenSource.token);
+				];
 
-				repo.inputBox.value = '';
-				for await (const delta of response.text) {
-					if (tokenSource.token.isCancellationRequested) {
-						return null;
+				for (const model of candidates) {
+					try {
+						log.info(`[git] [${repoLabel}] Trying model (${model.vendor}) ${model.id} for commit message generation.`);
+						const response = await model.sendRequest(messages, {}, tokenSource.token);
+
+						repo.inputBox.value = '';
+						for await (const delta of response.text) {
+							if (tokenSource.token.isCancellationRequested) {
+								return null;
+							}
+							repo.inputBox.value += delta;
+						}
+						return; // Success - stop trying other models
+					} catch (e) {
+						if (e instanceof vscode.CancellationError) {
+							throw e;
+						}
+						const error = e as Error;
+						repo.inputBox.value = '';
+						log.warn(`[git] [${repoLabel}] Model (${model.vendor}) ${model.id} failed: ${error.message}. Trying next candidate.`);
 					}
-					repo.inputBox.value += delta;
 				}
+
+				// All candidates failed
+				throw new Error('All candidate models failed for commit message generation. Check the log for details.');
 			}
 		}));
 	} catch (e) {
@@ -184,27 +203,45 @@ export async function generateCommitMessage(
 	}
 }
 
-async function getModel(participantService: ParticipantService): Promise<vscode.LanguageModelChat> {
-	// Check for the latest chat session and use its model.
+export async function getCandidateModels(participantService: ParticipantService): Promise<vscode.LanguageModelChat[]> {
+	const candidates: vscode.LanguageModelChat[] = [];
+	const seen = new Set<string>();
+	const addCandidate = (model: vscode.LanguageModelChat) => {
+		if (!seen.has(model.id)) {
+			seen.add(model.id);
+			candidates.push(model);
+		}
+	};
+
+	// First priority: the latest chat session model.
 	const sessionModelId = participantService.getCurrentSessionModel();
 	if (sessionModelId) {
 		const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
 		if (models && models.length > 0) {
-			return models[0];
+			addCandidate(models[0]);
 		}
 	}
 
-	// Fall back to the first model for the currently selected provider.
+	// Second priority: models for the currently selected provider.
 	const currentProvider = await positron.ai.getCurrentProvider();
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		return models[0];
+		for (const model of models) {
+			addCandidate(model);
+		}
 	}
 
-	// Fall back to the first available model from any provider.
+	// Third priority: all available models from any provider.
 	const models = await vscode.lm.selectChatModels();
-	if (models.length === 0) {
+	for (const model of models) {
+		if (model.family !== 'echo' && model.family !== 'error') {
+			addCandidate(model);
+		}
+	}
+
+	if (candidates.length === 0) {
 		throw new Error('No language models available for git commit message generation');
 	}
-	return models.filter((model) => model.family !== 'echo' && model.family !== 'error')[0];
+
+	return candidates;
 }
