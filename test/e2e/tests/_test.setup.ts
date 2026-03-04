@@ -190,6 +190,17 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(fileOps.openFolder);
 	},
 
+	// ex: await saveFileAs(path.join(app.workspacePathOrFolder, 'newfile.txt'));
+	saveFileAs: async ({ app }, use) => {
+		await use(async (filePath: string) => {
+			const { quickaccess, quickInput } = app.workbench;
+			await quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
+			await quickInput.waitForQuickInputOpened();
+			await quickInput.type(filePath);
+			await quickInput.clickOkButton();
+		});
+	},
+
 	// ex: await runCommand('workbench.action.files.save');
 	runCommand: async ({ app }, use) => {
 		await use(async (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => {
@@ -474,6 +485,7 @@ export interface TestFixtures {
 	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
+	saveFileAs: (filePath: string) => Promise<void>;
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
 	runDockerCommand: (command: string, description: string) => Promise<RunResult>;
 	executeCode: (language: 'Python' | 'R', code: string, options?: {

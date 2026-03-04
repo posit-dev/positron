@@ -457,7 +457,7 @@ jobs:
 
       - name: Upload Blob Report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
           path: blob-report
@@ -465,7 +465,7 @@ jobs:
 
       - name: Upload Extensions Test Logs If Failed
         if: ${{ always() && matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: extensions-tests-logs
           path: extensions-tests-logs/
@@ -473,7 +473,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-win-logs
           path: test-logs
@@ -517,7 +517,7 @@ jobs:
           identifier: ${{ inputs.project }}
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: all-blob-reports
           pattern: blob-report-${{ inputs.project }}-*

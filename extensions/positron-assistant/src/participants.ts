@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
-import { isChatImageMimeType, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
+import { isChatImageMimeType, isMaxTokensFinishReason, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
@@ -631,6 +631,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const textResponses: vscode.LanguageModelTextPart[] = [];
 		const toolRequests: vscode.LanguageModelToolCallPart[] = [];
 		const toolResponses: Record<string, vscode.LanguageModelToolResult> = {};
+		let finishReason: string | undefined;
+		let maxOutputTokens: number | undefined;
 
 		// Create a streaming text processor to allow the model to stream to the chat
 		// response e.g. using a loose XML format.
@@ -647,6 +649,16 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				await textProcessor.process(chunk.value);
 			} else if (chunk instanceof vscode.LanguageModelToolCallPart) {
 				toolRequests.push(chunk);
+			} else if (chunk instanceof vscode.LanguageModelDataPart) {
+				try {
+					const json = JSON.parse(new TextDecoder().decode(chunk.data));
+					if (json.type === 'finishReason') {
+						finishReason = json.data;
+						maxOutputTokens = json.maxOutputTokens;
+					}
+				} catch {
+					// Ignore data parts we can't parse
+				}
 			}
 		}
 
@@ -657,6 +669,22 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Get actual token usage from the registry
 		const tokenUsage = getRequestTokenUsage(request.id);
+
+		// Warn if the response was truncated due to max output tokens
+		if (isMaxTokensFinishReason(finishReason)) {
+			const maxTokensArg = encodeURIComponent(JSON.stringify(['positron.assistant.maxOutputTokens']));
+			const maxTokensUri = `command:workbench.action.openSettings?${maxTokensArg}`;
+			const overridesArg = encodeURIComponent(JSON.stringify(['positron.assistant.models.overrides']));
+			const overridesUri = `command:workbench.action.openSettings?${overridesArg}`;
+			const tokenLimitSuffix = maxOutputTokens ? ` (${maxOutputTokens} tokens)` : '';
+			const message = new vscode.MarkdownString(
+				`This response may be incomplete because it reached the maximum output token limit${tokenLimitSuffix}. ` +
+				`To allow longer responses, increase [Max Output Tokens](${maxTokensUri}) or ` +
+				`configure [Model Overrides](${overridesUri}) in Settings.`
+			);
+			message.isTrusted = { enabledCommands: ['workbench.action.openSettings'] };
+			response.warning(message);
+		}
 
 		// If we do have tool requests to follow up on, use vscode.lm.invokeTool recursively
 		if (toolRequests.length > 0) {

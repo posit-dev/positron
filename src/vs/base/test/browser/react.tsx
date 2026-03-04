@@ -8,6 +8,11 @@ import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
 import { mainWindow } from '../../browser/window.js';
 
+interface ReactRendererContext {
+	root: Root;
+	container: HTMLElement;
+}
+
 /**
  * Sets up a React render root for component tests. Registers mocha `setup` and
  * `teardown` hooks that create/destroy the DOM container and React root.
@@ -31,18 +36,23 @@ import { mainWindow } from '../../browser/window.js';
  * ```
  */
 export function setupReactRenderer() {
-	let root: Root;
-	let el: HTMLElement;
+	let context: ReactRendererContext | undefined;
+	const setupRequiredError = (action: string) => `React root is not initialized. Did you try to ${action} before setup?`;
 
 	setup(() => {
-		el = mainWindow.document.createElement('div');
-		mainWindow.document.body.appendChild(el);
-		root = createRoot(el);
+		const container = mainWindow.document.createElement('div');
+		mainWindow.document.body.appendChild(container);
+		const root = createRoot(container);
+		context = { root, container };
 	});
 
-	teardown(async () => {
-		root.unmount();
-		el.remove();
+	teardown(() => {
+		if (context) {
+			const { root, container } = context;
+			root.unmount();
+			container.remove();
+			context = undefined;
+		}
 	});
 
 	return {
@@ -51,13 +61,25 @@ export function setupReactRenderer() {
 		 * DOM container the React root is mounted into.
 		 */
 		render(element: ReactElement): HTMLElement {
-			if (root === undefined) {
-				throw new Error('React root is not initialized. Did you try to render before setup?');
+			if (!context) {
+				throw new Error(setupRequiredError('render'));
 			}
+			const { root, container } = context;
 			flushSync(() => {
 				root.render(element);
 			});
-			return el;
+			return container;
 		},
+
+		/**
+		 * Unmount the React root. This is handled automatically during the
+		 * `teardown` phase, but can be called manually for testing unmount behavior.
+		 */
+		unmount(): void {
+			if (!context) {
+				throw new Error(setupRequiredError('unmount'));
+			}
+			context.root.unmount();
+		}
 	};
 }

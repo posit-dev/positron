@@ -80,6 +80,7 @@ class FigureManagerPositron(FigureManagerBase):
     canvas: FigureCanvasPositron
 
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
+        from .plot_comm import PlotOrigin, PlotRange
         from .positron_ipkernel import PositronIPyKernel
 
         super().__init__(canvas, num)
@@ -93,13 +94,39 @@ class FigureManagerPositron(FigureManagerBase):
         execution_id: str = header.get("msg_id", "")
         code: str = content.get("code", "")
 
+        # Extract code_location from the positron metadata, if present
+        positron_meta = content.get("positron", {})
+        code_location = positron_meta.get("code_location", None) if positron_meta else None
+
+        origin: PlotOrigin | None = None
+        if code_location:
+            loc_range = code_location.get("range", {})
+            start = loc_range.get("start", {})
+            end = loc_range.get("end", {})
+            origin = PlotOrigin(
+                uri=code_location["uri"],
+                range=PlotRange(
+                    start_line=start.get("line", 0),
+                    start_character=start.get("character", 0),
+                    end_line=end.get("line", 0),
+                    end_character=end.get("character", 0),
+                ),
+            )
+
         # Detect which plotting library was used
         kind = _detect_plotting_library()
 
         # Create the plot instance via the plots service.
         self._plots_service = kernel.plots_service
         self._plot = self._plots_service.create_plot(
-            canvas.render, canvas.intrinsic_size, kind, execution_id, code, num, self._on_close
+            canvas.render,
+            canvas.intrinsic_size,
+            kind,
+            execution_id,
+            code,
+            num,
+            self._on_close,
+            origin,
         )
 
     def _on_close(self) -> None:

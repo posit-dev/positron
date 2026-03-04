@@ -26,6 +26,11 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		const docLink = helpFrame.getByRole('link', { name: 'Positron Documentation' });
 		await expect(docLink).toBeVisible();
 		await expect(docLink).toHaveAttribute('href', 'https://positron.posit.co/');
+
+		const newsletterLink = helpFrame.getByRole('link', { name: 'Sign Up for Positron Updates' });
+		await expect(newsletterLink).toBeVisible();
+		await expect(newsletterLink).toHaveAttribute('href', 'https://posit.co/positron-updates-signup/');
+
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 

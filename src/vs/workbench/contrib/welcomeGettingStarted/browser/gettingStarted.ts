@@ -1135,8 +1135,13 @@ export class GettingStartedPage extends EditorPane {
 			},
 			{
 				id: 'report-bug',
-				title: 'Report a bug',
+				title: 'Report a Bug',
 				href: 'https://github.com/posit-dev/positron/issues'
+			},
+			{
+				id: 'positron-newsletter',
+				title: localize('positron.welcome.newsletter', "Sign Up for Positron Updates"),
+				href: 'https://posit.co/positron-updates-signup/'
 			}
 		];
 

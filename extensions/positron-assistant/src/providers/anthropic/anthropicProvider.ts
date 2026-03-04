@@ -260,6 +260,15 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 			this.logger.info(`Finished request ${stream.request_id}; usage: ${JSON.stringify(message.usage)}`);
 		}
 
+		// Report finish reason so consumers can detect truncated responses
+		if (message.stop_reason) {
+			progress.report(vscode.LanguageModelDataPart.json({
+				type: 'finishReason',
+				data: message.stop_reason,
+				maxOutputTokens: body.max_tokens,
+			}));
+		}
+
 		// Record token usage
 		if (message.usage) {
 			const tokens = toTokenUsage(message.usage);
