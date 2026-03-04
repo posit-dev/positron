@@ -73,6 +73,10 @@
 		 * overlap from the overlaid cell border. */
 		padding-block: 0.5rem;
 		overflow-x: auto;
+		/* Match the cell's rounded bottom corners so the horizontal
+		 * scrollbar track clips to the rounded shape. */
+		border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
+		border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
 
 		& > * {
 			padding-inline: calc(0.5rem + 1px);
