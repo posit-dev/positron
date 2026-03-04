@@ -49,7 +49,7 @@ export const LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID = 'workbench.action.l
 export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveConsoleSession';
 
 // Notebook Session Specific Action IDs
-export const LANGUAGE_RUNTIME_SELECT_RUNTIME_ID = 'workbench.action.languageRuntime.selectRuntime';
+export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.action.languageRuntime.selectLegacyNotebookRuntime';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -512,7 +512,7 @@ export function registerLanguageRuntimeActions() {
 	registerAction2(class PickInterpreterAction extends Action2 {
 		constructor() {
 			super({
-				id: LANGUAGE_RUNTIME_SELECT_RUNTIME_ID,
+				id: LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID,
 				title: localize2('positron.command.selectInterpreter', "Select Interpreter"),
 				f1: false,
 				category,
