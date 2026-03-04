@@ -141,7 +141,8 @@ export async function generateCommitMessage(
 	await vscode.commands.executeCommand('setContext', generatingGitCommitKey, true);
 
 	const candidates = await getCandidateModels(participantService);
-	log.info(`[git] Found ${candidates.length} candidate model(s) for commit message generation: ${candidates.map(m => `(${m.vendor}) ${m.id}`).join(', ')}`);
+	log.info(`[git] Found ${candidates.length} candidate model(s) for commit message generation.`);
+	log.debug(`[git] Candidate models: ${candidates.map(m => `(${m.vendor}) ${m.id}`).join(', ')}`);
 
 	const tokenSource: vscode.CancellationTokenSource = new vscode.CancellationTokenSource();
 	const cancelDisposable = vscode.commands.registerCommand('positron-assistant.cancelGenerateCommitMessage', () => {
