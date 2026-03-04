@@ -6,6 +6,11 @@
 .positron-notebook-cell {
 	position: relative;
 	margin-left: 12px;
+	/* Override the default min-width: auto for flex items so that wide
+	 * pre-formatted output stays contained within the cell and scrolls
+	 * via the inner overflow-x: auto container instead of expanding the
+	 * entire notebook horizontally. */
+	min-width: 0;
 
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 
