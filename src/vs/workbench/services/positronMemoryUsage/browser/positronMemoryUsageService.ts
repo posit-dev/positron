@@ -151,8 +151,15 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	}
 
 	private _addSessionListener(session: { sessionId: string; dynState: { sessionName: string }; runtimeMetadata: { runtimeName: string; languageId: string }; onDidUpdateResourceUsage: Event<{ memory_bytes: number; process_id?: number }> }): void {
-		if (this._sessionListeners.has(session.sessionId)) {
-			return;
+		// Dispose any existing listener for this session. This is necessary
+		// when the extension host restarts: the session reconnects with a
+		// new object (and new event emitters) but the same sessionId. If
+		// we kept the old listener, we would never receive resource-usage
+		// events from the reconnected session.
+		const existing = this._sessionListeners.get(session.sessionId);
+		if (existing) {
+			existing.dispose();
+			this._sessionListeners.delete(session.sessionId);
 		}
 
 		const disposables = new DisposableStore();

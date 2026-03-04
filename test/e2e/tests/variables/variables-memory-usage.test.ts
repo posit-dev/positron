@@ -75,6 +75,51 @@ test.describe('Variables: Memory Usage', {
 		await page.keyboard.press('Escape');
 	});
 
+	test('Reconnected session reappears in memory usage meter after extension host restart', async function ({ app, page, sessions, settings }) {
+		const { console: consolePage, quickaccess, variables } = app.workbench;
+
+		// Set a fast polling interval so the memory meter updates quickly
+		await settings.set({ 'positron.memoryUsage.pollingIntervalMs': 1000 });
+
+		// Start an R session
+		const [rSession] = await sessions.start(['r']);
+
+		// Focus variables view so the memory meter is visible
+		await variables.focusVariablesView();
+
+		// Wait for the memory meter to appear with a real value (not loading)
+		const memoryMeter = page.locator('.memory-usage-meter');
+		await expect(memoryMeter).toBeVisible({ timeout: 30000 });
+		await expect(memoryMeter.locator('.memory-size-label')).not.toHaveText('Mem', { timeout: 30000 });
+
+		// Open the dropdown and verify the session appears
+		await memoryMeter.click();
+		const dropdown = page.locator('.memory-usage-dropdown');
+		await expect(dropdown).toBeVisible({ timeout: 15000 });
+		await expect(dropdown.locator('.usage-name').filter({ hasText: rSession.name })).toBeVisible();
+		await page.keyboard.press('Escape');
+
+		// Restart the extension host
+		await quickaccess.runCommand('workbench.action.restartExtensionHost');
+		await consolePage.waitForConsoleContents('Extensions restarting...');
+		await consolePage.waitForReady('>');
+
+		// Focus variables view again
+		await variables.focusVariablesView();
+
+		// Wait for the memory meter to show a real value after reconnection
+		await expect(memoryMeter).toBeVisible({ timeout: 30000 });
+		await expect(memoryMeter.locator('.memory-size-label')).not.toHaveText('Mem', { timeout: 30000 });
+
+		// Open the dropdown and verify the session reappears after extension host restart
+		await memoryMeter.click();
+		await expect(dropdown).toBeVisible({ timeout: 15000 });
+		await expect(dropdown.locator('.usage-name').filter({ hasText: rSession.name })).toBeVisible({ timeout: 15000 });
+
+		// Close the dropdown
+		await page.keyboard.press('Escape');
+	});
+
 	test('Restarted session reappears in memory usage meter', async function ({ app, page, sessions, settings }) {
 		const { variables } = app.workbench;
 
