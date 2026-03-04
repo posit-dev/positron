@@ -6,62 +6,62 @@
 // React.
 import React from 'react';
 
-interface CellOutputsContainerState {
-	/** Ref to attach to the scroll container element. */
-	containerRef: React.RefObject<HTMLElement | null>;
-	/** Whether the container's content overflows its max-height. */
-	overflows: boolean;
-}
-
-const CellOutputsContainerContext = React.createContext<CellOutputsContainerState>({
-	containerRef: { current: null },
-	overflows: true,
-});
-
 /**
- * Observes the container element referenced by `containerRef` and provides
- * overflow state to descendant components. Attach the ref to the scroll
- * container element.
- *
- * Uses useLayoutEffect for synchronous initial measurement (to avoid a
- * visible flash of scroll chrome) and ResizeObserver for ongoing changes.
+ * Context that provides a ref to the cell outputs scroll container element.
+ * The context value is the ref itself (stable identity), so changes to the
+ * container's content do not cause context-driven re-renders.
  */
-export function CellOutputsContainerProvider({
-	containerRef,
-	children,
-}: {
+const CellOutputsContainerContext = React.createContext<React.RefObject<HTMLElement | null>>({ current: null });
+
+export function CellOutputsContainerProvider({ containerRef, children }: {
 	containerRef: React.RefObject<HTMLElement | null>;
 	children: React.ReactNode;
 }) {
-	const [overflows, setOverflows] = React.useState(true);
+	return <CellOutputsContainerContext.Provider value={containerRef}>{children}</CellOutputsContainerContext.Provider>;
+}
 
-	// Synchronous measurement after children change. Runs after all children's
-	// DOM mutations are committed but before the browser paints, so there
-	// is no visible flash when content fits within the max-height.
-	// `children` changes identity when the subtree re-renders with new content.
-	React.useLayoutEffect(() => {
+/**
+ * Returns whether the scroll container's content vertically overflows its
+ * max-height. `null` means the container hasn't been measured yet (treat
+ * as "assume overflow").
+ *
+ * On the initial render the container ref may not yet be assigned (React
+ * processes layout effects bottom-up, so child effects fire before parent
+ * refs are attached). The useEffect fallback handles this -- one frame of
+ * scroll chrome at most. On subsequent renders the ref is populated, so
+ * useLayoutEffect provides synchronous measurement with no flash.
+ * ResizeObserver handles ongoing resize events (window resize, font size
+ * change) that don't trigger a React render.
+ */
+export function useCellOutputsContainerOverflows(): boolean | null {
+	const containerRef = React.useContext(CellOutputsContainerContext);
+	const [overflows, setOverflows] = React.useState<boolean | null>(null);
+
+	const measure = React.useCallback(() => {
 		const el = containerRef.current;
 		if (!el) { return; }
 		setOverflows(el.scrollHeight > el.clientHeight);
-	}, [containerRef, children]);
-
-	// Async observation for resize events (window resize, font size change,
-	// etc.) that don't trigger a React render.
-	React.useEffect(() => {
-		const el = containerRef.current;
-		if (!el) { return; }
-		const observer = new ResizeObserver(() => {
-			setOverflows(el.scrollHeight > el.clientHeight);
-		});
-		observer.observe(el);
-		return () => observer.disconnect();
 	}, [containerRef]);
 
-	const value = React.useMemo(() => ({ containerRef, overflows }), [containerRef, overflows]);
+	// Synchronous measurement on every render. On re-renders the ref is
+	// already populated, giving us a flash-free update. On the initial
+	// render the ref is null (child effects fire before parent refs) so
+	// this is a no-op --the useEffect fallback below handles that case.
+	// No deps array: the measurement is cheap (two property reads) and
+	// must re-run whenever children change the container's content height.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	React.useLayoutEffect(measure);
 
-	return <CellOutputsContainerContext.Provider value={value}>{children}</CellOutputsContainerContext.Provider>;
-}
+	// Fallback for the initial render when the ref isn't assigned yet
+	// during useLayoutEffect, plus ResizeObserver for external resizes.
+	React.useEffect(() => {
+		measure();
+		const el = containerRef.current;
+		if (!el) { return; }
+		const observer = new ResizeObserver(measure);
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [containerRef, measure]);
 
-export function useCellOutputsContainer(): CellOutputsContainerState {
-	return React.useContext(CellOutputsContainerContext);
+	return overflows;
 }

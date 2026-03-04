@@ -19,7 +19,7 @@ import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOption
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { useCellOutputsContainer } from './CellOutputsContainerContext.js';
+import { useCellOutputsContainerOverflows } from './CellOutputsContainerContext.js';
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 type CellTextOutputOptions = LongOutputOptions & Pick<NotebookDisplayOptions, 'outputWordWrap'>;
@@ -38,13 +38,14 @@ type TruncationResult =
 
 
 function useLongOutputBehavior(content: string, options: LongOutputOptions) {
-	const { overflows } = useCellOutputsContainer();
+	const overflows = useCellOutputsContainerOverflows();
 	const truncation = truncateToNumberOfLines(content, options);
 
 	// When in scroll mode but content doesn't actually overflow the
 	// max-height container, downgrade to 'normal' so the scroll chrome
 	// (max-height, scrollbars, truncation message) is hidden.
-	const effectiveMode = truncation.mode === 'scroll' && !overflows
+	// `overflows === null` means not yet measured --keep scroll mode.
+	const effectiveMode = truncation.mode === 'scroll' && overflows === false
 		? 'normal' : truncation.mode;
 
 	return { truncation, effectiveMode };

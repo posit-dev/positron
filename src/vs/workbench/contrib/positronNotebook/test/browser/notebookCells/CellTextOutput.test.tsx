@@ -10,6 +10,7 @@ import assert from 'assert';
 import React from 'react';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
+import { timeout } from '../../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { CommandsRegistry } from '../../../../../../platform/commands/common/commands.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
@@ -220,7 +221,7 @@ suite('CellTextOutput', () => {
 		assert.ok(message.textContent?.includes('Scrolling long outputs'), 'Expected scroll message text');
 	});
 
-	test('removes scroll class when content fits, re-applies when it overflows', () => {
+	test('removes scroll class when content fits, re-applies when it overflows', async () => {
 		// 6 lines exceeds the limit of 5 → scroll mode, but fits in 500px.
 		const shortContent = makeLines(6);
 		const fixture = renderCellTextOutput(
@@ -228,6 +229,11 @@ suite('CellTextOutput', () => {
 			{ outputLineLimit: 5, outputScrolling: true },
 			{ scrollAncestorMaxHeight: '500px' },
 		);
+
+		// The overflow hook's useEffect fires after the initial render
+		// (the container ref isn't assigned until after child layout effects).
+		// Flush pending effects so the measurement completes.
+		await timeout(0);
 
 		// Content fits within the 500px ancestor, so the overflow check
 		// downgrades the mode from 'scroll' to 'normal'.
@@ -241,6 +247,7 @@ suite('CellTextOutput', () => {
 			{ outputLineLimit: 5, outputScrolling: true },
 			{ scrollAncestorMaxHeight: '500px' },
 		);
+		await timeout(0);
 
 		assert.ok(fixture2.hasClass('long-output-scroll'), 'Expected scroll class re-applied when content overflows');
 	});
