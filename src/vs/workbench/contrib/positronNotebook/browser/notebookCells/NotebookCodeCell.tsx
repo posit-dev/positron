@@ -75,11 +75,11 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			<CellOutputLeftActionMenu cell={cell} />
 			<section
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
-				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
+				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs positron-notebook-scrollable'
 				data-testid='cell-output'
 				onContextMenu={handleContextMenu}
 			>
-				<div className='positron-notebook-code-cell-outputs-inner'>
+				<div className='positron-notebook-code-cell-outputs-inner positron-notebook-scrollable'>
 					{isCollapsed
 						? <Button
 							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}

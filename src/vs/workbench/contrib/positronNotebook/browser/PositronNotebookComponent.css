@@ -93,6 +93,58 @@
 	overflow: auto;
 }
 
+/*
+ * Reusable overlay-scrollbar styling. Place this class on any scrollable
+ * element whose native scrollbars should mimic macOS overlay scrollbars
+ * (invisible by default, fade in on hover).
+ *
+ * Chromium does not support CSS transitions on ::-webkit-scrollbar-*
+ * pseudo-elements. To work around this, we use a CSS Houdini registered
+ * custom property (@property) for the thumb color. Registering it with
+ * `syntax: "<color>"` tells the browser it is interpolatable, so we can
+ * transition the property value on a real element and the scrollbar thumb
+ * picks up the animated value via var().
+ * Technique from https://stackoverflow.com/a/74050413 (CC BY-SA 4.0).
+ *
+ * Fade timings (100ms in, 800ms out) match the VS Code custom scrollbar
+ * widget (src/vs/base/browser/ui/scrollbar/media/scrollbars.css).
+ */
+@property --_positron-notebook-scrollbar-thumb-bg {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
+.positron-notebook-scrollable {
+	/* Reset the property on each element to prevent inheritance from an
+	 * ancestor .positron-notebook-scrollable that happens to be :hover. */
+	--_positron-notebook-scrollbar-thumb-bg: transparent;
+	transition: --_positron-notebook-scrollbar-thumb-bg 800ms linear;
+
+	&:hover {
+		--_positron-notebook-scrollbar-thumb-bg: var(--vscode-scrollbarSlider-background);
+		transition: --_positron-notebook-scrollbar-thumb-bg 100ms linear;
+	}
+
+	/* Scrollbar dimensions approximate macOS overlay scrollbars. */
+	&::-webkit-scrollbar {
+		height: 8px;
+		width: 8px;
+	}
+
+	/* Use background-color (not background shorthand) to avoid resetting
+	 * background-clip, which creates the inset padding around the thumb. */
+	&::-webkit-scrollbar-thumb {
+		background-color: var(--_positron-notebook-scrollbar-thumb-bg) !important;
+		background-clip: padding-box;
+	}
+
+	/* Brighter highlight when hovering directly over the thumb. */
+	&::-webkit-scrollbar-thumb:hover {
+		background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+	}
+}
+
 .positron-notebook .scroll-decoration {
 	position: absolute;
 	top: 0;
