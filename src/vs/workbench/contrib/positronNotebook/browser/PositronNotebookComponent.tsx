@@ -36,6 +36,12 @@ import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
+
+	// TEMPORARY: error boundary test trigger - remove before merging
+	if (notebookCells.some(c => c.getContent().includes('__EDITOR_ERROR_TEST__'))) {
+		throw new Error('Test error: editor rendering failure');
+	}
+
 	const deletionSentinels = useObservedValue(notebookInstance.deletionSentinels);
 	const fontStyles = useFontStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
