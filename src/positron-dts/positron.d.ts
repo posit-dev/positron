@@ -1208,6 +1208,13 @@ declare module 'positron' {
 		): void;
 
 		/**
+		 * Evaluate code in the runtime
+		 *
+		 * @param code The code to evaluate
+		 */
+		evaluate(code: string): Thenable<any>;
+
+		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the
 		 * runtime shutdown sequence has been successfully started (not
 		 * necessarily when it has completed).
@@ -2060,6 +2067,26 @@ declare module 'positron' {
 			observer?: ExecutionObserver,
 			sessionId?: string,
 			documentUri?: vscode.Uri): Thenable<Record<string, any>>;
+
+		/**
+		 * Evaluates code silently in a language runtime, without displaying
+		 * output in the console or notifying the user.
+		 *
+		 * @param languageId The language ID of the code snippet
+		 * @param code The code snippet to evaluate
+		 * @param cancellationToken An optional cancellation token that can be
+		 *  used to cancel the evaluation.
+		 * @param sessionId An optional session ID to evaluate the code in. If
+		 *  not provided, an appropriate session will be chosen, and if no
+		 *  session for the desired language is running at all, a new session
+		 *  will be started.
+		 * @returns A Thenable that resolves with the result of the code
+		 *  evaluation.
+		 */
+		export function evaluateCode(languageId: string,
+			code: string,
+			cancellationToken?: vscode.CancellationToken,
+			sessionId?: string): Thenable<any>;
 
 		/**
 		 * Executes a set of cells in a source document. The results are
