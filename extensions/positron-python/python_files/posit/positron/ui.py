@@ -18,11 +18,12 @@ from comm.base_comm import BaseComm
 from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
-from .positron_comm import CommMessage, PositronComm
+from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
     EditorContextChangedRequest,
+    EvaluateCodeRequest,
     OpenEditorParams,
     ShowHtmlFileDestination,
     ShowHtmlFileParams,
@@ -136,6 +137,44 @@ _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional
     "getLoadedModules": _get_loaded_modules,
     "getPackagesInstalled": _get_packages_installed,
 }
+
+
+def _to_json_compatible(obj: object) -> JsonData:
+    """Convert a Python object to a JSON-compatible type."""
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    if isinstance(obj, dict):
+        return {str(k): _to_json_compatible(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_json_compatible(v) for v in obj]
+    if isinstance(obj, set):
+        return [_to_json_compatible(v) for v in sorted(obj, key=str)]
+    # Handle numpy scalars if numpy is available
+    try:
+        import numpy as np
+
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, (np.floating,)):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+    except ImportError:
+        pass
+    # Handle pandas objects if pandas is available
+    try:
+        import pandas as pd
+
+        if isinstance(obj, pd.DataFrame):
+            return obj.to_dict(orient="list")
+        if isinstance(obj, pd.Series):
+            return obj.tolist()
+    except ImportError:
+        pass
+    # Fallback: convert to string
+    return str(obj)
 
 
 class UiService:
@@ -268,6 +307,9 @@ class UiService:
             if self._comm is not None:
                 self._comm.send_result(data=None)
 
+        elif isinstance(request, EvaluateCodeRequest):
+            self._evaluate_code(request.params.code)
+
         else:
             logger.warning(f"Unhandled request: {request}")
 
@@ -287,6 +329,30 @@ class UiService:
             self._comm.send_result(data=result)
             return None
         return None
+
+    def _evaluate_code(self, code: str) -> None:
+        try:
+            # Try eval first (for expressions)
+            result = eval(code, self.kernel.shell.user_ns)  # noqa: S307
+            json_result = _to_json_compatible(result)
+        except SyntaxError:
+            # Fall back to exec for statements
+            try:
+                exec(code, self.kernel.shell.user_ns)  # noqa: S102
+                json_result = None
+            except Exception as err:
+                logger.warning(f"Error executing code: {err}")
+                if self._comm is not None:
+                    self._comm.send_error(JsonRpcErrorCode.INTERNAL_ERROR, str(err))
+                return
+        except Exception as err:
+            logger.warning(f"Error evaluating code: {err}")
+            if self._comm is not None:
+                self._comm.send_error(JsonRpcErrorCode.INTERNAL_ERROR, str(err))
+            return
+
+        if self._comm is not None:
+            self._comm.send_result(data=json_result)
 
     def shutdown(self) -> None:
         if self._comm is not None:

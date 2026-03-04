@@ -1208,13 +1208,6 @@ declare module 'positron' {
 		): void;
 
 		/**
-		 * Evaluate code in the runtime
-		 *
-		 * @param code The code to evaluate
-		 */
-		evaluate(code: string): Thenable<any>;
-
-		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the
 		 * runtime shutdown sequence has been successfully started (not
 		 * necessarily when it has completed).

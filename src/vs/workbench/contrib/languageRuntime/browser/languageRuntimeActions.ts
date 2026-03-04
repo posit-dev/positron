@@ -1195,6 +1195,71 @@ export function registerLanguageRuntimeActions() {
 	});
 }
 
+registerAction2(class EvaluateCodeAction extends Action2 {
+
+	constructor() {
+		super({
+			id: 'workbench.action.evaluateCode',
+			title: localize2('positron.command.evaluateCode', "Evaluate Code"),
+			f1: true,
+			category
+		});
+	}
+
+	/**
+	 * Runs the Evaluate Code action.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+
+		// Get the foreground session
+		const foregroundSession = runtimeSessionService.foregroundSession;
+
+		if (!foregroundSession) {
+			notificationService.warn(
+				localize('positron.evaluateCode.noSession', "No active interpreter session.")
+			);
+			return;
+		}
+
+		// Get the active runtime session wrapper (which has the UI client)
+		const activeSession = runtimeSessionService.getActiveSession(foregroundSession.sessionId);
+
+		if (!activeSession || !activeSession.uiClient) {
+			notificationService.warn(
+				localize('positron.evaluateCode.noUiClient', "Session does not support code evaluation.")
+			);
+			return;
+		}
+
+		// Prompt the user for code to evaluate
+		const code = await quickInputService.input({
+			prompt: localize('positron.evaluateCode.prompt', "Enter code to evaluate"),
+			placeHolder: localize('positron.evaluateCode.placeholder', "Code expression"),
+		});
+
+		if (!code) {
+			return;
+		}
+
+		try {
+			const result = await activeSession.uiClient.evaluateCode(code);
+			const resultStr = JSON.stringify(result, null, 2);
+			notificationService.info(
+				localize('positron.evaluateCode.result', "Result: {0}", resultStr)
+			);
+		} catch (err) {
+			notificationService.error(
+				localize('positron.evaluateCode.error', "Evaluation error: {0}", String(err))
+			);
+		}
+	}
+});
+
 registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 	// from explorer
 	constructor() {

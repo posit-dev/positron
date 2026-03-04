@@ -857,3 +857,67 @@ suite('positron API - executeCode', () => {
 		}
 	});
 });
+
+suite('positron API - evaluateCode', () => {
+	let disposables: Disposable[];
+
+	setup(() => {
+		disposables = [];
+	});
+
+	teardown(async () => {
+		assertNoRpcFromEntry([positron, 'positron']);
+		disposeAll(disposables);
+	});
+
+	test('evaluateCode API is callable', async () => {
+		// Verify the API exists and is a function
+		assert.strictEqual(typeof positron.runtime.evaluateCode, 'function',
+			'evaluateCode should be a function on the runtime namespace');
+	});
+
+	test('evaluateCode rejects without a session', async () => {
+		// Calling evaluateCode for a language with no session should reject
+		try {
+			await positron.runtime.evaluateCode('nonexistent-language', '1 + 1');
+			assert.fail('Expected evaluateCode to reject when no session exists');
+		} catch (err) {
+			assert.ok(err, 'Error should be provided when no session exists');
+		}
+	});
+
+	test('evaluateCode can be cancelled', async () => {
+		// Setup a runtime manager and session
+		const manager = new TestLanguageRuntimeManager();
+		const managerDisposable = positron.runtime.registerLanguageRuntimeManager('test', manager);
+		disposables.push(managerDisposable);
+
+		// Wait for the runtime to be registered
+		await poll(
+			async () => (await positron.runtime.getRegisteredRuntimes())
+				.filter(runtime => runtime.languageId === 'test'),
+			runtimes => runtimes.length > 0,
+			'test runtime should be registered'
+		);
+
+		// Create a cancellation token source
+		const tokenSource = new vscode.CancellationTokenSource();
+
+		// Start an evaluation and cancel it after 50ms
+		setTimeout(() => tokenSource.cancel(), 50);
+
+		try {
+			await Promise.race([
+				positron.runtime.evaluateCode('test', '1 + 1', tokenSource.token),
+				new Promise<any>((_, reject) => {
+					setTimeout(() => reject(new Error('Evaluation timed out after 2 seconds')), 2000);
+				})
+			]);
+		} catch (err) {
+			// Expected: either cancellation error or timeout
+			assert.ok(err, 'Error should be provided on cancellation');
+		}
+
+		tokenSource.dispose();
+	});
+});

@@ -269,6 +269,16 @@ export class UiClientInstance extends Disposable {
 	}
 
 	/**
+	 * Evaluate code silently in the runtime and return a JSON-coerced result.
+	 *
+	 * @param code The code to evaluate
+	 * @returns The result of evaluating the code
+	 */
+	public evaluateCode(code: string): Promise<any> {
+		return this._comm.evaluateCode(code);
+	}
+
+	/**
 	 * Get the ID of the underlying runtime client
 	 */
 	public getClientId(): string {
