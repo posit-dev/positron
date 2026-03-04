@@ -111,6 +111,7 @@ export async function generateGhostCellSuggestion(
 	// avoiding stale work in the background.
 	let modelSelectionTimedOut = false;
 	const modelSelectionCts = new vscode.CancellationTokenSource();
+	const tokenListener = token.onCancellationRequested(() => modelSelectionCts.cancel());
 	let modelSelection: ModelSelectionResult | null | undefined;
 	try {
 		modelSelection = await raceTimeout(
@@ -119,6 +120,7 @@ export async function generateGhostCellSuggestion(
 			() => { modelSelectionTimedOut = true; modelSelectionCts.cancel(); }
 		);
 	} finally {
+		tokenListener.dispose();
 		modelSelectionCts.dispose();
 	}
 	if (!modelSelection) {
