@@ -45,6 +45,7 @@
 .notebook-output-truncation-message > button.notebook-output-settings-link:hover,
 .notebook-output-truncation-message > button.notebook-output-settings-link:active {
 	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
 }
 
 .positron-notebook-text-output.long-output-scroll + .notebook-output-truncation-message {
