@@ -150,6 +150,16 @@ body.dragging-notebook-cell .positron-notebook-cells-container {
 
 /* --- Floating overlay preview (follows cursor) --- */
 
+/* Container for the cursor-following overlay. Uses position:fixed at (0,0)
+	and translate() via JS to follow the pointer without layout reflow. */
+.cursor-following-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	pointer-events: none;
+	z-index: 10000;
+}
+
 .drag-overlay-preview {
 	display: flex;
 	align-items: center;

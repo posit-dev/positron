@@ -312,11 +312,13 @@ export function SortableCellList({
 				</DragStateContext.Provider>
 			</SortableContext>
 
-			<DragOverlay dropAnimation={null}>
-				{activeCells.length > 0 && (
-					<DragPreview cells={activeCells} />
-				)}
-			</DragOverlay>
+			{/* Keep DragOverlay mounted (empty) so dnd-kit's internal
+				usesDragOverlay flag stays set, which zeroes out nodeRectDelta
+				and prevents double-compensation in collision detection. */}
+			<DragOverlay dropAnimation={null} />
+			{activeCells.length > 0 && (
+				<CursorFollowingOverlay cells={activeCells} />
+			)}
 		</DndContext>
 	);
 }
@@ -334,6 +336,39 @@ function EndSentinelDroppable() {
 	return (
 		<div ref={setNodeRef} style={{ position: 'relative', height: 1 }}>
 			{isActive && <div className='drag-drop-indicator end-sentinel-indicator' />}
+		</div>
+	);
+}
+
+/**
+ * Floating preview that follows the cursor via a pointermove listener.
+ * Bypasses dnd-kit's DragOverlay positioning which can drift when the
+ * dragged cell's collapse triggers scroll clamping (common for bottom cells).
+ */
+function CursorFollowingOverlay({ cells }: { cells: IPositronNotebookCell[] }) {
+	const overlayRef = React.useRef<HTMLDivElement>(null);
+
+	React.useEffect(() => {
+		const el = overlayRef.current;
+		if (!el) { return; }
+
+		const onPointerMove = (e: PointerEvent) => {
+			el.style.transform = `translate(${e.clientX + 12}px, ${e.clientY + 12}px)`;
+			el.style.opacity = '1';
+		};
+
+		const win = DOM.getActiveWindow();
+		win.addEventListener('pointermove', onPointerMove);
+		return () => win.removeEventListener('pointermove', onPointerMove);
+	}, []);
+
+	return (
+		<div
+			ref={overlayRef}
+			className='cursor-following-overlay'
+			style={{ opacity: 0 }}
+		>
+			<DragPreview cells={cells} />
 		</div>
 	);
 }
