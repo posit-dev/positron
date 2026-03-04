@@ -17,7 +17,7 @@
 	justify-content: center;
 	cursor: grab;
 	opacity: 0;
-	transition: opacity 0.15s ease;
+	transition: opacity 0.15s ease, transform 0.15s ease;
 	color: var(--vscode-foreground);
 	border-radius: 3px;
 	border: 1px solid var(--vscode-positronNotebook-border-color);
@@ -67,7 +67,7 @@
 
 .cell-drag-handle:hover {
 	opacity: 1;
-	background: var(--vscode-toolbar-hoverBackground);
+	transform: scale(1.15);
 }
 
 .cell-drag-handle > * {
