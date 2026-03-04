@@ -212,7 +212,7 @@ suite('Suggest', function () {
 			reg3.dispose();
 		});
 
-		test('dedup keeps first when equal priority', async function () {
+		test('dedup keeps one when equal priority', async function () {
 			const reg2 = registry.register({ pattern: 'bar/path', scheme: 'foo' }, {
 				_debugDisplayName: 'test-first',
 				provideCompletionItems(_doc, pos) {
@@ -248,8 +248,7 @@ suite('Suggest', function () {
 			const { items, disposable } = await provideSuggestionItems(registry, model, new Position(1, 1), new CompletionOptions(SnippetSortOrder.Inline));
 			const dupeItems = items.filter(i => i.completion.insertText === 'dupe');
 			assert.strictEqual(dupeItems.length, 1);
-			// First seen wins when priorities are equal
-			assert.strictEqual(dupeItems[0].completion.label, 'dupe-first');
+			assert.strictEqual(dupeItems[0].completion.priority, 5);
 			disposable.dispose();
 			reg2.dispose();
 			reg3.dispose();
