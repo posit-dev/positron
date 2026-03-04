@@ -271,8 +271,8 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		// Commands for R Markdown templates
-		vscode.commands.registerCommand('r.browseRmdTemplates', async () => {
-			await browseRmdTemplates();
+		vscode.commands.registerCommand('r.newRmdFromTemplate', async () => {
+			await newRmdFromTemplate();
 		}),
 
 		// Command to show R version info
@@ -617,10 +617,10 @@ interface TemplateQuickPickItem extends vscode.QuickPickItem {
 }
 
 /**
- * Browse installed R Markdown templates.
- * Shows a QuickPick with all templates found in installed packages.
+ * Create a new R Markdown document from an installed template.
+ * Shows a QuickPick to select a template, then a save dialog for the destination.
  */
-async function browseRmdTemplates(): Promise<void> {
+async function newRmdFromTemplate(): Promise<void> {
 	// Check that rmarkdown is installed first
 	const isInstalled = await checkInstalled('rmarkdown');
 	if (!isInstalled) {
@@ -634,7 +634,7 @@ async function browseRmdTemplates(): Promise<void> {
 			return;
 		}
 
-		const templates = await session.getRmdTemplates();
+		const templates = await session.getRmdTemplates(true);
 
 		if (templates.length === 0) {
 			// The rmarkdown package itself has templates, so something must go really wrong to get here:
@@ -658,12 +658,24 @@ async function browseRmdTemplates(): Promise<void> {
 		});
 
 		if (selected) {
-			// For now, just show the template info. Full implementation in a later PR.
 			const t = selected.template;
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('Selected template: {0} from {1} (template dir: {2})',
-					t.name, t.package, t.template)
-			);
+
+			// Get save location from user
+			const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri
+				?? vscode.Uri.file(os.homedir());
+
+			const saveUri = await vscode.window.showSaveDialog({
+				defaultUri: vscode.Uri.joinPath(defaultUri, 'Untitled.Rmd')
+			});
+
+			if (!saveUri) {
+				return;
+			}
+
+			// Create document using rmarkdown::draft() and open via rstudioapi
+			const draftPath = saveUri.fsPath;
+			const code = `rmarkdown::draft(${JSON.stringify(draftPath)}, template = "${t.template}", package = "${t.package}")`;
+			await positron.runtime.executeCode('r', code, true);
 		}
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);

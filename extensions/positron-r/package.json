@@ -169,9 +169,9 @@
         "title": "%r.command.browseAddins.title%"
       },
       {
-        "command": "r.browseRmdTemplates",
+        "command": "r.newRmdFromTemplate",
         "category": "R",
-        "title": "%r.command.browseRmdTemplates.title%"
+        "title": "%r.command.newRmdFromTemplate.title%"
       },
       {
         "command": "r.showRVersion",
