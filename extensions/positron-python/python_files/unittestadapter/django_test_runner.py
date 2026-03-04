@@ -39,7 +39,11 @@ class CustomDiscoveryTestRunner(DiscoverRunner):
     """Custom test runner for Django to handle test DISCOVERY and building the test tree."""
 
     def run_tests(self, test_labels, **kwargs):
-        test_run_pipe: str | None = os.getenv("TEST_RUN_PIPE")
+        # --- Start Positron ---
+        # Make this work on python 3.9
+        # test_run_pipe: str | None = os.getenv("TEST_RUN_PIPE")
+        test_run_pipe: Optional[str] = os.getenv("TEST_RUN_PIPE")
+        # --- End Positron ---
         if not test_run_pipe:
             error_msg = (
                 "UNITTEST ERROR: TEST_RUN_PIPE is not set at the time of unittest trying to send data. "
