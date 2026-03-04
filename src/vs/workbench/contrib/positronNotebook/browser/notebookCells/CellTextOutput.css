@@ -32,12 +32,17 @@
 	opacity: 0.8;
 }
 
-/* Use theme link colors */
-.notebook-output-truncation-message a {
+/* Style the settings button as an inline link. */
+.notebook-output-settings-link {
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	cursor: pointer;
 	color: var(--vscode-textLink-foreground);
 }
-.notebook-output-truncation-message a:hover,
-.notebook-output-truncation-message a:active {
+.notebook-output-settings-link:hover,
+.notebook-output-settings-link:active {
 	color: var(--vscode-textLink-activeForeground);
 }
 

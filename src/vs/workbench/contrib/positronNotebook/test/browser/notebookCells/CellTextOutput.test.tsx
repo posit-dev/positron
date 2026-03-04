@@ -46,7 +46,7 @@ class CellTextOutputFixture {
 	}
 
 	get settingsLink() {
-		return this.container.querySelector<HTMLAnchorElement>('.notebook-output-truncation-message a');
+		return this.container.querySelector<HTMLButtonElement>('.notebook-output-settings-link');
 	}
 
 	get quickFixContainer() {

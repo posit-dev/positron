@@ -146,9 +146,7 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 }
 
 const TruncationMessage = ({ truncationResult, commandService }: { truncationResult: TruncationResult; commandService: ICommandService }) => {
-	const openSettings = (e: React.MouseEvent) => {
-		// Prevent the anchor's default navigation (href='') from reloading the page in the test environment.
-		e.preventDefault();
+	const openSettings = () => {
 		commandService.executeCommand(
 			'workbench.action.openSettings',
 			'notebook.output scroll'
@@ -161,10 +159,10 @@ const TruncationMessage = ({ truncationResult, commandService }: { truncationRes
 
 	return <i className='notebook-output-truncation-message'>
 		{msg + ' '}
-		<a
+		<button
 			aria-label='notebook output settings'
-			href=''
+			className='notebook-output-settings-link'
 			onClick={openSettings}
-		>Change behavior.</a>
+		>Change behavior.</button>
 	</i>;
 };
