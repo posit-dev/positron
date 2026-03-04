@@ -7,6 +7,7 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import assert from 'assert';
+import React from 'react';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
@@ -24,6 +25,17 @@ import { PositronReactServicesContext } from '../../../../../../base/browser/pos
 import { PositronReactServices } from '../../../../../../base/browser/positronReactServices.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { CellOutputsContainerProvider } from '../../../browser/notebookCells/CellOutputsContainerContext.js';
+
+/** Test wrapper that provides a scroll container with the given max-height. */
+function ScrollContainerWrapper({ maxHeight, children }: { maxHeight: string; children: React.ReactNode }) {
+	const ref = React.useRef<HTMLDivElement>(null);
+	return (
+		<CellOutputsContainerProvider containerRef={ref}>
+			<div ref={ref} style={{ maxHeight, overflow: 'auto' }}>{children}</div>
+		</CellOutputsContainerProvider>
+	);
+}
 
 type LayoutOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling' | 'outputWordWrap'>;
 
@@ -120,7 +132,7 @@ suite('CellTextOutput', () => {
 		);
 
 		const element = wrapperOptions
-			? <div className='positron-notebook-cell-outputs' style={{ maxHeight: wrapperOptions.scrollAncestorMaxHeight, overflow: 'auto' }}>{inner}</div>
+			? <ScrollContainerWrapper maxHeight={wrapperOptions.scrollAncestorMaxHeight}>{inner}</ScrollContainerWrapper>
 			: inner;
 
 		const container = render(element);

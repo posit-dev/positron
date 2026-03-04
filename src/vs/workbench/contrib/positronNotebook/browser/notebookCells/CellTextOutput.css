@@ -50,8 +50,4 @@
 	text-align: right;
 }
 
-/* Hide the truncation message when we're not showing scrollbars. */
-.positron-notebook-text-output:not(.long-output-scroll) + .notebook-output-truncation-message {
-	display: none;
-}
 

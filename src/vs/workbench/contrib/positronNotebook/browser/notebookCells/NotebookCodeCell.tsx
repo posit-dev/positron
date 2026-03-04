@@ -29,6 +29,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
+import { CellOutputsContainerProvider } from './CellOutputsContainerContext.js';
 
 
 interface CellOutputsSectionProps {
@@ -37,6 +38,7 @@ interface CellOutputsSectionProps {
 }
 
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
+	const sectionRef = React.useRef<HTMLElement | null>(null);
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
@@ -73,29 +75,32 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
 		)}>
 			<CellOutputLeftActionMenu cell={cell} />
-			<section
-				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
-				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
-				data-testid='cell-output'
-				onContextMenu={handleContextMenu}
-			>
-				<div className='positron-notebook-code-cell-outputs-inner'>
-					{isCollapsed
-						? <Button
-							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
-							className='show-hidden-output-button'
-							onPressed={handleShowHiddenOutput}
-						>
-							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
-						</Button>
-						: <>
-							{outputs?.map((output) => (
-								<CellOutput key={output.outputId} {...output} />
-							))}
-						</>
-					}
-				</div>
-			</section>
+			<CellOutputsContainerProvider containerRef={sectionRef}>
+				<section
+					ref={sectionRef}
+					aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
+					className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
+					data-testid='cell-output'
+					onContextMenu={handleContextMenu}
+				>
+					<div className='positron-notebook-code-cell-outputs-inner'>
+						{isCollapsed
+							? <Button
+								ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
+								className='show-hidden-output-button'
+								onPressed={handleShowHiddenOutput}
+							>
+								{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
+							</Button>
+							: <>
+								{outputs?.map((output) => (
+									<CellOutput key={output.outputId} {...output} />
+								))}
+							</>
+						}
+					</div>
+				</section>
+			</CellOutputsContainerProvider>
 		</div>
 	);
 }, (prevProps, nextProps) => {

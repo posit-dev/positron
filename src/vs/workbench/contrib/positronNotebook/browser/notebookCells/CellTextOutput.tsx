@@ -7,7 +7,7 @@
 import './CellTextOutput.css';
 
 // React.
-import React, { useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 
 // Other dependencies.
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
@@ -19,6 +19,7 @@ import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOption
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { useCellOutputsContainer } from './CellOutputsContainerContext.js';
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 type CellTextOutputOptions = LongOutputOptions & Pick<NotebookDisplayOptions, 'outputWordWrap'>;
@@ -37,33 +38,16 @@ type TruncationResult =
 
 
 function useLongOutputBehavior(content: string, options: LongOutputOptions) {
-	const containerRef = React.useRef<HTMLDivElement | null>(null);
+	const { overflows } = useCellOutputsContainer();
 	const truncation = truncateToNumberOfLines(content, options);
-	const [actuallyOverflows, setActuallyOverflows] = React.useState(true);
-
-	// useLayoutEffect runs synchronously after DOM mutations, before the
-	// browser paints, so we avoid a visible flash of scroll chrome when
-	// the content fits within the max-height.
-	React.useLayoutEffect(() => {
-		if (truncation.mode !== 'scroll' || !containerRef.current) { return; }
-
-		// The max-height lives on the .positron-notebook-cell-outputs ancestor
-		// (applied via :has(.long-output-scroll) in NotebookCodeCell.css).
-		// Check whether the content actually overflows that ancestor. If not,
-		// downgrade to 'normal' so scroll chrome is hidden.
-		const scrollParent = containerRef.current.closest('.positron-notebook-cell-outputs');
-		if (!scrollParent) { return; }
-
-		setActuallyOverflows(scrollParent.scrollHeight > scrollParent.clientHeight);
-	}, [truncation.mode, content]);
 
 	// When in scroll mode but content doesn't actually overflow the
 	// max-height container, downgrade to 'normal' so the scroll chrome
 	// (max-height, scrollbars, truncation message) is hidden.
-	const effectiveMode = truncation.mode === 'scroll' && !actuallyOverflows
+	const effectiveMode = truncation.mode === 'scroll' && !overflows
 		? 'normal' : truncation.mode;
 
-	return { containerRef, truncation, effectiveMode };
+	return { truncation, effectiveMode };
 }
 
 function useCellTextOutputOptions(): CellTextOutputOptions {
@@ -113,10 +97,10 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
 	const services = usePositronReactServicesContext();
 	const { outputLineLimit, outputScrolling, outputWordWrap } = useCellTextOutputOptions();
-	const { containerRef, truncation, effectiveMode } = useLongOutputBehavior(content, { outputLineLimit, outputScrolling });
+	const { truncation, effectiveMode } = useLongOutputBehavior(content, { outputLineLimit, outputScrolling });
 
 	return <>
-		<div ref={containerRef} className={positronClassNames(
+		<div className={positronClassNames(
 			`notebook-${type}`,
 			'positron-notebook-text-output',
 			`long-output-${effectiveMode}`,
@@ -133,7 +117,7 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 			}
 		</div>
 		{
-			truncation.mode === 'scroll'
+			effectiveMode === 'scroll'
 				? <TruncationMessage commandService={services.commandService} truncationResult={truncation} />
 				: null
 		}
