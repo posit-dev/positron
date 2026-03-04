@@ -14,30 +14,18 @@
 	 * from `.output-run` (outputRun.css), which was added for the console
 	 * banding fix (#6447) but is undesirable in notebooks. */
 	white-space: pre;
-	overflow-x: auto;
 }
 
 /* When notebook.output.wordWrap is enabled, allow text to wrap. */
 .positron-notebook-text-output.word-wrap {
 	white-space: pre-wrap;
-	overflow-x: hidden;
 }
 
-.positron-notebook-text-output.long-output-scroll {
-	/* TODO: This should match the height of the output if truncated */
-	max-height: 400px;
-	overflow: scroll;
-	border: var(--vscode-positronNotebook-border);
-	border-radius: var(--vscode-positronNotebook-cell-radius);
-	padding: 0.15rem 0.25rem;
-	position: relative;
+/* long-output-scroll is a marker class used by :has() on the parent
+ * to apply max-height + overflow: auto (see NotebookCodeCell.css).
+ * No visual styling here -- the cell border provides the chrome. */
 
-	&::-webkit-scrollbar-thumb:hover {
-		background: var(--vscode-scrollbarSlider-hoverBackground) !important;
-	}
-}
-
-
+/* Truncation message for truncate mode (line count exceeded, no scrolling). */
 .notebook-output-truncation-message {
 	display: block;
 	font-size: 0.95em;
@@ -57,7 +45,7 @@
 	text-align: right;
 }
 
-/* Hide the truncation message when were not showing scrollbars. */
+/* Hide the truncation message when we're not showing scrollbars. */
 .positron-notebook-text-output:not(.long-output-scroll) + .notebook-output-truncation-message {
 	display: none;
 }

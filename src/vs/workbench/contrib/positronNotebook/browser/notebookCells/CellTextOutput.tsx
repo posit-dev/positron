@@ -41,14 +41,18 @@ function useLongOutputBehavior(content: string, options: LongOutputOptions) {
 	const truncation = truncateToNumberOfLines(content, options);
 
 	React.useEffect(() => {
-		if (!containerRef.current) { return; }
+		if (truncation.mode !== 'scroll' || !containerRef.current) { return; }
 
-		// Check if the content is scrolling
-		const { scrollHeight, clientHeight } = containerRef.current;
+		// The max-height lives on the .positron-notebook-cell-outputs ancestor
+		// (applied via :has(.long-output-scroll) in NotebookCodeCell.css).
+		// Check whether the content actually overflows that ancestor. If not,
+		// remove the marker class so scrollbars and the truncation message
+		// are hidden.
+		const scrollParent = containerRef.current.closest('.positron-notebook-cell-outputs');
+		if (!scrollParent) { return; }
 
-		// If we're not scrolling, remove the class
-		if (truncation.mode === 'scroll' && scrollHeight <= clientHeight) {
-			containerRef.current.classList.remove(`long-output-scroll`);
+		if (scrollParent.scrollHeight <= scrollParent.clientHeight) {
+			containerRef.current.classList.remove('long-output-scroll');
 		}
 	}, [truncation.mode]);
 
@@ -156,5 +160,4 @@ const TruncationMessage = ({ truncationResult, commandService }: { truncationRes
 			onClick={openSettings}
 		>Change behavior.</a>
 	</i>;
-
 };
