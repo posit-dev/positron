@@ -66,6 +66,27 @@ export class CondaPackageManager implements IPackageManager {
         private readonly _serviceContainer: IServiceContainer,
     ) {}
 
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        await this._ensureConda();
+
+        const envPrefix = await this._getEnvironmentPrefix();
+        const result = await this._executeCondaWithOutput(['list', '--prefix', envPrefix, '--json']);
+
+        let packages: Array<{ name: string; version: string }> = [];
+        try {
+            packages = JSON.parse(result);
+        } catch {
+            throw new Error('Failed to parse installed packages list');
+        }
+
+        return packages.map((pkg) => ({
+            id: pkg.name,
+            name: pkg.name,
+            displayName: pkg.name,
+            version: pkg.version,
+        }));
+    }
+
     /**
      * Check if conda is available.
      */

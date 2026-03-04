@@ -14,13 +14,7 @@ import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
-
-/**
- * Interface for emitting messages to the Positron console
- */
-interface MessageEmitter {
-    fire(message: positron.LanguageRuntimeMessage): void;
-}
+import { IPackageManager, MessageEmitter } from './types';
 
 /**
  * uv Package Manager
@@ -30,12 +24,40 @@ interface MessageEmitter {
  * - Project workflow: Uses `uv add`/`uv remove` when a valid pyproject.toml exists
  * - Environment workflow: Uses `uv pip install`/`uv pip uninstall` otherwise
  */
-export class UvPackageManager {
+export class UvPackageManager implements IPackageManager {
     constructor(
         private readonly _pythonPath: string,
         private readonly _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
     ) {}
+
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        await this._ensureUv();
+
+        const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
+        const processService = await processServiceFactory.create();
+        const proxyEnv = this._getProxyEnv();
+
+        const result = await processService.exec(
+            'uv',
+            ['pip', 'list', '--format=json', '--python', this._pythonPath],
+            { extraVariables: proxyEnv },
+        );
+
+        let packages: Array<{ name: string; version: string }> = [];
+        try {
+            packages = JSON.parse(result.stdout);
+        } catch {
+            throw new Error('Failed to parse installed packages list');
+        }
+
+        return packages.map((pkg) => ({
+            id: pkg.name,
+            name: pkg.name,
+            displayName: pkg.name,
+            version: pkg.version,
+        }));
+    }
 
     /**
      * Check if uv is available.

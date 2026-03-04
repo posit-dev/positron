@@ -27,6 +27,28 @@ export class PipPackageManager implements IPackageManager {
         private readonly _serviceContainer: IServiceContainer,
     ) {}
 
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        await this._ensurePip();
+
+        const proxyFlags = this._getProxyFlags();
+        const pythonService = await this._getPythonService();
+        const result = await pythonService.execModule('pip', ['list', '--format=json', ...proxyFlags], {});
+
+        let packages: Array<{ name: string; version: string }> = [];
+        try {
+            packages = JSON.parse(result.stdout);
+        } catch {
+            throw new Error('Failed to parse installed packages list');
+        }
+
+        return packages.map((pkg) => ({
+            id: pkg.name,
+            name: pkg.name,
+            displayName: pkg.name,
+            version: pkg.version,
+        }));
+    }
+
     /**
      * Check if pip is available in the current Python environment.
      */

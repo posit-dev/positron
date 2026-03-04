@@ -12,7 +12,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -52,7 +52,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState, LanguageRuntimePackage } from 'positron';
+import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 import * as perf from '../../../../base/common/performance.js';
@@ -639,32 +639,23 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
-	async getPackages(): Promise<LanguageRuntimePackage[]> {
-		return this._proxy.$getPackages(this.handle);
-	}
+	private _packageManager: ILanguageRuntimePackageManager | undefined;
 
-	async installPackages(packages: IPackageSpec[]): Promise<void> {
-		return this._proxy.$installPackages(this.handle, packages);
-	}
-
-	async uninstallPackages(packageNames: string[]): Promise<void> {
-		return this._proxy.$uninstallPackages(this.handle, packageNames);
-	}
-
-	async updatePackages(packages: IPackageSpec[]): Promise<void> {
-		return this._proxy.$updatePackages(this.handle, packages);
-	}
-
-	async updateAllPackages(): Promise<void> {
-		return this._proxy.$updateAllPackages(this.handle);
-	}
-
-	async searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
-		return this._proxy.$searchPackages(this.handle, query);
-	}
-
-	async searchPackageVersions(name: string): Promise<string[]> {
-		return this._proxy.$searchPackageVersions(this.handle, name);
+	getPackageManager(): ILanguageRuntimePackageManager {
+		if (!this._packageManager) {
+			const proxy = this._proxy;
+			const handle = this.handle;
+			this._packageManager = {
+				getPackages: () => proxy.$getPackages(handle),
+				installPackages: (packages: IPackageSpec[]) => proxy.$installPackages(handle, packages),
+				uninstallPackages: (packageNames: string[]) => proxy.$uninstallPackages(handle, packageNames),
+				updatePackages: (packages: IPackageSpec[]) => proxy.$updatePackages(handle, packages),
+				updateAllPackages: () => proxy.$updateAllPackages(handle),
+				searchPackages: (query: string) => proxy.$searchPackages(handle, query),
+				searchPackageVersions: (name: string) => proxy.$searchPackageVersions(handle, name),
+			};
+		}
+		return this._packageManager;
 	}
 
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {

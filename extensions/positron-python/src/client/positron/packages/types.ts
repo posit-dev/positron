@@ -19,6 +19,12 @@ export interface MessageEmitter {
  */
 export interface IPackageManager {
     /**
+     * Get list of installed packages.
+     * @returns Array of installed packages
+     */
+    getPackages(): Promise<positron.LanguageRuntimePackage[]>;
+
+    /**
      * Install one or more packages.
      * @param packages Array of package install requests with name and optional version
      */

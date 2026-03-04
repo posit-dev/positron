@@ -349,55 +349,28 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-        if (this._kernel) {
-            try {
-                return await this._kernel?.callMethod('getPackagesInstalled');
-            } catch (err) {
-                this._kernel?.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
-                throw err;
-            }
-        }
-
-        throw new Error(`Cannot get packages: kernel not started`);
-    }
-
-    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
-        return this._packageManager.searchPackages(query);
-    }
-
-    async searchPackageVersions(name: string): Promise<string[]> {
-        return this._packageManager.searchPackageVersions(name);
-    }
-
-    /**
-     * Install one or more packages.
-     * Supports specifying versions with == syntax (e.g., "package==1.0.0").
-     */
-    async installPackages(packages: positron.PackageSpec[]): Promise<void> {
-        await this._packageManager.installPackages(packages);
-    }
-
-    /**
-     * Uninstall one or more packages.
-     */
-    async uninstallPackages(packageNames: string[]): Promise<void> {
-        await this._packageManager.uninstallPackages(packageNames);
-    }
-
-    /**
-     * Update specific packages to latest versions.
-     * Supports specifying versions with == syntax (e.g., "package==1.0.0").
-     */
-    async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
-        await this._packageManager.updatePackages(packages);
-    }
-
-    /**
-     * Update all installed packages to their latest versions.
-     */
-    async updateAllPackages(): Promise<void> {
-        await this._packageManager.updateAllPackages();
+    getPackageManager(): positron.LanguageRuntimePackageManager {
+        const session = this;
+        const packageManager = this._packageManager;
+        return {
+            async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+                if (session._kernel) {
+                    try {
+                        return await session._kernel.callMethod('getPackagesInstalled');
+                    } catch (err) {
+                        session._kernel.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
+                        throw err;
+                    }
+                }
+                throw new Error(`Cannot get packages: kernel not started`);
+            },
+            installPackages: (packages: positron.PackageSpec[]) => packageManager.installPackages(packages),
+            uninstallPackages: (packageNames: string[]) => packageManager.uninstallPackages(packageNames),
+            updatePackages: (packages: positron.PackageSpec[]) => packageManager.updatePackages(packages),
+            updateAllPackages: () => packageManager.updateAllPackages(),
+            searchPackages: (query: string) => packageManager.searchPackages(query),
+            searchPackageVersions: (name: string) => packageManager.searchPackageVersions(name),
+        };
     }
 
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
