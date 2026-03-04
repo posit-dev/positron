@@ -19,7 +19,7 @@ import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOption
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { useCellOutputsContainerOverflows } from './CellOutputsContainerContext.js';
+import { useCellOutputsContainerOverflows } from './CellOutputsOverflowContext.js';
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 type CellTextOutputOptions = LongOutputOptions & Pick<NotebookDisplayOptions, 'outputWordWrap'>;

@@ -26,15 +26,15 @@ import { PositronReactServicesContext } from '../../../../../../base/browser/pos
 import { PositronReactServices } from '../../../../../../base/browser/positronReactServices.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { CellOutputsContainerProvider } from '../../../browser/notebookCells/CellOutputsContainerContext.js';
+import { CellOutputsOverflowProvider } from '../../../browser/notebookCells/CellOutputsOverflowContext.js';
 
 /** Test wrapper that provides a scroll container with the given max-height. */
 function ScrollContainerWrapper({ maxHeight, children }: { maxHeight: string; children: React.ReactNode }) {
 	const ref = React.useRef<HTMLDivElement>(null);
 	return (
-		<CellOutputsContainerProvider containerRef={ref}>
+		<CellOutputsOverflowProvider containerRef={ref}>
 			<div ref={ref} style={{ maxHeight, overflow: 'auto' }}>{children}</div>
-		</CellOutputsContainerProvider>
+		</CellOutputsOverflowProvider>
 	);
 }
 
@@ -260,6 +260,53 @@ suite('CellTextOutput', () => {
 		flushSync(() => optionsEmitter.fire({ outputWordWrap: true } as NotebookOptionsChangeEvent));
 
 		assert.ok(fixture.hasClass('word-wrap'), 'Expected word-wrap after option change');
+	});
+
+	test('multiple outputs share container overflow state', async () => {
+		// Two outputs both exceed the 5-line limit with scrolling enabled.
+		// The shared container is tall enough that short outputs don't overflow,
+		// but long outputs do.
+		const shortContent = makeLines(6);
+		const longContent = makeLines(200);
+
+		const notebookOptions = {
+			onDidChangeOptions: optionsEmitter.event,
+			getLayoutConfiguration: () => layoutConfig,
+		} as unknown as NotebookOptions;
+		const instance = { notebookOptions } as unknown as IPositronNotebookInstance;
+		const services = {
+			commandService,
+			configurationService,
+			contextKeyService,
+		} as unknown as PositronReactServices;
+
+		layoutConfig = { outputLineLimit: 5, outputScrolling: true, outputWordWrap: false };
+
+		const sectionRef = React.createRef<HTMLDivElement>();
+		const container = render(
+			<PositronReactServicesContext.Provider value={services}>
+				<NotebookInstanceProvider instance={instance}>
+					<CellOutputsOverflowProvider containerRef={sectionRef}>
+						<div ref={sectionRef} style={{ maxHeight: '500px', overflow: 'auto' }}>
+							<CellTextOutput content={shortContent} type='stdout' />
+							<CellTextOutput content={longContent} type='stdout' />
+						</div>
+					</CellOutputsOverflowProvider>
+				</NotebookInstanceProvider>
+			</PositronReactServicesContext.Provider>
+		);
+		await timeout(0);
+
+		const outputs = container.querySelectorAll<HTMLDivElement>('.positron-notebook-text-output');
+		assert.strictEqual(outputs.length, 2, 'Expected two output containers');
+
+		// The container overflows (200 lines), so both outputs should be in scroll mode.
+		assert.ok(outputs[0].classList.contains('long-output-scroll'), 'Expected first output in scroll mode');
+		assert.ok(outputs[1].classList.contains('long-output-scroll'), 'Expected second output in scroll mode');
+
+		// Both should show truncation messages.
+		const messages = container.querySelectorAll<HTMLElement>('.notebook-output-truncation-message');
+		assert.strictEqual(messages.length, 2, 'Expected two truncation messages');
 	});
 
 	test('switches from truncated to normal when line limit increases', () => {

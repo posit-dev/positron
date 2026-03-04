@@ -7,23 +7,16 @@
 import React from 'react';
 
 /**
- * Context that provides a ref to the cell outputs scroll container element.
- * The context value is the ref itself (stable identity), so changes to the
- * container's content do not cause context-driven re-renders.
+ * Context that provides whether the cell outputs scroll container's content
+ * vertically overflows its max-height. `null` means not yet measured (treat
+ * as "assume overflow"). Measurement is performed once in the provider so
+ * multiple consumers share a single ResizeObserver.
  */
-const CellOutputsContainerContext = React.createContext<React.RefObject<HTMLElement | null>>({ current: null });
-
-export function CellOutputsContainerProvider({ containerRef, children }: {
-	containerRef: React.RefObject<HTMLElement | null>;
-	children: React.ReactNode;
-}) {
-	return <CellOutputsContainerContext.Provider value={containerRef}>{children}</CellOutputsContainerContext.Provider>;
-}
+const CellOutputsOverflowContext = React.createContext<boolean | null>(null);
 
 /**
- * Returns whether the scroll container's content vertically overflows its
- * max-height. `null` means the container hasn't been measured yet (treat
- * as "assume overflow").
+ * Provides overflow state for a cell outputs scroll container. Measures once
+ * via a single ResizeObserver and exposes the result through context.
  *
  * On the initial render the container ref may not yet be assigned (React
  * processes layout effects bottom-up, so child effects fire before parent
@@ -33,8 +26,10 @@ export function CellOutputsContainerProvider({ containerRef, children }: {
  * ResizeObserver handles ongoing resize events (window resize, font size
  * change) that don't trigger a React render.
  */
-export function useCellOutputsContainerOverflows(): boolean | null {
-	const containerRef = React.useContext(CellOutputsContainerContext);
+export function CellOutputsOverflowProvider({ containerRef, children }: {
+	containerRef: React.RefObject<HTMLElement | null>;
+	children: React.ReactNode;
+}) {
 	const [overflows, setOverflows] = React.useState<boolean | null>(null);
 
 	const measure = React.useCallback(() => {
@@ -46,7 +41,7 @@ export function useCellOutputsContainerOverflows(): boolean | null {
 	// Synchronous measurement on every render. On re-renders the ref is
 	// already populated, giving us a flash-free update. On the initial
 	// render the ref is null (child effects fire before parent refs) so
-	// this is a no-op --the useEffect fallback below handles that case.
+	// this is a no-op -- the useEffect fallback below handles that case.
 	// No deps array: the measurement is cheap (two property reads) and
 	// must re-run whenever children change the container's content height.
 	React.useLayoutEffect(measure);
@@ -62,5 +57,14 @@ export function useCellOutputsContainerOverflows(): boolean | null {
 		return () => observer.disconnect();
 	}, [containerRef, measure]);
 
-	return overflows;
+	return <CellOutputsOverflowContext.Provider value={overflows}>{children}</CellOutputsOverflowContext.Provider>;
+}
+
+/**
+ * Returns whether the scroll container's content vertically overflows its
+ * max-height. `null` means the container hasn't been measured yet (treat
+ * as "assume overflow").
+ */
+export function useCellOutputsContainerOverflows(): boolean | null {
+	return React.useContext(CellOutputsOverflowContext);
 }

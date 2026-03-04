@@ -29,7 +29,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
-import { CellOutputsContainerProvider } from './CellOutputsContainerContext.js';
+import { CellOutputsOverflowProvider } from './CellOutputsOverflowContext.js';
 
 
 interface CellOutputsSectionProps {
@@ -75,7 +75,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
 		)}>
 			<CellOutputLeftActionMenu cell={cell} />
-			<CellOutputsContainerProvider containerRef={sectionRef}>
+			<CellOutputsOverflowProvider containerRef={sectionRef}>
 				<section
 					ref={sectionRef}
 					aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
@@ -100,7 +100,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 						}
 					</div>
 				</section>
-			</CellOutputsContainerProvider>
+			</CellOutputsOverflowProvider>
 		</div>
 	);
 }, (prevProps, nextProps) => {
