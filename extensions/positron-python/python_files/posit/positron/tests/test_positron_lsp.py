@@ -48,6 +48,7 @@ from positron.positron_lsp import (
     _get_expression_at_position,
     _parse_os_imports,
     _safe_resolve_expression,
+    _set_completion_priority,
     create_server,
 )
 
@@ -1280,6 +1281,39 @@ class TestCompletions:
         assert column_completions == [], (
             f"Expected no column completions, got {[c.label for c in column_completions]}"
         )
+
+
+class TestSetCompletionPriority:
+    """Tests for _set_completion_priority."""
+
+    def test_existing_data_keys_preserved(self):
+        """Existing keys in data dict are preserved when priority is set."""
+        item = CompletionItem(label="foo", data={"resolve_id": 42})
+        _set_completion_priority([item])
+        assert isinstance(item.data, dict)
+        assert item.data["resolve_id"] == 42
+        assert item.data["priority"] == 1
+
+    def test_magic_gets_low_priority(self):
+        """Magic commands get low priority."""
+        item = CompletionItem(label="%magic")
+        _set_completion_priority([item])
+        assert isinstance(item.data, dict)
+        assert item.data["priority"] == -1
+
+    def test_non_magic_gets_high_priority(self):
+        """Non-magic items get high priority."""
+        item = CompletionItem(label="regular")
+        _set_completion_priority([item])
+        assert isinstance(item.data, dict)
+        assert item.data["priority"] == 1
+
+    def test_none_data_replaced(self):
+        """Items with no data get a new dict with priority."""
+        item = CompletionItem(label="foo")
+        assert item.data is None
+        _set_completion_priority([item])
+        assert item.data == {"priority": 1}
 
 
 class TestCompletionItemResolve:
