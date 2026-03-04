@@ -611,6 +611,17 @@ export function registerPositronConsoleActions() {
 					}
 				}
 
+				// Create a code location for the line we found, so that the
+				// execution can be attributed to its source file (e.g. for
+				// plot file attribution).
+				if (isString(code) && code.length > 0) {
+					const lineRange = new Range(
+						lineNumber, 1,
+						lineNumber, model.getLineLength(lineNumber) + 1
+					);
+					codeLocation = createCodeLocation(model, model.uri, lineRange);
+				}
+
 				// If we have code and a position move the cursor to the next line with code on it,
 				// or just to the next line if all additional lines are blank.
 				if (advance && isString(code)) {

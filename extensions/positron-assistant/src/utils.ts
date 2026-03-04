@@ -643,6 +643,14 @@ export function isAuthorizationError(error: any): boolean {
 }
 
 /**
+ * Check if a finish reason indicates the response was truncated due to the max output token limit.
+ * Vercel AI SDK providers use 'length'; native Anthropic SDK uses 'max_tokens'.
+ */
+export function isMaxTokensFinishReason(finishReason: string | undefined): boolean {
+	return finishReason === 'length' || finishReason === 'max_tokens';
+}
+
+/**
  * Handle getPlot tool results for OpenAI-compatible providers (chat completions endpoint).
  *
  * This creates both:

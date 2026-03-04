@@ -58,12 +58,13 @@ import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js'
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
-import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
+import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
 
 export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 	POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
 	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),
+	CONTEXT_REPLACE_INPUT_FOCUSED.toNegated(),
 );
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
@@ -400,9 +401,6 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 	}
 	deserialize(instantiationService: IInstantiationService, raw: string) {
 		const data = <SerializedPositronNotebookEditorData>parse(raw);
-		if (!data) {
-			return undefined;
-		}
 		const { resource, options } = data;
 		if (!data || !URI.isUri(resource)) {
 			return undefined;
@@ -1515,7 +1513,7 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Collapse,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
 				order: 1,
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
@@ -1542,7 +1540,7 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Collapse,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
 				order: 2,
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
@@ -1557,6 +1555,30 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell?.isCodeCell()) {
 			cell.expandOutput();
+		}
+	}
+});
+
+// Clear output for a cell
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.clearOutput',
+			title: localize2('positronNotebook.cell.clearOutput', "Clear Output"),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
+				order: 3,
+				when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			notebook.clearCellOutput(cell);
 		}
 	}
 });

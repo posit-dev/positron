@@ -202,6 +202,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         id: string,
         mode: positron.RuntimeCodeExecutionMode,
         errorBehavior: positron.RuntimeErrorBehavior,
+        codeLocation?: positron.Utf8Location,
     ): void {
         if (this._kernel) {
             if (this._isUninstallBundledPackageCommand(code, id)) {
@@ -209,7 +210,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 return;
             }
 
-            this._kernel.execute(code, id, mode, errorBehavior);
+            this._kernel.execute(code, id, mode, errorBehavior, codeLocation);
         } else {
             throw new Error(`Cannot execute '${code}'; kernel not started`);
         }
@@ -362,30 +363,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
-        const response = await fetch('https://pypi.org/simple/', {
-            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
-        });
-        const json = (await response.json()) as {
-            projects: { name: string }[];
-        };
-
-        return json.projects
-            .map((x) => x.name)
-            .filter((x) => x.includes(query))
-            .map((x) => ({
-                id: x,
-                name: x,
-                displayName: x,
-                version: '0',
-            }));
+        return this._packageManager.searchPackages(query);
     }
 
     async searchPackageVersions(name: string): Promise<string[]> {
-        const response = await fetch(`https://pypi.org/simple/${name}/`, {
-            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
-        });
-        const json = (await response.json()) as { versions: string[] };
-        return json.versions;
+        return this._packageManager.searchPackageVersions(name);
     }
 
     /**

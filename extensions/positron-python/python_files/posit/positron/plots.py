@@ -17,6 +17,7 @@ from .plot_comm import (
     PlotBackendMessageContent,
     PlotFrontendEvent,
     PlotMetadata,
+    PlotOrigin,
     PlotResult,
     PlotSize,
     PlotUnit,
@@ -75,6 +76,7 @@ class Plot:
         code: str,
         figure_num: int | str,
         on_close: Callable[[], None] | None = None,
+        origin: PlotOrigin | None = None,
     ) -> None:
         self._comm = comm
         self._render = render
@@ -84,6 +86,7 @@ class Plot:
         self._code = code
         self._figure_num = figure_num
         self._on_close = on_close
+        self._origin = origin
 
         self._closed = False
 
@@ -179,6 +182,7 @@ class Plot:
             kind=self._kind,
             execution_id=self._execution_id,
             code=self._code,
+            origin=self._origin,
         ).dict()
         self._comm.send_result(data=result)
 
@@ -219,6 +223,7 @@ class PlotsService:
         code: str,
         figure_num: int | str,
         on_close: Callable[[], None] | None = None,
+        origin: PlotOrigin | None = None,
     ) -> Plot:
         """
         Create a plot.
@@ -239,6 +244,8 @@ class PlotsService:
             The matplotlib figure number, used for generating plot names.
         on_close
             An optional callback to invoke when the plot is closed.
+        origin
+            The origin (source file) of the plot, if known.
 
         See Also
         --------
@@ -248,7 +255,15 @@ class PlotsService:
         logger.info(f"Creating plot with comm {comm_id}")
         plot_comm = PositronComm.create(self._target_name, comm_id)
         plot = Plot(
-            plot_comm, render, intrinsic_size, kind, execution_id, code, figure_num, on_close
+            plot_comm,
+            render,
+            intrinsic_size,
+            kind,
+            execution_id,
+            code,
+            figure_num,
+            on_close,
+            origin,
         )
         self._plots.append(plot)
         return plot

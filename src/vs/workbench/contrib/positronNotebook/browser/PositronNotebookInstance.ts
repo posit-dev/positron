@@ -1326,6 +1326,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 
 		this._onDidChangeContent.fire();
+
+		// Reveal the active cell at its new position so the viewport follows the move
+		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
+		activeCell?.reveal({ reason: 'keyboardNavigation', direction: 'up' });
 	}
 
 	/**
@@ -1376,6 +1380,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 
 		this._onDidChangeContent.fire();
+
+		// Reveal the active cell at its new position so the viewport follows the move
+		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
+		activeCell?.reveal({ reason: 'keyboardNavigation', direction: 'down' });
 	}
 
 	/**

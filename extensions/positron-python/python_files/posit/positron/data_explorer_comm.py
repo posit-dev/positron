@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -1998,6 +1998,8 @@ GetColumnProfilesRequest.update_forward_refs()
 SetDatasetImportOptionsParams.update_forward_refs()
 
 SetDatasetImportOptionsRequest.update_forward_refs()
+
+OpenDataExplorerRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
 
