@@ -1,0 +1,71 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.notebook-error-boundary {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 12px;
+	border-radius: 4px;
+	background-color: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.1));
+	border: 1px solid var(--vscode-inputValidation-errorBorder, red);
+	font-size: 12px;
+}
+
+.notebook-error-boundary-header {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 6px;
+}
+
+.notebook-error-boundary-icon {
+	color: var(--vscode-editorError-foreground, red);
+}
+
+.notebook-error-boundary-actions {
+	display: flex;
+	flex-direction: row;
+	gap: 8px;
+}
+
+.notebook-error-boundary-action {
+	color: var(--vscode-textLink-foreground);
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	font-size: inherit;
+}
+
+.notebook-error-boundary-action:hover {
+	text-decoration: underline;
+}
+
+.notebook-error-boundary-details {
+	overflow-x: auto;
+}
+
+.notebook-error-boundary-details code {
+	white-space: pre-wrap;
+	font-size: 11px;
+	opacity: 0.8;
+}
+
+/* Level-specific styles */
+
+.notebook-error-boundary-output {
+	margin: 4px;
+}
+
+.notebook-error-boundary-cell {
+	margin: 4px;
+}
+
+.notebook-error-boundary-editor {
+	margin: 24px auto;
+	max-width: 600px;
+	padding: 16px 24px;
+}
