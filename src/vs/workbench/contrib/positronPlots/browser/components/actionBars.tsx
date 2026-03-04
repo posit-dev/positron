@@ -34,6 +34,8 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
+import { openPlotOriginFile } from '../plotUtils.js';
+
 
 // Constants.
 const kPaddingLeft = 14;
@@ -78,6 +80,7 @@ const plotCodeActionsTooltip = localize('positronPlotCodeActions', "Plot code ac
 const copyCodeLabel = localize('positronPlots.copyCode', "Copy Code");
 const revealInConsoleLabel = localize('positronPlots.revealInConsole', "Reveal Code in Console");
 const runCodeAgainLabel = localize('positronPlots.runCodeAgain', "Run Code Again");
+const openSourceFile = localize('positronPlots.openSourceFile', "Open Source File");
 
 // Open in editor command interface and data.
 interface OpenInEditorCommand {
@@ -478,6 +481,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		const executionId = selectedPlot.metadata.execution_id;
 		const sessionId = selectedPlot.metadata.session_id;
 		const languageId = selectedPlot.metadata.language;
+		const origin = selectedPlot.metadata.origin;
 
 		return [
 			{
@@ -531,6 +535,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{ source: CodeAttributionSource.Interactive },
 						true
 					);
+				}
+			},
+			{
+				id: 'openSourceFile',
+				label: openSourceFile,
+				tooltip: '',
+				class: 'codicon codicon-go-to-file',
+				enabled: !!origin?.uri,
+				run: async () => {
+					await openPlotOriginFile(origin, services.editorService, services.logService);
 				}
 			}
 		];

@@ -3019,6 +3019,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			id,
 			pendingItem.mode,
 			pendingItem.errorBehavior,
+			pendingItem.attribution,
 		);
 
 		// Create and fire the onDidExecuteCode event.
