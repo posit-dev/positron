@@ -79,17 +79,28 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		return () => disposables.dispose();
 	}, []);
 
+	// Whether the memory usage feature is enabled.
+	const [memoryEnabled, setMemoryEnabled] = useState(
+		() => services.positronMemoryUsageService.enabled
+	);
+
 	// Memory usage snapshot state (lifted up so we can pass the label text
 	// to the DynamicActionBarAction for width measurement).
 	const [memorySnapshot, setMemorySnapshot] = useState<IMemoryUsageSnapshot | undefined>(
 		() => services.positronMemoryUsageService.currentSnapshot
 	);
 
-	// Subscribe to memory usage updates.
+	// Subscribe to memory usage updates and enabled state changes.
 	useEffect(() => {
 		const disposables = new DisposableStore();
 		disposables.add(services.positronMemoryUsageService.onDidUpdateMemoryUsage(s => {
 			setMemorySnapshot(s);
+		}));
+		disposables.add(services.positronMemoryUsageService.onDidChangeEnabled(enabled => {
+			setMemoryEnabled(enabled);
+			if (!enabled) {
+				setMemorySnapshot(undefined);
+			}
 		}));
 		return () => disposables.dispose();
 	}, [services.positronMemoryUsageService]);
@@ -183,10 +194,10 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		DEFAULT_ACTION_BAR_BUTTON_WIDTH +                 // overflow button reserved by DynamicActionBar
 		kPaddingLeft + kPaddingRight;
 
-	// Include the memory meter when the action bar is wide enough.
+	// Include the memory meter when enabled and the action bar is wide enough.
 	// Three visual states: full (bar + label), compact (label only), hidden.
 	// When no snapshot is available yet, show in loading state with "Mem" label.
-	{
+	if (memoryEnabled) {
 		const loading = !memorySnapshot;
 		const sizeLabel = loading
 			? 'Mem'
@@ -209,7 +220,7 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				fixedWidth: MEMORY_METER_FIXED_WIDTH,
 				text: sizeLabel,
 				separator: true,
-				component: <MemoryUsageMeter snapshot={memorySnapshot} loading={loading} />
+				component: <MemoryUsageMeter loading={loading} snapshot={memorySnapshot} />
 			});
 		} else if (actionBarWidth >= baseWidth + compactMeterWidth) {
 			// Compact meter: label + arrow only (no bar).
@@ -217,7 +228,7 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				fixedWidth: MEMORY_METER_COMPACT_FIXED_WIDTH,
 				text: sizeLabel,
 				separator: true,
-				component: <MemoryUsageMeter snapshot={memorySnapshot} compact loading={loading} />
+				component: <MemoryUsageMeter compact loading={loading} snapshot={memorySnapshot} />
 			});
 		}
 		// Otherwise: hidden entirely.

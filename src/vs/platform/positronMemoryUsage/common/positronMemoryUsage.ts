@@ -79,6 +79,8 @@ export interface IMemoryUsageSnapshot {
 export interface IPositronMemoryUsageService {
 	readonly _serviceBrand: undefined;
 	readonly onDidUpdateMemoryUsage: Event<IMemoryUsageSnapshot>;
+	readonly onDidChangeEnabled: Event<boolean>;
+	readonly enabled: boolean;
 	readonly currentSnapshot: IMemoryUsageSnapshot | undefined;
 }
 

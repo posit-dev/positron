@@ -23,6 +23,7 @@ const DEFAULT_POLLING_INTERVAL_MS = 10000;
 const UNFOCUSED_POLLING_INTERVAL_MS = 60000;
 const POST_EXECUTION_DELAY_MS = 2000;
 const POLLING_INTERVAL_SETTING = 'positron.memoryUsage.pollingIntervalMs';
+const ENABLED_SETTING = 'positron.memoryUsage.enabled';
 
 /** Number of consecutive poll failures before we stop retrying. */
 const MAX_CONSECUTIVE_FAILURES = 5;
@@ -35,12 +36,23 @@ const MAX_CONSECUTIVE_FAILURES = 5;
  * - Uses the configured polling interval when the window is focused (default 10s).
  * - Slows to 60s when the window loses focus.
  * - Schedules an extra poll 2s after all kernels become idle (debounced).
+ *
+ * The entire feature can be disabled via the `positron.memoryUsage.enabled`
+ * setting. When disabled, polling stops, session listeners are torn down,
+ * and the snapshot is cleared. Toggling the setting back on restores the
+ * feature immediately.
  */
 export class PositronMemoryUsageService extends Disposable implements IPositronMemoryUsageService {
 	readonly _serviceBrand: undefined;
 
 	private readonly _onDidUpdateMemoryUsage = this._register(new Emitter<IMemoryUsageSnapshot>());
 	readonly onDidUpdateMemoryUsage: Event<IMemoryUsageSnapshot> = this._onDidUpdateMemoryUsage.event;
+
+	private readonly _onDidChangeEnabled = this._register(new Emitter<boolean>());
+	readonly onDidChangeEnabled: Event<boolean> = this._onDidChangeEnabled.event;
+
+	private _enabled: boolean;
+	get enabled(): boolean { return this._enabled; }
 
 	private _currentSnapshot: IMemoryUsageSnapshot | undefined;
 	get currentSnapshot(): IMemoryUsageSnapshot | undefined { return this._currentSnapshot; }
@@ -77,18 +89,16 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 
 		this._windowFocused = this._hostService.hasFocus;
 		this._configuredIntervalMs = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
+		this._enabled = this._configurationService.getValue<boolean>(ENABLED_SETTING) !== false;
 
-		// Subscribe to new sessions
+		// Subscribe to new sessions (guarded by _enabled)
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
-			this._addSessionListener(session);
+			if (this._enabled) {
+				this._addSessionListener(session);
+			}
 		}));
 
-		// Subscribe to existing sessions
-		for (const session of this._runtimeSessionService.activeSessions) {
-			this._addSessionListener(session);
-		}
-
-		// Clean up when sessions end
+		// Clean up when sessions end (always safe to call even if not tracked)
 		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
 			this._removeSessionListener(sessionId);
 		}));
@@ -101,6 +111,9 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		// alive so that if the session restarts, new resource-usage events
 		// will repopulate the entry automatically.
 		this._register(this._runtimeSessionService.onDidChangeRuntimeState(e => {
+			if (!this._enabled) {
+				return;
+			}
 			if (e.new_state === RuntimeState.Exited) {
 				this._kernelMemory.delete(e.session_id);
 				this._poll();
@@ -109,12 +122,12 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 			}
 		}));
 
-		// Start polling with the appropriate interval
-		this._startPolling(this._effectiveInterval());
-
 		// Adjust polling when window focus changes
 		this._register(this._hostService.onDidChangeFocus(focused => {
 			this._windowFocused = focused;
+			if (!this._enabled) {
+				return;
+			}
 			this._restartPolling(this._effectiveInterval());
 			// Poll immediately when regaining focus so the UI updates right away.
 			// Also reset the failure counter so a transient error doesn't
@@ -127,11 +140,57 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 
 		// Listen for config changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(ENABLED_SETTING)) {
+				const newEnabled = this._configurationService.getValue<boolean>(ENABLED_SETTING) !== false;
+				if (newEnabled !== this._enabled) {
+					this._enabled = newEnabled;
+					if (newEnabled) {
+						this._activate();
+					} else {
+						this._deactivate();
+					}
+					this._onDidChangeEnabled.fire(newEnabled);
+				}
+			}
 			if (e.affectsConfiguration(POLLING_INTERVAL_SETTING)) {
 				this._configuredIntervalMs = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
-				this._restartPolling(this._effectiveInterval());
+				if (this._enabled) {
+					this._restartPolling(this._effectiveInterval());
+				}
 			}
 		}));
+
+		// Start up if enabled
+		if (this._enabled) {
+			this._activate();
+		}
+	}
+
+	/**
+	 * Activate the feature: subscribe to existing sessions and start polling.
+	 */
+	private _activate(): void {
+		for (const session of this._runtimeSessionService.activeSessions) {
+			this._addSessionListener(session);
+		}
+		this._consecutiveFailures = 0;
+		this._startPolling(this._effectiveInterval());
+		this._poll();
+	}
+
+	/**
+	 * Deactivate the feature: stop polling, dispose session listeners, and
+	 * clear all accumulated state.
+	 */
+	private _deactivate(): void {
+		this._stopPolling();
+		this._cancelPostExecutionTimer();
+		for (const disposables of this._sessionListeners.values()) {
+			disposables.dispose();
+		}
+		this._sessionListeners.clear();
+		this._kernelMemory.clear();
+		this._currentSnapshot = undefined;
 	}
 
 	/**
@@ -147,14 +206,19 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	 * the timer fires, the timer is reset (debounce).
 	 */
 	private _schedulePostExecutionPoll(): void {
-		if (this._postExecutionTimer !== undefined) {
-			this._postExecutionTimer.dispose();
-		}
+		this._cancelPostExecutionTimer();
 		const handle = mainWindow.setTimeout(() => {
 			this._postExecutionTimer = undefined;
 			this._poll();
 		}, POST_EXECUTION_DELAY_MS);
 		this._postExecutionTimer = toDisposable(() => mainWindow.clearTimeout(handle));
+	}
+
+	private _cancelPostExecutionTimer(): void {
+		if (this._postExecutionTimer !== undefined) {
+			this._postExecutionTimer.dispose();
+			this._postExecutionTimer = undefined;
+		}
 	}
 
 	private _addSessionListener(session: { sessionId: string; dynState: { sessionName: string }; runtimeMetadata: { runtimeName: string; languageId: string }; onDidUpdateResourceUsage: Event<{ memory_bytes: number; process_id?: number }> }): void {
@@ -198,11 +262,15 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		this._pollingDisposable = toDisposable(() => mainWindow.clearInterval(handle));
 	}
 
-	private _restartPolling(intervalMs: number): void {
+	private _stopPolling(): void {
 		if (this._pollingDisposable) {
 			this._pollingDisposable.dispose();
 			this._pollingDisposable = undefined;
 		}
+	}
+
+	private _restartPolling(intervalMs: number): void {
+		this._stopPolling();
 		this._startPolling(intervalMs);
 	}
 
@@ -222,6 +290,11 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 			const info = await this._provider.getMemoryInfo(
 				excludePids.length > 0 ? excludePids : undefined
 			);
+
+			// If the feature was disabled while the poll was in-flight, discard the result.
+			if (!this._enabled) {
+				return;
+			}
 
 			// Reset the failure counter on success.
 			this._consecutiveFailures = 0;
@@ -256,14 +329,8 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	}
 
 	override dispose(): void {
-		if (this._postExecutionTimer !== undefined) {
-			this._postExecutionTimer.dispose();
-			this._postExecutionTimer = undefined;
-		}
-		if (this._pollingDisposable) {
-			this._pollingDisposable.dispose();
-			this._pollingDisposable = undefined;
-		}
+		this._cancelPostExecutionTimer();
+		this._stopPolling();
 		for (const disposables of this._sessionListeners.values()) {
 			disposables.dispose();
 		}
