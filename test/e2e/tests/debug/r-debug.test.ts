@@ -224,7 +224,7 @@ test.describe('R Breakpoints', {
 		breakpointSession = await sessions.start('r');
 	});
 
-	test.afterEach(async ({ app, page, hotKeys }) => {
+	test.afterEach(async ({ app, page, hotKeys, cleanup }) => {
 		// Focus the console
 		await app.workbench.console.focus();
 
@@ -241,6 +241,9 @@ test.describe('R Breakpoints', {
 
 		// Close all editors (handles "Don't Save" dialog)
 		await hotKeys.closeAllEditors();
+
+		// Discard any file changes so next test starts clean
+		await cleanup.discardAllChanges();
 
 		// Clear console
 		await app.workbench.console.clearButton.click();
