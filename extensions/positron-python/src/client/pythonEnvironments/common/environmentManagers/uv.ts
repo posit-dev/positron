@@ -16,7 +16,7 @@ import { splitLines } from '../../../common/stringUtils';
 class UvUtils {
     private static uvPromise: Promise<UvUtils | undefined>;
 
-    constructor(public readonly command: string) { }
+    constructor(public readonly command: string) {}
 
     public static async getUvUtils(): Promise<UvUtils | undefined> {
         if (UvUtils.uvPromise === undefined || isTestExecution()) {
@@ -169,7 +169,10 @@ export async function getUvPythonVersionInfo(requestedVersion: string): Promise<
             return undefined;
         }
 
-        const lines = output.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+        const lines = output
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
         if (lines.length === 0) {
             return undefined;
         }
