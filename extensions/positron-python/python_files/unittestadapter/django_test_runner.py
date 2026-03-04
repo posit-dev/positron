@@ -5,6 +5,11 @@ import os
 import pathlib
 import sys
 
+# --- Start Positron ---
+from typing import Optional
+
+# --- End Positron ---
+
 script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
 
@@ -78,7 +83,11 @@ class CustomExecutionTestRunner(DiscoverRunner):
 
     def get_test_runner_kwargs(self):
         """Override to provide custom test runner; resultclass."""
-        test_run_pipe: str | None = os.getenv("TEST_RUN_PIPE")
+        # --- Start Positron ---
+        # Make this work on python 3.9
+        # test_run_pipe: str | None = os.getenv("TEST_RUN_PIPE")
+        test_run_pipe: Optional[str] = os.getenv("TEST_RUN_PIPE")
+        # --- End Positron ---
         if not test_run_pipe:
             error_msg = (
                 "UNITTEST ERROR: TEST_RUN_PIPE is not set at the time of Django trying to send data. "
