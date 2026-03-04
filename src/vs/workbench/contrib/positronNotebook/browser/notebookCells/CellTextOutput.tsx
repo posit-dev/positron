@@ -37,19 +37,6 @@ type TruncationResult =
 	);
 
 
-function useLongOutputBehavior(content: string, options: LongOutputOptions) {
-	const overflows = useCellOutputsContainerOverflows();
-	const truncation = truncateToNumberOfLines(content, options);
-
-	// When in scroll mode but content doesn't actually overflow the
-	// max-height container, downgrade to 'normal' so the scroll chrome
-	// (max-height, scrollbars, truncation message) is hidden.
-	// `overflows === null` means not yet measured --keep scroll mode.
-	const effectiveMode = truncation.mode === 'scroll' && overflows === false
-		? 'normal' : truncation.mode;
-
-	return { truncation, effectiveMode };
-}
 
 function useCellTextOutputOptions(): CellTextOutputOptions {
 	const instance = useNotebookInstance();
@@ -98,7 +85,15 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
 	const services = usePositronReactServicesContext();
 	const { outputLineLimit, outputScrolling, outputWordWrap } = useCellTextOutputOptions();
-	const { truncation, effectiveMode } = useLongOutputBehavior(content, { outputLineLimit, outputScrolling });
+	const overflows = useCellOutputsContainerOverflows();
+	const truncation = truncateToNumberOfLines(content, { outputLineLimit, outputScrolling });
+
+	// When in scroll mode but content doesn't actually overflow the
+	// max-height container, downgrade to 'normal' so the scroll chrome
+	// (max-height, scrollbars, truncation message) is hidden.
+	// `overflows === null` means not yet measured -- keep scroll mode.
+	const effectiveMode = truncation.mode === 'scroll' && overflows === false
+		? 'normal' : truncation.mode;
 
 	return <>
 		<div className={positronClassNames(
