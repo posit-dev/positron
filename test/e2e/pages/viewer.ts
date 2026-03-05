@@ -69,6 +69,7 @@ export class Viewer {
 
 		await test.step('Expect content visible in viewer frame', async () => {
 			await expect(async () => {
+				// Get the frame and locator for the content
 				const frame = !this.code.electronApp
 					? this.viewerFrame.frameLocator('iframe')
 					: this.getViewerFrame();
@@ -82,10 +83,12 @@ export class Viewer {
 					// Frame might not be accessible after ERR_CONNECTION_RESET
 				}
 
+				// If content isn't visible, call onRetry to allow restarting the server
 				if (!isVisible && onRetry) {
 					await onRetry();
 				}
 
+				// Expect the content to be visible
 				await expect(locator).toBeVisible({ timeout: 5000 });
 			}).toPass({ timeout });
 		});
