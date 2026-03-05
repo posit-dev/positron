@@ -73,10 +73,7 @@ test.describe('Python Applications', {
 
 			await openFile(join('workspaces', 'python_apps', appTest.filePath));
 
-			// Press play and verify the content is visible in the viewer frame.
-			// If content isn't visible (e.g., due to ERR_CONNECTION_RESET), interrupt
-			// the server and restart it - the second attempt usually succeeds since
-			// Python/packages are already loaded.
+			// Press play and verify the content is visible in the viewer frame
 			await editor.pressPlay();
 			await viewer.expectContentVisible(appTest.locator, {
 				onRetry: async () => {
