@@ -101,6 +101,8 @@ import { McpGalleryManifestIPCService } from '../../platform/mcp/common/mcpGalle
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
 import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
+import { PositronMemoryUsageServerService } from '../../platform/positronMemoryUsage/node/positronMemoryUsageServerService.js';
+import { POSITRON_MEMORY_INFO_CHANNEL_NAME, PositronMemoryInfoChannel } from '../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
 import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentEnvironment.js';
 // --- End Positron ---
 
@@ -268,7 +270,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		const extensionGalleryService = accessor.get(IExtensionGalleryService);
 		const languagePackService = accessor.get(ILanguagePackService);
 		// --- Start Positron ---
-         // add licensee info
+		// add licensee info
 		const remoteExtensionEnvironmentChannel = new RemoteAgentEnvironmentChannel(connectionToken, environmentService, userDataProfilesService, extensionHostStatusService, logService, positronLicenseeInfo);
 		// --- End Positron ---
 		socketServer.registerChannel('remoteextensionsenvironment', remoteExtensionEnvironmentChannel);
@@ -297,6 +299,11 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		// Ephemeral State
 		const ephemeralStateChannel = new EphemeralStateChannel(accessor.get(IEphemeralStateService));
 		socketServer.registerChannel(EPHEMERAL_STATE_CHANNEL_NAME, ephemeralStateChannel);
+
+		// Memory Usage
+		const memoryUsageServerService = new PositronMemoryUsageServerService();
+		const memoryInfoChannel = new PositronMemoryInfoChannel(memoryUsageServerService);
+		socketServer.registerChannel(POSITRON_MEMORY_INFO_CHANNEL_NAME, memoryInfoChannel);
 		// --- End Positron ---
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());

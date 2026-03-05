@@ -32,10 +32,16 @@ export class Variables {
 	get interpreterLocator(): Locator { return this.code.driver.page.locator(VARIABLES_INTERPRETER); }
 	variablesPane: Locator;
 	variablesRuntime: (name: string | RegExp) => Locator;
+	memoryMeter: Locator;
+	memoryDropdown: Locator;
+	memorySizeLabel: Locator;
 
 	constructor(private code: Code, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
 		this.variablesRuntime = (name: string | RegExp) => this.variablesPane.getByRole('button', { name });
+		this.memoryMeter = this.code.driver.page.locator('.memory-usage-meter');
+		this.memoryDropdown = this.code.driver.page.locator('.memory-usage-dropdown');
+		this.memorySizeLabel = this.code.driver.page.locator('.memory-size-label');
 	}
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
@@ -163,7 +169,7 @@ export class Variables {
 	 */
 	async selectSession(name: string) {
 		await this.contextMenu.triggerAndClick({
-			menuTrigger: this.code.driver.page.locator('.positron-variables .positron-action-bar').nth(1).locator('button'),
+			menuTrigger: this.code.driver.page.locator('.positron-variables .positron-action-bar').first().locator('button'),
 			menuItemLabel: name,
 		});
 	}
@@ -254,5 +260,54 @@ export class Variables {
 			await expect(this.interpreterLocator).toBeVisible();
 			await expect(this.interpreterLocator).toHaveText(sessionName);
 		});
+	}
+
+	/**
+	 * Wait for the memory meter to be visible and showing a real value (not loading state).
+	 * Focuses the variables view first to ensure the meter is visible.
+	 */
+	async expectMemoryMeterReady() {
+		await this.focusVariablesView();
+		await expect(this.memoryMeter).toBeVisible({ timeout: 30000 });
+		await expect(this.memorySizeLabel).not.toHaveText('Mem', { timeout: 30000 });
+	}
+
+	/**
+	 * Open the memory usage dropdown by clicking the memory meter.
+	 * Does nothing if already open.
+	 */
+	async openMemoryDropdown() {
+		if (!await this.memoryDropdown.isVisible()) {
+			await this.memoryMeter.click();
+			await expect(this.memoryDropdown).toBeVisible({ timeout: 15000 });
+		}
+	}
+
+	/**
+	 * Close the memory usage dropdown by pressing Escape.
+	 */
+	async closeMemoryDropdown() {
+		await this.code.driver.page.keyboard.press('Escape');
+		await expect(this.memoryDropdown).not.toBeVisible();
+	}
+
+	/**
+	 * Verify sessions appear (or do not appear) in the memory usage dropdown.
+	 * Opens the dropdown if not already visible, checks all sessions, then closes it.
+	 * @param sessions record mapping session names to expected visibility
+	 */
+	async expectSessionsInMemoryDropdown(sessions: Record<string, boolean>) {
+		await this.openMemoryDropdown();
+
+		for (const [sessionName, visible] of Object.entries(sessions)) {
+			const sessionLocator = this.memoryDropdown.locator('.usage-name').filter({ hasText: sessionName });
+			if (visible) {
+				await expect(sessionLocator).toBeVisible({ timeout: 15000 });
+			} else {
+				await expect(sessionLocator).not.toBeVisible({ timeout: 15000 });
+			}
+		}
+
+		await this.closeMemoryDropdown();
 	}
 }
