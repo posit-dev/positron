@@ -34,7 +34,34 @@ test.describe('Python Applications', {
 				: viewer.getViewerFrame().getByText('Hello World')
 		).toBeVisible({ timeout: 30000 });
 
+		await test.step('Verify Clear Current URL button clears Viewer', async () => {
+			// Click the Viewer tab to ensure buttons are visible
+			await app.code.driver.page.getByRole('tab', { name: 'Viewer' }).locator('a').click();
+
+			// Click the clear button
+			const clearButton = viewer.fullApp.getByLabel(/Clear the current URL/);
+			await expect(clearButton).toBeVisible({ timeout: 5000 });
+			await clearButton.click();
+
+			// Verify the iframe is removed
+			await expect(async () => {
+				const iframeLocator = app.web
+					? viewer.viewerFrame.locator('iframe')
+					: viewer.getViewerFrame().locator('iframe');
+				const count = await iframeLocator.count();
+				expect(count).toBe(0);
+			}).toPass({ timeout: 10000 });
+		});
+
 		await test.step('Verify app can be opened in editor', async () => {
+			// Re-run the app since we cleared it
+			await app.workbench.editor.pressPlay();
+			await expect(
+				app.web
+					? viewer.viewerFrame.frameLocator('iframe').getByText('Hello World')
+					: viewer.getViewerFrame().getByText('Hello World')
+			).toBeVisible({ timeout: 30000 });
+
 			await app.workbench.viewer.openViewerToEditor();
 			await app.workbench.viewer.clearViewer();
 
