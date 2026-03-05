@@ -459,6 +459,7 @@ export class Sessions {
 				// may include additional items above the desired interpreter string.
 				await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
 				await this.quickinput.waitForQuickInputClosed();
+				await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes');
 			}, 'Select runtime from quick pick').toPass({ timeout: 30000 });
 
 			// Move mouse to prevent tooltip hover
