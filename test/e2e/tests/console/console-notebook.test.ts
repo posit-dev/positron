@@ -85,6 +85,7 @@ test.describe('Notebook → Console Interaction (no shared state assumed)', {
 		});
 	}
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('Console remains usable after notebook cell execution (Python)',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -117,6 +118,7 @@ test.describe('Notebook → Console Interaction (no shared state assumed)', {
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('Console remains usable after executing multiple notebook cells',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -163,6 +165,7 @@ test.describe('Notebook → Console Interaction (no shared state assumed)', {
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('Console usable after large notebook output',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -185,7 +188,7 @@ test.describe('Notebook → Console Interaction (no shared state assumed)', {
 					0,
 					`
 for i in range(200):
-    print(i)
+	print(i)
 `,
 					{
 						run: true,
@@ -205,6 +208,7 @@ for i in range(200):
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('Console usable after busy → idle kernel transition',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -244,6 +248,7 @@ time.sleep(2)
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('Console usable after Run button execution',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -274,6 +279,7 @@ time.sleep(2)
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('R console remains usable after notebook execution',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -308,6 +314,7 @@ time.sleep(2)
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('Console can access variables defined in notebook',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -337,6 +344,7 @@ time.sleep(2)
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('Console usable after notebook cell raises exception',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -365,6 +373,7 @@ time.sleep(2)
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('Console reconnects after notebook kernel restart',
 		async ({ app, sessions, settings }) => {
 			const { notebooksPositron, console } = app.workbench;
@@ -402,6 +411,7 @@ time.sleep(2)
 		}
 	);
 
+	// TODO: Unskip when #11704 is resolved (console focus preservation after notebook cell execution)
 	test.skip('R console handles data frames after notebook execution', {
 		tag: [tags.ARK]
 	}, async ({ app, sessions, settings }) => {
