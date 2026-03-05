@@ -603,6 +603,9 @@ export class MainThreadLanguageFeatures extends Disposable implements MainThread
 			commitCharacters: commitChars ? Array.from(commitChars) : undefined,
 			additionalTextEdits: data[ISuggestDataDtoField.additionalTextEdits],
 			command,
+			// --- Start Positron ---
+			priority: data[ISuggestDataDtoField.priority],
+			// --- End Positron ---
 			// not-standard
 			_id: data.x,
 		};

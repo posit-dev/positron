@@ -59,6 +59,23 @@ _SHELL_PREFIX = "!"
 # Custom LSP method for help topic requests
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 
+# Highest-priority item wins deduplication in Positron core.
+_PRIORITY_HIGH = 1
+_PRIORITY_LOW = -1
+
+
+@attrs.define
+class PositronHover:
+    """Hover response with an extra ``data`` field for priority.
+
+    Extends lsprotocol's Hover with a ``data`` field carrying priority info.
+    See the patch to the client's protocol in positron-python/src/client/positron/lsp.ts.
+    """
+
+    contents: types.MarkupContent = attrs.field()
+    data: dict[str, int] = attrs.field()
+
+
 # Pre-compiled regex patterns used throughout the LSP server
 _RE_STATEMENT_SPLIT = re.compile(r"[;\n]")
 """Split source code by statement separators (semicolons or newlines)"""
@@ -619,7 +636,7 @@ def _register_features(server: PositronLanguageServer) -> None:
 
     # --- Hover ---
     @server.feature(types.TEXT_DOCUMENT_HOVER)
-    def hover(params: types.TextDocumentPositionParams) -> types.Hover | None:
+    def hover(params: types.TextDocumentPositionParams) -> PositronHover | None:
         """Provide hover information."""
         return _handle_hover(server, params)
 
@@ -640,6 +657,20 @@ def _register_features(server: PositronLanguageServer) -> None:
 
 
 # --- Completion Handlers ---
+
+
+def _set_completion_priority(items: list[types.CompletionItem]) -> None:
+    """Set priority on positron-python completion items for deduplication.
+
+    High for most items (win over static analysis), low for magic commands (lose to static analysis).
+    """
+    for item in items:
+        is_magic = isinstance(item.label, str) and item.label.startswith(_LINE_MAGIC_PREFIX)
+        priority = _PRIORITY_LOW if is_magic else _PRIORITY_HIGH
+        if isinstance(item.data, dict):
+            item.data["priority"] = priority
+        else:
+            item.data = {"priority": priority}
 
 
 def _handle_completion(
@@ -720,6 +751,7 @@ def _handle_completion(
             server, text_before_cursor, text_after_cursor, params.position
         )
         if path_items:
+            _set_completion_priority(path_items)
             return types.CompletionList(is_incomplete=False, items=path_items)
 
     if not subscript_match:
@@ -745,6 +777,8 @@ def _handle_completion(
     if not (is_completing_attribute or has_whitespace or has_string):
         items.extend(_get_magic_completions(server, text_before_cursor))
 
+    if items:
+        _set_completion_priority(items)
     return types.CompletionList(is_incomplete=False, items=items) if items else None
 
 
@@ -1768,7 +1802,7 @@ def _handle_completion_resolve(
 
 def _handle_hover(
     server: PositronLanguageServer, params: types.TextDocumentPositionParams
-) -> types.Hover | None:
+) -> PositronHover | None:
     """Handle hover requests for Console documents."""
     if server.shell is None:
         return None
@@ -1806,11 +1840,15 @@ def _handle_hover(
 
     content = "\n".join(parts)
 
-    return types.Hover(
+    # High priority for hovers with unique positron-python data (DataFrame previews);
+    # low for basic type info so the static analysis provider's hover wins.
+    priority = _PRIORITY_HIGH if _is_dataframe_like(obj) else _PRIORITY_LOW
+    return PositronHover(
         contents=types.MarkupContent(
             kind=types.MarkupKind.Markdown,
             value=content,
-        )
+        ),
+        data={"priority": priority},
     )
 
 

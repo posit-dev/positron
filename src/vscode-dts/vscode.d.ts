@@ -3135,6 +3135,14 @@ declare module 'vscode' {
 		 * @param range The range to which the hover applies.
 		 */
 		constructor(contents: MarkdownString | MarkedString | Array<MarkdownString | MarkedString>, range?: Range);
+
+		// --- Start Positron ---
+		/**
+		 * Priority for deduplication. Only the hover(s) with the highest
+		 * priority are shown; all others are suppressed.
+		 */
+		priority?: number;
+		// --- End Positron ---
 	}
 
 	/**
@@ -5107,6 +5115,14 @@ declare module 'vscode' {
 		 * @param kind The {@link CompletionItemKind kind} of the completion.
 		 */
 		constructor(label: string | CompletionItemLabel, kind?: CompletionItemKind);
+
+		// --- Start Positron ---
+		/**
+		 * Priority for deduplication and sorting. Higher priority items win
+		 * dedup contests and sort before lower priority items.
+		 */
+		priority?: number;
+		// --- End Positron ---
 	}
 
 	/**
