@@ -20,6 +20,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { JsonRpcErrorCode, PositronCommError } from '../../../../services/languageRuntime/common/positronBaseComm.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 
 // Height calculation constants (from inlineTableDataGridInstance.tsx constructor options)
 const HEADER_HEIGHT = 28;  // columnHeadersHeight
@@ -91,6 +92,7 @@ function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
 export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	const { commId, shape, title, variablePath, onFallback } = props;
 	const services = PositronReactServices.services;
+	const notebookInstance = useNotebookInstance();
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
 	// Don't create DisposableStore in useRef - it will leak on remount.
@@ -202,12 +204,14 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	}, [commId, dataExplorerService, onFallback]);
 
 	const handleOpenInExplorer = async () => {
-		// If we have a variable path, check for an existing full explorer first.
-		// The lookup key includes the session ID, so even if multiple sessions
-		// share a variable name like "df", only the correct session's instance
-		// will match.
+		// If we have a variable path, check for an existing full explorer
+		// scoped to this notebook's session to avoid focusing a different
+		// notebook's explorer that happens to share the same variable name.
 		if (variablePath && variablePath.length > 0) {
-			for (const session of services.runtimeSessionService.activeSessions) {
+			const session = services.runtimeSessionService.getNotebookSessionForNotebookUri(
+				notebookInstance.uri
+			);
+			if (session) {
 				const existing = dataExplorerService.getInstanceForVariablePath(
 					session.sessionId, variablePath
 				);
