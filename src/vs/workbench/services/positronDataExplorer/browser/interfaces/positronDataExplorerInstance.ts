@@ -151,6 +151,8 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Sets the visibility state of the data explorer.
 	 * When not visible, expensive operations like data fetching and profile computation
 	 * are deferred until the explorer becomes visible again.
+	 * Implementations may be reference-counted when multiple editors share
+	 * the same data explorer instance.
 	 * @param visible Whether the data explorer is currently visible.
 	 */
 	setVisible(visible: boolean): void;

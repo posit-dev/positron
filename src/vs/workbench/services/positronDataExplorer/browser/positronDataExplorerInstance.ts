@@ -123,6 +123,15 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	private _fileHasHeaderRow = true;
 
+	/**
+	 * The number of editor panes currently showing this instance.
+	 *
+	 * A single data explorer instance can be rendered by multiple editors
+	 * (for example, after splitting the editor). We only mark the internal
+	 * data grids hidden when the last visible editor detaches.
+	 */
+	private _visibleEditorCount = 0;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -498,9 +507,31 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * @param visible Whether the data explorer is currently visible.
 	 */
 	setVisible(visible: boolean): void {
-		// Propagate visibility to both data grid instances.
-		this._tableSchemaDataGridInstance.setVisible(visible);
-		this._tableDataDataGridInstance.setVisible(visible);
+		if (visible) {
+			this._visibleEditorCount++;
+
+			// Instance was already visible from another editor.
+			if (this._visibleEditorCount > 1) {
+				return;
+			}
+
+			// Transitioned from hidden -> visible.
+			this._tableSchemaDataGridInstance.setVisible(true);
+			this._tableDataDataGridInstance.setVisible(true);
+			return;
+		}
+
+		// Guard against mismatched visibility calls.
+		this._visibleEditorCount = Math.max(0, this._visibleEditorCount - 1);
+
+		// Another editor is still showing this instance.
+		if (this._visibleEditorCount !== 0) {
+			return;
+		}
+
+		// Transitioned from visible -> hidden.
+		this._tableSchemaDataGridInstance.setVisible(false);
+		this._tableDataDataGridInstance.setVisible(false);
 	}
 
 	/**

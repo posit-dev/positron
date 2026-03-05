@@ -78,6 +78,12 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	private _identifier?: string;
 
 	/**
+	 * Tracks whether this editor has marked its data explorer instance visible.
+	 * Used to balance visibility calls when an instance is shared by multiple editors.
+	 */
+	private _hasMarkedInstanceVisible = false;
+
+	/**
 	 * Gets the is focused context key.
 	 */
 	private readonly _isFocusedContextKey: IContextKey<boolean>;
@@ -427,7 +433,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 				// Mark the instance as visible now that the editor is active.
 				// This will trigger any deferred refresh operations.
-				positronDataExplorerInstance.setVisible(true);
+				if (!this._hasMarkedInstanceVisible) {
+					positronDataExplorerInstance.setVisible(true);
+					this._hasMarkedInstanceVisible = true;
+				}
 			} else {
 				this._positronReactRenderer.render(
 					<PositronDataExplorerClosed
@@ -448,12 +457,13 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	override clearInput(): void {
 		// Mark the instance as not visible before disposing.
 		// This ensures that expensive operations are deferred while the tab is hidden.
-		if (this._identifier) {
+		if (this._identifier && this._hasMarkedInstanceVisible) {
 			const instance = this._positronDataExplorerService.getInstance(this._identifier);
 			if (instance) {
 				instance.setVisible(false);
 			}
 		}
+		this._hasMarkedInstanceVisible = false;
 
 		// Dispose the PositronReactRenderer.
 		this.disposePositronReactRenderer();
