@@ -240,6 +240,29 @@ class PositronDisplayFormatter(DisplayFormatter):
     def _default_formatter(self):
         return PositronIPythonDisplayFormatter(parent=self)
 
+    def _resolve_variable_name(self, obj) -> str | None:
+        """Find the top-level variable name for an object by scanning user_ns.
+
+        Returns the first non-hidden variable name whose value is the same
+        object (by identity), or None if no match is found.
+        """
+        shell = self.parent
+        if shell is None:
+            return None
+
+        user_ns = shell.user_ns or {}
+        hidden = shell.user_ns_hidden or {}
+
+        for name, value in user_ns.items():
+            if value is not obj:
+                continue
+            # Skip hidden variables (IPython internals like _, __, _oh, etc.)
+            if name in hidden:
+                continue
+            return name
+
+        return None
+
     def format(self, obj, include=None, exclude=None):
         """Format an object for display, with special handling for dataframes in notebooks."""
         # Get the standard format result first
@@ -255,29 +278,36 @@ class PositronDisplayFormatter(DisplayFormatter):
 
         # Register the table with data explorer service and get comm_id
         try:
-            # Generate a unique title for the inline display
             rows, cols = _get_table_shape(obj)
             source = _get_table_source(obj)
-            title = source
 
-            # Register without opening a full data explorer panel
+            # Try to resolve the top-level variable name
+            var_name = self._resolve_variable_name(obj)
+            if var_name is not None:
+                title = var_name
+                variable_path = [encode_access_key(var_name)]
+            else:
+                title = source
+                variable_path = None
+
             comm_id = self._kernel.data_explorer_service.register_table(
                 obj,
                 title,
-                variable_path=None,  # No variable path for inline displays
-                inline_only=True,  # Prevent auto-opening full data explorer
+                variable_path=variable_path,
+                inline_only=True,
             )
 
-            # Add the custom MIME type with metadata for the inline data explorer
-            format_dict[POSITRON_DATA_EXPLORER_MIME] = json.dumps(
-                {
-                    "version": 1,
-                    "comm_id": comm_id,
-                    "shape": {"rows": rows, "columns": cols},
-                    "title": title,
-                    "source": source,
-                }
-            )
+            payload: dict[str, Any] = {
+                "version": 1,
+                "comm_id": comm_id,
+                "shape": {"rows": rows, "columns": cols},
+                "title": title,
+                "source": source,
+            }
+            if variable_path is not None:
+                payload["variable_path"] = variable_path
+
+            format_dict[POSITRON_DATA_EXPLORER_MIME] = json.dumps(payload)
 
         except Exception:
             # If registration fails, just use the standard format
