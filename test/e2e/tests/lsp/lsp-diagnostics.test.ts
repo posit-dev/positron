@@ -15,7 +15,10 @@ test.describe('Diagnostics', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
-		await settings.set({ 'python.pyrefly.displayTypeErrors': 'force-on' });
+		await settings.set({
+			'python.pyrefly.displayTypeErrors': 'force-on',
+			'positron.notebook.enabled': true
+		});
 	});
 
 	test.afterEach(async function ({ runCommand }) {
@@ -68,6 +71,7 @@ test.describe('Diagnostics', {
 	// Adding these additional tests to ensure a more robust coverage
 	// The idea is to use different scenarios as a proxy for potential pyrefly issues/delays/halts
 	// Some tests may appear redundant, but they are designed to catch potential breakages in pyrefly functionality
+	// NOTE: Check on maintenance over time - if pyrefly changes warning text too often, we may want to consider removing that line.
 
 	test('Python - File shows diagnostic for non-existent module import', async function ({ app, runCommand, sessions, python }) {
 		const { problems, editor } = app.workbench;
@@ -153,17 +157,17 @@ test.describe('Diagnostics', {
 		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
 	});
 
-	test.skip('Python - Notebook shows diagnostic for undefined variable', async function ({ app, runCommand, hotKeys }) {
-		const { problems, notebooks } = app.workbench;
+	test('Python - Notebook shows diagnostic for undefined variable', async function ({ app, hotKeys }) {
+		const { problems, notebooksPositron } = app.workbench;
 
-		await test.step('Create notebook', async () => {
-			await runCommand('Python: Create New Notebook');
-			await notebooks.selectCellAtIndex(0);
+		await test.step('Create notebook and select Python kernel', async () => {
+			await notebooksPositron.newNotebook();
+			await notebooksPositron.kernel.select('Python');
 		});
 
 		await test.step('Add code with undefined variable', async () => {
-			await notebooks.typeInEditor('x = 1\nprint(xx)');
-			await notebooks.waitForActiveCellEditorContents('x = 1 print(xx)');
+			await notebooksPositron.addCodeToCell(0, 'x = 1\nprint(xx)');
+			await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(xx)']);
 		});
 
 		await test.step('Verify diagnostic appears', async () => {
@@ -171,9 +175,10 @@ test.describe('Diagnostics', {
 		});
 
 		await test.step('Fix the error', async () => {
+			await notebooksPositron.selectCellAtIndex(0, { editMode: true });
 			await hotKeys.selectAll();
-			await notebooks.typeInEditor('x = 1\nprint(x)');
-			await notebooks.waitForActiveCellEditorContents('x = 1 print(x)');
+			await notebooksPositron.editorAtIndex(0).pressSequentially('x = 1\nprint(x)');
+			await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(x)']);
 		});
 
 		await test.step('Verify diagnostic is cleared', async () => {
