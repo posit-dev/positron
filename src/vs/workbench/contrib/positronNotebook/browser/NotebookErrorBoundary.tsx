@@ -44,10 +44,20 @@ type NotebookErrorBoundaryProps = NotebookErrorBoundaryBaseProps & (
  */
 interface NotebookErrorBoundaryState {
 	hasError: boolean;
-	error?: Error;
+	errorMessage?: string;
 	componentStack?: string;
 	showDetails: boolean;
 	retryCount: number;
+}
+
+/**
+ * Safely extract a message from a thrown value, which may not be an Error.
+ */
+function getErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	return String(error ?? 'Unknown error');
 }
 
 /**
@@ -84,7 +94,7 @@ export class NotebookErrorBoundary extends React.Component<
 	}
 
 	static getDerivedStateFromError(error: Error): Partial<NotebookErrorBoundaryState> {
-		return { hasError: true, error, componentStack: undefined, showDetails: false };
+		return { hasError: true, errorMessage: getErrorMessage(error), componentStack: undefined, showDetails: false };
 	}
 
 	override componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
@@ -93,7 +103,7 @@ export class NotebookErrorBoundary extends React.Component<
 		this.setState({ componentStack });
 
 		logService.error(
-			`Positron Notebook | ErrorBoundary (${level}) | Component "${componentName}" failed to render: ${error.message}`,
+			`Positron Notebook | ErrorBoundary (${level}) | Component "${componentName}" failed to render: ${getErrorMessage(error)}`,
 			componentStack
 		);
 	}
@@ -101,7 +111,7 @@ export class NotebookErrorBoundary extends React.Component<
 	private handleRetry = (): void => {
 		this.setState(prevState => ({
 			hasError: false,
-			error: undefined,
+			errorMessage: undefined,
 			componentStack: undefined,
 			showDetails: false,
 			retryCount: prevState.retryCount + 1,
@@ -124,7 +134,7 @@ export class NotebookErrorBoundary extends React.Component<
 	override render(): React.ReactNode {
 		if (this.state.hasError) {
 			const { level } = this.props;
-			const { error, componentStack, showDetails } = this.state;
+			const { errorMessage, componentStack, showDetails } = this.state;
 			const message = levelMessages[level];
 			const isEditorLevel = level === 'editor';
 
@@ -160,7 +170,7 @@ export class NotebookErrorBoundary extends React.Component<
 					{showDetails && (
 						<div className='notebook-error-boundary-details'>
 							<code>
-								{error?.message}
+								{errorMessage}
 								{componentStack && <>{'\n'}{componentStack}</>}
 							</code>
 						</div>

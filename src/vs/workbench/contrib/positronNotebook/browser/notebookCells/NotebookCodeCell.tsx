@@ -114,11 +114,6 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 });
 
 export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
-	// TEMPORARY: error boundary test trigger - remove before merging
-	if (cell.getContent().includes('__CELL_ERROR_TEST__')) {
-		throw new Error('Test error: cell rendering failure');
-	}
-
 	const outputContents = useObservedValue(cell.outputs);
 	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
@@ -145,11 +140,6 @@ export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: {
 });
 
 const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
-	// TEMPORARY: error boundary test trigger - remove before merging
-	if ('content' in output.parsed && String(output.parsed.content).includes('__OUTPUT_ERROR_TEST__')) {
-		throw new Error('Test error: output rendering failure');
-	}
-
 	if (output.preloadMessageResult) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
