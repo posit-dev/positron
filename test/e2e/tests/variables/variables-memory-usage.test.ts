@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -21,7 +21,7 @@ test.describe('Variables: Memory Usage', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('Shut-down session is removed from memory usage meter', { tag: [tags.WEB] }, async function ({ app, page, sessions, settings }) {
+	test('Shut-down session is removed from memory usage meter', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
 		const { console, variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly
@@ -30,26 +30,14 @@ test.describe('Variables: Memory Usage', {
 		// Start two sessions
 		const [pySession, rSession] = await sessions.start(['python', 'r']);
 
-		// Focus variables view so the memory meter is visible
-		await variables.focusVariablesView();
-
-		// Wait for the memory meter to appear with a real value (not loading)
-		const memoryMeter = page.locator('.memory-usage-meter');
-		await expect(memoryMeter).toBeVisible({ timeout: 30000 });
-		await expect(memoryMeter.locator('.memory-size-label')).not.toHaveText('Mem', { timeout: 30000 });
-
-		// Click the memory meter to open the dropdown
-		await memoryMeter.click();
+		// Wait for the memory meter to be ready
+		await variables.expectMemoryMeterReady();
 
 		// Verify both sessions appear in the dropdown
-		const dropdown = page.locator('.memory-usage-dropdown');
-		await expect(dropdown).toBeVisible({ timeout: 15000 });
-		await expect(dropdown.locator('.usage-name').filter({ hasText: pySession.name })).toBeVisible();
-		await expect(dropdown.locator('.usage-name').filter({ hasText: rSession.name })).toBeVisible();
-
-		// Close the dropdown by pressing Escape
-		await page.keyboard.press('Escape');
-		await expect(dropdown).not.toBeVisible();
+		await variables.openMemoryDropdown();
+		await variables.expectSessionInMemoryDropdown(pySession.name, true);
+		await variables.expectSessionInMemoryDropdown(rSession.name, true);
+		await variables.closeMemoryDropdown();
 
 		// Shut down the Python session (not delete)
 		await sessions.select(pySession.name);
@@ -58,24 +46,16 @@ test.describe('Variables: Memory Usage', {
 
 		// Switch to the R session so the variables pane is active
 		await sessions.select(rSession.name);
-		await variables.focusVariablesView();
-
-		// Open the memory meter dropdown again
-		await expect(memoryMeter).toBeVisible({ timeout: 15000 });
-		await memoryMeter.click();
-		await expect(dropdown).toBeVisible({ timeout: 15000 });
+		await variables.expectMemoryMeterReady();
 
 		// Verify the shut-down Python session is no longer listed
-		await expect(dropdown.locator('.usage-name').filter({ hasText: pySession.name })).not.toBeVisible({ timeout: 15000 });
-
-		// Verify the active R session is still listed
-		await expect(dropdown.locator('.usage-name').filter({ hasText: rSession.name })).toBeVisible();
-
-		// Close the dropdown
-		await page.keyboard.press('Escape');
+		await variables.openMemoryDropdown();
+		await variables.expectSessionInMemoryDropdown(pySession.name, false);
+		await variables.expectSessionInMemoryDropdown(rSession.name, true);
+		await variables.closeMemoryDropdown();
 	});
 
-	test('Reconnected session reappears in memory usage meter after extension host restart', async function ({ app, page, sessions, settings }) {
+	test('Reconnected session reappears in memory usage meter after extension host restart', async function ({ app, sessions, settings }) {
 		const { console: consolePage, quickaccess, variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly
@@ -84,43 +64,29 @@ test.describe('Variables: Memory Usage', {
 		// Start an R session
 		const [rSession] = await sessions.start(['r']);
 
-		// Focus variables view so the memory meter is visible
-		await variables.focusVariablesView();
-
-		// Wait for the memory meter to appear with a real value (not loading)
-		const memoryMeter = page.locator('.memory-usage-meter');
-		await expect(memoryMeter).toBeVisible({ timeout: 30000 });
-		await expect(memoryMeter.locator('.memory-size-label')).not.toHaveText('Mem', { timeout: 30000 });
+		// Wait for the memory meter to be ready
+		await variables.expectMemoryMeterReady();
 
 		// Open the dropdown and verify the session appears
-		await memoryMeter.click();
-		const dropdown = page.locator('.memory-usage-dropdown');
-		await expect(dropdown).toBeVisible({ timeout: 15000 });
-		await expect(dropdown.locator('.usage-name').filter({ hasText: rSession.name })).toBeVisible();
-		await page.keyboard.press('Escape');
+		await variables.openMemoryDropdown();
+		await variables.expectSessionInMemoryDropdown(rSession.name, true);
+		await variables.closeMemoryDropdown();
 
 		// Restart the extension host
 		await quickaccess.runCommand('workbench.action.restartExtensionHost');
 		await consolePage.waitForConsoleContents('Extensions restarting...');
 		await consolePage.waitForReady('>');
 
-		// Focus variables view again
-		await variables.focusVariablesView();
-
-		// Wait for the memory meter to show a real value after reconnection
-		await expect(memoryMeter).toBeVisible({ timeout: 30000 });
-		await expect(memoryMeter.locator('.memory-size-label')).not.toHaveText('Mem', { timeout: 30000 });
+		// Wait for memory meter to be ready after reconnection
+		await variables.expectMemoryMeterReady();
 
 		// Open the dropdown and verify the session reappears after extension host restart
-		await memoryMeter.click();
-		await expect(dropdown).toBeVisible({ timeout: 15000 });
-		await expect(dropdown.locator('.usage-name').filter({ hasText: rSession.name })).toBeVisible({ timeout: 15000 });
-
-		// Close the dropdown
-		await page.keyboard.press('Escape');
+		await variables.openMemoryDropdown();
+		await variables.expectSessionInMemoryDropdown(rSession.name, true);
+		await variables.closeMemoryDropdown();
 	});
 
-	test('Restarted session reappears in memory usage meter', { tag: [tags.WEB] }, async function ({ app, page, sessions, settings }) {
+	test('Restarted session reappears in memory usage meter', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
 		const { variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly
@@ -129,37 +95,23 @@ test.describe('Variables: Memory Usage', {
 		// Start a Python session
 		const [pySession] = await sessions.start(['python']);
 
-		// Focus variables view so the memory meter is visible
-		await variables.focusVariablesView();
-
-		// Wait for the memory meter to appear with a real value (not loading)
-		const memoryMeter = page.locator('.memory-usage-meter');
-		await expect(memoryMeter).toBeVisible({ timeout: 30000 });
-		await expect(memoryMeter.locator('.memory-size-label')).not.toHaveText('Mem', { timeout: 30000 });
+		// Wait for the memory meter to be ready
+		await variables.expectMemoryMeterReady();
 
 		// Open the dropdown and verify the session appears
-		await memoryMeter.click();
-		const dropdown = page.locator('.memory-usage-dropdown');
-		await expect(dropdown).toBeVisible({ timeout: 15000 });
-		await expect(dropdown.locator('.usage-name').filter({ hasText: pySession.name })).toBeVisible();
-		await page.keyboard.press('Escape');
+		await variables.openMemoryDropdown();
+		await variables.expectSessionInMemoryDropdown(pySession.name, true);
+		await variables.closeMemoryDropdown();
 
 		// Restart the session
 		await sessions.restart(pySession.name);
 
-		// Focus variables view again
-		await variables.focusVariablesView();
-
-		// Wait for the memory meter to show a real value after restart
-		await expect(memoryMeter).toBeVisible({ timeout: 30000 });
-		await expect(memoryMeter.locator('.memory-size-label')).not.toHaveText('Mem', { timeout: 30000 });
+		// Wait for memory meter to be ready after restart
+		await variables.expectMemoryMeterReady();
 
 		// Open the dropdown and verify the session still appears after restart
-		await memoryMeter.click();
-		await expect(dropdown).toBeVisible({ timeout: 15000 });
-		await expect(dropdown.locator('.usage-name').filter({ hasText: pySession.name })).toBeVisible({ timeout: 15000 });
-
-		// Close the dropdown
-		await page.keyboard.press('Escape');
+		await variables.openMemoryDropdown();
+		await variables.expectSessionInMemoryDropdown(pySession.name, true);
+		await variables.closeMemoryDropdown();
 	});
 });

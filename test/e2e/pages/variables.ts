@@ -32,10 +32,16 @@ export class Variables {
 	get interpreterLocator(): Locator { return this.code.driver.page.locator(VARIABLES_INTERPRETER); }
 	variablesPane: Locator;
 	variablesRuntime: (name: string | RegExp) => Locator;
+	memoryMeter: Locator;
+	memoryDropdown: Locator;
+	memorySizeLabel: Locator;
 
 	constructor(private code: Code, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
 		this.variablesRuntime = (name: string | RegExp) => this.variablesPane.getByRole('button', { name });
+		this.memoryMeter = this.code.driver.page.locator('.memory-usage-meter');
+		this.memoryDropdown = this.code.driver.page.locator('.memory-usage-dropdown');
+		this.memorySizeLabel = this.code.driver.page.locator('.memory-size-label');
 	}
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
@@ -254,5 +260,45 @@ export class Variables {
 			await expect(this.interpreterLocator).toBeVisible();
 			await expect(this.interpreterLocator).toHaveText(sessionName);
 		});
+	}
+
+	/**
+	 * Open the memory usage dropdown by clicking the memory meter.
+	 */
+	async openMemoryDropdown() {
+		await this.memoryMeter.click();
+		await expect(this.memoryDropdown).toBeVisible({ timeout: 15000 });
+	}
+
+	/**
+	 * Close the memory usage dropdown by pressing Escape.
+	 */
+	async closeMemoryDropdown() {
+		await this.code.driver.page.keyboard.press('Escape');
+		await expect(this.memoryDropdown).not.toBeVisible();
+	}
+
+	/**
+	 * Wait for the memory meter to be visible and showing a real value (not loading state).
+	 * Focuses the variables view first to ensure the meter is visible.
+	 */
+	async expectMemoryMeterReady() {
+		await this.focusVariablesView();
+		await expect(this.memoryMeter).toBeVisible({ timeout: 30000 });
+		await expect(this.memorySizeLabel).not.toHaveText('Mem', { timeout: 30000 });
+	}
+
+	/**
+	 * Verify a session appears (or does not appear) in the memory usage dropdown.
+	 * @param sessionName the name of the session to check
+	 * @param visible whether the session should be visible
+	 */
+	async expectSessionInMemoryDropdown(sessionName: string, visible: boolean) {
+		const sessionLocator = this.memoryDropdown.locator('.usage-name').filter({ hasText: sessionName });
+		if (visible) {
+			await expect(sessionLocator).toBeVisible({ timeout: 15000 });
+		} else {
+			await expect(sessionLocator).not.toBeVisible({ timeout: 15000 });
+		}
 	}
 }
