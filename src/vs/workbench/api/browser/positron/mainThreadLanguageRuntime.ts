@@ -13,7 +13,7 @@ import {
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
@@ -1505,6 +1505,9 @@ export class MainThreadLanguageRuntime
 	/** Per-session evaluation queues for $evaluateCode */
 	private readonly _evaluationQueues: Map<string, EvaluationEntry[]> = new Map();
 
+	/** Per-session state listeners for the evaluation queue, to avoid duplicate registrations */
+	private readonly _evaluationStateListeners: Map<string, IDisposable> = new Map();
+
 	/**
 	 * Instance counter
 	 */
@@ -1957,11 +1960,31 @@ export class MainThreadLanguageRuntime
 			throw new Error(`No session available for language '${languageId}'`);
 		}
 
-		if (!activeSession.uiClient) {
-			throw new Error(`Session '${activeSession.session.sessionId}' does not have a UI client`);
-		}
-
 		const resolvedSessionId = activeSession.session.sessionId;
+
+		// If the UI client isn't ready yet, wait for it. This handles the case
+		// where we just started a session and the UI comm hasn't been established.
+		if (!activeSession.uiClient) {
+			await new Promise<void>((resolve, reject) => {
+				const timeout = setTimeout(() => {
+					listener.dispose();
+					reject(new Error(`Timed out waiting for UI client on session '${resolvedSessionId}'`));
+				}, 30_000);
+
+				const listener = activeSession.onUiClientStarted(() => {
+					clearTimeout(timeout);
+					listener.dispose();
+					resolve();
+				});
+
+				// Check again in case it arrived between our check and registering the listener
+				if (activeSession.uiClient) {
+					clearTimeout(timeout);
+					listener.dispose();
+					resolve();
+				}
+			});
+		}
 
 		// Create the evaluation entry
 		const deferred = new DeferredPromise<any>();
@@ -1988,24 +2011,45 @@ export class MainThreadLanguageRuntime
 	}
 
 	$cancelEvaluation(sessionId: string, evaluationId: string): void {
-		const queue = this._evaluationQueues.get(sessionId);
-		if (!queue) {
+		// Find the entry across all queues. The caller may not know the
+		// resolved session ID (e.g. when no sessionId was supplied to
+		// evaluateCode), so search by evaluationId.
+		let foundQueue: EvaluationEntry[] | undefined;
+		let foundSessionId: string | undefined;
+		let foundIndex = -1;
+
+		if (sessionId) {
+			foundQueue = this._evaluationQueues.get(sessionId);
+			if (foundQueue) {
+				foundIndex = foundQueue.findIndex(e => e.evaluationId === evaluationId);
+				foundSessionId = sessionId;
+			}
+		}
+		if (foundIndex < 0) {
+			// Search all queues
+			for (const [sid, queue] of this._evaluationQueues) {
+				const idx = queue.findIndex(e => e.evaluationId === evaluationId);
+				if (idx >= 0) {
+					foundQueue = queue;
+					foundSessionId = sid;
+					foundIndex = idx;
+					break;
+				}
+			}
+		}
+
+		if (!foundQueue || foundIndex < 0 || !foundSessionId) {
 			return;
 		}
 
-		const index = queue.findIndex(e => e.evaluationId === evaluationId);
-		if (index < 0) {
-			return;
-		}
-
-		const entry = queue[index];
+		const entry = foundQueue[foundIndex];
 		if (!entry.executing) {
 			// Not yet executing: remove from queue and reject
-			queue.splice(index, 1);
+			foundQueue.splice(foundIndex, 1);
 			entry.deferred.error(new CancellationError());
 		} else {
-			// Currently executing: interrupt the session
-			this._runtimeSessionService.interruptSession(sessionId);
+			// Currently executing our evaluation: interrupt the session
+			this._runtimeSessionService.interruptSession(foundSessionId);
 		}
 	}
 
@@ -2026,10 +2070,7 @@ export class MainThreadLanguageRuntime
 
 		if (!activeSession) {
 			// Session is gone; reject all queued entries
-			for (const entry of queue) {
-				entry.deferred.error(new Error(`Session '${sessionId}' is no longer available`));
-			}
-			this._evaluationQueues.delete(sessionId);
+			this.rejectEvaluationQueue(sessionId, new Error(`Session '${sessionId}' is no longer available`));
 			return;
 		}
 
@@ -2063,26 +2104,29 @@ export class MainThreadLanguageRuntime
 					this.processEvaluationQueue(sessionId);
 				}
 			);
-		} else if (state === RuntimeState.Busy) {
-			// Session is busy; subscribe to state changes and wait for idle
+		} else if (state === RuntimeState.Busy || state === RuntimeState.Starting ||
+			state === RuntimeState.Initializing) {
+			// Session is not idle; subscribe to state changes and wait.
+			// Guard against duplicate listeners for the same session.
+			if (this._evaluationStateListeners.has(sessionId)) {
+				return;
+			}
+
 			const listener = session.onDidChangeRuntimeState((newState) => {
 				if (newState === RuntimeState.Idle || newState === RuntimeState.Ready) {
-					listener.dispose();
+					this._evaluationStateListeners.get(sessionId)?.dispose();
+					this._evaluationStateListeners.delete(sessionId);
 					this.processEvaluationQueue(sessionId);
 				} else if (newState === RuntimeState.Exited) {
-					listener.dispose();
-					// Reject all queued entries
-					const remaining = this._evaluationQueues.get(sessionId);
-					if (remaining) {
-						for (const entry of remaining) {
-							if (!entry.deferred.isSettled) {
-								entry.deferred.error(new Error('The session exited'));
-							}
-						}
-						this._evaluationQueues.delete(sessionId);
-					}
+					this._evaluationStateListeners.get(sessionId)?.dispose();
+					this._evaluationStateListeners.delete(sessionId);
+					this.rejectEvaluationQueue(sessionId, new Error('The session exited'));
 				}
 			});
+			this._evaluationStateListeners.set(sessionId, listener);
+		} else if (state === RuntimeState.Exited) {
+			// Session has already exited; reject all queued entries
+			this.rejectEvaluationQueue(sessionId, new Error('The session has exited'));
 		} else {
 			// Session is in an unexpected state; reject the first entry and try again
 			const entry = queue.shift()!;
@@ -2091,7 +2135,30 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
+	/**
+	 * Rejects all entries in the evaluation queue for a given session and cleans up.
+	 */
+	private rejectEvaluationQueue(sessionId: string, error: Error): void {
+		const queue = this._evaluationQueues.get(sessionId);
+		if (queue) {
+			for (const entry of queue) {
+				if (!entry.deferred.isSettled) {
+					entry.deferred.error(error);
+				}
+			}
+			this._evaluationQueues.delete(sessionId);
+		}
+		this._evaluationStateListeners.get(sessionId)?.dispose();
+		this._evaluationStateListeners.delete(sessionId);
+	}
+
 	public dispose(): void {
+		// Reject all pending evaluations
+		for (const sessionId of this._evaluationQueues.keys()) {
+			this.rejectEvaluationQueue(sessionId,
+				new Error('Extension host is shutting down'));
+		}
+
 		// Check each session that is still running and emit an exit event for it
 		// so we can clean it up properly on the front end.
 		this._sessions.forEach((session) => {

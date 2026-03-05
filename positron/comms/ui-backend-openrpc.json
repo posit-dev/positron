@@ -78,8 +78,7 @@
 			"result": {
 				"schema": {
 					"name": "eval_result",
-					"description": "The result of evaluating the code",
-					"schema": {}
+					"description": "The result of evaluating the code"
 				}
 			}
 		},

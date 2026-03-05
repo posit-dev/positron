@@ -674,7 +674,7 @@ async function newRmdFromTemplate(): Promise<void> {
 
 			// Create document using rmarkdown::draft() and open via rstudioapi
 			const draftPath = saveUri.fsPath;
-			const code = `rmarkdown::draft(${JSON.stringify(draftPath)}, template = "${t.template}", package = "${t.package}")`;
+			const code = `rmarkdown::draft(${JSON.stringify(draftPath)}, template = ${JSON.stringify(t.template)}, package = ${JSON.stringify(t.package)})`;
 			await positron.runtime.executeCode('r', code, true);
 		}
 	} catch (err) {

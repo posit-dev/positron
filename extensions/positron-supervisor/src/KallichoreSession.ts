@@ -672,7 +672,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param code The code string to evaluate
 	 * @returns A promise that resolves with the result of the evaluation
 	 */
-	evaluate(code: string): Promise<any> {
+	async evaluate(code: string): Promise<any> {
+		// Wait for the runtime to be idle before evaluating
+		await this.waitForIdle();
+
 		const promise = new PromiseHandles<any>;
 
 		// Find the UI comm
@@ -1432,9 +1435,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * out or reject.
 	 */
 	async waitForIdle(): Promise<void> {
+		// If already idle, resolve immediately
+		if (this._runtimeState === positron.RuntimeState.Idle) {
+			return;
+		}
 		return new Promise((resolve, _reject) => {
-			this._state.event(async (state) => {
+			const listener = this._state.event(async (state) => {
 				if (state === positron.RuntimeState.Idle) {
+					listener.dispose();
 					resolve();
 				}
 			});
