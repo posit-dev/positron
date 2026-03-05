@@ -50,7 +50,7 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
 	]],
-	// Microsoft Foundry models -- common deployments; admins can override via models.overrides.microsoftFoundry
+	// Microsoft Foundry models -- common deployments; admins can override via models.overrides.msFoundry
 	['ms-foundry', [
 		{
 			name: 'GPT-4.1',

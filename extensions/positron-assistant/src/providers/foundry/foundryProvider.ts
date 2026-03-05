@@ -117,31 +117,18 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 	}
 
 	protected override initializeProvider() {
-		if (this.isWorkbenchManaged) {
-			// Bearer token path: use OpenAI SDK with composed auth + compatibility fetch
-			const baseProvider = createOpenAI({
-				apiKey: '_', // Placeholder, replaced by bearer token in managed fetch
-				baseURL: this.baseUrl,
-				fetch: this.createManagedFetch(),
-			});
+		const baseProvider = createOpenAI({
+			apiKey: this.isWorkbenchManaged ? '_' : this._config.apiKey,
+			baseURL: this.baseUrl,
+			fetch: this.isWorkbenchManaged
+				? this.createManagedFetch()
+				: createOpenAICompatibleFetch(this.providerName),
+		});
 
-			// Route to .chat() for /v1/chat/completions endpoint
-			const chatWrapper = ((modelId: string) => baseProvider.chat(modelId)) as OpenAIProvider;
-			Object.assign(chatWrapper, baseProvider);
-			this.aiProvider = chatWrapper;
-		} else {
-			// API key path: standard OpenAI-compatible setup
-			const baseProvider = createOpenAI({
-				apiKey: this._config.apiKey,
-				baseURL: this.baseUrl,
-				fetch: createOpenAICompatibleFetch(this.providerName),
-			});
-
-			// Route to .chat() for /v1/chat/completions endpoint
-			const chatWrapper = ((modelId: string) => baseProvider.chat(modelId)) as OpenAIProvider;
-			Object.assign(chatWrapper, baseProvider);
-			this.aiProvider = chatWrapper;
-		}
+		// Route to .chat() for /v1/chat/completions endpoint
+		const chatWrapper = ((modelId: string) => baseProvider.chat(modelId)) as OpenAIProvider;
+		Object.assign(chatWrapper, baseProvider);
+		this.aiProvider = chatWrapper;
 	}
 
 	/**

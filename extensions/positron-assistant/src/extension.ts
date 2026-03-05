@@ -247,7 +247,10 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
 /**
  * Registers a listener for deferred Foundry autoconfigure.
  * Handles the case where the Workbench extension activates after
- * Positron Assistant's initial autoconfigure pass.
+ * Positron Assistant's initial autoconfigure pass. Uses the
+ * onDidChangeSessions event to respond immediately when the
+ * Workbench auth provider becomes available, with a timeout
+ * fallback to avoid waiting indefinitely.
  */
 function registerDeferredFoundryAutoconfigure(context: vscode.ExtensionContext) {
 	// Skip if Foundry is already autoconfigured from the initial pass.
@@ -263,32 +266,28 @@ function registerDeferredFoundryAutoconfigure(context: vscode.ExtensionContext) 
 		return;
 	}
 
-	// The Workbench extension may not have fetched a Foundry token yet when
-	// the initial autoconfigure runs. Retry with increasing delays to give
-	// the Workbench auth provider time to acquire the token.
-	const retryDelays = [10_000, 30_000];
-	let attempt = 0;
+	const autoconfigureFn = foundryProvider.autoconfigure;
+	let completed = false;
 
-	async function tryDeferredAutoconfigure() {
-		// Check again in case it was configured between retries.
-		const models = getAutoconfiguredModels();
-		if (models.some(m => m.provider === PROVIDER_METADATA.foundry.id)) {
-			log.debug('[Foundry] Already autoconfigured, skipping deferred retry');
+	async function tryDeferredAutoconfigure(trigger: string) {
+		if (completed) {
 			return;
 		}
 
-		attempt++;
-		log.debug(`[Foundry] Deferred autoconfigure attempt ${attempt}`);
+		// Check again in case it was configured between events.
+		const models = getAutoconfiguredModels();
+		if (models.some(m => m.provider === PROVIDER_METADATA.foundry.id)) {
+			log.debug('[Foundry] Already autoconfigured, skipping deferred attempt');
+			completed = true;
+			return;
+		}
+
+		log.debug(`[Foundry] Deferred autoconfigure triggered by ${trigger}`);
 
 		try {
-			const result = await foundryProvider.autoconfigure!();
+			const result = await autoconfigureFn();
 			if (!result.configured) {
-				if (attempt < retryDelays.length) {
-					log.debug(`[Foundry] Deferred autoconfigure not ready, retrying in ${retryDelays[attempt] / 1000}s`);
-					setTimeout(tryDeferredAutoconfigure, retryDelays[attempt]);
-				} else {
-					log.debug('[Foundry] Deferred autoconfigure exhausted retries');
-				}
+				log.debug('[Foundry] Deferred autoconfigure: not yet ready');
 				return;
 			}
 
@@ -310,14 +309,37 @@ function registerDeferredFoundryAutoconfigure(context: vscode.ExtensionContext) 
 
 			await registerModelWithAPI(modelConfig, context);
 			addAutoconfiguredModel(modelConfig);
+			completed = true;
 			log.info('[Foundry] Deferred autoconfigure succeeded');
 		} catch (e) {
 			log.warn(`[Foundry] Deferred autoconfigure failed: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
 		}
 	}
 
-	log.debug(`[Foundry] Scheduling deferred autoconfigure retry in ${retryDelays[0] / 1000}s`);
-	setTimeout(tryDeferredAutoconfigure, retryDelays[0]);
+	// Listen for auth session changes from the Workbench extension.
+	const sessionListener = vscode.authentication.onDidChangeSessions((e) => {
+		if (e.provider.id === 'posit-workbench') {
+			tryDeferredAutoconfigure('session-change');
+		}
+	});
+
+	// Timeout fallback: stop listening after 60s to avoid leaking the listener.
+	const timeoutHandle = setTimeout(() => {
+		if (!completed) {
+			log.debug('[Foundry] Deferred autoconfigure timed out after 60s');
+			tryDeferredAutoconfigure('timeout');
+		}
+		sessionListener.dispose();
+	}, 60_000);
+
+	context.subscriptions.push({
+		dispose: () => {
+			sessionListener.dispose();
+			clearTimeout(timeoutHandle);
+		}
+	});
+
+	log.debug('[Foundry] Listening for Workbench auth sessions for deferred autoconfigure');
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
