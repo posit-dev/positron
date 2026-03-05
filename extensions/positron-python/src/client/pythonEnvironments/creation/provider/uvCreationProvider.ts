@@ -211,7 +211,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                         `uv would install pre-release Python ${versionInfo.version} for requested version ${version}`,
                     );
                     const choice = await vscode.window.showWarningMessage(
-                        CreateEnv.Uv.prereleaseWarning.replace('{0}', versionInfo.version),
+                        CreateEnv.Uv.prereleaseWarning(versionInfo.version),
                         { modal: false },
                         CreateEnv.Uv.updateUv,
                         CreateEnv.Uv.proceedAnyway,
@@ -239,13 +239,13 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                             if (!stableVersionInfo.path) {
                                 traceInfo(`Installing stable Python ${stableVersionInfo.version}...`);
                                 progress.report({
-                                    message: CreateEnv.Uv.installingPython.replace('{0}', stableVersionInfo.version),
+                                    message: CreateEnv.Uv.installingPython(stableVersionInfo.version),
                                 });
                                 const installSuccess = await installUvPython(stableVersionInfo.version);
                                 if (!installSuccess) {
                                     traceError(`Failed to install Python ${stableVersionInfo.version}`);
                                     throw new Error(
-                                        CreateEnv.Uv.errorInstallingPython.replace('{0}', stableVersionInfo.version),
+                                        CreateEnv.Uv.errorInstallingPython(stableVersionInfo.version),
                                     );
                                 }
                             }
@@ -259,7 +259,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                                 `No stable Python version available for ${version}, using pre-release ${fallbackInfo.version}`,
                             );
                             vscode.window.showWarningMessage(
-                                CreateEnv.Uv.stillPrereleaseWarning.replace('{0}', fallbackInfo.version),
+                                CreateEnv.Uv.stillPrereleaseWarning(fallbackInfo.version),
                             );
                         }
                     } else if (choice !== CreateEnv.Uv.proceedAnyway) {

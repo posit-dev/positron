@@ -245,10 +245,19 @@ export async function getUvPythonVersionInfo(
         if (isLocal) {
             // Extract path from format like:
             //   "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
-            //   "cpython-3.13.7-windows-x86_64-none   C:\Users\...\python.exe"
-            // Match Unix paths (starting with /) or Windows paths (starting with drive letter)
-            const pathMatch = selectedLine.match(/\s+(\/\S+|[A-Za-z]:\\\S+)/);
-            pythonPath = pathMatch?.[1];
+            //   "cpython-3.13.7-windows-x86_64-none   C:\Program Files\Python\python.exe"
+            // Split on 2+ spaces to separate columns, then strip " -> ..." suffix
+            const columns = selectedLine.split(/\s{2,}/);
+            if (columns.length >= 2) {
+                let pathColumn = columns[1].trim();
+                const arrowIndex = pathColumn.indexOf(' -> ');
+                if (arrowIndex !== -1) {
+                    pathColumn = pathColumn.substring(0, arrowIndex);
+                }
+                if (pathColumn.length > 0) {
+                    pythonPath = pathColumn;
+                }
+            }
         }
 
         return {

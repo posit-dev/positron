@@ -370,6 +370,20 @@ suite('UV Environment Tests', () => {
             assert.strictEqual(result.path, 'C:\\Users\\test\\AppData\\Local\\uv\\python\\python.exe');
         });
 
+        test('Extracts Windows path with spaces correctly', async () => {
+            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+            execStub.withArgs('uv', ['python', 'list', '3.12'], { throwOnStdErr: false }).resolves({
+                stdout: 'cpython-3.12.5-windows-x86_64-none    C:\\Program Files\\Python312\\python.exe',
+            });
+
+            const result = await getUvPythonVersionInfo('3.12');
+
+            assert.ok(result);
+            assert.strictEqual(result.version, '3.12.5');
+            assert.strictEqual(result.isPrerelease, false);
+            assert.strictEqual(result.path, 'C:\\Program Files\\Python312\\python.exe');
+        });
+
         test('Prefers local install over download when both available', async () => {
             execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
             execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
