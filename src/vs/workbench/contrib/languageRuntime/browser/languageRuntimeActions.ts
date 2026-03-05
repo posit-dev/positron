@@ -18,7 +18,7 @@ import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
@@ -1310,3 +1310,16 @@ registerAction2(class extends Action2 {
 		notificationService.info(localize('positron.interpreter.archMismatchReset', 'Architecture mismatch warning has been reset. The warning will appear the next time you start an interpreter with a different architecture than your system.'));
 	}
 });
+
+CommandsRegistry.registerCommandAlias(
+	'workbench.action.language.runtime.startNewSession',
+	LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID
+);
+CommandsRegistry.registerCommandAlias(
+	'workbench.action.language.runtime.duplicateActiveSession',
+	LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID
+);
+CommandsRegistry.registerCommandAlias(
+	'workbench.action.languageRuntime.selectRuntime',
+	LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID
+);
