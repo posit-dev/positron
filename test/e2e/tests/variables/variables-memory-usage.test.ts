@@ -34,10 +34,10 @@ test.describe('Variables: Memory Usage', {
 		await variables.expectMemoryMeterReady();
 
 		// Verify both sessions appear in the dropdown
-		await variables.openMemoryDropdown();
-		await variables.expectSessionInMemoryDropdown(pySession.name, true);
-		await variables.expectSessionInMemoryDropdown(rSession.name, true);
-		await variables.closeMemoryDropdown();
+		await variables.expectSessionsInMemoryDropdown({
+			[pySession.name]: true,
+			[rSession.name]: true
+		});
 
 		// Shut down the Python session (not delete)
 		await sessions.select(pySession.name);
@@ -49,10 +49,10 @@ test.describe('Variables: Memory Usage', {
 		await variables.expectMemoryMeterReady();
 
 		// Verify the shut-down Python session is no longer listed
-		await variables.openMemoryDropdown();
-		await variables.expectSessionInMemoryDropdown(pySession.name, false);
-		await variables.expectSessionInMemoryDropdown(rSession.name, true);
-		await variables.closeMemoryDropdown();
+		await variables.expectSessionsInMemoryDropdown({
+			[pySession.name]: false,
+			[rSession.name]: true
+		});
 	});
 
 	test('Reconnected session reappears in memory usage meter after extension host restart', async function ({ app, sessions, settings }) {
@@ -67,10 +67,8 @@ test.describe('Variables: Memory Usage', {
 		// Wait for the memory meter to be ready
 		await variables.expectMemoryMeterReady();
 
-		// Open the dropdown and verify the session appears
-		await variables.openMemoryDropdown();
-		await variables.expectSessionInMemoryDropdown(rSession.name, true);
-		await variables.closeMemoryDropdown();
+		// Verify the session appears in the dropdown
+		await variables.expectSessionsInMemoryDropdown({ [rSession.name]: true });
 
 		// Restart the extension host
 		await quickaccess.runCommand('workbench.action.restartExtensionHost');
@@ -80,10 +78,8 @@ test.describe('Variables: Memory Usage', {
 		// Wait for memory meter to be ready after reconnection
 		await variables.expectMemoryMeterReady();
 
-		// Open the dropdown and verify the session reappears after extension host restart
-		await variables.openMemoryDropdown();
-		await variables.expectSessionInMemoryDropdown(rSession.name, true);
-		await variables.closeMemoryDropdown();
+		// Verify the session reappears after extension host restart
+		await variables.expectSessionsInMemoryDropdown({ [rSession.name]: true });
 	});
 
 	test('Restarted session reappears in memory usage meter', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
@@ -98,10 +94,8 @@ test.describe('Variables: Memory Usage', {
 		// Wait for the memory meter to be ready
 		await variables.expectMemoryMeterReady();
 
-		// Open the dropdown and verify the session appears
-		await variables.openMemoryDropdown();
-		await variables.expectSessionInMemoryDropdown(pySession.name, true);
-		await variables.closeMemoryDropdown();
+		// Verify the session appears in the dropdown
+		await variables.expectSessionsInMemoryDropdown({ [pySession.name]: true });
 
 		// Restart the session
 		await sessions.restart(pySession.name);
@@ -109,9 +103,7 @@ test.describe('Variables: Memory Usage', {
 		// Wait for memory meter to be ready after restart
 		await variables.expectMemoryMeterReady();
 
-		// Open the dropdown and verify the session still appears after restart
-		await variables.openMemoryDropdown();
-		await variables.expectSessionInMemoryDropdown(pySession.name, true);
-		await variables.closeMemoryDropdown();
+		// Verify the session still appears after restart
+		await variables.expectSessionsInMemoryDropdown({ [pySession.name]: true });
 	});
 });
