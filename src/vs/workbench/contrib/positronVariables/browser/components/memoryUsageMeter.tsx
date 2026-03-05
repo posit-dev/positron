@@ -7,7 +7,7 @@
 import './memoryUsageMeter.css';
 
 // React.
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -15,6 +15,7 @@ import { localize } from '../../../../../nls.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { MemoryUsageDropdown } from './memoryUsageDropdown.js';
@@ -66,9 +67,36 @@ interface MemoryUsageMeterProps {
 export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMeterProps) => {
 	// Services.
 	const services = usePositronReactServicesContext();
+	const actionBarContext = usePositronActionBarContext();
 
 	// Ref for the meter element (used for popup anchoring).
 	const meterRef = useRef<HTMLDivElement>(undefined!);
+
+	// Track mouse-inside state so we can show/hide the hover tooltip via the
+	// action bar's hover manager, consistent with other action bar widgets.
+	const [mouseInside, setMouseInside] = useState(false);
+
+	// Compute the tooltip text based on the current state.
+	const tooltipText = (loading || !snapshot)
+		? computingLabel
+		: localize(
+			'positron.memoryUsage.tooltip',
+			"Kernels: {0} | Positron: {1} | Other: {2} | Free: {3}",
+			ByteSize.formatSize(snapshot.kernelTotalBytes),
+			ByteSize.formatSize(snapshot.positronOverheadBytes + snapshot.extensionHostOverheadBytes),
+			ByteSize.formatSize(snapshot.otherProcessesBytes),
+			ByteSize.formatSize(snapshot.freeSystemMemory)
+		);
+
+	// Show/hide hover tooltip via the action bar hover manager.
+	useEffect(() => {
+		if (mouseInside) {
+			actionBarContext.hoverManager?.showHover(meterRef.current, tooltipText);
+		}
+	}, [mouseInside, actionBarContext.hoverManager, tooltipText]);
+
+	const onMouseEnter = () => setMouseInside(true);
+	const onMouseLeave = () => setMouseInside(false);
 
 	// Loading state: draw an empty bar with a "Mem" label.
 	if (loading || !snapshot) {
@@ -76,6 +104,8 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 			if (!meterRef.current) {
 				return;
 			}
+
+			actionBarContext.hoverManager?.hideHover();
 
 			const renderer = new PositronModalReactRenderer({
 				container: services.workbenchLayoutService.getContainer(DOM.getWindow(meterRef.current)),
@@ -96,8 +126,9 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 				aria-label={computingLabel}
 				className='memory-usage-meter'
 				role='meter'
-				title={computingLabel}
 				onClick={handleLoadingClick}
+				onMouseEnter={onMouseEnter}
+				onMouseLeave={onMouseLeave}
 			>
 				{!compact && (
 					<div className='memory-bar-container'>
@@ -116,16 +147,6 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 	const positronTotalBytes = kernelTotalBytes + positronOverheadBytes + extensionHostOverheadBytes;
 	const sizeLabel = ByteSize.formatSize(positronTotalBytes);
 
-	// Tooltip text.
-	const tooltipText = localize(
-		'positron.memoryUsage.tooltip',
-		"Kernels: {0} | Positron: {1} | Other: {2} | Free: {3}",
-		ByteSize.formatSize(kernelTotalBytes),
-		ByteSize.formatSize(positronOverheadBytes + extensionHostOverheadBytes),
-		ByteSize.formatSize(snapshot.otherProcessesBytes),
-		ByteSize.formatSize(snapshot.freeSystemMemory)
-	);
-
 	// Accessibility label.
 	const ariaLabel = localize(
 		'positron.memoryUsage.ariaLabel',
@@ -139,6 +160,8 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 		if (!meterRef.current) {
 			return;
 		}
+
+		actionBarContext.hoverManager?.hideHover();
 
 		const renderer = new PositronModalReactRenderer({
 			container: services.workbenchLayoutService.getContainer(DOM.getWindow(meterRef.current)),
@@ -164,8 +187,9 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 			aria-valuenow={positronTotalBytes}
 			className='memory-usage-meter'
 			role='meter'
-			title={tooltipText}
 			onClick={handleClick}
+			onMouseEnter={onMouseEnter}
+			onMouseLeave={onMouseLeave}
 		>
 			{!compact && <MemoryUsageBar snapshot={snapshot} />}
 			<span className='memory-size-label'>{sizeLabel}</span>

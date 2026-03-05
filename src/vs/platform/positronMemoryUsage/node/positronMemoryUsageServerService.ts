@@ -133,12 +133,14 @@ export class PositronMemoryUsageServerService implements IPositronMemoryInfoProv
 
 		if (process.platform === 'linux') {
 			// Identify extension host children by their command line.
+			// Use a Set to deduplicate PIDs that may appear in multiple
+			// /task/*/children entries.
 			const childPids = await getDirectChildPids(process.pid);
-			const extHostPids: number[] = [];
+			const extHostPids = new Set<number>();
 			for (const childPid of childPids) {
 				const cmdline = await readProcCmdline(childPid);
 				if (cmdline && cmdline.includes('--type=extensionHost')) {
-					extHostPids.push(childPid);
+					extHostPids.add(childPid);
 				}
 			}
 
@@ -167,9 +169,20 @@ export class PositronMemoryUsageServerService implements IPositronMemoryInfoProv
 			// macOS dev/fallback: use `ps` to walk the process tree.
 			const excludeSet = new Set(excludePids ?? []);
 			const tree = await getMacOSProcessTree(process.pid);
+
+			// Expand excludeSet to include full subtrees of excluded kernel
+			// PIDs (not just the root PID) so descendants are not counted.
+			const fullExcludeSet = new Set(excludeSet);
+			for (const excludePid of excludeSet) {
+				const subtree = await getMacOSProcessTree(excludePid);
+				for (const entry of subtree) {
+					fullExcludeSet.add(entry.pid);
+				}
+			}
+
 			positronProcessMemory = 0;
 			for (const entry of tree) {
-				if (excludeSet.has(entry.pid)) {
+				if (fullExcludeSet.has(entry.pid)) {
 					continue;
 				}
 				if (entry.command.includes('--type=extensionHost')) {

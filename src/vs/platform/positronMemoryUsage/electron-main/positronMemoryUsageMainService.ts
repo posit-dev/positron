@@ -40,7 +40,9 @@ export class PositronMemoryUsageMainService implements IPositronMemoryInfoProvid
 		return {
 			totalSystemMemory: systemMem.total,
 			freeSystemMemory: systemMem.free,
-			positronProcessMemory,
+			// Subtract extension host memory so it is not double-counted;
+			// the aggregator adds extensionHostMemory as a separate bucket.
+			positronProcessMemory: positronProcessMemory - extensionHostMemory,
 			extensionHostMemory,
 		};
 	}

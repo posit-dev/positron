@@ -15,6 +15,11 @@
 	min-width: 0;
 	overflow: hidden;
 	box-sizing: border-box;
+	border-radius: 4px;
+}
+
+.memory-usage-meter:hover {
+	background: var(--vscode-positronActionBar-hoverBackground);
 }
 
 /* Shared memory bar styles (used by both toolbar meter and dropdown) */

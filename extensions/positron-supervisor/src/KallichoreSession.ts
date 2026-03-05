@@ -169,6 +169,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/** Cached OS process ID of the kernel, used for resource usage reporting. */
 	private _processId: number | undefined;
 
+	/** Guard flag to prevent concurrent getSession() calls when fetching the PID. */
+	private _fetchingProcessId = false;
+
 	/**
 	 * The message header for the current requests if any is active.  This is
 	 * used for input requests (e.g. from `readline()` in R) Concurrent requests
@@ -1736,13 +1739,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// usage service can exclude it from the Positron process tree.
 			if (this._processId) {
 				resourceUsage.process_id = this._processId;
-			} else {
-				// For new sessions, fetch the PID lazily from Kallichore
+			} else if (!this._fetchingProcessId) {
+				// For new sessions, fetch the PID lazily from Kallichore.
+				// Guard with an in-flight flag to avoid flooding the API
+				// when resourceUsage events arrive faster than the fetch.
+				this._fetchingProcessId = true;
 				this._api.getSession(this.metadata.sessionId).then(result => {
 					if (result.data.process_id) {
 						this._processId = result.data.process_id;
 					}
-				}).catch(() => { /* ignore; will retry on next message */ });
+				}).catch(() => { /* ignore; will retry on next message */ })
+					.finally(() => { this._fetchingProcessId = false; });
 			}
 
 			this._resourceUsage.fire(resourceUsage);

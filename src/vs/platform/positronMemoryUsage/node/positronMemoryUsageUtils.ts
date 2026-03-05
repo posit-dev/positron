@@ -218,8 +218,13 @@ const MAX_TREE_DEPTH = 10;
 export async function getProcessTreeRss(pid: number, excludePids?: Set<number>): Promise<number> {
 	let totalRss = 0;
 
+	// Track visited PIDs to avoid counting duplicates discovered via
+	// multiple /task/*/children entries.
+	const visited = new Set<number>();
+
 	// Work queue of { pid, depth } entries for breadth-first traversal.
 	const queue: { pid: number; depth: number }[] = [{ pid, depth: 0 }];
+	visited.add(pid);
 
 	while (queue.length > 0) {
 		const item = queue.shift()!;
@@ -249,7 +254,10 @@ export async function getProcessTreeRss(pid: number, excludePids?: Set<number>):
 							if (excludePids?.has(childPid)) {
 								continue;
 							}
-							queue.push({ pid: childPid, depth: item.depth + 1 });
+							if (!visited.has(childPid)) {
+								visited.add(childPid);
+								queue.push({ pid: childPid, depth: item.depth + 1 });
+							}
 						}
 					}
 				} catch {
