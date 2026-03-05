@@ -167,6 +167,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
+			// If not visible, skip layout and sort key updates. Backend-
+			// initiated events will also fire onDidSchemaUpdate or
+			// onDidDataUpdate, which set the pending flags and will
+			// rebuild everything when we become visible again.
+			if (!this._visible) {
+				return;
+			}
+
 			await this.updateLayoutEntries(state);
 
 			// Rebuild sort keys on every backend state change to keep the

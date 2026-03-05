@@ -7,6 +7,7 @@ import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { TableDataCache } from '../common/tableDataCache.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { TableDataDataGridInstance } from './tableDataDataGridInstance.js';
 import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
@@ -516,8 +517,8 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			}
 
 			// Transitioned from hidden -> visible.
-			this._tableSchemaDataGridInstance.setVisible(true);
-			this._tableDataDataGridInstance.setVisible(true);
+			this._tableSchemaDataGridInstance.setVisible(true).catch(onUnexpectedError);
+			this._tableDataDataGridInstance.setVisible(true).catch(onUnexpectedError);
 			return;
 		}
 
