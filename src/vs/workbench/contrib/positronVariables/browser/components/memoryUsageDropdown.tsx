@@ -7,7 +7,7 @@
 import './memoryUsageDropdown.css';
 
 // React.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -45,17 +45,21 @@ interface MemoryUsageDropdownProps {
 interface BarSegment {
 	bytes: number;
 	barClass: string;
+	highlightId?: string;
 }
 
 /**
  * A single row in the memory usage breakdown table.
  * When `segments` is provided, the bar is split into multiple colored segments.
+ * The `highlightIds` array links the row to one or more sub-segments in the
+ * summary bar for two-way hover highlighting.
  */
 interface UsageRowEntry {
 	name: string;
 	bytes: number;
 	barClass: string;
 	segments?: BarSegment[];
+	highlightIds?: string[];
 }
 
 /**
@@ -71,6 +75,17 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 		return () => disposables.dispose();
 	}, [props.onDidUpdateMemoryUsage]);
 
+	// Track which items are highlighted for two-way hover linking.
+	// A set is used so that composite rows (e.g. Positron total) can
+	// highlight multiple sub-segments in the summary bar at once.
+	const [highlightedIds, setHighlightedIds] = useState<ReadonlySet<string> | null>(null);
+	const onHover = useCallback((id: string | null) => {
+		setHighlightedIds(id ? new Set([id]) : null);
+	}, []);
+	const onHoverMultiple = useCallback((ids: string[]) => {
+		setHighlightedIds(ids.length > 0 ? new Set(ids) : null);
+	}, []);
+
 	// Compute summary percentage and total for the header.
 	const usedBytes = snapshot.totalSystemMemory - snapshot.freeSystemMemory;
 	const usedPct = snapshot.totalSystemMemory > 0
@@ -79,34 +94,48 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 	const totalGB = ByteSize.formatSize(snapshot.totalSystemMemory);
 
 	// Build all rows to find the max value for scaling bars.
-	const sessionRows: UsageRowEntry[] = snapshot.kernelSessions.map(s => ({
+	// IDs must match those used by MemoryUsageBar: session:{index},
+	// overhead:platform, overhead:extensions, other.
+	const sessionRows: UsageRowEntry[] = snapshot.kernelSessions.map((s, i) => ({
 		name: s.sessionName,
 		bytes: s.memoryBytes,
 		barClass: 'kernel',
+		highlightIds: [`session:${i}`],
 	}));
 
 	const overheadRows: UsageRowEntry[] = [
-		{ name: platformLabel, bytes: snapshot.positronOverheadBytes, barClass: 'positron' },
-		{ name: extensionsLabel, bytes: snapshot.extensionHostOverheadBytes, barClass: 'positron' },
+		{ name: platformLabel, bytes: snapshot.positronOverheadBytes, barClass: 'positron', highlightIds: ['overhead:platform'] },
+		{ name: extensionsLabel, bytes: snapshot.extensionHostOverheadBytes, barClass: 'positron', highlightIds: ['overhead:extensions'] },
 	];
 
 	// Positron total = kernels + platform overhead + extension host overhead.
+	// The segmented bar inside this row has per-item sub-segments so hover
+	// linking works at the individual row level.
 	const positronTotalBytes = snapshot.kernelTotalBytes + snapshot.positronOverheadBytes + snapshot.extensionHostOverheadBytes;
+	const summarySegments: BarSegment[] = [
+		...snapshot.kernelSessions.map((s, i) => ({
+			bytes: s.memoryBytes,
+			barClass: 'kernel',
+			highlightId: `session:${i}`,
+		})),
+		{ bytes: snapshot.positronOverheadBytes, barClass: 'positron', highlightId: 'overhead:platform' },
+		{ bytes: snapshot.extensionHostOverheadBytes, barClass: 'positron', highlightId: 'overhead:extensions' },
+	];
+	// The Positron row highlights ALL its sub-segments when hovered as a whole.
+	const positronHighlightIds = summarySegments.map(s => s.highlightId).filter((id): id is string => !!id);
 	const summaryRows: UsageRowEntry[] = [
 		{
 			name: positronLabel,
 			bytes: positronTotalBytes,
 			barClass: 'positron-total',
-			segments: [
-				{ bytes: snapshot.kernelTotalBytes, barClass: 'kernel' },
-				{ bytes: snapshot.positronOverheadBytes + snapshot.extensionHostOverheadBytes, barClass: 'positron' },
-			],
+			segments: summarySegments,
+			highlightIds: positronHighlightIds,
 		},
 	];
 
 	const systemRows: UsageRowEntry[] = [
-		{ name: otherLabel, bytes: snapshot.otherProcessesBytes, barClass: 'other' },
-		{ name: freeLabel, bytes: snapshot.freeSystemMemory, barClass: 'free' },
+		{ name: otherLabel, bytes: snapshot.otherProcessesBytes, barClass: 'other', highlightIds: ['other'] },
+		{ name: freeLabel, bytes: snapshot.freeSystemMemory, barClass: 'free', highlightIds: ['free'] },
 	];
 
 	const allRows = [...sessionRows, ...overheadRows, ...summaryRows, ...systemRows];
@@ -115,6 +144,8 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 	// Total bytes for Sessions and Overhead groups.
 	const sessionsTotalBytes = sessionRows.reduce((sum, r) => sum + r.bytes, 0);
 	const overheadTotalBytes = overheadRows.reduce((sum, r) => sum + r.bytes, 0);
+
+	const isHighlighting = highlightedIds !== null && highlightedIds.size > 0;
 
 	const renderRow = (row: UsageRowEntry, index: number) => {
 		// Scale bars so the longest one uses 85% of the container width,
@@ -126,36 +157,63 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 		const pctLabel = pctOfTotal < 1 && pctOfTotal > 0
 			? '<1%'
 			: `${Math.round(pctOfTotal)}%`;
+
+		// Determine highlight state for this row's bar.
+		const rowIds = row.highlightIds;
+		const isRowHighlighted = isHighlighting && rowIds !== undefined &&
+			rowIds.some(id => highlightedIds.has(id));
+		const isRowDimmed = isHighlighting && !isRowHighlighted;
+
+		// The hover target spans the size label, bar, and percentage columns.
+		const hoverHandlers = rowIds ? {
+			onMouseEnter: () => onHoverMultiple(rowIds),
+			onMouseLeave: () => onHoverMultiple([]),
+		} : {};
+
+		// Highlight/dim class applied to the bar element only.
+		const barHighlightClass = isRowHighlighted ? ' highlighted' : isRowDimmed ? ' dimmed' : '';
+
 		return (
 			<div key={`${row.barClass}-${index}`} className='usage-row' role='row'>
 				<span className='usage-name' role='cell'>{row.name}</span>
-				<span className='usage-size' role='cell'>{ByteSize.formatSize(row.bytes)}</span>
-				<div className='usage-bar-container' role='cell'>
-					{row.segments ? (
-						<div
-							className='usage-bar segmented'
-							style={{ flexBasis: `${barWidthPct}%` }}
-						>
-							{row.segments.map((seg, j) => {
-								const segPct = row.bytes > 0
-									? (seg.bytes / row.bytes) * 100
-									: 0;
-								return segPct > 0 ? (
-									<div
-										key={j}
-										className={`usage-bar-segment ${seg.barClass}`}
-										style={{ flexBasis: `${segPct}%` }}
-									/>
-								) : null;
-							})}
-						</div>
-					) : (
-						<div
-							className={`usage-bar ${row.barClass}`}
-							style={{ flexBasis: `${barWidthPct}%` }}
-						/>
-					)}
-					<span className='usage-pct-label'>{pctLabel}</span>
+				<div
+					className='usage-row-hover-target'
+					{...hoverHandlers}
+				>
+					<span className='usage-size' role='cell'>{ByteSize.formatSize(row.bytes)}</span>
+					<div className='usage-bar-container' role='cell'>
+						{row.segments ? (
+							<div
+								className={`usage-bar segmented${barHighlightClass}`}
+								style={{ flexBasis: `${barWidthPct}%` }}
+							>
+								{row.segments.map((seg, j) => {
+									const segPct = row.bytes > 0
+										? (seg.bytes / row.bytes) * 100
+										: 0;
+									const segId = seg.highlightId;
+									const segHighlight = isHighlighting && segId
+										? (highlightedIds.has(segId) ? ' highlighted' : ' dimmed')
+										: '';
+									return segPct > 0 ? (
+										<div
+											key={j}
+											className={`usage-bar-segment ${seg.barClass}${segHighlight}`}
+											style={{ flexBasis: `${segPct}%` }}
+											onMouseEnter={segId ? () => onHover(segId) : undefined}
+											onMouseLeave={segId ? () => onHover(null) : undefined}
+										/>
+									) : null;
+								})}
+							</div>
+						) : (
+							<div
+								className={`usage-bar ${row.barClass}${barHighlightClass}`}
+								style={{ flexBasis: `${barWidthPct}%` }}
+							/>
+						)}
+						<span className='usage-pct-label'>{pctLabel}</span>
+					</div>
 				</div>
 			</div>
 		);
@@ -181,7 +239,12 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 						totalGB
 					)}
 				</div>
-				<MemoryUsageBar className='summary-bar' snapshot={snapshot} />
+				<MemoryUsageBar
+					className='summary-bar'
+					snapshot={snapshot}
+					highlightedIds={highlightedIds}
+					onSegmentHover={onHover}
+				/>
 			</div>
 			<div aria-label={localize('positron.memoryUsage.breakdown', "Memory usage breakdown")} className='memory-usage-dropdown' role='table'>
 				{sessionRows.length > 0 && (

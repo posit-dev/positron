@@ -49,6 +49,23 @@
 	background-color: var(--vscode-gauge-background);
 }
 
+.memory-bar-segment.free {
+	background-color: transparent;
+}
+
+/* Highlight/dim states for two-way hover linking */
+
+.memory-bar-segment.highlighted {
+	outline: 2px solid var(--vscode-editorWidget-foreground);
+	outline-offset: 0;
+	z-index: 1;
+	position: relative;
+}
+
+.memory-bar-segment.dimmed {
+	opacity: 0.75;
+}
+
 /* Toolbar-specific bar sizing */
 
 .memory-usage-meter .memory-bar-container {
