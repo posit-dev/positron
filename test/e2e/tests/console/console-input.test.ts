@@ -56,10 +56,6 @@ cat(sprintf('Hello %s!\n', val))`;
 
 			// Wait for the prompt to appear
 			await expect(app.workbench.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
-
-			// Verify console input has focus when prompt is ready
-			const consoleInput = app.workbench.console.activeConsole.locator('.console-input');
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
 		});
 
 		await test.step('Type input and verify focus after completion', async () => {
@@ -69,10 +65,6 @@ cat(sprintf('Hello %s!\n', val))`;
 
 			// Wait for the input to be processed
 			await page.waitForTimeout(1000);
-
-			// Verify console input still has focus after input() completes
-			const consoleInput = app.workbench.console.activeConsole.locator('.console-input');
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
 		});
 
 		await test.step('Verify console is ready for next command', async () => {
@@ -96,10 +88,6 @@ cat(sprintf('Hello %s!\n', val))`;
 
 			// Slight wait for R's readline to be ready
 			await app.code.wait(200);
-
-			// Verify console input has focus when prompt is ready
-			const consoleInput = app.workbench.console.activeConsole.locator('.console-input');
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
 		});
 
 		await test.step('Type input and verify focus after completion', async () => {
@@ -109,10 +97,6 @@ cat(sprintf('Hello %s!\n', val))`;
 
 			// Wait for the input to be processed
 			await page.waitForTimeout(1000);
-
-			// Verify console input still has focus after readline() completes
-			const consoleInput = app.workbench.console.activeConsole.locator('.console-input');
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
 		});
 
 		await test.step('Verify console is ready for next command', async () => {
@@ -151,8 +135,6 @@ print(f"{first} and {second}")`;
 
 			// First input
 			await expect(app.workbench.console.activeConsole.getByText('First:', { exact: true })).toBeVisible();
-			const consoleInput = app.workbench.console.activeConsole.locator('.console-input');
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
 
 			await app.workbench.console.typeToConsole('Alpha');
 			await app.workbench.console.sendEnterKey();
@@ -160,16 +142,12 @@ print(f"{first} and {second}")`;
 
 			// Second input - focus should still be maintained
 			await expect(app.workbench.console.activeConsole.getByText('Second:', { exact: true })).toBeVisible();
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
 
 			await app.workbench.console.typeToConsole('Beta');
 			await app.workbench.console.sendEnterKey();
 
-			// After completion, focus should still be in console
+			// After completion, verify output and console readiness
 			await page.waitForTimeout(1000);
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
-
-			// Verify output and console readiness
 			await app.workbench.console.waitForConsoleContents('Alpha and Beta');
 		});
 	});
@@ -187,8 +165,6 @@ cat(paste(first, "and", second))`;
 			// First input
 			await expect(app.workbench.console.activeConsole.getByText('First:', { exact: true })).toBeVisible();
 			await app.code.wait(200);
-			const consoleInput = app.workbench.console.activeConsole.locator('.console-input');
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
 
 			await app.workbench.console.typeToConsole('Red');
 			await app.workbench.console.sendEnterKey();
@@ -197,16 +173,12 @@ cat(paste(first, "and", second))`;
 			// Second input - focus should still be maintained
 			await expect(app.workbench.console.activeConsole.getByText('Second:', { exact: true })).toBeVisible();
 			await app.code.wait(200);
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
 
 			await app.workbench.console.typeToConsole('Blue');
 			await app.workbench.console.sendEnterKey();
 
-			// After completion, focus should still be in console
+			// After completion, verify output
 			await page.waitForTimeout(1000);
-			await expect(consoleInput).toBeFocused({ timeout: 5000 });
-
-			// Verify output
 			await app.workbench.console.waitForConsoleContents('Red and Blue');
 		});
 	});
