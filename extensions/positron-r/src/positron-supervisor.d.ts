@@ -204,6 +204,11 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * Evaluates a code fragment silently in the runtime and returns the
 	 * JSON-serialized result, without displaying output in the console.
 	 *
+	 * Prefer callMethod if you are able to add a method on the kernel side;
+	 * evaluate should only be used for ad-hoc code execution. Extreme caution
+	 * should be used if any portion of the code string being evaluated is
+	 * derived from user input, as this presents a security risk.
+	 *
 	 * @param code The code string to evaluate
 	 * @returns A promise that resolves with the result of the evaluation
 	 */
