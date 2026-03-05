@@ -9,7 +9,7 @@ import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
-import { autoconfigureWithManagedCredentials, FOUNDRY_MANAGED_CREDENTIALS } from '../../pwb.js';
+import { autoconfigureWithManagedCredentials, hasManagedCredentials, FOUNDRY_MANAGED_CREDENTIALS } from '../../pwb.js';
 import { createOpenAICompatibleFetch } from '../../openai-fetch-utils.js';
 import { log } from '../../log.js';
 
@@ -86,6 +86,11 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 	 * or Workbench Foundry settings are not configured.
 	 */
 	static override async autoconfigure() {
+		if (!hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
+			log.debug('[Foundry] Workbench endpoint not configured, skipping autoconfigure');
+			return { configured: false };
+		}
+
 		const result = await autoconfigureWithManagedCredentials(
 			FOUNDRY_MANAGED_CREDENTIALS,
 			FoundryModelProvider.source.provider.id,
@@ -94,14 +99,6 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 		if (!result.configured) {
 			return result;
 		}
-
-		// Validate that Workbench Foundry endpoint exists before advertising as configured.
-		const wbConfig = FoundryModelProvider.getWorkbenchConfig();
-		if (!wbConfig.endpoint) {
-			log.debug('[Foundry] Workbench endpoint not configured, skipping autoconfigure');
-			return { configured: false };
-		}
-
 		return result;
 	}
 
