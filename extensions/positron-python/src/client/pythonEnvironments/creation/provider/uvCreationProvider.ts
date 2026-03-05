@@ -205,17 +205,11 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                 }
 
                 // Check if uv would install a pre-release version and warn the user
-                if (token.isCancellationRequested) {
-                    return undefined;
-                }
                 const versionInfo = await getUvPythonVersionInfo(version);
                 if (versionInfo?.isPrerelease) {
                     traceWarn(
                         `uv would install pre-release Python ${versionInfo.version} for requested version ${version}`,
                     );
-                    if (token.isCancellationRequested) {
-                        return undefined;
-                    }
                     const choice = await vscode.window.showWarningMessage(
                         CreateEnv.Uv.prereleaseWarning.replace('{0}', versionInfo.version),
                         { modal: false },
@@ -224,17 +218,11 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                         Common.cancel,
                     );
 
-                    if (token.isCancellationRequested) {
-                        return undefined;
-                    }
                     if (choice === CreateEnv.Uv.updateUv) {
                         // Run uv self update and wait for it to complete
                         progress.report({ message: CreateEnv.Uv.updatingUv });
                         traceInfo('Updating uv...');
                         const updateSuccess = await updateUv();
-                        if (token.isCancellationRequested) {
-                            return undefined;
-                        }
                         if (!updateSuccess) {
                             traceError('Failed to update uv');
                             throw new Error(CreateEnv.Uv.errorUpdatingUv);
@@ -245,9 +233,6 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                         const stableVersionInfo = await getUvPythonVersionInfo(version, {
                             skipLocalPrereleases: true,
                         });
-                        if (token.isCancellationRequested) {
-                            return undefined;
-                        }
 
                         if (stableVersionInfo && !stableVersionInfo.isPrerelease) {
                             // Found a stable version - install it if not already local
@@ -257,9 +242,6 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                                     message: CreateEnv.Uv.installingPython.replace('{0}', stableVersionInfo.version),
                                 });
                                 const installSuccess = await installUvPython(stableVersionInfo.version);
-                                if (token.isCancellationRequested) {
-                                    return undefined;
-                                }
                                 if (!installSuccess) {
                                     traceError(`Failed to install Python ${stableVersionInfo.version}`);
                                     throw new Error(
@@ -280,12 +262,10 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                                 CreateEnv.Uv.stillPrereleaseWarning.replace('{0}', fallbackInfo.version),
                             );
                         }
-                        // Continue with environment creation
                     } else if (choice !== CreateEnv.Uv.proceedAnyway) {
                         // User cancelled or closed the dialog
                         return undefined;
                     }
-                    // User chose to proceed anyway or update completed
                     traceInfo(`Proceeding with Python ${version}`);
                 }
 

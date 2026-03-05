@@ -33,6 +33,7 @@ suite('UV Creation provider tests', () => {
     let uvProvider: CreateEnvironmentProvider;
     let progressMock: typemoq.IMock<CreateEnvironmentProgress>;
     let isUvInstalledStub: sinon.SinonStub;
+    let getUvPythonVersionInfoStub: sinon.SinonStub;
     let pickPythonVersionStub: sinon.SinonStub;
     let pickWorkspaceFolderStub: sinon.SinonStub;
     let execObservableStub: sinon.SinonStub;
@@ -45,6 +46,9 @@ suite('UV Creation provider tests', () => {
         pickWorkspaceFolderStub = sinon.stub(wsSelect, 'pickWorkspaceFolder');
         isUvInstalledStub = sinon.stub(uv, 'isUvInstalled');
         isUvInstalledStub.resolves(true);
+        // Return a stable (non-prerelease) version to avoid triggering the prerelease warning flow
+        getUvPythonVersionInfoStub = sinon.stub(uv, 'getUvPythonVersionInfo');
+        getUvPythonVersionInfoStub.resolves({ version: '3.12.5', isPrerelease: false, path: undefined });
         pickPythonVersionStub = sinon.stub(uvUtils, 'pickPythonVersion');
         execObservableStub = sinon.stub(rawProcessApis, 'execObservable');
         withProgressStub = sinon.stub(windowApis, 'withProgress');
