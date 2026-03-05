@@ -13,6 +13,7 @@ export class InlineDataExplorer {
 
 	// Header elements
 	readonly header: Locator;
+	readonly title: Locator;
 	readonly shape: Locator;
 	readonly openButton: Locator;
 
@@ -33,6 +34,7 @@ export class InlineDataExplorer {
 	) {
 		this.container = this.page.locator('.inline-data-explorer-container');
 		this.header = this.container.locator('.inline-data-explorer-header');
+		this.title = this.container.locator('.inline-data-explorer-title');
 		this.shape = this.container.locator('.inline-data-explorer-shape');
 		this.openButton = this.container.locator('.inline-data-explorer-open-button');
 		this.content = this.container.locator('.inline-data-explorer-content');
@@ -113,6 +115,12 @@ export class InlineDataExplorer {
 	async expectOpenButtonToBeVisible(): Promise<void> {
 		await test.step('Verify Open button is visible', async () => {
 			await expect(this.openButton).toBeVisible();
+		});
+	}
+
+	async expectTitleToBe(expectedTitle: string, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Verify inline data explorer title is "${expectedTitle}"`, async () => {
+			await expect(this.title).toHaveText(expectedTitle, { timeout });
 		});
 	}
 
