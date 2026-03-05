@@ -36,10 +36,18 @@ import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
+
 	const deletionSentinels = useObservedValue(notebookInstance.deletionSentinels);
 	const fontStyles = useFontStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const services = usePositronReactServicesContext();
+
+	// Dev-only: throw to test the editor-level error boundary.
+	// Type "__positron_debug_throw_editor" in any cell to trigger.
+	if (!services.workbenchEnvironmentService.isBuilt &&
+		notebookCells.some(c => c.getContent().includes('__positron_debug_throw_editor'))) {
+		throw new Error('[dev] Error boundary test: editor rendering failure');
+	}
 
 	// Accessibility: Global announcements for notebook-level operations (cell add/delete).
 	// These are rendered in a ScreenReaderOnly ARIA live region for screen reader users.
