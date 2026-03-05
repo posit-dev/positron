@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -460,6 +460,7 @@ export class Sessions {
 				await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
 				await this.quickinput.waitForQuickInputClosed();
 				await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes');
+				await expect(this.code.driver.page.getByText('Discovering interpreters')).not.toBeVisible();
 			}, 'Select runtime from quick pick').toPass({ timeout: 30000 });
 
 			// Move mouse to prevent tooltip hover
