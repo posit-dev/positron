@@ -177,26 +177,35 @@ export async function getUvPythonVersionInfo(requestedVersion: string): Promise<
             return undefined;
         }
 
-        // Check if any version is already installed locally (has a path, not just "<download available>")
-        const hasLocalInstall = lines.some((line) => !line.includes('<download available>'));
-        if (hasLocalInstall) {
-            // Python is already installed locally, no need to warn about pre-release
+        // Find the first locally installed version or the first downloadable version
+        // A local install has a path (not just "<download available>")
+        const localLine = lines.find((line) => !line.includes('<download available>'));
+        const firstLine = localLine ?? lines[0];
+
+        // Format: "cpython-3.15.0a6-macos-aarch64-none    <download available>"
+        // or:     "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
+        const versionMatch = firstLine.match(/cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i);
+        if (!versionMatch) {
+            traceVerbose(`Could not parse version from uv python list output: ${firstLine}`);
             return undefined;
         }
-
-        // All versions are download-only. Get the version from the first line.
-        // Format: "cpython-3.15.0a6-macos-aarch64-none    <download available>"
-        const firstLine = lines[0];
-        const versionMatch = firstLine.match(/cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i);
-        const version = versionMatch ? versionMatch[1] : requestedVersion;
+        const version = versionMatch[1];
 
         // Check if it's a pre-release (contains 'a' for alpha, 'b' for beta, or 'rc' for release candidate)
         const isPrerelease = /\d+\.\d+\.\d+(a|b|rc)\d+/i.test(version);
 
+        // Extract path if this is a local install
+        let pythonPath: string | undefined;
+        if (localLine) {
+            // Extract path from format like "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
+            const pathMatch = localLine.match(/\s+(\/\S+)/);
+            pythonPath = pathMatch?.[1];
+        }
+
         return {
             version,
             isPrerelease,
-            path: undefined,
+            path: pythonPath,
         };
     } catch (ex) {
         traceVerbose(`Error checking uv Python version: ${ex}`);

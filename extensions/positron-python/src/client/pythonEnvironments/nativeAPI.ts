@@ -4,7 +4,7 @@
 import * as path from 'path';
 import { Disposable, Event, EventEmitter, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
 // eslint-disable-next-line import/no-duplicates
-import { PythonEnvInfo, PythonEnvKind, PythonEnvType, PythonReleaseLevel, PythonVersion } from './base/info';
+import { PythonEnvInfo, PythonEnvKind, PythonEnvType, PythonVersion } from './base/info';
 import {
     GetRefreshEnvironmentsOptions,
     IDiscoveryAPI,
@@ -23,7 +23,7 @@ import {
 } from './base/locators/common/nativePythonFinder';
 import { createDeferred, Deferred } from '../common/utils/async';
 import { Architecture, getPathEnvVariable, getUserHomeDir } from '../common/utils/platform';
-import { parseVersion } from './base/info/pythonVersion';
+import { getShortVersionString, parseVersion } from './base/info/pythonVersion';
 import { cache } from '../common/utils/decorators';
 import { traceError, traceInfo, traceLog, traceVerbose, traceWarn } from '../logging';
 import { StopWatch } from '../common/utils/stopWatch';
@@ -122,23 +122,8 @@ function kindToShortString(kind: PythonEnvKind): string | undefined {
     }
 }
 
-function toShortVersionString(version: PythonVersion): string {
-    let verStr = `${version.major}.${version.minor}.${version.micro}`.trim();
-    // Include pre-release suffix (e.g., "a5" for alpha 5, "b2" for beta 2, "rc1" for release candidate 1)
-    if (version.release && version.release.level !== PythonReleaseLevel.Final) {
-        if (version.release.level === PythonReleaseLevel.Alpha) {
-            verStr = `${verStr}a${version.release.serial}`;
-        } else if (version.release.level === PythonReleaseLevel.Beta) {
-            verStr = `${verStr}b${version.release.serial}`;
-        } else if (version.release.level === PythonReleaseLevel.Candidate) {
-            verStr = `${verStr}rc${version.release.serial}`;
-        }
-    }
-    return verStr;
-}
-
 function getDisplayName(version: PythonVersion, kind: PythonEnvKind, arch: Architecture, name?: string): string {
-    const versionStr = toShortVersionString(version);
+    const versionStr = getShortVersionString(version);
     const kindStr = kindToShortString(kind);
     if (arch === Architecture.x86) {
         if (kindStr) {

@@ -205,11 +205,17 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                 }
 
                 // Check if uv would install a pre-release version and warn the user
+                if (token.isCancellationRequested) {
+                    return undefined;
+                }
                 const versionInfo = await getUvPythonVersionInfo(version);
                 if (versionInfo?.isPrerelease) {
                     traceWarn(
                         `uv would install pre-release Python ${versionInfo.version} for requested version ${version}`,
                     );
+                    if (token.isCancellationRequested) {
+                        return undefined;
+                    }
                     const choice = await vscode.window.showWarningMessage(
                         CreateEnv.Uv.prereleaseWarning.replace('{0}', versionInfo.version),
                         { modal: false },
@@ -218,11 +224,17 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                         Common.cancel,
                     );
 
+                    if (token.isCancellationRequested) {
+                        return undefined;
+                    }
                     if (choice === CreateEnv.Uv.updateUv) {
                         // Run uv self update and wait for it to complete
                         progress.report({ message: CreateEnv.Uv.updatingUv });
                         traceInfo('Updating uv...');
                         const updateSuccess = await updateUv();
+                        if (token.isCancellationRequested) {
+                            return undefined;
+                        }
                         if (!updateSuccess) {
                             traceError('Failed to update uv');
                             throw new Error(CreateEnv.Uv.errorUpdatingUv);
@@ -231,6 +243,9 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
 
                         // Re-check if the version is still a pre-release after updating
                         const newVersionInfo = await getUvPythonVersionInfo(version);
+                        if (token.isCancellationRequested) {
+                            return undefined;
+                        }
                         if (newVersionInfo?.isPrerelease) {
                             // Still a pre-release after update - warn user but continue
                             traceWarn(`After uv update, still getting pre-release Python ${newVersionInfo.version}`);
