@@ -42,13 +42,6 @@ export function PositronNotebookComponent() {
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const services = usePositronReactServicesContext();
 
-	// Dev-only: throw to test the editor-level error boundary.
-	// Type "__positron_debug_throw_editor" in any cell to trigger.
-	if (!services.workbenchEnvironmentService.isBuilt &&
-		notebookCells.some(c => c.getContent().includes('__positron_debug_throw_editor'))) {
-		throw new Error('[dev] Error boundary test: editor rendering failure');
-	}
-
 	// Accessibility: Global announcements for notebook-level operations (cell add/delete).
 	// These are rendered in a ScreenReaderOnly ARIA live region for screen reader users.
 	const [globalAnnouncement, setGlobalAnnouncement] = React.useState<string>('');

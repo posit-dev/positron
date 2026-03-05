@@ -114,16 +114,8 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 });
 
 export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
-	const services = usePositronReactServicesContext();
 	const outputContents = useObservedValue(cell.outputs);
 	const hasError = outputContents.some(o => o.parsed.type === 'error');
-
-	// Dev-only: throw to test the cell-level error boundary.
-	// Type "__positron_debug_throw_cell" in a code cell to trigger.
-	if (!services.workbenchEnvironmentService.isBuilt &&
-		cell.getContent().includes('__positron_debug_throw_cell')) {
-		throw new Error('[dev] Error boundary test: cell rendering failure');
-	}
 
 	return (
 		<NotebookCellWrapper
@@ -148,15 +140,6 @@ export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: {
 });
 
 const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
-	const services = usePositronReactServicesContext();
-
-	// Dev-only: throw to test the output-level error boundary.
-	// Print "__positron_debug_throw_output" as cell output to trigger.
-	if (!services.workbenchEnvironmentService.isBuilt &&
-		'content' in output.parsed && String(output.parsed.content).includes('__positron_debug_throw_output')) {
-		throw new Error('[dev] Error boundary test: output rendering failure');
-	}
-
 	if (output.preloadMessageResult) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
