@@ -340,11 +340,11 @@ class UiService:
             with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
                 try:
                     # Try eval first (for expressions)
-                    result = eval(code, self.kernel.shell.user_ns)  # noqa: S307
+                    result = eval(code, self.kernel.shell.user_ns)
                     json_result = _to_json_compatible(result)
                 except SyntaxError:
                     # Fall back to exec for statements
-                    exec(code, self.kernel.shell.user_ns)  # noqa: S102
+                    exec(code, self.kernel.shell.user_ns)
                     json_result = None
         except Exception as err:
             logger.warning(f"Error evaluating code: {err}")
