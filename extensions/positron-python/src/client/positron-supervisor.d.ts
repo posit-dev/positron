@@ -362,16 +362,16 @@ export interface CommRpcError extends CommError {
  */
 export type CommBackendMessage =
     | {
-        kind: 'request';
-        method: string;
-        params?: Record<string, unknown>;
-        handle: (handler: () => any) => void;
-    }
+          kind: 'request';
+          method: string;
+          params?: Record<string, unknown>;
+          handle: (handler: () => any) => void;
+      }
     | {
-        kind: 'notification';
-        method: string;
-        params?: Record<string, unknown>;
-    };
+          kind: 'notification';
+          method: string;
+          params?: Record<string, unknown>;
+      };
 
 /**
  * A Debug Adapter Protocol (DAP) comm.
