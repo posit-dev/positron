@@ -155,6 +155,41 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 		});
 	});
 
+	test('Python - Verify variable name in inline title and data explorer tab', async function ({ app }) {
+		const { notebooksPositron, inlineDataExplorer, dataExplorer, editors, variables } = app.workbench;
+		const page = app.code.driver.page;
+
+		await test.step('Execute cell that returns a named DataFrame', async () => {
+			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
+		});
+
+		await test.step('Verify inline header shows variable name', async () => {
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.expectTitleToBe('df');
+		});
+
+		await test.step('Open full Data Explorer and verify tab name', async () => {
+			const tabsBefore = await page.locator('.tab').count();
+			await inlineDataExplorer.openFullDataExplorer();
+			await expect(async () => {
+				const tabsAfter = await page.locator('.tab').count();
+				expect(tabsAfter).toBeGreaterThan(tabsBefore);
+			}).toPass({ timeout: 15000 });
+			await dataExplorer.waitForIdle();
+			await editors.verifyTab('Data: df', { isVisible: true });
+		});
+
+		await test.step('Double-click variable in Variables pane reuses existing tab', async () => {
+			const tabsBefore = await page.locator('.tab').count();
+			await variables.doubleClickVariableRow('df');
+			// Verify the existing Data Explorer tab is focused (not a new one)
+			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+			// Verify no new tab was created
+			const tabsAfter = await page.locator('.tab').count();
+			expect(tabsAfter).toBe(tabsBefore);
+		});
+	});
+
 	test('Python - Verify re-execution updates the inline data explorer', async function ({ app, hotKeys }) {
 		const { notebooksPositron, inlineDataExplorer } = app.workbench;
 
