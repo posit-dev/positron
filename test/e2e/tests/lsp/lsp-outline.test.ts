@@ -83,7 +83,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 		test.skip('Verify outline after reload with Python in foreground and R in background', {
 			tag: [tags.ARK],
-		}, async function ({ app, runCommand, sessions }) {
+		}, async function ({ app, hotKeys, sessions }) {
 			const { outline, editor } = app.workbench;
 
 			// Start sessions
@@ -99,7 +99,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 			// Reload window
 			await sessions.expectSessionCountToBe(2);
-			await runCommand('workbench.action.reloadWindow');
+			await hotKeys.reloadWindow(true);
 			await sessions.expectSessionCountToBe(2);
 
 			// Verify outlines for both file types
@@ -112,7 +112,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 		test.skip('Verify outline after reload with R in foreground and Python in background', {
 			tag: [tags.ARK],
-		}, async function ({ app, runCommand, sessions }) {
+		}, async function ({ app, hotKeys, sessions }) {
 			const { outline, editor } = app.workbench;
 
 			// Start sessions
@@ -127,7 +127,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await verifyPythonOutline(outline);
 
 			// Reload window
-			await runCommand('workbench.action.reloadWindow');
+			await hotKeys.reloadWindow(true);
 
 			// Verify outlines for both file types
 			await editor.selectTab(R_FILE);

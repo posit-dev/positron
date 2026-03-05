@@ -288,9 +288,6 @@ class HoverAdapter {
 	constructor(
 		private readonly _documents: ExtHostDocuments,
 		private readonly _provider: vscode.HoverProvider,
-		// --- Start Positron ---
-		private readonly _extensionId: string,
-		// --- End Positron ---
 	) { }
 
 	async provideHover(resource: URI, position: IPosition, context: languages.HoverContext<{ id: number }> | undefined, token: CancellationToken): Promise<extHostProtocol.HoverWithId | undefined> {
@@ -344,7 +341,7 @@ class HoverAdapter {
 			...convertedHover,
 			id,
 			// --- Start Positron ---
-			extensionId: this._extensionId,
+			priority: value.priority,
 			// --- End Positron ---
 		};
 		return hover;
@@ -1331,6 +1328,9 @@ class CompletionsAdapter {
 			[extHostProtocol.ISuggestDataDtoField.commandIdent]: command?.$ident,
 			[extHostProtocol.ISuggestDataDtoField.commandId]: command?.id,
 			[extHostProtocol.ISuggestDataDtoField.commandArguments]: command?.$ident ? undefined : command?.arguments, // filled in on main side from $ident
+			// --- Start Positron ---
+			[extHostProtocol.ISuggestDataDtoField.priority]: item.priority,
+			// --- End Positron ---
 		};
 
 		// 'insertText'-logic
@@ -2466,10 +2466,7 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 	// --- extra info
 
 	registerHoverProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: vscode.HoverProvider, extensionId?: ExtensionIdentifier): vscode.Disposable {
-		// --- Start Positron ---
-		// added extensionId parameter to HoverAdapter
-		const handle = this._addNewAdapter(new HoverAdapter(this._documents, provider, extension.identifier.value), extension);
-		// --- End Positron ---
+		const handle = this._addNewAdapter(new HoverAdapter(this._documents, provider), extension);
 		this._proxy.$registerHoverProvider(handle, this._transformDocumentSelector(selector, extension));
 		return this._createDisposable(handle);
 	}

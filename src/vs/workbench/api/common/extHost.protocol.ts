@@ -1952,9 +1952,10 @@ export interface HoverWithId extends languages.Hover {
 	id: number;
 	// --- Start Positron ---
 	/**
-	 * Id of the extension that provided this hover
+	 * Priority for deduplication. Only the hover(s) with the highest
+	 * priority are shown; all others are suppressed.
 	 */
-	extensionId?: string;
+	priority?: number;
 	// --- End Positron ---
 }
 
@@ -2296,6 +2297,9 @@ export const enum ISuggestDataDtoField {
 	commandIdent = 'n',
 	commandId = 'o',
 	commandArguments = 'p',
+	// --- Start Positron ---
+	priority = 'q',
+	// --- End Positron ---
 }
 
 export interface ISuggestDataDto {
@@ -2316,6 +2320,9 @@ export interface ISuggestDataDto {
 	[ISuggestDataDtoField.commandIdent]?: string;
 	[ISuggestDataDtoField.commandId]?: string;
 	[ISuggestDataDtoField.commandArguments]?: any[];
+	// --- Start Positron ---
+	[ISuggestDataDtoField.priority]?: number;
+	// --- End Positron ---
 	// not-standard
 	x?: ChainedCacheId;
 }

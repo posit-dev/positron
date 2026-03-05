@@ -85,7 +85,7 @@
     "extensions-ci": "npm run gulp extensions-ci",
     "extensions-ci-pr": "npm run gulp extensions-ci-pr",
     "perf": "node scripts/code-perf.js",
-    "rebuild": ". $NVM_DIR/nvm.sh && nvm use && ./rebuild.sh",
+    "nuke": ". $NVM_DIR/nvm.sh && nvm use && ./rebuild.sh && npm run prelaunch",
     "update-build-ts-version": "npm install -D typescript@next && npm install -D @typescript/native-preview && (cd build && npm run typecheck)",
     "build-ps": "./scripts/build-ps.sh",
     "build-check": "./scripts/build-check.sh",

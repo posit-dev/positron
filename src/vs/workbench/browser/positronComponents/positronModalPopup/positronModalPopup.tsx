@@ -432,6 +432,14 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Add the onResize event handler.
 		disposableStore.add(props.renderer.onResize(e => {
+			// If there's an anchor point, or if there's an anchor element and it has been removed from the DOM,
+			// the popup cannot be laid out accurately because we don't know enough about what has changed in the
+			// DOM as a result of the resize. In this case, dispose the renderer and return.
+			if (props.anchorPoint || (props.anchorElement && !props.anchorElement.isConnected)) {
+				props.renderer.dispose();
+				return;
+			}
+
 			// On resize, update the layout.
 			updatePopupLayout();
 		}));

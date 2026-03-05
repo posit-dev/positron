@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -238,7 +238,8 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
     st = esc + "\\"
 
     # Convenient reference to colors from the active scheme.
-    colors = cast("Any", shell.InteractiveTB.Colors)
+    # Ignore types since the Colors attribute was removed in IPython 9
+    colors = cast("Any", shell.InteractiveTB.Colors)  # type: ignore
 
     # This template matches the beginning of each traceback frame. We don't check each entire frame
     # because syntax highlighted code is full of escape codes. For example, after removing

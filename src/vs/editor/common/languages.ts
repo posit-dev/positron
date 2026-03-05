@@ -211,10 +211,10 @@ export interface Hover {
 
 	// --- Start Positron ---
 	/**
-	 * Id of the extension that provided this hover.
-	 * Used to filter duplicate hovers from certain extensions.
+	 * Priority for deduplication. Only the hover(s) with the highest
+	 * priority are shown; all others are suppressed.
 	 */
-	extensionId?: string;
+	priority?: number;
 	// --- End Positron ---
 }
 
@@ -649,6 +649,14 @@ export interface CompletionItem {
 	 * @internal
 	 */
 	extensionId?: ExtensionIdentifier;
+
+	// --- Start Positron ---
+	/**
+	 * Priority for deduplication and sorting. Higher priority items win
+	 * dedup contests and sort before lower priority items.
+	 */
+	priority?: number;
+	// --- End Positron ---
 
 	/**
 	 * @internal

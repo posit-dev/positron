@@ -24,7 +24,7 @@
 	"r.command.loadRdsFile.title": "Load R Object",
 	"r.command.loadRDataFileWithPicker.title": "Load R Data File...",
 	"r.command.browseAddins.title": "Browse RStudio Addins",
-	"r.command.browseRmdTemplates.title": "Browse R Markdown Templates",
+	"r.command.newRmdFromTemplate.title": "New R Markdown from Template",
 	"r.customEditor.rdataLoader.displayName": "R Workspace Loader",
 	"r.customEditor.rdsLoader.displayName": "R Object Loader",
 	"r.menu.createNewFile.title": "R File",

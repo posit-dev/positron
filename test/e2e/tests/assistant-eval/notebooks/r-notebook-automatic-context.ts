@@ -63,7 +63,6 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 			'The `editNotebookCells` tool must NOT appear in "Tools Called:" (we asked NOT to edit)',
 		],
 		optional: [
-			'References the DataFrame "df" by name or describes the data structure',
 			'Provides a clear, accurate calculation or explanation showing how the total was derived',
 			'Does not hallucinate columns or values not present in the notebook',
 		],
