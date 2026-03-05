@@ -78,7 +78,21 @@
 			"result": {
 				"schema": {
 					"name": "eval_result",
-					"description": "The result of evaluating the code"
+					"description": "The results of evaluating the statement",
+					"type": "object",
+					"properties": {
+						"result": {
+							"description": "The result value"
+						},
+						"output": {
+							"description": "The output, if any, emitted during evaluation",
+							"type": "string"
+						}
+					},
+					"required": [
+						"result",
+						"output"
+					]
 				}
 			}
 		},

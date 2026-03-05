@@ -331,28 +331,31 @@ class UiService:
         return None
 
     def _evaluate_code(self, code: str) -> None:
+        from io import StringIO
+
+        stdout_buf = StringIO()
+        stderr_buf = StringIO()
+
         try:
-            # Try eval first (for expressions)
-            result = eval(code, self.kernel.shell.user_ns)  # noqa: S307
-            json_result = _to_json_compatible(result)
-        except SyntaxError:
-            # Fall back to exec for statements
-            try:
-                exec(code, self.kernel.shell.user_ns)  # noqa: S102
-                json_result = None
-            except Exception as err:
-                logger.warning(f"Error executing code: {err}")
-                if self._comm is not None:
-                    self._comm.send_error(JsonRpcErrorCode.INTERNAL_ERROR, str(err))
-                return
+            with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
+                try:
+                    # Try eval first (for expressions)
+                    result = eval(code, self.kernel.shell.user_ns)  # noqa: S307
+                    json_result = _to_json_compatible(result)
+                except SyntaxError:
+                    # Fall back to exec for statements
+                    exec(code, self.kernel.shell.user_ns)  # noqa: S102
+                    json_result = None
         except Exception as err:
             logger.warning(f"Error evaluating code: {err}")
             if self._comm is not None:
                 self._comm.send_error(JsonRpcErrorCode.INTERNAL_ERROR, str(err))
             return
 
+        output = stdout_buf.getvalue() + stderr_buf.getvalue()
+
         if self._comm is not None:
-            self._comm.send_result(data=json_result)
+            self._comm.send_result(data={"result": json_result, "output": output})
 
     def shutdown(self) -> None:
         if self._comm is not None:

@@ -23,6 +23,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import * as typeConvert from '../extHostTypeConverters.js';
 
@@ -1440,7 +1441,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		code: string,
 		token?: CancellationToken,
 		sessionId?: string
-	): Promise<any> {
+	): Promise<EvalResult> {
 		const evaluationId = generateUuid();
 
 		const promise = this._proxy.$evaluateCode(languageId, sessionId, code, evaluationId);

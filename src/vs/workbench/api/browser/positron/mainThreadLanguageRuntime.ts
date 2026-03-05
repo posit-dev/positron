@@ -31,7 +31,7 @@ import { IPositronHelpService } from '../../../contrib/positronHelp/browser/posi
 import { INotebookService } from '../../../contrib/notebook/common/notebookService.js';
 import { IRuntimeClientEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { URI } from '../../../../base/common/uri.js';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent, OpenWithSystemEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent, OpenWithSystemEvent, EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { Selection } from '../../../../editor/common/core/selection.js';
@@ -72,7 +72,7 @@ interface EvaluationEntry {
 	sessionId: string;
 
 	/** The deferred promise that resolves with the result */
-	deferred: DeferredPromise<any>;
+	deferred: DeferredPromise<EvalResult>;
 
 	/** Whether this entry is currently executing */
 	executing: boolean;
@@ -1928,7 +1928,7 @@ export class MainThreadLanguageRuntime
 		sessionId: string | undefined,
 		code: string,
 		evaluationId: string
-	): Promise<any> {
+	): Promise<EvalResult> {
 		// Find the appropriate session
 		let activeSession;
 		if (sessionId) {

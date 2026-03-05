@@ -20,32 +20,39 @@ test.describe('Evaluate Code', {
 			await app.workbench.layouts.enterLayout('fullSizedPanel');
 		});
 
-		test('evaluate R expression returns JSON result', async ({ app, page }) => {
-			// In smoke tests, DialogService refuses to show dialogs and throws.
-			// We listen for the resulting error console message to confirm
-			// the evaluation ran and attempted to display results.
-			const dialogRefused = page.waitForEvent('console', {
-				predicate: msg => msg.type() === 'error' &&
-					msg.text().includes('Evaluate Code') &&
-					msg.text().includes('refused to show dialog'),
-				timeout: 30000,
-			});
+		test.afterEach(async function ({ app }) {
+			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		});
 
-			// Open the command palette and run the evaluate code command,
-			// keeping the quick input open since the command opens its own input
+		test('evaluate R expression returns JSON result', async ({ app, page }) => {
 			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
 
-			// Wait for the input box to appear with our placeholder
 			const inputBox = page.locator('.quick-input-widget .quick-input-box input');
 			await expect(inputBox).toBeVisible();
-
-			// Type the R expression and submit
 			await inputBox.fill('list(a = 1, b = TRUE)');
 			await page.keyboard.press('Enter');
 
-			// Confirm the command ran to completion (the dialog refusal
-			// means the evaluation succeeded but the result dialog was blocked)
-			await dialogRefused;
+			// Verify the editor opens with the result section
+			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
+			await expect(editorContent).toContainText('## Result');
+			await expect(editorContent).toContainText('"a"');
+			await expect(editorContent).toContainText('"b"');
+		});
+
+		test('evaluate R expression with output', async ({ app, page }) => {
+			// isTRUE(cat('oatmeal')) prints 'oatmeal' and returns FALSE
+			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+
+			const inputBox = page.locator('.quick-input-widget .quick-input-box input');
+			await expect(inputBox).toBeVisible();
+			await inputBox.fill("isTRUE(cat('oatmeal'))");
+			await page.keyboard.press('Enter');
+
+			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
+			await expect(editorContent).toContainText('## Result');
+			await expect(editorContent).toContainText('false');
+			await expect(editorContent).toContainText('## Output');
+			await expect(editorContent).toContainText('oatmeal');
 		});
 	});
 
@@ -54,29 +61,38 @@ test.describe('Evaluate Code', {
 			await app.workbench.layouts.enterLayout('fullSizedPanel');
 		});
 
-		test('evaluate Python expression returns JSON result', async ({ app, page }) => {
-			// In smoke tests, DialogService refuses to show dialogs and throws.
-			const dialogRefused = page.waitForEvent('console', {
-				predicate: msg => msg.type() === 'error' &&
-					msg.text().includes('Evaluate Code') &&
-					msg.text().includes('refused to show dialog'),
-				timeout: 30000,
-			});
+		test.afterEach(async function ({ app }) {
+			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		});
 
-			// Open the command palette and run the evaluate code command,
-			// keeping the quick input open since the command opens its own input
+		test('evaluate Python expression returns JSON result', async ({ app, page }) => {
 			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
 
-			// Wait for the input box to appear with our placeholder
 			const inputBox = page.locator('.quick-input-widget .quick-input-box input');
 			await expect(inputBox).toBeVisible();
-
-			// Type the Python expression and submit
 			await inputBox.fill('{"a": 1, "b": True}');
 			await page.keyboard.press('Enter');
 
-			// Confirm the command ran to completion
-			await dialogRefused;
+			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
+			await expect(editorContent).toContainText('## Result');
+			await expect(editorContent).toContainText('"a"');
+			await expect(editorContent).toContainText('"b"');
+		});
+
+		test('evaluate Python expression with output', async ({ app, page }) => {
+			// print('hello') or 42 prints 'hello' and returns 42
+			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+
+			const inputBox = page.locator('.quick-input-widget .quick-input-box input');
+			await expect(inputBox).toBeVisible();
+			await inputBox.fill("print('hello') or 42");
+			await page.keyboard.press('Enter');
+
+			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
+			await expect(editorContent).toContainText('## Result');
+			await expect(editorContent).toContainText('42');
+			await expect(editorContent).toContainText('## Output');
+			await expect(editorContent).toContainText('hello');
 		});
 	});
 });

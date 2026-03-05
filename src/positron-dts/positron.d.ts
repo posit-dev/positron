@@ -1794,6 +1794,21 @@ declare module 'positron' {
 		Tiff = 'tiff'
 	}
 
+	/***
+	 * Represents the result of evaluating a code fragment in the runtime.
+	 */
+	export interface EvalResult {
+		/**
+		 * The value resulting from the code evaluation.
+		 */
+		result: any;
+
+		/**
+		 * The output emitted during code evaluation, if any.
+		 */
+		output: string;
+	}
+
 	namespace languages {
 		/**
 		 * Register a statement range provider.
@@ -2079,7 +2094,7 @@ declare module 'positron' {
 		export function evaluateCode(languageId: string,
 			code: string,
 			cancellationToken?: vscode.CancellationToken,
-			sessionId?: string): Thenable<any>;
+			sessionId?: string): Thenable<EvalResult>;
 
 		/**
 		 * Executes a set of cells in a source document. The results are

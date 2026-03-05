@@ -23,6 +23,20 @@ Param = Any
 CallMethodResult = Any
 
 
+class EvalResult(BaseModel):
+    """
+    The results of evaluating the statement
+    """
+
+    result: Any = Field(
+        description="The result value",
+    )
+
+    output: StrictStr = Field(
+        description="The output, if any, emitted during evaluation",
+    )
+
+
 @enum.unique
 class OpenEditorKind(str, enum.Enum):
     """
@@ -680,6 +694,8 @@ class OpenWithSystemParams(BaseModel):
         description="The file path to open with the system default application",
     )
 
+
+EvalResult.update_forward_refs()
 
 EditorContext.update_forward_refs()
 

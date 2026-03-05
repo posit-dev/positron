@@ -28,6 +28,22 @@ export interface CallMethodResult {
 }
 
 /**
+ * The results of evaluating the statement
+ */
+export interface EvalResult {
+	/**
+	 * The result value
+	 */
+	result: any;
+
+	/**
+	 * The output, if any, emitted during evaluation
+	 */
+	output: string;
+
+}
+
+/**
  * Parameters for the DidChangePlotsRenderSettings method.
  */
 export interface DidChangePlotsRenderSettingsParams {
@@ -1053,9 +1069,9 @@ export class PositronUiComm extends PositronBaseComm {
 	 *
 	 * @param code The code string to evaluate
 	 *
-	 * @returns The result of evaluating the code
+	 * @returns The results of evaluating the statement
 	 */
-	evaluateCode(code: string): Promise<any> {
+	evaluateCode(code: string): Promise<EvalResult> {
 		return super.performRpc('evaluate_code', ['code'], [code]);
 	}
 

@@ -23,17 +23,14 @@ import { dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
-import { MarkdownString } from '../../../../base/common/htmlContent.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import Severity from '../../../../base/common/severity.js';
 import { getErrorMessage } from '../../../../base/common/errors.js';
-import { escape } from '../../../../base/common/strings.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -1221,7 +1218,6 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
-		const dialogService = accessor.get(IDialogService);
 		const progressService = accessor.get(IProgressService);
 		const editorService = accessor.get(IEditorService);
 
@@ -1269,53 +1265,29 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 				() => activeSession.uiClient!.evaluateCode(code)
 			);
 
-			const resultStr = JSON.stringify(result, null, 2);
-			const markdown = new MarkdownString(undefined, { supportHtml: true });
-			markdown.appendMarkdown(`<pre><code>${escape(resultStr)}</code></pre>`);
+			const resultStr = JSON.stringify(result.result, null, 2);
 
-			await dialogService.prompt({
-				type: Severity.Info,
-				message: localize('positron.evaluateCode.resultOf', "Result of: {0}", code),
-				custom: {
-					markdownDetails: [{
-						markdown,
-						classes: ['evaluate-code-result'],
-					}],
-				},
-				buttons: [
-					{
-						label: localize('positron.evaluateCode.ok', "OK"),
-						run: () => { },
-					},
-					{
-						label: localize('positron.evaluateCode.openInEditor', "Open in Editor"),
-						run: () => {
-							editorService.openEditor({
-								resource: undefined,
-								contents: resultStr,
-								languageId: 'json',
-							});
-						},
-					},
-				],
+			// Build the editor content with result and output sections
+			const lines: string[] = [];
+			lines.push('## Result');
+			lines.push('');
+			lines.push(resultStr);
+			if (result.output) {
+				lines.push('');
+				lines.push('## Output');
+				lines.push('');
+				lines.push(result.output);
+			}
+
+			await editorService.openEditor({
+				resource: undefined,
+				contents: lines.join('\n'),
+				languageId: 'markdown',
 			});
 		} catch (err) {
-			const errorMessage = getErrorMessage(err);
-
-			const markdown = new MarkdownString(undefined, { supportHtml: true });
-			markdown.appendMarkdown(`<pre><code>${escape(errorMessage)}</code></pre>`);
-
-			await dialogService.prompt({
-				type: Severity.Error,
-				message: localize('positron.evaluateCode.errorOf', "Error evaluating: {0}", code),
-				custom: {
-					markdownDetails: [{
-						markdown,
-						classes: ['evaluate-code-result'],
-					}],
-				},
-				cancelButton: localize('positron.evaluateCode.ok', "OK"),
-			});
+			notificationService.error(
+				localize('positron.evaluateCode.error', "Error evaluating: {0}: {1}", code, getErrorMessage(err))
+			);
 		}
 	}
 });

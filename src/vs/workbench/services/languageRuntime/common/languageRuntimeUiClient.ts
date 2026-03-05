@@ -6,7 +6,7 @@
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, OpenWithSystemEvent, ClearWebviewPreloadsEvent, ShowHtmlFileDestination } from './positronUiComm.js';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, OpenWithSystemEvent, ClearWebviewPreloadsEvent, ShowHtmlFileDestination, EvalResult } from './positronUiComm.js';
 import { PositronUiCommInstance } from './positronUiCommInstance.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -274,7 +274,7 @@ export class UiClientInstance extends Disposable {
 	 * @param code The code to evaluate
 	 * @returns The result of evaluating the code
 	 */
-	public evaluateCode(code: string): Promise<any> {
+	public evaluateCode(code: string): Promise<EvalResult> {
 		return this._comm.evaluateCode(code);
 	}
 
