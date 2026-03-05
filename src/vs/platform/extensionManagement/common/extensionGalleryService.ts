@@ -31,6 +31,9 @@ import { StopWatch } from '../../../base/common/stopwatch.js';
 import { format2 } from '../../../base/common/strings.js';
 import { ExtensionGalleryResourceType, Flag, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService, ExtensionGalleryManifestStatus } from './extensionGalleryManifest.js';
 import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js';
+// --- Start Positron ---
+import { isValidPositronExtensionVersion } from '../../extensions/common/positronExtensionValidator.js';
+// --- End Positron ---
 
 const CURRENT_TARGET_PLATFORM = isWeb ? TargetPlatform.WEB : getTargetPlatform(platform, arch);
 const SEARCH_ACTIVITY_HEADER_NAME = 'X-Market-Search-Activity-Id';
@@ -1030,6 +1033,13 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			if (!(await this.isEngineValid(extension.id, extension.version, extension.engine, extension.manifestAsset, productVersion))) {
 				return false;
 			}
+
+			// --- Start Positron ---
+			// Check Positron engine compatibility (requires manifest fetch since Open VSX doesn't expose engines.positron).
+			if (!(await this.isPositronEngineValid(extension.id, extension.version, extension.manifestAsset, productVersion))) {
+				return false;
+			}
+			// --- End Positron ---
 		}
 
 		return true;
@@ -1062,6 +1072,58 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 
 		return isEngineValid(engine, productVersion.version, productVersion.date);
 	}
+
+	// --- Start Positron ---
+	private async isPositronEngineValid(extensionId: string, version: string, manifestAsset: IGalleryExtensionAsset | null, productVersion: IProductVersion): Promise<boolean> {
+		// No manifest means no Positron requirement - assume compatible.
+		if (!manifestAsset) {
+			return true;
+		}
+
+		// Fetch the manifest to check for engines.positron. On error, assume compatible.
+		let positronEngine: string | undefined;
+		try {
+			// Load the manifest for the extension.
+			const headers = { 'Accept-Encoding': 'gzip' };
+			const context = await this.getAsset(extensionId, manifestAsset, AssetType.Manifest, version, { headers });
+			const manifest = await asJson<IExtensionManifest>(context);
+
+			// If manifest parsing failed, assume compatible rather than blocking the extension.
+			if (!manifest) {
+				this.logService.warn(`Manifest was not found for the extension ${extensionId} with version ${version}`);
+				return true;
+			}
+
+			// No Positron engine requirement means the extension is compatible with any Positron version.
+			positronEngine = manifest.engines?.positron;
+			if (!positronEngine) {
+				return true;
+			}
+		} catch (error) {
+			this.logService.error(`Error while getting the Positron engine for the version ${version}.`, getErrorMessage(error));
+			return true;
+		}
+
+		// Build a minimal manifest to validate the Positron engine requirement.
+		const notices: string[] = [];
+		const manifest: IExtensionManifest = {
+			name: extensionId,
+			publisher: '',
+			version: version,
+			engines: { vscode: '*', positron: positronEngine },
+			main: './main.js' // Required to trigger version validation.
+		};
+
+		// Check if the extension's Positron version requirement is compatible with the current Positron version.
+		return isValidPositronExtensionVersion(
+			this.productService.positronVersion,
+			productVersion.date,
+			manifest,
+			false,
+			notices
+		);
+	}
+	// --- End Positron ---
 
 	private async getEngine(extensionId: string, version: string, manifestAsset: IGalleryExtensionAsset | null): Promise<string | undefined> {
 		if (!manifestAsset) {
@@ -1156,7 +1218,11 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		}
 
 		const runQuery = async (query: Query, token: CancellationToken) => {
-			const { extensions, total } = await this.queryGalleryExtensions(query, { targetPlatform: CURRENT_TARGET_PLATFORM, compatible: false, includePreRelease: !!options.includePreRelease, productVersion: options.productVersion ?? { version: this.productService.version, date: this.productService.date } }, extensionGalleryManifest, token);
+			// --- Start Positron ---
+			// Set compatible: true to enable engine compatibility filtering.
+			// This will fetch manifests to check Positron engine requirements via isPositronEngineValid().
+			const { extensions, total } = await this.queryGalleryExtensions(query, { targetPlatform: CURRENT_TARGET_PLATFORM, compatible: true, includePreRelease: !!options.includePreRelease, productVersion: options.productVersion ?? { version: this.productService.version, date: this.productService.date } }, extensionGalleryManifest, token);
+			// --- End Positron ---
 
 			const result: IGalleryExtension[] = [];
 			let defaultChatAgentExtension: IGalleryExtension | undefined;
