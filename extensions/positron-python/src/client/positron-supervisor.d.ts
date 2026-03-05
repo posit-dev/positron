@@ -200,7 +200,7 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
      * @param code The code string to evaluate
      * @returns A promise that resolves with the result of the evaluation
      */
-    evaluate(code: string): Promise<any>;
+    evaluate(code: string): Promise<positron.EvalResult>;
 
     /**
      * Return logfile path

@@ -672,11 +672,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param code The code string to evaluate
 	 * @returns A promise that resolves with the result of the evaluation
 	 */
-	async evaluate(code: string): Promise<any> {
+	async evaluate(code: string): Promise<positron.EvalResult> {
 		// Wait for the runtime to be idle before evaluating
 		await this.waitForIdle();
 
-		const promise = new PromiseHandles<any>;
+		const promise = new PromiseHandles<positron.EvalResult>;
 
 		// Find the UI comm
 		const uiComm = Array.from(this._clients.values())
@@ -729,7 +729,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 
 			// Return the result
-			promise.resolve(response.result);
+			promise.resolve(response.result as positron.EvalResult);
 		})
 			.catch((err) => {
 				this.log(`Failed to send evaluate_code request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);

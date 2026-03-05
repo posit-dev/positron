@@ -696,9 +696,9 @@ async function showRVersion(): Promise<void> {
 			return;
 		}
 
-		const result = await session.evaluate('as.list(R.version)');
+		const evalResult = await session.evaluate('as.list(R.version)');
 
-		const v = result as Record<string, string>;
+		const v = evalResult.result as Record<string, string>;
 		const title = v['version.string'] || 'R';
 
 		const lines: string[] = [];

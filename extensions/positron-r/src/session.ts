@@ -263,7 +263,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	evaluate(code: string): Promise<any> {
+	evaluate(code: string): Promise<positron.EvalResult> {
 		if (this._kernel) {
 			return this._kernel.evaluate(code);
 		} else {
