@@ -55,7 +55,7 @@ export class PackageManager {
 				: `pip uninstall -y ${packageName}`;
 		} else {
 			return action === 'install'
-				? `install.packages("${packageName}", type = "binary")`
+				? `install.packages("${packageName}", type = "both")`
 				: `remove.packages("${packageName}")`;
 		}
 	}
