@@ -1254,6 +1254,16 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 		// Truncate code for display in progress title
 		const codeLabel = code.length > 50 ? code.substring(0, 50) + '...' : code;
 
+		const languageId = foregroundSession.runtimeMetadata.languageId;
+
+		// Build the input section (shared by success and error)
+		const lines: string[] = [];
+		lines.push('## Input');
+		lines.push('');
+		lines.push('```' + languageId + '');
+		lines.push(code);
+		lines.push('```');
+
 		try {
 			const result = await progressService.withProgress(
 				{
@@ -1267,28 +1277,34 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 
 			const resultStr = JSON.stringify(result.result, null, 2);
 
-			// Build the editor content with result and output sections
-			const lines: string[] = [];
+			lines.push('');
 			lines.push('## Result');
 			lines.push('');
+			lines.push('```json');
 			lines.push(resultStr);
+			lines.push('```');
 			if (result.output) {
 				lines.push('');
 				lines.push('## Output');
 				lines.push('');
+				lines.push('```');
 				lines.push(result.output);
+				lines.push('```');
 			}
-
-			await editorService.openEditor({
-				resource: undefined,
-				contents: lines.join('\n'),
-				languageId: 'markdown',
-			});
 		} catch (err) {
-			notificationService.error(
-				localize('positron.evaluateCode.error', "Error evaluating: {0}: {1}", code, getErrorMessage(err))
-			);
+			lines.push('');
+			lines.push('## Error');
+			lines.push('');
+			lines.push('```');
+			lines.push(getErrorMessage(err));
+			lines.push('```');
 		}
+
+		await editorService.openEditor({
+			resource: undefined,
+			contents: lines.join('\n'),
+			languageId: 'markdown',
+		});
 	}
 });
 

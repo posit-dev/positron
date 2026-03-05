@@ -32,8 +32,10 @@ test.describe('Evaluate Code', {
 			await inputBox.fill('list(a = 1, b = TRUE)');
 			await page.keyboard.press('Enter');
 
-			// Verify the editor opens with the result section
+			// Verify the editor opens with input and result sections
 			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
+			await expect(editorContent).toContainText('## Input');
+			await expect(editorContent).toContainText('list(a = 1, b = TRUE)');
 			await expect(editorContent).toContainText('## Result');
 			await expect(editorContent).toContainText('"a"');
 			await expect(editorContent).toContainText('"b"');
@@ -49,6 +51,8 @@ test.describe('Evaluate Code', {
 			await page.keyboard.press('Enter');
 
 			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
+			await expect(editorContent).toContainText('## Input');
+			await expect(editorContent).toContainText("isTRUE(cat('oatmeal'))");
 			await expect(editorContent).toContainText('## Result');
 			await expect(editorContent).toContainText('false');
 			await expect(editorContent).toContainText('## Output');
@@ -74,6 +78,8 @@ test.describe('Evaluate Code', {
 			await page.keyboard.press('Enter');
 
 			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
+			await expect(editorContent).toContainText('## Input');
+			await expect(editorContent).toContainText('{"a": 1, "b": True}');
 			await expect(editorContent).toContainText('## Result');
 			await expect(editorContent).toContainText('"a"');
 			await expect(editorContent).toContainText('"b"');
@@ -89,6 +95,8 @@ test.describe('Evaluate Code', {
 			await page.keyboard.press('Enter');
 
 			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
+			await expect(editorContent).toContainText('## Input');
+			await expect(editorContent).toContainText("print('hello') or 42");
 			await expect(editorContent).toContainText('## Result');
 			await expect(editorContent).toContainText('42');
 			await expect(editorContent).toContainText('## Output');
