@@ -166,7 +166,7 @@ export interface GetUvPythonVersionInfoOptions {
 
 /**
  * Checks what Python version uv would install for a given version request.
- * Uses `uv python find` to determine the version without actually installing.
+ * Uses `uv python list` to see available versions without actually installing.
  * @param requestedVersion The version requested (e.g., "3.14", "3.13")
  * @param options Options for version lookup
  * @returns Information about the Python version, or undefined if not found
@@ -243,8 +243,11 @@ export async function getUvPythonVersionInfo(
         // Extract path if this is a local install
         let pythonPath: string | undefined;
         if (isLocal) {
-            // Extract path from format like "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
-            const pathMatch = selectedLine.match(/\s+(\/\S+)/);
+            // Extract path from format like:
+            //   "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
+            //   "cpython-3.13.7-windows-x86_64-none   C:\Users\...\python.exe"
+            // Match Unix paths (starting with /) or Windows paths (starting with drive letter)
+            const pathMatch = selectedLine.match(/\s+(\/\S+|[A-Za-z]:\\\S+)/);
             pythonPath = pathMatch?.[1];
         }
 

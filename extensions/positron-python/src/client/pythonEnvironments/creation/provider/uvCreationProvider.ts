@@ -21,12 +21,7 @@ import {
     CreateEnvironmentOptions,
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
-import {
-    getUvPythonVersionInfo,
-    installUvPython,
-    isUvInstalled,
-    updateUv,
-} from '../../common/environmentManagers/uv';
+import { getUvPythonVersionInfo, installUvPython, isUvInstalled, updateUv } from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
@@ -291,7 +286,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                         return undefined;
                     }
                     // User chose to proceed anyway or update completed
-                    traceInfo(`Proceeding with Python ${versionInfo.version}`);
+                    traceInfo(`Proceeding with Python ${version}`);
                 }
 
                 envPath = await createUvVenv(workspace, version, progress, token, options?.envName);
