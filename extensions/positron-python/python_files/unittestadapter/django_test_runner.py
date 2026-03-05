@@ -9,7 +9,6 @@ import sys
 from typing import Optional
 
 # --- End Positron ---
-
 script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
 
