@@ -89,7 +89,7 @@ function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
  * Renders a simplified data explorer inline in notebook cell outputs.
  */
 export function InlineDataExplorer(props: InlineDataExplorerProps) {
-	const { commId, shape, title, onFallback } = props;
+	const { commId, shape, title, variablePath, onFallback } = props;
 	const services = PositronReactServices.services;
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -202,6 +202,22 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	}, [commId, dataExplorerService, onFallback]);
 
 	const handleOpenInExplorer = async () => {
+		// If we have a variable path, check for an existing full explorer first.
+		// The lookup key includes the session ID, so even if multiple sessions
+		// share a variable name like "df", only the correct session's instance
+		// will match.
+		if (variablePath && variablePath.length > 0) {
+			for (const session of services.runtimeSessionService.activeSessions) {
+				const existing = dataExplorerService.getInstanceForVariablePath(
+					session.sessionId, variablePath
+				);
+				if (existing) {
+					existing.requestFocus();
+					return;
+				}
+			}
+		}
+
 		const instance = dataExplorerService.getInstance(commId);
 		if (!instance) {
 			services.notificationService.warn(

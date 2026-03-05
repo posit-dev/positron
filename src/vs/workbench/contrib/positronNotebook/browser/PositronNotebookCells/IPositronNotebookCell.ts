@@ -363,6 +363,7 @@ export interface ParsedDataExplorerOutput {
 	title: string;
 	version: number;
 	source?: 'pandas' | 'polars' | 'unknown';
+	variablePath?: string[];
 }
 
 /**

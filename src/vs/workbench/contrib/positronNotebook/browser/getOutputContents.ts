@@ -142,6 +142,10 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 	if (isDataExplorerMimeType(mime)) {
 		try {
 			const payload = JSON.parse(message);
+			const rawPath = payload.variable_path;
+			const variablePath = Array.isArray(rawPath) && rawPath.every((v: unknown) => typeof v === 'string')
+				? rawPath as string[]
+				: undefined;
 			return {
 				type: 'dataExplorer',
 				commId: payload.comm_id,
@@ -149,6 +153,7 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 				title: payload.title,
 				version: payload.version,
 				source: payload.source,
+				variablePath,
 			} satisfies ParsedDataExplorerOutput;
 		} catch {
 			// Fall through to unknown if parsing fails
