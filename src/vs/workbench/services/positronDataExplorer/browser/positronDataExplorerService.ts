@@ -25,6 +25,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { DataExplorerPreviewEnabled } from './positronDataExplorerSummary.js';
+import { parseVariablePath } from '../common/utils.js';
 
 /**
  * Event data for when a data explorer client is opened.
@@ -105,10 +106,7 @@ class DataExplorerRuntime extends Disposable {
 
 				// Check if this is an inline-only data explorer (should not auto-open editor)
 				const inlineOnly = e.message.data?.inline_only === true;
-				const rawPath = e.message.data?.variable_path;
-				const variablePath = Array.isArray(rawPath) && rawPath.every((v: unknown) => typeof v === 'string')
-					? rawPath as string[]
-					: undefined;
+				const variablePath = parseVariablePath(e.message.data?.variable_path);
 
 				// Raise the onDidOpenDataExplorerClient event.
 				this._onDidOpenDataExplorerClientEmitter.fire({
@@ -148,7 +146,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 	/**
 	 * Canonical variable path to instance ID map.
-	 * Key format: `${sessionId}:${variablePath.join(',')}`.
+	 * Key format: `JSON.stringify([sessionId, variablePath])`.
 	 */
 	private _variablePathToInstanceIdMap = new Map<string, string>();
 

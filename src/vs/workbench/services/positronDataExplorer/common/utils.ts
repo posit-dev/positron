@@ -16,6 +16,16 @@ export interface Range {
  * @param array The array of numbers.
  * @returns true if the array is contiguous; otherwise, false.
  */
+/**
+ * Parses an untyped variable_path value into a validated string array.
+ * Returns undefined if the value is not an array of strings.
+ */
+export function parseVariablePath(raw: unknown): string[] | undefined {
+	return Array.isArray(raw) && raw.every((v: unknown) => typeof v === 'string')
+		? raw as string[]
+		: undefined;
+}
+
 export const isContiguous = (array: number[]) => {
 	if (array.length === 0) {
 		return false;
