@@ -1043,7 +1043,7 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private get quickInputTitleBar(): Locator { return this.code.driver.page.locator('.quick-input-titlebar'); }
-	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(/(Running Interpreter Sessions)|(Start New Console Session)/); }
+	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(/(Interpreter Sessions)|(Start New Console Session)/); }
 	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(/Start New Console Session/); }
 
 	constructor(private code: Code, private sessions: Sessions) { }
@@ -1063,7 +1063,7 @@ export class SessionQuickPick {
 				}
 
 				if (viewAllRuntimes) {
-					await this.code.driver.page.getByRole('textbox', { name: /(Running Interpreter Sessions|New Console Session)/ }).fill('New Session');
+					await this.code.driver.page.getByRole('textbox', { name: /(Interpreter Sessions|New Console Session)/ }).fill('New Session');
 					await this.code.driver.page.keyboard.press('Enter');
 					await expect(this.code.driver.page.getByText(/Start New Console Session/)).toBeVisible({ timeout: 1000 });
 				}

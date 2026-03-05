@@ -582,7 +582,7 @@ export function registerLanguageRuntimeActions() {
 			const newActiveSession = await selectLanguageRuntimeSession(accessor,
 				{
 					allowStartSession: true,
-					title: localize('positron.languageRuntime.changeForegroundSession.quickPickTitle', 'Running Interpreter Sessions')
+					title: localize('positron.languageRuntime.changeForegroundSession.quickPickTitle', 'Interpreter Sessions')
 				}
 			);
 
