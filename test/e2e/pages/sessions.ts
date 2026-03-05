@@ -434,6 +434,9 @@ export class Sessions {
 				// Dismiss any stale quick input from a previous attempt
 				await this.quickinput.closeQuickInput().catch(() => { });
 
+				// Wait for any in-progress runtime discovery to finish before opening the quick pick
+				await expect(this.code.driver.page.getByText('Discovering interpreters')).not.toBeVisible();
+
 				// Start the runtime via the session picker button, quickaccess or console session button
 				if (triggerMode === 'quickaccess') {
 					const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
@@ -460,7 +463,6 @@ export class Sessions {
 				await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
 				await this.quickinput.waitForQuickInputClosed();
 				await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes');
-				await expect(this.code.driver.page.getByText('Discovering interpreters')).not.toBeVisible();
 			}, 'Select runtime from quick pick').toPass({ timeout: 30000 });
 
 			// Move mouse to prevent tooltip hover
