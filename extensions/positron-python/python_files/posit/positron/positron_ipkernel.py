@@ -257,7 +257,12 @@ class PositronDisplayFormatter(DisplayFormatter):
             if value is not obj:
                 continue
             # Skip hidden variables (IPython internals like _, __, _oh, etc.)
-            if name in hidden:
+            # For _, only treat it as hidden if the value is the same object
+            # as in user_ns_hidden (i.e. the user hasn't reassigned it).
+            if name == "_":
+                if name in hidden and value is hidden[name]:
+                    continue
+            elif name in hidden:
                 continue
             return name
 
