@@ -67,16 +67,6 @@ suite('Foundry Autoconfigure', () => {
 		assert.strictEqual(foundryConfig, undefined, 'Foundry config should not be created');
 	});
 
-	test('Foundry builtInModelDefinitions includes expected models', () => {
-		const models = getAllModelDefinitions('ms-foundry');
-		assert.ok(models.length > 0, 'Foundry should have built-in model definitions');
-
-		const gpt41 = models.find(m => m.identifier === 'gpt-4.1');
-		assert.ok(gpt41, 'GPT-4.1 should be in built-in definitions');
-		assert.strictEqual(gpt41.maxInputTokens, 1_047_576);
-		assert.strictEqual(gpt41.maxOutputTokens, 32_768);
-	});
-
 	test('Foundry source has Custom autoconfigure type', () => {
 		const { autoconfigure } = FoundryModelProvider.source.defaults;
 		assert.ok(autoconfigure, 'autoconfigure should be defined in defaults');

@@ -15,8 +15,11 @@ import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 export interface EnvVarCredentialConfig {
 	readonly kind: 'env-var';
 	readonly displayName: string;
+	/** Environment variable name that indicates managed credentials are available */
 	readonly envVar: string;
+	/** Validator function to confirm the env var value for managed credentials */
 	readonly validator: (value: string) => boolean;
+	/** Optional provider variable configuration key for VS Code settings */
 	readonly providerVariableKey?: string;
 }
 
