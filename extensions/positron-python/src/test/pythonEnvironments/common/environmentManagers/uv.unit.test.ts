@@ -12,6 +12,7 @@ import {
     getUvDirs,
     getUvPythonVersionInfo,
     updateUv,
+    installUvPython,
 } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as platformUtils from '../../../../client/common/utils/platform';
 import * as logging from '../../../../client/logging';
@@ -401,6 +402,98 @@ suite('UV Environment Tests', () => {
             assert.strictEqual(result.version, '3.12.9');
             assert.strictEqual(result.isPrerelease, false);
         });
+
+        suite('skipLocalPrereleases option', () => {
+            test('Skips local pre-release and returns downloadable stable version', async () => {
+                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+                execStub.withArgs('uv', ['python', 'list', '3.14'], { throwOnStdErr: false }).resolves({
+                    stdout: [
+                        'cpython-3.14.0a5-macos-aarch64-none    /usr/local/bin/python3.14',
+                        'cpython-3.14.0-macos-aarch64-none    <download available>',
+                    ].join('\n'),
+                });
+
+                const result = await getUvPythonVersionInfo('3.14', { skipLocalPrereleases: true });
+
+                assert.ok(result);
+                // Should skip the local pre-release and return the downloadable stable version
+                assert.strictEqual(result.version, '3.14.0');
+                assert.strictEqual(result.isPrerelease, false);
+                assert.strictEqual(result.path, undefined);
+            });
+
+            test('Returns local stable version when available', async () => {
+                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+                execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
+                    stdout: [
+                        'cpython-3.13.8-macos-aarch64-none    <download available>',
+                        'cpython-3.13.7-macos-aarch64-none    /usr/local/bin/python3.13',
+                    ].join('\n'),
+                });
+
+                const result = await getUvPythonVersionInfo('3.13', { skipLocalPrereleases: true });
+
+                assert.ok(result);
+                // Should return the local stable version
+                assert.strictEqual(result.version, '3.13.7');
+                assert.strictEqual(result.isPrerelease, false);
+                assert.strictEqual(result.path, '/usr/local/bin/python3.13');
+            });
+
+            test('Falls back to pre-release when no stable version available', async () => {
+                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+                execStub.withArgs('uv', ['python', 'list', '3.15'], { throwOnStdErr: false }).resolves({
+                    stdout: [
+                        'cpython-3.15.0a6-macos-aarch64-none    /usr/local/bin/python3.15',
+                        'cpython-3.15.0a5-macos-aarch64-none    <download available>',
+                    ].join('\n'),
+                });
+
+                const result = await getUvPythonVersionInfo('3.15', { skipLocalPrereleases: true });
+
+                assert.ok(result);
+                // No stable version available, falls back to first line (local pre-release)
+                assert.strictEqual(result.version, '3.15.0a6');
+                assert.strictEqual(result.isPrerelease, true);
+            });
+
+            test('Prefers local stable over downloadable stable', async () => {
+                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+                execStub.withArgs('uv', ['python', 'list', '3.13'], { throwOnStdErr: false }).resolves({
+                    stdout: [
+                        'cpython-3.13.0a5-macos-aarch64-none    /usr/local/bin/python3.13a',
+                        'cpython-3.13.8-macos-aarch64-none    <download available>',
+                        'cpython-3.13.7-macos-aarch64-none    /usr/local/bin/python3.13',
+                    ].join('\n'),
+                });
+
+                const result = await getUvPythonVersionInfo('3.13', { skipLocalPrereleases: true });
+
+                assert.ok(result);
+                // Should prefer local stable (3.13.7) over downloadable stable (3.13.8)
+                assert.strictEqual(result.version, '3.13.7');
+                assert.strictEqual(result.isPrerelease, false);
+                assert.strictEqual(result.path, '/usr/local/bin/python3.13');
+            });
+
+            test('Default behavior (no option) prefers local pre-release', async () => {
+                execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+                execStub.withArgs('uv', ['python', 'list', '3.14'], { throwOnStdErr: false }).resolves({
+                    stdout: [
+                        'cpython-3.14.0a5-macos-aarch64-none    /usr/local/bin/python3.14',
+                        'cpython-3.14.0-macos-aarch64-none    <download available>',
+                    ].join('\n'),
+                });
+
+                const result = await getUvPythonVersionInfo('3.14');
+
+                assert.ok(result);
+                // Default behavior: prefer local version (even if pre-release)
+                assert.strictEqual(result.version, '3.14.0a5');
+                assert.strictEqual(result.isPrerelease, true);
+                assert.strictEqual(result.path, '/usr/local/bin/python3.14');
+            });
+        });
     });
 
     suite('updateUv Tests', () => {
@@ -440,6 +533,52 @@ suite('UV Environment Tests', () => {
 
             assert.ok(traceVerboseStub.calledWith('Running uv self update...'));
             assert.ok(traceVerboseStub.calledWith('uv self update completed successfully'));
+        });
+    });
+
+    suite('installUvPython Tests', () => {
+        test('Returns false when uv is not installed', async () => {
+            execStub.rejects(new Error('Command not found'));
+
+            const result = await installUvPython('3.13.7');
+
+            assert.strictEqual(result, false);
+        });
+
+        test('Returns true when uv python install succeeds', async () => {
+            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['python', 'install', '3.13.7'], { throwOnStdErr: false })
+                .resolves({ stdout: 'Installed' });
+
+            const result = await installUvPython('3.13.7');
+
+            assert.strictEqual(result, true);
+            assert.ok(execStub.calledWith('uv', ['python', 'install', '3.13.7'], { throwOnStdErr: false }));
+        });
+
+        test('Returns false when uv python install fails', async () => {
+            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['python', 'install', '3.13.7'], { throwOnStdErr: false })
+                .rejects(new Error('Install failed'));
+
+            const result = await installUvPython('3.13.7');
+
+            assert.strictEqual(result, false);
+            assert.ok(traceVerboseStub.calledWith(sinon.match(/Error running uv python install/)));
+        });
+
+        test('Logs success message on successful install', async () => {
+            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+            execStub
+                .withArgs('uv', ['python', 'install', '3.14.0'], { throwOnStdErr: false })
+                .resolves({ stdout: 'Installed' });
+
+            await installUvPython('3.14.0');
+
+            assert.ok(traceVerboseStub.calledWith('Running uv python install 3.14.0...'));
+            assert.ok(traceVerboseStub.calledWith('uv python install 3.14.0 completed successfully'));
         });
     });
 });

@@ -21,7 +21,12 @@ import {
     CreateEnvironmentOptions,
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
-import { getUvPythonVersionInfo, isUvInstalled, updateUv } from '../../common/environmentManagers/uv';
+import {
+    getUvPythonVersionInfo,
+    installUvPython,
+    isUvInstalled,
+    updateUv,
+} from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
@@ -239,22 +244,45 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                             traceError('Failed to update uv');
                             throw new Error(CreateEnv.Uv.errorUpdatingUv);
                         }
-                        traceInfo('uv updated successfully, re-checking Python version...');
+                        traceInfo('uv updated successfully, checking for stable Python version...');
 
-                        // Re-check if the version is still a pre-release after updating
-                        const newVersionInfo = await getUvPythonVersionInfo(version);
+                        // Look for a stable version, skipping local pre-releases
+                        const stableVersionInfo = await getUvPythonVersionInfo(version, {
+                            skipLocalPrereleases: true,
+                        });
                         if (token.isCancellationRequested) {
                             return undefined;
                         }
-                        if (newVersionInfo?.isPrerelease) {
-                            // Still a pre-release after update - warn user but continue
-                            traceWarn(`After uv update, still getting pre-release Python ${newVersionInfo.version}`);
-                            vscode.window.showWarningMessage(
-                                CreateEnv.Uv.stillPrereleaseWarning.replace('{0}', newVersionInfo.version),
-                            );
+
+                        if (stableVersionInfo && !stableVersionInfo.isPrerelease) {
+                            // Found a stable version - install it if not already local
+                            if (!stableVersionInfo.path) {
+                                traceInfo(`Installing stable Python ${stableVersionInfo.version}...`);
+                                progress.report({
+                                    message: CreateEnv.Uv.installingPython.replace('{0}', stableVersionInfo.version),
+                                });
+                                const installSuccess = await installUvPython(stableVersionInfo.version);
+                                if (token.isCancellationRequested) {
+                                    return undefined;
+                                }
+                                if (!installSuccess) {
+                                    traceError(`Failed to install Python ${stableVersionInfo.version}`);
+                                    throw new Error(
+                                        CreateEnv.Uv.errorInstallingPython.replace('{0}', stableVersionInfo.version),
+                                    );
+                                }
+                            }
+                            traceInfo(`Using stable Python ${stableVersionInfo.version}`);
+                            // Update version to use the specific stable version
+                            version = stableVersionInfo.version;
                         } else {
-                            traceInfo(
-                                `After uv update, now getting stable Python ${newVersionInfo?.version ?? version}`,
+                            // No stable version available - warn user but continue with pre-release
+                            const fallbackInfo = stableVersionInfo ?? versionInfo;
+                            traceWarn(
+                                `No stable Python version available for ${version}, using pre-release ${fallbackInfo.version}`,
+                            );
+                            vscode.window.showWarningMessage(
+                                CreateEnv.Uv.stillPrereleaseWarning.replace('{0}', fallbackInfo.version),
                             );
                         }
                         // Continue with environment creation

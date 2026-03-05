@@ -550,8 +550,10 @@ export namespace CreateEnv {
         );
         export const errorUpdatingUv = l10n.t('Failed to update uv. See Output > Python for more info.');
         export const stillPrereleaseWarning = l10n.t(
-            'After updating uv, Python {0} is still a pre-release. Proceeding with environment creation.',
+            'After updating uv, Python {0} is still a pre-release. No stable version is available. Proceeding with environment creation.',
         );
+        export const installingPython = l10n.t('Installing Python {0}...');
+        export const errorInstallingPython = l10n.t('Failed to install Python {0}. See Output > Python for more info.');
     }
     // --- End Positron ---
 
