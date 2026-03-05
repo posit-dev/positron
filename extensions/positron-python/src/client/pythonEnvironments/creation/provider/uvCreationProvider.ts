@@ -244,9 +244,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                                 const installSuccess = await installUvPython(stableVersionInfo.version);
                                 if (!installSuccess) {
                                     traceError(`Failed to install Python ${stableVersionInfo.version}`);
-                                    throw new Error(
-                                        CreateEnv.Uv.errorInstallingPython(stableVersionInfo.version),
-                                    );
+                                    throw new Error(CreateEnv.Uv.errorInstallingPython(stableVersionInfo.version));
                                 }
                             }
                             traceInfo(`Using stable Python ${stableVersionInfo.version}`);
@@ -258,9 +256,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                             traceWarn(
                                 `No stable Python version available for ${version}, using pre-release ${fallbackInfo.version}`,
                             );
-                            vscode.window.showWarningMessage(
-                                CreateEnv.Uv.stillPrereleaseWarning(fallbackInfo.version),
-                            );
+                            vscode.window.showWarningMessage(CreateEnv.Uv.stillPrereleaseWarning(fallbackInfo.version));
                         }
                     } else if (choice !== CreateEnv.Uv.proceedAnyway) {
                         // User cancelled or closed the dialog
