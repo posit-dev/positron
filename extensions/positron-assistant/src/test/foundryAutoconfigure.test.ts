@@ -11,7 +11,7 @@ import { AWSModelProvider } from '../providers/aws/awsBedrockProvider.js';
 import { SnowflakeModelProvider } from '../providers/snowflake/snowflakeProvider.js';
 import { CopilotModelProvider } from '../copilot.js';
 import { createAutomaticModelConfigs } from '../providers/index.js';
-import { getAllModelDefinitions } from '../modelDefinitions.js';
+import * as pwbModule from '../pwb.js';
 
 suite('Foundry Autoconfigure', () => {
 	// Store original autoconfigure methods
@@ -72,6 +72,29 @@ suite('Foundry Autoconfigure', () => {
 		assert.ok(autoconfigure, 'autoconfigure should be defined in defaults');
 		assert.strictEqual(autoconfigure!.type, positron.ai.LanguageModelAutoconfigureType.Custom);
 		assert.strictEqual(autoconfigure!.signedIn, false, 'signedIn should default to false');
+	});
+
+	test('autoconfigure returns configured:false when hasManagedCredentials returns false', async () => {
+		// Restore original autoconfigure so the real implementation runs
+		FoundryModelProvider.autoconfigure = originalFoundryAutoconfigure;
+		sinon.stub(pwbModule, 'hasManagedCredentials').returns(false);
+
+		const result = await FoundryModelProvider.autoconfigure();
+		assert.strictEqual(result.configured, false);
+	});
+
+	test('autoconfigure returns configured:true when hasManagedCredentials returns true', async () => {
+		// Restore original autoconfigure so the real implementation runs
+		FoundryModelProvider.autoconfigure = originalFoundryAutoconfigure;
+		sinon.stub(pwbModule, 'hasManagedCredentials').returns(true);
+		sinon.stub(pwbModule, 'autoconfigureWithManagedCredentials').resolves({
+			configured: true,
+			message: 'Foundry managed credentials',
+		});
+
+		const result = await FoundryModelProvider.autoconfigure();
+		assert.strictEqual(result.configured, true);
+		assert.strictEqual(result.message, 'Foundry managed credentials');
 	});
 
 	test('Existing providers (AWS/Snowflake) still work after Foundry addition', async () => {

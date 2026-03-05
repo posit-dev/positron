@@ -43,9 +43,6 @@ export function findMatchingModelIndex(
 	models: vscode.LanguageModelChatInformation[],
 	pattern: string
 ): number {
-	if (!pattern) {
-		return -1;
-	}
 	const patternLower = pattern.toLowerCase();
 	let firstPartialMatchIndex = -1;
 
