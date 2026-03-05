@@ -269,7 +269,7 @@ export type KnownEnvironmentTools =
     | 'Pyenv'
     | 'Hatch'
     // --- Start Positron ---
-    | 'Uv'
+    | 'uv'
     // --- End Positron ---
     | 'Unknown';
 

@@ -15,7 +15,7 @@ export enum NativePythonEnvironmentKind {
     Pipenv = 'Pipenv',
     Poetry = 'Poetry',
     // --- Start Positron ---
-    Uv = 'Uv',
+    Uv = 'uv',
     Custom = 'Custom',
     // --- End Positron ---
     MacPythonOrg = 'MacPythonOrg',
