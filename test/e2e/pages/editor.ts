@@ -28,6 +28,20 @@ export class Editor {
 	constructor(private code: Code) { }
 
 	/**
+	 * Wait for content to be visible in the editor viewer frame.
+	 */
+	async expectEditorViewerContentVisible(
+		getLocator: (frame: FrameLocator) => Locator,
+		options?: { timeout?: number }
+	): Promise<void> {
+		const { timeout = 30000 } = options ?? {};
+		const frame = !this.code.electronApp
+			? this.getEditorViewerFrame().frameLocator('iframe')
+			: this.getEditorViewerFrame();
+		await expect(getLocator(frame)).toBeVisible({ timeout });
+	}
+
+	/**
 	 * Action: Enter text in the editor
 	 * @param text the text to type into the editor
 	 * @param pressEnter whether to press Enter after typing the text
