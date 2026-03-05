@@ -199,8 +199,8 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.53.0",
-			"sha256sum": "c9648feff6e74eacc16d7344d7474d1c1e96413d13a3774b638c11ccc65e641d",
+			"version": "0.55.0",
+			"sha256sum": "95e76e02ad717a16d0c2bce2f5d4dac190aa618bf269c4d03f6e905934dd93a5",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
