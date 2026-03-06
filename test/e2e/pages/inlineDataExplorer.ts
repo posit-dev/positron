@@ -130,6 +130,26 @@ export class InlineDataExplorer {
 		});
 	}
 
+	async expectCellValue(
+		columnName: string,
+		rowIndex: number,
+		expectedValue: string | number,
+		timeout = DEFAULT_TIMEOUT
+	): Promise<void> {
+		await test.step(`Verify cell [${columnName}, row ${rowIndex}] = "${expectedValue}"`, async () => {
+			await expect(async () => {
+				const headers = await this.columnHeaders.locator('.title').allInnerTexts();
+				const columnIndex = headers.indexOf(columnName);
+				expect(columnIndex).toBeGreaterThanOrEqual(0);
+
+				const cell = this.container.locator(
+					`#data-grid-row-cell-content-${columnIndex}-${rowIndex}`
+				);
+				await expect(cell).toContainText(String(expectedValue));
+			}).toPass({ timeout });
+		});
+	}
+
 	async expectColumnToBeSorted(
 		columnName: string,
 		expectedFirstValues: (string | number)[],
