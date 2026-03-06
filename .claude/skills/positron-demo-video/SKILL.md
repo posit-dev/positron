@@ -1,0 +1,162 @@
+---
+name: positron-demo-video
+description: Use when the user wants to create a demo video, record a feature walkthrough, or generate a video for a PR description. Triggers on "record a demo", "make a video", "demo video for PR", or "generate a walkthrough".
+---
+
+# Positron Demo Video Generator
+
+Creates polished demo videos of Positron features through a collaborative script-then-record workflow.
+
+## When to Use
+
+- User asks to create a demo video for a PR
+- User wants to record a feature walkthrough
+- User says "generate a video", "record a demo", "make a video for the PR"
+
+## Prerequisites
+
+- Positron must be built (`npm run build-ps` to check)
+- ffmpeg installed for MP4 conversion (optional but recommended)
+
+## Workflow
+
+This is a collaborative process. Do NOT jump straight to writing code.
+
+```
+Research -> Propose Script -> Iterate -> Record -> Review -> Iterate
+```
+
+### Phase 1: Research
+
+Understand what to demo by examining the current branch:
+
+1. Read recent commits (`git log --oneline main..HEAD`)
+2. Look at changed files to understand the feature
+3. Check for existing e2e tests that exercise the feature (may provide page object methods)
+4. If adapting an existing test, read it fully
+
+### Phase 2: Propose a Script
+
+Present a plain-text "script" to the user -- a numbered list of what the video will show, step by step. Include:
+
+- **What the viewer sees** at each step
+- **Overlay text** for each section (the narration captions)
+- **Estimated duration** per section
+
+Example format:
+
+```
+Demo Script: Notebook Cell Drag to Reorder
+
+1. [2s] Notebook with 5 cells visible, clean layout
+   Overlay: "Drag and drop: grab the handle to reorder cells"
+
+2. [3s] Hover over Cell 0 to reveal drag handle, then drag it to position 2
+   Overlay: (same, persists)
+
+3. [4s] Select Cell 4, move it up 3 times with Alt+ArrowUp
+   Overlay: "Keyboard: Alt+Arrow to move cells up/down"
+
+4. [4s] Multi-select cells 1-3 with Shift+Arrow, drag to end
+   Overlay: "Multi-select: Shift+Arrow to select, then drag together"
+
+5. [3s] Undo 3 times to restore original order
+   Overlay: "Undo: Ctrl/Cmd+Z restores previous order"
+
+Total: ~16s of action (+ ~12s trimmed initialization)
+```
+
+**Ask the user for feedback.** Common adjustments:
+- Reorder steps for better narrative flow
+- Add/remove steps
+- Change overlay wording
+- Adjust which features to highlight
+
+### Phase 3: Iterate on Script
+
+Revise the script based on feedback. Keep presenting the updated script until the user approves. Only then move to implementation.
+
+### Phase 4: Record
+
+Once the script is approved:
+
+1. **Infrastructure check** -- verify the one-time setup is in place (see `references/infrastructure-setup.md`)
+2. **Write the demo test** -- translate the script into a Playwright test at `test/e2e/demos/<name>.demo.test.ts`
+   - Use `setupDemoLayout()` to collapse panels
+   - Use `narrate()` / `showOverlay()` for captions
+   - Use `pause()` between actions for pacing
+   - See `references/demo-patterns.md` for code patterns
+3. **Run it:**
+   ```bash
+   DEMO_RECORD_VIDEO=1 npx playwright test test/e2e/demos/<name>.demo.test.ts \
+     --project e2e-electron --reporter list --timeout 300000
+   ```
+4. **Trim and convert** -- find the trim point using thumbnails, then:
+   ```bash
+   ffmpeg -ss <TRIM_SECONDS> -i demo-videos/<hash>.webm \
+     -c:v libx264 -crf 20 -preset slow -an demo-videos/<name>.mp4
+   ```
+
+### Phase 5: Verify and Deliver
+
+After trimming/converting, verify the output yourself by extracting thumbnails at key moments and reading them to confirm overlays, layout, and pacing look correct:
+
+```bash
+# Agent self-check: extract frames to verify overlays and layout
+for t in 1 5 10 15 20; do
+  ffmpeg -y -ss $t -i demo-videos/<name>.mp4 -frames:v 1 /tmp/frame_${t}s.jpg 2>/dev/null
+done
+```
+
+Then report to the user:
+- The video file path (for drag-and-drop into PR)
+- Duration and file size
+- A brief summary of what each section shows
+
+Ask the user to watch the video and let you know if they want changes.
+
+### Phase 6: Iterate
+
+If the user wants changes, go back to the appropriate phase:
+- **Script changes** (different steps, reordering) -> Phase 2
+- **Pacing/overlay tweaks** (timing, wording) -> Phase 4
+- **Approved** -> done, user has the video path
+
+## Technical Reference
+
+### File Naming
+```
+test/e2e/demos/<feature-name>.demo.test.ts
+```
+Files must end in `.test.ts` (Playwright config requires it).
+
+### Demo Utilities (`test/e2e/demos/demo-utils.ts`)
+
+| Function | Purpose |
+|----------|---------|
+| `setupDemoLayout(app, page)` | Collapse sidebars/panels to maximize editor |
+| `pause(page, ms)` | Wait between actions |
+| `narrate(page, text, holdMs)` | Show overlay + wait for viewer to read |
+| `showOverlay(page, text)` | Set overlay text (persists until changed) |
+| `humanType(page, locator, text)` | Type at 80ms/keystroke |
+| `humanClick(page, locator)` | Click with natural pauses |
+| `humanHover(page, locator)` | Hover with pauses |
+
+### Pacing Guidelines
+
+- Between major steps: 1500ms
+- After clicks: 800ms
+- After typing: 1000ms
+- Start/end: 2000ms
+- Typing speed: 80ms per keystroke
+
+### Video Output
+
+- GitHub free: 10MB limit / paid: 100MB limit
+- First ~10-15s is initialization (always trimmed)
+- WebM works on GitHub; MP4 has better Safari compat
+
+## Reference Docs
+
+- `references/infrastructure-setup.md` - One-time setup for video recording support
+- `references/demo-patterns.md` - Common demo patterns and code examples
