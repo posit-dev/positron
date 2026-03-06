@@ -72,12 +72,11 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 	 * In manual mode, uses the user-provided baseUrl.
 	 */
 	get baseUrl(): string {
-		if (this.isWorkbenchManaged) {
-			const wbConfig = FoundryModelProvider.getWorkbenchConfig();
-			return `${wbConfig.endpoint.replace(/\/+$/, '')}/openai/v1`;
-		}
-		// Manual mode: user provides full base URL
-		return (this._config.baseUrl ?? '').replace(/\/+$/, '');
+		const rawUrl = this.isWorkbenchManaged
+			? FoundryModelProvider.getWorkbenchConfig().endpoint
+			: (this._config.baseUrl ?? '');
+		const url = rawUrl.replace(/\/+$/, '');
+		return url.endsWith('/openai/v1') ? url : `${url}/openai/v1`;
 	}
 
 	/**
@@ -96,9 +95,6 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 			FoundryModelProvider.source.provider.id,
 			FoundryModelProvider.source.provider.displayName
 		);
-		if (!result.configured) {
-			return result;
-		}
 		return result;
 	}
 

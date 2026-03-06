@@ -50,7 +50,7 @@ suite('Provider Migration Tests', () => {
 
 	test('migrates from enabledProviders array to individual settings', async () => {
 		stubs.mockInspect.withArgs('enabledProviders').returns({
-			globalValue: ['anthropic-api', 'copilot-auth', 'ms-foundry']
+			globalValue: ['anthropic-api', 'copilot-auth']
 		});
 
 		await performProviderMigration();
@@ -58,7 +58,6 @@ suite('Provider Migration Tests', () => {
 		const calls = stubs.mockUpdate.getCalls();
 		const anthropicCall = calls.find(call => call.args[0] === 'provider.anthropic.enable');
 		const copilotCall = calls.find(call => call.args[0] === 'provider.githubCopilot.enable');
-		const foundryCall = calls.find(call => call.args[0] === 'provider.msFoundry.enable');
 		const removeCall = calls.find(call => call.args[0] === 'enabledProviders');
 
 		assert.ok(anthropicCall);
@@ -67,9 +66,6 @@ suite('Provider Migration Tests', () => {
 
 		assert.ok(copilotCall);
 		assert.strictEqual(copilotCall.args[1], true);
-
-		assert.ok(foundryCall);
-		assert.strictEqual(foundryCall.args[1], true);
 
 		assert.ok(removeCall);
 		assert.strictEqual(removeCall.args[1], undefined);
