@@ -76,16 +76,18 @@ export class RPackageManager {
 
 		const method = await this._ensurePak();
 
-		let pkgSpecs: string[];
+		let code: string;
 		if (method === 'pak') {
-			pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+			const pkgVector = this._formatRVector(pkgSpecs);
+			code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
 		} else {
 			// base R: version not supported
-			pkgSpecs = packages.map(p => p.name);
+			const pkgNames = packages.map(p => p.name);
+			const pkgVector = this._formatRVector(pkgNames);
+			code = `install.packages(${pkgVector})`;
 		}
 
-		const pkgVector = this._formatRVector(pkgSpecs);
-		const code = `.ps.rpc.pkg_install(${pkgVector}, "${method}")`;
 		await this._executeAndWait(code);
 		this._session.invalidatePackageResourceCaches();
 	}
@@ -95,8 +97,21 @@ export class RPackageManager {
 	 */
 	async updateAllPackages(): Promise<void> {
 		const method = await this._ensurePak();
-		const code = `.ps.rpc.pkg_update_all("${method}")`;
-		await this._executeAndWait(code);
+
+		if (method === 'pak') {
+			// Get outdated packages via RPC, then update with pak
+			const outdated = await this._session.callMethod('pkg_outdated') as string[] ?? [];
+			if (outdated.length > 0) {
+				const pkgVector = this._formatRVector(outdated);
+				await this._executeAndWait(`pak::pkg_install(${pkgVector}, ask = FALSE)`);
+			} else {
+				// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
+			}
+
+		} else {
+			await this._executeAndWait(`update.packages(ask = FALSE)`);
+		}
+
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -119,13 +134,18 @@ export class RPackageManager {
 			code = `remove.packages(${pkgVector})`;
 		}
 
-		// Unload namespaces after removal
-		const unloadCode = packageNames
-			.map(pkg => `try(unloadNamespace("${pkg}"), silent = TRUE)`)
-			.join('; ');
-		code = `{ ${code}; ${unloadCode} }`;
-
 		await this._executeAndWait(code);
+
+		// Silently unload namespaces after removal (ignore errors)
+		try {
+			const unloadCode = packageNames
+				.map(pkg => `try(unloadNamespace("${pkg}"), silent = TRUE)`)
+				.join('; ');
+			await this._executeSilently(unloadCode);
+		} catch {
+			// Ignore errors from namespace unloading
+		}
+
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -241,7 +261,7 @@ export class RPackageManager {
 
 	/**
 	 * Execute R code in the console and wait for completion.
-	 * Uses Interactive mode so output appears in the console.
+	 * Uses NonInteractive mode so output appears in the console.
 	 */
 	private async _executeAndWait(code: string): Promise<void> {
 		const id = randomUUID();
@@ -272,6 +292,44 @@ export class RPackageManager {
 			code,
 			id,
 			positron.RuntimeCodeExecutionMode.NonInteractive,
+			positron.RuntimeErrorBehavior.Continue
+		);
+
+		return promise;
+	}
+
+	/**
+	 * Execute R code silently without showing in the console.
+	 */
+	private async _executeSilently(code: string): Promise<void> {
+		const id = randomUUID();
+
+		const promise = new Promise<void>((resolve, reject) => {
+			const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
+				if (msg.parent_id !== id) {
+					return;
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.State) {
+					const stateMsg = msg as positron.LanguageRuntimeState;
+					if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
+						resolve();
+						disp.dispose();
+					}
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.Error) {
+					const errorMsg = msg as positron.LanguageRuntimeError;
+					reject(new Error(errorMsg.message));
+					disp.dispose();
+				}
+			});
+		});
+
+		this._session.execute(
+			code,
+			id,
+			positron.RuntimeCodeExecutionMode.Silent,
 			positron.RuntimeErrorBehavior.Continue
 		);
 
