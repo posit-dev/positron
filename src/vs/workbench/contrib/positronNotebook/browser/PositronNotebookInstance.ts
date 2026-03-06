@@ -1358,21 +1358,76 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Check if cells are contiguous
 		const isContiguous = indices.every((idx, i) => i === 0 || idx === indices[i - 1] + 1);
 
-		// Check if move is necessary (no-op if already at target)
-		if (isContiguous && firstIndex === targetIndex) {
+		if (isContiguous) {
+			// Check if move is necessary (no-op if already at target)
+			if (firstIndex === targetIndex) {
+				return;
+			}
+			const length = lastIndex - firstIndex + 1;
+			// Adjust target index if moving down (account for removal of cells above target)
+			const adjustedTarget = targetIndex > firstIndex ? targetIndex - length : targetIndex;
+			this._applyCellMoveEdit(firstIndex, length, adjustedTarget);
 			return;
 		}
 
-		const length = lastIndex - firstIndex + 1;
-
-		// Adjust target index if moving down (account for removal of cells above target)
-		let adjustedTarget = targetIndex;
-		if (isContiguous && targetIndex > firstIndex) {
-			// When moving down, the removal shifts everything up
-			adjustedTarget = targetIndex - length;
+		// Non-contiguous selection: split into contiguous groups and move each
+		// group individually. Each group uses a single Move edit that preserves
+		// cell identity. Groups are processed in an order that avoids index
+		// corruption: "before" groups (below the target) move bottom-to-top,
+		// "after" groups (at/above the target) move top-to-bottom.
+		const groups: number[][] = [];
+		for (const idx of indices) {
+			const lastGroup = groups[groups.length - 1];
+			if (lastGroup && idx === lastGroup[lastGroup.length - 1] + 1) {
+				lastGroup.push(idx);
+			} else {
+				groups.push([idx]);
+			}
 		}
 
-		this._applyCellMoveEdit(firstIndex, length, adjustedTarget);
+		// Classify groups by their position relative to the target
+		const groupsBefore: number[][] = [];
+		const groupsAfter: number[][] = [];
+		for (const group of groups) {
+			if (group[group.length - 1] < targetIndex) {
+				groupsBefore.push(group);
+			} else {
+				groupsAfter.push(group);
+			}
+		}
+
+		// Move "before" groups down toward the target (process bottom-to-top
+		// so earlier moves don't shift the indices of groups above them)
+		let downTarget = targetIndex;
+		for (let i = groupsBefore.length - 1; i >= 0; i--) {
+			const group = groupsBefore[i];
+			const firstCell = allCells[group[0]];
+			const currentCells = this.cells.get();
+			const fromIdx = currentCells.indexOf(firstCell);
+			if (fromIdx === -1) { continue; }
+			const length = group.length;
+			const adjTarget = fromIdx < downTarget ? downTarget - length : downTarget;
+			if (fromIdx !== adjTarget) {
+				this._applyCellMoveEdit(fromIdx, length, adjTarget);
+			}
+			downTarget -= length;
+		}
+
+		// Move "after" groups up toward the target (process top-to-bottom
+		// so earlier moves don't shift the indices of groups below them)
+		let upTarget = targetIndex;
+		for (const group of groupsAfter) {
+			const firstCell = allCells[group[0]];
+			const currentCells = this.cells.get();
+			const fromIdx = currentCells.indexOf(firstCell);
+			if (fromIdx === -1) { continue; }
+			const length = group.length;
+			const adjTarget = fromIdx < upTarget ? upTarget - length : upTarget;
+			if (fromIdx !== adjTarget) {
+				this._applyCellMoveEdit(fromIdx, length, adjTarget);
+			}
+			upTarget += length;
+		}
 	}
 
 	/**
