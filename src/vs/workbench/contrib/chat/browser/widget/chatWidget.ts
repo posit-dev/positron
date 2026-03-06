@@ -82,6 +82,7 @@ import { IAgentSessionsService } from '../agentSessions/agentSessionsService.js'
 import './media/positronChat.css';
 import { ILanguageModelsService } from '../../common/languageModels.js';
 import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
+import { IBrowserWorkbenchEnvironmentService } from '../../../../services/environment/browser/environmentService.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -368,6 +369,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		// --- Start Positron ---
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
 		@IPositronAssistantConfigurationService private readonly positronAssistantConfigurationService: IPositronAssistantConfigurationService,
+		@IBrowserWorkbenchEnvironmentService private readonly environmentService: IBrowserWorkbenchEnvironmentService,
 		// --- End Positron ---
 		@IChatModeService private readonly chatModeService: IChatModeService,
 		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService,
@@ -1046,7 +1048,8 @@ Click on $(attach) or type \`#\` to add context, such as files to your chat.
 
 Type \`/\` to use predefined commands such as \`/help\`.`,
 			), { supportThemeIcons: true, isTrusted: true });
-			welcomeText = welcomeText.replace('{guide-link}', `[${guideLinkMessage}](https://positron.posit.co/assistant)`);
+			const baseUrl = this.environmentService.positronDocsUrl ?? 'https://positron.posit.co/';
+			welcomeText = welcomeText.replace('{guide-link}', `[${guideLinkMessage}](${baseUrl}assistant)`);
 		}
 		return {
 			title: welcomeTitle,
