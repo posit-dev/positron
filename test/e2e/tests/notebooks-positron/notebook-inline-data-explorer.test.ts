@@ -168,6 +168,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 
 	test('Python - Verify Variables pane reuses existing data explorer tab', async function ({ app }) {
 		const { notebooksPositron, inlineDataExplorer, dataExplorer, editors, variables } = app.workbench;
+		const page = app.code.driver.page;
 
 		await test.step('Execute cell and open full Data Explorer from inline view', async () => {
 			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
@@ -180,6 +181,35 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 		await test.step('Double-click variable in Variables pane reuses existing tab', async () => {
 			await variables.doubleClickVariableRow('df');
 			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+			await expect(async () => {
+				await expect(page.getByRole('tab', { name: 'Data: df' })).toHaveCount(1);
+			}).toPass({ timeout: 5000 });
+		});
+	});
+
+	test('Python - Verify inline Open button reuses existing data explorer tab', async function ({ app }) {
+		const { notebooksPositron, inlineDataExplorer, dataExplorer, editors } = app.workbench;
+		const page = app.code.driver.page;
+
+		await test.step('Execute cell and open full Data Explorer from inline view', async () => {
+			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.openFullDataExplorer();
+			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+			await dataExplorer.waitForIdle();
+		});
+
+		await test.step('Navigate back to notebook', async () => {
+			await page.getByRole('tab', { name: /Untitled/ }).click();
+			await inlineDataExplorer.expectToBeVisible();
+		});
+
+		await test.step('Click Open again and verify no duplicate tab', async () => {
+			await inlineDataExplorer.openFullDataExplorer();
+			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+			await expect(async () => {
+				await expect(page.getByRole('tab', { name: 'Data: df' })).toHaveCount(1);
+			}).toPass({ timeout: 5000 });
 		});
 	});
 
