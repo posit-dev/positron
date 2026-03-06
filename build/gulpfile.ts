@@ -40,9 +40,11 @@ const transpileClientTask = task.define('transpile-client', task.series(util.rim
 gulp.task(transpileClientTask);
 
 // Fast compile for development time
+// Remove copy codicons since we maintain a custom codicon.ttf in the repo that includes Positron-specific icons. Copying from the npm package would overwrite these with the standard font that lacks Positron icons.
 const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, compileApiProposalNamesTask, compileTask('src', 'out', false)));
 gulp.task(compileClientTask);
 
+// Remove watch codicons since we maintain a custom codicon.ttf in the repo that includes Positron-specific icons. Copying from the npm package would overwrite these with the standard font that lacks Positron icons.
 const watchClientTask = task.define('watch-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, task.parallel(watchTask('out', false), watchApiProposalNamesTask)));
 gulp.task(watchClientTask);
 

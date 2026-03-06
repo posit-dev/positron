@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('New UV Environment', {
+test.describe('New uv Environment', {
 	tag: [tags.INTERPRETER]
 }, () => {
 
@@ -30,7 +30,7 @@ test.describe('New UV Environment', {
 		}
 	});
 	// This is skipped for windows because we can't get the text from the Terminal
-	test('Python - Add new UV environment', async function ({ app, openFolder }) {
+	test('Python - Add new uv environment', async function ({ app, openFolder }) {
 
 		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 
@@ -54,7 +54,7 @@ test.describe('New UV Environment', {
 
 		const metadata = await app.workbench.sessions.getMetadata();
 
-		expect(metadata.source).toBe('Uv');
+		expect(metadata.source).toBe('uv');
 		expect(metadata.path).toContain('qa-example-content/proj/.venv/bin/python');
 
 	});

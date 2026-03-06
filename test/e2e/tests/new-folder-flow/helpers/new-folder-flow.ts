@@ -79,7 +79,7 @@ export async function verifyUvEnvStarts(app: Application) {
 		if (/(8080)/.test(app.code.driver.page.url())) {
 			app.code.driver.page.getByRole('button', { name: 'Yes' }).click();
 		}
-		await app.workbench.console.waitForConsoleContents(/\(Uv: .+\) started/);
+		await app.workbench.console.waitForConsoleContents(/\(uv: .+\) started/);
 	});
 }
 

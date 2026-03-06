@@ -101,6 +101,9 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 		});
 
 		await test.step('Single hash collpase', async () => {
+			// Scroll to top of file to ensure folding glyphs are rendered
+			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
+
 			await app.code.driver.page.locator('.codicon-folding-expanded').first().click();
 
 			await expect(app.code.driver.page.locator('.codicon-folding-collapsed')).toHaveCount(1);

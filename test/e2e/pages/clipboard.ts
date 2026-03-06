@@ -54,7 +54,7 @@ export class Clipboard {
 
 	async getClipboardText(): Promise<string | null> {
 		// Grant permissions to read from clipboard
-		await this.code.driver.context.grantPermissions(['clipboard-read']);
+		await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
 
 		const clipboardText = await this.code.driver.page.evaluate(async () => {
 			try {
@@ -90,7 +90,7 @@ export class Clipboard {
 
 	async setClipboardText(text: string): Promise<void> {
 		// Grant permissions to write to clipboard
-		await this.code.driver.context.grantPermissions(['clipboard-write']);
+		await this.code.driver.browserContext.grantPermissions(['clipboard-write']);
 
 		// Use page context to set clipboard text
 		await this.code.driver.page.evaluate(async (textToCopy) => {
@@ -104,7 +104,7 @@ export class Clipboard {
 
 	async getClipboardImage(): Promise<Buffer | null> {
 		// Grant permissions to read from clipboard
-		await this.code.driver.context.grantPermissions(['clipboard-read']);
+		await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
 
 		const clipboardImageBuffer = await this.code.driver.page.evaluate(async () => {
 			const clipboardItems = await navigator.clipboard.read();
@@ -123,7 +123,7 @@ export class Clipboard {
 
 	async clearClipboard(): Promise<void> {
 		// Grant permissions to modify the clipboard
-		await this.code.driver.context.grantPermissions(['clipboard-write']);
+		await this.code.driver.browserContext.grantPermissions(['clipboard-write']);
 
 		// Use the page context to overwrite the clipboard
 		await this.code.driver.page.evaluate(async () => {

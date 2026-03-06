@@ -166,6 +166,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	private _activeSession: ActiveSession | undefined;
 
+	/** Cached OS process ID of the kernel, used for resource usage reporting. */
+	private _processId: number | undefined;
+
+	/** Guard flag to prevent concurrent getSession() calls when fetching the PID. */
+	private _fetchingProcessId = false;
+
 	/**
 	 * The message header for the current requests if any is active.  This is
 	 * used for input requests (e.g. from `readline()` in R) Concurrent requests
@@ -1064,6 +1070,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Save the kernel info
 		this.runtimeInfoFromKernelInfo(session.kernel_info as KernelInfoReply);
 		this._activeSession = session;
+		this._processId = session.process_id;
 	}
 
 	/**
@@ -1806,6 +1813,24 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._kernelChannel.append(output.output[1]);
 		} else if (data.hasOwnProperty('resourceUsage')) {
 			const resourceUsage = data.resourceUsage as positron.RuntimeResourceUsage;
+
+			// Supplement with the kernel's OS process ID so the memory
+			// usage service can exclude it from the Positron process tree.
+			if (this._processId) {
+				resourceUsage.process_id = this._processId;
+			} else if (!this._fetchingProcessId) {
+				// For new sessions, fetch the PID lazily from Kallichore.
+				// Guard with an in-flight flag to avoid flooding the API
+				// when resourceUsage events arrive faster than the fetch.
+				this._fetchingProcessId = true;
+				this._api.getSession(this.metadata.sessionId).then(result => {
+					if (result.data.process_id) {
+						this._processId = result.data.process_id;
+					}
+				}).catch(() => { /* ignore; will retry on next message */ })
+					.finally(() => { this._fetchingProcessId = false; });
+			}
+
 			this._resourceUsage.fire(resourceUsage);
 		} else if (data.hasOwnProperty('clientDisconnected')) {
 			// Log the disconnection and close the socket

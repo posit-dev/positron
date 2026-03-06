@@ -563,7 +563,7 @@ export async function getBlob(params: CommonParams, url: string, ociCacheDir: st
 			{
 				file: tempTarballPath,
 				cwd: destCachePath,
-				filter: (tPath: string, stat: tar.FileStat) => {
+				filter: (tPath: string, stat: tar.ReadEntry) => {
 					output.write(`Testing '${tPath}'(${stat.type})`, LogLevel.Trace);
 					const cleanedPath = tPath
 						.replace(/\\/g, '/')
@@ -594,7 +594,7 @@ export async function getBlob(params: CommonParams, url: string, ociCacheDir: st
 			{
 				file: tempTarballPath,
 				cwd: ociCacheDir,
-				filter: (tPath: string, _: tar.FileStat) => {
+				filter: (tPath: string, _: tar.ReadEntry) => {
 					return tPath === `./${metadataFile}`;
 				}
 			});

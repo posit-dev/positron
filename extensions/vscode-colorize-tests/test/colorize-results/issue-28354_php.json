@@ -131,7 +131,7 @@
 	},
 	{
 		"c": "AS",
-		"t": "text.html.php meta.embedded.block.html source.js meta.embedded.block.php source.php keyword.operator.logical.php",
+		"t": "text.html.php meta.embedded.block.html source.js meta.embedded.block.php source.php keyword.operator.as.php",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",

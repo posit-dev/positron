@@ -15,7 +15,7 @@ import * as platformUtils from '../../../../client/common/utils/platform';
 import * as logging from '../../../../client/logging';
 import * as simplevenv from '../../../../client/pythonEnvironments/common/environmentManagers/simplevirtualenvs';
 
-suite('UV Environment Tests', () => {
+suite('uv Environment Tests', () => {
     let resolveSymbolicLinkStub: sinon.SinonStub;
     let getOSTypeStub: sinon.SinonStub;
     let getEnvironmentVariableStub: sinon.SinonStub;
