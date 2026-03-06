@@ -44,14 +44,16 @@ import { INotebookEditorOptions, IPYNB_VIEW_TYPE } from '../../notebook/browser/
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
@@ -1579,6 +1581,56 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell?.isCodeCell()) {
 			notebook.clearCellOutput(cell);
+		}
+	}
+});
+
+// Copy output image to clipboard
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.copyOutputImage',
+			title: localize2('positronNotebook.cell.copyOutputImage', "Copy Image"),
+			icon: ThemeIcon.fromId('copy'),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Copy,
+				order: 1,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+				)
+			},
+			keybinding: {
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_COMMAND_MODE,
+					POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyCode.KeyC
+			}
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<void> {
+		const clipboardService = accessor.get(IClipboardService);
+		const logService = accessor.get(ILogService);
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (!cell?.isCodeCell()) {
+			return;
+		}
+
+		const outputs = cell.outputs.get();
+		const imageOutput = outputs.find(o => o.parsed.type === 'image');
+		if (!imageOutput || imageOutput.parsed.type !== 'image') {
+			return;
+		}
+
+		try {
+			await clipboardService.writeImage(imageOutput.parsed.dataUrl);
+		} catch (err) {
+			logService.error('[PositronNotebook] Failed to copy image to clipboard', err);
 		}
 	}
 });
