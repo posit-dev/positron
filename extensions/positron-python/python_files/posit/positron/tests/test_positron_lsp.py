@@ -1586,6 +1586,32 @@ int([x]) -> integer""")
 Two-dimensional,""")
         assert hover.data["priority"] == 1
 
+    def test_hover_on_pandas_series(self) -> None:
+        """Hover should work on pandas Series."""
+        s = pd.Series([10, 20, 30], name="vals")
+        server = create_test_server({"s": s})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "s")
+
+        hover = self._hover(server, text_document, Position(0, 0))
+
+        assert hover is not None
+        assert "**s**: `Series`" in hover.contents.value
+        assert "dtype" in hover.contents.value
+        assert hover.data["priority"] == 1
+
+    def test_hover_on_polars_series(self) -> None:
+        """Hover should work on polars Series."""
+        s = pl.Series("vals", [10, 20, 30])
+        server = create_test_server({"s": s})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "s")
+
+        hover = self._hover(server, text_document, Position(0, 0))
+
+        assert hover is not None
+        assert "**s**: `Series`" in hover.contents.value
+        assert "vals" in hover.contents.value
+        assert hover.data["priority"] == 1
+
 
 class TestHelpTopic:
     """Tests for help topic requests."""

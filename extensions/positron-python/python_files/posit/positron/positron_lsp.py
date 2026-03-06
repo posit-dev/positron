@@ -1476,7 +1476,7 @@ def _get_attribute_completions(
 
     items = []
 
-    # Special handling for DataFrame/Series column access
+    # Special handling for DataFrame column access
     if _is_dataframe_like(obj):
         items.extend(_get_dataframe_column_completions(obj, attr_prefix))
 
@@ -1855,6 +1855,10 @@ def _handle_hover(
         preview = _get_dataframe_preview(obj)
         if preview:
             parts.append(f"\n```\n{preview}\n```")
+    elif _is_series_like(obj):
+        preview = _get_series_repr_preview(obj)
+        if preview:
+            parts.append(f"\n```\n{preview}\n```")
 
     # Docstring for functions/classes
     doc = inspect.getdoc(obj)
@@ -1863,9 +1867,11 @@ def _handle_hover(
 
     content = "\n".join(parts)
 
-    # High priority for hovers with unique positron-python data (DataFrame previews);
+    # High priority for hovers with unique positron-python data (DataFrame/Series previews);
     # low for basic type info so the static analysis provider's hover wins.
-    priority = _PRIORITY_HIGH if _is_dataframe_like(obj) else _PRIORITY_LOW
+    priority = (
+        _PRIORITY_HIGH if (_is_dataframe_like(obj) or _is_series_like(obj)) else _PRIORITY_LOW
+    )
     return PositronHover(
         contents=types.MarkupContent(
             kind=types.MarkupKind.Markdown,
