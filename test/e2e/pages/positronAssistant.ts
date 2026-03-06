@@ -71,7 +71,7 @@ const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat ac
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = '.chat-input-toolbars a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MODEL_PICKER_DROPDOWN = '.action-item.chat-input-picker-item a.action-label[aria-label^="Pick Model"] .codicon.codicon-chevron-down';
+// const MODEL_PICKER_DROPDOWN = '.action-item.chat-input-picker-item a.action-label[aria-label^="Pick Model"] .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 
@@ -256,6 +256,13 @@ export class Assistant {
 		});
 	}
 
+	async openModelPickerDropdown() {
+		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
+		await chatInput.waitFor({ state: 'visible' });
+		await chatInput.click();
+		await this.code.driver.page.keyboard.press('Control+Alt+Period');
+	}
+
 	async runConfigureProviders() {
 		await this.quickaccess.runCommand('positron-assistant.configureProviders');
 	}
@@ -273,13 +280,13 @@ export class Assistant {
 
 		const configureProvidersButtonIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
 		if (!configureProvidersButtonIsVisible) {
-			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+			await this.openModelPickerDropdown();
 		}
 		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
 	}
 
 	async verifyConfigureProvidersButtonVisible() {
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		await this.openModelPickerDropdown();
 		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
 	}
 
@@ -298,7 +305,7 @@ export class Assistant {
 	}
 
 	async pickModel() {
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		await this.openModelPickerDropdown();
 	}
 
 	async expectManageModelsVisible() {
@@ -947,8 +954,8 @@ export class Assistant {
 	}
 
 	async selectChatModel(model: string) {
-		// Click the model picker dropdown to open it
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		// Open the model picker dropdown
+		await this.openModelPickerDropdown();
 
 		// Wait for the dropdown menu to appear
 		await this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
