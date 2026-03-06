@@ -142,6 +142,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const lastValidHeightRef = useRef<number>(0);
 	const wasVisibleRef = useRef<boolean>(true);
 	const pendingFocusIndexRef = useRef<number>(-1);
+	const isAtBottomRef = useRef<boolean>(true);
+	const prevListItemsLengthRef = useRef<number>(0);
 
 	// Wrappers that update both state and refs synchronously,
 	// so event handlers that fire before the next render read current values.
@@ -271,6 +273,26 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// Compute the height based on font line height + padding
 		return linesToShow * (props.fontInfo.lineHeight) + 9;
 	};
+
+	/**
+	 * Compute the total content height of all items in the list.
+	 * Used for initialScrollOffset and for detecting whether we're scrolled to the bottom.
+	 */
+	const getTotalContentHeight = useCallback((items: ListItem[], anchor: number): number => {
+		let total = 0;
+		for (let i = 0; i < items.length; i++) {
+			const item = items[i];
+			if (!item) {
+				total += DEFAULT_ROW_HEIGHT;
+			} else if (item.type === 'separator') {
+				total += SEPARATOR_HEIGHT;
+			} else {
+				const linesToShow = (i === anchor) ? item.lines : item.visibleLines;
+				total += linesToShow * (props.fontInfo.lineHeight) + 9;
+			}
+		}
+		return total;
+	}, [props.fontInfo.lineHeight]);
 
 	/**
 	 * Create list items with separators from entries
@@ -677,6 +699,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Handle scroll event to update auto-scroll state and sticky header
 	 */
 	const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
+
+		// Track whether we're scrolled to the bottom (within a small threshold)
+		const viewportHeight = Math.max(lastValidHeightRef.current, height) - 30;
+		const totalHeight = getTotalContentHeight(listItems, anchorIndex);
+		const maxScroll = Math.max(0, totalHeight - viewportHeight);
+		isAtBottomRef.current = scrollOffset >= maxScroll - 5;
 
 		// Find which section is currently at the top of the viewport
 		let currentOffset = 0;
@@ -1153,6 +1181,20 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	}, [currentLanguage, debouncedSearchText, executionHistoryService]);
 
 	/**
+	 * Auto-scroll to bottom when new entries are added and user was already at bottom.
+	 */
+	useEffect(() => {
+		const prevLength = prevListItemsLengthRef.current;
+		prevListItemsLengthRef.current = listItems.length;
+
+		if (listItems.length > prevLength && prevLength > 0 && isAtBottomRef.current) {
+			if (listRef.current) {
+				listRef.current.scrollToItem(listItems.length - 1, 'end');
+			}
+		}
+	}, [listItems]);
+
+	/**
 	 * Auto-select first entry when list items change (for keyboard navigation)
 	 */
 	useEffect(() => {
@@ -1207,6 +1249,11 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			});
 		}
 	}, [width, height, listItems.length]);
+
+	// Compute the initial scroll offset so the list starts scrolled to the bottom
+	const listHeight = Math.max(lastValidHeightRef.current, height) - 30;
+	const totalContentHeight = getTotalContentHeight(listItems, anchorIndex);
+	const initialScrollOffset = Math.max(0, totalContentHeight - listHeight);
 
 	// Check if there is any history at all (for any language)
 	const hasAnyHistory = availableLanguages.length > 0;
@@ -1309,7 +1356,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					) : (lastValidWidthRef.current > 0 && lastValidHeightRef.current > 40) ? (
 						<List
 							ref={listRef}
-							height={Math.max(lastValidHeightRef.current, height) - 30} // Subtract toolbar height
+							height={listHeight}
+							initialScrollOffset={initialScrollOffset}
 							innerElementType={StickyInnerElement}
 							itemCount={listItems.length}
 							itemSize={getRowHeight}
