@@ -1664,7 +1664,7 @@ class TestParseStringContext:
             ('df.groupby("', ('"', "", "df.groupby(")),
         ],
     )
-    def test_parse_string_context(self, text: str, expected: tuple | None) -> None:
+    def test_parse_string_context(self, text: str, expected: Optional[tuple]) -> None:
         result = _parse_string_context(text)
         if expected is None:
             assert result is None
