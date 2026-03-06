@@ -9,7 +9,6 @@ import { JSX } from 'react';
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
@@ -441,14 +440,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
 					disabled: false,
-					icon: ThemeIcon.fromId('positron-pin'),
+					icon: Codicon.positronPin,
 					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
 					onSelected: () => this.pinColumn(columnIndex)
 				}));
 			} else {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: ThemeIcon.fromId('positron-unpin'),
+					icon: Codicon.positronUnpin,
 					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
 					onSelected: () => this.unpinColumn(columnIndex)
 				}));
@@ -551,14 +550,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
 					disabled: false,
-					icon: ThemeIcon.fromId('positron-pin'),
+					icon: Codicon.positronPin,
 					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
 					onSelected: () => this.pinRow(rowIndex)
 				}));
 			} else {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: ThemeIcon.fromId('positron-unpin'),
+					icon: Codicon.positronUnpin,
 					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
 					onSelected: () => this.unpinRow(rowIndex)
 				}));
@@ -631,14 +630,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
 					disabled: false,
-					icon: ThemeIcon.fromId('positron-pin'),
+					icon: Codicon.positronPin,
 					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
 					onSelected: () => this.pinColumn(columnIndex)
 				}));
 			} else {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: ThemeIcon.fromId('positron-unpin'),
+					icon: Codicon.positronUnpin,
 					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
 					onSelected: () => this.unpinColumn(columnIndex)
 				}));
@@ -651,14 +650,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			if (!this.isRowPinned(rowIndex)) {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: ThemeIcon.fromId('positron-pin'),
+					icon: Codicon.positronPin,
 					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
 					onSelected: () => this.pinRow(rowIndex)
 				}));
 			} else {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: ThemeIcon.fromId('positron-unpin'),
+					icon: Codicon.positronUnpin,
 					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
 					onSelected: () => this.unpinRow(rowIndex)
 				}));

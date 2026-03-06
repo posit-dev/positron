@@ -19,6 +19,7 @@ import { isCancellationError } from '../../../../../base/common/errors.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { ThemeIcon as ThemeIconType } from '../../../../../base/common/themables.js';
 import { TwinklingSparkleIcon } from './TwinklingSparkleIcon.js';
 
 const MAX_CUSTOM_PROMPT_LENGTH = 15000;
@@ -32,7 +33,7 @@ interface PredefinedAction {
 	detail: string;
 	query: string;
 	mode: ChatModeKind;
-	iconClass: string;
+	icon: ThemeIconType;
 }
 
 /**
@@ -45,7 +46,7 @@ const PREDEFINED_ACTIONS: PredefinedAction[] = [
 		detail: localize('assistantPanel.action.explain.detail', 'Summarize what this notebook does and how it works'),
 		query: 'Explain this notebook: 1) Summarize the overall purpose and what it accomplishes, 2) Describe the key steps or workflow, 3) Highlight important code sections or techniques used, 4) Note any assumptions or prerequisites',
 		mode: ChatModeKind.Ask,
-		iconClass: 'codicon-book'
+		icon: Codicon.book
 	},
 	{
 		id: 'fix',
@@ -53,7 +54,7 @@ const PREDEFINED_ACTIONS: PredefinedAction[] = [
 		detail: localize('assistantPanel.action.fix.detail', 'Debug problems and suggest improvements'),
 		query: 'Fix issues in the notebook: 1) Identify and resolve any errors or warnings, 2) Explain what was wrong and why it occurred, 3) Suggest code quality improvements if applicable, 4) Provide corrected code following best practices',
 		mode: ChatModeKind.Edit,
-		iconClass: 'codicon-wrench'
+		icon: Codicon.wrench
 	},
 	{
 		id: 'improve',
@@ -61,7 +62,7 @@ const PREDEFINED_ACTIONS: PredefinedAction[] = [
 		detail: localize('assistantPanel.action.improve.detail', 'Add documentation and enhance readability'),
 		query: 'Improve this notebook: 1) Add markdown documentation explaining what the notebook does, 2) Add comments to complex code sections, 3) Organize cells into logical sections, 4) Remove redundant code or cells, 5) Suggest structural improvements for clarity',
 		mode: ChatModeKind.Edit,
-		iconClass: 'codicon-edit'
+		icon: Codicon.edit
 	}
 ];
 
@@ -247,7 +248,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 						className='assistant-panel-action'
 						onClick={() => handleActionClick(action)}
 					>
-						<span className={`assistant-panel-action-icon codicon ${action.iconClass}`} />
+						<ThemeIcon className='assistant-panel-action-icon' icon={action.icon} />
 						<div className='assistant-panel-action-content'>
 							<div className='assistant-panel-action-label'>{action.label}</div>
 							<div className='assistant-panel-action-detail'>{action.detail}</div>

@@ -567,7 +567,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<ActionBarButton
 				ariaLabel={showPreviousPlot}
 				disabled={disableLeft}
-				icon={ThemeIcon.fromId('positron-left-arrow')}
+				icon={Codicon.positronLeftArrow}
 				tooltip={showPreviousPlot}
 				onPressed={showPreviousPlotHandler}
 			/>
@@ -582,7 +582,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<ActionBarButton
 				ariaLabel={showNextPlot}
 				disabled={disableRight}
-				icon={ThemeIcon.fromId('positron-right-arrow')}
+				icon={Codicon.positronRightArrow}
 				tooltip={showNextPlot}
 				onPressed={showNextPlotHandler}
 			/>
@@ -597,7 +597,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarButton
 					ariaLabel={savePlot}
-					icon={ThemeIcon.fromId('positron-save')}
+					icon={Codicon.positronSave}
 					tooltip={savePlot}
 					onPressed={savePlotHandler}
 				/>
@@ -614,7 +614,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				<ActionBarButton
 					ariaLabel={copyPlotToClipboard}
 					disabled={!hasPlots}
-					icon={ThemeIcon.fromId('copy')}
+					icon={Codicon.copy}
 					tooltip={copyPlotToClipboard}
 					onPressed={copyPlotHandler}
 				/>
@@ -638,7 +638,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarMenuButton
 					actions={zoomActions}
-					icon={ThemeIcon.fromId('positron-size-to-fit')}
+					icon={Codicon.positronSizeToFit}
 					label={zoomLevelLabel}
 					tooltip={zoomPlotTooltip}
 				/>
@@ -660,7 +660,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarMenuButton
 					actions={sizingPolicyActions}
-					icon={ThemeIcon.fromId('symbol-ruler')}
+					icon={Codicon.symbolRuler}
 					label={activePolicyLabel}
 					tooltip={sizingPolicyTooltip}
 				/>
@@ -681,7 +681,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarButton
 					ariaLabel={openPlotInNewWindow}
-					icon={ThemeIcon.fromId('positron-open-in-new-window')}
+					icon={Codicon.positronOpenInNewWindow}
 					tooltip={openPlotInNewWindow}
 					onPressed={popoutPlotHandler}
 				/>
@@ -706,7 +706,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					dropdownAriaLabel={openInEditorDropdownLabel}
 					dropdownIndicator='enabled-split'
 					dropdownTooltip={openInEditorDropdownLabel}
-					icon={ThemeIcon.fromId('go-to-file')}
+					icon={Codicon.goToFile}
 					tooltip={openInEditorTab}
 				/>
 			),
@@ -726,7 +726,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarMenuButton
 					actions={plotCodeActions}
-					icon={ThemeIcon.fromId('code')}
+					icon={Codicon.code}
 					tooltip={selectedPlot?.metadata.code ?? plotCodeActionsTooltip}
 				/>
 			),
@@ -774,7 +774,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={openPlotsGalleryInNewWindow}
-					icon={ThemeIcon.fromId('window')}
+					icon={Codicon.window}
 					tooltip={openPlotsGalleryInNewWindow}
 					onPressed={openGalleryInNewWindowHandler}
 				/>
@@ -796,7 +796,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				align='right'
 				ariaLabel={clearAllPlots}
 				disabled={noPlots}
-				icon={ThemeIcon.fromId('clear-all')}
+				icon={Codicon.clearAll}
 				tooltip={clearAllPlots}
 				onPressed={clearAllPlotsHandler}
 			/>

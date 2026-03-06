@@ -13,7 +13,7 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
@@ -151,14 +151,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarButton
 						ariaLabel={tooltipPreviousTopic}
 						disabled={!canNavigateBackward}
-						icon={ThemeIcon.fromId('positron-left-arrow')}
+						icon={Codicon.positronLeftArrow}
 						tooltip={tooltipPreviousTopic}
 						onPressed={() => services.positronHelpService.navigateBackward()}
 					/>
 					<ActionBarButton
 						ariaLabel={tooltipNextTopic}
 						disabled={!canNavigateForward}
-						icon={ThemeIcon.fromId('positron-right-arrow')}
+						icon={Codicon.positronRightArrow}
 						tooltip={tooltipNextTopic}
 						onPressed={() => services.positronHelpService.navigateForward()}
 					/>
@@ -168,7 +168,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarButton
 						ariaLabel={tooltipShowPositronHelp}
 						disabled={props.onHome === undefined}
-						icon={ThemeIcon.fromId('positron-home')}
+						icon={Codicon.positronHome}
 						tooltip={tooltipShowPositronHelp}
 						onPressed={() => props.onHome()}
 					/>
@@ -200,7 +200,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							align='right'
 							ariaLabel={tooltipShowPositronHelp}
 							disabled={currentHelpEntry === undefined}
-							icon={ThemeIcon.fromId('positron-search')}
+							icon={Codicon.positronSearch}
 							tooltip={tooltipShowPositronHelp}
 							onPressed={() => currentHelpEntry?.showFind()}
 						/>

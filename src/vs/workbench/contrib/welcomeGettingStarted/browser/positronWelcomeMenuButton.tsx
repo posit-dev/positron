@@ -7,6 +7,7 @@
 import React from 'react';
 
 // Other dependencies.
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { PositronModalPopup } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { WelcomeButton } from './positronWelcomeButton.js';
@@ -24,7 +25,7 @@ export interface WelcomeMenuButtonAction {
 // WelcomeMenuButton props
 interface WelcomeMenuButtonProps {
 	label: string;
-	codicon: string;
+	icon: ThemeIcon;
 	ariaLabel: string;
 	actions: WelcomeMenuButtonAction[];
 }
@@ -76,7 +77,7 @@ export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
 		<WelcomeButton
 			ref={ref}
 			ariaLabel={props.ariaLabel}
-			codicon={props.codicon}
+			icon={props.icon}
 			label={props.label}
 			onPressed={showPopup}
 		/>

@@ -155,7 +155,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				className='notebook-cell-quick-fix-split-button'
 				contextMenuService={contextMenuService}
 				dropdownActions={fixDropdownActions}
-				dropdownIconClass='codicon-positron-drop-down-arrow'
+				dropdownIcon={Codicon.positronDropDownArrow}
 				dropdownTooltip={fixDropdownTooltip}
 				onMainAction={pressedFixHandler}
 			>
@@ -171,7 +171,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				className='notebook-cell-quick-fix-split-button'
 				contextMenuService={contextMenuService}
 				dropdownActions={explainDropdownActions}
-				dropdownIconClass='codicon-positron-drop-down-arrow'
+				dropdownIcon={Codicon.positronDropDownArrow}
 				dropdownTooltip={explainDropdownTooltip}
 				onMainAction={pressedExplainHandler}
 			>

@@ -16,7 +16,7 @@ import { PositronActionBar } from '../../../../../platform/positronActionBar/bro
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 import { localize } from '../../../../../nls.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
@@ -42,21 +42,21 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							align='left'
-							icon={ThemeIcon.fromId('arrow-left')}
+							icon={Codicon.arrowLeft}
 							tooltip={(() => localize('positron.schemaNavigationActionBar.back', 'Back'))()}
 							onPressed={() => props.onBack()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
-							icon={ThemeIcon.fromId('positron-disconnect-connection')}
+							icon={Codicon.positronDisconnectConnection}
 							label={(() => localize('positron.schemaNavigationActionBar.disconnect', 'Disconnect'))()}
 							onPressed={() => props.onDisconnect()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
-							icon={ThemeIcon.fromId('refresh')}
+							icon={Codicon.refresh}
 							label={(() => localize('positron.schemaNavigationActionBar.refresh', 'Refresh'))()}
 							onPressed={() => props.onRefresh()}
 						/>

@@ -7,12 +7,14 @@
 import React from 'react';
 
 // Other dependencies.
+import { ThemeIcon as ThemeIconType } from '../../../../base/common/themables.js';
+import { ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 import { ActionButton } from '../../positronNotebook/browser/utilityComponents/ActionButton.js';
 
 // WelcomeButton props
 interface WelcomeButtonProps {
 	label: string;
-	codicon: string;
+	icon: ThemeIconType;
 	ariaLabel: string;
 	onPressed: () => void;
 }
@@ -33,8 +35,7 @@ export function WelcomeButtonInner(props: WelcomeButtonProps, ref?: React.Forwar
 			onPressed={props.onPressed}
 		>
 			<div ref={ref} className='button-container'>
-				{/* eslint-disable-next-line local/code-no-hardcoded-codicon-classes */}
-				<div className={`button-icon codicon codicon-${props.codicon}`} />
+				<ThemeIcon className='button-icon' icon={props.icon} />
 				<div className='action-label'>
 					{props.label}
 				</div>
