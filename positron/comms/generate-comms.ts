@@ -79,6 +79,7 @@ const TypescriptTypeMap: Record<string, string> = {
 	'number': 'number',
 	'string': 'string',
 	'null': 'null',
+	'any': 'any',
 	'array-begin': 'Array<',
 	'array-end': '>',
 	'object': 'object',
@@ -91,6 +92,7 @@ const RustTypeMap: Record<string, string> = {
 	'number': 'f64',
 	'string': 'String',
 	'null': 'null',
+	'any': 'serde_json::Value',
 	'array-begin': 'Vec<',
 	'array-end': '>',
 	'object': 'HashMap',
@@ -103,6 +105,7 @@ const PythonTypeMap: Record<string, string> = {
 	'number': 'Union[StrictInt, StrictFloat]',
 	'string': 'StrictStr',
 	'null': 'null',
+	'any': 'Any',
 	'array-begin': 'List[',
 	'array-end': ']',
 	'object': 'Dict',
@@ -244,7 +247,10 @@ function deriveType(contracts: Array<any>,
 	typeMap: Record<string, string>,
 	context: Array<string>,
 	schema: any): string {
-	if (schema.type === 'array') {
+	if (!schema.type && !schema.$ref && !schema.oneOf && !schema.enum) {
+		// Empty schema means any type
+		return typeMap['any'];
+	} else if (schema.type === 'array') {
 		// If the array has a ref, use that to derive an array type
 		return typeMap['array-begin'] +
 			deriveType(contracts, typeMap, context, schema.items) +
