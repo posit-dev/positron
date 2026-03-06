@@ -97,7 +97,7 @@ suite('URIIcon', () => {
 		assert.ok(el);
 		assert.strictEqual(el.style.width, '16px');
 		assert.strictEqual(el.style.height, '16px');
-		assert.ok(el.style.backgroundImage, 'Should have a background image set');
+		assert.ok(el.style.backgroundImage.includes('dark-icon.png'), 'Should use dark URI');
 	});
 
 	test('renders light icon in light theme', () => {
@@ -107,7 +107,7 @@ suite('URIIcon', () => {
 		);
 		const el = container.querySelector<HTMLDivElement>('div');
 		assert.ok(el);
-		assert.ok(el.style.backgroundImage, 'Should have a background image set');
+		assert.ok(el.style.backgroundImage.includes('light-icon.png'), 'Should use light URI');
 	});
 
 	test('falls back to dark icon when light is not provided in light theme', () => {
@@ -117,7 +117,7 @@ suite('URIIcon', () => {
 		);
 		const el = container.querySelector<HTMLDivElement>('div');
 		assert.ok(el);
-		assert.ok(el.style.backgroundImage, 'Should fallback to dark icon');
+		assert.ok(el.style.backgroundImage.includes('dark-icon.png'), 'Should fallback to dark URI');
 	});
 
 	test('renders no background image when no URIs provided', () => {
@@ -137,7 +137,7 @@ suite('URIIcon', () => {
 		);
 		const el = container.querySelector<HTMLDivElement>('div');
 		assert.ok(el);
-		assert.ok(el.style.backgroundImage, 'Should have a background image');
+		assert.ok(el.style.backgroundImage.includes('dark-icon.png'), 'Should use dark URI');
 	});
 
 	test('renders light icon in high contrast light theme', () => {
@@ -147,7 +147,7 @@ suite('URIIcon', () => {
 		);
 		const el = container.querySelector<HTMLDivElement>('div');
 		assert.ok(el);
-		assert.ok(el.style.backgroundImage, 'Should have a background image');
+		assert.ok(el.style.backgroundImage.includes('light-icon.png'), 'Should use light URI');
 	});
 
 	test('forwards ref to the underlying div', () => {
@@ -231,7 +231,7 @@ suite('Icon', () => {
 		assert.ok(ref.current.style.backgroundImage);
 	});
 
-	test('passes className and additional props through', () => {
+	test('passes className and additional props through for ThemeIcon path', () => {
 		const container = renderIcon(
 			<Icon aria-hidden='true' className='extra-class' icon={Codicon.warning} />
 		);
@@ -239,6 +239,17 @@ suite('Icon', () => {
 		assert.ok(el);
 		assert.ok(el.classList.contains('codicon-warning'));
 		assert.strictEqual(el.getAttribute('aria-hidden'), 'true');
+	});
+
+	test('passes className and additional props through for URIIcon path', () => {
+		const darkUri = URI.parse('https://example.com/icon.png');
+		const container = renderIcon(
+			<Icon aria-label='uri icon' className='uri-extra' data-testid='uri' icon={{ dark: darkUri }} />
+		);
+		const el = container.querySelector<HTMLDivElement>('.uri-extra');
+		assert.ok(el);
+		assert.strictEqual(el.getAttribute('aria-label'), 'uri icon');
+		assert.strictEqual(el.getAttribute('data-testid'), 'uri');
 	});
 });
 
