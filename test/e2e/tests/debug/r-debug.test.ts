@@ -215,7 +215,7 @@ test.describe('R Debugging', {
 // R Breakpoints - Tests for gutter-click breakpoints feature (#1766)
 // These tests verify the new R breakpoint support added in PR #11407
 // skipping for now as they are failing in e2e tests, but not manually. We are investigating.
-test.describe.skip('R Breakpoints', {
+test.describe('R Breakpoints', {
 	tag: [tags.DEBUG, tags.WIN, tags.ARK]
 }, () => {
 	let breakpointSession: SessionMetaData;
@@ -224,7 +224,7 @@ test.describe.skip('R Breakpoints', {
 		breakpointSession = await sessions.start('r');
 	});
 
-	test.afterEach(async ({ app, page, hotKeys }) => {
+	test.afterEach(async ({ app, page, hotKeys, cleanup }) => {
 		// Focus the console
 		await app.workbench.console.focus();
 
@@ -241,6 +241,9 @@ test.describe.skip('R Breakpoints', {
 
 		// Close all editors (handles "Don't Save" dialog)
 		await hotKeys.closeAllEditors();
+
+		// Discard any file changes so next test starts clean
+		await cleanup.discardAllChanges();
 
 		// Clear console
 		await app.workbench.console.clearButton.click();
@@ -328,25 +331,26 @@ test.describe.skip('R Breakpoints', {
 	}, async ({ app, page, openFile, hotKeys, sessions }) => {
 		const { debug, console } = app.workbench;
 
-		// Start a second R session
-		const rSession2 = await sessions.start('r', { reuse: false });
-
-		// Switch back to first session (use ID since both have same name)
-		await sessions.select(breakpointSession.id);
-
+		// Set up and verify breakpoint in Session 1 before switching.
+		// This ensures the breakpoint is verified (document hash stored)
+		// so we can later poll for `expectBreakpointVerified` as a
+		// signal that the DAP has reconnected after a session switch.
 		await openFile('workspaces/r-debugging/breakpoint_test.r');
 		await debug.setUnverifiedBreakpointOnLine(3);
-
-		// Verify breakpoint in Session 1
 		await hotKeys.selectAll();
 		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
 		await debug.expectBreakpointVerified(0, 30000);
 
-		// Switch to Session 2 - breakpoint should be unverified
-		await sessions.select(rSession2.id);
+		// Start a second R session (this switches away from Session 1)
+		const rSession2 = await sessions.start('r', { reuse: false });
+
+		// Breakpoint should be unverified while Session 2 is active
 		await debug.expectBreakpointUnverified(0);
 
-		// Switch back to Session 1 - breakpoint should still be verified
+		// Switch back to Session 1. Poll for verified breakpoint as a
+		// signal that the DAP has reconnected and `sendAllBreakpoints`
+		// has completed (ark re-confirms `verified: true` because the
+		// document hash matches).
 		await sessions.select(breakpointSession.id);
 		await debug.expectBreakpointVerified(0, 5000);
 
