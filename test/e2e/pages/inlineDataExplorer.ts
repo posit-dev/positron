@@ -27,7 +27,6 @@ export class InlineDataExplorer {
 
 	// Data grid elements
 	readonly columnHeaders: Locator;
-	readonly cells: Locator;
 
 	constructor(
 		private page: Page,
@@ -42,7 +41,6 @@ export class InlineDataExplorer {
 		this.disconnectedState = this.container.locator('.inline-data-explorer-disconnected');
 		this.errorState = this.container.locator('.inline-data-explorer-error');
 		this.columnHeaders = this.container.locator('.data-grid-column-header');
-		this.cells = this.container.locator('.data-grid-row-cell');
 	}
 
 	// --- Actions ---
@@ -90,11 +88,10 @@ export class InlineDataExplorer {
 
 	async expectShapeToContain(rows: number | string, columns?: number | string): Promise<void> {
 		await test.step(`Verify shape contains: ${rows} rows${columns ? `, ${columns} columns` : ''}`, async () => {
-			await expect(this.shape).toContainText(String(rows));
-			await expect(this.shape).toContainText('rows');
+			// Use word-boundary regex to avoid partial matches (e.g., "5" matching "50")
+			await expect(this.shape).toHaveText(new RegExp(`\\b${rows}\\b.*rows`));
 			if (columns !== undefined) {
-				await expect(this.shape).toContainText(String(columns));
-				await expect(this.shape).toContainText('columns');
+				await expect(this.shape).toHaveText(new RegExp(`\\b${columns}\\b.*columns`));
 			}
 		});
 	}
@@ -103,12 +100,6 @@ export class InlineDataExplorer {
 		await test.step(`Verify column header "${headerText}" is visible`, async () => {
 			const headerTitle = this.columnHeaders.locator('.title').filter({ hasText: headerText });
 			await expect(headerTitle.first()).toBeVisible();
-		});
-	}
-
-	async expectCellToBeVisible(text: string): Promise<void> {
-		await test.step(`Verify cell with text "${text}" is visible`, async () => {
-			await expect(this.container.getByText(text)).toBeVisible();
 		});
 	}
 
