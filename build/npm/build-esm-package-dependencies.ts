@@ -85,6 +85,23 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 			'VariableSizeGrid',
 			'VariableSizeList',
 		],
+		'@dnd-kit/core': [
+			'DndContext',
+			'DragOverlay',
+			'KeyboardSensor',
+			'PointerSensor',
+			'useSensor',
+			'useSensors',
+		],
+		'@dnd-kit/sortable': [
+			'SortableContext',
+			'sortableKeyboardCoordinates',
+			'useSortable',
+			'verticalListSortingStrategy',
+		],
+		'@dnd-kit/utilities': [
+			'CSS',
+		],
 	};
 
 	// Derive entry points from the export map keys.

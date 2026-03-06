@@ -19,6 +19,8 @@ import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { NotebookRawCell } from './notebookCells/NotebookRawCell.js';
 import { DeletionSentinel } from './notebookCells/DeletionSentinel.js';
 import { GhostCell } from './contrib/ghostCell/GhostCell.js';
+import { SortableCellList } from './notebookCells/SortableCellList.js';
+import { SortableCell } from './notebookCells/SortableCell.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
@@ -31,6 +33,7 @@ import { useContextKeyValue } from './useContextKeyValue.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
+import { getSelectedCells } from './selectionMachine.js';
 
 
 export function PositronNotebookComponent() {
@@ -88,6 +91,20 @@ export function PositronNotebookComponent() {
 	// Determine if scroll decoration should be shown
 	const showDecoration = isScrolled || isFindWidgetVisible;
 
+	// Handler for drag-and-drop reordering of cells (single or multi).
+	// Guard against read-only notebooks to prevent unintended reorders.
+	const handleReorder = React.useCallback((cells: IPositronNotebookCell[], targetIndex: number) => {
+		if (notebookInstance.isReadOnly) {
+			return;
+		}
+		notebookInstance.moveCells(cells, targetIndex);
+	}, [notebookInstance]);
+
+	// Get currently selected cells for multi-drag support
+	const getSelectedCellsCallback = React.useCallback(() => {
+		return getSelectedCells(notebookInstance.selectionStateMachine.state.get());
+	}, [notebookInstance]);
+
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			{showDecoration && (
@@ -99,7 +116,13 @@ export function PositronNotebookComponent() {
 			)}
 			<div ref={containerRef} className='positron-notebook-cells-container'>
 				<AddCellButtons index={0} />
-				{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
+				<SortableCellList
+					cells={notebookCells}
+					getSelectedCells={getSelectedCellsCallback}
+					onReorder={handleReorder}
+				>
+					{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
+				</SortableCellList>
 				<GhostCell />
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
@@ -154,10 +177,12 @@ function renderCellsAndSentinels(
 			currentOriginalIndex++;
 		}
 
-		// Render the cell
+		// Render the cell wrapped in SortableCell for drag-and-drop
 		elements.push(
 			<React.Fragment key={cell.handle}>
-				<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				<SortableCell cell={cell}>
+					<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				</SortableCell>
 				<AddCellButtons index={cellArrayIndex + 1} />
 			</React.Fragment>
 		);

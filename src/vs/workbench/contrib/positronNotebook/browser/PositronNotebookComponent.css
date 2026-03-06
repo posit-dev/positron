@@ -84,7 +84,8 @@
 
 .positron-notebook-cells-container {
 	padding-block: 1.5rem;
-	padding-inline: 1rem;
+	padding-inline-start: 1rem;
+	padding-inline-end: 1rem;
 	display: flex;
 	flex-direction: column;
 	gap: var(--_positron-notebook-cell-gap);
