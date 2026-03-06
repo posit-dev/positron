@@ -111,7 +111,20 @@ export class RPackageManager {
 
 		const method = await this._getPakMethod();
 		const pkgVector = this._formatRVector(packageNames);
-		const code = `.ps.rpc.pkg_uninstall(${pkgVector}, "${method}")`;
+
+		let code: string;
+		if (method === 'pak') {
+			code = `pak::pkg_remove(${pkgVector})`;
+		} else {
+			code = `remove.packages(${pkgVector})`;
+		}
+
+		// Unload namespaces after removal
+		const unloadCode = packageNames
+			.map(pkg => `try(unloadNamespace("${pkg}"), silent = TRUE)`)
+			.join('; ');
+		code = `{ ${code}; ${unloadCode} }`;
+
 		await this._executeAndWait(code);
 		this._session.invalidatePackageResourceCaches();
 	}
