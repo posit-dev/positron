@@ -711,7 +711,7 @@ class TestInlineDataExplorerVariableResolution:
         shell.user_ns["_"] = frame
         shell.user_ns_hidden["_"] = frame
 
-        format_dict, _ = shell.display_formatter.format(frame)
+        _format_dict, _ = shell.display_formatter.format(frame)
 
         args, kwargs = mock_dataexplorer_service.register_table.call_args
         assert args[1] == "pandas"
@@ -729,7 +729,7 @@ class TestInlineDataExplorerVariableResolution:
         shell.user_ns["first_df"] = frame
         shell.user_ns["second_df"] = frame
 
-        format_dict, _ = shell.display_formatter.format(frame)
+        _format_dict, _ = shell.display_formatter.format(frame)
 
         args, kwargs = mock_dataexplorer_service.register_table.call_args
         assert args[1] == "first_df"
