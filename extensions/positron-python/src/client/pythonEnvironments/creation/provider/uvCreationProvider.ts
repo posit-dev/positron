@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
+import * as vscode from 'vscode';
 import { CancellationToken, ProgressLocation, WorkspaceFolder } from 'vscode';
 import { Commands, PVSC_EXTENSION_ID } from '../../../common/constants';
 import { execObservable } from '../../../common/process/rawProcessApis';
 import { createDeferred } from '../../../common/utils/async';
 import { Common, CreateEnv } from '../../../common/utils/localize';
-import { traceError, traceInfo, traceLog } from '../../../logging';
+import { traceError, traceInfo, traceLog, traceWarn } from '../../../logging';
 import { CreateEnvironmentOptionsInternal, CreateEnvironmentProgress } from '../types';
 import { pickWorkspaceFolder } from '../common/workspaceSelection';
 import { MultiStepAction, MultiStepNode, withProgress } from '../../../common/vscodeApis/windowApis';
@@ -20,7 +21,7 @@ import {
     CreateEnvironmentOptions,
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
-import { isUvInstalled } from '../../common/environmentManagers/uv';
+import { getUvPythonVersionInfo, installUvPython, isUvInstalled, updateUv } from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
@@ -201,6 +202,67 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
 
                 if (!version) {
                     throw new Error('Failed to create uv environment. Python version is undefined.');
+                }
+
+                // Check if uv would install a pre-release version and warn the user
+                const versionInfo = await getUvPythonVersionInfo(version);
+                if (versionInfo?.isPrerelease) {
+                    traceWarn(
+                        `uv would install pre-release Python ${versionInfo.version} for requested version ${version}`,
+                    );
+                    const choice = await vscode.window.showWarningMessage(
+                        CreateEnv.Uv.prereleaseWarning(versionInfo.version),
+                        { modal: false },
+                        CreateEnv.Uv.updateUv,
+                        CreateEnv.Uv.proceedAnyway,
+                        Common.cancel,
+                    );
+
+                    if (choice === CreateEnv.Uv.updateUv) {
+                        // Run uv self update and wait for it to complete
+                        progress.report({ message: CreateEnv.Uv.updatingUv });
+                        traceInfo('Updating uv...');
+                        const updateSuccess = await updateUv();
+                        if (!updateSuccess) {
+                            traceError('Failed to update uv');
+                            throw new Error(CreateEnv.Uv.errorUpdatingUv);
+                        }
+                        traceInfo('uv updated successfully, checking for stable Python version...');
+
+                        // Look for a stable version, skipping local pre-releases
+                        const stableVersionInfo = await getUvPythonVersionInfo(version, {
+                            skipLocalPrereleases: true,
+                        });
+
+                        if (stableVersionInfo && !stableVersionInfo.isPrerelease) {
+                            // Found a stable version - install it if not already local
+                            if (!stableVersionInfo.path) {
+                                traceInfo(`Installing stable Python ${stableVersionInfo.version}...`);
+                                progress.report({
+                                    message: CreateEnv.Uv.installingPython(stableVersionInfo.version),
+                                });
+                                const installSuccess = await installUvPython(stableVersionInfo.version);
+                                if (!installSuccess) {
+                                    traceError(`Failed to install Python ${stableVersionInfo.version}`);
+                                    throw new Error(CreateEnv.Uv.errorInstallingPython(stableVersionInfo.version));
+                                }
+                            }
+                            traceInfo(`Using stable Python ${stableVersionInfo.version}`);
+                            // Update version to use the specific stable version
+                            version = stableVersionInfo.version;
+                        } else {
+                            // No stable version available - warn user but continue with pre-release
+                            const fallbackInfo = stableVersionInfo ?? versionInfo;
+                            traceWarn(
+                                `No stable Python version available for ${version}, using pre-release ${fallbackInfo.version}`,
+                            );
+                            vscode.window.showWarningMessage(CreateEnv.Uv.stillPrereleaseWarning(fallbackInfo.version));
+                        }
+                    } else if (choice !== CreateEnv.Uv.proceedAnyway) {
+                        // User cancelled or closed the dialog
+                        return undefined;
+                    }
+                    traceInfo(`Proceeding with Python ${version}`);
                 }
 
                 envPath = await createUvVenv(workspace, version, progress, token, options?.envName);

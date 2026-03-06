@@ -23,7 +23,7 @@ import {
 } from './base/locators/common/nativePythonFinder';
 import { createDeferred, Deferred } from '../common/utils/async';
 import { Architecture, getPathEnvVariable, getUserHomeDir } from '../common/utils/platform';
-import { parseVersion } from './base/info/pythonVersion';
+import { getShortVersionString, parseVersion } from './base/info/pythonVersion';
 import { cache } from '../common/utils/decorators';
 import { traceError, traceInfo, traceLog, traceVerbose, traceWarn } from '../logging';
 import { StopWatch } from '../common/utils/stopWatch';
@@ -122,12 +122,8 @@ function kindToShortString(kind: PythonEnvKind): string | undefined {
     }
 }
 
-function toShortVersionString(version: PythonVersion): string {
-    return `${version.major}.${version.minor}.${version.micro}`.trim();
-}
-
 function getDisplayName(version: PythonVersion, kind: PythonEnvKind, arch: Architecture, name?: string): string {
-    const versionStr = toShortVersionString(version);
+    const versionStr = getShortVersionString(version);
     const kindStr = kindToShortString(kind);
     if (arch === Architecture.x86) {
         if (kindStr) {
@@ -278,6 +274,7 @@ async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[])
             major: version.major,
             minor: version.minor,
             micro: version.micro,
+            ...(version.release && { release: version.release }),
         },
         arch,
         distro: {
