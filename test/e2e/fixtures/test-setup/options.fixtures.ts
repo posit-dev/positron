@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { join } from 'path';
+import { join, resolve } from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as playwright from '@playwright/test';
@@ -68,7 +68,15 @@ export function OptionsFixture() {
 			quality: Quality.Dev,
 			version,
 			useExternalServer: project.useExternalServer,
-			externalServerUrl: project.externalServerUrl
+			externalServerUrl: project.externalServerUrl,
+			// --- Start Positron ---
+			...(process.env.DEMO_RECORD_VIDEO ? {
+				recordVideo: {
+					dir: resolve(ROOT_PATH, 'demo-videos'),
+					size: { width: 1280, height: 720 },
+				},
+			} : {}),
+			// --- End Positron ---
 		};
 
 		options.userDataDir = getRandomUserDataDir(options);

@@ -48,12 +48,21 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 		throw new Error(`Cannot find Positron at ${configuration.electronPath}. Please run Positron once first (scripts/code.sh, scripts\\code.bat) and try again.`);
 	}
 
-	const electron = await measureAndLog(() => playwright._electron.launch({
+	// --- Start Positron ---
+	const launchOptions: Parameters<typeof playwright._electron['launch']>[0] = {
 		executablePath: configuration.electronPath,
 		args: configuration.args,
 		env: configuration.env as { [key: string]: string },
-		timeout: 0
-	}), 'playwright-electron#launch', logger);
+		timeout: 0,
+	};
+	if (options.recordVideo) {
+		launchOptions.recordVideo = options.recordVideo;
+	}
+	// --- End Positron ---
+
+	const electron = await measureAndLog(() => playwright._electron.launch(
+		launchOptions
+	), 'playwright-electron#launch', logger);
 
 	let window = electron.windows()[0];
 	if (!window) {
