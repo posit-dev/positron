@@ -11,7 +11,9 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 
 /**
  * The error boundary level determines the fallback UI style and message.
@@ -57,7 +59,7 @@ function getErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
 	}
-	return String(error ?? 'Unknown error');
+	return String(error ?? localize('positron.notebook.errorBoundary.unknownError', "Unknown error"));
 }
 
 /**
@@ -141,7 +143,7 @@ export class NotebookErrorBoundary extends React.Component<
 			return (
 				<div className={`notebook-error-boundary notebook-error-boundary-${level}`} role='alert'>
 					<div className='notebook-error-boundary-header'>
-						<span className='notebook-error-boundary-icon codicon codicon-error'></span>
+						<ThemeIcon className='notebook-error-boundary-icon' icon={Codicon.error} />
 						<span>{message}</span>
 					</div>
 					<div className='notebook-error-boundary-actions'>

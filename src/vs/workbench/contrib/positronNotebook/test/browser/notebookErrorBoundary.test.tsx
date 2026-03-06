@@ -8,7 +8,6 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
-import React from 'react';
 import { flushSync } from 'react-dom';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../base/test/browser/react.js';
