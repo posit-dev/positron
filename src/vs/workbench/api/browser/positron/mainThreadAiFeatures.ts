@@ -118,6 +118,10 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		source.signedIn = false;
 		this._positronAssistantService.removeLanguageModelConfig(source);
+		// Invalidate the provider's model cache so the model picker and
+		// welcome view update to reflect that the provider is no longer
+		// signed in.
+		this._languageModelsService.invalidateProvider(source.provider.id);
 	}
 
 	/**

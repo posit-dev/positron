@@ -70,7 +70,7 @@ export class Output {
 		await this.code.driver.page.waitForTimeout(100);
 
 		// Grant permissions to read from clipboard
-		await this.code.driver.context.grantPermissions(['clipboard-read']);
+		await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
 
 		// Read the clipboard content
 		const clipboardText = await this.code.driver.page.evaluate(async () => {
