@@ -192,6 +192,34 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 		});
 	});
 
+	test('Python - Verify subsequent cell mutation updates inline data explorer', async function ({ app }) {
+		const { notebooksPositron, inlineDataExplorer } = app.workbench;
+
+		const setupCode = `import pandas as pd
+df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
+df`;
+
+		const mutationCode = `df.loc[0, 'A'] = 99`;
+
+		await test.step('Execute cell that returns a DataFrame', async () => {
+			await notebooksPositron.addCodeToCell(0, setupCode, { run: true, waitForSpinner: true });
+		});
+
+		await test.step('Verify initial cell value', async () => {
+			await inlineDataExplorer.expectToBeVisible();
+			await inlineDataExplorer.expectGridToBeReady();
+			await inlineDataExplorer.expectCellValue('A', 0, '1');
+		});
+
+		await test.step('Run mutation in a second cell', async () => {
+			await notebooksPositron.addCodeToCell(1, mutationCode, { run: true, waitForSpinner: true });
+		});
+
+		await test.step('Verify inline data explorer reflects the mutation', async () => {
+			await inlineDataExplorer.expectCellValue('A', 0, '99');
+		});
+	});
+
 	test('Python - Verify re-execution updates the inline data explorer', async function ({ app, hotKeys }) {
 		const { notebooksPositron, inlineDataExplorer } = app.workbench;
 
