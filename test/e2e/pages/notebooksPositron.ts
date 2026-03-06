@@ -641,6 +641,61 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Action: Set replace text in the search widget.
+	 * @param text - The text to replace with.
+	 */
+	async searchSetReplaceText(text: string): Promise<void> {
+		await test.step(`Set replace text to: ${text}`, async () => {
+			await this.searchExpandReplace();
+			await this.replaceInput.fill(text);
+		});
+	}
+
+	/**
+	 * Action: Perform replace operation (single replace).
+	 */
+	async searchReplace(): Promise<void> {
+		await test.step('Replace current match', async () => {
+			await this.replaceButton.click();
+		});
+	}
+
+	/**
+	 * Action: Perform replace all operation.
+	 */
+	async searchReplaceAll(): Promise<void> {
+		await test.step('Replace all matches', async () => {
+			await this.replaceAllButton.click();
+		});
+	}
+
+	/**
+	 * Action: Toggle search case sensitivity.
+	 */
+	async searchToggleCaseSensitive(): Promise<void> {
+		await test.step('Toggle case sensitivity', async () => {
+			await this.searchWidget.getByRole('button', { name: 'Match Case' }).click();
+		});
+	}
+
+	/**
+	 * Action: Toggle whole word search.
+	 */
+	async searchToggleWholeWord(): Promise<void> {
+		await test.step('Toggle whole word', async () => {
+			await this.searchWidget.getByRole('button', { name: 'Match Whole Word' }).click();
+		});
+	}
+
+	/**
+	 * Action: Toggle regex search.
+	 */
+	async searchToggleRegex(): Promise<void> {
+		await test.step('Toggle regex search', async () => {
+			await this.searchWidget.getByRole('button', { name: 'Use Regular Expression' }).click();
+		});
+	}
 
 	// #endregion
 
@@ -725,6 +780,24 @@ export class PositronNotebooks extends Notebooks {
 	async expectSearchDecorationCountToBe(expectedCount: number): Promise<void> {
 		await test.step(`Expect search decoration count to be: ${expectedCount}`, async () => {
 			await expect(this.searchDecoration).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Verify: Replace button is disabled.
+	 */
+	async expectReplaceButtonToBeDisabled(): Promise<void> {
+		await test.step('Expect Replace button to be disabled', async () => {
+			await expect(this.replaceButton).toBeDisabled({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Verify: Replace All button is disabled.
+	 */
+	async expectReplaceAllButtonToBeDisabled(): Promise<void> {
+		await test.step('Expect Replace All button to be disabled', async () => {
+			await expect(this.replaceAllButton).toBeDisabled({ timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
