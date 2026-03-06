@@ -317,7 +317,7 @@ def test_register_table_includes_variable_path_in_comm_open(de_service: DataExpl
     comm_id = de_service.register_table(table, "my_df", variable_path=var_path)
 
     table_view = de_service.table_views[comm_id]
-    comm = table_view.comm.comm
+    comm = cast("DummyComm", table_view.comm.comm)
     # The DummyComm records messages - first message is comm_open
     open_msg = comm.messages[0]
     assert open_msg["data"]["variable_path"] == var_path
@@ -329,7 +329,7 @@ def test_register_table_omits_variable_path_when_none(de_service: DataExplorerSe
     comm_id = de_service.register_table(table, "pandas", variable_path=None)
 
     table_view = de_service.table_views[comm_id]
-    comm = table_view.comm.comm
+    comm = cast("DummyComm", table_view.comm.comm)
     open_msg = comm.messages[0]
     assert "variable_path" not in open_msg["data"]
 
@@ -366,8 +366,7 @@ def test_open_data_explorer(de_service: DataExplorerService):
 
 
 def test_open_data_explorer_preserves_variable_path(de_service: DataExplorerService):
-    """When an inline explorer has a variable_path, opening a full explorer
-    should preserve it."""
+    """When an inline explorer has a variable_path, opening a full explorer should preserve it."""
     from positron.access_keys import encode_access_key
 
     table = pd.DataFrame({"a": [1, 2, 3]})
@@ -385,7 +384,7 @@ def test_open_data_explorer_preserves_variable_path(de_service: DataExplorerServ
 
     assert len(de_service.table_views) == 2
 
-    new_comm_id = [cid for cid in de_service.table_views if cid != inline_comm_id][0]
+    new_comm_id = next(cid for cid in de_service.table_views if cid != inline_comm_id)
     assert new_comm_id in de_service.comm_id_to_path
     assert de_service.comm_id_to_path[new_comm_id] == tuple(var_path)
 
