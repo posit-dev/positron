@@ -637,58 +637,92 @@ async function newRmdFromTemplate(): Promise<void> {
 		return;
 	}
 
+	const session = await RSessionManager.instance.getConsoleSession();
+	if (!session) {
+		vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
+		return;
+	}
+
+	let templates: RmdTemplate[];
 	try {
-		const session = await RSessionManager.instance.getConsoleSession();
-		if (!session) {
-			vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
-			return;
+		templates = await session.getRmdTemplates(true);
+	} catch (err) {
+		vscode.window.showErrorMessage(vscode.l10n.t('Error loading R Markdown templates: {0}', String(err)));
+		return;
+	}
+
+	if (templates.length === 0) {
+		// The rmarkdown package itself has templates, so something must go really wrong to get here:
+		vscode.window.showInformationMessage(
+			vscode.l10n.t('No R Markdown templates found.')
+		);
+		return;
+	}
+
+	// Sort templates by package name
+	templates.sort((a, b) => a.package.localeCompare(b.package));
+
+	// Group templates by package with separators
+	const items: (vscode.QuickPickItem | TemplateQuickPickItem)[] = [];
+	let currentPackage = '';
+	for (const t of templates) {
+		if (t.package !== currentPackage) {
+			currentPackage = t.package;
+			items.push({
+				label: t.package,
+				kind: vscode.QuickPickItemKind.Separator
+			});
 		}
-
-		const templates = await session.getRmdTemplates(true);
-
-		if (templates.length === 0) {
-			// The rmarkdown package itself has templates, so something must go really wrong to get here:
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('No R Markdown templates found.')
-			);
-			return;
-		}
-
-		const items: TemplateQuickPickItem[] = templates.map(t => ({
+		items.push({
 			label: t.name,
-			description: `{${t.package}}`,
 			detail: t.description,
 			template: t
-		}));
+		});
+	}
 
-		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: vscode.l10n.t('Select an R Markdown template'),
-			matchOnDescription: true,
-			matchOnDetail: true
+	const selected = await vscode.window.showQuickPick(items, {
+		placeHolder: vscode.l10n.t('Select an R Markdown template'),
+		matchOnDetail: true
+	}) as TemplateQuickPickItem | undefined;
+
+	if (selected) {
+		const t = selected.template;
+
+		// Get save location from user
+		const defaultDir = vscode.workspace.workspaceFolders?.[0]?.uri
+			?? vscode.Uri.file(os.homedir());
+
+		// Find an unused filename
+		let filename = 'Untitled.Rmd';
+		let counter = 1;
+		while (true) {
+			const candidate = vscode.Uri.joinPath(defaultDir, filename);
+			try {
+				await vscode.workspace.fs.stat(candidate);
+				// File exists, try next number
+				filename = `Untitled-${counter}.Rmd`;
+				counter++;
+			} catch {
+				// File doesn't exist, use this name
+				break;
+			}
+		}
+
+		const saveUri = await vscode.window.showSaveDialog({
+			defaultUri: vscode.Uri.joinPath(defaultDir, filename)
 		});
 
-		if (selected) {
-			const t = selected.template;
-
-			// Get save location from user
-			const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri
-				?? vscode.Uri.file(os.homedir());
-
-			const saveUri = await vscode.window.showSaveDialog({
-				defaultUri: vscode.Uri.joinPath(defaultUri, 'Untitled.Rmd')
-			});
-
-			if (!saveUri) {
-				return;
-			}
-
-			// Create document using rmarkdown::draft() and open via rstudioapi
-			const draftPath = saveUri.fsPath;
-			const code = `rmarkdown::draft(${JSON.stringify(draftPath)}, template = "${t.template}", package = "${t.package}")`;
-			await positron.runtime.executeCode('r', code, true);
+		if (!saveUri) {
+			return;
 		}
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		vscode.window.showErrorMessage(vscode.l10n.t('Error loading R Markdown templates: {0}', message));
+
+		// Create document using rmarkdown::draft() and open via rstudioapi
+		const draftPath = saveUri.fsPath;
+		const code = `rmarkdown::draft(${JSON.stringify(draftPath)}, template = "${t.template}", package = "${t.package}")`;
+		try {
+			await positron.runtime.executeCode('r', code, true);
+		} catch {
+			// R errors are already shown in the console
+		}
 	}
 }
