@@ -1,0 +1,17 @@
+{
+  "$schema": "https://claude.ai/schemas/commands.json",
+  "commands": [
+    {
+      "name": "review-upstream-merge",
+      "description": "Review upstream VS Code merge for Posit Workbench compatibility",
+      "prompt_file": "skills/review-upstream-merge.md",
+      "arguments": [
+        {
+          "name": "branch",
+          "description": "Branch name to review (defaults to current branch)",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

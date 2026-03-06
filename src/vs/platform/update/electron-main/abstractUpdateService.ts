@@ -358,6 +358,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		// noop
 	}
 
+	async disableProgressiveReleases(): Promise<void> {
+		// noop
+	}
+
 	protected getUpdateType(): UpdateType {
 		return UpdateType.Archive;
 	}
