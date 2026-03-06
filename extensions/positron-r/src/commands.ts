@@ -266,8 +266,8 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		// Commands for RStudio addins
-		vscode.commands.registerCommand('r.browseAddins', async () => {
-			await browseAddins();
+		vscode.commands.registerCommand('r.runAddin', async () => {
+			await runAddin();
 		}),
 
 		// Commands for R Markdown templates
@@ -557,10 +557,10 @@ interface AddinQuickPickItem extends vscode.QuickPickItem {
 }
 
 /**
- * Browse installed RStudio addins.
- * Shows a QuickPick with all addins found in installed packages.
+ * Run an RStudio addin.
+ * Shows a QuickPick with all addins found in installed packages, then executes the selection.
  */
-async function browseAddins(): Promise<void> {
+async function runAddin(): Promise<void> {
 	const session = await RSessionManager.instance.getConsoleSession();
 	if (!session) {
 		vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
