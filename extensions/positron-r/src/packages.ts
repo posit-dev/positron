@@ -47,17 +47,19 @@ export class RPackageManager {
 			method = await this._ensurePak();
 		}
 
-		let pkgSpecs: string[];
+		let code: string;
 		if (method === 'pak') {
 			// pak supports "pkg@version" syntax directly
-			pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+			const pkgVector = this._formatRVector(pkgSpecs);
+			code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
 		} else {
 			// base R: version not supported
-			pkgSpecs = packages.map(p => p.name);
+			const pkgNames = packages.map(p => p.name);
+			const pkgVector = this._formatRVector(pkgNames);
+			code = `install.packages(${pkgVector})`;
 		}
 
-		const pkgVector = this._formatRVector(pkgSpecs);
-		const code = `.ps.rpc.pkg_install(${pkgVector}, "${method}")`;
 		await this._executeAndWait(code);
 		this._session.invalidatePackageResourceCaches();
 	}
