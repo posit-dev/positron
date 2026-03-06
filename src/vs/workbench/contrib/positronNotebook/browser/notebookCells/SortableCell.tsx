@@ -24,7 +24,7 @@ interface SortableCellProps {
 }
 
 export function SortableCell({ cell, children }: SortableCellProps) {
-	const { activeDragHandleIds } = useDragState();
+	const { activeDragHandleIds, overId } = useDragState();
 	const {
 		attributes,
 		listeners,
@@ -44,6 +44,15 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 	// The dragged cell and secondary participants become invisible but stay in
 	// layout so dnd-kit's rect cache remains accurate.
 	const isHiddenForDrag = isDragging || isSecondaryDragParticipant;
+
+	// Show the drop indicator on the over target cell. The transform direction
+	// tells us which edge: cells shifting down (positive y) open a gap at their
+	// top; cells shifting up (negative y) open a gap at their bottom.
+	const isOverTarget = overId === cell.handle && !isHiddenForDrag;
+	let indicatorPosition: 'top' | 'bottom' | null = null;
+	if (isOverTarget && transform && transform.y !== 0) {
+		indicatorPosition = transform.y > 0 ? 'top' : 'bottom';
+	}
 	const style: React.CSSProperties = {
 		transform: CSS.Transform.toString(transform),
 		transition,
@@ -62,6 +71,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 			style={style}
 		>
 			<div className='cell-drag-zone' />
+			{indicatorPosition && <div className={`drag-drop-indicator indicator-${indicatorPosition}`} />}
 			<button
 				ref={setActivatorNodeRef}
 				aria-label='Drag to reorder cell'

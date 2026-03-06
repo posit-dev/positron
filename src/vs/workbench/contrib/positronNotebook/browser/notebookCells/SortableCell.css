@@ -95,6 +95,33 @@ body.dragging-notebook-cell .positron-notebook-cells-container {
 	pointer-events: none;
 }
 
+/* --- Drop indicator --- */
+
+/* Thin line showing the insertion point during drag. Rendered inside the
+	"over" cell and positioned at the edge where the gap opens up. Since the
+	cell is shifted via CSS transform, the indicator moves with it and lands
+	right at the insertion boundary. */
+.drag-drop-indicator {
+	position: absolute;
+	left: 12px;
+	right: 0;
+	height: 3px;
+	border-radius: 2px;
+	background-color: var(--vscode-focusBorder, #007acc);
+	z-index: 10;
+	pointer-events: none;
+}
+
+.drag-drop-indicator.indicator-top {
+	top: 0;
+	transform: translateY(-50%);
+}
+
+.drag-drop-indicator.indicator-bottom {
+	bottom: 0;
+	transform: translateY(50%);
+}
+
 /* --- Floating overlay preview (follows cursor) --- */
 
 /* Container for the cursor-following overlay. Uses position:fixed at (0,0)

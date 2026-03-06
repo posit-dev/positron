@@ -18,6 +18,8 @@ import {
 	CollisionDetection,
 	DragStartEvent,
 	DragEndEvent,
+	DragOverEvent,
+	UniqueIdentifier,
 } from '@dnd-kit/core';
 import {
 	SortableContext,
@@ -38,10 +40,12 @@ interface SortableCellListProps {
 // Context to share active drag state with SortableCell components
 interface DragStateContextValue {
 	activeDragHandleIds: number[];
+	overId: UniqueIdentifier | null;
 }
 
 const DragStateContext = React.createContext<DragStateContextValue>({
 	activeDragHandleIds: [],
+	overId: null,
 });
 
 export function useDragState(): DragStateContextValue {
@@ -58,6 +62,8 @@ export function SortableCellList({
 	// Use both state (for rendering) and ref (for reliable access in callbacks)
 	const [activeCells, setActiveCells] = React.useState<IPositronNotebookCell[]>([]);
 	const activeCellsRef = React.useRef<IPositronNotebookCell[]>([]);
+	// Track which cell the cursor is currently over during drag
+	const [overId, setOverId] = React.useState<UniqueIdentifier | null>(null);
 	// Track initial pointer position for cursor-following overlay (null = keyboard drag)
 	const [dragPointerOrigin, setDragPointerOrigin] = React.useState<{ x: number; y: number } | null>(null);
 	// Require 10px movement before drag starts (prevents accidental drags)
@@ -127,6 +133,10 @@ export function SortableCellList({
 		DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
 	}, [cells, getSelectedCells]);
 
+	const handleDragOver = React.useCallback((event: DragOverEvent) => {
+		setOverId(event.over?.id ?? null);
+	}, []);
+
 	const handleDragEnd = React.useCallback((event: DragEndEvent) => {
 		const { active, over } = event;
 		// Use ref for reliable access (state may be stale in callback)
@@ -139,6 +149,7 @@ export function SortableCellList({
 			activeCellsRef.current = [];
 			DOM.getActiveWindow().requestAnimationFrame(() => {
 				setActiveCells([]);
+				setOverId(null);
 				setDragPointerOrigin(null);
 				DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 			});
@@ -177,6 +188,7 @@ export function SortableCellList({
 		activeCellsRef.current = [];
 		DOM.getActiveWindow().requestAnimationFrame(() => {
 			setActiveCells([]);
+			setOverId(null);
 			setDragPointerOrigin(null);
 			DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 		});
@@ -185,7 +197,8 @@ export function SortableCellList({
 	// Memoize the context value to avoid unnecessary re-renders
 	const dragStateValue = React.useMemo(() => ({
 		activeDragHandleIds: activeCells.map(c => c.handle),
-	}), [activeCells]);
+		overId,
+	}), [activeCells, overId]);
 
 	const sortableItems = React.useMemo(() => {
 		return cells.map(c => c.handle);
@@ -197,6 +210,7 @@ export function SortableCellList({
 			sensors={sensors}
 			onDragCancel={handleDragCancel}
 			onDragEnd={handleDragEnd}
+			onDragOver={handleDragOver}
 			onDragStart={handleDragStart}
 		>
 			<SortableContext
