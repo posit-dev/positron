@@ -29,7 +29,6 @@ import {
 import * as DOM from '../../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
-
 interface SortableCellListProps {
 	cells: IPositronNotebookCell[];
 	onReorder: (cells: IPositronNotebookCell[], targetIndex: number) => void;
@@ -279,11 +278,13 @@ function CursorFollowingOverlay({ cells, initialPosition }: {
  * Compact floating preview shown in the DragOverlay while dragging.
  * Shows a snippet of the cell content with a cell count badge for multi-drag.
  */
+const DRAG_PREVIEW_MAX_CHARS = 80;
+
 function DragPreview({ cells }: { cells: IPositronNotebookCell[] }) {
 	const firstCell = cells[0];
 	const content = firstCell.getContent();
 	// Show first line, truncated
-	const firstLine = content.split('\n')[0].slice(0, 80) || '(empty cell)';
+	const firstLine = content.split('\n')[0].slice(0, DRAG_PREVIEW_MAX_CHARS) || '(empty cell)';
 	const isMulti = cells.length > 1;
 
 	return (

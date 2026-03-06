@@ -1107,7 +1107,7 @@ export class PositronNotebooks extends Notebooks {
 			const dragHandle = this.dragHandleAtIndex(cellIndex);
 
 			// Note: Drag handle uses opacity for show/hide (see SortableCell.css)
-			// opacity: 0 when hidden, 0.6 on cell hover, 1 on handle hover
+			// opacity: 0 when hidden, 1 on hover (via CSS :hover on .cell-drag-zone)
 			await expect(async () => {
 				const opacity = await dragHandle.evaluate(el =>
 					parseFloat(window.getComputedStyle(el).opacity)
