@@ -169,6 +169,45 @@ class _ColParam(NamedTuple):
     pos: int | None
 
 
+class _StringContext(NamedTuple):
+    """Cursor position inside a string literal."""
+
+    quote_char: str  # opening quote (' or ")
+    prefix: str  # text typed inside the string so far
+    before_string: str  # text_before_cursor up to the opening quote
+
+
+def _parse_string_context(
+    text_before_cursor: str,
+) -> _StringContext | None:
+    """Return string-literal context if the cursor is inside one, else None."""
+    match = _RE_STRING_LITERAL.search(text_before_cursor)
+    if not match:
+        return None
+    return _StringContext(
+        quote_char=match.group(1),
+        prefix=match.group(2) or "",
+        before_string=text_before_cursor[: match.start()],
+    )
+
+
+class _DocumentContext(NamedTuple):
+    """Document and current line for a position-based request."""
+
+    document: TextDocument
+    line: str
+
+
+def _get_document_line(
+    server: PositronLanguageServer,
+    params: types.CompletionParams | types.TextDocumentPositionParams | HelpTopicParams,
+) -> _DocumentContext:
+    """Extract the document and current line from a position request."""
+    document = server.workspace.get_text_document(params.text_document.uri)
+    line = document.lines[params.position.line] if document.lines else ""
+    return _DocumentContext(document=document, line=line)
+
+
 _PANDAS_COLUMN_METHODS: dict[str, list[_ColParam]] = {
     "groupby": [_ColParam("by", 0)],
     "sort_values": [_ColParam("by", 0)],
@@ -675,8 +714,7 @@ def _handle_completion(
     server: PositronLanguageServer, params: types.CompletionParams
 ) -> types.CompletionList | None:
     """Handle completion requests."""
-    document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    document, line = _get_document_line(server, params)
     trimmed_line = line.lstrip()
 
     # Don't complete comments or shell commands
@@ -1246,15 +1284,12 @@ def _get_path_completions(
         List of completion items for matching filesystem paths
     """
     # Detect if cursor is inside a string literal
-    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
-    if not string_match:
+    sc = _parse_string_context(text_before_cursor)
+    if sc is None:
         return []
 
-    quote_char = string_match.group(1)
-    partial_path = string_match.group(2) or ""
-
-    # Check for closing quote after cursor
-    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
+    partial_path = sc.prefix
+    has_closing_quote = text_after_cursor.lstrip().startswith(sc.quote_char)
 
     # Get base directory
     base_dir = _get_path_completion_base_dir(server)
@@ -1281,7 +1316,7 @@ def _get_path_completions(
             completion_text = remaining + "/"
         else:
             # Files: auto-close quote if needed
-            completion_text = remaining if has_closing_quote else remaining + quote_char
+            completion_text = remaining if has_closing_quote else remaining + sc.quote_char
 
         # Use InsertReplaceEdit as expected by tests
         text_edit = types.InsertReplaceEdit(
@@ -1319,27 +1354,23 @@ def _get_getenv_completions(
     if server.shell is None or "getenv" not in text_before_cursor:
         return []
 
-    # Check if cursor is inside a string literal (matches opening quote + optional prefix)
-    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
-    if not string_match:
+    # Check if cursor is inside a string literal
+    sc = _parse_string_context(text_before_cursor)
+    if sc is None:
         return []
 
-    quote_char = string_match.group(1)
-    prefix = string_match.group(2) or ""
-    before_string = text_before_cursor[: string_match.start()]
-
     # Check for keyword argument (e.g., "key=") - only complete for 'key', not 'default'
-    keyword_match = _RE_KWARG_TRAILING.search(before_string)
+    keyword_match = _RE_KWARG_TRAILING.search(sc.before_string)
     if keyword_match and keyword_match.group(1) != "key":
         return []
 
     # Find the enclosing function call's opening parenthesis
-    func_paren_pos = _find_enclosing_paren(before_string)
+    func_paren_pos = _find_enclosing_paren(sc.before_string)
     if func_paren_pos < 0:
         return []
 
     # Extract and validate the function name
-    func_match = _RE_DOTTED_IDENTIFIER_WS.search(before_string[:func_paren_pos])
+    func_match = _RE_DOTTED_IDENTIFIER_WS.search(sc.before_string[:func_paren_pos])
     if not func_match or not func_match.group(1).endswith("getenv"):
         return []
 
@@ -1359,12 +1390,12 @@ def _get_getenv_completions(
 
     # For positional args, only complete the first argument (not 'default')
     if not keyword_match:
-        args_text = before_string[func_paren_pos + 1 :]
+        args_text = sc.before_string[func_paren_pos + 1 :]
         if _count_arg_commas(args_text) > 0:
             return []
 
-    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
-    return _make_env_var_completions(prefix, quote_char, has_closing_quote=has_closing_quote)
+    has_closing_quote = text_after_cursor.lstrip().startswith(sc.quote_char)
+    return _make_env_var_completions(sc.prefix, sc.quote_char, has_closing_quote=has_closing_quote)
 
 
 def _find_enclosing_paren(text: str) -> int:
@@ -1594,25 +1625,21 @@ def _get_column_name_completions(
         return []
 
     # Check if cursor is inside a string literal
-    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
-    if not string_match:
+    sc = _parse_string_context(text_before_cursor)
+    if sc is None:
         return []
 
-    quote_char = string_match.group(1)
-    prefix = string_match.group(2) or ""
-    before_string = text_before_cursor[: string_match.start()]
-
     # Check for keyword argument (e.g., "by=")
-    keyword_match = _RE_KWARG_TRAILING.search(before_string)
+    keyword_match = _RE_KWARG_TRAILING.search(sc.before_string)
     kwarg_name = keyword_match.group(1) if keyword_match else None
 
     # Find the enclosing function call's opening parenthesis
-    func_paren_pos = _find_enclosing_paren(before_string)
+    func_paren_pos = _find_enclosing_paren(sc.before_string)
     if func_paren_pos < 0:
         return []
 
     # Extract receiver.method before the opening paren
-    func_match = _RE_DOTTED_IDENTIFIER_WS.search(before_string[:func_paren_pos])
+    func_match = _RE_DOTTED_IDENTIFIER_WS.search(sc.before_string[:func_paren_pos])
     if not func_match:
         return []
 
@@ -1641,13 +1668,15 @@ def _get_column_name_completions(
         return []
 
     # Determine positional index and check parameter match
-    args_text = before_string[func_paren_pos + 1 :]
+    args_text = sc.before_string[func_paren_pos + 1 :]
     positional_index = _count_arg_commas(args_text)
     if not _col_param_matches(col_params, kwarg_name, positional_index):
         return []
 
-    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
-    return _make_column_completions(obj, prefix, quote_char, has_closing_quote=has_closing_quote)
+    has_closing_quote = text_after_cursor.lstrip().startswith(sc.quote_char)
+    return _make_column_completions(
+        obj, sc.prefix, sc.quote_char, has_closing_quote=has_closing_quote
+    )
 
 
 def _get_magic_completions(
@@ -1802,8 +1831,7 @@ def _handle_hover(
     if server.shell is None:
         return None
 
-    document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    _, line = _get_document_line(server, params)
 
     # Get the expression at cursor
     expr = _get_expression_at_position(line, params.position.character)
@@ -1896,8 +1924,7 @@ def _handle_signature_help(
     if server.shell is None:
         return None
 
-    document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    _, line = _get_document_line(server, params)
     text_before_cursor = line[: params.position.character]
 
     # Find function call context
@@ -1987,8 +2014,7 @@ def _handle_help_topic(
     if server.shell is None:
         return None
 
-    document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    _, line = _get_document_line(server, params)
 
     # Get the expression at cursor
     expr = _get_expression_at_position(line, params.position.character)
