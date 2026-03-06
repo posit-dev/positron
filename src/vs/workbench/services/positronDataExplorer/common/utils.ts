@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isStringArray } from '../../../../base/common/types.js';
+
 /**
  * Range interface.
  */
@@ -16,16 +18,6 @@ export interface Range {
  * @param array The array of numbers.
  * @returns true if the array is contiguous; otherwise, false.
  */
-/**
- * Parses an untyped variable_path value into a validated string array.
- * Returns undefined if the value is not an array of strings.
- */
-export function parseVariablePath(raw: unknown): string[] | undefined {
-	return Array.isArray(raw) && raw.every((v: unknown) => typeof v === 'string')
-		? raw as string[]
-		: undefined;
-}
-
 export const isContiguous = (array: number[]) => {
 	if (array.length === 0) {
 		return false;
@@ -43,3 +35,11 @@ export const isContiguous = (array: number[]) => {
 
 	return true;
 };
+
+/**
+ * Parses an untyped variable_path value into a validated string array.
+ * Returns undefined if the value is not an array of strings.
+ */
+export function parseVariablePath(raw: unknown): string[] | undefined {
+	return isStringArray(raw) ? raw : undefined;
+}
