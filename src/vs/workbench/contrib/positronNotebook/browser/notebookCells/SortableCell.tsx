@@ -53,6 +53,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 	if (isOverTarget && transform && transform.y !== 0) {
 		indicatorPosition = transform.y > 0 ? 'top' : 'bottom';
 	}
+	const indicatorOffset = transform ? `${Math.abs(transform.y) / 2}px` : '0px';
 	const style: React.CSSProperties = {
 		transform: CSS.Transform.toString(transform),
 		transition,
@@ -71,7 +72,16 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 			style={style}
 		>
 			<div className='cell-drag-zone' />
-			{indicatorPosition && <div className={`drag-drop-indicator indicator-${indicatorPosition}`} />}
+			{indicatorPosition && (
+				<div
+					className={`drag-drop-indicator indicator-${indicatorPosition}`}
+					style={{
+						transform: indicatorPosition === 'top'
+							? `translateY(calc(-50% - ${indicatorOffset} - var(--_positron-notebook-cell-gap) - var(--_positron-notebook-add-cell-buttons-height) / 2))`
+							: `translateY(calc(50% + ${indicatorOffset} + var(--_positron-notebook-cell-gap) + var(--_positron-notebook-add-cell-buttons-height) / 2))`,
+					}}
+				/>
+			)}
 			<button
 				ref={setActivatorNodeRef}
 				aria-label='Drag to reorder cell'

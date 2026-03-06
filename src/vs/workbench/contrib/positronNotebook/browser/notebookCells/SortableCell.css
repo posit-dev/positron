@@ -114,12 +114,10 @@ body.dragging-notebook-cell .positron-notebook-cells-container {
 
 .drag-drop-indicator.indicator-top {
 	top: 0;
-	transform: translateY(calc(-50% - var(--_positron-notebook-cell-gap) - var(--_positron-notebook-add-cell-buttons-height) / 2));
 }
 
 .drag-drop-indicator.indicator-bottom {
 	bottom: 0;
-	transform: translateY(calc(50% + var(--_positron-notebook-cell-gap) + var(--_positron-notebook-add-cell-buttons-height) / 2));
 }
 
 /* --- Floating overlay preview (follows cursor) --- */
