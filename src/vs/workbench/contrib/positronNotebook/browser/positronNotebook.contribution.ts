@@ -1632,7 +1632,7 @@ registerAction2(class extends NotebookAction2 {
 		try {
 			await clipboardService.writeImage(imageOutput.parsed.dataUrl);
 		} catch (err) {
-			logService.error('[PositronNotebook] Failed to copy image to clipboard', err);
+			logService.error('Failed to copy image to clipboard:', err);
 		}
 	}
 });
