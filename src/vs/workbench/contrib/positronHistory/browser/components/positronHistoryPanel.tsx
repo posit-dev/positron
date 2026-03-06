@@ -138,6 +138,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const listItemsRef = useRef<ListItem[]>(listItems);
 	const debouncedSearchTextRef = useRef<string>(debouncedSearchText);
 	const currentLanguageRef = useRef<string | undefined>(currentLanguage);
+	const rangeAnchorRef = useRef<number>(-1);
 	const lastValidWidthRef = useRef<number>(0);
 	const lastValidHeightRef = useRef<number>(0);
 	const wasVisibleRef = useRef<boolean>(true);
@@ -493,6 +494,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		pendingFocusIndexRef.current = finalIndex;
 
 		// Update selection before reloading
+		rangeAnchorRef.current = -1;
 		if (finalIndex >= 0) {
 			updateSelectedIndices(new Set([finalIndex]));
 			updateAnchorIndex(finalIndex);
@@ -628,6 +630,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (confirmed) {
 			executionHistoryService.clearInputEntries(currentLanguage);
 			// Reset selection since all entries will be gone
+			rangeAnchorRef.current = -1;
 			updateSelectedIndices(new Set());
 			updateAnchorIndex(-1);
 			// Reload the history to update the UI
@@ -675,6 +678,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (selectedIndicesRef.current.size === 1 && selectedIndicesRef.current.has(index) && anchorIndexRef.current === index) {
 			return;
 		}
+		rangeAnchorRef.current = -1;
 		updateSelectedIndices(new Set([index]));
 		updateAnchorIndex(index);
 	};
@@ -693,9 +697,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 
 		if (e && e.shiftKey && anchorIndex >= 0) {
-			// Shift+Click: range select from anchor to clicked index
-			const start = Math.min(anchorIndex, index);
-			const end = Math.max(anchorIndex, index);
+			// Shift+Click: range select from range anchor (or anchor) to clicked index.
+			// Use rangeAnchorRef if already in a range operation, otherwise use anchorIndex.
+			const fixedAnchor = rangeAnchorRef.current >= 0 ? rangeAnchorRef.current : anchorIndex;
+			if (rangeAnchorRef.current < 0) {
+				rangeAnchorRef.current = anchorIndex;
+			}
+			const start = Math.min(fixedAnchor, index);
+			const end = Math.max(fixedAnchor, index);
 			const newSet = new Set<number>();
 			for (let i = start; i <= end; i++) {
 				const listItem = listItems[i];
@@ -707,6 +716,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			// Keep original anchor, don't change it
 		} else if (e && (isMacintosh ? e.metaKey : e.ctrlKey)) {
 			// Cmd/Ctrl+Click: toggle this index
+			rangeAnchorRef.current = -1;
 			const newSet = new Set(selectedIndices);
 			if (newSet.has(index)) {
 				newSet.delete(index);
@@ -1129,13 +1139,25 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 			if (newIndex !== currentAnchor && newIndex >= 0) {
 				if (isShiftNav) {
-					// Shift+Arrow: extend selection from current set to include the new anchor
-					const newSet = new Set(currentSelected);
-					newSet.add(newIndex);
+					// Shift+Arrow: rebuild selection as inclusive range from a fixed range anchor.
+					// If this is the first Shift press, lock the range anchor to the current position.
+					if (rangeAnchorRef.current < 0) {
+						rangeAnchorRef.current = currentAnchor;
+					}
+					const rangeStart = Math.min(rangeAnchorRef.current, newIndex);
+					const rangeEnd = Math.max(rangeAnchorRef.current, newIndex);
+					const newSet = new Set<number>();
+					for (let i = rangeStart; i <= rangeEnd; i++) {
+						const listItem = currentListItems[i];
+						if (listItem && listItem.type === 'entry') {
+							newSet.add(i);
+						}
+					}
 					updateSelectedIndices(newSet);
 					updateAnchorIndex(newIndex);
 				} else {
-					// Plain navigation: single-select the new index
+					// Plain navigation: single-select the new index and reset range anchor
+					rangeAnchorRef.current = -1;
 					updateSelectedIndices(new Set([newIndex]));
 					updateAnchorIndex(newIndex);
 				}
