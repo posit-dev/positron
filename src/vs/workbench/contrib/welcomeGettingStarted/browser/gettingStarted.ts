@@ -78,7 +78,7 @@ import { ScrollbarVisibility } from '../../../../base/common/scrollable.js';
 import './media/positronGettingStarted.css';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { createWelcomePageLeft } from './positronWelcomePageLeft.js';
-import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
+import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { isDark } from '../../../../platform/theme/common/theme.js';
@@ -230,7 +230,7 @@ export class GettingStartedPage extends EditorPane {
 		// --- Start Positron ---
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
-		@IBrowserWorkbenchEnvironmentService private readonly environmentService: IBrowserWorkbenchEnvironmentService,
+		@IPositronDocsService private readonly docsService: IPositronDocsService,
 		// --- End Positron ---
 		@IMarkdownRendererService private readonly markdownRendererService: IMarkdownRendererService,
 	) {
@@ -1124,14 +1124,13 @@ export class GettingStartedPage extends EditorPane {
 				contextService: this.contextService
 			});
 
-		// --- Start Positron ---
-		const positronDocsUrl = this.environmentService.positronDocsUrl ?? 'https://positron.posit.co/';
-		// --- End Positron ---
 		const helpEntries: IWelcomePageHelpEntry[] = [
 			{
 				id: 'positron-documentation',
 				title: localize('positron.welcome.positronDocumentation', "Positron Documentation"),
-				href: positronDocsUrl
+				// --- Start Positron ---
+				href: this.docsService.baseUrl
+				// --- End Positron ---
 			},
 			{
 				id: 'positron-community',

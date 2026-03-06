@@ -18,7 +18,7 @@ import { Categories } from '../../../platform/action/common/actionCommonCategori
 import { ICommandService } from '../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
 // --- Start Positron ---
-import { IBrowserWorkbenchEnvironmentService } from '../../services/environment/browser/environmentService.js';
+import { IPositronDocsService } from '../../services/positronDocs/browser/positronDocsService.js';
 // --- End Positron ---
 
 class KeybindingsReferenceAction extends Action2 {
@@ -423,8 +423,6 @@ registerAction2(GetStartedWithAccessibilityFeatures);
 registerAction2(AskVSCodeCopilot);
 
 // --- Start Positron ---
-const POSITRON_DOCS_DEFAULT_URL = 'https://positron.posit.co/';
-
 registerAction2(class extends Action2 {
 	static readonly ID = 'workbench.action.openPositronDocumentation';
 
@@ -444,9 +442,8 @@ registerAction2(class extends Action2 {
 
 	run(accessor: ServicesAccessor): void {
 		const openerService = accessor.get(IOpenerService);
-		const environmentService = accessor.get(IBrowserWorkbenchEnvironmentService);
-		const url = environmentService.positronDocsUrl ?? POSITRON_DOCS_DEFAULT_URL;
-		openerService.open(URI.parse(url));
+		const docsService = accessor.get(IPositronDocsService);
+		openerService.open(URI.parse(docsService.baseUrl));
 	}
 });
 
