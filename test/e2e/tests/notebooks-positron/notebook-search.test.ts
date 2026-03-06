@@ -83,4 +83,174 @@ test.describe('Positron Notebooks: Search & Replace', {
 			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
 		});
 	});
+
+	test('Verify replace in markdown cells', async function ({ app, page }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'x = 1');
+
+		// Add markdown cell and enter content manually
+		await notebooksPositron.addCell('markdown');
+		await notebooksPositron.selectCellAtIndex(1, { editMode: true });
+		await page.keyboard.type('# Heading with test');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('Paragraph with test content');
+		await notebooksPositron.viewMarkdown.click();
+
+		await test.step('Replace in markdown cell', async () => {
+			await notebooksPositron.search('test');
+			await notebooksPositron.expectSearchCountToBe({ total: 2 });
+			await notebooksPositron.searchSetReplaceText('example');
+			await notebooksPositron.searchReplaceAll();
+			await notebooksPositron.expectSearchCountToBe({ total: 0 });
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Heading with example\nParagraph with example content');
+		});
+
+		await notebooksPositron.searchClose();
+	});
+
+	test('Verify step-through replace and skip functionality', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'test test test');
+		await notebooksPositron.addCell('code');
+		await notebooksPositron.addCodeToCell(1, 'test test');
+
+		await notebooksPositron.search('test');
+		await notebooksPositron.expectSearchCountToBe({ total: 5 });
+
+		await test.step('Replace last match, skip first, replace second', async () => {
+			await notebooksPositron.searchSetReplaceText('pass');
+
+			// Replace current match (last occurrence in cell 2)
+			await notebooksPositron.searchReplace();
+			await notebooksPositron.expectSearchCountToBe({ total: 4 });
+
+			// Skip next occurrence (advances to position 2)
+			await notebooksPositron.searchNext();
+			await notebooksPositron.expectSearchCountToBe({ current: 2, total: 4 });
+
+			// Replace at position 2 (middle occurrence in cell 1)
+			await notebooksPositron.searchReplace();
+			await notebooksPositron.expectSearchCountToBe({ current: 2, total: 3 });
+
+			// Verify partial replacements
+			await notebooksPositron.expectCellContentAtIndexToBe(0, 'test pass test');
+			await notebooksPositron.expectCellContentAtIndexToBe(1, 'test pass');
+		});
+
+		await notebooksPositron.searchClose();
+	});
+
+	test('Verify match counter updates correctly', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.addCodeToCell(0, 'item item item item item');
+
+		await notebooksPositron.search('item');
+		await notebooksPositron.expectSearchCountToBe({ total: 5 });
+
+		await test.step('Counter updates after each replace', async () => {
+			await notebooksPositron.searchSetReplaceText('thing');
+
+			await notebooksPositron.searchReplace();
+			await notebooksPositron.expectSearchCountToBe({ total: 4 });
+
+			await notebooksPositron.searchReplace();
+			await notebooksPositron.expectSearchCountToBe({ total: 3 });
+
+			await notebooksPositron.searchReplace();
+			await notebooksPositron.expectSearchCountToBe({ total: 2 });
+		});
+
+		await notebooksPositron.searchClose();
+	});
+
+	test('Verify case sensitivity toggle', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.addCodeToCell(0, 'Test test TEST tEsT');
+
+		await test.step('Case-insensitive search matches all variations', async () => {
+			await notebooksPositron.search('test');
+			await notebooksPositron.expectSearchCountToBe({ total: 4 });
+			await notebooksPositron.searchClose();
+		});
+
+		await test.step('Case-sensitive search matches only exact case', async () => {
+			await notebooksPositron.search('test');
+			await notebooksPositron.searchToggleCaseSensitive();
+			await notebooksPositron.expectSearchCountToBe({ total: 1 });
+			await notebooksPositron.searchClose();
+		});
+
+		await test.step('Case-sensitive "Test" matches only "Test"', async () => {
+			await notebooksPositron.search('Test');
+			await notebooksPositron.searchToggleCaseSensitive();
+			await notebooksPositron.expectSearchCountToBe({ total: 1 });
+		});
+
+		await notebooksPositron.searchClose();
+	});
+
+	test('Verify whole word toggle', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.addCodeToCell(0, 'test testing tested tester');
+
+		await test.step('Without whole word, matches partial words', async () => {
+			await notebooksPositron.search('test');
+			await notebooksPositron.expectSearchCountToBe({ total: 4 });
+			await notebooksPositron.searchClose();
+		});
+
+		await test.step('With whole word, matches only complete word', async () => {
+			await notebooksPositron.search('test');
+			await notebooksPositron.searchToggleWholeWord();
+			await notebooksPositron.expectSearchCountToBe({ total: 1 });
+		});
+
+		await notebooksPositron.searchClose();
+	});
+
+	test('Verify no matches state and disabled buttons', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.addCodeToCell(0, 'hello world');
+
+		await test.step('No matches shows "No results" and disables replace buttons', async () => {
+			await notebooksPositron.search('nonexistent');
+			await notebooksPositron.expectSearchCountToBe({ total: 0 });
+			await notebooksPositron.searchSetReplaceText('something');
+			await notebooksPositron.expectReplaceButtonToBeDisabled();
+			await notebooksPositron.expectReplaceAllButtonToBeDisabled();
+		});
+
+		await notebooksPositron.searchClose();
+	});
+
+	test('Verify empty replace string (deletion)', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.addCodeToCell(0, 'remove remove keep');
+
+		await test.step('Replace with empty string deletes matches', async () => {
+			await notebooksPositron.search('remove ');
+			await notebooksPositron.expectSearchCountToBe({ total: 2 });
+
+			await notebooksPositron.searchSetReplaceText('');
+			await notebooksPositron.searchReplaceAll();
+			await notebooksPositron.expectSearchCountToBe({ total: 0 });
+			await notebooksPositron.expectCellContentAtIndexToBe(0, 'keep');
+		});
+
+		await notebooksPositron.searchClose();
+	});
 });
