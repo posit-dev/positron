@@ -34,7 +34,7 @@ interface HistoryEntryProps {
 	isSelected: boolean;
 	languageId: string;
 	searchText?: string;
-	onSelect: () => void;
+	onSelect: (e?: React.MouseEvent) => void;
 	onToConsole: () => void;
 	onToSource: () => void;
 	onCopy: () => void;
@@ -535,6 +535,11 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		event.preventDefault();
 		event.stopPropagation();
 
+		// If this entry is not already selected, select it (replacing any multi-select)
+		if (!isSelected) {
+			onSelect();
+		}
+
 		const x = event.clientX;
 		const y = event.clientY;
 
@@ -614,7 +619,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			className={`history-entry${isSelected ? ' selected' : ''}`}
 			style={styleWithoutHeight}
 			onClick={(e) => {
-				onSelect();
+				onSelect(e);
 			}}
 			onContextMenu={handleContextMenu}
 			onDoubleClick={() => onToConsole()}

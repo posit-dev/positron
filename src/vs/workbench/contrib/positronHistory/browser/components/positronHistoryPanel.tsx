@@ -31,6 +31,7 @@ import { HistoryEntry, MAX_COLLAPSED_LINES } from './historyEntry.js';
 import { HistorySeparator } from './historySeparator.js';
 import { getSectionLabel, isSameSection } from './historyGrouping.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import './positronHistoryPanel.css';
 
@@ -115,7 +116,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 	// State
 	const [listItems, setListItems] = useState<ListItem[]>([]);
-	const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+	const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+	const [anchorIndex, setAnchorIndex] = useState<number>(-1);
 	const [currentLanguage, setCurrentLanguage] = useState<string | undefined>(undefined);
 	const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
 	const [width, setWidth] = useState(0);
@@ -131,7 +133,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const searchDelayerRef = useRef<Delayer<void>>(new Delayer<void>(300));
 	const filterRef = useRef<any>(null);
 	const hasInitializedSizeRef = useRef<boolean>(false);
-	const selectedIndexRef = useRef<number>(selectedIndex);
+	const selectedIndicesRef = useRef<Set<number>>(selectedIndices);
+	const anchorIndexRef = useRef<number>(anchorIndex);
 	const listItemsRef = useRef<ListItem[]>(listItems);
 	const debouncedSearchTextRef = useRef<string>(debouncedSearchText);
 	const currentLanguageRef = useRef<string | undefined>(currentLanguage);
@@ -142,37 +145,41 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 	// Keep refs in sync with state
 	useEffect(() => {
-		selectedIndexRef.current = selectedIndex;
-	}, [selectedIndex]);
+		selectedIndicesRef.current = selectedIndices;
+	}, [selectedIndices]);
 
-	// Track previous selection to reset row heights for both old and new selection
-	const prevSelectedIndexRef = useRef<number>(-1);
+	useEffect(() => {
+		anchorIndexRef.current = anchorIndex;
+	}, [anchorIndex]);
+
+	// Track previous anchor to reset row heights for both old and new anchor
+	const prevAnchorIndexRef = useRef<number>(-1);
 
 	/**
-	 * Reset row heights when selection changes.
-	 * This is needed because selected entries show all lines while collapsed entries show max 4 lines.
+	 * Reset row heights when anchor changes.
+	 * Only the anchor entry expands to show all lines; other selected entries stay collapsed.
 	 */
 	useEffect(() => {
 		if (listRef.current) {
-			const prevIndex = prevSelectedIndexRef.current;
-			// Reset from the lower index to recalculate heights for both old and new selection
+			const prevIndex = prevAnchorIndexRef.current;
+			// Reset from the lower index to recalculate heights for both old and new anchor
 			const resetFromIndex = Math.min(
-				prevIndex >= 0 ? prevIndex : selectedIndex,
-				selectedIndex >= 0 ? selectedIndex : prevIndex
+				prevIndex >= 0 ? prevIndex : anchorIndex,
+				anchorIndex >= 0 ? anchorIndex : prevIndex
 			);
 			if (resetFromIndex >= 0) {
 				listRef.current.resetAfterIndex(resetFromIndex);
 			}
 		}
-		prevSelectedIndexRef.current = selectedIndex;
-	}, [selectedIndex]);
+		prevAnchorIndexRef.current = anchorIndex;
+	}, [anchorIndex]);
 
 	/**
-	 * Restore focus to selected entry after selection changes cause a re-render.
+	 * Restore focus to the anchor entry after selection changes cause a re-render.
 	 * react-window may recreate DOM elements during re-render, causing focus loss.
 	 */
 	useEffect(() => {
-		if (selectedIndex >= 0 && containerRef.current) {
+		if (anchorIndex >= 0 && containerRef.current) {
 			const targetWindow = DOM.getWindow(containerRef.current);
 			// Use requestAnimationFrame to ensure DOM has been updated after re-render
 			targetWindow.requestAnimationFrame(() => {
@@ -185,7 +192,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				}
 			});
 		}
-	}, [selectedIndex]);
+	}, [anchorIndex, selectedIndices]);
 
 	/**
 	 * Reset all row heights when list items change (e.g., language change, search filter change).
@@ -256,8 +263,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			return SEPARATOR_HEIGHT;
 		}
 
-		// When selected, show all lines; otherwise show collapsed lines
-		const linesToShow = (index === selectedIndex) ? item.lines : item.visibleLines;
+		// Only the anchor entry expands to show all lines; other selected entries stay collapsed
+		const linesToShow = (index === anchorIndex) ? item.lines : item.visibleLines;
 
 		// Compute the height based on font line height + padding
 		return linesToShow * (props.fontInfo.lineHeight) + 9;
@@ -323,73 +330,128 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
+	 * Get sorted list of selected entry indices from current state or refs.
+	 * When called from an action bar button, index will be a KeyboardModifiers object, so we
+	 * always fall through to using the selectedIndices set.
+	 */
+	const getSelectedEntryIndices = (index?: number): number[] => {
+		if (typeof index === 'number') {
+			return [index];
+		}
+		return Array.from(selectedIndicesRef.current).sort((a, b) => a - b);
+	};
+
+	/**
 	 * Handle "Copy" - copies selected code to clipboard
 	 */
 	const handleCopy = (index?: number) => {
-		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
-		const idx = (typeof index === 'number') ? index : selectedIndex;
-		if (idx < 0 || idx >= listItems.length) {
+		const indices = getSelectedEntryIndices(index);
+		const items = listItemsRef.current;
+		if (indices.length === 0) {
 			return;
 		}
 
-		const item = listItems[idx];
-		if (item.type === 'separator') {
+		const texts: string[] = [];
+		for (const idx of indices) {
+			if (idx < 0 || idx >= items.length) {
+				continue;
+			}
+			const item = items[idx];
+			if (item.type === 'entry') {
+				texts.push(item.entry.input);
+			}
+		}
+
+		if (texts.length === 0) {
 			return;
 		}
 
-		const entry = item.entry;
 		const clipboardService = instantiationService.invokeFunction(accessor =>
 			accessor.get(IClipboardService)
 		);
 
-		clipboardService.writeText(entry.input);
+		clipboardService.writeText(texts.join('\n'));
 	};
 
 	/**
-	 * Handle "Delete" - deletes the selected history entry
+	 * Handle "Delete" - deletes all selected history entries
 	 */
 	const handleDelete = (index?: number) => {
-		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
-		const idx = (typeof index === 'number') ? index : selectedIndexRef.current;
+		const indices = getSelectedEntryIndices(index);
 		const items = listItemsRef.current;
 		const language = currentLanguageRef.current;
-		if (idx < 0 || idx >= items.length || !language) {
+		if (indices.length === 0 || !language) {
 			return;
 		}
 
-		const item = items[idx];
-		if (item.type === 'separator') {
+		// Collect entries to delete (in sorted order)
+		const entriesToDelete: { when: number; input: string }[] = [];
+		for (const idx of indices) {
+			if (idx < 0 || idx >= items.length) {
+				continue;
+			}
+			const item = items[idx];
+			if (item.type === 'entry') {
+				entriesToDelete.push({ when: item.entry.when, input: item.entry.input });
+			}
+		}
+
+		if (entriesToDelete.length === 0) {
 			return;
 		}
 
-		const entry = item.entry;
+		// Find the next selectable item after the last deleted index
+		const lastDeletedIdx = indices[indices.length - 1];
+		const deletedSet = new Set(indices);
 
-		// Calculate the new selection BEFORE deleting (using current items)
-		// Find the next selectable item after the current one, or previous if at end
-		let newSelectedIndex = findNextSelectableIndex(idx + 1, 1, items);
-		if (newSelectedIndex === -1 || newSelectedIndex === idx) {
-			// No items after, try finding one before
-			newSelectedIndex = findNextSelectableIndex(idx - 1, -1, items);
+		// Look forward from the last deleted item for a survivor
+		let newSelectedIndex = -1;
+		for (let i = lastDeletedIdx + 1; i < items.length; i++) {
+			if (!deletedSet.has(i) && items[i].type === 'entry') {
+				newSelectedIndex = i;
+				break;
+			}
+		}
+		// If nothing forward, look backward from the first deleted item
+		if (newSelectedIndex === -1) {
+			const firstDeletedIdx = indices[0];
+			for (let i = firstDeletedIdx - 1; i >= 0; i--) {
+				if (!deletedSet.has(i) && items[i].type === 'entry') {
+					newSelectedIndex = i;
+					break;
+				}
+			}
 		}
 
-		// Delete the entry from the service
-		executionHistoryService.deleteInputEntry(language, entry.when, entry.input);
+		// Delete all entries from the service
+		for (const entry of entriesToDelete) {
+			executionHistoryService.deleteInputEntry(language, entry.when, entry.input);
+		}
 
-		// Calculate the final index after deletion (indices shift down)
-		let finalIndex: number;
-		if (newSelectedIndex > idx) {
-			// Selected an item after the deleted one - it will shift down by 1
-			finalIndex = newSelectedIndex - 1;
-		} else {
-			// Selected an item before the deleted one - index stays the same
-			finalIndex = newSelectedIndex;
+		// Calculate the final index after deletions.
+		// Count how many deleted indices are before newSelectedIndex.
+		let finalIndex = newSelectedIndex;
+		if (newSelectedIndex >= 0) {
+			let shiftCount = 0;
+			for (const idx of indices) {
+				if (idx < newSelectedIndex) {
+					shiftCount++;
+				}
+			}
+			finalIndex = newSelectedIndex - shiftCount;
 		}
 
 		// Set the pending focus index so that after re-render, we focus the new item
 		pendingFocusIndexRef.current = finalIndex;
 
 		// Update selection before reloading
-		setSelectedIndex(finalIndex);
+		if (finalIndex >= 0) {
+			setSelectedIndices(new Set([finalIndex]));
+			setAnchorIndex(finalIndex);
+		} else {
+			setSelectedIndices(new Set());
+			setAnchorIndex(-1);
+		}
 
 		// Reload the history to refresh the view
 		loadHistory();
@@ -506,7 +568,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (confirmed) {
 			executionHistoryService.clearInputEntries(currentLanguage);
 			// Reset selection since all entries will be gone
-			setSelectedIndex(-1);
+			setSelectedIndices(new Set());
+			setAnchorIndex(-1);
 			// Reload the history to update the UI
 			loadHistory();
 		}
@@ -543,16 +606,58 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
-	 * Handle selection change
+	 * Helper to set selection to a single index (convenience wrapper).
 	 */
-	const handleSelect = (index: number) => {
+	const selectSingle = (index: number) => {
+		setSelectedIndices(new Set([index]));
+		setAnchorIndex(index);
+	};
+
+	/**
+	 * Handle selection change with multi-select support.
+	 * - Plain click: single-select
+	 * - Cmd/Ctrl+Click: toggle in/out of selection
+	 * - Shift+Click: range select from anchor to clicked index
+	 */
+	const handleSelect = (index: number, e?: React.MouseEvent) => {
 		// Skip separators
 		const item = listItems[index];
 		if (!item || item.type === 'separator') {
 			return;
 		}
 
-		setSelectedIndex(index);
+		if (e && e.shiftKey && anchorIndex >= 0) {
+			// Shift+Click: range select from anchor to clicked index
+			const start = Math.min(anchorIndex, index);
+			const end = Math.max(anchorIndex, index);
+			const newSet = new Set<number>();
+			for (let i = start; i <= end; i++) {
+				const listItem = listItems[i];
+				if (listItem && listItem.type === 'entry') {
+					newSet.add(i);
+				}
+			}
+			setSelectedIndices(newSet);
+			// Keep original anchor, don't change it
+		} else if (e && (isMacintosh ? e.metaKey : e.ctrlKey)) {
+			// Cmd/Ctrl+Click: toggle this index
+			const newSet = new Set(selectedIndices);
+			if (newSet.has(index)) {
+				newSet.delete(index);
+				// If we removed the anchor, pick first remaining or -1
+				if (index === anchorIndex) {
+					const remaining = Array.from(newSet).sort((a, b) => a - b);
+					setAnchorIndex(remaining.length > 0 ? remaining[0] : -1);
+				}
+			} else {
+				newSet.add(index);
+				setAnchorIndex(index);
+			}
+			setSelectedIndices(newSet);
+		} else {
+			// Plain click: single-select
+			selectSingle(index);
+		}
 
 		// Only scroll if the item is not already fully visible
 		if (listRef.current && !isItemFullyVisible(index)) {
@@ -651,7 +756,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		const targetWindow = DOM.getWindow(containerRef.current);
 		targetWindow.requestAnimationFrame(() => {
 			targetWindow.requestAnimationFrame(() => {
-				setSelectedIndex(nextEntryIndex);
+				selectSingle(nextEntryIndex);
 				// Focus the entry after selection state updates
 				const container = containerRef.current;
 				if (container) {
@@ -668,57 +773,68 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Handle keyboard navigation in the history list
 	 */
 	/**
-	 * Handle "To Console" button - sends selected code to console
+	 * Handle "To Console" button - sends all selected code to console
 	 */
 	const handleToConsole = (index?: number) => {
-		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
-		const idx = (typeof index === 'number') ? index : selectedIndexRef.current;
+		const indices = getSelectedEntryIndices(index);
 		const items = listItemsRef.current;
 		const language = currentLanguageRef.current;
-		if (idx < 0 || idx >= items.length || !language) {
+		if (indices.length === 0 || !language) {
 			return;
 		}
 
-		const item = items[idx];
-		if (item.type === 'separator') {
-			return;
-		}
-
-		const entry = item.entry;
 		const consoleService = instantiationService.invokeFunction(accessor =>
 			accessor.get(IPositronConsoleService)
 		);
 
-		// Execute the code in the console without focusing it
-		consoleService.executeCode(
-			language,
-			undefined, // session ID - use any available session
-			entry.input,
-			{ source: CodeAttributionSource.Interactive }, // attribution
-			true, // focus the console
-			undefined, // allow incomplete
-			undefined, // mode
-			undefined, // error behavior
-			undefined  // execution ID
-		);
+		for (const idx of indices) {
+			if (idx < 0 || idx >= items.length) {
+				continue;
+			}
+			const item = items[idx];
+			if (item.type === 'entry') {
+				consoleService.executeCode(
+					language,
+					undefined, // session ID - use any available session
+					item.entry.input,
+					{ source: CodeAttributionSource.Interactive }, // attribution
+					true, // focus the console
+					undefined, // allow incomplete
+					undefined, // mode
+					undefined, // error behavior
+					undefined  // execution ID
+				);
+			}
+		}
 	};
 
 	/**
-	 * Handle "To Source" button - inserts selected code at cursor position or opens new untitled buffer
+	 * Handle "To Source" button - inserts all selected code at cursor position or opens new untitled buffer
 	 */
 	const handleToSource = (index?: number) => {
-		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
-		const idx = (typeof index === 'number') ? index : selectedIndex;
-		if (idx < 0 || idx >= listItems.length) {
+		const indices = getSelectedEntryIndices(index);
+		const items = listItemsRef.current;
+		if (indices.length === 0) {
 			return;
 		}
 
-		const item = listItems[idx];
-		if (item.type === 'separator') {
+		// Collect all selected entry inputs
+		const texts: string[] = [];
+		for (const idx of indices) {
+			if (idx < 0 || idx >= items.length) {
+				continue;
+			}
+			const item = items[idx];
+			if (item.type === 'entry') {
+				texts.push(item.entry.input);
+			}
+		}
+
+		if (texts.length === 0) {
 			return;
 		}
 
-		const entry = item.entry;
+		const combinedText = texts.join('\n');
 		const editorService = instantiationService.invokeFunction(accessor =>
 			accessor.get(IEditorService)
 		);
@@ -727,7 +843,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (!editor || !isCodeEditor(editor)) {
 			// No active editor - open a new untitled buffer with the code
 			editorService.openEditor({
-				contents: entry.input,
+				contents: combinedText,
 				languageId: currentLanguage,
 				resource: undefined
 			});
@@ -747,7 +863,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				endLineNumber: position.lineNumber,
 				endColumn: position.column
 			},
-			text: entry.input + '\n'
+			text: combinedText + '\n'
 		}]);
 	};
 
@@ -859,7 +975,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	const handleKeyDown = useCallback((e: KeyboardEvent | React.KeyboardEvent) => {
 		const currentListItems = listItemsRef.current;
-		const currentSelectedIndex = selectedIndexRef.current;
+		const currentAnchor = anchorIndexRef.current;
+		const currentSelected = selectedIndicesRef.current;
 		const currentSearchText = debouncedSearchTextRef.current;
 
 		if (currentListItems.length === 0) {
@@ -874,24 +991,27 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			e.stopPropagation();
 		}
 
-		let newIndex = currentSelectedIndex;
+		let newIndex = currentAnchor;
 		let handled = false;
+		let isShiftNav = false;
 
 		switch (e.key) {
 			case 'ArrowDown':
-				newIndex = findNextSelectableIndex(currentSelectedIndex + 1, 1, currentListItems);
+				newIndex = findNextSelectableIndex(currentAnchor + 1, 1, currentListItems);
+				isShiftNav = e.shiftKey;
 				handled = true;
 				break;
 			case 'ArrowUp':
-				newIndex = findNextSelectableIndex(currentSelectedIndex - 1, -1, currentListItems);
+				newIndex = findNextSelectableIndex(currentAnchor - 1, -1, currentListItems);
+				isShiftNav = e.shiftKey;
 				handled = true;
 				break;
 			case 'PageDown':
-				newIndex = findNextSelectableIndex(Math.min(currentSelectedIndex + 10, currentListItems.length - 1), 1, currentListItems);
+				newIndex = findNextSelectableIndex(Math.min(currentAnchor + 10, currentListItems.length - 1), 1, currentListItems);
 				handled = true;
 				break;
 			case 'PageUp':
-				newIndex = findNextSelectableIndex(Math.max(currentSelectedIndex - 10, 0), -1, currentListItems);
+				newIndex = findNextSelectableIndex(Math.max(currentAnchor - 10, 0), -1, currentListItems);
 				handled = true;
 				break;
 			case 'Home':
@@ -903,15 +1023,15 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				handled = true;
 				break;
 			case 'Enter':
-				if (currentSelectedIndex >= 0) {
-					handleToConsole(currentSelectedIndex);
+				if (currentSelected.size > 0) {
+					handleToConsole();
 					handled = true;
 				}
 				break;
 			case 'Delete':
 			case 'Backspace':
-				if (currentSelectedIndex >= 0) {
-					handleDelete(currentSelectedIndex);
+				if (currentSelected.size > 0) {
+					handleDelete();
 					handled = true;
 				}
 				break;
@@ -930,8 +1050,18 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				e.stopPropagation();
 			}
 
-			if (newIndex !== currentSelectedIndex && newIndex >= 0) {
-				setSelectedIndex(newIndex);
+			if (newIndex !== currentAnchor && newIndex >= 0) {
+				if (isShiftNav) {
+					// Shift+Arrow: extend selection from current set to include the new anchor
+					const newSet = new Set(currentSelected);
+					newSet.add(newIndex);
+					setSelectedIndices(newSet);
+					setAnchorIndex(newIndex);
+				} else {
+					// Plain navigation: single-select the new index
+					setSelectedIndices(new Set([newIndex]));
+					setAnchorIndex(newIndex);
+				}
 				// Scroll to the newly selected item
 				if (listRef.current) {
 					listRef.current.scrollToItem(newIndex, 'smart');
@@ -1018,18 +1148,38 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Auto-select first entry when list items change (for keyboard navigation)
 	 */
 	useEffect(() => {
-		if (listItems.length > 0 && selectedIndex === -1) {
+		if (listItems.length > 0 && selectedIndices.size === 0) {
 			// Find first entry (skip separators)
 			const firstEntryIndex = listItems.findIndex(item => item.type === 'entry');
 			if (firstEntryIndex >= 0) {
-				setSelectedIndex(firstEntryIndex);
+				selectSingle(firstEntryIndex);
 			}
 		}
-		// Reset selection if list becomes empty or current selection is out of bounds
-		if (listItems.length === 0 || selectedIndex >= listItems.length) {
-			setSelectedIndex(-1);
+		// Reset selection if list becomes empty
+		if (listItems.length === 0) {
+			setSelectedIndices(new Set());
+			setAnchorIndex(-1);
+		} else {
+			// Remove any indices that are now out of bounds
+			const validIndices = new Set<number>();
+			let changed = false;
+			for (const idx of selectedIndices) {
+				if (idx < listItems.length && listItems[idx]?.type === 'entry') {
+					validIndices.add(idx);
+				} else {
+					changed = true;
+				}
+			}
+			if (changed) {
+				setSelectedIndices(validIndices);
+				if (!validIndices.has(anchorIndex)) {
+					const remaining = Array.from(validIndices).sort((a, b) => a - b);
+					setAnchorIndex(remaining.length > 0 ? remaining[0] : -1);
+				}
+			}
 		}
-	}, [listItems, selectedIndex]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [listItems]);
 
 	/**
 	 * Force re-render when dimensions change to ensure list is rendered properly
@@ -1064,7 +1214,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							ariaLabel={positronHistoryToConsoleTooltip}
-							disabled={selectedIndex < 0}
+							disabled={selectedIndices.size === 0}
 							icon={Codicon.play}
 							label={positronHistoryToConsole}
 							tooltip={positronHistoryToConsoleTooltip}
@@ -1072,7 +1222,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						/>
 						<ActionBarButton
 							ariaLabel={positronHistoryToSourceTooltip}
-							disabled={selectedIndex < 0}
+							disabled={selectedIndices.size === 0}
 							icon={Codicon.insert}
 							label={positronHistoryToSource}
 							tooltip={positronHistoryToSourceTooltip}
@@ -1081,14 +1231,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						<ActionBarSeparator />
 						<ActionBarButton
 							ariaLabel={positronHistoryCopyTooltip}
-							disabled={selectedIndex < 0}
+							disabled={selectedIndices.size === 0}
 							icon={Codicon.copy}
 							tooltip={positronHistoryCopyTooltip}
 							onPressed={handleCopy}
 						/>
 						<ActionBarButton
 							ariaLabel={positronHistoryDeleteTooltip}
-							disabled={selectedIndex < 0}
+							disabled={selectedIndices.size === 0}
 							icon={Codicon.trash}
 							tooltip={positronHistoryDeleteTooltip}
 							onPressed={handleDelete}
@@ -1181,28 +1331,16 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 											fontInfo={props.fontInfo}
 											historyItem={item}
 											instantiationService={instantiationService}
-											isSelected={index === selectedIndex}
+											isSelected={selectedIndices.has(index)}
 											languageId={currentLanguage || ''}
 											searchText={debouncedSearchText}
 											style={style}
-											onCopy={() => {
-												setSelectedIndex(index);
-												handleCopy(index);
-											}}
-											onDelete={() => {
-												setSelectedIndex(index);
-												handleDelete(index);
-											}}
+											onCopy={() => handleCopy()}
+											onDelete={() => handleDelete()}
 											onKeyDown={handleKeyDown}
-											onSelect={() => handleSelect(index)}
-											onToConsole={() => {
-												setSelectedIndex(index);
-												handleToConsole(index);
-											}}
-											onToSource={() => {
-												setSelectedIndex(index);
-												handleToSource(index);
-											}}
+											onSelect={(e) => handleSelect(index, e)}
+											onToConsole={() => handleToConsole()}
+											onToSource={() => handleToSource()}
 										/>
 									);
 								}
