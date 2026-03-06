@@ -19,6 +19,7 @@ from .plot_comm import (
     PlotMetadata,
     PlotRenderFormat,
     PlotRenderSettings,
+    PlotOrigin,
     PlotResult,
     PlotSize,
     PlotUnit,
@@ -80,6 +81,7 @@ class Plot:
         figure_num: int | str,
         plots_service: PlotsService,
         on_close: Callable[[], None] | None = None,
+        origin: PlotOrigin | None = None,
     ) -> None:
         self._comm = comm
         self._render = render
@@ -90,6 +92,7 @@ class Plot:
         self._figure_num = figure_num
         self._plots_service = plots_service
         self._on_close = on_close
+        self._origin = origin
 
         self._closed = False
 
@@ -128,7 +131,9 @@ class Plot:
             self._open()
         else:
             pre_render = self._generate_pre_render()
-            params: JsonRecord = cast("JsonRecord", {"pre_render": pre_render.dict()}) if pre_render else {}
+            params: JsonRecord = (
+                cast("JsonRecord", {"pre_render": pre_render.dict()}) if pre_render else {}
+            )
             self._comm.send_event(PlotFrontendEvent.Show, params)
 
     def update(self) -> None:
@@ -138,7 +143,9 @@ class Plot:
             self._open()
         else:
             pre_render = self._generate_pre_render()
-            params: JsonRecord = cast("JsonRecord", {"pre_render": pre_render.dict()}) if pre_render else {}
+            params: JsonRecord = (
+                cast("JsonRecord", {"pre_render": pre_render.dict()}) if pre_render else {}
+            )
             self._comm.send_event(PlotFrontendEvent.Update, params)
 
     def _generate_pre_render(self) -> PlotResult | None:
@@ -214,6 +221,7 @@ class Plot:
             kind=self._kind,
             execution_id=self._execution_id,
             code=self._code,
+            origin=self._origin,
         ).dict()
         self._comm.send_result(data=result)
 
@@ -269,6 +277,7 @@ class PlotsService:
         code: str,
         figure_num: int | str,
         on_close: Callable[[], None] | None = None,
+        origin: PlotOrigin | None = None,
     ) -> Plot:
         """
         Create a plot.
@@ -289,6 +298,8 @@ class PlotsService:
             The matplotlib figure number, used for generating plot names.
         on_close
             An optional callback to invoke when the plot is closed.
+        origin
+            The origin (source file) of the plot, if known.
 
         See Also
         --------
@@ -325,6 +336,7 @@ class PlotsService:
             figure_num,
             self,
             on_close,
+            origin,
         )
         self._plots.append(plot)
         return plot

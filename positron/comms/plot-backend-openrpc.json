@@ -70,6 +70,10 @@
 						"code": {
 							"description": "The code fragment that produced the plot",
 							"type": "string"
+						},
+						"origin": {
+							"description": "The origin of the plot, if known",
+							"$ref": "#/components/schemas/plot_origin"
 						}
 					},
 					"required": [
@@ -161,6 +165,51 @@
 					"copy": true
 				}
 			},
+			"plot_origin": {
+				"type": "object",
+				"description": "The origin (source) of a plot",
+				"properties": {
+					"uri": {
+						"description": "The URI of the document containing the code that produced the plot, if available",
+						"type": "string"
+					},
+					"range": {
+						"description": "The range within the document at uri that produced the plot, if available",
+						"$ref": "#/components/schemas/plot_range"
+					}
+				},
+				"required": [
+					"uri"
+				]
+			},
+			"plot_range": {
+				"description": "The range of a plot within a document",
+				"type": "object",
+				"properties": {
+					"start_line": {
+						"type": "integer",
+						"description": "The line number on which the plot starts (0-indexed)"
+					},
+					"start_character": {
+						"type": "integer",
+						"description": "The character number on which the plot starts (0-indexed)"
+					},
+					"end_line": {
+						"type": "integer",
+						"description": "The line number on which the plot ends (0-indexed)"
+					},
+					"end_character": {
+						"type": "integer",
+						"description": "The character number on which the plot ends (0-indexed)"
+					}
+				},
+				"required": [
+					"start_line",
+					"start_character",
+					"end_line",
+					"end_character"
+				]
+			 },
 			"plot_render_format": {
 				"description": "The requested plot format",
 				"type": "string",

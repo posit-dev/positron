@@ -22,7 +22,7 @@ import { RuntimeSessionAttachmentWidget } from '../../chatRuntimeAttachmentWidge
 // --- End Positron ---
 
 export interface IChatAttachmentsContentPartOptions {
-	readonly variables: IChatRequestVariableEntry[];
+	readonly variables: readonly IChatRequestVariableEntry[];
 	readonly contentReferences?: ReadonlyArray<IChatContentReference>;
 	readonly domNode?: HTMLElement;
 	readonly limit?: number;
@@ -35,7 +35,7 @@ export class ChatAttachmentsContentPart extends Disposable {
 	private readonly _contextResourceLabels: ResourceLabels;
 	private _showingAll = false;
 
-	private readonly variables: IChatRequestVariableEntry[];
+	private _variables: readonly IChatRequestVariableEntry[];
 	private readonly contentReferences: ReadonlyArray<IChatContentReference>;
 	private readonly limit?: number;
 	public readonly domNode: HTMLElement | undefined;
@@ -47,7 +47,7 @@ export class ChatAttachmentsContentPart extends Disposable {
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 	) {
 		super();
-		this.variables = options.variables;
+		this._variables = options.variables;
 		this.contentReferences = options.contentReferences ?? [];
 		this.limit = options.limit;
 		this.domNode = options.domNode ?? dom.$('.chat-attached-context');
@@ -60,12 +60,22 @@ export class ChatAttachmentsContentPart extends Disposable {
 		}
 	}
 
+	/**
+	 * Update the variables and re-render the attachments in place.
+	 */
+	public updateVariables(variables: readonly IChatRequestVariableEntry[]): void {
+		this._variables = variables;
+		if (this.domNode) {
+			this.initAttachedContext(this.domNode);
+		}
+	}
+
 	private initAttachedContext(container: HTMLElement) {
 		dom.clearNode(container);
 		this.attachedContextDisposables.clear();
 
 		const visibleAttachments = this.getVisibleAttachments();
-		const hasMoreAttachments = this.limit && this.variables.length > this.limit && !this._showingAll;
+		const hasMoreAttachments = this.limit && this._variables.length > this.limit && !this._showingAll;
 
 		for (const attachment of visibleAttachments) {
 			this.renderAttachment(attachment, container);
@@ -76,15 +86,15 @@ export class ChatAttachmentsContentPart extends Disposable {
 		}
 	}
 
-	private getVisibleAttachments(): IChatRequestVariableEntry[] {
+	private getVisibleAttachments(): readonly IChatRequestVariableEntry[] {
 		if (!this.limit || this._showingAll) {
-			return this.variables;
+			return this._variables;
 		}
-		return this.variables.slice(0, this.limit);
+		return this._variables.slice(0, this.limit);
 	}
 
 	private renderShowMoreButton(container: HTMLElement) {
-		const remainingCount = this.variables.length - (this.limit ?? 0);
+		const remainingCount = this._variables.length - (this.limit ?? 0);
 
 		// Create a button that looks like the attachment pills
 		const showMoreButton = dom.$('div.chat-attached-context-attachment.chat-attachments-show-more-button');

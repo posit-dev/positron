@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference path="../vscode-dts/vscode.proposed.chatParticipantAdditions.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.chatParticipantPrivate.d.ts" />
 /// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
 /// <reference path="../vscode-dts/vscode.proposed.languageModelThinkingPart.d.ts" />
 
@@ -338,6 +340,12 @@ declare module 'positron' {
 		 * Timestamp of the resource usage data in milliseconds since epoch.
 		 */
 		timestamp: number;
+
+		/**
+		 * The OS process ID of the kernel, if known. Used to avoid
+		 * double-counting kernel memory in the Positron process tree.
+		 */
+		process_id?: number;
 	}
 
 	/**

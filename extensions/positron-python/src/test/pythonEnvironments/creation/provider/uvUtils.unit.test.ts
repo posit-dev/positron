@@ -9,7 +9,7 @@ import { CancellationTokenSource } from 'vscode';
 import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
 import { pickPythonVersion } from '../../../../client/pythonEnvironments/creation/provider/uvUtils';
 
-suite('UV Utils test', () => {
+suite('uv Utils test', () => {
     let showQuickPickWithBackStub: sinon.SinonStub;
 
     setup(() => {

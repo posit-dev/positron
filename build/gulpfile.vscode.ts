@@ -46,7 +46,8 @@ const glob = promisify(globCallback);
 const rcedit = promisify(rceditCallback);
 const root = path.dirname(import.meta.dirname);
 const commit = getVersion(root);
-const versionedResourcesFolder = (product as typeof product & { quality?: string })?.quality === 'insider' ? commit!.substring(0, 10) : '';
+const useVersionedUpdate = process.platform === 'win32' && (product as typeof product & { win32VersionedUpdate?: boolean })?.win32VersionedUpdate;
+const versionedResourcesFolder = useVersionedUpdate ? commit!.substring(0, 10) : '';
 
 // Build
 const vscodeEntryPoints = [
@@ -63,6 +64,7 @@ const vscodeEntryPoints = [
 ].flat();
 
 const vscodeResourceIncludes = [
+
 	// NLS
 	'out-build/nls.messages.json',
 	'out-build/nls.keys.json',
@@ -320,6 +322,8 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 		const telemetry = gulp.src('.build/telemetry/**', { base: '.build/telemetry', dot: true });
 
+		const workbenchModes = gulp.src('resources/workbenchModes/**', { base: '.', dot: true });
+
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 		const root = path.resolve(path.join(import.meta.dirname, '..'));
 		const productionDependencies = getProductionDependencies(root);
@@ -358,6 +362,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			moduleSources,
 			// --- End Positron ---
 			telemetry,
+			workbenchModes,
 			sources,
 			deps
 		);
@@ -370,7 +375,6 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		}
 		// --- End Positron ---
 
-		let customElectronConfig = {};
 		if (platform === 'win32') {
 			all = es.merge(all, gulp.src([
 				'resources/win32/bower.ico',
@@ -408,12 +412,6 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				'resources/win32/positron_150x150.png'
 				// --- End Positron ---
 			], { base: '.' }));
-			if (quality && quality === 'insider') {
-				customElectronConfig = {
-					createVersionedResources: true,
-					productVersionString: `${versionedResourcesFolder}`,
-				};
-			}
 		} else if (platform === 'linux') {
 			// --- Start Positron ---
 			all = es.merge(all, gulp.src('resources/linux/positron.png', { base: '.' }));
@@ -434,7 +432,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			.pipe(util.skipDirectories())
 			.pipe(util.fixWin32DirectoryPermissions())
 			.pipe(filter(['**', '!**/.github/**'], { dot: true })) // https://github.com/microsoft/vscode/issues/116523
-			.pipe(electron({ ...config, platform, arch: arch === 'armhf' ? 'arm' : arch, ffmpegChromium: false, ...customElectronConfig }))
+			.pipe(electron({ ...config, platform, arch: arch === 'armhf' ? 'arm' : arch, ffmpegChromium: false }))
 			.pipe(filter(['**', '!LICENSE', '!version'], { dot: true }));
 
 		if (platform === 'linux') {
@@ -450,13 +448,13 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		if (platform === 'win32') {
 			result = es.merge(result, gulp.src('resources/win32/bin/code.js', { base: 'resources/win32', allowEmpty: true }));
 
-			if (quality && quality === 'insider') {
-				result = es.merge(result, gulp.src('resources/win32/insider/bin/code.cmd', { base: 'resources/win32/insider' })
+			if (useVersionedUpdate) {
+				result = es.merge(result, gulp.src('resources/win32/versioned/bin/code.cmd', { base: 'resources/win32/versioned' })
 					.pipe(replace('@@NAME@@', product.nameShort))
 					.pipe(replace('@@VERSIONFOLDER@@', versionedResourcesFolder))
 					.pipe(rename(function (f) { f.basename = product.applicationName; })));
 
-				result = es.merge(result, gulp.src('resources/win32/insider/bin/code.sh', { base: 'resources/win32/insider' })
+				result = es.merge(result, gulp.src('resources/win32/versioned/bin/code.sh', { base: 'resources/win32/versioned' })
 					.pipe(replace('@@NAME@@', product.nameShort))
 					.pipe(replace('@@PRODNAME@@', product.nameLong))
 					.pipe(replace('@@VERSION@@', version))
@@ -464,7 +462,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 					.pipe(replace('@@APPNAME@@', product.applicationName))
 					.pipe(replace('@@VERSIONFOLDER@@', versionedResourcesFolder))
 					.pipe(replace('@@SERVERDATAFOLDER@@', product.serverDataFolderName || '.vscode-remote'))
-					.pipe(replace('@@QUALITY@@', quality))
+					.pipe(replace('@@QUALITY@@', quality!))
 					.pipe(rename(function (f) { f.basename = product.applicationName; f.extname = ''; })));
 			} else {
 				result = es.merge(result, gulp.src('resources/win32/bin/code.cmd', { base: 'resources/win32' })
@@ -545,7 +543,7 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 	const cwd = path.join(path.dirname(root), destinationFolderName);
 
 	return async () => {
-		const deps = await glob('**/*.node', { cwd, ignore: 'extensions/node_modules/@vscode/watcher/**' });
+		const deps = await glob('**/*.node', { cwd, ignore: 'extensions/node_modules/@parcel/watcher/**' });
 		const packageJson = JSON.parse(await fs.promises.readFile(path.join(cwd, versionedResourcesFolder, 'resources', 'app', 'package.json'), 'utf8'));
 		const product = JSON.parse(await fs.promises.readFile(path.join(cwd, versionedResourcesFolder, 'resources', 'app', 'product.json'), 'utf8'));
 		const baseVersion = packageJson.version.replace(/-.*$/, '');

@@ -64,13 +64,19 @@ export class Toasts {
 
 	// --- Verifications ---
 
-	async expectToBeVisible(title?: string | RegExp, timeoutMs = 3000) {
+	async expectToastWithTitle(title?: string | RegExp, timeoutMs = 3000) {
 		await test.step(`Verify toast ${title ? `visible: ${title}` : 'visible'}`, async () => {
 			if (title) {
 				await expect(this.toastNotification.filter({ hasText: title })).toBeVisible({ timeout: timeoutMs });
 			} else {
 				await expect(this.toastNotification).toBeVisible({ timeout: timeoutMs });
 			}
+		});
+	}
+
+	async expectToastWithTitleNotToAppear(title: string | RegExp, timeoutMs = 5000) {
+		await test.step(`Verify toast not visible: ${title}`, async () => {
+			await expect(this.toastNotification.filter({ hasText: title })).not.toBeVisible({ timeout: timeoutMs });
 		});
 	}
 

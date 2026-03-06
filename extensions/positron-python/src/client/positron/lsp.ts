@@ -140,6 +140,7 @@ export class PythonLsp implements vscode.Disposable {
 
         // Add middleware to filter diagnostics for Quarto virtual documents:
         // https://github.com/quarto-dev/quarto/issues/855
+        // Also set the priorities for completion items and hovers based on Positron LSP server extensions.
         this._clientOptions.middleware = {
             handleDiagnostics(uri, diagnostics, next) {
                 // Only check file URIs because vdocs are files on disk
@@ -150,6 +151,33 @@ export class PythonLsp implements vscode.Disposable {
                     }
                 }
                 return next(uri, diagnostics);
+            },
+            // Apply per-completion-item priority set by the Positron LSP server.
+            provideCompletionItem(document, position, context, token, next) {
+                return Promise.resolve(next(document, position, context, token)).then((res) => {
+                    if (res) {
+                        const items = Array.isArray(res) ? res : (res as vscode.CompletionList).items;
+                        for (const item of items) {
+                            const priority = (item as any).data?.priority;
+                            if (typeof priority === 'number') {
+                                (item as any).priority = priority;
+                            }
+                        }
+                    }
+                    return res;
+                });
+            },
+            // Apply hover priority set by the Positron LSP server.
+            provideHover(document, position, token, next) {
+                return Promise.resolve(next(document, position, token)).then((result) => {
+                    if (result) {
+                        const data = (result as any).data;
+                        if (data && typeof data.priority === 'number') {
+                            (result as any).priority = data.priority;
+                        }
+                    }
+                    return result;
+                });
             },
         };
 
@@ -171,6 +199,20 @@ export class PythonLsp implements vscode.Disposable {
             serverOptions,
             this._clientOptions,
         );
+
+        // Patch protocol converter to preserve `data` on Hover responses.
+        // The Positron LSP server uses data.priority for cross-provider
+        // hover deduplication. vscode-languageclient's default asHover
+        // discards all fields except contents and range.
+        const p2c = this._client.protocol2CodeConverter as any;
+        const originalAsHover = p2c.asHover.bind(p2c);
+        p2c.asHover = (hover: any) => {
+            const result = originalAsHover(hover);
+            if (hover?.data !== undefined && result) {
+                (result as any).data = hover.data;
+            }
+            return result;
+        };
 
         const out = new PromiseHandles<void>();
         this._initializing = out.promise;

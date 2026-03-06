@@ -16,6 +16,7 @@
   ],
   "main": "./out/extension.js",
   "enabledApiProposals": [
+    "chatProvider",
     "codeActionAI",
     "defaultChatParticipant",
     "findFiles2",
@@ -487,10 +488,10 @@
               "advanced"
             ]
           },
-          "positron.assistant.models.preference.azure": {
+          "positron.assistant.models.preference.msFoundry": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.azure.description%",
+            "markdownDescription": "%configuration.models.preference.msFoundry.description%",
             "tags": [
               "advanced"
             ]
@@ -746,10 +747,10 @@
               ]
             }
           },
-          "positron.assistant.models.overrides.azure": {
+          "positron.assistant.models.overrides.msFoundry": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.overrides.azure.description%",
+            "markdownDescription": "%configuration.models.overrides.msFoundry.description%",
             "tags": [
               "advanced"
             ],
@@ -883,10 +884,10 @@
             ],
             "order": 7
           },
-          "positron.assistant.provider.azure.enable": {
+          "positron.assistant.provider.msFoundry.enable": {
             "type": "boolean",
             "default": false,
-            "markdownDescription": "%configuration.provider.azure.enable.description%",
+            "markdownDescription": "%configuration.provider.msFoundry.enable.description%",
             "tags": [
               "experimental",
               "advanced"
@@ -915,6 +916,11 @@
       {
         "vendor": "amazon-bedrock",
         "displayName": "Amazon Bedrock",
+        "managementCommand": "positron-assistant.configureProviders"
+      },
+      {
+        "vendor": "ms-foundry",
+        "displayName": "Microsoft Foundry",
         "managementCommand": "positron-assistant.configureProviders"
       },
       {
@@ -1369,7 +1375,7 @@
     "pretest": "npm run compile"
   },
   "devDependencies": {
-    "@ai-sdk/amazon-bedrock": "^3.0.65",
+    "@ai-sdk/amazon-bedrock": "^3.0.84",
     "@ai-sdk/anthropic": "^2.0.53",
     "@ai-sdk/azure": "^2.0.78",
     "@ai-sdk/google": "^2.0.44",

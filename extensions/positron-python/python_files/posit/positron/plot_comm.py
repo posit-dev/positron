@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -74,7 +74,7 @@ class PlotMetadata(BaseModel):
     """
 
     name: StrictStr = Field(
-        description="A human-readable name for the plot",
+        description="A unique, human-readable name for the plot",
     )
 
     kind: StrictStr = Field(
@@ -87,6 +87,11 @@ class PlotMetadata(BaseModel):
 
     code: StrictStr = Field(
         description="The code fragment that produced the plot",
+    )
+
+    origin: Optional[PlotOrigin] = Field(
+        default=None,
+        description="The origin of the plot, if known",
     )
 
 
@@ -120,6 +125,43 @@ class PlotSize(BaseModel):
 
     width: StrictInt = Field(
         description="The plot's width, in pixels",
+    )
+
+
+class PlotOrigin(BaseModel):
+    """
+    The origin (source) of a plot
+    """
+
+    uri: StrictStr = Field(
+        description="The URI of the document containing the code that produced the plot, if available",
+    )
+
+    range: Optional[PlotRange] = Field(
+        default=None,
+        description="The range within the document at uri that produced the plot, if available",
+    )
+
+
+class PlotRange(BaseModel):
+    """
+    The range of a plot within a document
+    """
+
+    start_line: StrictInt = Field(
+        description="The line number on which the plot starts (0-indexed)",
+    )
+
+    start_character: StrictInt = Field(
+        description="The character number on which the plot starts (0-indexed)",
+    )
+
+    end_line: StrictInt = Field(
+        description="The line number on which the plot ends (0-indexed)",
+    )
+
+    end_character: StrictInt = Field(
+        description="The character number on which the plot ends (0-indexed)",
     )
 
 
@@ -279,6 +321,10 @@ PlotMetadata.update_forward_refs()
 PlotResult.update_forward_refs()
 
 PlotSize.update_forward_refs()
+
+PlotOrigin.update_forward_refs()
+
+PlotRange.update_forward_refs()
 
 PlotRenderSettings.update_forward_refs()
 

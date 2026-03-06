@@ -6,9 +6,6 @@
 import { availableRuntimes } from '../../infra';
 import { test, tags } from '../_test.setup';
 
-const pythonRuntime = availableRuntimes['python'];
-const rRuntime = availableRuntimes['r'];
-
 test.use({
 	suiteId: __filename
 });
@@ -19,7 +16,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	});
 
 	test.describe('Workspace', () => {
-		test.beforeEach(async function ({ hotKeys, sessions, app }) {
+		test.beforeEach(async function ({ hotKeys, sessions }) {
 			await sessions.expectNoStartUpMessaging();
 			await hotKeys.openWelcomeWalkthrough();
 		});
@@ -41,7 +38,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		test('Verify limited walkthroughs on Welcome page and full list in `More...`', async function ({ app, hotKeys }) {
 			const { welcome, quickInput } = app.workbench;
 			await hotKeys.resetWelcomeWalkthrough();
-			await hotKeys.reloadWindow();
+			await hotKeys.reloadWindow(true);
 
 			await welcome.expectWalkthroughsToHaveCount(3);
 			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Explore the Positron Notebook Editor in Alpha']);
@@ -64,7 +61,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.newNotebookButton.click();
 			await popups.clickItem('Python Notebook');
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
-			await notebooks.expectKernelToBe(pythonRuntime.name);
+			await notebooks.expectKernelToBe(availableRuntimes['python'].name);
 		});
 
 		test('Python - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, python }) {
@@ -75,14 +72,15 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await editors.expectActiveEditorIconClassToMatch(/python-lang-file-icon/);
 		});
 
-		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, r }) {
+		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, sessions, r }) {
 			const { welcome, popups, editors, notebooks } = app.workbench;
 
 			await welcome.newNotebookButton.click();
 			await popups.clickItem('R Notebook');
 
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
-			await notebooks.expectKernelToBe(rRuntime.name);
+			await notebooks.expectKernelToBe(availableRuntimes['r'].name);
+			await sessions.deleteAll();
 		});
 
 		test('R - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, r }) {
@@ -139,5 +137,4 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await modals.expectToBeVisible('New Folder from Git');
 		});
 	});
-
 });

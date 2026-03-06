@@ -59,7 +59,6 @@ export class ChatToolMarkdownProgressPart extends BaseChatToolInvocationSubPart 
 			}
 		};
 		this.markdownPart = this._register(instantiationService.createInstance(ChatMarkdownContentPart, chatMarkdownContent, context, editorPool, false, codeBlockStartIndex, renderer, /* markdownRenderOptions */ undefined, currentWidthDelegate(), codeBlockModelCollection, { codeBlockRenderOptions }));
-		this._register(this.markdownPart.onDidChangeHeight(() => this._onDidChangeHeight.fire()));
 
 		// Determine icon based on tool invocation state
 		let icon: ThemeIcon;

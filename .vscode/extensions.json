@@ -10,5 +10,11 @@
 		"jrieken.vscode-pr-pinger",
 		"typescriptteam.native-preview",
 		"ms-vscode.ts-customized-language-service"
+	],
+	// --- Start Positron ---
+	// Suppress automatic suggestion of the REditorSupport.r extension
+	"unwantedRecommendations": [
+		"REditorSupport.r"
 	]
+	// --- End Positron ---
 }

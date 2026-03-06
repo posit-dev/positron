@@ -48,6 +48,17 @@ export class CloneManager {
 
 		url = url.trim().replace(/^git\s+clone\s+/, '');
 
+		// --- Start Positron ---
+		// When a parentPath is explicitly provided (e.g., from Positron's "New Folder from Git"
+		// dialog), skip the cache check and clone directly. This ensures the user's explicit
+		// folder choice is respected. The cloneRepository function handles conflicts by
+		// appending "-1", "-2", etc. to the folder name if needed.
+		// See: https://github.com/posit-dev/positron/issues/11585
+		if (options.parentPath) {
+			return this.cloneRepository(url, options.parentPath, options);
+		}
+		// --- End Positron ---
+
 		const cachedRepository = this.repositoryCache.get(url);
 		if (cachedRepository && (cachedRepository.length > 0)) {
 			return this.tryOpenExistingRepository(cachedRepository, url, options.postCloneAction, options.parentPath, options.ref);

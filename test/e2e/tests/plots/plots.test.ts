@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import * as os from 'os';
 import { test, expect, tags } from '../_test.setup';
 const resembleCompareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
@@ -498,24 +499,23 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.restorePlotArea();
 		});
 
-		test('R - plot and save in one block', { tag: [tags.WEB, tags.WIN] }, async function ({ app, runCommand }) {
+		test('R - plot and save in one block', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+			const { console, plots } = app.workbench;
 
-			await app.workbench.console.clearButton.click();
-			await app.workbench.console.restartButton.click();
+			// Restart the R session to ensure a clean env
+			await console.clearButton.click();
+			await console.restartButton.click();
+			await console.waitForConsoleContents('restarted', { expectedCount: 1 });
 
-			await app.workbench.console.waitForConsoleContents('restarted', { expectedCount: 1 });
+			// Generate a predictable path for the saved plot
+			const tempFilePath = path.join(os.tmpdir(), `positron-test-plot-${Date.now()}.png`);
 
-			await app.workbench.console.pasteCodeToConsole(rPlotAndSave, true);
-			await app.workbench.plots.waitForCurrentPlot();
+			// Run the code that creates a plot and saves it to the temp file
+			await console.pasteCodeToConsole(rPlotAndSave(tempFilePath), true);
+			await plots.waitForCurrentPlot();
 
-			await runCommand('workbench.action.fullSizedAuxiliaryBar');
-
-			const vars = await app.workbench.variables.getFlatVariables();
-			const filePath = vars.get('tempfile')?.value;
-
-			expect(fs.existsSync(filePath?.replaceAll('"', '')!)).toBe(true);
-
-			await app.workbench.layouts.enterLayout('stacked');
+			// Verify that the file exists on disk
+			expect(fs.existsSync(tempFilePath)).toBe(true);
 		});
 
 	});
@@ -764,11 +764,15 @@ fig`;
 const rTwoPlots = `plot(1:10)
 plot(1:100)`;
 
-const rPlotAndSave = `plot(1:10)
-tempfile <- tempfile()
-grDevices::png(filename = tempfile)
+const rPlotAndSave = (filePath: string) => {
+	// Convert backslashes to forward slashes for R compatibility on Windows
+	// (R interprets \U as unicode escape sequence)
+	const safePath = filePath.replace(/\\/g, '/');
+	return `plot(1:10)
+grDevices::png(filename = "${safePath}")
 plot(1:20)
 dev.off()`;
+};
 
 async function dismissPlotZoomTooltip(page: Page) {
 	const plotZoomTooltip = page.getByText('Set the plot zoom');

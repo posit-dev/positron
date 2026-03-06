@@ -18,6 +18,7 @@ import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { ReleaseNotesManager } from './releaseNotesEditor.js';
 import { isMacintosh, isWeb, isWindows } from '../../../../base/common/platform.js';
+import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { RawContextKey, IContextKey, IContextKeyService, ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { MenuRegistry, MenuId, registerAction2, Action2 } from '../../../../platform/actions/common/actions.js';
@@ -744,6 +745,44 @@ export class SwitchProductQualityContribution extends Disposable implements IWor
 					return result;
 				}
 			}));
+		}
+	}
+}
+
+export class DefaultAccountUpdateContribution extends Disposable implements IWorkbenchContribution {
+
+	constructor(
+		@IUpdateService private readonly updateService: IUpdateService,
+		@IDefaultAccountService private readonly defaultAccountService: IDefaultAccountService
+	) {
+		super();
+
+		if (isWeb) {
+			return; // Electron only
+		}
+
+		// Check on startup
+		this.checkDefaultAccount();
+
+		// Listen for account changes
+		this._register(this.defaultAccountService.onDidChangeDefaultAccount(() => {
+			this.checkDefaultAccount();
+		}));
+	}
+
+	private async checkDefaultAccount(): Promise<void> {
+		try {
+			const defaultAccount = await this.defaultAccountService.getDefaultAccount();
+			const shouldDisable = defaultAccount?.entitlementsData?.organization_login_list?.some(
+				org => org.toLowerCase() === 'visual-studio-code'
+			) ?? false;
+
+			if (shouldDisable) {
+				await this.updateService.disableProgressiveReleases();
+				this.dispose();
+			}
+		} catch (error) {
+			// Silently ignore errors - if we can't get the account, we don't disable background updates
 		}
 	}
 }

@@ -43,9 +43,9 @@ test.describe('Default Interpreters - R', {
 
 	});
 
-	test('R - Add a default interpreter', async function ({ runCommand, sessions }) {
+	test('R - Add a default interpreter', async function ({ runCommand, sessions, hotKeys }) {
 
-		await runCommand('workbench.action.reloadWindow');
+		await hotKeys.reloadWindow(true);
 
 		const hiddenRVersion = process.env.POSITRON_HIDDEN_R;
 		if (!hiddenRVersion) {
@@ -69,7 +69,7 @@ test.describe('Default Interpreters - R', {
 				expect(path).toMatch(new RegExp(`R-${escapedVersion}\\/bin\\/R`));
 
 			} catch (error) {
-				await runCommand('workbench.action.reloadWindow');
+				await hotKeys.reloadWindow(true);
 				throw error;
 			}
 

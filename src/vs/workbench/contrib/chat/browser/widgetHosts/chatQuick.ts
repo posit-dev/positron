@@ -434,14 +434,15 @@ class QuickChat extends Disposable {
 			);
 		if (mainChatWidget) {
 			// Update language model
-			const languageModel = mainChatWidget.input.selectedLanguageModel;
+			const languageModel = mainChatWidget.input.selectedLanguageModel.get();
 			if (languageModel) {
 				this.widget.input.setCurrentLanguageModel(languageModel);
 			}
 			// Update implicit context
 			if (mainChatWidget.input.implicitContext && this.widget.input.implicitContext) {
-				this.widget.input.implicitContext.setValue(mainChatWidget.input.implicitContext.value, mainChatWidget.input.implicitContext.isSelection);
-				this.widget.input.implicitContext.enabled = mainChatWidget.input.implicitContext.enabled;
+				const mainValues = mainChatWidget.input.implicitContext.values;
+				this.widget.input.implicitContext.setValues(mainValues.map(v => ({ value: v.value, isSelection: v.isSelection })));
+				this.widget.input.implicitContext.setEnabled(mainChatWidget.input.implicitContext.hasEnabled);
 			}
 			// Update attachments
 			this.widget.attachmentModel.clearAndSetContext(...mainChatWidget.attachmentModel.attachments);
