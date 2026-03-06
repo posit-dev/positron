@@ -30,6 +30,7 @@ import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/b
 import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { AUX_WINDOW_GROUP_TYPE, ACTIVE_GROUP_TYPE, SIDE_GROUP_TYPE, AUX_WINDOW_GROUP, ACTIVE_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -282,11 +283,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	};
 
-	const iconForDarkFilter = (filter: DarkFilter): string => {
+	const iconForDarkFilter = (filter: DarkFilter): ThemeIcon => {
 		switch (filter) {
-			case DarkFilter.On: return 'circle-large-filled';
-			case DarkFilter.Off: return 'circle-large';
-			case DarkFilter.Auto: return 'color-mode';
+			case DarkFilter.On: return Codicon.circleLargeFilled;
+			case DarkFilter.Off: return Codicon.circleLarge;
+			case DarkFilter.Auto: return Codicon.colorMode;
 		}
 	};
 
@@ -619,7 +620,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				/>
 			),
 			overflowContextMenuItem: {
-				icon: 'copy',
+				icon: Codicon.copy,
 				label: copyPlotToClipboard,
 				disabled: !hasPlots,
 				onSelected: copyPlotHandler
@@ -643,7 +644,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'positron-size-to-fit',
+				icon: Codicon.positronSizeToFit,
 				label: zoomLabel,
 				entries: zoomOverflowEntries
 			}
@@ -665,7 +666,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'symbol-ruler',
+				icon: Codicon.symbolRuler,
 				label: sizingPolicyLabel,
 				entries: sizingPolicyOverflowEntries
 			}
@@ -686,7 +687,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				/>
 			),
 			overflowContextMenuItem: {
-				icon: 'positron-open-in-new-window',
+				icon: Codicon.positronOpenInNewWindow,
 				label: openPlotInNewWindow,
 				onSelected: popoutPlotHandler
 			}
@@ -710,7 +711,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'go-to-file',
+				icon: Codicon.goToFile,
 				label: openInEditorLabel,
 				entries: openInEditorOverflowEntries
 			}
@@ -730,7 +731,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'code',
+				icon: Codicon.code,
 				label: plotCodeLabel,
 				entries: plotCodeOverflowEntries
 			}
@@ -749,7 +750,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					actions={darkFilterActions}
 					align='right'
 					ariaLabel={darkFilterTooltip}
-					icon={ThemeIcon.fromId(iconForDarkFilter(darkFilterMode))}
+					icon={iconForDarkFilter(darkFilterMode)}
 					tooltip={darkFilterTooltip}
 				/>
 			),
@@ -779,7 +780,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				/>
 			),
 			overflowContextMenuItem: {
-				icon: 'window',
+				icon: Codicon.window,
 				label: openPlotsGalleryInNewWindow,
 				onSelected: openGalleryInNewWindowHandler
 			}
@@ -801,7 +802,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			/>
 		),
 		overflowContextMenuItem: {
-			icon: 'clear-all',
+			icon: Codicon.clearAll,
 			label: clearAllPlots,
 			disabled: noPlots,
 			onSelected: clearAllPlotsHandler

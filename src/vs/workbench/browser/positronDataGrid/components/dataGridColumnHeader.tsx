@@ -199,14 +199,9 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				</div>
 				{columnSortKey &&
 					<div className='sort-indicator'>
-						<div
-							className={positronClassNames(
-								'sort-icon',
-								'codicon',
-								columnSortKey.ascending ?
-									'codicon-arrow-up' :
-									'codicon-arrow-down'
-							)}
+						<ThemeIcon
+							className='sort-icon'
+							icon={columnSortKey.ascending ? Codicon.arrowUp : Codicon.arrowDown}
 							style={{ fontSize: 16 }}
 						/>
 						<div className='sort-index'>{columnSortKey.sortIndex + 1}</div>

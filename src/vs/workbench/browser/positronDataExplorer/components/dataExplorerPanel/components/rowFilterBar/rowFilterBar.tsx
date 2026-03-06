@@ -170,7 +170,7 @@ export const RowFilterBar = () => {
 		// Build the context menu entries.
 		const entries: CustomContextMenuEntry[] = [];
 		entries.push(new CustomContextMenuItem({
-			icon: 'positron-add-filter',
+			icon: Codicon.positronAddFilter,
 			label: localize('positron.dataExplorer.addFilter', "Add Filter"),
 			disabled: !canFilter,
 			onSelected: () => addRowFilterHandler(
@@ -181,21 +181,21 @@ export const RowFilterBar = () => {
 		entries.push(new CustomContextMenuSeparator());
 		if (!rowFiltersHidden) {
 			entries.push(new CustomContextMenuItem({
-				icon: 'positron-hide-filters',
+				icon: Codicon.positronHideFilters,
 				label: localize('positron.dataExplorer.hideFilters', "Hide Filters"),
 				disabled: rowFilterDescriptors.length === 0,
 				onSelected: () => setRowFiltersHidden(true)
 			}));
 		} else {
 			entries.push(new CustomContextMenuItem({
-				icon: 'positron-show-filters',
+				icon: Codicon.positronShowFilters,
 				label: localize('positron.dataExplorer.showFilters', "Show Filters"),
 				onSelected: () => setRowFiltersHidden(false)
 			}));
 		}
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
-			icon: 'positron-clear-row-filters',
+			icon: Codicon.positronClearRowFilters,
 			label: localize('positron.dataExplorer.clearFilters', "Clear Filters"),
 			disabled: rowFilterDescriptors.length === 0,
 			onSelected: async () => {

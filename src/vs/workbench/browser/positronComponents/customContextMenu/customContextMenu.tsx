@@ -12,6 +12,7 @@ import React, { useRef } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon as ThemeIconType } from '../../../../base/common/themables.js';
 import { ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
@@ -35,7 +36,7 @@ export interface CustomContextMenuSubmenuOptions {
 	/**
 	 * Optional icon to display before the label.
 	 */
-	readonly icon?: string;
+	readonly icon?: ThemeIconType;
 
 	/**
 	 * The label text for the submenu item.
@@ -249,13 +250,12 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				}
 
 				{options.icon &&
-					<div
+					<ThemeIcon
 						className={positronClassNames(
 							'icon',
-							'codicon',
-							`codicon-${options.icon}`,
 							{ 'disabled': options.disabled }
 						)}
+						icon={options.icon}
 						title={options.label}
 					/>
 				}
@@ -340,14 +340,13 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				onPressed={openSubmenu}
 			>
 				{options.icon &&
-					<div
+					<ThemeIcon
 						aria-hidden='true'
 						className={positronClassNames(
 							'icon',
-							'codicon',
-							`codicon-${options.icon}`,
 							{ 'disabled': options.disabled }
 						)}
+						icon={options.icon}
 					/>
 				}
 
@@ -360,14 +359,13 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 					{options.label}
 				</div>
 
-				<div
+				<ThemeIcon
 					aria-hidden='true'
 					className={positronClassNames(
 						'submenu-indicator',
-						'codicon',
-						'codicon-chevron-right',
 						{ 'disabled': options.disabled }
 					)}
+					icon={Codicon.chevronRight}
 				/>
 			</Button>
 		);

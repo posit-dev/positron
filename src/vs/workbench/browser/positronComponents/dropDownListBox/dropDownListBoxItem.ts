@@ -3,13 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ThemeIcon } from '../../../../base/common/themables.js';
+
 /**
  * DropDownListBoxItemOptions interface.
  */
 export interface DropDownListBoxItemOptions<T extends NonNullable<any>, V extends NonNullable<any>> {
 	readonly identifier: T;
 	readonly title?: string;
-	readonly icon?: string;
+	readonly icon?: ThemeIcon;
 	readonly disabled?: boolean;
 	value: V;
 }

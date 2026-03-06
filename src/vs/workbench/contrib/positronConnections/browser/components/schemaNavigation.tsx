@@ -247,28 +247,28 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 	}, [props.item.expanded]);
 
-	const iconClass = (kind?: string) => {
+	const iconForKind = (kind?: string) => {
 		if (kind) {
 			switch (kind.toLowerCase()) {
 				case 'table':
-					return 'positron-table-connection';
+					return Codicon.positronTableConnection;
 				case 'view':
-					return 'positron-view-connection';
+					return Codicon.positronViewConnection;
 				case 'database':
-					return 'positron-database-connection';
+					return Codicon.positronDatabaseConnection;
 				case 'schema':
-					return 'positron-schema-connection';
+					return Codicon.positronSchemaConnection;
 				case 'catalog':
-					return 'positron-catalog-connection';
+					return Codicon.positronCatalogConnection;
 				case 'volume':
-					return 'file-symlink-directory';
+					return Codicon.fileSymlinkDirectory;
 				case 'field':
 					switch (props.item.dtype?.toLowerCase()) {
 						case 'character':
 						case 'string':
 						case 'varchar':
 						case 'text':
-							return 'positron-data-type-string';
+							return Codicon.positronDataTypeString;
 						case 'integer':
 						case 'numeric':
 						case 'float':
@@ -277,49 +277,41 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 						case 'real':
 						case 'bigint':
 						case 'int':
-							return 'positron-data-type-number';
+							return Codicon.positronDataTypeNumber;
 						case 'boolean':
 						case 'bool':
-							return 'positron-data-type-boolean';
+							return Codicon.positronDataTypeBoolean;
 						case 'date':
-							return 'positron-data-type-date';
+							return Codicon.positronDataTypeDate;
 						case 'timestamp':
 						case 'timestamp_ltz':
-							return 'positron-data-type-date-time';
+							return Codicon.positronDataTypeDateTime;
 						case 'array':
-							return 'positron-data-type-array';
+							return Codicon.positronDataTypeArray;
 						default:
-							return 'positron-data-type-unknown';
+							return Codicon.positronDataTypeUnknown;
 					}
 			}
 		}
 
-		return '';
+		return undefined;
 	}
 
 	/*
 	Icon showing the element kind (table, view, schema, etc)
 
-	The icon can be either a base64 encoded image or a codicon class.
+	The icon can be either a base64 encoded image or a ThemeIcon.
 	If it's a base64 encoded image, we render an img tag.
-	If it's a codicon class, we render a div with the appropriate class.
+	If it's a ThemeIcon, we render a ThemeIcon component.
 	*/
 	const ElementIcon = (() => {
 		// icon is a base64 encoded png
 		if (props.item.icon) {
-			return <img
-				src={props.item.icon}
-			>
-			</img>;
+			return <img src={props.item.icon} />;
 		}
 
-		return <div
-			className={positronClassNames(
-				'codicon',
-				`codicon-${iconClass(props.item.kind)}`,
-			)}
-		>
-		</div>
+		const icon = iconForKind(props.item.kind);
+		return icon ? <ThemeIcon icon={icon} /> : <div />;
 	});
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {

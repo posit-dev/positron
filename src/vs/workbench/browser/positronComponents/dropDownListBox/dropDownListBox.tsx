@@ -218,13 +218,12 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 											{entry.options.title}
 										</div>
 										{entry.options.icon &&
-											<div
+											<ThemeIcon
 												className={positronClassNames(
 													'icon',
-													'codicon',
-													`codicon-${entry.options.icon}`,
 													{ 'disabled': entry.options.disabled }
 												)}
+												icon={entry.options.icon}
 												title={entry.options.title}
 											/>
 										}

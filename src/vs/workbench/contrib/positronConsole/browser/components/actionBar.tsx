@@ -422,7 +422,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.restartRuntime',
-			icon: 'positron-restart-runtime-thin',
+			icon: Codicon.positronRestartRuntimeThin,
 			label: positronRestartSession,
 			onSelected: restartConsoleHandler
 		}
@@ -446,7 +446,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.trashSession',
-				icon: 'trash',
+				icon: Codicon.trash,
 				label: positronDeleteSession,
 				onSelected: deleteSessionHandler
 			}
@@ -477,7 +477,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.toggleTrace',
-				icon: 'wand',
+				icon: Codicon.wand,
 				label: positronToggleTrace,
 				onSelected: toggleTraceHandler
 			}
@@ -499,7 +499,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.toggleWordWrap',
-			icon: 'word-wrap',
+			icon: Codicon.wordWrap,
 			label: positronToggleWordWrap,
 			onSelected: toggleWordWrapHandler
 		}
@@ -520,7 +520,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.openInEditor',
-			icon: 'positron-open-in-editor',
+			icon: Codicon.positronOpenInEditor,
 			label: positronOpenInEditor,
 			onSelected: openInEditorHandler
 		}
@@ -541,7 +541,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.clearConsole',
-			icon: 'clear-all',
+			icon: Codicon.clearAll,
 			label: positronClearConsole,
 			onSelected: clearConsoleHandler
 		}

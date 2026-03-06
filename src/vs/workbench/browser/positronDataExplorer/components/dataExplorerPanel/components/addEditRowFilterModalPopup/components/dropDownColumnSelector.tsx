@@ -11,6 +11,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 
 // Other dependencies.
 import { Codicon } from '../../../../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { localize } from '../../../../../../../../nls.js';
 import * as DOM from '../../../../../../../../base/browser/dom.js';
 import { ColumnSelectorModalPopup } from './columnSelectorModalPopup.js';
@@ -148,7 +149,7 @@ export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColu
 				(<div className='title'>{props.title}</div>) :
 				(
 					<div className='column-schema-title'>
-						<div className={`data-type-icon codicon ${columnSchemaDataTypeIcon(selectedColumnSchema)}`}></div>
+						<ThemeIcon className='data-type-icon' icon={columnSchemaDataTypeIcon(selectedColumnSchema)} />
 						<div className='column-name'>
 							{selectedColumnSchema.column_name}
 						</div>

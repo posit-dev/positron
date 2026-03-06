@@ -39,7 +39,7 @@ export function buildMoreActionsMenuItems(
 		entriesByGroup.get(group)?.push(...groupActions.map(action => new CustomContextMenuItem({
 			commandId: action.id,
 			label: action.label,
-			icon: ThemeIcon.isThemeIcon(action.item.icon) ? action.item.icon.id : undefined,
+			icon: ThemeIcon.isThemeIcon(action.item.icon) ? action.item.icon : undefined,
 			onWillSelect: () => {
 				// Select cell BEFORE command runs to keep notebook selection in sync
 				instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);

@@ -16,7 +16,9 @@ import { useStateRef } from '../../react/useStateRef.js';
 import { isMacintosh } from '../../../../common/platform.js';
 import { createStyleSheet } from '../../../domStylesheets.js';
 import { DisposableStore } from '../../../../common/lifecycle.js';
+import { Codicon } from '../../../../common/codicons.js';
 import { positronClassNames } from '../../../../common/positronUtilities.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Button, KeyboardModifiers, MouseTrigger } from '../button/button.js';
 import { usePositronReactServicesContext } from '../../../positronReactRendererContext.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -428,21 +430,22 @@ export const VerticalSplitter = ({
 					}}
 					onPressed={expandCollapseButtonPressedHandler}
 				>
-					<div
+					<ThemeIcon
 						className={positronClassNames(
 							'expand-collapse-button-face',
-							'codicon',
-							!collapsed ?
-								!invert ? 'codicon-chevron-left' : 'codicon-chevron-right' :
-								!invert ? 'codicon-chevron-right' : 'codicon-chevron-left',
 							{ highlighted: highlightExpandCollapse }
 						)}
+						icon={
+							!collapsed ?
+								!invert ? Codicon.chevronLeft : Codicon.chevronRight :
+								!invert ? Codicon.chevronRight : Codicon.chevronLeft
+						}
+						onPointerEnter={expandCollapseButtonPointerEnterHandler}
+						onPointerLeave={expandCollapseButtonPointerLeaveHandler}
 						style={{
 							width: EXPAND_COLLAPSE_BUTTON_SIZE,
 							height: EXPAND_COLLAPSE_BUTTON_SIZE
 						}}
-						onPointerEnter={expandCollapseButtonPointerEnterHandler}
-						onPointerLeave={expandCollapseButtonPointerLeaveHandler}
 					/>
 				</Button>
 			}

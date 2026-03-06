@@ -73,7 +73,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 			// Build the context menu entries.
 			const entries: CustomContextMenuEntry[] = [
 				new CustomContextMenuItem({
-					icon: 'copy',
+					icon: Codicon.copy,
 					label: localize('positron.dataExplorer.copy', "Copy"),
 					onSelected: async () => await services.clipboardService.writeText(
 						props.directoryLabel

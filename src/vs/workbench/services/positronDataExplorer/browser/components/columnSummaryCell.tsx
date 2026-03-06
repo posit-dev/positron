@@ -12,6 +12,7 @@ import { useRef, useEffect } from 'react';
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon as ThemeIconType } from '../../../../../base/common/themables.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { VectorHistogram } from './vectorHistogram.js';
 import { ColumnProfileDate } from './columnProfileDate.js';
@@ -418,58 +419,58 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	};
 
 	// Set the data type icon.
-	const dataTypeIcon = (() => {
+	const dataTypeIcon: ThemeIconType = (() => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
 			// Number (including all numeric subtypes).
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Integer:
 			case ColumnDisplayType.Decimal:
-				return 'codicon-positron-data-type-number';
+				return Codicon.positronDataTypeNumber;
 
 			// Boolean.
 			case ColumnDisplayType.Boolean:
-				return 'codicon-positron-data-type-boolean';
+				return Codicon.positronDataTypeBoolean;
 
 			// String.
 			case ColumnDisplayType.String:
-				return 'codicon-positron-data-type-string';
+				return Codicon.positronDataTypeString;
 
 			// Date.
 			case ColumnDisplayType.Date:
-				return 'codicon-positron-data-type-date';
+				return Codicon.positronDataTypeDate;
 
 			// Datetime.
 			case ColumnDisplayType.Datetime:
-				return 'codicon-positron-data-type-date-time';
+				return Codicon.positronDataTypeDateTime;
 
 			// Time.
 			case ColumnDisplayType.Time:
-				return 'codicon-positron-data-type-time';
+				return Codicon.positronDataTypeTime;
 
 			// Time.
 			case ColumnDisplayType.Interval:
-				return 'codicon-positron-data-type-date-time';
+				return Codicon.positronDataTypeDateTime;
 
 			// Object.
 			case ColumnDisplayType.Object:
-				return 'codicon-positron-data-type-object';
+				return Codicon.positronDataTypeObject;
 
 			// Array.
 			case ColumnDisplayType.Array:
-				return 'codicon-positron-data-type-array';
+				return Codicon.positronDataTypeArray;
 
 			// Struct.
 			case ColumnDisplayType.Struct:
-				return 'codicon-positron-data-type-struct';
+				return Codicon.positronDataTypeStruct;
 
 			// Unknown.
 			case ColumnDisplayType.Unknown:
-				return 'codicon-positron-data-type-unknown';
+				return Codicon.positronDataTypeUnknown;
 
 			// This shouldn't ever happen.
 			default:
-				return 'codicon-question';
+				return Codicon.question;
 		}
 	})();
 
@@ -518,9 +519,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 						<ThemeIcon className='expand-collapse-icon' icon={Codicon.chevronRight} />
 					}
 				</div>
-				<div
+				<ThemeIcon
 					ref={dataTypeRef}
-					className={`data-type-icon codicon ${dataTypeIcon}`}
+					className='data-type-icon'
+					icon={dataTypeIcon}
 					onMouseLeave={() => props.instance.hoverManager.hideHover()}
 					onMouseOver={() =>
 						props.instance.hoverManager.showHover(

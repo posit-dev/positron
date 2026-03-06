@@ -21,10 +21,8 @@ import { editorErrorForeground } from '../../../theme/common/colorRegistry.js';
 /**
  * IconProps interface.
  */
-interface IconProps {
+interface IconProps extends React.HTMLAttributes<HTMLDivElement> {
 	readonly icon: IconType;
-	readonly className?: string;
-	readonly style?: React.CSSProperties,
 }
 
 /**
@@ -37,10 +35,8 @@ interface ThemeIconProps extends React.HTMLAttributes<HTMLDivElement> {
 /**
  * URIIconProps interface.
  */
-interface URIIconProps {
+interface URIIconProps extends React.HTMLAttributes<HTMLDivElement> {
 	readonly icon: { dark?: URI; light?: URI };
-	readonly className?: string;
-	readonly style?: React.CSSProperties,
 }
 
 /**
@@ -48,58 +44,65 @@ interface URIIconProps {
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const ThemeIcon = ({ icon, className, ...rest }: ThemeIconProps) => {
-	const iconClassNames = ThemeIconClass.asClassNameArray(icon);
+export const ThemeIcon = React.forwardRef<HTMLDivElement, ThemeIconProps>(
+	({ icon, className, ...rest }, ref) => {
+		const iconClassNames = ThemeIconClass.asClassNameArray(icon);
 
-	return (
-		<div
-			className={positronClassNames(className, ...iconClassNames)}
-			{...rest}
-		/>
-	);
-};
+		return (
+			<div
+				ref={ref}
+				className={positronClassNames(className, ...iconClassNames)}
+				{...rest}
+			/>
+		);
+	}
+);
 
 /**
  * URIIcon component - renders a URI-based icon with theme-aware dark/light variants.
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const URIIcon = (props: URIIconProps) => {
-	// Context hooks.
-	const services = usePositronReactServicesContext();
+export const URIIcon = React.forwardRef<HTMLDivElement, URIIconProps>(
+	({ icon: iconProp, className, style, ...rest }, ref) => {
+		// Context hooks.
+		const services = usePositronReactServicesContext();
 
-	// Get the color theme type.
-	const colorThemeType = services.themeService.getColorTheme().type;
+		// Get the color theme type.
+		const colorThemeType = services.themeService.getColorTheme().type;
 
-	// Determine the CSS background image based on the color theme type and icon.
-	let icon: URI | undefined;
-	if ((colorThemeType === ColorScheme.LIGHT || colorThemeType === ColorScheme.HIGH_CONTRAST_LIGHT) && props.icon.light) {
-		icon = props.icon.light;
-	} else if ((colorThemeType === ColorScheme.DARK || colorThemeType === ColorScheme.HIGH_CONTRAST_DARK) && props.icon.dark) {
-		icon = props.icon.dark;
-	} else {
-		// Fallback to the dark icon if the light icon is not available.
-		icon = props.icon.light ?? props.icon.dark;
+		// Determine the CSS background image based on the color theme type and icon.
+		let icon: URI | undefined;
+		if ((colorThemeType === ColorScheme.LIGHT || colorThemeType === ColorScheme.HIGH_CONTRAST_LIGHT) && iconProp.light) {
+			icon = iconProp.light;
+		} else if ((colorThemeType === ColorScheme.DARK || colorThemeType === ColorScheme.HIGH_CONTRAST_DARK) && iconProp.dark) {
+			icon = iconProp.dark;
+		} else {
+			// Fallback to the dark icon if the light icon is not available.
+			icon = iconProp.light ?? iconProp.dark;
+		}
+
+		// Build the icon style.
+		const iconStyle: React.CSSProperties = {};
+		if (icon) {
+			iconStyle.width = '16px';
+			iconStyle.height = '16px';
+			iconStyle.backgroundSize = '16px';
+			iconStyle.backgroundPosition = '50%';
+			iconStyle.backgroundRepeat = 'no-repeat';
+			iconStyle.backgroundImage = asCSSUrl(icon);
+		}
+
+		return (
+			<div
+				ref={ref}
+				className={className}
+				style={{ ...style, ...iconStyle }}
+				{...rest}
+			/>
+		);
 	}
-
-	// Build the icon style.
-	const iconStyle: React.CSSProperties = {};
-	if (icon) {
-		iconStyle.width = '16px';
-		iconStyle.height = '16px';
-		iconStyle.backgroundSize = '16px';
-		iconStyle.backgroundPosition = '50%';
-		iconStyle.backgroundRepeat = 'no-repeat';
-		iconStyle.backgroundImage = asCSSUrl(icon);
-	}
-
-	return (
-		<div
-			className={props.className}
-			style={{ ...props.style, ...iconStyle }}
-		/>
-	);
-};
+);
 
 /**
  * Icon component - renders an icon with theme-aware styling.
@@ -107,21 +110,15 @@ export const URIIcon = (props: URIIconProps) => {
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const Icon = (props: IconProps) => {
-	if (ThemeIconClass.isThemeIcon(props.icon)) {
-		return <ThemeIcon
-			className={props.className}
-			icon={props.icon}
-			style={props.style}
-		/>;
-	} else {
-		return <URIIcon
-			className={props.className}
-			icon={props.icon}
-			style={props.style}
-		/>;
+export const Icon = React.forwardRef<HTMLDivElement, IconProps>(
+	({ icon, ...rest }, ref) => {
+		if (ThemeIconClass.isThemeIcon(icon)) {
+			return <ThemeIcon ref={ref} icon={icon} {...rest} />;
+		} else {
+			return <URIIcon ref={ref} icon={icon} {...rest} />;
+		}
 	}
-};
+);
 
 /** An icon representing a developer error. */
 export const DevErrorIcon = () => {
@@ -130,4 +127,4 @@ export const DevErrorIcon = () => {
 		icon={Codicon.blank}
 		style={{ backgroundColor: asCssVariable(editorErrorForeground) }}
 	/>;
-}
+};
