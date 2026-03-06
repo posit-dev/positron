@@ -651,6 +651,9 @@
 		],
 		"github-enterprise": [
 			"GitHub.copilot-chat"
+		],
+		"posit-workbench": [
+			"positron.positron-assistant"
 		]
 	}
 }
