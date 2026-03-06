@@ -204,7 +204,9 @@ def _get_document_line(
 ) -> _DocumentContext:
     """Extract the document and current line from a position request."""
     document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    lines = document.lines
+    line_idx = params.position.line
+    line = lines[line_idx] if lines and 0 <= line_idx < len(lines) else ""
     return _DocumentContext(document=document, line=line)
 
 

@@ -1697,3 +1697,13 @@ class TestGetDocumentLine:
         )
         ctx = _get_document_line(server, params)
         assert ctx.line == ""
+
+    def test_out_of_range_line(self) -> None:
+        server = create_test_server()
+        create_text_document(server, TEST_DOCUMENT_URI, "hello")
+        params = CompletionParams(
+            TextDocumentIdentifier(TEST_DOCUMENT_URI),
+            Position(5, 0),
+        )
+        ctx = _get_document_line(server, params)
+        assert ctx.line == ""
