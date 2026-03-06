@@ -377,9 +377,13 @@ def test_open_data_explorer_preserves_variable_path(de_service: DataExplorerServ
         table, "my_df", variable_path=var_path, inline_only=True
     )
 
-    initial_count = len(de_service.table_views)
-    de_service._open_data_explorer(inline_comm_id)
-    assert len(de_service.table_views) == initial_count + 1
+    # Send open_data_explorer via the RPC path (not the private method)
+    comm = cast("DummyComm", de_service.comms[inline_comm_id].comm)
+    comm.messages.clear()
+    request = json_rpc_request("open_data_explorer", comm_id=inline_comm_id)
+    comm.handle_msg(request)
+
+    assert len(de_service.table_views) == 2
 
     new_comm_id = [cid for cid in de_service.table_views if cid != inline_comm_id][0]
     assert new_comm_id in de_service.comm_id_to_path
