@@ -144,6 +144,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const pendingFocusIndexRef = useRef<number>(-1);
 	const isAtBottomRef = useRef<boolean>(true);
 	const prevListItemsLengthRef = useRef<number>(0);
+	const scrollOffsetPerLanguageRef = useRef<Map<string, number>>(new Map());
+	const currentScrollOffsetRef = useRef<number>(0);
+	const pendingScrollRestoreRef = useRef<string | null>(null);
 
 	// Wrappers that update both state and refs synchronously,
 	// so event handlers that fire before the next render read current values.
@@ -201,10 +204,31 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	/**
 	 * Reset all row heights when list items change (e.g., language change, search filter change).
 	 * This is needed because all entries are replaced with new ones that have different heights.
+	 *
+	 * Also restore the saved scroll position when switching languages. The scroll
+	 * restore is done in a requestAnimationFrame so it runs after react-window has
+	 * processed the height reset and re-rendered.
 	 */
 	useEffect(() => {
 		if (listRef.current) {
 			listRef.current.resetAfterIndex(0);
+		}
+
+		const pendingLang = pendingScrollRestoreRef.current;
+		if (pendingLang && listRef.current && listItems.length > 0 && containerRef.current) {
+			pendingScrollRestoreRef.current = null;
+			const savedOffset = scrollOffsetPerLanguageRef.current.get(pendingLang);
+			const targetWindow = DOM.getWindow(containerRef.current);
+			targetWindow.requestAnimationFrame(() => {
+				if (listRef.current) {
+					if (savedOffset !== undefined) {
+						listRef.current.scrollTo(savedOffset);
+					} else {
+						// No saved position for this language; scroll to the bottom
+						listRef.current.scrollToItem(listItemsRef.current.length - 1, 'end');
+					}
+				}
+			});
 		}
 	}, [listItems]);
 
@@ -537,9 +561,21 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	}, [executionHistoryService, runtimeSessionService]);
 
 	/**
+	 * Save the current scroll position for the current language before switching away.
+	 */
+	const saveScrollPosition = () => {
+		const lang = currentLanguageRef.current;
+		if (lang) {
+			scrollOffsetPerLanguageRef.current.set(lang, currentScrollOffsetRef.current);
+		}
+	};
+
+	/**
 	 * Handle language selection from dropdown
 	 */
 	const handleSelectLanguage = (languageId: string) => {
+		saveScrollPosition();
+		pendingScrollRestoreRef.current = languageId;
 		setCurrentLanguage(languageId);
 	};
 
@@ -699,6 +735,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Handle scroll event to update auto-scroll state and sticky header
 	 */
 	const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
+
+		// Track current scroll offset for per-language save/restore
+		currentScrollOffsetRef.current = scrollOffset;
 
 		// Track whether we're scrolled to the bottom (within a small threshold)
 		const viewportHeight = Math.max(lastValidHeightRef.current, height) - 30;
@@ -924,6 +963,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			runtimeSessionService.onDidChangeForegroundSession(session => {
 				if (session) {
 					const languageId = session.runtimeMetadata.languageId;
+					saveScrollPosition();
+					pendingScrollRestoreRef.current = languageId;
 					setCurrentLanguage(languageId);
 				}
 				// Rediscover languages when foreground session changes
