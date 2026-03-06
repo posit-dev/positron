@@ -59,12 +59,13 @@ function getErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
 	}
-	return String(error ?? localize('positron.notebook.errorBoundary.unknownError', "Unknown error"));
+	return String(error ?? unknownErrorLabel);
 }
 
 /**
  * Localized strings.
  */
+const unknownErrorLabel = localize('positron.notebook.errorBoundary.unknownError', "Unknown error");
 const levelMessages: Record<ErrorBoundaryLevel, string> = {
 	output: localize('positron.notebook.errorBoundary.output', "Something went wrong rendering this output."),
 	cell: localize('positron.notebook.errorBoundary.cell', "Something went wrong rendering this cell."),
