@@ -5,6 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { randomUUID } from 'crypto';
 import { RSession } from './session';
 
 /**
@@ -55,7 +56,9 @@ export class RPackageManager {
 			pkgSpecs = packages.map(p => p.name);
 		}
 
-		await this._session.callMethod('pkg_install', pkgSpecs, method);
+		const pkgVector = this._formatRVector(pkgSpecs);
+		const code = `.ps.rpc.pkg_install(${pkgVector}, "${method}")`;
+		await this._executeAndWait(code);
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -79,7 +82,9 @@ export class RPackageManager {
 			pkgSpecs = packages.map(p => p.name);
 		}
 
-		await this._session.callMethod('pkg_install', pkgSpecs, method);
+		const pkgVector = this._formatRVector(pkgSpecs);
+		const code = `.ps.rpc.pkg_install(${pkgVector}, "${method}")`;
+		await this._executeAndWait(code);
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -88,7 +93,8 @@ export class RPackageManager {
 	 */
 	async updateAllPackages(): Promise<void> {
 		const method = await this._ensurePak();
-		await this._session.callMethod('pkg_update_all', method);
+		const code = `.ps.rpc.pkg_update_all("${method}")`;
+		await this._executeAndWait(code);
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -102,7 +108,9 @@ export class RPackageManager {
 		}
 
 		const method = await this._getPakMethod();
-		await this._session.callMethod('pkg_uninstall', packageNames, method);
+		const pkgVector = this._formatRVector(packageNames);
+		const code = `.ps.rpc.pkg_uninstall(${pkgVector}, "${method}")`;
+		await this._executeAndWait(code);
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -184,7 +192,7 @@ export class RPackageManager {
 		const install = await this._promptInstallPak();
 		if (install) {
 			// Use base R to install pak
-			await this._session.callMethod('install_packages', ['pak']);
+			await this._executeAndWait('install.packages("pak")');
 			const nowHasPak = await this._detectPak();
 			return nowHasPak ? 'pak' : 'base';
 		} else {
@@ -206,5 +214,52 @@ export class RPackageManager {
 		if (!/^[a-zA-Z]([a-zA-Z0-9.]*[a-zA-Z0-9])?$/.test(name)) {
 			throw new Error(`Invalid R package name: "${name}". Package names must start with a letter, contain only letters, numbers, and periods, and cannot end with a period.`);
 		}
+	}
+
+	/**
+	 * Format an array of strings as an R character vector.
+	 */
+	private _formatRVector(items: string[]): string {
+		const escaped = items.map(s => `"${s.replace(/"/g, '\\"')}"`);
+		return `c(${escaped.join(', ')})`;
+	}
+
+	/**
+	 * Execute R code in the console and wait for completion.
+	 * Uses Interactive mode so output appears in the console.
+	 */
+	private async _executeAndWait(code: string): Promise<void> {
+		const id = randomUUID();
+
+		const promise = new Promise<void>((resolve, reject) => {
+			const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
+				if (msg.parent_id !== id) {
+					return;
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.State) {
+					const stateMsg = msg as positron.LanguageRuntimeState;
+					if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
+						resolve();
+						disp.dispose();
+					}
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.Error) {
+					const errorMsg = msg as positron.LanguageRuntimeError;
+					reject(new Error(errorMsg.message));
+					disp.dispose();
+				}
+			});
+		});
+
+		this._session.execute(
+			code,
+			id,
+			positron.RuntimeCodeExecutionMode.NonInteractive,
+			positron.RuntimeErrorBehavior.Continue
+		);
+
+		return promise;
 	}
 }
