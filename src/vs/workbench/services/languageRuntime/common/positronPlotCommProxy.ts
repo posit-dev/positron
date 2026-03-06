@@ -66,18 +66,10 @@ export class PositronPlotCommProxy extends Disposable {
 
 	constructor(
 		client: IRuntimeClientInstance<any, any>,
-		private readonly _sessionRenderQueue: PositronPlotRenderQueue,
-		intrinsicSize?: IntrinsicSize) {
+		private readonly _sessionRenderQueue: PositronPlotRenderQueue) {
 		super();
 
 		this._comm = new PositronPlotComm(client, { render: { timeout: 30000 }, get_intrinsic_size: { timeout: 30000 } });
-
-		// If intrinsic size was provided (e.g., from comm_open data), cache it
-		// to avoid RPC calls that may fail if the comm is closed quickly
-		if (intrinsicSize) {
-			this._intrinsicSize = intrinsicSize;
-			this._receivedIntrinsicSize = true;
-		}
 
 		this._register(this._closeEmitter);
 		this._register(this._renderUpdateEmitter);

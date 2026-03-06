@@ -46,7 +46,7 @@ import { WebviewPlotClient } from './webviewPlotClient.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
-import { IntrinsicSize, PlotResult } from '../../../services/languageRuntime/common/positronPlotComm.js';
+import { PlotResult } from '../../../services/languageRuntime/common/positronPlotComm.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
@@ -835,7 +835,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const code = this._recentExecutions.has(event.message.parent_id) ?
 					this._recentExecutions.get(event.message.parent_id)! : '';
 
-				const data = event.message.data as { pre_render?: PlotResult; intrinsic_size?: IntrinsicSize };
+				const data = event.message.data as { pre_render?: PlotResult };
 
 				// Create the metadata object
 				const metadata: IPositronPlotMetadata = {
@@ -849,8 +849,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					zoom_level: ZoomLevel.Fit,
 				};
 
-				// Register the plot client, passing intrinsic_size from comm_open to avoid RPC calls
-				const commProxy = this.createCommProxy(event.client, metadata, data?.intrinsic_size);
+				// Register the plot client
+				const commProxy = this.createCommProxy(event.client, metadata);
 				const plotClient = this.createRuntimePlotClient(commProxy, metadata);
 				// Fetch metadata from the backend to populate kind, name, execution_id, and code
 				this.fetchAndUpdateMetadata(commProxy, metadata, plotClient);
@@ -1598,13 +1598,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 *
 	 * @param client
 	 * @param metadata
-	 * @param intrinsicSize Optional intrinsic size from comm_open data
 	 * @returns A new PositronPlotCommProxy instance.
 	 */
 	private createCommProxy(
 		client: IRuntimeClientInstance<unknown, unknown>,
-		metadata: IPositronPlotMetadata,
-		intrinsicSize?: IntrinsicSize): PositronPlotCommProxy {
+		metadata: IPositronPlotMetadata): PositronPlotCommProxy {
 
 		// Get or create the render queue for this session
 		let renderQueue = this._renderQueues.get(metadata.session_id);
@@ -1620,7 +1618,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 		}
 
-		const commProxy = new PositronPlotCommProxy(client, renderQueue, intrinsicSize);
+		const commProxy = new PositronPlotCommProxy(client, renderQueue);
 		this._plotCommProxies.set(metadata.id, commProxy);
 
 		this._register(commProxy.onDidClose(() => {

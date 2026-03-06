@@ -438,12 +438,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			return Promise.resolve(this._lastRender);
 		}
 
-		// If the comm is closed and we have a cached render, return it as a fallback
-		// rather than making an RPC call that will fail (e.g., after plt.close())
-		if (this._state === PlotClientState.Closed && this._lastRender) {
-			return Promise.resolve(this._lastRender);
-		}
-
 		// Create a new deferred promise to track the render request
 		const request: RenderRequest = {
 			size: sizeInt,
@@ -495,17 +489,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// throttle the request.
 		this._stateEmitter.fire(PlotClientState.RenderPending);
 		this._renderThrottleTimer = setTimeout(() => {
-			// If the comm was closed while waiting (e.g., plt.close() called),
-			// don't make the RPC call - use the cached render if available
-			if (this._state === PlotClientState.Closed) {
-				if (this._lastRender) {
-					request.complete(this._lastRender);
-				} else {
-					request.cancel();
-				}
-				return;
-			}
-
 			this._stateEmitter.fire(PlotClientState.Rendering);
 
 			request.promise.then((rendered) => {

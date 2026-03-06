@@ -300,15 +300,6 @@ class PlotsService:
         # Build data to send with comm_open
         open_data: dict = {}
 
-        # Include intrinsic_size so frontend doesn't need to request it
-        if intrinsic_size is not None:
-            open_data["intrinsic_size"] = IntrinsicSize(
-                width=intrinsic_size[0],
-                height=intrinsic_size[1],
-                unit=PlotUnit.Inches,
-                source=kind,
-            ).dict()
-
         # Generate pre-render
         if self._current_render_settings is not None:
             try:
