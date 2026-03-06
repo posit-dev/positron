@@ -13,7 +13,7 @@ test.use({
 
 test.beforeEach(async function ({ app, sessions }) {
 	await sessions.expectAllSessionsToBeReady();
-	await app.workbench.layouts.enterLayout("stacked");
+	await app.workbench.layouts.enterLayout('stacked');
 });
 
 test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB, tags.ARK] }, () => {
@@ -37,24 +37,10 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 		await verifyPyprojectTomlNotCreated(app);
 	});
 
-	test('R - Accept Renv install', { tag: [tags.WIN] }, async function ({ app }) {
-		const folderName = addRandomNumSuffix('r-installRenv');
+	test('R - Renv already installed', { tag: [tags.WIN] }, async function ({ app, packages }) {
 
-		await createNewFolder(app, {
-			folderTemplate,
-			folderName,
-			rEnvCheckbox: true,
-		});
+		await packages.manage('renv', 'install');
 
-		await handleRenvInstallModal(app, 'install');
-		await verifyFolderCreation(app, folderName);
-		await verifyConsoleReady(app, folderTemplate);
-		await verifyRenvFilesArePresent(app);
-		await app.workbench.console.waitForConsoleContents('renv activated');
-	});
-
-	test('R - Renv already installed', { tag: [tags.WIN] }, async function ({ app }) {
-		// Renv will already be installed from the previous test - which is why tests are marked as "serial"
 		const folderName = addRandomNumSuffix('r-renvAlreadyInstalled');
 		await createNewFolder(app, {
 			folderTemplate,
