@@ -5,7 +5,7 @@
 
 import type { SVGProps } from 'react';
 
-export const AzureAI = (props: SVGProps<SVGSVGElement>) => (
+export const MicrosoftFoundry = (props: SVGProps<SVGSVGElement>) => (
 	<svg
 		height='1em'
 		style={{
@@ -17,7 +17,7 @@ export const AzureAI = (props: SVGProps<SVGSVGElement>) => (
 		xmlns='http://www.w3.org/2000/svg'
 		{...props}
 	>
-		<title>AzureAI</title>
+		<title>MicrosoftFoundry</title>
 		<path
 			clipRule='evenodd'
 			d='M16.233 0c.713 0 1.345.551 1.572 1.329.227.778 1.555 5.59 1.555 5.59v9.562h-4.813L14.645 0h1.588z'
@@ -75,4 +75,4 @@ export const AzureAI = (props: SVGProps<SVGSVGElement>) => (
 		</defs>
 	</svg>
 );
-export default AzureAI;
+export default MicrosoftFoundry;

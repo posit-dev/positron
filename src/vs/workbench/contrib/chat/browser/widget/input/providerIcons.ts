@@ -44,7 +44,7 @@ const bedrockSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
 	<path d="M12 2L4.5 6v12l7.5 4 7.5-4V6L12 2zm5 13.17l-5 2.67-5-2.67V8.83l5-2.67 5 2.67v6.34z" fill="url(#bedrockGradient)"/>
 </svg>`;
 
-const azureAISvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+const msFoundrySvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 	<path clip-rule="evenodd" d="M16.233 0c.713 0 1.345.551 1.572 1.329.227.778 1.555 5.59 1.555 5.59v9.562h-4.813L14.645 0h1.588z" fill="url(#lobe-icons-azure-ai-fill-0)" fill-rule="evenodd"/>
 	<path d="M23.298 7.47c0-.34-.275-.6-.6-.6h-2.835a3.617 3.617 0 00-3.614 3.615v5.996h3.436a3.617 3.617 0 003.613-3.614V7.47z" fill="url(#lobe-icons-azure-ai-fill-1)"/>
 	<path clip-rule="evenodd" d="M16.233 0a.982.982 0 00-.989.989l-.097 18.198A4.814 4.814 0 0110.334 24H1.6a.597.597 0 01-.567-.794l7-19.981A4.819 4.819 0 0112.57 0h3.679-.016z" fill="url(#lobe-icons-azure-ai-fill-2)" fill-rule="evenodd"/>
@@ -104,8 +104,8 @@ export function getProviderIcon(vendor: string, isDarkTheme?: boolean): Provider
 			return createSvgIcon(geminiSvg);
 		case 'amazon-bedrock':
 			return createSvgIcon(bedrockSvg);
-		case 'azure':
-			return createSvgIcon(azureAISvg);
+		case 'ms-foundry':
+			return createSvgIcon(msFoundrySvg);
 		case 'posit-ai':
 			return {
 				themeIcon: ThemeIcon.fromId('positron-assistant')

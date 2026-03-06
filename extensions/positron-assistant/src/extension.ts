@@ -245,25 +245,25 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
 }
 
 /**
- * Registers a listener for deferred Azure autoconfigure.
+ * Registers a listener for deferred Foundry autoconfigure.
  * Handles the case where the Workbench extension activates after
  * Positron Assistant's initial autoconfigure pass.
  */
-function registerDeferredAzureAutoconfigure(context: vscode.ExtensionContext) {
-	// Skip if Azure is already autoconfigured from the initial pass.
+function registerDeferredFoundryAutoconfigure(context: vscode.ExtensionContext) {
+	// Skip if Foundry is already autoconfigured from the initial pass.
 	const existingModels = getAutoconfiguredModels();
-	if (existingModels.some(m => m.provider === PROVIDER_METADATA.azure.id)) {
+	if (existingModels.some(m => m.provider === PROVIDER_METADATA.foundry.id)) {
 		return;
 	}
 
-	const azureProvider = getModelProviders().find(
-		p => p.source.provider.id === PROVIDER_METADATA.azure.id
+	const foundryProvider = getModelProviders().find(
+		p => p.source.provider.id === PROVIDER_METADATA.foundry.id
 	);
-	if (!azureProvider?.autoconfigure) {
+	if (!foundryProvider?.autoconfigure) {
 		return;
 	}
 
-	// The Workbench extension may not have fetched an Azure token yet when
+	// The Workbench extension may not have fetched a Foundry token yet when
 	// the initial autoconfigure runs. Retry with increasing delays to give
 	// the Workbench auth provider time to acquire the token.
 	const retryDelays = [10_000, 30_000];
@@ -272,35 +272,35 @@ function registerDeferredAzureAutoconfigure(context: vscode.ExtensionContext) {
 	async function tryDeferredAutoconfigure() {
 		// Check again in case it was configured between retries.
 		const models = getAutoconfiguredModels();
-		if (models.some(m => m.provider === PROVIDER_METADATA.azure.id)) {
-			log.debug('[Azure] Already autoconfigured, skipping deferred retry');
+		if (models.some(m => m.provider === PROVIDER_METADATA.foundry.id)) {
+			log.debug('[Foundry] Already autoconfigured, skipping deferred retry');
 			return;
 		}
 
 		attempt++;
-		log.debug(`[Azure] Deferred autoconfigure attempt ${attempt}`);
+		log.debug(`[Foundry] Deferred autoconfigure attempt ${attempt}`);
 
 		try {
-			const result = await azureProvider.autoconfigure!();
+			const result = await foundryProvider.autoconfigure!();
 			if (!result.configured) {
 				if (attempt < retryDelays.length) {
-					log.debug(`[Azure] Deferred autoconfigure not ready, retrying in ${retryDelays[attempt] / 1000}s`);
+					log.debug(`[Foundry] Deferred autoconfigure not ready, retrying in ${retryDelays[attempt] / 1000}s`);
 					setTimeout(tryDeferredAutoconfigure, retryDelays[attempt]);
 				} else {
-					log.debug('[Azure] Deferred autoconfigure exhausted retries');
+					log.debug('[Foundry] Deferred autoconfigure exhausted retries');
 				}
 				return;
 			}
 
 			const modelConfig: ModelConfig = {
-				id: azureProvider.source.provider.id,
-				provider: azureProvider.source.provider.id,
+				id: foundryProvider.source.provider.id,
+				provider: foundryProvider.source.provider.id,
 				type: positron.PositronLanguageModelType.Chat,
-				name: azureProvider.source.provider.displayName,
-				model: azureProvider.source.defaults.model,
+				name: foundryProvider.source.provider.displayName,
+				model: foundryProvider.source.defaults.model,
 				apiKey: '',
-				toolCalls: azureProvider.source.defaults.toolCalls,
-				completions: azureProvider.source.defaults.completions,
+				toolCalls: foundryProvider.source.defaults.toolCalls,
+				completions: foundryProvider.source.defaults.completions,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,
 					message: result.message,
@@ -310,13 +310,13 @@ function registerDeferredAzureAutoconfigure(context: vscode.ExtensionContext) {
 
 			await registerModelWithAPI(modelConfig, context);
 			addAutoconfiguredModel(modelConfig);
-			log.info('[Azure] Deferred autoconfigure succeeded');
+			log.info('[Foundry] Deferred autoconfigure succeeded');
 		} catch (e) {
-			log.warn(`[Azure] Deferred autoconfigure failed: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
+			log.warn(`[Foundry] Deferred autoconfigure failed: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
 		}
 	}
 
-	log.debug(`[Azure] Scheduling deferred autoconfigure retry in ${retryDelays[0] / 1000}s`);
+	log.debug(`[Foundry] Scheduling deferred autoconfigure retry in ${retryDelays[0] / 1000}s`);
 	setTimeout(tryDeferredAutoconfigure, retryDelays[0]);
 }
 
@@ -337,13 +337,13 @@ function registerAssistant(context: vscode.ExtensionContext) {
 			return registerModels(context);
 		})
 		.then(() => {
-			// Register deferred autoconfigure for Workbench managed Azure credentials.
+			// Register deferred autoconfigure for Workbench managed Foundry credentials.
 			// The Workbench extension may activate after this extension's initial
 			// autoconfigure pass, so we listen for auth session changes.
-			registerDeferredAzureAutoconfigure(context);
+			registerDeferredFoundryAutoconfigure(context);
 		})
 		.catch((e) => {
-			log.error(`[Azure] Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
+			log.error(`[Foundry] Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
 
 	// Track opened files for completion context

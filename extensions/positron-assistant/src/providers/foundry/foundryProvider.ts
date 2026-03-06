@@ -9,12 +9,12 @@ import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
-import { autoconfigureWithManagedCredentials, AZURE_MANAGED_CREDENTIALS } from '../../pwb.js';
+import { autoconfigureWithManagedCredentials, FOUNDRY_MANAGED_CREDENTIALS } from '../../pwb.js';
 import { createOpenAICompatibleFetch } from '../../openai-fetch-utils.js';
 import { log } from '../../log.js';
 
 /**
- * Azure OpenAI Service model provider implementation.
+ * Microsoft Foundry model provider implementation.
  *
  * Uses the OpenAI v1 API (`{endpoint}/openai/v1/chat/completions`) which is
  * compatible with both `.openai.azure.com` and `.services.ai.azure.com` endpoints.
@@ -29,7 +29,7 @@ import { log } from '../../log.js';
  *
  * @see {@link VercelModelProvider} for base class documentation
  */
-export class AzureModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class FoundryModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	protected declare aiProvider: OpenAIProvider;
 	private _hasShownAuthError = false;
 
@@ -41,7 +41,7 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: PROVIDER_METADATA.azure,
+		provider: PROVIDER_METADATA.foundry,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
 			name: 'GPT-4.1',
@@ -73,7 +73,7 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 	 */
 	get baseUrl(): string {
 		if (this.isWorkbenchManaged) {
-			const wbConfig = AzureModelProvider.getWorkbenchConfig();
+			const wbConfig = FoundryModelProvider.getWorkbenchConfig();
 			return `${wbConfig.endpoint.replace(/\/+$/, '')}/openai/v1`;
 		}
 		// Manual mode: user provides full base URL
@@ -83,22 +83,22 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 	/**
 	 * Autoconfigures using Workbench managed credentials.
 	 * Returns { configured: false } when not on PWB, credentials unavailable,
-	 * or Workbench Azure settings are not configured.
+	 * or Workbench Foundry settings are not configured.
 	 */
 	static override async autoconfigure() {
 		const result = await autoconfigureWithManagedCredentials(
-			AZURE_MANAGED_CREDENTIALS,
-			AzureModelProvider.source.provider.id,
-			AzureModelProvider.source.provider.displayName
+			FOUNDRY_MANAGED_CREDENTIALS,
+			FoundryModelProvider.source.provider.id,
+			FoundryModelProvider.source.provider.displayName
 		);
 		if (!result.configured) {
 			return result;
 		}
 
-		// Validate that Workbench Azure endpoint exists before advertising as configured.
-		const wbConfig = AzureModelProvider.getWorkbenchConfig();
+		// Validate that Workbench Foundry endpoint exists before advertising as configured.
+		const wbConfig = FoundryModelProvider.getWorkbenchConfig();
 		if (!wbConfig.endpoint) {
-			log.debug('[Azure] Workbench endpoint not configured, skipping autoconfigure');
+			log.debug('[Foundry] Workbench endpoint not configured, skipping autoconfigure');
 			return { configured: false };
 		}
 
@@ -106,7 +106,7 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 	}
 
 	/**
-	 * Reads Azure OpenAI config from the Workbench extension's VS Code settings.
+	 * Reads Foundry config from the Workbench extension's VS Code settings.
 	 * Only used in Workbench managed mode.
 	 *
 	 * Supports both the new `endpoint` setting and the deprecated `resourceName`
@@ -179,26 +179,26 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 			);
 
 			if (!session) {
-				this.handleAuthError('No Azure credentials available. Contact your Workbench administrator.');
-				throw new Error('Azure OpenAI authentication unavailable.');
+				this.handleAuthError('No Foundry credentials available. Contact your Workbench administrator.');
+				throw new Error('Microsoft Foundry authentication unavailable.');
 			}
 
 			this._hasShownAuthError = false;
 			return session.accessToken;
 		} catch (e) {
-			if (e instanceof Error && e.message === 'Azure OpenAI authentication unavailable.') {
+			if (e instanceof Error && e.message === 'Microsoft Foundry authentication unavailable.') {
 				throw e;
 			}
-			this.handleAuthError(`Failed to get Azure credentials: ${e instanceof Error ? e.message : String(e)}`);
-			throw new Error('Azure OpenAI authentication unavailable.');
+			this.handleAuthError(`Failed to get Foundry credentials: ${e instanceof Error ? e.message : String(e)}`);
+			throw new Error('Microsoft Foundry authentication unavailable.');
 		}
 	}
 
 	private handleAuthError(message: string): void {
-		log.error(`[Azure] ${message}`);
+		log.error(`[Foundry] ${message}`);
 		if (!this._hasShownAuthError) {
 			this._hasShownAuthError = true;
-			vscode.window.showErrorMessage(`Azure OpenAI: ${message}`);
+			vscode.window.showErrorMessage(`Microsoft Foundry: ${message}`);
 		}
 	}
 

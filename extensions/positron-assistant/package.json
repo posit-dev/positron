@@ -488,10 +488,10 @@
               "advanced"
             ]
           },
-          "positron.assistant.models.preference.microsoftFoundry": {
+          "positron.assistant.models.preference.msFoundry": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.preference.microsoftFoundry.description%",
+            "markdownDescription": "%configuration.models.preference.msFoundry.description%",
             "tags": [
               "advanced"
             ]
@@ -747,10 +747,10 @@
               ]
             }
           },
-          "positron.assistant.models.overrides.microsoftFoundry": {
+          "positron.assistant.models.overrides.msFoundry": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.overrides.microsoftFoundry.description%",
+            "markdownDescription": "%configuration.models.overrides.msFoundry.description%",
             "tags": [
               "advanced"
             ],
@@ -884,10 +884,10 @@
             ],
             "order": 7
           },
-          "positron.assistant.provider.microsoftFoundry.enable": {
+          "positron.assistant.provider.msFoundry.enable": {
             "type": "boolean",
             "default": false,
-            "markdownDescription": "%configuration.provider.microsoftFoundry.enable.description%",
+            "markdownDescription": "%configuration.provider.msFoundry.enable.description%",
             "tags": [
               "experimental",
               "advanced"
@@ -919,8 +919,8 @@
         "managementCommand": "positron-assistant.configureProviders"
       },
       {
-        "vendor": "azure",
-        "displayName": "Azure",
+        "vendor": "ms-foundry",
+        "displayName": "Microsoft Foundry",
         "managementCommand": "positron-assistant.configureProviders"
       },
       {

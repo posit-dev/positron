@@ -4,15 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { Emitter } from '../../../../../../base/common/event.js';
-import { IDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Emitter, Event } from '../../../../../../base/common/event.js';
+import { DisposableStore, IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatSelector, ILanguageModelsGroup, ILanguageModelsService, IUserFriendlyLanguageModel, ILanguageModelProviderDescriptor, IPositronChatProvider, ILanguageModelsChangeEvent } from '../../../common/languageModels.js';
-import { ChatModelGroup, ChatModelsViewModel, ILanguageModelEntry, ILanguageModelProviderEntry, isLanguageModelProviderEntry, isLanguageModelGroupEntry, ILanguageModelGroupEntry } from '../../../browser/chatManagement/chatModelsViewModel.js';
+import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatSelector, ILanguageModelsService, IUserFriendlyLanguageModel } from '../../../common/languageModels.js';
+import { ChatModelGroup, ChatModelsViewModel, IModelItemEntry, IVendorItemEntry, isVendorEntry, isGroupEntry, IGroupItemEntry } from '../../../browser/chatManagement/chatModelsViewModel.js';
+import { IChatEntitlementService, ChatEntitlement } from '../../../../../services/chat/common/chatEntitlementService.js';
+import { IObservable, observableValue } from '../../../../../../base/common/observable.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
-import { IStringDictionary } from '../../../../../../base/common/collections.js';
-import { ILanguageModelsProviderGroup } from '../../../common/languageModelsConfiguration.js';
-import { ChatAgentLocation } from '../../../common/constants.js';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IPositronChatProvider, ILanguageModelsChangeEvent } from '../../../common/languageModels.js';
+// --- End Positron ---
 
 class MockLanguageModelsService implements ILanguageModelsService {
 	_serviceBrand: undefined;
@@ -20,26 +24,23 @@ class MockLanguageModelsService implements ILanguageModelsService {
 	private vendors: IUserFriendlyLanguageModel[] = [];
 	private models = new Map<string, ILanguageModelChatMetadata>();
 	private modelsByVendor = new Map<string, string[]>();
-	private modelGroups = new Map<string, ILanguageModelsGroup[]>();
 
 	private readonly _onDidChangeLanguageModels = new Emitter<string>();
 	readonly onDidChangeLanguageModels = this._onDidChangeLanguageModels.event;
 
-	private readonly _onDidChangeLanguageModelVendors = new Emitter<readonly string[]>();
-	readonly onDidChangeLanguageModelVendors = this._onDidChangeLanguageModelVendors.event;
-
 	// --- Start Positron ---
-	private _currentProvider: IPositronChatProvider | undefined;
 	private readonly _onDidChangeCurrentProvider = new Emitter<string | undefined>();
 	readonly onDidChangeCurrentProvider = this._onDidChangeCurrentProvider.event;
+
 	private readonly _onDidChangeProviders = new Emitter<ILanguageModelsChangeEvent>();
 	readonly onDidChangeProviders = this._onDidChangeProviders.event;
+
+	private _currentProvider: IPositronChatProvider | undefined;
 	// --- End Positron ---
 
 	addVendor(vendor: IUserFriendlyLanguageModel): void {
 		this.vendors.push(vendor);
 		this.modelsByVendor.set(vendor.vendor, []);
-		this.modelGroups.set(vendor.vendor, []);
 	}
 
 	addModel(vendorId: string, identifier: string, metadata: ILanguageModelChatMetadata): void {
@@ -47,27 +48,9 @@ class MockLanguageModelsService implements ILanguageModelsService {
 		const models = this.modelsByVendor.get(vendorId) || [];
 		models.push(identifier);
 		this.modelsByVendor.set(vendorId, models);
-
-		// Add to model groups - create a single default group per vendor
-		const groups = this.modelGroups.get(vendorId) || [];
-		if (groups.length === 0) {
-			groups.push({
-				group: {
-					vendor: vendorId,
-					name: this.vendors.find(v => v.vendor === vendorId)?.displayName || 'Default'
-				},
-				modelIdentifiers: []
-			});
-		}
-		groups[0].modelIdentifiers.push(identifier);
-		this.modelGroups.set(vendorId, groups);
 	}
 
-	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable {
-		throw new Error('Method not implemented.');
-	}
-
-	deltaLanguageModelChatProviderDescriptors(added: IUserFriendlyLanguageModel[], removed: IUserFriendlyLanguageModel[]): void {
+	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
 		throw new Error('Method not implemented.');
 	}
 
@@ -78,8 +61,8 @@ class MockLanguageModelsService implements ILanguageModelsService {
 		}
 	}
 
-	getVendors(): ILanguageModelProviderDescriptor[] {
-		return this.vendors.map(v => ({ ...v, isDefault: v.vendor === 'copilot' }));
+	getVendors(): IUserFriendlyLanguageModel[] {
+		return this.vendors;
 	}
 
 	getLanguageModelIds(): string[] {
@@ -88,15 +71,6 @@ class MockLanguageModelsService implements ILanguageModelsService {
 
 	lookupLanguageModel(identifier: string): ILanguageModelChatMetadata | undefined {
 		return this.models.get(identifier);
-	}
-
-	lookupLanguageModelByQualifiedName(referenceName: string): ILanguageModelChatMetadata | undefined {
-		for (const metadata of this.models.values()) {
-			if (ILanguageModelChatMetadata.matchesQualifiedName(referenceName, metadata)) {
-				return metadata;
-			}
-		}
-		return undefined;
 	}
 
 	getLanguageModels(): ILanguageModelChatMetadataAndIdentifier[] {
@@ -113,7 +87,7 @@ class MockLanguageModelsService implements ILanguageModelsService {
 	clearContributedSessionModels(): void {
 	}
 
-	async selectLanguageModels(selector: ILanguageModelChatSelector): Promise<string[]> {
+	async selectLanguageModels(selector: ILanguageModelChatSelector, allowHidden?: boolean): Promise<string[]> {
 		if (selector.vendor) {
 			return this.modelsByVendor.get(selector.vendor) || [];
 		}
@@ -128,8 +102,6 @@ class MockLanguageModelsService implements ILanguageModelsService {
 		throw new Error('Method not implemented.');
 	}
 
-	async configureLanguageModelsProviderGroup(vendorId: string, name?: string): Promise<void> {
-	}
 	// --- Start Positron ---
 	get currentProvider(): IPositronChatProvider | undefined {
 		return this._currentProvider;
@@ -158,48 +130,85 @@ class MockLanguageModelsService implements ILanguageModelsService {
 	getExtensionIdentifierForProvider(vendorId: string): ExtensionIdentifier | undefined {
 		return undefined;
 	}
-	getStoredProviderVendor(): string | undefined {
-		return undefined;
-	}
-	invalidateProvider(_vendorId: string): void { }
 	// --- End Positron ---
+}
 
-	async addLanguageModelsProviderGroup(name: string, vendorId: string, configuration: IStringDictionary<unknown> | undefined): Promise<void> {
+class MockChatEntitlementService implements IChatEntitlementService {
+	_serviceBrand: undefined;
+
+	private readonly _onDidChangeEntitlement = new Emitter<void>();
+	readonly onDidChangeEntitlement = this._onDidChangeEntitlement.event;
+
+	readonly entitlement = ChatEntitlement.Unknown;
+	readonly entitlementObs: IObservable<ChatEntitlement> = observableValue('entitlement', ChatEntitlement.Unknown);
+
+	readonly organisations: string[] | undefined = undefined;
+	readonly isInternal = false;
+	readonly sku: string | undefined = undefined;
+
+	readonly onDidChangeQuotaExceeded = Event.None;
+	readonly onDidChangeQuotaRemaining = Event.None;
+
+	readonly quotas = {
+		chat: {
+			total: 100,
+			remaining: 100,
+			percentRemaining: 100,
+			overageEnabled: false,
+			overageCount: 0,
+			unlimited: false
+		},
+		completions: {
+			total: 100,
+			remaining: 100,
+			percentRemaining: 100,
+			overageEnabled: false,
+			overageCount: 0,
+			unlimited: false
+		}
+	};
+
+	readonly onDidChangeSentiment = Event.None;
+	readonly sentiment: any = { installed: true, hidden: false, disabled: false };
+	readonly sentimentObs: IObservable<any> = observableValue('sentiment', { installed: true, hidden: false, disabled: false });
+
+	readonly onDidChangeAnonymous = Event.None;
+	readonly anonymous = false;
+	readonly anonymousObs: IObservable<boolean> = observableValue('anonymous', false);
+
+	fireEntitlementChange(): void {
+		this._onDidChangeEntitlement.fire();
 	}
 
-	getLanguageModelGroups(vendor: string): ILanguageModelsGroup[] {
-		return this.modelGroups.get(vendor) || [];
+	async update(): Promise<void> {
+		// Not needed for tests
 	}
-
-	async removeLanguageModelsProviderGroup(vendorId: string, providerGroupName: string): Promise<void> {
-	}
-
-	async migrateLanguageModelsProviderGroup(languageModelsProviderGroup: ILanguageModelsProviderGroup): Promise<void> { }
 }
 
 suite('ChatModelsViewModel', () => {
-	const store = ensureNoDisposablesAreLeakedInTestSuite();
+	let store: DisposableStore;
 	let languageModelsService: MockLanguageModelsService;
+	let chatEntitlementService: MockChatEntitlementService;
 	let viewModel: ChatModelsViewModel;
 
 	setup(async () => {
+		store = new DisposableStore();
 		languageModelsService = new MockLanguageModelsService();
+		chatEntitlementService = new MockChatEntitlementService();
 
 		// Setup test data
 		languageModelsService.addVendor({
 			vendor: 'copilot',
 			displayName: 'GitHub Copilot',
 			managementCommand: undefined,
-			when: undefined,
-			configuration: undefined
+			when: undefined
 		});
 
 		languageModelsService.addVendor({
 			vendor: 'openai',
 			displayName: 'OpenAI',
 			managementCommand: undefined,
-			when: undefined,
-			configuration: undefined
+			when: undefined
 		});
 
 		languageModelsService.addModel('copilot', 'copilot-gpt-4', {
@@ -217,9 +226,6 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: true,
 				vision: true,
 				agentMode: false
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 
@@ -238,9 +244,6 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: true,
 				vision: true,
 				agentMode: true
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 
@@ -259,9 +262,6 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: true,
 				vision: false,
 				agentMode: false
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 
@@ -280,16 +280,22 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: false,
 				vision: true,
 				agentMode: false
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 
-		viewModel = store.add(new ChatModelsViewModel(languageModelsService));
+		viewModel = store.add(new ChatModelsViewModel(
+			languageModelsService,
+			chatEntitlementService
+		));
 
 		await viewModel.refresh();
 	});
+
+	teardown(() => {
+		store.dispose();
+	});
+
+	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('should fetch all models without filters', () => {
 		const results = viewModel.filter('');
@@ -297,162 +303,158 @@ suite('ChatModelsViewModel', () => {
 		// Should have 2 vendor entries and 4 model entries (grouped by vendor)
 		assert.strictEqual(results.length, 6);
 
-		const vendors = results.filter(isLanguageModelProviderEntry);
+		const vendors = results.filter(isVendorEntry);
 		assert.strictEqual(vendors.length, 2);
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 4);
 	});
 
-	test('should filter by provider name (vendor ID and display name)', () => {
-		const resultsByCopilotId = viewModel.filter('@provider:copilot');
-		assert.strictEqual(resultsByCopilotId.length, 3);
-		assert.strictEqual(resultsByCopilotId[0].type, 'vendor');
-		assert.strictEqual(resultsByCopilotId[0].vendorEntry.vendor.vendor, 'copilot');
-		assert.strictEqual(resultsByCopilotId[1].type, 'model');
-		assert.strictEqual(resultsByCopilotId[1].model.identifier, 'copilot-gpt-4');
-		assert.strictEqual(resultsByCopilotId[2].type, 'model');
-		assert.strictEqual(resultsByCopilotId[2].model.identifier, 'copilot-gpt-4o');
+	test('should filter by provider name', () => {
+		const results = viewModel.filter('@provider:copilot');
 
-		const resultsByOpenAIName = viewModel.filter('@provider:OpenAI');
-		assert.strictEqual(resultsByOpenAIName.length, 3);
-		assert.strictEqual(resultsByOpenAIName[0].type, 'vendor');
-		assert.strictEqual(resultsByOpenAIName[0].vendorEntry.vendor.vendor, 'openai');
-		assert.strictEqual(resultsByOpenAIName[1].type, 'model');
-		assert.strictEqual(resultsByOpenAIName[1].model.identifier, 'openai-gpt-3.5');
-		assert.strictEqual(resultsByOpenAIName[2].type, 'model');
-		assert.strictEqual(resultsByOpenAIName[2].model.identifier, 'openai-gpt-4-vision');
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
+		assert.strictEqual(models.length, 2);
+		assert.ok(models.every(m => m.modelEntry.vendor === 'copilot'));
+	});
+
+	test('should filter by provider display name', () => {
+		const results = viewModel.filter('@provider:OpenAI');
+
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
+		assert.strictEqual(models.length, 2);
+		assert.ok(models.every(m => m.modelEntry.vendor === 'openai'));
 	});
 
 	test('should filter by multiple providers with OR logic', () => {
 		const results = viewModel.filter('@provider:copilot @provider:openai');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 4);
 	});
 
 	test('should filter by single capability - tools', () => {
 		const results = viewModel.filter('@capability:tools');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 3);
-		assert.ok(models.every(m => m.model.metadata.capabilities?.toolCalling === true));
+		assert.ok(models.every(m => m.modelEntry.metadata.capabilities?.toolCalling === true));
 	});
 
 	test('should filter by single capability - vision', () => {
 		const results = viewModel.filter('@capability:vision');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 3);
-		assert.ok(models.every(m => m.model.metadata.capabilities?.vision === true));
+		assert.ok(models.every(m => m.modelEntry.metadata.capabilities?.vision === true));
 	});
 
 	test('should filter by single capability - agent', () => {
 		const results = viewModel.filter('@capability:agent');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 1);
-		assert.strictEqual(models[0].model.metadata.id, 'gpt-4o');
+		assert.strictEqual(models[0].modelEntry.metadata.id, 'gpt-4o');
 	});
 
 	test('should filter by multiple capabilities with AND logic', () => {
 		const results = viewModel.filter('@capability:tools @capability:vision');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		// Should only return models that have BOTH tools and vision
 		assert.strictEqual(models.length, 2);
 		assert.ok(models.every(m =>
-			m.model.metadata.capabilities?.toolCalling === true &&
-			m.model.metadata.capabilities?.vision === true
+			m.modelEntry.metadata.capabilities?.toolCalling === true &&
+			m.modelEntry.metadata.capabilities?.vision === true
 		));
 	});
 
 	test('should filter by three capabilities with AND logic', () => {
 		const results = viewModel.filter('@capability:tools @capability:vision @capability:agent');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		// Should only return gpt-4o which has all three
 		assert.strictEqual(models.length, 1);
-		assert.strictEqual(models[0].model.metadata.id, 'gpt-4o');
+		assert.strictEqual(models[0].modelEntry.metadata.id, 'gpt-4o');
 	});
 
 	test('should return no results when filtering by incompatible capabilities', () => {
 		const results = viewModel.filter('@capability:vision @capability:agent');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		// Only gpt-4o has both vision and agent, but gpt-4-vision doesn't have agent
 		assert.strictEqual(models.length, 1);
-		assert.strictEqual(models[0].model.metadata.id, 'gpt-4o');
+		assert.strictEqual(models[0].modelEntry.metadata.id, 'gpt-4o');
 	});
 
 	test('should filter by visibility - visible:true', () => {
 		const results = viewModel.filter('@visible:true');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 3);
-		assert.ok(models.every(m => m.model.visible === true));
+		assert.ok(models.every(m => m.modelEntry.metadata.isUserSelectable === true));
 	});
 
 	test('should filter by visibility - visible:false', () => {
 		const results = viewModel.filter('@visible:false');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 1);
-		assert.strictEqual(models[0].model.visible, false);
+		assert.strictEqual(models[0].modelEntry.metadata.isUserSelectable, false);
 	});
 
 	test('should combine provider and capability filters', () => {
 		const results = viewModel.filter('@provider:copilot @capability:vision');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 2);
 		assert.ok(models.every(m =>
-			m.model.provider.vendor.vendor === 'copilot' &&
-			m.model.metadata.capabilities?.vision === true
+			m.modelEntry.vendor === 'copilot' &&
+			m.modelEntry.metadata.capabilities?.vision === true
 		));
 	});
 
 	test('should combine provider, capability, and visibility filters', () => {
 		const results = viewModel.filter('@provider:openai @capability:vision @visible:false');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 1);
-		assert.strictEqual(models[0].model.metadata.id, 'gpt-4-vision');
+		assert.strictEqual(models[0].modelEntry.metadata.id, 'gpt-4-vision');
 	});
 
 	test('should filter by text matching model name', () => {
 		const results = viewModel.filter('GPT-4o');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 1);
-		assert.strictEqual(models[0].model.metadata.name, 'GPT-4o');
+		assert.strictEqual(models[0].modelEntry.metadata.name, 'GPT-4o');
 		assert.ok(models[0].modelNameMatches);
 	});
 
 	test('should filter by text matching model id', () => {
-		const results = viewModel.filter('gpt-4o');
+		const results = viewModel.filter('copilot-gpt-4o');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 1);
-		assert.strictEqual(models[0].model.identifier, 'copilot-gpt-4o');
+		assert.strictEqual(models[0].modelEntry.identifier, 'copilot-gpt-4o');
 		assert.ok(models[0].modelIdMatches);
 	});
 
 	test('should filter by text matching vendor name', () => {
 		const results = viewModel.filter('GitHub');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 2);
-		assert.ok(models.every(m => m.model.provider.group.name === 'GitHub Copilot'));
+		assert.ok(models.every(m => m.modelEntry.vendorDisplayName === 'GitHub Copilot'));
 	});
 
 	test('should combine text search with capability filter', () => {
 		const results = viewModel.filter('@capability:tools GPT');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		// Should match all models with tools capability and 'GPT' in name
 		assert.strictEqual(models.length, 3);
-		assert.ok(models.every(m => m.model.metadata.capabilities?.toolCalling === true));
+		assert.ok(models.every(m => m.modelEntry.metadata.capabilities?.toolCalling === true));
 	});
 
 	test('should handle empty search value', () => {
@@ -472,27 +474,28 @@ suite('ChatModelsViewModel', () => {
 	test('should match capability text in free text search', () => {
 		const results = viewModel.filter('vision');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		// Should match models that have vision capability or "vision" in their name
 		assert.ok(models.length > 0);
 		assert.ok(models.every(m =>
-			m.model.metadata.capabilities?.vision === true ||
-			m.model.metadata.name.toLowerCase().includes('vision')
+			m.modelEntry.metadata.capabilities?.vision === true ||
+			m.modelEntry.metadata.name.toLowerCase().includes('vision')
 		));
 	});
 
 	test('should toggle vendor collapsed state', () => {
-		const vendorEntry = viewModel.viewModelEntries.find(r => isLanguageModelProviderEntry(r) && r.vendorEntry.vendor.vendor === 'copilot') as ILanguageModelProviderEntry;
+		const vendorEntry = viewModel.viewModelEntries.find(r => isVendorEntry(r) && r.vendorEntry.vendor === 'copilot') as IVendorItemEntry;
 		viewModel.toggleCollapsed(vendorEntry);
 
 		const results = viewModel.filter('');
-		const copilotVendor = results.find(r => isLanguageModelProviderEntry(r) && (r as ILanguageModelProviderEntry).vendorEntry.vendor.vendor === 'copilot') as ILanguageModelProviderEntry;
+		const copilotVendor = results.find(r => isVendorEntry(r) && (r as IVendorItemEntry).vendorEntry.vendor === 'copilot') as IVendorItemEntry;
+
 		assert.ok(copilotVendor);
 		assert.strictEqual(copilotVendor.collapsed, true);
 
 		// Models should not be shown when vendor is collapsed
 		const copilotModelsAfterCollapse = results.filter(r =>
-			!isLanguageModelProviderEntry(r) && (r as ILanguageModelEntry).model.provider.vendor.vendor === 'copilot'
+			!isVendorEntry(r) && (r as IModelItemEntry).modelEntry.vendor === 'copilot'
 		);
 		assert.strictEqual(copilotModelsAfterCollapse.length, 0);
 
@@ -500,9 +503,23 @@ suite('ChatModelsViewModel', () => {
 		viewModel.toggleCollapsed(vendorEntry);
 		const resultsAfterExpand = viewModel.filter('');
 		const copilotModelsAfterExpand = resultsAfterExpand.filter(r =>
-			!isLanguageModelProviderEntry(r) && (r as ILanguageModelEntry).model.provider.vendor.vendor === 'copilot'
+			!isVendorEntry(r) && (r as IModelItemEntry).modelEntry.vendor === 'copilot'
 		);
 		assert.strictEqual(copilotModelsAfterExpand.length, 2);
+	});
+
+	test('should fire onDidChangeModelEntries when entitlement changes', async () => {
+		let fired = false;
+		store.add(viewModel.onDidChange(() => {
+			fired = true;
+		}));
+
+		chatEntitlementService.fireEntitlementChange();
+
+		// Wait a bit for async resolve
+		await new Promise(resolve => setTimeout(resolve, 10));
+
+		assert.strictEqual(fired, true);
 	});
 
 	test('should handle quoted search strings', () => {
@@ -519,10 +536,10 @@ suite('ChatModelsViewModel', () => {
 	test('should remove filter keywords from text search', () => {
 		const results = viewModel.filter('@provider:copilot @capability:vision GPT');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		// Should only search 'GPT' in model names, not the filter keywords
 		assert.strictEqual(models.length, 2);
-		assert.ok(models.every(m => m.model.provider.vendor.vendor === 'copilot'));
+		assert.ok(models.every(m => m.modelEntry.vendor === 'copilot'));
 	});
 
 	test('should handle case-insensitive capability matching', () => {
@@ -530,9 +547,9 @@ suite('ChatModelsViewModel', () => {
 		const results2 = viewModel.filter('@capability:tools');
 		const results3 = viewModel.filter('@capability:Tools');
 
-		const models1 = results1.filter(r => !isLanguageModelProviderEntry(r));
-		const models2 = results2.filter(r => !isLanguageModelProviderEntry(r));
-		const models3 = results3.filter(r => !isLanguageModelProviderEntry(r));
+		const models1 = results1.filter(r => !isVendorEntry(r));
+		const models2 = results2.filter(r => !isVendorEntry(r));
+		const models3 = results3.filter(r => !isVendorEntry(r));
 
 		assert.strictEqual(models1.length, models2.length);
 		assert.strictEqual(models2.length, models3.length);
@@ -542,8 +559,8 @@ suite('ChatModelsViewModel', () => {
 		const resultsTools = viewModel.filter('@capability:tools');
 		const resultsToolCalling = viewModel.filter('@capability:toolcalling');
 
-		const modelsTools = resultsTools.filter(r => !isLanguageModelProviderEntry(r));
-		const modelsToolCalling = resultsToolCalling.filter(r => !isLanguageModelProviderEntry(r));
+		const modelsTools = resultsTools.filter(r => !isVendorEntry(r));
+		const modelsToolCalling = resultsToolCalling.filter(r => !isVendorEntry(r));
 
 		assert.strictEqual(modelsTools.length, modelsToolCalling.length);
 	});
@@ -552,8 +569,8 @@ suite('ChatModelsViewModel', () => {
 		const resultsAgent = viewModel.filter('@capability:agent');
 		const resultsAgentMode = viewModel.filter('@capability:agentmode');
 
-		const modelsAgent = resultsAgent.filter(r => !isLanguageModelProviderEntry(r));
-		const modelsAgentMode = resultsAgentMode.filter(r => !isLanguageModelProviderEntry(r));
+		const modelsAgent = resultsAgent.filter(r => !isVendorEntry(r));
+		const modelsAgentMode = resultsAgentMode.filter(r => !isVendorEntry(r));
 
 		assert.strictEqual(modelsAgent.length, modelsAgentMode.length);
 	});
@@ -561,7 +578,7 @@ suite('ChatModelsViewModel', () => {
 	test('should include matched capabilities in results', () => {
 		const results = viewModel.filter('@capability:tools @capability:vision');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.ok(models.length > 0);
 
 		for (const model of models) {
@@ -578,7 +595,6 @@ suite('ChatModelsViewModel', () => {
 		service.addVendor({
 			vendor: 'posit-ai',
 			displayName: 'Posit AI',
-			configuration: undefined,
 			managementCommand: undefined,
 			when: undefined
 		});
@@ -598,22 +614,19 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: true,
 				vision: true,
 				agentMode: true
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 	}
 	// --- End Positron ---
 
-	function createSingleVendorViewModel(includeSecondModel: boolean = true): { service: MockLanguageModelsService; viewModel: ChatModelsViewModel } {
+	// Helper function to create a single vendor test environment
+	function createSingleVendorViewModel(store: DisposableStore, chatEntitlementService: IChatEntitlementService, includeSecondModel: boolean = true): { service: MockLanguageModelsService; viewModel: ChatModelsViewModel } {
 		const service = new MockLanguageModelsService();
 		service.addVendor({
 			vendor: 'copilot',
 			displayName: 'GitHub Copilot',
 			managementCommand: undefined,
-			when: undefined,
-			configuration: undefined
+			when: undefined
 		});
 
 		service.addModel('copilot', 'copilot-gpt-4', {
@@ -631,9 +644,6 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: true,
 				vision: true,
 				agentMode: false
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 
@@ -653,30 +663,27 @@ suite('ChatModelsViewModel', () => {
 					toolCalling: true,
 					vision: true,
 					agentMode: true
-				},
-				isDefaultForLocation: {
-					[ChatAgentLocation.Chat]: true
 				}
 			});
 		}
 
-		const viewModel = store.add(new ChatModelsViewModel(service));
+		const viewModel = store.add(new ChatModelsViewModel(service, chatEntitlementService));
 		return { service, viewModel };
 	}
 
 	test('should not show vendor header when only one vendor exists', async () => {
-		const { viewModel: singleVendorViewModel } = createSingleVendorViewModel();
+		const { viewModel: singleVendorViewModel } = createSingleVendorViewModel(store, chatEntitlementService);
 		await singleVendorViewModel.refresh();
 
 		const results = singleVendorViewModel.filter('');
 
 		// Should have only model entries, no vendor entry
-		const vendors = results.filter(isLanguageModelProviderEntry);
+		const vendors = results.filter(isVendorEntry);
 		assert.strictEqual(vendors.length, 0, 'Should not show vendor header when only one vendor exists');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 2, 'Should show all models');
-		assert.ok(models.every(m => m.model.provider.vendor.vendor === 'copilot'));
+		assert.ok(models.every(m => m.modelEntry.vendor === 'copilot'));
 	});
 
 	test('should show vendor headers when multiple vendors exist', () => {
@@ -684,32 +691,32 @@ suite('ChatModelsViewModel', () => {
 		const results = viewModel.filter('');
 
 		// Should have 2 vendor entries and 4 model entries (grouped by vendor)
-		const vendors = results.filter(isLanguageModelProviderEntry);
+		const vendors = results.filter(isVendorEntry);
 		assert.strictEqual(vendors.length, 2, 'Should show vendor headers when multiple vendors exist');
 
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 4);
 	});
 
 	test('should filter single vendor models by capability', async () => {
-		const { viewModel: singleVendorViewModel } = createSingleVendorViewModel();
+		const { viewModel: singleVendorViewModel } = createSingleVendorViewModel(store, chatEntitlementService);
 		await singleVendorViewModel.refresh();
 
 		const results = singleVendorViewModel.filter('@capability:agent');
 
 		// Should not show vendor header
-		const vendors = results.filter(isLanguageModelProviderEntry);
+		const vendors = results.filter(isVendorEntry);
 		assert.strictEqual(vendors.length, 0, 'Should not show vendor header');
 
 		// Should only show the model with agent capability
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const models = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r)) as IModelItemEntry[];
 		assert.strictEqual(models.length, 1);
-		assert.strictEqual(models[0].model.metadata.id, 'gpt-4o');
+		assert.strictEqual(models[0].modelEntry.metadata.id, 'gpt-4o');
 	});
 
 	// --- Start Positron ---
 	/*
-	test('should always place copilot vendor at the top when multiple vendors exist', async () => {
+	test('should always place copilot vendor at the top', () => {
 	*/
 	test('should always place posit-ai vendor at the top', async () => {
 		addPositAiVendor(languageModelsService);
@@ -718,16 +725,16 @@ suite('ChatModelsViewModel', () => {
 
 		const results = viewModel.filter('');
 
-		const vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
+		const vendors = results.filter(isVendorEntry) as IVendorItemEntry[];
 		assert.ok(vendors.length >= 2);
 
 		// --- Start Positron ---
 		/*
 		// First vendor should always be copilot
-		assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'copilot');
+		assert.strictEqual(vendors[0].vendorEntry.vendor, 'copilot');
 		*/
 		// First vendor should always be posit-ai
-		assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'posit-ai');
+		assert.strictEqual(vendors[0].vendorEntry.vendor, 'posit-ai');
 		// --- End Positron ---
 	});
 
@@ -739,14 +746,12 @@ suite('ChatModelsViewModel', () => {
 		addPositAiVendor(languageModelsService);
 		// --- End Positron ---
 
-
 		// Add more vendors to ensure sorting works correctly
 		languageModelsService.addVendor({
 			vendor: 'anthropic',
 			displayName: 'Anthropic',
 			managementCommand: undefined,
-			when: undefined,
-			configuration: undefined
+			when: undefined
 		});
 
 		languageModelsService.addModel('anthropic', 'anthropic-claude', {
@@ -764,9 +769,6 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: true,
 				vision: false,
 				agentMode: false
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 
@@ -774,8 +776,7 @@ suite('ChatModelsViewModel', () => {
 			vendor: 'azure',
 			displayName: 'Azure OpenAI',
 			managementCommand: undefined,
-			when: undefined,
-			configuration: undefined
+			when: undefined
 		});
 
 		languageModelsService.addModel('azure', 'azure-gpt-4', {
@@ -793,99 +794,130 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: true,
 				vision: false,
 				agentMode: false
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 
 		await viewModel.refresh();
 
-		// Test with all filters and searches
-		let results = viewModel.filter('');
-		let vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
+		const results = viewModel.filter('');
+		const vendors = results.filter(isVendorEntry) as IVendorItemEntry[];
+
 		// --- Start Positron ---
 		/*
+		// Should have 4 vendors: copilot, openai, anthropic, azure
 		assert.strictEqual(vendors.length, 4);
-		assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'copilot');
+
+		// First vendor should always be copilot
+		assert.strictEqual(vendors[0].vendorEntry.vendor, 'copilot');
+
 		// Other vendors should be alphabetically sorted: anthropic, azure, openai
-		assert.strictEqual(vendors[1].vendorEntry.vendor.vendor, 'anthropic');
-		assert.strictEqual(vendors[2].vendorEntry.vendor.vendor, 'azure');
-		assert.strictEqual(vendors[3].vendorEntry.vendor.vendor, 'openai');
+		assert.strictEqual(vendors[1].vendorEntry.vendor, 'anthropic');
+		assert.strictEqual(vendors[2].vendorEntry.vendor, 'azure');
+		assert.strictEqual(vendors[3].vendorEntry.vendor, 'openai');
 		*/
 		// Should have 5 vendors: posit-ai, copilot, openai, anthropic, azure
 		assert.strictEqual(vendors.length, 5);
 
 		// First vendor should always be posit-ai
-		assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'posit-ai');
+		assert.strictEqual(vendors[0].vendorEntry.vendor, 'posit-ai');
 
 		// Other vendors should be alphabetically sorted: anthropic, azure, copilot, openai
-		assert.strictEqual(vendors[1].vendorEntry.vendor.vendor, 'anthropic');
-		assert.strictEqual(vendors[2].vendorEntry.vendor.vendor, 'azure');
-		assert.strictEqual(vendors[3].vendorEntry.vendor.vendor, 'copilot');
-		assert.strictEqual(vendors[4].vendorEntry.vendor.vendor, 'openai');
+		assert.strictEqual(vendors[1].vendorEntry.vendor, 'anthropic');
+		assert.strictEqual(vendors[2].vendorEntry.vendor, 'azure');
+		assert.strictEqual(vendors[3].vendorEntry.vendor, 'copilot');
+		assert.strictEqual(vendors[4].vendorEntry.vendor, 'openai');
+		// --- End Positron ---
+	});
+
+	// --- Start Positron ---
+	/*
+	test('should keep copilot at top even with text search', () => {
+		// Even when searching, if results include multiple vendors, copilot should be first
+		const results = viewModel.filter('GPT');
+	*/
+	test('should keep posit-ai at top even with text search', async () => {
+		addPositAiVendor(languageModelsService);
+		await viewModel.refresh();
+
+		// Search for Claude - posit-ai has Claude Sonnet 4.5
+		const results = viewModel.filter('Claude');
 		// --- End Positron ---
 
-		// Test with text search
-		// --- Start Positron ---
-		// Change to Claude because Posit AI doesn't have a GPT model
-		results = viewModel.filter('Claude');
-		// --- End Positron ---
-		vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
+		const vendors = results.filter(isVendorEntry) as IVendorItemEntry[];
+
 		if (vendors.length > 1) {
 			// --- Start Positron ---
 			/*
-			assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'copilot');
+			// If multiple vendors match, copilot should be first
+			const copilotVendor = vendors.find(v => v.vendorEntry.vendor === 'copilot');
+			if (copilotVendor) {
+				assert.strictEqual(vendors[0].vendorEntry.vendor, 'copilot');
+			}
 			*/
-			assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'posit-ai');
+			// posit-ai should be first since it has Claude model
+			assert.strictEqual(vendors[0].vendorEntry.vendor, 'posit-ai');
 			// --- End Positron ---
 		}
+	});
 
-		// Test with capability filter
-		results = viewModel.filter('@capability:tools');
-		vendors = results.filter(isLanguageModelProviderEntry) as ILanguageModelProviderEntry[];
+	// --- Start Positron ---
+	/*
+	test('should keep copilot at top when filtering by capability', () => {
+	*/
+	test('should keep posit-ai at top when filtering by capability', async () => {
+		addPositAiVendor(languageModelsService);
+		await viewModel.refresh();
+		// --- End Positron ---
+
+		const results = viewModel.filter('@capability:tools');
+
+		const vendors = results.filter(isVendorEntry) as IVendorItemEntry[];
+
+		// --- Start Positron ---
+		/*
+		// Both copilot and openai have models with tools capability
+		*/
+		// posit-ai, copilot, and openai all have models with tools capability
+		// --- End Positron ---
 		if (vendors.length > 1) {
 			// --- Start Positron ---
 			/*
-			assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'copilot');
+			assert.strictEqual(vendors[0].vendorEntry.vendor, 'copilot');
 			*/
-			assert.strictEqual(vendors[0].vendorEntry.vendor.vendor, 'posit-ai');
+			assert.strictEqual(vendors[0].vendorEntry.vendor, 'posit-ai');
 			// --- End Positron ---
 		}
 	});
 
 	test('should show vendor headers when filtered', () => {
 		const results = viewModel.filter('GPT');
-		const vendors = results.filter(isLanguageModelProviderEntry);
+		const vendors = results.filter(isVendorEntry);
 		assert.ok(vendors.length > 0);
 	});
 
 	test('should not show vendor headers when filtered if only one vendor exists', async () => {
-		const { viewModel: singleVendorViewModel } = createSingleVendorViewModel();
+		const { viewModel: singleVendorViewModel } = createSingleVendorViewModel(store, chatEntitlementService);
 		await singleVendorViewModel.refresh();
 
 		const results = singleVendorViewModel.filter('GPT');
-		const vendors = results.filter(isLanguageModelProviderEntry);
+		const vendors = results.filter(isVendorEntry);
 		assert.strictEqual(vendors.length, 0);
 	});
 
 	test('should group by visibility', () => {
 		viewModel.groupBy = ChatModelGroup.Visibility;
-		const actuals = viewModel.viewModelEntries;
+		const results = viewModel.filter('');
 
-		assert.strictEqual(actuals.length, 6);
-		assert.strictEqual(actuals[0].type, 'group');
-		assert.strictEqual(actuals[0].id, 'visible');
-		assert.strictEqual(actuals[1].type, 'model');
-		assert.strictEqual(actuals[1].model.identifier, 'copilot-gpt-4');
-		assert.strictEqual(actuals[2].type, 'model');
-		assert.strictEqual(actuals[2].model.identifier, 'copilot-gpt-4o');
-		assert.strictEqual(actuals[3].type, 'model');
-		assert.strictEqual(actuals[3].model.identifier, 'openai-gpt-3.5');
-		assert.strictEqual(actuals[4].type, 'group');
-		assert.strictEqual(actuals[4].id, 'hidden');
-		assert.strictEqual(actuals[5].type, 'model');
-		assert.strictEqual(actuals[5].model.identifier, 'openai-gpt-4-vision');
+		const groups = results.filter(isGroupEntry) as IGroupItemEntry[];
+		assert.strictEqual(groups.length, 2);
+		assert.strictEqual(groups[0].group, 'visible');
+		assert.strictEqual(groups[1].group, 'hidden');
+
+		const visibleModels = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r) && r.modelEntry.metadata.isUserSelectable) as IModelItemEntry[];
+		const hiddenModels = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r) && !r.modelEntry.metadata.isUserSelectable) as IModelItemEntry[];
+
+		assert.strictEqual(visibleModels.length, 3);
+		assert.strictEqual(hiddenModels.length, 1);
 	});
 
 	test('should fire onDidChangeGrouping when grouping changes', () => {
@@ -899,13 +931,13 @@ suite('ChatModelsViewModel', () => {
 	});
 
 	test('should reset collapsed state when grouping changes', () => {
-		const vendorEntry = viewModel.viewModelEntries.find(r => isLanguageModelProviderEntry(r) && r.vendorEntry.vendor.vendor === 'copilot') as ILanguageModelProviderEntry;
+		const vendorEntry = viewModel.viewModelEntries.find(r => isVendorEntry(r) && r.vendorEntry.vendor === 'copilot') as IVendorItemEntry;
 		viewModel.toggleCollapsed(vendorEntry);
 
 		viewModel.groupBy = ChatModelGroup.Visibility;
 
 		const results = viewModel.filter('');
-		const groups = results.filter(isLanguageModelGroupEntry) as ILanguageModelGroupEntry[];
+		const groups = results.filter(isGroupEntry) as IGroupItemEntry[];
 		assert.ok(groups.every(v => !v.collapsed));
 	});
 
@@ -914,8 +946,7 @@ suite('ChatModelsViewModel', () => {
 			vendor: 'anthropic',
 			displayName: 'Anthropic',
 			managementCommand: undefined,
-			when: undefined,
-			configuration: undefined
+			when: undefined
 		});
 
 		languageModelsService.addModel('anthropic', 'anthropic-claude', {
@@ -933,292 +964,50 @@ suite('ChatModelsViewModel', () => {
 				toolCalling: true,
 				vision: false,
 				agentMode: false
-			},
-			isDefaultForLocation: {
-				[ChatAgentLocation.Chat]: true
 			}
 		});
 
 		await viewModel.refresh();
 
 		viewModel.groupBy = ChatModelGroup.Visibility;
-		const actuals = viewModel.viewModelEntries;
-
-		assert.strictEqual(actuals.length, 7);
-
-		assert.strictEqual(actuals[0].type, 'group');
-		assert.strictEqual(actuals[0].id, 'visible');
-
-		assert.strictEqual(actuals[1].type, 'model');
-		assert.strictEqual(actuals[1].model.metadata.id, 'gpt-4');
-
-		assert.strictEqual(actuals[2].type, 'model');
-		assert.strictEqual(actuals[2].model.metadata.id, 'gpt-4o');
-
-		assert.strictEqual(actuals[3].type, 'model');
-		assert.strictEqual(actuals[3].model.metadata.id, 'claude-3');
-
-		assert.strictEqual(actuals[4].type, 'model');
-		assert.strictEqual(actuals[4].model.metadata.id, 'gpt-3.5-turbo');
-
-		assert.strictEqual(actuals[5].type, 'group');
-		assert.strictEqual(actuals[5].id, 'hidden');
-
-		assert.strictEqual(actuals[6].type, 'model');
-		assert.strictEqual(actuals[6].model.metadata.id, 'gpt-4-vision');
-	});
-
-	test('should get configured vendors', () => {
-		const vendors = viewModel.getConfiguredVendors();
-		assert.ok(vendors.length > 0);
-		assert.ok(vendors.some(v => v.vendor.vendor === 'copilot'));
-		assert.ok(vendors.some(v => v.vendor.vendor === 'openai'));
-	});
-
-	test('should return true for shouldRefilter when models not sorted', () => {
-		// After a new filter call, models should be sorted
-		viewModel.filter('');
-		assert.strictEqual(viewModel.shouldRefilter(), false);
-
-		// Simulate unsorted state by accessing private property indirectly
-		// This is a simple test that shouldRefilter works
-		const result = viewModel.shouldRefilter();
-		assert.strictEqual(typeof result, 'boolean');
-	});
-
-	test('should collapse all groups and models', () => {
-		// Expand everything first
-		const results1 = viewModel.filter('');
-		let models = results1.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		assert.ok(models.length > 0);
-
-		// Collapse all
-		viewModel.collapseAll();
-
-		// After collapse all, only group/vendor headers should be shown
-		const results2 = viewModel.filter('');
-		const vendors = results2.filter(isLanguageModelProviderEntry);
-		models = results2.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-
-		assert.ok(vendors.length > 0, 'Should have vendor headers');
-		assert.strictEqual(models.length, 0, 'Should have no models visible after collapse all');
-	});
-
-	test('should match quoted search strings with filters', () => {
-		// Test that quotes don't break when combined with other filters
-		const results = viewModel.filter('@capability:tools "GPT"');
-		assert.ok(Array.isArray(results));
-		// Should handle without error
-	});
-
-	test('should filter by case-insensitive provider name', () => {
-		const results1 = viewModel.filter('@provider:COPILOT');
-		const results2 = viewModel.filter('@provider:copilot');
-		const results3 = viewModel.filter('@provider:CopiloT');
-
-		const models1 = results1.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		const models2 = results2.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		const models3 = results3.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-
-		assert.strictEqual(models1.length, models2.length);
-		assert.strictEqual(models2.length, models3.length);
-		assert.strictEqual(models1.length, 2);
-	});
-
-	test('should handle empty search returning all results', () => {
 		const results = viewModel.filter('');
-		assert.ok(results.length > 0);
 
-		// Should include vendor headers and models
-		const vendors = results.filter(isLanguageModelProviderEntry);
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
+		const visibleModels = results.filter(r => !isVendorEntry(r) && !isGroupEntry(r) && r.modelEntry.metadata.isUserSelectable) as IModelItemEntry[];
 
-		assert.strictEqual(vendors.length, 2);
-		assert.strictEqual(models.length, 4);
+		assert.strictEqual(visibleModels.length, 4);
+		assert.strictEqual(visibleModels[0].modelEntry.metadata.name, 'GPT-4');
+		assert.strictEqual(visibleModels[0].modelEntry.vendor, 'copilot');
+
+		assert.strictEqual(visibleModels[1].modelEntry.metadata.name, 'GPT-4o');
+		assert.strictEqual(visibleModels[1].modelEntry.vendor, 'copilot');
+
+		assert.strictEqual(visibleModels[2].modelEntry.metadata.name, 'Claude 3');
+		assert.strictEqual(visibleModels[2].modelEntry.vendor, 'anthropic');
+
+		assert.strictEqual(visibleModels[3].modelEntry.metadata.name, 'GPT-3.5 Turbo');
+		assert.strictEqual(visibleModels[3].modelEntry.vendor, 'openai');
 	});
 
-	test('should not find matches when searching for non-existent model', () => {
-		const results = viewModel.filter('NonExistentModel123');
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		assert.strictEqual(models.length, 0);
-	});
+	test('should not resort models when visibility is toggled', async () => {
+		viewModel.groupBy = ChatModelGroup.Visibility;
 
-	test('should not find matches when filtering by non-existent provider', () => {
-		const results = viewModel.filter('@provider:nonexistent');
-		const models = results.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		assert.strictEqual(models.length, 0);
-	});
+		// Initial state:
+		// Visible: GPT-4, GPT-4o, GPT-3.5 Turbo
+		// Hidden: GPT-4 Vision
 
-	test('setModelsVisibility should update visibility for multiple models', () => {
-		// Get initial results
-		const initialResults = viewModel.filter('');
-		const modelEntries = initialResults.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		assert.ok(modelEntries.length >= 2, 'Should have at least 2 models for testing');
+		// Toggle GPT-4 Vision to visible
+		const hiddenModel = viewModel.viewModelEntries.find(r => !isVendorEntry(r) && !isGroupEntry(r) && r.modelEntry.identifier === 'openai-gpt-4-vision') as IModelItemEntry;
+		assert.ok(hiddenModel);
+		const initialIndex = viewModel.viewModelEntries.indexOf(hiddenModel);
 
-		// Get first two models
-		const modelsToHide = modelEntries.slice(0, 2);
-		const initialVisibility = modelsToHide.map(m => m.model.visible);
+		viewModel.toggleVisibility(hiddenModel);
 
-		// Hide the models
-		viewModel.setModelsVisibility(modelsToHide, false);
+		// Verify it is still at the same index
+		const newIndex = viewModel.viewModelEntries.indexOf(hiddenModel);
+		assert.strictEqual(newIndex, initialIndex);
 
-		// Verify visibility was updated
-		assert.strictEqual(modelsToHide[0].model.visible, false);
-		assert.strictEqual(modelsToHide[1].model.visible, false);
-
-		// Verify language models service was called by checking metadata
-		const metadata1 = languageModelsService.lookupLanguageModel(modelsToHide[0].model.identifier);
-		const metadata2 = languageModelsService.lookupLanguageModel(modelsToHide[1].model.identifier);
-		assert.strictEqual(metadata1?.isUserSelectable, false);
-		assert.strictEqual(metadata2?.isUserSelectable, false);
-
-		// Verify UI was updated by filtering
-		const updatedResults = viewModel.filter('');
-		const updatedModelEntries = updatedResults.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		assert.ok(updatedModelEntries.length > 0);
-
-		// Restore original visibility - group by visibility state for efficient restoration
-		const modelsToMakeVisible = modelsToHide.filter((_, i) => initialVisibility[i]);
-		const modelsToMakeHidden = modelsToHide.filter((_, i) => !initialVisibility[i]);
-		if (modelsToMakeVisible.length > 0) {
-			viewModel.setModelsVisibility(modelsToMakeVisible, true);
-		}
-		if (modelsToMakeHidden.length > 0) {
-			viewModel.setModelsVisibility(modelsToMakeHidden, false);
-		}
-	});
-
-	test('setModelsVisibility should make hidden models visible', () => {
-		// Get initial results
-		const initialResults = viewModel.filter('');
-		const modelEntries = initialResults.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		assert.ok(modelEntries.length >= 1, 'Should have at least 1 model for testing');
-
-		// Get a model and hide it first
-		const modelToTest = [modelEntries[0]];
-		viewModel.setModelsVisibility(modelToTest, false);
-		assert.strictEqual(modelToTest[0].model.visible, false);
-
-		// Now make it visible
-		viewModel.setModelsVisibility(modelToTest, true);
-
-		// Verify visibility was updated
-		assert.strictEqual(modelToTest[0].model.visible, true);
-
-		// Verify language models service was called
-		const metadata = languageModelsService.lookupLanguageModel(modelToTest[0].model.identifier);
-		assert.strictEqual(metadata?.isUserSelectable, true);
-	});
-
-	test('setGroupVisibility should update visibility for all models in a provider group', () => {
-		// Get initial results to find a provider group
-		const initialResults = viewModel.filter('');
-		const providerGroups = initialResults.filter(isLanguageModelProviderEntry);
-		assert.ok(providerGroups.length > 0, 'Should have at least 1 provider group');
-
-		const providerGroup = providerGroups[0];
-		const modelsInGroup = viewModel.getModelsForGroup(providerGroup);
-		assert.ok(modelsInGroup.length > 0, 'Provider group should have models');
-
-		// Store initial visibility
-		const initialVisibility = modelsInGroup.map(m => m.visible);
-
-		// Hide all models in the group
-		viewModel.setGroupVisibility(providerGroup, false);
-
-		// Verify all models in group are now hidden
-		const updatedModels = viewModel.getModelsForGroup(providerGroup);
-		for (const model of updatedModels) {
-			assert.strictEqual(model.visible, false, `Model ${model.identifier} should be hidden`);
-
-			// Verify language models service was called
-			const metadata = languageModelsService.lookupLanguageModel(model.identifier);
-			assert.strictEqual(metadata?.isUserSelectable, false);
-		}
-
-		// Restore original visibility using setGroupVisibility for models that were visible
-		const modelsToRestore = modelsInGroup.filter((_, i) => initialVisibility[i]);
-		if (modelsToRestore.length > 0) {
-			const modelEntries = initialResults.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-			const entriesToRestore = modelEntries.filter(e => modelsToRestore.some(m => m.identifier === e.model.identifier));
-			viewModel.setModelsVisibility(entriesToRestore, true);
-		}
-	});
-
-	test('setGroupVisibility should update visibility for all models in a visibility group', () => {
-		// Store initial visibility state
-		const allResults = viewModel.filter('');
-		const allModelEntries = allResults.filter(r => !isLanguageModelProviderEntry(r) && !isLanguageModelGroupEntry(r)) as ILanguageModelEntry[];
-		const initialModelStates = allModelEntries.map(m => ({ entry: m, visible: m.model.visible }));
-
-		// First ensure we have some visible and some hidden models
-		if (allModelEntries.length >= 2) {
-			// Hide one model to create a mixed state
-			viewModel.setModelsVisibility([allModelEntries[0]], false);
-			viewModel.setModelsVisibility([allModelEntries[1]], true);
-		}
-
-		// Filter to trigger visibility group creation - the visibility filter activates grouping by visibility
-		viewModel.filter('@visible:true');
-		// Now get the results with visibility groups
-		const resultsWithGroups = viewModel.filter('');
-
-		// Find the visibility group entries
-		const visibilityGroups = resultsWithGroups.filter(isLanguageModelGroupEntry);
-
-		if (visibilityGroups.length > 0) {
-			const visibleGroup = visibilityGroups.find(g => g.id === 'visible');
-			if (visibleGroup) {
-				const visibleModels = viewModel.getModelsForGroup(visibleGroup);
-				const initialCount = visibleModels.length;
-
-				if (initialCount > 0) {
-					// Hide all visible models
-					viewModel.setGroupVisibility(visibleGroup, false);
-
-					// Verify all previously visible models are now hidden
-					const updatedVisibleModels = viewModel.getModelsForGroup(visibleGroup);
-					assert.strictEqual(updatedVisibleModels.length, 0, 'Should have no visible models after hiding the visible group');
-
-					// Verify the hidden group now contains those models
-					const hiddenGroup = visibilityGroups.find(g => g.id === 'hidden');
-					if (hiddenGroup) {
-						const hiddenModels = viewModel.getModelsForGroup(hiddenGroup);
-						assert.ok(hiddenModels.length >= initialCount, 'Hidden group should contain the previously visible models');
-					}
-				}
-			}
-		}
-
-		// Restore original visibility state
-		const modelsToMakeVisible = initialModelStates.filter(s => s.visible).map(s => s.entry);
-		const modelsToMakeHidden = initialModelStates.filter(s => !s.visible).map(s => s.entry);
-		if (modelsToMakeVisible.length > 0) {
-			viewModel.setModelsVisibility(modelsToMakeVisible, true);
-		}
-		if (modelsToMakeHidden.length > 0) {
-			viewModel.setModelsVisibility(modelsToMakeHidden, false);
-		}
-	});
-
-	test('setGroupVisibility should trigger UI update through doFilter', () => {
-		// Get a provider group
-		const initialResults = viewModel.filter('');
-		const providerGroups = initialResults.filter(isLanguageModelProviderEntry);
-
-		if (providerGroups.length > 0) {
-			const providerGroup = providerGroups[0];
-
-			// Change visibility
-			viewModel.setGroupVisibility(providerGroup, false);
-
-			// Filter again to ensure UI was updated
-			const updatedResults = viewModel.filter('');
-			const updatedProviderGroups = updatedResults.filter(isLanguageModelProviderEntry);
-
-			// Verify we can still get results (doFilter was called)
-			assert.ok(updatedProviderGroups.length > 0, 'Should still have provider groups after visibility change');
-		}
+		// Verify metadata is updated
+		assert.strictEqual(hiddenModel.modelEntry.metadata.isUserSelectable, true);
 	});
 
 });

@@ -53,10 +53,10 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
 };
 
 /**
- * Azure managed credentials configuration for Posit Workbench.
+ * Azure managed credentials from Posit Workbench
  * Uses the VS Code auth provider instead of environment variables.
  */
-export const AZURE_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
+export const FOUNDRY_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
 	displayName: 'Azure managed credentials',
 	authProvider: {
 		id: 'posit-workbench',
@@ -99,7 +99,7 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 	// the Workbench extension will supply tokens on demand. We skip the
 	// getSession() check here because VS Code's per-extension authorization
 	// layer may block silent session access before the user has approved it.
-	// The provider-specific autoconfigure (e.g. AzureModelProvider) performs
+	// The provider-specific autoconfigure (e.g. FoundryModelProvider) performs
 	// additional validation (Workbench settings) before returning configured.
 	if (credentialConfig.authProvider) {
 		log.info(`[${displayName}] Auto-configuring with auth provider credentials`);
