@@ -84,12 +84,19 @@ test.describe('Positron Notebooks: Search & Replace', {
 		});
 	});
 
-	test('Verify replace in markdown cells', async function ({ app }) {
+	test('Verify replace in markdown cells', async function ({ app, page }) {
 		const { notebooksPositron } = app.workbench;
 
-		await notebooksPositron.newNotebook({ codeCells: 1, markdownCells: 1 });
+		await notebooksPositron.newNotebook();
 		await notebooksPositron.addCodeToCell(0, 'x = 1');
-		await notebooksPositron.addCodeToCell(1, '# Heading with test\nParagraph with test content');
+
+		// Add markdown cell and enter content manually
+		await notebooksPositron.addCell('markdown');
+		await notebooksPositron.selectCellAtIndex(1, { editMode: true });
+		await page.keyboard.type('# Heading with test');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('Paragraph with test content');
+		await notebooksPositron.viewMarkdown.click();
 
 		await test.step('Replace in markdown cell', async () => {
 			await notebooksPositron.search('test');
@@ -114,23 +121,24 @@ test.describe('Positron Notebooks: Search & Replace', {
 		await notebooksPositron.search('test');
 		await notebooksPositron.expectSearchCountToBe({ total: 5 });
 
-		await test.step('Replace first match, skip second, replace third', async () => {
+		await test.step('Replace last match, skip first, replace second', async () => {
 			await notebooksPositron.searchSetReplaceText('pass');
 
-			// Replace first occurrence
+			// Replace current match (last occurrence in cell 2)
 			await notebooksPositron.searchReplace();
 			await notebooksPositron.expectSearchCountToBe({ total: 4 });
 
-			// Skip second occurrence (advance without replacing)
+			// Skip next occurrence (advances to position 2)
 			await notebooksPositron.searchNext();
 			await notebooksPositron.expectSearchCountToBe({ current: 2, total: 4 });
 
-			// Replace third occurrence
+			// Replace at position 2 (middle occurrence in cell 1)
 			await notebooksPositron.searchReplace();
 			await notebooksPositron.expectSearchCountToBe({ current: 2, total: 3 });
 
-			// Verify partial replacement
-			await notebooksPositron.expectCellContentAtIndexToBe(0, 'pass test pass');
+			// Verify partial replacements
+			await notebooksPositron.expectCellContentAtIndexToBe(0, 'test pass test');
+			await notebooksPositron.expectCellContentAtIndexToBe(1, 'test pass');
 		});
 
 		await notebooksPositron.searchClose();

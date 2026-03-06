@@ -676,6 +676,8 @@ export class PositronNotebooks extends Notebooks {
 	async searchToggleCaseSensitive(): Promise<void> {
 		await test.step('Toggle case sensitivity', async () => {
 			await this.searchWidget.getByRole('button', { name: 'Match Case' }).click();
+			// Wait for search to re-execute after toggle
+			await this.code.driver.page.waitForTimeout(500);
 		});
 	}
 
@@ -685,6 +687,8 @@ export class PositronNotebooks extends Notebooks {
 	async searchToggleWholeWord(): Promise<void> {
 		await test.step('Toggle whole word', async () => {
 			await this.searchWidget.getByRole('button', { name: 'Match Whole Word' }).click();
+			// Wait for search to re-execute after toggle
+			await this.code.driver.page.waitForTimeout(500);
 		});
 	}
 
@@ -694,6 +698,8 @@ export class PositronNotebooks extends Notebooks {
 	async searchToggleRegex(): Promise<void> {
 		await test.step('Toggle regex search', async () => {
 			await this.searchWidget.getByRole('button', { name: 'Use Regular Expression' }).click();
+			// Wait for search to re-execute after toggle
+			await this.code.driver.page.waitForTimeout(500);
 		});
 	}
 
