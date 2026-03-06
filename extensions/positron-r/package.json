@@ -164,9 +164,9 @@
         "title": "%r.command.loadRDataFileWithPicker.title%"
       },
       {
-        "command": "r.browseAddins",
+        "command": "r.runAddin",
         "category": "R",
-        "title": "%r.command.browseAddins.title%"
+        "title": "%r.command.runAddin.title%"
       },
       {
         "command": "r.newRmdFromTemplate",
