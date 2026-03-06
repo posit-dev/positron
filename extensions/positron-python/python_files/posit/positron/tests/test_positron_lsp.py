@@ -45,8 +45,10 @@ from positron.positron_lsp import (
     PositronHover,
     PositronInitializationOptions,
     PositronLanguageServer,
+    _get_document_line,
     _get_expression_at_position,
     _parse_os_imports,
+    _parse_string_context,
     _safe_resolve_expression,
     _set_completion_priority,
     create_server,
@@ -1584,6 +1586,32 @@ int([x]) -> integer""")
 Two-dimensional,""")
         assert hover.data["priority"] == 1
 
+    def test_hover_on_pandas_series(self) -> None:
+        """Hover should work on pandas Series."""
+        s = pd.Series([10, 20, 30], name="vals")
+        server = create_test_server({"s": s})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "s")
+
+        hover = self._hover(server, text_document, Position(0, 0))
+
+        assert hover is not None
+        assert "**s**: `Series`" in hover.contents.value
+        assert "dtype" in hover.contents.value
+        assert hover.data["priority"] == 1
+
+    def test_hover_on_polars_series(self) -> None:
+        """Hover should work on polars Series."""
+        s = pl.Series("vals", [10, 20, 30])
+        server = create_test_server({"s": s})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "s")
+
+        hover = self._hover(server, text_document, Position(0, 0))
+
+        assert hover is not None
+        assert "**s**: `Series`" in hover.contents.value
+        assert "vals" in hover.contents.value
+        assert hover.data["priority"] == 1
+
 
 class TestHelpTopic:
     """Tests for help topic requests."""
@@ -1615,3 +1643,67 @@ class TestHelpTopic:
             assert topic is None
         else:
             assert topic == ShowHelpTopicParams(topic=expected_topic)
+
+
+class TestParseStringContext:
+    """Tests for the _parse_string_context helper."""
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            # No string literal
+            ("foo(bar", None),
+            ("x = 42", None),
+            # Single-quoted string
+            ("open('hello", ("'", "hello", "open(")),
+            # Double-quoted string
+            ('os.getenv("HOME', ('"', "HOME", "os.getenv(")),
+            # Empty prefix
+            ("f('", ("'", "", "f(")),
+            # before_string captures everything before the opening quote
+            ('df.groupby("', ('"', "", "df.groupby(")),
+        ],
+    )
+    def test_parse_string_context(self, text: str, expected: Optional[tuple]) -> None:
+        result = _parse_string_context(text)
+        if expected is None:
+            assert result is None
+        else:
+            assert result is not None
+            assert result.quote_char == expected[0]
+            assert result.prefix == expected[1]
+            assert result.before_string == expected[2]
+
+
+class TestGetDocumentLine:
+    """Tests for the _get_document_line helper."""
+
+    def test_basic(self) -> None:
+        server = create_test_server()
+        create_text_document(server, TEST_DOCUMENT_URI, "hello\nworld")
+        params = CompletionParams(
+            TextDocumentIdentifier(TEST_DOCUMENT_URI),
+            Position(1, 3),
+        )
+        ctx = _get_document_line(server, params)
+        assert ctx.line == "world"
+
+    def test_empty_document(self) -> None:
+        server = create_test_server()
+        create_text_document(server, TEST_DOCUMENT_URI, "")
+        params = CompletionParams(
+            TextDocumentIdentifier(TEST_DOCUMENT_URI),
+            Position(0, 0),
+        )
+        ctx = _get_document_line(server, params)
+        assert ctx.line == ""
+
+    def test_out_of_range_line(self) -> None:
+        server = create_test_server()
+        create_text_document(server, TEST_DOCUMENT_URI, "hello")
+        params = CompletionParams(
+            TextDocumentIdentifier(TEST_DOCUMENT_URI),
+            Position(5, 0),
+        )
+        ctx = _get_document_line(server, params)
+        assert ctx.line == ""
