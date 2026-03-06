@@ -28,26 +28,10 @@
 	z-index: 10; /* Ensure handle is above cell content */
 }
 
-/* Ensure drag handle and drop indicator aren't clipped */
+/* Ensure drag handle isn't clipped */
 .sortable-cell {
 	position: relative;
 	overflow: visible;
-	transition: transform 150ms ease;
-}
-
-/* Subtle nudge: cells flanking the drop indicator shift apart slightly */
-.sortable-cell.nudge-down {
-	transform: translateY(3px);
-}
-
-.sortable-cell.nudge-up {
-	transform: translateY(-3px);
-}
-
-/* Counter the parent nudge-down so the indicator stays centered in
-	the gutter instead of shifting with the cell. */
-.sortable-cell.nudge-down > .drag-drop-indicator {
-	transform: translateY(calc(-50% - 3px));
 }
 
 /* Invisible hover zone covering the left gutter. When the cursor enters
@@ -111,43 +95,6 @@ body.dragging-notebook-cell .positron-notebook-cells-container {
 	pointer-events: none;
 }
 
-/* --- Drop indicator --- */
-
-/* Collapse the dragged cell so neighbors shift up naturally */
-.sortable-cell.dragging {
-	height: 0;
-	overflow: hidden;
-}
-
-/* Thin indicator line rendered above the current drop target,
-	centered in the gutter between cells. Uses the notebook's CSS
-	variables so it stays correct if spacing changes. */
-.drag-drop-indicator {
-	position: absolute;
-	top: calc(-1 * var(--_positron-notebook-cell-gap) - var(--_positron-notebook-add-cell-buttons-height) / 2);
-	transform: translateY(-50%);
-	left: 12px;
-	right: 0;
-	height: 3px;
-	border-radius: 2px;
-	background-color: var(--vscode-focusBorder, #007acc);
-	z-index: 10;
-	pointer-events: none;
-}
-
-/* When the over target is right after the dragged cell, two gutters
-	merge into one double-wide gap. Center the indicator in that space. */
-.drag-drop-indicator.double-gutter {
-	top: calc(-2 * var(--_positron-notebook-cell-gap) - var(--_positron-notebook-add-cell-buttons-height));
-}
-
-/* Drop indicator inside the end-of-list sentinel (after the last cell).
-	Positioned at the top of its container without the gutter offsets. */
-.drag-drop-indicator.end-sentinel-indicator {
-	top: 0;
-	transform: none;
-}
-
 /* --- Floating overlay preview (follows cursor) --- */
 
 /* Container for the cursor-following overlay. Uses position:fixed at (0,0)
@@ -193,24 +140,9 @@ body.dragging-notebook-cell .positron-notebook-cells-container {
 	font-weight: 500;
 }
 
-/* Collapse secondary drag participants (cells selected but not being directly dragged) */
-.sortable-cell.secondary-drag {
+/* Hide add cell buttons adjacent to cells hidden during drag */
+.sortable-cell.sortable-cell-hidden + .positron-add-cell-buttons {
 	opacity: 0;
-	max-height: 0;
-	overflow: hidden;
-	margin: 0;
-	padding: 0;
 	pointer-events: none;
-	transition: opacity 150ms ease, max-height 150ms ease;
-}
-
-/* Hide add cell buttons adjacent to secondary drag participants */
-.sortable-cell.secondary-drag + .positron-add-cell-buttons {
-	opacity: 0;
-	max-height: 0;
-	overflow: hidden;
-	margin: 0;
-	padding: 0;
-	pointer-events: none;
-	transition: opacity 150ms ease, max-height 150ms ease;
+	transition: opacity 150ms ease;
 }

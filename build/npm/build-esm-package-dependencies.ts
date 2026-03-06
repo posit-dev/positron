@@ -90,6 +90,7 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 			'DragOverlay',
 			'KeyboardSensor',
 			'PointerSensor',
+			'closestCenter',
 			'useSensor',
 			'useSensors',
 		],

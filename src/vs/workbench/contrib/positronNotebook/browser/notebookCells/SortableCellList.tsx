@@ -10,16 +10,14 @@ import React from 'react';
 import {
 	DndContext,
 	DragOverlay,
-	CollisionDetection,
 	PointerSensor,
 	KeyboardSensor,
+	closestCenter,
 	useSensor,
 	useSensors,
-	useDroppable,
+	CollisionDetection,
 	DragStartEvent,
 	DragEndEvent,
-	DragOverEvent,
-	UniqueIdentifier,
 } from '@dnd-kit/core';
 import {
 	SortableContext,
@@ -28,9 +26,6 @@ import {
 } from '@dnd-kit/sortable';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-
-/** Sentinel id for the droppable zone after the last cell. */
-const END_SENTINEL_ID = '__positron-notebook-end-sentinel__';
 
 
 interface SortableCellListProps {
@@ -43,97 +38,15 @@ interface SortableCellListProps {
 // Context to share active drag state with SortableCell components
 interface DragStateContextValue {
 	activeDragHandleIds: number[];
-	/** The id of the cell the drop indicator should appear above. */
-	overTargetId: UniqueIdentifier | null;
-	/** The id of the cell directly above the drop indicator. */
-	aboveOverTargetId: UniqueIdentifier | null;
-	/** True when the over target is right after the dragged cell, creating a
-	 *  double gutter that the indicator needs to center within. */
-	overTargetAdjacentToDragged: boolean;
 }
 
 const DragStateContext = React.createContext<DragStateContextValue>({
 	activeDragHandleIds: [],
-	overTargetId: null,
-	aboveOverTargetId: null,
-	overTargetAdjacentToDragged: false,
 });
 
 export function useDragState(): DragStateContextValue {
 	return React.useContext(DragStateContext);
 }
-
-// Custom collision detection: find the gap between cells closest to the
-// cursor and resolve to the droppable on the appropriate side of that gap.
-// This gives "insertion point" semantics rather than "which cell center am
-// I nearest to," which feels more natural for reordering.
-const closestGap: CollisionDetection = (args) => {
-	const { droppableContainers, active, collisionRect, pointerCoordinates } = args;
-	// Use actual cursor position when available; fall back to collisionRect
-	// center for keyboard-driven reordering (pointerCoordinates is null).
-	const pointerY = pointerCoordinates?.y
-		?? (collisionRect.top + collisionRect.height / 2);
-
-	// When a cell starts being dragged it collapses to height:0 via CSS.
-	// dnd-kit's cached rects still reflect the pre-collapse layout, so
-	// cells below the active item appear further down than they actually
-	// are. Subtract the full cached height to compensate.
-	const activeRect = droppableContainers
-		.find(c => c.id === active.id)?.rect.current;
-	const heightDelta = activeRect?.height ?? 0;
-	const activeTop = activeRect?.top ?? 0;
-
-	// Get candidates sorted by vertical position (exclude active item)
-	const candidates = droppableContainers
-		.filter(c => c.id !== active.id && c.rect.current)
-		.sort((a, b) => a.rect.current!.top - b.rect.current!.top);
-
-	if (candidates.length === 0) {
-		return [];
-	}
-
-	// Adjusted top position: cells below the dragged cell shifted up when
-	// it collapsed, but the cached rects don't reflect that.
-	const adjustedTop = (c: typeof candidates[0]) => {
-		const top = c.rect.current!.top;
-		return top > activeTop ? top - heightDelta : top;
-	};
-
-	// Build gap positions: each gap sits between two adjacent cells.
-	// A gap maps to the cell BELOW it (dropping into that gap means
-	// the active item takes that cell's position).
-	const gaps: { y: number; id: typeof candidates[0]['id'] }[] = [];
-
-	// Gap above the first cell
-	gaps.push({ y: adjustedTop(candidates[0]), id: candidates[0].id });
-
-	// Gaps between adjacent cells
-	for (let i = 0; i < candidates.length - 1; i++) {
-		const bottomOfCurrent = adjustedTop(candidates[i]) + candidates[i].rect.current!.height;
-		const topOfNext = adjustedTop(candidates[i + 1]);
-		const gapY = (bottomOfCurrent + topOfNext) / 2;
-		gaps.push({ y: gapY, id: candidates[i + 1].id });
-	}
-
-	// Gap below the last cell -- maps to the end sentinel so dropping
-	// past the bottom inserts after the last cell.
-	const last = candidates[candidates.length - 1];
-	const lastBottom = adjustedTop(last) + last.rect.current!.height;
-	gaps.push({ y: lastBottom, id: END_SENTINEL_ID });
-
-	// Find the gap closest to the pointer
-	let closestId = gaps[0].id;
-	let minDist = Math.abs(pointerY - gaps[0].y);
-	for (let i = 1; i < gaps.length; i++) {
-		const dist = Math.abs(pointerY - gaps[i].y);
-		if (dist < minDist) {
-			minDist = dist;
-			closestId = gaps[i].id;
-		}
-	}
-
-	return [{ id: closestId }];
-};
 
 export function SortableCellList({
 	cells,
@@ -145,8 +58,6 @@ export function SortableCellList({
 	// Use both state (for rendering) and ref (for reliable access in callbacks)
 	const [activeCells, setActiveCells] = React.useState<IPositronNotebookCell[]>([]);
 	const activeCellsRef = React.useRef<IPositronNotebookCell[]>([]);
-	// Track which cell the drop indicator should appear above
-	const [overTargetId, setOverTargetId] = React.useState<UniqueIdentifier | null>(null);
 	// Track initial pointer position for cursor-following overlay (null = keyboard drag)
 	const [dragPointerOrigin, setDragPointerOrigin] = React.useState<{ x: number; y: number } | null>(null);
 	// Require 10px movement before drag starts (prevents accidental drags)
@@ -160,6 +71,21 @@ export function SortableCellList({
 			coordinateGetter: sortableKeyboardCoordinates,
 		})
 	);
+
+	// During multi-drag, exclude secondary (non-primary) drag participants
+	// from collision candidates so dnd-kit's strategy doesn't target their
+	// positions. Uses a ref so the callback identity is stable.
+	const collisionDetection = React.useCallback<CollisionDetection>((args) => {
+		const secondary = activeCellsRef.current.slice(1);
+		if (secondary.length === 0) {
+			return closestCenter(args);
+		}
+		const secondaryHandles = new Set(secondary.map(c => c.handle));
+		const filtered = args.droppableContainers.filter(
+			c => !secondaryHandles.has(c.id as number)
+		);
+		return closestCenter({ ...args, droppableContainers: filtered });
+	}, []);
 
 	const handleDragStart = React.useCallback((event: DragStartEvent) => {
 		// Track pointer origin so the overlay can initialize at the right spot.
@@ -201,10 +127,6 @@ export function SortableCellList({
 		DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
 	}, [cells, getSelectedCells]);
 
-	const handleDragOver = React.useCallback((event: DragOverEvent) => {
-		setOverTargetId(event.over?.id ?? null);
-	}, []);
-
 	const handleDragEnd = React.useCallback((event: DragEndEvent) => {
 		const { active, over } = event;
 		// Use ref for reliable access (state may be stale in callback)
@@ -217,37 +139,36 @@ export function SortableCellList({
 			activeCellsRef.current = [];
 			DOM.getActiveWindow().requestAnimationFrame(() => {
 				setActiveCells([]);
-				setOverTargetId(null);
 				setDragPointerOrigin(null);
 				DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 			});
 		};
 
-		// Minimum vertical displacement to commit a reorder. Because
-		// closestCenterExcludingActive excludes the active item from collision
-		// candidates, very small movements resolve to a neighbor cell. This
-		// prevents accidental reorders when the user activates the drag
-		// (10px threshold) but releases without meaningful movement.
-		const MIN_REORDER_DISTANCE = 25;
-		if (!over || active.id === over.id || Math.abs(event.delta.y) < MIN_REORDER_DISTANCE) {
+		if (!over) {
 			clearDragState();
 			return;
 		}
 
-		// Resolve the target index from the collision result. The end sentinel
-		// means "after the last cell"; all other ids map to a cell to insert before.
-		let targetIndex: number;
-		if (over.id === END_SENTINEL_ID) {
-			targetIndex = cells.length;
-		} else {
-			targetIndex = cells.findIndex(c => c.handle === over.id);
-			if (targetIndex === -1) {
-				clearDragState();
-				return;
-			}
+		// Ignore drops onto cells that are part of the drag group
+		const draggedHandles = new Set(draggedCells.map(c => c.handle));
+		if (draggedHandles.has(over.id as number)) {
+			clearDragState();
+			return;
 		}
 
-		// moveCells handles the removal-offset adjustment internally.
+		// Resolve the active and over indices
+		const activeIndex = cells.findIndex(c => c.handle === active.id);
+		const overIndex = cells.findIndex(c => c.handle === over.id);
+		if (activeIndex === -1 || overIndex === -1) {
+			clearDragState();
+			return;
+		}
+
+		// Compute target index for moveCells:
+		// Dragging up (active after over): insert BEFORE the over cell
+		// Dragging down (active before over): insert AFTER the over cell
+		const targetIndex = activeIndex < overIndex ? overIndex + 1 : overIndex;
+
 		onReorder(draggedCells, targetIndex);
 		clearDragState();
 	}, [cells, onReorder]);
@@ -256,63 +177,26 @@ export function SortableCellList({
 		activeCellsRef.current = [];
 		DOM.getActiveWindow().requestAnimationFrame(() => {
 			setActiveCells([]);
-			setOverTargetId(null);
 			setDragPointerOrigin(null);
 			DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 		});
 	}, []);
 
 	// Memoize the context value to avoid unnecessary re-renders
-	const dragStateValue = React.useMemo(() => {
-		// Find the visible (non-dragged) cell directly above the over target
-		let aboveOverTargetId: UniqueIdentifier | null = null;
-		let overTargetAdjacentToDragged = false;
-		if (overTargetId !== null) {
-			const dragHandles = new Set(activeCells.map(c => c.handle));
-			const visibleCells = cells.filter(c => !dragHandles.has(c.handle));
+	const dragStateValue = React.useMemo(() => ({
+		activeDragHandleIds: activeCells.map(c => c.handle),
+	}), [activeCells]);
 
-			if (overTargetId === END_SENTINEL_ID) {
-				// Dropping after the last cell: the cell above is the last visible cell
-				if (visibleCells.length > 0) {
-					aboveOverTargetId = visibleCells[visibleCells.length - 1].handle;
-				}
-			} else {
-				const overIdx = visibleCells.findIndex(c => c.handle === overTargetId);
-				if (overIdx > 0) {
-					aboveOverTargetId = visibleCells[overIdx - 1].handle;
-				}
-
-				// Check if the over target sits right after the dragged cell in
-				// the original order. The collapsed cell's two gutters merge into
-				// a double-wide gap that the indicator should center within.
-				const overOrigIdx = cells.findIndex(c => c.handle === overTargetId);
-				if (overOrigIdx > 0 && dragHandles.has(cells[overOrigIdx - 1].handle)) {
-					overTargetAdjacentToDragged = true;
-				}
-			}
-		}
-		return {
-			activeDragHandleIds: activeCells.map(c => c.handle),
-			overTargetId,
-			aboveOverTargetId,
-			overTargetAdjacentToDragged,
-		};
-	}, [activeCells, overTargetId, cells]);
-
-	// Always include all cells in sortable items. Removing items mid-drag
-	// corrupts dnd-kit's internal state and crashes the renderer. The visual
-	// collapse of secondary cells is handled purely by CSS (.secondary-drag).
 	const sortableItems = React.useMemo(() => {
 		return cells.map(c => c.handle);
 	}, [cells]);
 
 	return (
 		<DndContext
-			collisionDetection={closestGap}
+			collisionDetection={collisionDetection}
 			sensors={sensors}
 			onDragCancel={handleDragCancel}
 			onDragEnd={handleDragEnd}
-			onDragOver={handleDragOver}
 			onDragStart={handleDragStart}
 		>
 			<SortableContext
@@ -321,7 +205,6 @@ export function SortableCellList({
 			>
 				<DragStateContext.Provider value={dragStateValue}>
 					{children}
-					<EndSentinelDroppable />
 				</DragStateContext.Provider>
 			</SortableContext>
 
@@ -333,23 +216,6 @@ export function SortableCellList({
 				<CursorFollowingOverlay cells={activeCells} initialPosition={dragPointerOrigin} />
 			)}
 		</DndContext>
-	);
-}
-
-/**
- * Invisible droppable zone after the last cell. Gives dnd-kit a concrete
- * rect so the closestGap collision detection can resolve "after last cell"
- * to a real droppable container. Renders the drop indicator when active.
- */
-function EndSentinelDroppable() {
-	const { setNodeRef } = useDroppable({ id: END_SENTINEL_ID });
-	const { overTargetId, activeDragHandleIds } = useDragState();
-	const isActive = overTargetId === END_SENTINEL_ID && activeDragHandleIds.length > 0;
-
-	return (
-		<div ref={setNodeRef} style={{ position: 'relative', height: 1 }}>
-			{isActive && <div className='drag-drop-indicator end-sentinel-indicator' />}
-		</div>
 	);
 }
 

@@ -11,6 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
@@ -23,13 +24,15 @@ interface SortableCellProps {
 }
 
 export function SortableCell({ cell, children }: SortableCellProps) {
-	const { activeDragHandleIds, overTargetId, aboveOverTargetId, overTargetAdjacentToDragged } = useDragState();
+	const { activeDragHandleIds } = useDragState();
 	const {
 		attributes,
 		listeners,
 		setNodeRef,
 		setActivatorNodeRef,
 		isDragging,
+		transform,
+		transition,
 	} = useSortable({ id: cell.handle });
 
 	// Detect if this cell is a secondary participant in a multi-drag
@@ -37,26 +40,28 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 	const isSecondaryDragParticipant =
 		activeDragHandleIds.includes(cell.handle) && !isDragging;
 
-	// Show the drop indicator above this cell when it's the current target.
-	const isOverTarget = overTargetId === cell.handle && !isDragging;
-	const isAboveOverTarget = aboveOverTargetId === cell.handle;
+	// Use dnd-kit's transform/transition for smooth cell shifting during drag.
+	// The dragged cell and secondary participants become invisible but stay in
+	// layout so dnd-kit's rect cache remains accurate.
+	const isHiddenForDrag = isDragging || isSecondaryDragParticipant;
+	const style: React.CSSProperties = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isHiddenForDrag ? 0 : undefined,
+	};
 
-	// Build className based on drag state
 	const className = positronClassNames(
 		'sortable-cell',
-		{ 'dragging': isDragging },
-		{ 'secondary-drag': isSecondaryDragParticipant },
-		{ 'nudge-down': isOverTarget },
-		{ 'nudge-up': isAboveOverTarget }
+		{ 'sortable-cell-hidden': isHiddenForDrag },
 	);
 
 	return (
 		<div
 			ref={setNodeRef}
 			className={className}
+			style={style}
 		>
 			<div className='cell-drag-zone' />
-			{isOverTarget && <div className={positronClassNames('drag-drop-indicator', { 'double-gutter': overTargetAdjacentToDragged })} />}
 			<button
 				ref={setActivatorNodeRef}
 				aria-label='Drag to reorder cell'
