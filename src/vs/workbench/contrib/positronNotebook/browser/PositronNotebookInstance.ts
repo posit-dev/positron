@@ -1291,15 +1291,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
-		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
-		const length = lastIndex - firstIndex + 1;
-		const toIndex = firstIndex - 1;
-
-		if (toIndex < 0) {
+		if (firstIndex <= 0) {
 			return;
 		}
 
-		this._applyCellMoveEdit(firstIndex, length, toIndex);
+		this.moveCells(cellsToMove, firstIndex - 1);
 
 		// Reveal the active cell at its new position so the viewport follows the move
 		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
@@ -1318,17 +1314,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		const cells = this.cells.get();
-		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
+		const allCells = this.cells.get();
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
-		const length = lastIndex - firstIndex + 1;
-		const toIndex = firstIndex + 1; // insert immediately after the block we're crossing
-
-		if (lastIndex >= cells.length - 1) {
+		if (lastIndex >= allCells.length - 1) {
 			return;
 		}
 
-		this._applyCellMoveEdit(firstIndex, length, toIndex);
+		this.moveCells(cellsToMove, lastIndex + 2);
 
 		// Reveal the active cell at its new position so the viewport follows the move
 		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
