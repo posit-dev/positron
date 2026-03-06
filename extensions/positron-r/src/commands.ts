@@ -561,46 +561,61 @@ interface AddinQuickPickItem extends vscode.QuickPickItem {
  * Shows a QuickPick with all addins found in installed packages.
  */
 async function browseAddins(): Promise<void> {
+	const session = await RSessionManager.instance.getConsoleSession();
+	if (!session) {
+		vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
+		return;
+	}
+
+	let addins: RStudioAddin[];
 	try {
-		const session = await RSessionManager.instance.getConsoleSession();
-		if (!session) {
-			vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
-			return;
+		addins = await session.getAddins();
+	} catch (err) {
+		vscode.window.showErrorMessage(vscode.l10n.t('Error loading addins: {0}', String(err)));
+		return;
+	}
+
+	if (addins.length === 0) {
+		vscode.window.showInformationMessage(
+			vscode.l10n.t('No RStudio Addins found. Install packages with addins (e.g., reprex, clipr).')
+		);
+		return;
+	}
+
+	// Sort addins by package name
+	addins.sort((a, b) => a.package.localeCompare(b.package));
+
+	// Group addins by package with separators
+	const items: (vscode.QuickPickItem | AddinQuickPickItem)[] = [];
+	let currentPackage = '';
+	for (const a of addins) {
+		if (a.package !== currentPackage) {
+			currentPackage = a.package;
+			items.push({
+				label: a.package,
+				kind: vscode.QuickPickItemKind.Separator
+			});
 		}
-
-		const addins = await session.getAddins();
-
-		if (addins.length === 0) {
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('No RStudio Addins found. Install packages with addins (e.g., reprex, clipr).')
-			);
-			return;
-		}
-
-		const items: AddinQuickPickItem[] = addins.map(a => ({
+		items.push({
 			label: a.name,
-			description: `{${a.package}}`,
 			detail: a.description,
 			addin: a
-		}));
-
-		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: vscode.l10n.t('Select an RStudio Addin'),
-			matchOnDescription: true,
-			matchOnDetail: true
 		});
+	}
 
-		if (selected) {
-			// For now, just show the addin info. Full implementation in a later PR.
-			const a = selected.addin;
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('Selected addin: {0} from {1} (binding: {2})',
-					a.name, a.package, a.binding)
-			);
+	const selected = await vscode.window.showQuickPick(items, {
+		placeHolder: vscode.l10n.t('Select an RStudio Addin'),
+		matchOnDetail: true
+	}) as AddinQuickPickItem | undefined;
+
+	if (selected) {
+		const addin = selected.addin;
+		const code = `${addin.package}:::${addin.binding}()`;
+		try {
+			await positron.runtime.executeCode('r', code, true);
+		} catch {
+			// R errors are already shown in the console
 		}
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		vscode.window.showErrorMessage(vscode.l10n.t('Error loading addins: {0}', message));
 	}
 }
 
