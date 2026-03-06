@@ -500,4 +500,6 @@ import './services/positronDataExplorer/browser/positronDataExplorerService.js';
 import './services/positronConnections/browser/positronConnectionsService.js';
 import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
 import './contrib/positronAssistant/browser/positronAssistantService.js';
+import './services/positronMemoryUsage/browser/positronMemoryUsageService.js';
+import './services/positronMemoryUsage/common/positronMemoryUsage.contribution.js';
 // --- End Positron ---

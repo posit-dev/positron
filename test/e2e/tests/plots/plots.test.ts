@@ -764,10 +764,15 @@ fig`;
 const rTwoPlots = `plot(1:10)
 plot(1:100)`;
 
-const rPlotAndSave = (filePath: string) => `plot(1:10)
-grDevices::png(filename = "${filePath}")
+const rPlotAndSave = (filePath: string) => {
+	// Convert backslashes to forward slashes for R compatibility on Windows
+	// (R interprets \U as unicode escape sequence)
+	const safePath = filePath.replace(/\\/g, '/');
+	return `plot(1:10)
+grDevices::png(filename = "${safePath}")
 plot(1:20)
 dev.off()`;
+};
 
 async function dismissPlotZoomTooltip(page: Page) {
 	const plotZoomTooltip = page.getByText('Set the plot zoom');

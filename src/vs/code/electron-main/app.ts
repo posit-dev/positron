@@ -129,6 +129,8 @@ import ErrorTelemetry from '../../platform/telemetry/electron-main/errorTelemetr
 import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
+import { PositronMemoryUsageMainService } from '../../platform/positronMemoryUsage/electron-main/positronMemoryUsageMainService.js';
+import { POSITRON_MEMORY_INFO_CHANNEL_NAME, PositronMemoryInfoChannel } from '../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
 // --- End Positron ---
 
 /**
@@ -1269,6 +1271,11 @@ export class CodeApplication extends Disposable {
 		// Ephemeral State
 		const ephemeralStateChannel = new EphemeralStateChannel(accessor.get(IEphemeralStateService));
 		mainProcessElectronServer.registerChannel(EPHEMERAL_STATE_CHANNEL_NAME, ephemeralStateChannel);
+
+		// Memory Usage
+		const memoryUsageMainService = new PositronMemoryUsageMainService();
+		const memoryInfoChannel = new PositronMemoryInfoChannel(memoryUsageMainService);
+		mainProcessElectronServer.registerChannel(POSITRON_MEMORY_INFO_CHANNEL_NAME, memoryInfoChannel);
 		// --- End Positron ---
 
 		// Utility Process Worker

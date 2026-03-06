@@ -89,7 +89,7 @@ suite('UV Installer Tests', () => {
 
     suite('Basic Properties', () => {
         test('Should have correct name', () => {
-            expect(uvInstaller.name).to.equal('Uv');
+            expect(uvInstaller.name).to.equal('uv');
         });
 
         test('Should have correct display name', () => {

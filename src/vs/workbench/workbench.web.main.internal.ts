@@ -11,6 +11,10 @@
 //
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+// --- Start Positron ---
+// See src/vs/workbench/workbench.web.main.ts for more details on Positron-specific exports.
+// --- End Positron ---
+
 import './workbench.web.main.js';
 import { create, commands, env, window, workspace, logger } from './browser/web.factory.js';
 import { Menu } from './browser/web.api.js';
@@ -20,9 +24,6 @@ import { Disposable } from '../base/common/lifecycle.js';
 import { GroupOrientation } from './services/editor/common/editorGroupsService.js';
 import { RemoteAuthorityResolverError, RemoteAuthorityResolverErrorCode } from '../platform/remote/common/remoteAuthorityResolver.js';
 import { LogLevel } from '../platform/log/common/log.js';
-// --- Start Positron ---
-import './contrib/positronPreview/browser/positronPreview.web.contribution.js';
-// --- End Positron ---
 
 export {
 

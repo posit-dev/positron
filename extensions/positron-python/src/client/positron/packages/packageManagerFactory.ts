@@ -20,7 +20,7 @@ export class PackageManagerFactory {
     /**
      * Create the appropriate package manager for the given environment.
      *
-     * @param runtimeSource The environment type (e.g., 'Venv', 'Conda', 'Global', 'Uv')
+     * @param runtimeSource The environment type (e.g., 'Venv', 'Conda', 'Global', 'uv')
      * @param pythonPath The path to the Python interpreter
      * @param messageEmitter The emitter for runtime messages
      * @param serviceContainer The service container for dependency injection

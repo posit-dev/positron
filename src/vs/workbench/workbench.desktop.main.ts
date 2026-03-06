@@ -94,6 +94,7 @@ import './services/process/electron-browser/processService.js';
 
 // --- Start Positron ---
 import './services/ephemeralState/electron-browser/ephemeralStateService.js';
+import './services/positronMemoryUsage/electron-browser/positronMemoryUsageElectronService.js';
 // --- End Positron ---
 
 import { registerSingleton } from '../platform/instantiation/common/extensions.js';
