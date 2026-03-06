@@ -45,6 +45,13 @@ suite('Notebook Output Utils', () => {
 				dataUrl.startsWith('data:image/png;base64,'),
 				'data URL should use base64 encoding for PNG'
 			);
+			// The stub bytes are base64-encoded by parseOutputData, so verify
+			// the full data URL matches the expected encoding of the input bytes.
+			assert.strictEqual(
+				dataUrl,
+				'data:image/png;base64,aVZCT1J3MEtHZ289',
+				'data URL payload should be the base64 encoding of the input buffer bytes'
+			);
 		});
 
 		test('parses text/plain as text output', () => {

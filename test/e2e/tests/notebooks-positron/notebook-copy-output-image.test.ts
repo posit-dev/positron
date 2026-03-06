@@ -51,6 +51,9 @@ test.describe('Positron Notebooks: Copy Output Image', {
 		});
 
 		await test.step('Click Copy Image and verify clipboard has image data', async () => {
+			// Clear clipboard before asserting to avoid false positives
+			await app.workbench.clipboard.clearClipboard();
+
 			const copyImageOption = app.code.driver.page.locator('button.custom-context-menu-item', { hasText: 'Copy Image' });
 			await copyImageOption.click();
 
