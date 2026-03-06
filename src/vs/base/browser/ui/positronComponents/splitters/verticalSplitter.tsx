@@ -440,12 +440,12 @@ export const VerticalSplitter = ({
 								!invert ? Codicon.chevronLeft : Codicon.chevronRight :
 								!invert ? Codicon.chevronRight : Codicon.chevronLeft
 						}
-						onPointerEnter={expandCollapseButtonPointerEnterHandler}
-						onPointerLeave={expandCollapseButtonPointerLeaveHandler}
 						style={{
 							width: EXPAND_COLLAPSE_BUTTON_SIZE,
 							height: EXPAND_COLLAPSE_BUTTON_SIZE
 						}}
+						onPointerEnter={expandCollapseButtonPointerEnterHandler}
+						onPointerLeave={expandCollapseButtonPointerLeaveHandler}
 					/>
 				</Button>
 			}

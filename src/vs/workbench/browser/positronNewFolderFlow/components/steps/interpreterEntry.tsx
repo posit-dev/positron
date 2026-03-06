@@ -24,9 +24,9 @@ export const InterpreterEntry = ({ interpreterInfo }: InterpreterEntryProps) => 
 	// Render.
 	return (
 		<DropdownEntry
-			icon={interpreterInfo.preferred ? Codicon.starFull : undefined}
 			group={interpreterInfo.runtimeSource}
 			hoverText={interpreterInfo.runtimePath}
+			icon={interpreterInfo.preferred ? Codicon.starFull : undefined}
 			subtitle={interpreterInfo.runtimePath}
 			title={`${interpreterInfo.languageName} ${interpreterInfo.languageVersion}`}
 		/>

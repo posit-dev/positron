@@ -20,7 +20,6 @@ import { columnSchemaDataTypeIcon } from '../../../utility/columnSchemaUtilities
 import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronModalReactRenderer } from '../../../../../../../../base/browser/positronModalReactRenderer.js';
 import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
-import { ThemeIcon } from '../../../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { OKModalDialog } from '../../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { VerticalStack } from '../../../../../../positronComponents/positronModalDialog/components/verticalStack.js';
 import { usePositronReactServicesContext } from '../../../../../../../../base/browser/positronReactRendererContext.js';
