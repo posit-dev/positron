@@ -11,6 +11,18 @@ export class Clipboard {
 
 	constructor(private code: Code, private hotKeys: HotKeys) { }
 
+	/**
+	 * Safely grants clipboard permissions. Chromium-only - Firefox/WebKit
+	 * don't support programmatic clipboard permission grants.
+	 */
+	private async tryGrantClipboardPermission(permission: 'clipboard-read' | 'clipboard-write'): Promise<void> {
+		try {
+			await this.code.driver.browserContext.grantPermissions([permission]);
+		} catch {
+			// Non-Chromium browser - clipboard permissions not supported via API
+		}
+	}
+
 	async copy(timeoutMs = 5000): Promise<void> {
 		const seed = '__SEED__';
 		// Seed the clipboard
@@ -53,8 +65,8 @@ export class Clipboard {
 	}
 
 	async getClipboardText(): Promise<string | null> {
-		// Grant permissions to read from clipboard
-		await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
+		// Grant permissions to read from clipboard (Chromium-only)
+		await this.tryGrantClipboardPermission('clipboard-read');
 
 		const clipboardText = await this.code.driver.page.evaluate(async () => {
 			try {
@@ -89,8 +101,8 @@ export class Clipboard {
 	}
 
 	async setClipboardText(text: string): Promise<void> {
-		// Grant permissions to write to clipboard
-		await this.code.driver.browserContext.grantPermissions(['clipboard-write']);
+		// Grant permissions to write to clipboard (Chromium-only)
+		await this.tryGrantClipboardPermission('clipboard-write');
 
 		// Use page context to set clipboard text
 		await this.code.driver.page.evaluate(async (textToCopy) => {
@@ -103,8 +115,8 @@ export class Clipboard {
 	}
 
 	async getClipboardImage(): Promise<Buffer | null> {
-		// Grant permissions to read from clipboard
-		await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
+		// Grant permissions to read from clipboard (Chromium-only)
+		await this.tryGrantClipboardPermission('clipboard-read');
 
 		const clipboardImageBuffer = await this.code.driver.page.evaluate(async () => {
 			const clipboardItems = await navigator.clipboard.read();
@@ -122,8 +134,8 @@ export class Clipboard {
 	}
 
 	async clearClipboard(): Promise<void> {
-		// Grant permissions to modify the clipboard
-		await this.code.driver.browserContext.grantPermissions(['clipboard-write']);
+		// Grant permissions to modify the clipboard (Chromium-only)
+		await this.tryGrantClipboardPermission('clipboard-write');
 
 		// Use the page context to overwrite the clipboard
 		await this.code.driver.page.evaluate(async () => {
