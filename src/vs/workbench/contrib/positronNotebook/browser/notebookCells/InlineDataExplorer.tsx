@@ -203,7 +203,11 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	}, [commId, dataExplorerService, onFallback]);
 
 	const handleOpenInExplorer = () => {
-		dataExplorerService.openFromInlineExplorer(commId, variablePath, notebookInstance.uri);
+		services.commandService.executeCommand('positron-data-explorer.openFromInline', {
+			commId,
+			variablePath,
+			notebookUri: notebookInstance.uri,
+		});
 	};
 
 	// Check if grid instance has become stale (no data but still "connected")

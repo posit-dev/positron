@@ -68,16 +68,6 @@ export interface IPositronDataExplorerService {
 	getInstanceForVariablePath(sessionId: string, variablePath: string[]): IPositronDataExplorerInstance | undefined;
 
 	/**
-	 * Opens a full data explorer from an inline notebook preview, reusing an
-	 * existing tab for the same variable when possible.
-	 *
-	 * @param commId The inline data explorer comm ID.
-	 * @param variablePath Optional canonical variable path for deduplication.
-	 * @param notebookUri Optional notebook URI to scope the session lookup.
-	 */
-	openFromInlineExplorer(commId: string, variablePath?: string[], notebookUri?: URI): Promise<void>;
-
-	/**
 	 * Open a URI in the data explorer using the positron-duckdb extension.
 	 * @param uri The URI, usually a file in the workspace.
 	 */
