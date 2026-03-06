@@ -397,8 +397,6 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
 
     def __init__(self, server: PositronLanguageServer, converter: cattrs.Converter):
         super().__init__(server, converter)
-        # Queue for handling message batching (performance optimization)
-        self._messages_to_handle: list[Any] = []
 
     @lru_cache  # noqa: B019
     def get_message_type(self, method: str) -> type | None:
@@ -891,7 +889,8 @@ def _get_namespace_completions(
     items = []
     # Get the partial word being typed
     match = _RE_TRAILING_WORD.search(text_before_cursor)
-    prefix = match.group(1) if match else ""
+    assert match is not None
+    prefix = match.group(1)
 
     for name, obj in server.shell.user_ns.items():
         # Skip private names unless explicitly typing underscore
@@ -1493,17 +1492,11 @@ def _is_dataframe_like(obj: Any) -> bool:
 
 
 def _get_dataframe_column_completions(obj: Any, prefix: str) -> list[types.CompletionItem]:
-    """Get column name completions for DataFrame/Series objects."""
+    """Get column name completions for DataFrame objects."""
     items = []
 
     try:
-        # Get column names
-        if hasattr(obj, "columns"):
-            columns = list(obj.columns)
-        elif hasattr(obj, "name"):  # Series
-            columns = [obj.name] if obj.name else []
-        else:
-            columns = []
+        columns = list(obj.columns) if hasattr(obj, "columns") else []
 
         for col in columns:
             if col is None:
@@ -1698,10 +1691,12 @@ def _create_magic_completion_item(
 
     # Determine insert_text - handle existing '%' characters
     match = _RE_TRAILING_TOKEN.search(chars_before_cursor)
-    text = match.group(1) if match else ""
+    assert match is not None
+    text = match.group(1)
 
     match2 = _RE_LEADING_PERCENT.match(text)
-    count = len(match2.group(1)) if match2 else 0
+    assert match2 is not None
+    count = len(match2.group(1))
     pad_count = max(0, len(prefix) - count)
     insert_text = prefix[0] * pad_count + name
 
