@@ -143,14 +143,16 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const wasVisibleRef = useRef<boolean>(true);
 	const pendingFocusIndexRef = useRef<number>(-1);
 
-	// Keep refs in sync with state
-	useEffect(() => {
-		selectedIndicesRef.current = selectedIndices;
-	}, [selectedIndices]);
-
-	useEffect(() => {
-		anchorIndexRef.current = anchorIndex;
-	}, [anchorIndex]);
+	// Wrappers that update both state and refs synchronously,
+	// so event handlers that fire before the next render read current values.
+	const updateSelectedIndices = (value: Set<number>) => {
+		selectedIndicesRef.current = value;
+		setSelectedIndices(value);
+	};
+	const updateAnchorIndex = (value: number) => {
+		anchorIndexRef.current = value;
+		setAnchorIndex(value);
+	};
 
 	// Track previous anchor to reset row heights for both old and new anchor
 	const prevAnchorIndexRef = useRef<number>(-1);
@@ -446,11 +448,11 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 		// Update selection before reloading
 		if (finalIndex >= 0) {
-			setSelectedIndices(new Set([finalIndex]));
-			setAnchorIndex(finalIndex);
+			updateSelectedIndices(new Set([finalIndex]));
+			updateAnchorIndex(finalIndex);
 		} else {
-			setSelectedIndices(new Set());
-			setAnchorIndex(-1);
+			updateSelectedIndices(new Set());
+			updateAnchorIndex(-1);
 		}
 
 		// Reload the history to refresh the view
@@ -568,8 +570,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (confirmed) {
 			executionHistoryService.clearInputEntries(currentLanguage);
 			// Reset selection since all entries will be gone
-			setSelectedIndices(new Set());
-			setAnchorIndex(-1);
+			updateSelectedIndices(new Set());
+			updateAnchorIndex(-1);
 			// Reload the history to update the UI
 			loadHistory();
 		}
@@ -609,8 +611,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Helper to set selection to a single index (convenience wrapper).
 	 */
 	const selectSingle = (index: number) => {
-		setSelectedIndices(new Set([index]));
-		setAnchorIndex(index);
+		// Skip if already single-selected on this index to avoid unnecessary re-renders.
+		// This is important for double-click: creating a new Set triggers a re-render
+		// which causes react-window to recreate the DOM element, losing the dblclick event.
+		if (selectedIndicesRef.current.size === 1 && selectedIndicesRef.current.has(index) && anchorIndexRef.current === index) {
+			return;
+		}
+		updateSelectedIndices(new Set([index]));
+		updateAnchorIndex(index);
 	};
 
 	/**
@@ -637,7 +645,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					newSet.add(i);
 				}
 			}
-			setSelectedIndices(newSet);
+			updateSelectedIndices(newSet);
 			// Keep original anchor, don't change it
 		} else if (e && (isMacintosh ? e.metaKey : e.ctrlKey)) {
 			// Cmd/Ctrl+Click: toggle this index
@@ -647,13 +655,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				// If we removed the anchor, pick first remaining or -1
 				if (index === anchorIndex) {
 					const remaining = Array.from(newSet).sort((a, b) => a - b);
-					setAnchorIndex(remaining.length > 0 ? remaining[0] : -1);
+					updateAnchorIndex(remaining.length > 0 ? remaining[0] : -1);
 				}
 			} else {
 				newSet.add(index);
-				setAnchorIndex(index);
+				updateAnchorIndex(index);
 			}
-			setSelectedIndices(newSet);
+			updateSelectedIndices(newSet);
 		} else {
 			// Plain click: single-select
 			selectSingle(index);
@@ -1055,12 +1063,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					// Shift+Arrow: extend selection from current set to include the new anchor
 					const newSet = new Set(currentSelected);
 					newSet.add(newIndex);
-					setSelectedIndices(newSet);
-					setAnchorIndex(newIndex);
+					updateSelectedIndices(newSet);
+					updateAnchorIndex(newIndex);
 				} else {
 					// Plain navigation: single-select the new index
-					setSelectedIndices(new Set([newIndex]));
-					setAnchorIndex(newIndex);
+					updateSelectedIndices(new Set([newIndex]));
+					updateAnchorIndex(newIndex);
 				}
 				// Scroll to the newly selected item
 				if (listRef.current) {
@@ -1157,8 +1165,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 		// Reset selection if list becomes empty
 		if (listItems.length === 0) {
-			setSelectedIndices(new Set());
-			setAnchorIndex(-1);
+			updateSelectedIndices(new Set());
+			updateAnchorIndex(-1);
 		} else {
 			// Remove any indices that are now out of bounds
 			const validIndices = new Set<number>();
@@ -1171,10 +1179,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				}
 			}
 			if (changed) {
-				setSelectedIndices(validIndices);
+				updateSelectedIndices(validIndices);
 				if (!validIndices.has(anchorIndex)) {
 					const remaining = Array.from(validIndices).sort((a, b) => a - b);
-					setAnchorIndex(remaining.length > 0 ? remaining[0] : -1);
+					updateAnchorIndex(remaining.length > 0 ? remaining[0] : -1);
 				}
 			}
 		}
