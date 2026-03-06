@@ -6,6 +6,7 @@
 import * as dom from '../../../../base/browser/dom.js';
 import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ResourceLabels } from '../../../browser/labels.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -51,9 +52,10 @@ export class RuntimeSessionAttachmentWidget extends AbstractChatAttachmentWidget
 		contextResourceLabels: ResourceLabels,
 		@ICommandService commandService: ICommandService,
 		@IOpenerService openerService: IOpenerService,
+		@IConfigurationService configurationService: IConfigurationService,
 		@IRuntimeSessionService runtimeSessionService: IRuntimeSessionService,
 	) {
-		super(attachment, options, container, contextResourceLabels, currentLanguageModel, commandService, openerService);
+		super(attachment, options, container, contextResourceLabels, currentLanguageModel, commandService, openerService, configurationService);
 
 		// Build the label text with runtime icon if available
 		const attachmentLabel = attachment.fullName ?? attachment.name;

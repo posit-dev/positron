@@ -157,6 +157,14 @@ function installBuildDependencies() {
 	env['npm_config_target'] = process.versions.node;
 	env['npm_config_arch'] = process.arch;
 
+	// --- Start Positron ---
+	// Override electron-specific npm config inherited from root .npmrc env vars.
+	// The root .npmrc sets disturl/runtime for Electron, but build/ targets Node.js.
+	// Without this, node-gyp requests Node.js headers from the Electron URL → 404.
+	env['npm_config_disturl'] = 'https://nodejs.org/dist';
+	env['npm_config_runtime'] = 'node';
+	// --- End Positron ---
+
 	// Force node-gyp to use process.config on macOS
 	if (process.platform === 'darwin') {
 		env['npm_config_force_process_config'] = 'true';

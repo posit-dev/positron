@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -364,9 +364,17 @@ class PositronShell(ZMQInteractiveShell):
     def init_inspector(self, changes: traitlets.Bunch | None = None) -> None:  # noqa: ARG002
         # Override to pass `parent=self` to the inspector so that the inspector can send messages
         # over the kernel's comms.
-        self.inspector = self.inspector_class(
-            oinspect.InspectColors,
-            PyColorize.ANSICodeColors,
+        # In IPython 9+, the base class (init_syntax_highlighting) already passes parent=self
+        # to the inspector, so this override is only needed for IPython 8.
+        _InspectColors = getattr(oinspect, "InspectColors", None)  # noqa: N806
+        _ANSICodeColors = getattr(PyColorize, "ANSICodeColors", None)  # noqa: N806
+        if _InspectColors is None or _ANSICodeColors is None:
+            return
+        # Cast to Any since this IPython 8 constructor signature differs from IPython 9's.
+        inspector_cls: Any = self.inspector_class
+        self.inspector = inspector_cls(
+            _InspectColors,
+            _ANSICodeColors,
             self.colors,
             self.object_info_string_level,
             parent=self,

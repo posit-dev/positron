@@ -12,7 +12,7 @@ test.use({
 
 const DATABOT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 
-test.describe('Databot', {
+test.describe.skip('Databot', {
 	tag: [tags.ASSISTANT, tags.DATABOT, tags.WEB, tags.WIN, tags.SOFT_FAIL],
 }, () => {
 

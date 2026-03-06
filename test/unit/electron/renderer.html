@@ -107,9 +107,9 @@
 
 		//3: React and other external dependencies
 
-        const addModule = (packageName) => {
-            importMap.imports[packageName] = `../../../${outdir}/esm-package-dependencies/${packageName}.js`
-        };
+		const addModule = (packageName) => {
+			importMap.imports[packageName] = `../../../${outdir}/esm-package-dependencies/${packageName}.js`
+		};
 
 		addModule("he");
 		addModule("react");

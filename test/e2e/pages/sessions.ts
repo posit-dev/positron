@@ -428,31 +428,38 @@ export class Sessions {
 			// Don't try to start a new runtime if one is currently starting up
 			await this.expectAllSessionsToBeReady();
 
-			// Start the runtime via the session picker button, quickaccess or console session button
-			if (triggerMode === 'quickaccess') {
-				const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
-				await this.quickaccess.runCommand(command, { keepOpen: true });
-			} else if (triggerMode === 'session-picker') {
-				await this.quickPick.openSessionQuickPickMenu();
-			} else {
-				await this.page.keyboard.press('Control+Shift+/');
-			}
+			// Retry the quick pick interaction to handle race conditions where the
+			// picker may not open or populate correctly on the first attempt.
+			await expect(async () => {
+				// Dismiss any stale quick input from a previous attempt
+				await this.quickinput.closeQuickInput().catch(() => { });
 
-			let input = language;
-			if (version) {
-				input += ` ${version}`;
-			}
-			if (options.disambiguator) {
-				input += ` ${options.disambiguator}`;
-			}
+				// Start the runtime via the session picker button, quickaccess or console session button
+				if (triggerMode === 'quickaccess') {
+					const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
+					await this.quickaccess.runCommand(command, { keepOpen: true });
+				} else if (triggerMode === 'session-picker') {
+					await this.quickPick.openSessionQuickPickMenu();
+				} else {
+					await this.page.keyboard.press('Control+Shift+/');
+				}
 
-			await this.quickinput.type(input);
+				let input = language;
+				if (version) {
+					input += ` ${version}`;
+				}
+				if (options.disambiguator) {
+					input += ` ${options.disambiguator}`;
+				}
 
-			// Wait until the desired runtime appears in the list and select it.
-			// We need to click instead of using 'enter' because the Python select interpreter command
-			// may include additional items above the desired interpreter string.
-			await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`);
-			await this.quickinput.waitForQuickInputClosed();
+				await this.quickinput.type(input);
+
+				// Wait until the desired runtime appears in the list and select it.
+				// We need to click instead of using 'enter' because the Python select interpreter command
+				// may include additional items above the desired interpreter string.
+				await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+				await this.quickinput.waitForQuickInputClosed();
+			}, 'Select runtime from quick pick').toPass({ timeout: 30000 });
 
 			// Move mouse to prevent tooltip hover
 			await this.code.driver.page.mouse.move(0, 0);
@@ -624,7 +631,8 @@ export class Sessions {
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {
-				await this.page.getByTestId(`console-tab-${sessionId}`).click();
+				// Use force to bypass notification toasts that may overlay the tab
+				await this.page.getByTestId(`console-tab-${sessionId}`).click({ force: true });
 			}
 
 			const metadata = await this.extractMetadataFromDialog();

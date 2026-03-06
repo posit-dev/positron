@@ -60,6 +60,11 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+Shift+Enter', 'Run file in console');
 	}
 
+	public async runLineOfCode() {
+		await this.pressHotKeys('Cmd+Enter', 'Run line of code');
+		await this.code.driver.page.waitForTimeout(500); // Wait for the console to process the command
+	}
+
 	public async selectNotebookKernel() {
 		await this.pressHotKeys('Cmd+J D', 'Select notebook kernel');
 	}
