@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference path="../vscode-dts/vscode.proposed.chatParticipantAdditions.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.chatParticipantPrivate.d.ts" />
 /// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
 /// <reference path="../vscode-dts/vscode.proposed.languageModelThinkingPart.d.ts" />
 
