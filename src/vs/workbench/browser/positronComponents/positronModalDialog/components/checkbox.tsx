@@ -10,6 +10,8 @@ import './checkbox.css';
 import { useRef, useState } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 
 /**
@@ -40,7 +42,7 @@ export const Checkbox = ({ label, initialChecked, onChanged }: CheckboxProps) =>
 	return (
 		<div className='checkbox'>
 			<button ref={buttonRef} aria-checked='false' className='checkbox-button' id={id} role='checkbox' tabIndex={0} onClick={clickHandler}>
-				{checked && <div className='check-indicator codicon codicon-check' />}
+				{checked && <ThemeIcon className='check-indicator' icon={Codicon.check} />}
 			</button>
 			<label htmlFor={id}>{label}</label>
 		</div>

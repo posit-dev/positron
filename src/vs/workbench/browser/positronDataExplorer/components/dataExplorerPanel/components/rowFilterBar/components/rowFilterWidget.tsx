@@ -10,9 +10,11 @@ import './rowFilterWidget.css';
 import { forwardRef } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../../../nls.js';
 import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronDataExplorerContext } from '../../../../../positronDataExplorerContext.js';
+import { ThemeIcon } from '../../../../../../../../platform/positronActionBar/browser/components/icon.js';
 import {
 	RowFilterDescriptor,
 	RowFilterDescriptorComparison,
@@ -152,7 +154,7 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 				hoverManager={context.instance.tableDataDataGridInstance.hoverManager}
 				tooltip={localize('positron.dataExplorer.clearFilter', "Clear Filter")}
 				onPressed={() => props.onClear()}>
-				<div className={'codicon codicon-positron-clear-filter'} />
+				<ThemeIcon icon={Codicon.positronClearFilter} />
 			</Button>
 		</Button>
 	);

@@ -16,6 +16,8 @@ import { PositronButton } from '../../../../../base/browser/ui/positronComponent
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
 import { usePositronConfiguration, usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -68,12 +70,12 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 								<PositronButton className='toggle-traceback' onPressed={pressedTracebackHandler}>
 									{showTraceback ?
 										<>
-											<div className='expansion-indicator codicon codicon-positron-triangle-down'></div>
+											<ThemeIcon className='expansion-indicator' icon={Codicon.positronTriangleDown} />
 											<div className='link-text'>{localize('positronHideTraceback', "Hide Traceback")}</div>
 
 										</> :
 										<>
-											<div className='expansion-indicator codicon codicon-positron-triangle-right'></div>
+											<ThemeIcon className='expansion-indicator' icon={Codicon.positronTriangleRight} />
 											<div className='link-text'>{localize('positronShowTraceback', "Show Traceback")}</div>
 										</>
 									}

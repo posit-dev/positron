@@ -30,10 +30,8 @@ interface IconProps {
 /**
  * ThemeIconProps interface.
  */
-interface ThemeIconProps {
+interface ThemeIconProps extends React.HTMLAttributes<HTMLDivElement> {
 	readonly icon: ThemeIconClass;
-	readonly className?: string;
-	readonly style?: React.CSSProperties,
 }
 
 /**
@@ -50,13 +48,13 @@ interface URIIconProps {
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const ThemeIcon = (props: ThemeIconProps) => {
-	const iconClassNames = ThemeIconClass.asClassNameArray(props.icon);
+export const ThemeIcon = ({ icon, className, ...rest }: ThemeIconProps) => {
+	const iconClassNames = ThemeIconClass.asClassNameArray(icon);
 
 	return (
 		<div
-			className={positronClassNames(props.className, ...iconClassNames)}
-			style={props.style}
+			className={positronClassNames(className, ...iconClassNames)}
+			{...rest}
 		/>
 	);
 };

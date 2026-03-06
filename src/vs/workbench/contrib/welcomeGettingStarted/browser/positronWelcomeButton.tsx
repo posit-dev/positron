@@ -33,6 +33,7 @@ export function WelcomeButtonInner(props: WelcomeButtonProps, ref?: React.Forwar
 			onPressed={props.onPressed}
 		>
 			<div ref={ref} className='button-container'>
+				{/* eslint-disable-next-line local/code-no-hardcoded-codicon-classes */}
 				<div className={`button-icon codicon codicon-${props.codicon}`} />
 				<div className='action-label'>
 					{props.label}

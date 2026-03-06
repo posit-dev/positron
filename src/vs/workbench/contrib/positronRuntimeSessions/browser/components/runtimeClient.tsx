@@ -13,6 +13,8 @@ import React, { useEffect, useState } from 'react';
 import { IRuntimeClientInstance, RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Event } from '../../../../../base/common/event.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 interface runtimeClientProps {
 	readonly client: IRuntimeClientInstance<any, any>;
@@ -74,7 +76,7 @@ export const RuntimeClient = (props: runtimeClientProps) => {
 		{state === RuntimeClientState.Connected &&
 			<td className='disconnect-button'>
 				<a href='#' onClick={disconnect}>
-					<span className='codicon codicon-debug-disconnect' title='Disconnect client'></span>
+					<ThemeIcon icon={Codicon.debugDisconnect} title='Disconnect client' />
 				</a>
 			</td>
 		}

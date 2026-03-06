@@ -10,8 +10,9 @@ import './actionBarButton.css';
 import { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../base/common/codicons.js';
 import { Icon as IconType } from '../../../action/common/action.js';
-import { Icon } from './icon.js';
+import { Icon, ThemeIcon } from './icon.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
@@ -137,7 +138,7 @@ export const ActionBarButton = forwardRef<
 				{props.children}
 				{props.dropdownIndicator === 'enabled' &&
 					<div className='action-bar-button-drop-down-container'>
-						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+						<ThemeIcon className='action-bar-button-drop-down-arrow' icon={Codicon.positronDropDownArrow} />
 					</div>
 				}
 			</div >
@@ -200,7 +201,7 @@ export const ActionBarButton = forwardRef<
 					tooltip={props.dropdownTooltip}
 					onPressed={props.onDropdownPressed}
 				>
-					<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+					<ThemeIcon className='action-bar-button-drop-down-arrow' icon={Codicon.positronDropDownArrow} />
 				</Button>
 			</div>
 		);

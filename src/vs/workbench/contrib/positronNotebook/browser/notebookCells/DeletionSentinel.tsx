@@ -18,6 +18,8 @@ import { IConfigurationService, ConfigurationTarget } from '../../../../../platf
 import { POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY, POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY } from '../../common/positronNotebookConfig.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 
 interface DeletionSentinelProps {
@@ -258,10 +260,12 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 							</ActionButton>
 							<button
 								aria-label={localize('notebook.configureAutoClose', 'Configure auto-close')}
-								className='deletion-sentinel-config-button codicon codicon-settings-gear'
+								className='deletion-sentinel-config-button'
 								title={localize('notebook.configureAutoClose', 'Configure auto-close')}
 								onClick={handleConfigClick}
-							/>
+							>
+								<ThemeIcon icon={Codicon.settingsGear} />
+							</button>
 						</div>
 					</div>
 

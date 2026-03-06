@@ -13,6 +13,8 @@ import React, { PropsWithChildren, useMemo, useRef } from 'react';
 import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { localize } from '../../../../../nls.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 /**
  * PlotGalleryThumbnailProps interface.
@@ -100,11 +102,12 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 			</button>
 			<button
 				ref={plotRemoveButtonRef}
-				className='plot-close codicon codicon-close'
+				className='plot-close'
 				tabIndex={props.selected ? 0 : -1}
 				title={removePlotTitle}
 				onClick={removePlot}
 			>
+				<ThemeIcon icon={Codicon.close} />
 			</button>
 		</div>
 	);

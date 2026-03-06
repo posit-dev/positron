@@ -11,6 +11,8 @@ import React, { useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
@@ -243,10 +245,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				}}
 			>
 				{options.checked !== undefined && options.checked &&
-					<div
-						className={`check codicon codicon-positron-check-mark`}
-						title={options.label}
-					/>
+					<ThemeIcon className='check' icon={Codicon.positronCheckMark} title={options.label} />
 				}
 
 				{options.icon &&

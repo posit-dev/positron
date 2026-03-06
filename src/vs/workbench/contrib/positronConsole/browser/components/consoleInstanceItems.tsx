@@ -36,6 +36,8 @@ import { RuntimeItemRestartButton } from '../../../../services/positronConsole/b
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeItemStartupFailure } from '../../../../services/positronConsole/browser/classes/runtimeItemStartupFailure.js';
 import { localize } from '../../../../../nls.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 /**
  * ConsoleInstanceItemsProps interface.
@@ -110,7 +112,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 				})}
 				{this.props.disconnected &&
 					<div className='console-item-starting'>
-						<span className='codicon codicon-loading codicon-modifier-spin'></span>
+						<ThemeIcon className='codicon-modifier-spin' icon={Codicon.loading} />
 						<span>{localize(
 							"positron.console.extensionsRestarting",
 							"Extensions restarting..."

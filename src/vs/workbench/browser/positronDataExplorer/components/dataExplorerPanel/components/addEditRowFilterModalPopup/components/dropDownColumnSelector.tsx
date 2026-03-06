@@ -10,6 +10,7 @@ import './dropDownColumnSelector.css';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../../../nls.js';
 import * as DOM from '../../../../../../../../base/browser/dom.js';
 import { ColumnSelectorModalPopup } from './columnSelectorModalPopup.js';
@@ -18,6 +19,7 @@ import { columnSchemaDataTypeIcon } from '../../../utility/columnSchemaUtilities
 import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronModalReactRenderer } from '../../../../../../../../base/browser/positronModalReactRenderer.js';
 import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { ThemeIcon } from '../../../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { OKModalDialog } from '../../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { VerticalStack } from '../../../../../../positronComponents/positronModalDialog/components/verticalStack.js';
 import { usePositronReactServicesContext } from '../../../../../../../../base/browser/positronReactRendererContext.js';
@@ -154,7 +156,7 @@ export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColu
 				)
 			}
 			<div aria-hidden='true' className='chevron'>
-				<div className='codicon codicon-chevron-down' />
+				<ThemeIcon icon={Codicon.chevronDown} />
 			</div>
 		</Button>
 	);

@@ -17,6 +17,8 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { TwinklingSparkleIcon } from './TwinklingSparkleIcon.js';
 
 const MAX_CUSTOM_PROMPT_LENGTH = 15000;
@@ -274,7 +276,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 						title={localize('assistantPanel.submit', 'Submit prompt')}
 						onClick={handleCustomPromptSubmit}
 					>
-						<span className='assistant-panel-submit-icon codicon codicon-send' />
+						<ThemeIcon className='assistant-panel-submit-icon' icon={Codicon.send} />
 					</button>
 				</div>
 
@@ -322,7 +324,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 								className='assistant-panel-action'
 								onClick={() => onActionSelected(suggestion.query, suggestion.mode)}
 							>
-								<span className='assistant-panel-action-icon codicon codicon-sparkle' />
+								<ThemeIcon className='assistant-panel-action-icon' icon={Codicon.sparkle} />
 								<div className='assistant-panel-action-content'>
 									<div className='assistant-panel-action-label'>{suggestion.label}</div>
 								</div>

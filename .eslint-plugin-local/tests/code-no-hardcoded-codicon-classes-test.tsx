@@ -5,8 +5,6 @@
 
 // Test file to verify the code-no-hardcoded-codicon-classes ESLint rule.
 
-import React from 'react';
-
 // -----
 // Valid
 // -----

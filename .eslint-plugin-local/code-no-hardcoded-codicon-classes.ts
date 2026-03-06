@@ -19,9 +19,9 @@ export default new class implements eslint.Rule.RuleModule {
 		messages: {
 			noHardcodedCodicon:
 				'Avoid using raw \'codicon codicon-*\' CSS classes in JSX. ' +
-				'Use the <ThemeIcon> component instead (e.g. <ThemeIcon icon={Codicon.error} />). ' +
-				'ThemeIcon provides a typed interface that catches typos at compile time, ' +
-				'makes icon usage easy to find via code search, and simplifies future migration to themed icons.',
+				'Use the <ThemeIcon> component instead (e.g. <ThemeIcon icon={Codicon.error}/>). ' +
+				'ThemeIcon provides a typed interface, makes icon usage easy to find, and simplifies ' +
+				'future migration to themed icons.',
 		},
 		schema: false,
 	};

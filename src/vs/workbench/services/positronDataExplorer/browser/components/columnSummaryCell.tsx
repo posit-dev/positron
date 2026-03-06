@@ -11,6 +11,7 @@ import { useRef, useEffect } from 'react';
 
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { VectorHistogram } from './vectorHistogram.js';
 import { ColumnProfileDate } from './columnProfileDate.js';
@@ -24,6 +25,7 @@ import { ColumnProfileDatetime } from './columnProfileDatetime.js';
 import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
 import { ColumnDisplayType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { renderLeadingTrailingWhitespace } from './tableDataCell.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 
 /**
  * Constants.
@@ -512,8 +514,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					}
 				>
 					{expanded ?
-						<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
-						<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
+						<ThemeIcon className='expand-collapse-icon' icon={Codicon.chevronDown} /> :
+						<ThemeIcon className='expand-collapse-icon' icon={Codicon.chevronRight} />
 					}
 				</div>
 				<div

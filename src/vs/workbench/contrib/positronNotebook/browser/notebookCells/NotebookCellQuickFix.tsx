@@ -18,6 +18,8 @@ import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { CHAT_OPEN_ACTION_ID, ACTION_ID_NEW_CHAT } from '../../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 /**
@@ -158,7 +160,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				onMainAction={pressedFixHandler}
 			>
 				<div className='link-text' title={fixTooltip}>
-					<span className='codicon codicon-sparkle' />
+					<ThemeIcon icon={Codicon.sparkle} />
 					{localize('positronNotebookAssistantFix', "Fix")}
 				</div>
 			</SplitButton>
@@ -174,7 +176,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				onMainAction={pressedExplainHandler}
 			>
 				<div className='link-text' title={explainTooltip}>
-					<span className='codicon codicon-sparkle' />
+					<ThemeIcon icon={Codicon.sparkle} />
 					{localize('positronNotebookAssistantExplain', "Explain")}
 				</div>
 			</SplitButton>

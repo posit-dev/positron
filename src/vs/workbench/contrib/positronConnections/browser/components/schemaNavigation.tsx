@@ -19,6 +19,8 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { KeyboardModifiers, PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 const DETAILS_BAR_HEIGHT = 26;
 
@@ -144,7 +146,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 						icon ?
 							<img className='connection-icon' src={icon}></img> :
 							<div className='connection-icon'>
-								<div className='codicon codicon-positron-database-connection'></div>
+								<ThemeIcon icon={Codicon.positronDatabaseConnection} />
 							</div>
 					}
 				</div>
@@ -189,7 +191,7 @@ const NoEntriesMessage = ({ height, error, onTryAgain }: { height: number, error
 	};
 
 	return <div className='no-entries-message' style={{ height: height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT }}>
-		<div className={failed ? 'codicon codicon-error' : 'codicon codicon-loading animate-spin'}></div>
+		{failed ? <ThemeIcon icon={Codicon.error} /> : <ThemeIcon className='animate-spin' icon={Codicon.loading} />}
 		<p>{
 			failed ?
 				localize('positron.schemaNavigation.noEntriesFailed', 'Failed to load entries') :
@@ -199,7 +201,7 @@ const NoEntriesMessage = ({ height, error, onTryAgain }: { height: number, error
 		{
 			failed ?
 				<Button className='retry-button' onPressed={() => onPressedTryAgain()}>
-					<div className='codicon codicon-refresh'></div>
+					<ThemeIcon icon={Codicon.refresh} />
 					{localize('positron.schemaNavigation.tryAgain', 'Try again')}
 				</Button> :
 				null
@@ -359,16 +361,15 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			return <></>;
 		}
 
-		const className = showSpinner ?
-			`codicon codicon-loading animate-spin` :
-			`codicon codicon-chevron-${expanded ? 'down' : 'right'}`;
-
 		return (
 			<div
 				className='expand-collapse-area'
 				onClick={handleExpand}
 			>
-				<div className={className} />
+				{showSpinner ?
+					<ThemeIcon className='animate-spin' icon={Codicon.loading} /> :
+					<ThemeIcon icon={expanded ? Codicon.chevronDown : Codicon.chevronRight} />
+				}
 			</div>
 		)
 	});
@@ -391,7 +392,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			disabled={onPreview === undefined || showSpinner}
 			onPressed={previewCallback}
 		>
-			{showSpinner ? <div className='codicon codicon-loading animate-spin' /> : <ElementIcon />}
+			{showSpinner ? <ThemeIcon className='animate-spin' icon={Codicon.loading} /> : <ElementIcon />}
 		</PositronButton>
 	});
 
@@ -414,7 +415,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			>
 				<span className='connections-name'>{props.item.name}</span>
 				{props.item.dtype && <span className='connections-dtype'>{props.item.dtype}</span>}
-				{props.item.error && <span className='connections-error codicon codicon-error' title={props.item.error}></span>}
+				{props.item.error && <ThemeIcon className='connections-error' icon={Codicon.error} title={props.item.error} />}
 			</div>
 			<PreviewButton onPreview={props.item.preview} />
 		</div>

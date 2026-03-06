@@ -10,6 +10,8 @@ import './topActionBarCommandCenter.css';
 import React, { MouseEvent } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { localize } from '../../../../../nls.js';
 import { AnythingQuickAccessProviderRunOptions } from '../../../../../platform/quickinput/common/quickAccess.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -63,7 +65,7 @@ export const TopActionBarCommandCenter = () => {
 	return (
 		<div className='top-action-bar-command-center' onClick={(e) => clickHandler(e)}>
 			<div className='left'>
-				<div aria-hidden='true' className='codicon codicon-positron-search' />
+				<ThemeIcon icon={Codicon.positronSearch} />
 			</div>
 			<div className='center'>
 				<button ref={searchRef} className='search' onClick={(e) => clickHandler(e)}>
@@ -72,7 +74,7 @@ export const TopActionBarCommandCenter = () => {
 			</div>
 			<div className='right'>
 				<button ref={dropdownRef} aria-label={positronShowQuickAccess} className='drop-down' onClick={(e) => dropDownClickHandler(e)} >
-					<div aria-hidden='true' className='icon codicon codicon-chevron-down' />
+					<ThemeIcon className='icon' icon={Codicon.chevronDown} />
 				</button>
 			</div>
 		</div>

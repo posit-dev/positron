@@ -6,10 +6,14 @@
 // CSS.
 import './placeholderThumbnail.css';
 
+// Other dependencies.
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+
 export const PlaceholderThumbnail = () => {
 	return (
 		<div className='plot-thumbnail-placeholder'>
-			<span className='codicon codicon-graph' />
+			<ThemeIcon icon={Codicon.graph} />
 		</div>
 	);
 };
