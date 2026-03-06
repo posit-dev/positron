@@ -115,7 +115,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 				positronActionBarContext.hoverManager?.hideHover();
 			}}
 		>
-			<ThemeIcon icon={Codicon.folder} />
+			<ThemeIcon icon={Codicon.folder} role='presentation' />
 			<span className='label'>
 				{isWindows ? toSlashes(props.directoryLabel) : props.directoryLabel}
 			</span>

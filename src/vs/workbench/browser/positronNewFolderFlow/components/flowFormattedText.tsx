@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import { Codicon } from '../../../../base/common/codicons.js';
 import './flowFormattedText.css';
 
 // React.

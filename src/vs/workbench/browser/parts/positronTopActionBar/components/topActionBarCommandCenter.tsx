@@ -65,7 +65,7 @@ export const TopActionBarCommandCenter = () => {
 	return (
 		<div className='top-action-bar-command-center' onClick={(e) => clickHandler(e)}>
 			<div className='left'>
-				<ThemeIcon icon={Codicon.positronSearch} />
+				<ThemeIcon aria-hidden='true' icon={Codicon.positronSearch} />
 			</div>
 			<div className='center'>
 				<button ref={searchRef} className='search' onClick={(e) => clickHandler(e)}>
@@ -74,7 +74,7 @@ export const TopActionBarCommandCenter = () => {
 			</div>
 			<div className='right'>
 				<button ref={dropdownRef} aria-label={positronShowQuickAccess} className='drop-down' onClick={(e) => dropDownClickHandler(e)} >
-					<ThemeIcon className='icon' icon={Codicon.chevronDown} />
+					<ThemeIcon aria-hidden='true' className='icon' icon={Codicon.chevronDown} />
 				</button>
 			</div>
 		</div>
