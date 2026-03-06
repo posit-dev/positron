@@ -55,7 +55,7 @@ export class PackageManager {
 				: `pip uninstall -y ${packageName}`;
 		} else {
 			return action === 'install'
-				? `install.packages("${packageName}", repos = "https://packagemanager.posit.co/cran/latest", type = "both")`
+				? `install.packages("${packageName}", repos = "https://packagemanager.posit.co/cran/latest")`
 				: `remove.packages("${packageName}")`;
 		}
 	}
