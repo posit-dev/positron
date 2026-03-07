@@ -6,8 +6,11 @@
 import { TSESTree } from '@typescript-eslint/utils';
 import * as eslint from 'eslint';
 
-// Matches any "codicon-" reference (with or without a name suffix).
-const CODICON_PATTERN = /\bcodicon-/;
+// Matches "codicon-" at a class-token boundary (start of string or after
+// whitespace). Using (?:^|\s) instead of \b avoids false positives on
+// hyphenated names like "btn-codicon-wrapper" where \b treats "-" as a
+// word boundary.
+const CODICON_PATTERN = /(?:^|\s)codicon-/;
 
 /** Extract string content from a Literal or TemplateLiteral node. */
 function getStrings(node: TSESTree.Node): string[] {
