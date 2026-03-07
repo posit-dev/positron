@@ -10,6 +10,8 @@ import './actionBarCheckbox.css';
 import { forwardRef, PropsWithChildren, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from './icon.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 
@@ -63,7 +65,7 @@ export const ActionBarCheckbox = forwardRef<
 	return (
 		<div className='action-bar-checkbox'>
 			<button ref={buttonRef} aria-checked={checked} className='checkbox-button' id={id} role='checkbox' tabIndex={0} onClick={clickHandler}>
-				{checked && <div className='check-indicator codicon codicon-check' />}
+				{checked && <ThemeIcon className='check-indicator' icon={Codicon.check} />}
 			</button>
 			<label className='checkbox-label' htmlFor={id}>{props.label}</label>
 		</div>

@@ -8,7 +8,7 @@ import './topActionBarNewMenu.css';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
@@ -54,7 +54,7 @@ export const TopActionBarNewMenu = () => {
 	return (
 		<ActionBarMenuButton
 			actions={actions}
-			icon={ThemeIcon.fromId('positron-new')}
+			icon={Codicon.positronNew}
 			label={positronNew}
 			tooltip={positronNewFileFolder}
 		/>

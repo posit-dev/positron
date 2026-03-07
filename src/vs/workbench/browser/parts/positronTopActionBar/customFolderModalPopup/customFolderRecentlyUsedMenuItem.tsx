@@ -7,6 +7,8 @@
 import './customFolderRecentlyUsedMenuItem.css';
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { KeyboardModifiers, Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
@@ -32,7 +34,7 @@ export const CustomFolderRecentlyUsedMenuItem = (props: CustomFolderRecentlyUsed
 				{props.label}
 			</div>
 			<Button className='open-in-new-window' onPressed={props.onOpenInNewWindow}>
-				<div className='codicon codicon-positron-open-in-new-window' title={props.label} />
+				<ThemeIcon icon={Codicon.positronOpenInNewWindow} title={props.label} />
 			</Button>
 		</Button>
 	);

@@ -11,6 +11,8 @@ import React, { ChangeEvent, forwardRef, useImperativeHandle, useRef, useState }
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from './icon.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
@@ -105,7 +107,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 						onClick={buttonClearClickHandler}
 						onKeyDown={buttonClearKeyDownHandler}
 					>
-						<div className={'codicon codicon-positron-search-cancel'} />
+						<ThemeIcon icon={Codicon.positronSearchCancel} />
 					</button>
 				)}
 			</div>

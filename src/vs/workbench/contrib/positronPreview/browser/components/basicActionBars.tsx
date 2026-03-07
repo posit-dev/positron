@@ -17,8 +17,9 @@ import { kPaddingLeft, kPaddingRight } from './actionBars.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { PreviewWebview } from '../previewWebview.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const clear = localize('positron.preview.html.clear', "Clear the content");
@@ -60,7 +61,7 @@ export const BasicActionBars = (props: PropsWithChildren<BasicActionBarsProps>) 
 			<div className='action-bars preview-action-bar'>
 				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
-						<span className='codicon codicon-file'></span>
+						<ThemeIcon icon={Codicon.file} />
 					</ActionBarRegion>
 					<ActionBarRegion location='center'>
 						<span className='preview-title'>{title}</span>
@@ -69,7 +70,7 @@ export const BasicActionBars = (props: PropsWithChildren<BasicActionBarsProps>) 
 						<ActionBarButton
 							align='right'
 							ariaLabel={clear}
-							icon={ThemeIcon.fromId('clear-all')}
+							icon={Codicon.clearAll}
 							tooltip={clear}
 							onPressed={clearHandler} />
 					</ActionBarRegion>

@@ -13,6 +13,8 @@ import GithubCopilot from '../icons/githubCopilot.js';
 import Bedrock from '../icons/bedrockColor.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import OpenAI from '../icons/openai.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import Snowflake from '../icons/snowflake.js';
 import MicrosoftFoundry from '../icons/microsoftFoundry.js';
 
@@ -64,14 +66,14 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 			case 'ms-foundry':
 				return <MicrosoftFoundry className='language-model icon' />;
 			case 'posit-ai':
-				return <div className={`language-model icon button-icon codicon codicon-positron-assistant`} />;
+				return <ThemeIcon className='language-model icon button-icon' icon={Codicon.positronAssistant} />;
 			case 'snowflake-cortex':
 				return <Snowflake className='language-model icon' />;
 			case 'error':
-				return <div className={`language-model icon button-icon codicon codicon-error`} />;
+				return <ThemeIcon className='language-model icon button-icon' icon={Codicon.error} />;
 			case 'echo':
 			case 'test':
-				return <div className={`language-model icon button-icon codicon codicon-info`} />;
+				return <ThemeIcon className='language-model icon button-icon' icon={Codicon.info} />;
 			default:
 				return null;
 		}

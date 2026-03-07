@@ -23,6 +23,9 @@ import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Event } from '../../../../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { pendingStateIcon } from '../../../../contrib/notebook/browser/notebookIcons.js';
 
 /**
  * Formats a size for display.
@@ -418,26 +421,27 @@ export const VariableItem = (props: VariableItemProps) => {
 	 */
 	const RightColumn = () => {
 		if (!props.disabled && props.variableItem.hasViewer) {
-			let icon = 'codicon codicon-open-preview';
+			let iconCodicon = Codicon.openPreview;
 			if (isViewLoading) {
-				icon = 'codicon codicon-notebook-state-pending';
+				iconCodicon = pendingStateIcon;
 			} else if (props.variableItem.kind === 'table') {
-				icon = 'codicon codicon-table';
+				iconCodicon = Codicon.table;
 			} else if (props.variableItem.kind === 'connection') {
-				icon = 'codicon codicon-database';
+				iconCodicon = Codicon.database;
 			}
 			const enablement = isViewLoading ? 'disabled' : 'enabled';
-			icon = `viewer-icon ${enablement} ${icon} ${props.variableItem.kind}`;
+			const iconClassName = `viewer-icon ${enablement} ${props.variableItem.kind}`;
 
 			return (
 				<div className='right-column'>
 					<div
-						className={icon}
 						title={isViewLoading ?
 							viewQueuedLabel(props.variableItem) :
 							viewLabel(props.variableItem)}
 						onMouseDown={isViewLoading ? undefined : viewerMouseDownHandler}
-					></div>
+					>
+						<ThemeIcon className={iconClassName} icon={iconCodicon} />
+					</div>
 				</div>
 			);
 		} else if (props.rightColumnVisible) {
@@ -469,8 +473,8 @@ export const VariableItem = (props: VariableItemProps) => {
 							{!props.disabled &&
 								props.variableItem.hasChildren && (
 									props.variableItem.expanded ?
-										<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
-										<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
+										<ThemeIcon className='expand-collapse-icon' icon={Codicon.chevronDown} /> :
+										<ThemeIcon className='expand-collapse-icon' icon={Codicon.chevronRight} />
 								)}
 						</div>
 					</div>

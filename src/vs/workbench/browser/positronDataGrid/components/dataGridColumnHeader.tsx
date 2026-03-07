@@ -10,6 +10,8 @@ import './dataGridColumnHeader.css';
 import { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 import * as nls from '../../../../nls.js';
 import { IDataColumn } from '../interfaces/dataColumn.js';
 import { selectionType } from '../utilities/mouseUtilities.js';
@@ -197,14 +199,9 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				</div>
 				{columnSortKey &&
 					<div className='sort-indicator'>
-						<div
-							className={positronClassNames(
-								'sort-icon',
-								'codicon',
-								columnSortKey.ascending ?
-									'codicon-arrow-up' :
-									'codicon-arrow-down'
-							)}
+						<ThemeIcon
+							className='sort-icon'
+							icon={columnSortKey.ascending ? Codicon.arrowUp : Codicon.arrowDown}
 							style={{ fontSize: 16 }}
 						/>
 						<div className='sort-index'>{columnSortKey.sortIndex + 1}</div>
@@ -217,7 +214,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					tabIndex={-1}
 					onPressed={dropdownPressed}
 				>
-					<div className='codicon codicon-positron-vertical-ellipsis' style={{ fontSize: 18 }} />
+					<ThemeIcon icon={Codicon.positronVerticalEllipsis} style={{ fontSize: 18 }} />
 				</Button>
 			</div>
 			{context.instance.columnResize &&

@@ -8,6 +8,7 @@ import './media/positronGettingStarted.css';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { WelcomeButton } from './positronWelcomeButton.js';
 import { PositronNewFolderFromGitAction, PositronNewFolderFromTemplateAction } from '../../../browser/actions/positronActions.js';
 import { OpenFolderAction } from '../../../browser/actions/workspaceActions.js';
@@ -39,12 +40,12 @@ const WelcomePageWorkspace = () => {
 					},
 				]}
 				ariaLabel={(() => localize('positron.welcome.newNotebookDescription', "Create a Python or R Notebook"))()}
-				codicon='positron-new-notebook'
+				icon={Codicon.positronNewNotebook}
 				label={(() => localize('positron.welcome.newNotebook', "New Notebook"))()}
 			/>
 			<WelcomeButton
 				ariaLabel={localize('positron.welcome.newFile', "New File")}
-				codicon='positron-new-file'
+				icon={Codicon.positronNewFile}
 				label={localize('positron.welcome.newFile', "New File")}
 				onPressed={() => services.commandService.executeCommand('welcome.showNewFileEntries')}
 			/>
@@ -58,19 +59,19 @@ const WelcomePageNoWorkspace = () => {
 		<>
 			<WelcomeButton
 				ariaLabel={localize('positronOpenFolder', "Open Folder...")}
-				codicon='positron-open-folder'
+				icon={Codicon.positronOpenFolder}
 				label={localize('positronOpenFolder', "Open Folder...")}
 				onPressed={() => services.commandService.executeCommand(OpenFolderAction.ID)}
 			/>
 			<WelcomeButton
 				ariaLabel={localize('positron.welcome.newFolderFromTemplate', "New Folder...")}
-				codicon='positron-new-folder'
+				icon={Codicon.positronNewFolder}
 				label={localize('positron.welcome.newFolderFromTemplate', "New Folder...")}
 				onPressed={() => services.commandService.executeCommand(PositronNewFolderFromTemplateAction.ID)}
 			/>
 			<WelcomeButton
 				ariaLabel={localize('positron.welcome.newFolderFromGit', "New from Git...")}
-				codicon='positron-new-folder-from-git'
+				icon={Codicon.positronNewFolderFromGit}
 				label={localize('positron.welcome.newFolderFromGit', "New from Git...")}
 				onPressed={() => services.commandService.executeCommand(PositronNewFolderFromGitAction.ID)}
 			/>
@@ -88,5 +89,5 @@ export const PositronWelcomePageStart = () => {
 				? (<WelcomePageWorkspace />)
 				: (<WelcomePageNoWorkspace />)}
 		</div>
-	)
+	);
 };

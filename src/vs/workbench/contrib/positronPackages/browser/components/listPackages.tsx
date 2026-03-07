@@ -28,7 +28,7 @@ import { PositronActionBar } from '../../../../../platform/positronActionBar/bro
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ViewsProps } from '../positronPackages.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -367,7 +367,7 @@ const ActionBar = ({
 							align='right'
 							ariaLabel={positronRefreshPackages}
 							disabled={busy || !activeSession}
-							icon={ThemeIcon.fromId('refresh')}
+							icon={Codicon.refresh}
 							tooltip={positronRefreshPackages}
 							onPressed={onRefreshPackages}
 						/>
@@ -410,7 +410,7 @@ const ActionBar = ({
 							ariaLabel={positronPackageActions}
 							disabled={!activeSession}
 							dropdownIndicator='disabled'
-							icon={ThemeIcon.fromId('ellipsis')}
+							icon={Codicon.ellipsis}
 							tooltip={positronPackageActions}
 						/>
 					</ActionBarRegion>

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { InterpreterInfo } from '../../utilities/interpreterDropDownUtils.js';
 import { DropdownEntry } from './dropdownEntry.js';
 
@@ -23,9 +24,9 @@ export const InterpreterEntry = ({ interpreterInfo }: InterpreterEntryProps) => 
 	// Render.
 	return (
 		<DropdownEntry
-			codicon={interpreterInfo.preferred ? 'codicon-star-full' : undefined}
 			group={interpreterInfo.runtimeSource}
 			hoverText={interpreterInfo.runtimePath}
+			icon={interpreterInfo.preferred ? Codicon.starFull : undefined}
 			subtitle={interpreterInfo.runtimePath}
 			title={`${interpreterInfo.languageName} ${interpreterInfo.languageVersion}`}
 		/>

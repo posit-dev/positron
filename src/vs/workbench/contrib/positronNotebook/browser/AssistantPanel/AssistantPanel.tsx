@@ -35,6 +35,8 @@ import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_
 import { POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY, SHOW_GHOST_CELL_INFO_COMMAND_ID } from '../contrib/ghostCell/config.js';
 import { CellEditType } from '../../../notebook/common/notebookCommon.js';
 import { AssistantSettings, ShowDiffOverride, AutoFollowOverride, GhostCellSuggestionsOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { SegmentedToggle } from '../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
 
 // Localized strings.
@@ -112,7 +114,7 @@ export interface AssistantPanelProps {
  */
 const PendingState = () => (
 	<div className='assistant-panel-loading'>
-		<div className='assistant-panel-loading-spinner codicon codicon-loading codicon-modifier-spin' />
+		<ThemeIcon className='assistant-panel-loading-spinner codicon-modifier-spin' icon={Codicon.loading} />
 		<div className='assistant-panel-loading-text'>
 			{loadingText}
 		</div>
@@ -133,7 +135,7 @@ interface ErrorStateProps {
  */
 const ErrorState = ({ message, onClose }: ErrorStateProps) => (
 	<div className='assistant-panel-error'>
-		<div className='assistant-panel-error-icon codicon codicon-warning' />
+		<ThemeIcon className='assistant-panel-error-icon' icon={Codicon.warning} />
 		<div className='assistant-panel-error-text'>{message}</div>
 		<button
 			className='assistant-panel-error-close'
@@ -178,8 +180,8 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 	onFollowGlobalChanged,
 	onToggle,
 }) => {
-	const infoRef = useRef<HTMLSpanElement>(null);
-	const labelRef = useRef<HTMLSpanElement>(null);
+	const infoRef = useRef<HTMLDivElement>(null);
+	const labelRef = useRef<HTMLDivElement>(null);
 	const [showPopover, setShowPopover] = useState(false);
 	const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -219,12 +221,13 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 
 	return (
 		<div className='assistant-panel-setting-row'>
-			<span ref={labelRef} className='assistant-panel-setting-label'>
+			<div ref={labelRef} className='assistant-panel-setting-label'>
 				{label}
-				<span
+				<ThemeIcon
 					ref={infoRef}
 					aria-label={description}
-					className='assistant-panel-setting-info codicon codicon-info'
+					className='assistant-panel-setting-info'
+					icon={Codicon.info}
 					role='button'
 					tabIndex={0}
 					onBlur={handleBlur}
@@ -257,7 +260,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 						)}
 					</Popover>
 				)}
-			</span>
+			</div>
 			<div className='assistant-panel-setting-controls'>
 				<label className='assistant-panel-follow-global-label'>
 					{followGlobalLabel}
@@ -395,7 +398,7 @@ const ReadyState = ({
 				/>
 
 				<button className='assistant-panel-settings-link' onClick={onOpenSettings}>
-					<span className='codicon codicon-gear' />
+					<ThemeIcon icon={Codicon.gear} />
 					<span className='assistant-panel-settings-link-text'>{openGlobalSettingsLabel}</span>
 				</button>
 			</div>

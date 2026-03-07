@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
@@ -90,7 +90,7 @@ export const ConsoleInstanceInfoButton = () => {
 			align='right'
 			ariaLabel={positronConsoleInfo}
 			dataTestId={`info-${positronConsoleContext.activePositronConsoleInstance?.sessionId ?? 'unknown'}`}
-			icon={ThemeIcon.fromId('info')}
+			icon={Codicon.info}
 			tooltip={positronConsoleInfo}
 			onPressed={handlePressed}
 		/>

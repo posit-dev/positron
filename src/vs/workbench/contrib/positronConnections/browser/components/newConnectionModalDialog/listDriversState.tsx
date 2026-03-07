@@ -18,6 +18,8 @@ import { DropDownListBoxItem } from '../../../../../browser/positronComponents/d
 import { IDriver } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronReactServices } from '../../../../../../base/browser/positronReactServices.js';
+import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 
 interface ListDriversProps {
 	readonly onCancel: () => void;
@@ -159,7 +161,7 @@ const DriverListItem = (props: DriverListItemProps) => {
 
 	const icon = baseIcon
 		? <img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} />
-		: <div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
+		: <ThemeIcon className='driver-icon' icon={Codicon.database} style={{ opacity: 0.5, fontSize: '24px' }} />;
 
 	return <button
 		className='driver-list-item'
@@ -170,7 +172,7 @@ const DriverListItem = (props: DriverListItemProps) => {
 			<div className='driver-name'>
 				{name}
 			</div>
-			<div className='driver-button codicon codicon-chevron-right' />
+			<ThemeIcon className='driver-button' icon={Codicon.chevronRight} />
 		</div>
 	</button>;
 };

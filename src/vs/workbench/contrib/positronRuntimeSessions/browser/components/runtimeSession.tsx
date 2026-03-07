@@ -10,6 +10,8 @@ import './runtimeSession.css';
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -52,7 +54,7 @@ export const RuntimeSession = (props: RuntimeSessionProps) => {
 			<tr className='runtime-session'>
 				<td>
 					<a href='#' onClick={() => setExpanded(!expanded)}>
-						<span className={'codicon ' + (expanded ? 'codicon-chevron-down' : 'codicon-chevron-right')}></span>
+						<ThemeIcon icon={expanded ? Codicon.chevronDown : Codicon.chevronRight} />
 						&nbsp;
 						{props.session.dynState.sessionName}
 					</a>

@@ -7,7 +7,6 @@ import { CustomContextMenuItem } from '../../../../../../workbench/browser/posit
 import { CustomContextMenuEntry } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuSeparator } from '../../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
-import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { CellSelectionType } from '../../selectionMachine.js';
@@ -39,7 +38,7 @@ export function buildMoreActionsMenuItems(
 		entriesByGroup.get(group)?.push(...groupActions.map(action => new CustomContextMenuItem({
 			commandId: action.id,
 			label: action.label,
-			icon: ThemeIcon.isThemeIcon(action.item.icon) ? action.item.icon.id : undefined,
+			icon: action.item.icon,
 			onWillSelect: () => {
 				// Select cell BEFORE command runs to keep notebook selection in sync
 				instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);

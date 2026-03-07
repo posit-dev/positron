@@ -10,6 +10,8 @@ import './actionBarWidget.css';
 import React, { useCallback } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from './icon.js';
 import { IPositronActionBarWidgetDescriptor } from '../positronActionBarWidgetRegistry.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { ICommandService } from '../../../commands/common/commands.js';
@@ -43,7 +45,7 @@ class WidgetErrorBoundary extends React.Component<
 					className='action-bar-widget-error'
 					title={`Widget error: ${this.state.error?.message || 'Unknown error'}`}
 				>
-					<span className='codicon codicon-error'></span>
+					<ThemeIcon icon={Codicon.error} />
 				</div>
 			);
 		}

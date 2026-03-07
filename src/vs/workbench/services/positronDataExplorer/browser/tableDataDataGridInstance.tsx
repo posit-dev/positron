@@ -8,6 +8,7 @@ import { JSX } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
@@ -421,14 +422,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			commandId: PositronDataExplorerCommandId.CopyAction,
 			checked: false,
 			disabled: !copySupported,
-			icon: 'copy',
+			icon: Codicon.copy,
 			label: localize('positron.dataExplorer.copyColumn', "Copy Column"),
 			onSelected: () => console.log('Copy Column')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: false,
-			icon: 'positron-select-column',
+			icon: Codicon.positronSelectColumn,
 			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
 			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
 			onSelected: () => this.selectColumn(columnIndex)
@@ -439,14 +440,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
 					disabled: false,
-					icon: 'positron-pin',
+					icon: Codicon.positronPin,
 					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
 					onSelected: () => this.pinColumn(columnIndex)
 				}));
 			} else {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: 'positron-unpin',
+					icon: Codicon.positronUnpin,
 					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
 					onSelected: () => this.unpinColumn(columnIndex)
 				}));
@@ -455,7 +456,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
-			icon: 'arrow-up',
+			icon: Codicon.arrowUp,
 			disabled: !sortSupported,
 			label: localize('positron.sortAscending', "Sort Ascending"),
 			onSelected: async () => this.setColumnSortKey(
@@ -465,7 +466,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}));
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && !columnSortKey.ascending,
-			icon: 'arrow-down',
+			icon: Codicon.arrowDown,
 			disabled: !sortSupported,
 			label: localize('positron.sortDescending', "Sort Descending"),
 			onSelected: async () => this.setColumnSortKey(
@@ -476,7 +477,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: false,
-			icon: 'positron-clear-sorting',
+			icon: Codicon.positronClearSorting,
 			label: localize('positron.clearSorting', "Clear Sorting"),
 			disabled: !columnSortKey,
 			onSelected: async () =>
@@ -485,7 +486,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: false,
-			icon: 'positron-add-filter',
+			icon: Codicon.positronAddFilter,
 			label: addFilterTitle,
 			disabled: !filterSupported,
 			onSelected: () => {
@@ -531,14 +532,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			commandId: PositronDataExplorerCommandId.CopyAction,
 			checked: false,
 			disabled: !copySupported,
-			icon: 'copy',
+			icon: Codicon.copy,
 			label: localize('positron.dataExplorer.copyRow', "Copy Row"),
 			onSelected: () => console.log('Copy Row')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: false,
-			icon: 'positron-select-row',
+			icon: Codicon.positronSelectRow,
 			label: localize('positron.dataExplorer.selectRow', "Select Row"),
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
@@ -549,14 +550,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
 					disabled: false,
-					icon: 'positron-pin',
+					icon: Codicon.positronPin,
 					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
 					onSelected: () => this.pinRow(rowIndex)
 				}));
 			} else {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: 'positron-unpin',
+					icon: Codicon.positronUnpin,
 					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
 					onSelected: () => this.unpinRow(rowIndex)
 				}));
@@ -604,21 +605,21 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			disabled: !copySupported,
 			commandId: PositronDataExplorerCommandId.CopyAction,
-			icon: 'copy',
+			icon: Codicon.copy,
 			label: localize('positron.dataExplorer.copy', "Copy"),
 			onSelected: () => console.log('Copy')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: false,
-			icon: 'positron-select-column',
+			icon: Codicon.positronSelectColumn,
 			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
 			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
 			onSelected: () => this.selectColumn(columnIndex)
 		}));
 		entries.push(new CustomContextMenuItem({
 			checked: false,
-			icon: 'positron-select-row',
+			icon: Codicon.positronSelectRow,
 			label: localize('positron.dataExplorer.selectRow', "Select Row"),
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
@@ -629,14 +630,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
 					disabled: false,
-					icon: 'positron-pin',
+					icon: Codicon.positronPin,
 					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
 					onSelected: () => this.pinColumn(columnIndex)
 				}));
 			} else {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: 'positron-unpin',
+					icon: Codicon.positronUnpin,
 					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
 					onSelected: () => this.unpinColumn(columnIndex)
 				}));
@@ -649,14 +650,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			if (!this.isRowPinned(rowIndex)) {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: 'positron-pin',
+					icon: Codicon.positronPin,
 					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
 					onSelected: () => this.pinRow(rowIndex)
 				}));
 			} else {
 				entries.push(new CustomContextMenuItem({
 					checked: false,
-					icon: 'positron-unpin',
+					icon: Codicon.positronUnpin,
 					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
 					onSelected: () => this.unpinRow(rowIndex)
 				}));
@@ -665,7 +666,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
-			icon: 'arrow-up',
+			icon: Codicon.arrowUp,
 			disabled: !sortSupported,
 			label: localize('positron.sortAscending', "Sort Ascending"),
 			onSelected: async () => this.setColumnSortKey(
@@ -675,7 +676,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}));
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && !columnSortKey.ascending,
-			icon: 'arrow-down',
+			icon: Codicon.arrowDown,
 			disabled: !sortSupported,
 			label: localize('positron.sortDescending', "Sort Descending"),
 			onSelected: async () => this.setColumnSortKey(
@@ -686,7 +687,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: false,
-			icon: 'positron-clear-sorting',
+			icon: Codicon.positronClearSorting,
 			label: localize('positron.clearSorting', "Clear Sorting"),
 			disabled: !columnSortKey,
 			onSelected: async () =>
@@ -695,7 +696,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: false,
-			icon: 'positron-add-filter',
+			icon: Codicon.positronAddFilter,
 			label: addFilterTitle,
 			disabled: !filterSupported,
 			onSelected: () => {

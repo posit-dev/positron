@@ -20,6 +20,8 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { MemoryUsageDropdown } from './memoryUsageDropdown.js';
 import { MemoryUsageBar } from './memoryUsageBar.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 /**
  * The fixed-width portion of the full meter (bar + arrow + gaps + padding),
@@ -136,7 +138,7 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 					</div>
 				)}
 				<span className='memory-size-label'>{memLabel}</span>
-				<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+				<ThemeIcon className='memory-drop-down-arrow' icon={Codicon.positronDropDownArrow} />
 			</div>
 		);
 	}
@@ -193,7 +195,7 @@ export const MemoryUsageMeter = ({ snapshot, compact, loading }: MemoryUsageMete
 		>
 			{!compact && <MemoryUsageBar snapshot={snapshot} />}
 			<span className='memory-size-label'>{sizeLabel}</span>
-			<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+			<ThemeIcon className='memory-drop-down-arrow' icon={Codicon.positronDropDownArrow} />
 		</div>
 	);
 };

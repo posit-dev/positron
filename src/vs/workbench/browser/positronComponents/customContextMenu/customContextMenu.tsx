@@ -11,6 +11,9 @@ import React, { useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { Icon as IconType } from '../../../../platform/action/common/action.js';
+import { Icon, ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
@@ -33,7 +36,7 @@ export interface CustomContextMenuSubmenuOptions {
 	/**
 	 * Optional icon to display before the label.
 	 */
-	readonly icon?: string;
+	readonly icon?: IconType;
 
 	/**
 	 * The label text for the submenu item.
@@ -243,20 +246,16 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				}}
 			>
 				{options.checked !== undefined && options.checked &&
-					<div
-						className={`check codicon codicon-positron-check-mark`}
-						title={options.label}
-					/>
+					<ThemeIcon className='check' icon={Codicon.positronCheckMark} title={options.label} />
 				}
 
 				{options.icon &&
-					<div
+					<Icon
 						className={positronClassNames(
 							'icon',
-							'codicon',
-							`codicon-${options.icon}`,
 							{ 'disabled': options.disabled }
 						)}
+						icon={options.icon}
 						title={options.label}
 					/>
 				}
@@ -341,14 +340,13 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				onPressed={openSubmenu}
 			>
 				{options.icon &&
-					<div
+					<Icon
 						aria-hidden='true'
 						className={positronClassNames(
 							'icon',
-							'codicon',
-							`codicon-${options.icon}`,
 							{ 'disabled': options.disabled }
 						)}
+						icon={options.icon}
 					/>
 				}
 
@@ -361,14 +359,13 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 					{options.label}
 				</div>
 
-				<div
+				<ThemeIcon
 					aria-hidden='true'
 					className={positronClassNames(
 						'submenu-indicator',
-						'codicon',
-						'codicon-chevron-right',
 						{ 'disabled': options.disabled }
 					)}
+					icon={Codicon.chevronRight}
 				/>
 			</Button>
 		);

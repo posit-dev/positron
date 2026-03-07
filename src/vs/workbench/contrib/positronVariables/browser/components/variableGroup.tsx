@@ -19,6 +19,8 @@ import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_EXPAND } from '../posit
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 /**
  * VariableGroupProps interface.
@@ -145,8 +147,8 @@ export const VariableGroup = (props: VariableGroupProps) => {
 		<div className={classNames} style={props.style} onMouseDown={rowMouseDownHandler}>
 			<div className='expand-collapse-area' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler}>
 				{props.variableGroup.expanded ?
-					<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
-					<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
+					<ThemeIcon className='expand-collapse-icon' icon={Codicon.chevronDown} /> :
+					<ThemeIcon className='expand-collapse-icon' icon={Codicon.chevronRight} />
 				}
 			</div>
 			<div className='title'>

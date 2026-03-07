@@ -22,7 +22,7 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
@@ -242,14 +242,14 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={positronRefreshObjects}
-					icon={ThemeIcon.fromId('positron-refresh')}
+					icon={Codicon.positronRefresh}
 					tooltip={positronRefreshObjects}
 					onPressed={refreshObjectsHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.refreshObjects',
-				icon: 'positron-refresh',
+				icon: Codicon.positronRefresh,
 				label: positronRefreshObjects,
 				onSelected: refreshObjectsHandler
 			}
@@ -261,14 +261,14 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={positronDeleteAllObjects}
-					icon={ThemeIcon.fromId('clear-all')}
+					icon={Codicon.clearAll}
 					tooltip={positronDeleteAllObjects}
 					onPressed={deleteAllObjectsHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.deleteAllObjects',
-				icon: 'clear-all',
+				icon: Codicon.clearAll,
 				label: positronDeleteAllObjects,
 				onSelected: deleteAllObjectsHandler
 			}

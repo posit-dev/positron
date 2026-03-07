@@ -19,6 +19,8 @@ import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNote
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { JsonRpcErrorCode, PositronCommError } from '../../../../services/languageRuntime/common/positronBaseComm.js';
 
 // Height calculation constants (from inlineTableDataGridInstance.tsx constructor options)
@@ -75,7 +77,7 @@ function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
 					title={localize('openInDataExplorer', 'Open in Data Explorer')}
 					onClick={onOpenInExplorer}
 				>
-					<span className='codicon codicon-go-to-file' />
+					<ThemeIcon icon={Codicon.goToFile} />
 					{localize('openInDataExplorer', 'Open in Data Explorer')}
 				</button>
 			)}
@@ -267,7 +269,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 			<div className='inline-data-explorer-content' onKeyDownCapture={handleKeyDown}>
 				{state.status === 'loading' && (
 					<div className='inline-data-explorer-loading'>
-						<span className='codicon codicon-loading codicon-modifier-spin' />
+						<ThemeIcon className='codicon-modifier-spin' icon={Codicon.loading} />
 						{localize('loading', 'Loading...')}
 					</div>
 				)}
@@ -278,19 +280,19 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				)}
 				{state.status === 'connected' && isGridStale && (
 					<div className='inline-data-explorer-disconnected'>
-						<span className='codicon codicon-warning' />
+						<ThemeIcon icon={Codicon.warning} />
 						{localize('dataStale', 'Data connection lost. Re-run cell to view.')}
 					</div>
 				)}
 				{state.status === 'disconnected' && (
 					<div className='inline-data-explorer-disconnected'>
-						<span className='codicon codicon-warning' />
+						<ThemeIcon icon={Codicon.warning} />
 						{localize('dataUnavailable', 'Data unavailable. Re-run cell to view.')}
 					</div>
 				)}
 				{state.status === 'error' && (
 					<div className='inline-data-explorer-error'>
-						<span className='codicon codicon-error' />
+						<ThemeIcon icon={Codicon.error} />
 						{state.message}
 					</div>
 				)}

@@ -176,6 +176,8 @@ export default tseslint.config(
 			],
 			// Do not allow non-interactive elements to have interactive handlers
 			'jsx-a11y/no-static-element-interactions': 'error',
+			// Prefer <ThemeIcon> component over raw codicon CSS classes
+			'local/code-no-hardcoded-codicon-classes': 'error',
 		},
 	},
 	// React Tests

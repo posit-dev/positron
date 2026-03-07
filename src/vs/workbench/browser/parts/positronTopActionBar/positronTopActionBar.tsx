@@ -26,7 +26,7 @@ import { PositronTopActionBarContextProvider } from './positronTopActionBarConte
 import { TopActionBarCustomFolderMenu } from './components/topActionBarCustomFolderMenu.js';
 import { TopActionBarSessionManager } from './components/topActionBarSessionManager.js';
 import { SAVE_ALL_COMMAND_ID, SAVE_FILE_COMMAND_ID } from '../../../contrib/files/browser/fileConstants.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -106,12 +106,12 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							<ActionBarCommandButton
 								ariaLabel={CommandCenter.title(SAVE)}
 								commandId={SAVE}
-								icon={ThemeIcon.fromId('positron-save')}
+								icon={Codicon.positronSave}
 							/>
 							<ActionBarCommandButton
 								ariaLabel={CommandCenter.title(SAVE_ALL)}
 								commandId={SAVE_ALL}
-								icon={ThemeIcon.fromId('positron-save-all')}
+								icon={Codicon.positronSaveAll}
 							/>
 						</ActionBarRegion>
 						{showCenterUI && (
@@ -122,12 +122,12 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 											<ActionBarCommandButton
 												ariaLabel={CommandCenter.title(NAV_BACK)}
 												commandId={NAV_BACK}
-												icon={ThemeIcon.fromId('chevron-left')}
+												icon={Codicon.chevronLeft}
 											/>
 											<ActionBarCommandButton
 												ariaLabel={CommandCenter.title(NAV_FORWARD)}
 												commandId={NAV_FORWARD}
-												icon={ThemeIcon.fromId('chevron-right')}
+												icon={Codicon.chevronRight}
 											/>
 										</ActionBarRegion>
 									)}

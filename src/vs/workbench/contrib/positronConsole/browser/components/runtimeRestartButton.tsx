@@ -14,6 +14,8 @@ import * as nls from '../../../../../nls.js';
 import { RuntimeItemRestartButton } from '../../../../services/positronConsole/browser/classes/runtimeItemRestartButton.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 // RuntimeRestartButtonProps interface.
 export interface RuntimeRestartButtonProps {
@@ -59,7 +61,7 @@ export const RuntimeRestartButton = (props: RuntimeRestartButtonProps) => {
 		<button ref={restartRef}
 			className='monaco-text-button runtime-restart-button'
 			onClick={handleRestart}>
-			<span className='codicon codicon-positron-restart-runtime'></span>
+			<ThemeIcon icon={Codicon.positronRestartRuntime} />
 			<span className='label'>{restartLabel}</span>
 		</button>
 	);

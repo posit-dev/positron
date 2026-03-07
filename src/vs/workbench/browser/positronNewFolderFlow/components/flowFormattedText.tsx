@@ -9,6 +9,11 @@ import './flowFormattedText.css';
 // React.
 import { PropsWithChildren } from 'react';
 
+// Other dependencies.
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon as ThemeIconType } from '../../../../base/common/themables.js';
+import { ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
+
 /**
  * FlowFormattedTextType enum.
  */
@@ -34,21 +39,24 @@ export interface FlowFormattedTextProps {
 	id?: string;
 }
 
+const iconMap: Record<FlowFormattedTextType, ThemeIconType> = {
+	[FlowFormattedTextType.Info]: Codicon.info,
+	[FlowFormattedTextType.Warning]: Codicon.warning,
+	[FlowFormattedTextType.Error]: Codicon.error,
+};
+
 /**
  * FlowFormattedText component.
  * @param props A PropsWithChildren<FlowFormattedTextProps> that contains the component properties.
  * @returns The rendered component.
  */
 export const FlowFormattedText = (props: PropsWithChildren<FlowFormattedTextProps>) => {
-	// Show an icon in the formatted text if the text type is not Info.
-	const iconClass = props.type !== FlowFormattedTextType.Info
-		? `codicon codicon-${props.type}`
-		: undefined;
+	const icon = iconMap[props.type];
 
 	// Render.
 	return (
 		<div className={`flow-formatted-text flow-formatted-text-${props.type}`} id={props.id}>
-			{iconClass && <div className={`flow-formatted-text-icon ${iconClass}`}></div>}
+			{icon && <ThemeIcon className='flow-formatted-text-icon' icon={icon} />}
 			{props.children}
 		</div>
 	);

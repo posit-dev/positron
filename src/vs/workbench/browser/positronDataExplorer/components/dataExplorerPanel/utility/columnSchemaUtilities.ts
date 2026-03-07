@@ -3,16 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Codicon } from '../../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { ColumnSchema, ColumnDisplayType } from '../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Returns the data type icon for the column schema.
  * @returns The data type icon.
  */
-export const columnSchemaDataTypeIcon = (columnSchema?: ColumnSchema) => {
+export const columnSchemaDataTypeIcon = (columnSchema?: ColumnSchema): ThemeIcon => {
 	// Unknown.
 	if (!columnSchema) {
-		return 'codicon-question';
+		return Codicon.question;
 	}
 
 	// Determine the alignment based on type.
@@ -20,41 +22,41 @@ export const columnSchemaDataTypeIcon = (columnSchema?: ColumnSchema) => {
 		case ColumnDisplayType.Floating:
 		case ColumnDisplayType.Integer:
 		case ColumnDisplayType.Decimal:
-			return 'codicon-positron-data-type-number';
+			return Codicon.positronDataTypeNumber;
 
 		case ColumnDisplayType.Boolean:
-			return 'codicon-positron-data-type-boolean';
+			return Codicon.positronDataTypeBoolean;
 
 		case ColumnDisplayType.String:
-			return 'codicon-positron-data-type-string';
+			return Codicon.positronDataTypeString;
 
 		case ColumnDisplayType.Date:
-			return 'codicon-positron-data-type-date';
+			return Codicon.positronDataTypeDate;
 
 		case ColumnDisplayType.Datetime:
-			return 'codicon-positron-data-type-date-time';
+			return Codicon.positronDataTypeDateTime;
 
 		case ColumnDisplayType.Time:
-			return 'codicon-positron-data-type-time';
+			return Codicon.positronDataTypeTime;
 
 		// Reuse datetime icon for interval for now.
 		case ColumnDisplayType.Interval:
-			return 'codicon-positron-data-type-date-time';
+			return Codicon.positronDataTypeDateTime;
 
 		case ColumnDisplayType.Object:
-			return 'codicon-positron-data-type-object';
+			return Codicon.positronDataTypeObject;
 
 		case ColumnDisplayType.Array:
-			return 'codicon-positron-data-type-array';
+			return Codicon.positronDataTypeArray;
 
 		case ColumnDisplayType.Struct:
-			return 'codicon-positron-data-type-struct';
+			return Codicon.positronDataTypeStruct;
 
 		case ColumnDisplayType.Unknown:
-			return 'codicon-positron-data-type-unknown';
+			return Codicon.positronDataTypeUnknown;
 
 		// This shouldn't ever happen.
 		default:
-			return 'codicon-question';
+			return Codicon.question;
 	}
 };
