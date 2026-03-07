@@ -42,6 +42,14 @@ const iconName = 'error';
 // eslint-disable-next-line local/code-no-hardcoded-codicon-classes
 const invalid5 = <div className={`codicon codicon-${iconName}`} />;
 
-// Call expression with codicon string arguments
+// Call expression with codicon string arguments (combined in one arg)
 // eslint-disable-next-line local/code-no-hardcoded-codicon-classes
 const invalid6 = <div className={positronClassNames('codicon codicon-error', 'highlighted')} />;
+
+// Call expression with split codicon arguments
+// eslint-disable-next-line local/code-no-hardcoded-codicon-classes
+const invalid7 = <div className={positronClassNames('codicon', 'codicon-error')} />;
+
+// Call expression with template literal argument
+// eslint-disable-next-line local/code-no-hardcoded-codicon-classes
+const invalid8 = <div className={positronClassNames(`codicon codicon-error`)} />;

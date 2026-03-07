@@ -12,6 +12,10 @@ const CODICON_PATTERN = /\bcodicon\s+codicon-[\w-]+/;
 // ends with "codicon codicon-" before an interpolation).
 const CODICON_PATTERN_PARTIAL = /\bcodicon\s+codicon-/;
 
+// Matches an individual "codicon-<name>" class (for split-argument detection
+// in call expressions like positronClassNames('codicon', 'codicon-error')).
+const CODICON_INDIVIDUAL = /\bcodicon-[\w-]+\b/;
+
 export default new class implements eslint.Rule.RuleModule {
 
 	readonly meta: eslint.Rule.RuleMetaData = {
@@ -60,12 +64,23 @@ export default new class implements eslint.Rule.RuleModule {
 							}
 						}
 					} else if (expr.type === 'CallExpression') {
+						// className={positronClassNames('codicon codicon-foo')}
 						// className={positronClassNames('codicon', 'codicon-foo')}
+						// className={positronClassNames(`codicon codicon-foo`)}
 						for (const arg of expr.arguments) {
 							if (arg.type === 'Literal' && typeof arg.value === 'string') {
-								if (CODICON_PATTERN.test(arg.value)) {
+								if (CODICON_PATTERN.test(arg.value) || CODICON_INDIVIDUAL.test(arg.value)) {
 									context.report({ node, messageId: 'noHardcodedCodicon' });
 									return;
+								}
+							} else if (arg.type === 'TemplateLiteral') {
+								const hasInterpolation = arg.expressions.length > 0;
+								const pattern = hasInterpolation ? CODICON_PATTERN_PARTIAL : CODICON_PATTERN;
+								for (const quasi of arg.quasis) {
+									if (pattern.test(quasi.value.raw) || CODICON_INDIVIDUAL.test(quasi.value.raw)) {
+										context.report({ node, messageId: 'noHardcodedCodicon' });
+										return;
+									}
 								}
 							}
 						}
