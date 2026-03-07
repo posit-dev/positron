@@ -39,7 +39,8 @@ export interface FlowFormattedTextProps {
 	id?: string;
 }
 
-const iconMap: Record<string, ThemeIconType> = {
+const iconMap: Record<FlowFormattedTextType, ThemeIconType> = {
+	[FlowFormattedTextType.Info]: Codicon.info,
 	[FlowFormattedTextType.Warning]: Codicon.warning,
 	[FlowFormattedTextType.Error]: Codicon.error,
 };
