@@ -1128,9 +1128,7 @@ export class GettingStartedPage extends EditorPane {
 			{
 				id: 'positron-documentation',
 				title: localize('positron.welcome.positronDocumentation', "Positron Documentation"),
-				// --- Start Positron ---
 				href: this.docsService.baseUrl
-				// --- End Positron ---
 			},
 			{
 				id: 'positron-community',
