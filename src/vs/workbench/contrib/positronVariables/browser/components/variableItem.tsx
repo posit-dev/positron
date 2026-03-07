@@ -25,7 +25,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
-import { ThemeIcon as ThemeIconClass } from '../../../../../base/common/themables.js';
+import { pendingStateIcon } from '../../../../contrib/notebook/browser/notebookIcons.js';
 
 /**
  * Formats a size for display.
@@ -421,9 +421,9 @@ export const VariableItem = (props: VariableItemProps) => {
 	 */
 	const RightColumn = () => {
 		if (!props.disabled && props.variableItem.hasViewer) {
-			let iconCodicon: ThemeIconClass = Codicon.openPreview;
+			let iconCodicon = Codicon.openPreview;
 			if (isViewLoading) {
-				iconCodicon = ThemeIconClass.fromId('notebook-state-pending');
+				iconCodicon = pendingStateIcon;
 			} else if (props.variableItem.kind === 'table') {
 				iconCodicon = Codicon.table;
 			} else if (props.variableItem.kind === 'connection') {

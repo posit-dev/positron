@@ -26,7 +26,6 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { showResumeConnectionModalDialog } from './resumeConnectionModalDialog.js';
 import { localize } from '../../../../../nls.js';
 import { showNewConnectionModalDialog } from './newConnectionModalDialog.js';
-import { ThemeIcon as ThemeIconClass } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -200,7 +199,7 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							align='left'
-							icon={ThemeIconClass.fromId('positron-new-connection')}
+							icon={Codicon.positronNewConnection}
 							label={localize('positron.listConnections.newConnection', 'New Connection')}
 							onPressed={() => {
 								props.onNewConnection();
@@ -211,7 +210,7 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 						<ActionBarButton
 							align='right'
 							disabled={props.onDeleteConnection === undefined}
-							icon={ThemeIconClass.fromId('close')}
+							icon={Codicon.close}
 							label={localize('positron.listConnections.deleteConnection', 'Delete Connection')}
 							onPressed={props.onDeleteConnection}
 						/>

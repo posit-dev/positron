@@ -20,7 +20,6 @@ import { ActionBarSeparator } from '../../../../../platform/positronActionBar/br
 import { URI } from '../../../../../base/common/uri.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { kPaddingLeft, kPaddingRight } from './actionBars.js';
-import { ThemeIcon as ThemeIconClass } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -267,12 +266,12 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<ActionBarButton ariaLabel={navigateBack}
-							icon={ThemeIconClass.fromId('positron-left-arrow')}
+							icon={Codicon.positronLeftArrow}
 							tooltip={navigateBack}
 							onPressed={navigateBackHandler} />
 						<ActionBarButton
 							ariaLabel={navigateForward}
-							icon={ThemeIconClass.fromId('positron-right-arrow')}
+							icon={Codicon.positronRightArrow}
 							tooltip={navigateForward}
 							onPressed={navigateForwardHandler} />
 					</ActionBarRegion>
@@ -304,27 +303,27 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 						<ActionBarButton
 							align='right'
 							ariaLabel={reload}
-							icon={ThemeIconClass.fromId('positron-refresh')}
+							icon={Codicon.positronRefresh}
 							tooltip={reload}
 							onPressed={reloadHandler} />
 						<ActionBarButton
 							align='right'
 							ariaLabel={openInBrowser}
-							icon={ThemeIconClass.fromId('positron-open-in-new-window')}
+							icon={Codicon.positronOpenInNewWindow}
 							tooltip={openInBrowser}
 							onPressed={openInBrowserHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={openInEditor}
-							icon={ThemeIconClass.fromId('go-to-file')}
+							icon={Codicon.goToFile}
 							tooltip={openInEditor}
 							onPressed={openInEditorHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={clear}
-							icon={ThemeIconClass.fromId('clear-all')}
+							icon={Codicon.clearAll}
 							tooltip={clear}
 							onPressed={clearHandler} />
 					</ActionBarRegion>

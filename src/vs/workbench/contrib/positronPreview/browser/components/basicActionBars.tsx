@@ -17,7 +17,6 @@ import { kPaddingLeft, kPaddingRight } from './actionBars.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ThemeIcon as ThemeIconClass } from '../../../../../base/common/themables.js';
 import { PreviewWebview } from '../previewWebview.js';
 import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -71,7 +70,7 @@ export const BasicActionBars = (props: PropsWithChildren<BasicActionBarsProps>) 
 						<ActionBarButton
 							align='right'
 							ariaLabel={clear}
-							icon={ThemeIconClass.fromId('clear-all')}
+							icon={Codicon.clearAll}
 							tooltip={clear}
 							onPressed={clearHandler} />
 					</ActionBarRegion>

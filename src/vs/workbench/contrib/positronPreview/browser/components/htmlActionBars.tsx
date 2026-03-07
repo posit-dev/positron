@@ -19,7 +19,6 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ThemeIcon as ThemeIconClass } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -94,27 +93,27 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 						<ActionBarButton
 							align='right'
 							ariaLabel={reload}
-							icon={ThemeIconClass.fromId('positron-refresh')}
+							icon={Codicon.positronRefresh}
 							tooltip={reload}
 							onPressed={reloadHandler} />
 						<ActionBarButton
 							align='right'
 							ariaLabel={openInBrowser}
-							icon={ThemeIconClass.fromId('positron-open-in-new-window')}
+							icon={Codicon.positronOpenInNewWindow}
 							tooltip={openInBrowser}
 							onPressed={openInBrowserHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={openInEditor}
-							icon={ThemeIconClass.fromId('go-to-file')}
+							icon={Codicon.goToFile}
 							tooltip={openInEditor}
 							onPressed={openInEditorHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={clear}
-							icon={ThemeIconClass.fromId('clear-all')}
+							icon={Codicon.clearAll}
 							tooltip={clear}
 							onPressed={clearHandler} />
 					</ActionBarRegion>
