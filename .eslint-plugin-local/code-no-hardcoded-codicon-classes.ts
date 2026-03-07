@@ -6,35 +6,23 @@
 import { TSESTree } from '@typescript-eslint/utils';
 import * as eslint from 'eslint';
 
-// Matches "codicon codicon-<name>" in a full string.
-const CODICON_PAIR = /\bcodicon\s+codicon-[\w-]+/;
+// Matches any "codicon-" reference (with or without a name suffix).
+const CODICON_PATTERN = /\bcodicon-/;
 
-// Matches when the icon name is absent (e.g. in a template quasi that
-// ends with "codicon codicon-" before an interpolation).
-const CODICON_PAIR_PARTIAL = /\bcodicon\s+codicon-/;
-
-// Matches an individual "codicon-<name>" class for split-argument detection
-// in call expressions like positronClassNames('codicon', 'codicon-error').
-// The [\w-]* (zero or more) with $ also catches `codicon-${name}` templates.
-const CODICON_INDIVIDUAL = /\bcodicon-[\w-]*$/;
-
-/**
- * Test whether a Literal or TemplateLiteral node contains text matching
- * `pattern`. For TemplateLiterals with interpolations, `partialPattern` is
- * used instead (if provided) since the value is split across quasis.
- */
-function matchesText(node: TSESTree.Node, pattern: RegExp, partialPattern?: RegExp): boolean {
+/** Extract string content from a Literal or TemplateLiteral node. */
+function getStrings(node: TSESTree.Node): string[] {
 	if (node.type === 'Literal' && typeof node.value === 'string') {
-		return pattern.test(node.value);
+		return [node.value];
 	}
 	if (node.type === 'TemplateLiteral') {
-		const p = (node.expressions.length > 0 && partialPattern) || pattern;
-		return node.quasis.some((q: TSESTree.TemplateElement) => p.test(q.value.raw));
+		return node.quasis.map((q: TSESTree.TemplateElement) => q.value.raw);
 	}
-	return false;
+	return [];
 }
 
-const hasPair = (node: TSESTree.Node) => matchesText(node, CODICON_PAIR, CODICON_PAIR_PARTIAL);
+function hasCodicon(node: TSESTree.Node): boolean {
+	return getStrings(node).some(s => CODICON_PATTERN.test(s));
+}
 
 export default new class implements eslint.Rule.RuleModule {
 
@@ -61,8 +49,8 @@ export default new class implements eslint.Rule.RuleModule {
 
 				const report = () => context.report({ node: ruleNode, messageId: 'noHardcodedCodicon' });
 
-				// className='codicon codicon-foo' or className={`codicon codicon-${x}`}
-				if (hasPair(value)) {
+				// className='codicon codicon-foo'
+				if (hasCodicon(value)) {
 					report();
 					return;
 				}
@@ -75,8 +63,8 @@ export default new class implements eslint.Rule.RuleModule {
 					return;
 				}
 
-				// className={'codicon codicon-foo'} or className={`codicon codicon-foo`}
-				if (hasPair(expr)) {
+				// className={'codicon codicon-foo'} or className={`codicon codicon-${x}`}
+				if (hasCodicon(expr)) {
 					report();
 					return;
 				}
@@ -86,7 +74,7 @@ export default new class implements eslint.Rule.RuleModule {
 				// className={fn(`codicon-${name}`)}
 				if (expr.type === 'CallExpression') {
 					for (const arg of expr.arguments) {
-						if (hasPair(arg) || matchesText(arg, CODICON_INDIVIDUAL)) {
+						if (hasCodicon(arg)) {
 							report();
 							return;
 						}
