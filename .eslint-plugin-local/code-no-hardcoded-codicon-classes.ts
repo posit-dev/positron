@@ -59,6 +59,16 @@ export default new class implements eslint.Rule.RuleModule {
 								return; // one report per attribute is enough
 							}
 						}
+					} else if (expr.type === 'CallExpression') {
+						// className={positronClassNames('codicon', 'codicon-foo')}
+						for (const arg of expr.arguments) {
+							if (arg.type === 'Literal' && typeof arg.value === 'string') {
+								if (CODICON_PATTERN.test(arg.value)) {
+									context.report({ node, messageId: 'noHardcodedCodicon' });
+									return;
+								}
+							}
+						}
 					}
 				}
 			},

@@ -15,6 +15,7 @@ const valid2 = <div className='some-other-class' />;
 const valid3 = <div className={'dynamic-class'} />;
 const valid4 = <div className={`template-class`} />;
 const valid5 = <span className='action-icon' />;
+const valid6 = <div className={positronClassNames('my-icon', 'highlighted')} />;
 
 // -------
 // Invalid
@@ -40,3 +41,7 @@ const invalid4 = <div className={`icon codicon codicon-chevron-down`} />;
 const iconName = 'error';
 // eslint-disable-next-line local/code-no-hardcoded-codicon-classes
 const invalid5 = <div className={`codicon codicon-${iconName}`} />;
+
+// Call expression with codicon string arguments
+// eslint-disable-next-line local/code-no-hardcoded-codicon-classes
+const invalid6 = <div className={positronClassNames('codicon codicon-error', 'highlighted')} />;
