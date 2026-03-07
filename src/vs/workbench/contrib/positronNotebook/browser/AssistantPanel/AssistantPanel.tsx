@@ -181,7 +181,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 	onToggle,
 }) => {
 	const infoRef = useRef<HTMLDivElement>(null);
-	const labelRef = useRef<HTMLSpanElement>(null);
+	const labelRef = useRef<HTMLDivElement>(null);
 	const [showPopover, setShowPopover] = useState(false);
 	const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -221,7 +221,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 
 	return (
 		<div className='assistant-panel-setting-row'>
-			<span ref={labelRef} className='assistant-panel-setting-label'>
+			<div ref={labelRef} className='assistant-panel-setting-label'>
 				{label}
 				<ThemeIcon
 					ref={infoRef}
@@ -260,7 +260,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 						)}
 					</Popover>
 				)}
-			</span>
+			</div>
 			<div className='assistant-panel-setting-controls'>
 				<label className='assistant-panel-follow-global-label'>
 					{followGlobalLabel}
