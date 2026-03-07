@@ -22,6 +22,8 @@ const valid6 = <div className={positronClassNames('my-icon', 'highlighted')} />;
 // Hyphenated class names containing "codicon" as a substring should not trigger
 const valid7 = <div className='btn-codicon-wrapper' />;
 const valid8 = <div className={positronClassNames('my-codicon-helper')} />;
+const valid9 = <div className={`btn-codicon-wrapper`} />;
+const valid10 = <div className={positronClassNames('x', 'my-codicon-helper')} />;
 
 // -------
 // Invalid
