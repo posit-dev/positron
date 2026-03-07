@@ -53,3 +53,7 @@ const invalid7 = <div className={positronClassNames('codicon', 'codicon-error')}
 // Call expression with template literal argument
 // eslint-disable-next-line local/code-no-hardcoded-codicon-classes
 const invalid8 = <div className={positronClassNames(`codicon codicon-error`)} />;
+
+// Call expression with split args and interpolated template literal
+// eslint-disable-next-line local/code-no-hardcoded-codicon-classes
+const invalid9 = <div className={positronClassNames('codicon', `codicon-${iconName}`)} />;

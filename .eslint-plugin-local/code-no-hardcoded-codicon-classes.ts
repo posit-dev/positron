@@ -3,18 +3,38 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { TSESTree } from '@typescript-eslint/utils';
 import * as eslint from 'eslint';
 
 // Matches "codicon codicon-<name>" in a full string.
-const CODICON_PATTERN = /\bcodicon\s+codicon-[\w-]+/;
+const CODICON_PAIR = /\bcodicon\s+codicon-[\w-]+/;
 
-// Also matches when the icon name is absent (e.g. in a template quasi that
+// Matches when the icon name is absent (e.g. in a template quasi that
 // ends with "codicon codicon-" before an interpolation).
-const CODICON_PATTERN_PARTIAL = /\bcodicon\s+codicon-/;
+const CODICON_PAIR_PARTIAL = /\bcodicon\s+codicon-/;
 
-// Matches an individual "codicon-<name>" class (for split-argument detection
-// in call expressions like positronClassNames('codicon', 'codicon-error')).
-const CODICON_INDIVIDUAL = /\bcodicon-[\w-]+\b/;
+// Matches an individual "codicon-<name>" class for split-argument detection
+// in call expressions like positronClassNames('codicon', 'codicon-error').
+// The [\w-]* (zero or more) with $ also catches `codicon-${name}` templates.
+const CODICON_INDIVIDUAL = /\bcodicon-[\w-]*$/;
+
+/**
+ * Test whether a Literal or TemplateLiteral node contains text matching
+ * `pattern`. For TemplateLiterals with interpolations, `partialPattern` is
+ * used instead (if provided) since the value is split across quasis.
+ */
+function matchesText(node: TSESTree.Node, pattern: RegExp, partialPattern?: RegExp): boolean {
+	if (node.type === 'Literal' && typeof node.value === 'string') {
+		return pattern.test(node.value);
+	}
+	if (node.type === 'TemplateLiteral') {
+		const p = (node.expressions.length > 0 && partialPattern) || pattern;
+		return node.quasis.some(q => p.test(q.value.raw));
+	}
+	return false;
+}
+
+const hasPair = (node: TSESTree.Node) => matchesText(node, CODICON_PAIR, CODICON_PAIR_PARTIAL);
 
 export default new class implements eslint.Rule.RuleModule {
 
@@ -32,57 +52,43 @@ export default new class implements eslint.Rule.RuleModule {
 
 	create(context: eslint.Rule.RuleContext): eslint.Rule.RuleListener {
 		return {
-			'JSXAttribute[name.name="className"]': (node: any) => {
+			'JSXAttribute[name.name="className"]': (ruleNode: eslint.Rule.Node) => {
+				const node = ruleNode as unknown as TSESTree.JSXAttribute;
 				const value = node.value;
 				if (!value) {
 					return;
 				}
 
-				// className='codicon codicon-foo'
-				if (value.type === 'Literal' && typeof value.value === 'string') {
-					if (CODICON_PATTERN.test(value.value)) {
-						context.report({ node, messageId: 'noHardcodedCodicon' });
-					}
+				const report = () => context.report({ node: ruleNode, messageId: 'noHardcodedCodicon' });
+
+				// className='codicon codicon-foo' or className={`codicon codicon-${x}`}
+				if (hasPair(value)) {
+					report();
 					return;
 				}
 
-				// className={'codicon codicon-foo'} or className={`... codicon codicon-foo ...`}
-				if (value.type === 'JSXExpressionContainer') {
-					const expr = value.expression;
+				if (value.type !== 'JSXExpressionContainer') {
+					return;
+				}
+				const expr = value.expression;
+				if (expr.type === 'JSXEmptyExpression') {
+					return;
+				}
 
-					if (expr.type === 'Literal' && typeof expr.value === 'string') {
-						if (CODICON_PATTERN.test(expr.value)) {
-							context.report({ node, messageId: 'noHardcodedCodicon' });
-						}
-					} else if (expr.type === 'TemplateLiteral') {
-						const hasInterpolation = expr.expressions.length > 0;
-						const pattern = hasInterpolation ? CODICON_PATTERN_PARTIAL : CODICON_PATTERN;
-						for (const quasi of expr.quasis) {
-							if (pattern.test(quasi.value.raw)) {
-								context.report({ node, messageId: 'noHardcodedCodicon' });
-								return; // one report per attribute is enough
-							}
-						}
-					} else if (expr.type === 'CallExpression') {
-						// className={positronClassNames('codicon codicon-foo')}
-						// className={positronClassNames('codicon', 'codicon-foo')}
-						// className={positronClassNames(`codicon codicon-foo`)}
-						for (const arg of expr.arguments) {
-							if (arg.type === 'Literal' && typeof arg.value === 'string') {
-								if (CODICON_PATTERN.test(arg.value) || CODICON_INDIVIDUAL.test(arg.value)) {
-									context.report({ node, messageId: 'noHardcodedCodicon' });
-									return;
-								}
-							} else if (arg.type === 'TemplateLiteral') {
-								const hasInterpolation = arg.expressions.length > 0;
-								const pattern = hasInterpolation ? CODICON_PATTERN_PARTIAL : CODICON_PATTERN;
-								for (const quasi of arg.quasis) {
-									if (pattern.test(quasi.value.raw) || CODICON_INDIVIDUAL.test(quasi.value.raw)) {
-										context.report({ node, messageId: 'noHardcodedCodicon' });
-										return;
-									}
-								}
-							}
+				// className={'codicon codicon-foo'} or className={`codicon codicon-foo`}
+				if (hasPair(expr)) {
+					report();
+					return;
+				}
+
+				// className={fn('codicon codicon-foo')}
+				// className={fn('codicon', 'codicon-foo')}
+				// className={fn(`codicon-${name}`)}
+				if (expr.type === 'CallExpression') {
+					for (const arg of expr.arguments) {
+						if (hasPair(arg) || matchesText(arg, CODICON_INDIVIDUAL)) {
+							report();
+							return;
 						}
 					}
 				}
