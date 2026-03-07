@@ -398,7 +398,7 @@ export const ActionBar = (props: ActionBarProps) => {
 					tooltip={positronInterruptExecution}
 					onPressed={interruptHandler}
 				>
-					<ThemeIcon className='action-bar-button-icon	interrupt' icon={Codicon.positronInterruptRuntime} />
+					<ThemeIcon className='action-bar-button-icon interrupt' icon={Codicon.positronInterruptRuntime} />
 				</ActionBarButton>
 			)
 		});
