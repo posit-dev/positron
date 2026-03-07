@@ -21,6 +21,8 @@ import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 
 export function NotebookCellWrapper({ cell, children }: {
@@ -38,6 +40,7 @@ export function NotebookCellWrapper({ cell, children }: {
 	const [cellElement, setCellElement] = React.useState<HTMLDivElement | null>(null);
 	const cellRef = React.useCallback((node: HTMLDivElement | null) => { setCellElement(node); }, []);
 
+	const services = usePositronReactServicesContext();
 	const notebookInstance = useNotebookInstance();
 	const selectionStateMachine = notebookInstance.selectionStateMachine;
 	const environment = useEnvironment();
@@ -172,7 +175,13 @@ export function NotebookCellWrapper({ cell, children }: {
 	>
 		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>
 			<NotebookCellActionBar cell={cell} />
-			{children}
+			<NotebookErrorBoundary
+				componentName={`Cell[${cell.isCodeCell() ? 'code' : cell.isMarkdownCell() ? 'markdown' : 'raw'}]`}
+				level='cell'
+				logService={services.logService}
+			>
+				{children}
+			</NotebookErrorBoundary>
 		</CellScopedContextKeyServiceProvider>
 		<ScreenReaderOnly>
 			{announcement}
