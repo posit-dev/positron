@@ -39,17 +39,17 @@ export interface FlowFormattedTextProps {
 	id?: string;
 }
 
+const iconMap: Record<string, ThemeIconType> = {
+	[FlowFormattedTextType.Warning]: Codicon.warning,
+	[FlowFormattedTextType.Error]: Codicon.error,
+};
+
 /**
  * FlowFormattedText component.
  * @param props A PropsWithChildren<FlowFormattedTextProps> that contains the component properties.
  * @returns The rendered component.
  */
 export const FlowFormattedText = (props: PropsWithChildren<FlowFormattedTextProps>) => {
-	// Show an icon in the formatted text if the text type is not Info.
-	const iconMap: Record<string, ThemeIconType> = {
-		[FlowFormattedTextType.Warning]: Codicon.warning,
-		[FlowFormattedTextType.Error]: Codicon.error,
-	};
 	const icon = iconMap[props.type];
 
 	// Render.

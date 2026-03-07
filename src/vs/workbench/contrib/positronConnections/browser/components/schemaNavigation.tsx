@@ -311,7 +311,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 
 		const icon = iconForKind(props.item.kind);
-		return icon ? <ThemeIcon icon={icon} /> : <div />;
+		return icon ? <ThemeIcon icon={icon} /> : null;
 	});
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
