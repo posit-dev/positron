@@ -13,7 +13,7 @@ import React, { useRef } from 'react';
 import * as DOM from '../../../../base/browser/dom.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Icon as IconType } from '../../../../platform/action/common/action.js';
-import { Icon } from '../../../../platform/positronActionBar/browser/components/icon.js';
+import { Icon, ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
@@ -246,7 +246,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				}}
 			>
 				{options.checked !== undefined && options.checked &&
-					<Icon className='check' icon={Codicon.positronCheckMark} title={options.label} />
+					<ThemeIcon className='check' icon={Codicon.positronCheckMark} title={options.label} />
 				}
 
 				{options.icon &&
@@ -359,7 +359,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 					{options.label}
 				</div>
 
-				<Icon
+				<ThemeIcon
 					aria-hidden='true'
 					className={positronClassNames(
 						'submenu-indicator',

@@ -15,7 +15,7 @@ import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { useObservedValue } from '../useObservedValue.js';
-import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
@@ -71,7 +71,7 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 				tooltip={cellOutputActions}
 				onPressed={handleShowContextMenu}
 			>
-				<Icon className='button-icon' icon={Codicon.ellipsis} />
+				<ThemeIcon className='button-icon' icon={Codicon.ellipsis} />
 			</ActionButton>
 		</div>
 	);
