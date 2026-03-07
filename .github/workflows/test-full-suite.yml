@@ -127,6 +127,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       grep: ""
       project: "e2e-electron"
       display_name: "electron"
@@ -165,6 +166,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium"

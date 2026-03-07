@@ -219,7 +219,6 @@ async function createLanguageSnippetFile(pick: ISnippetPick, fileService: IFileS
 	if (await fileService.exists(pick.filepath)) {
 		return;
 	}
-
 	// --- Start Positron ---
 	let contents: string;
 
@@ -280,10 +279,20 @@ async function createLanguageSnippetFile(pick: ISnippetPick, fileService: IFileS
 			'\t// \t],',
 			'\t// \t"description": "Log output to console"',
 			'\t// }',
+			'\t//',
+			'\t// You can also restrict snippets to specific files using include/exclude patterns:',
+			'\t// "Test snippet": {',
+			'\t// \t"prefix": "test",',
+			'\t// \t"body": "test(\'$1\', () => {\\n\\t$0\\n});",',
+			'\t// \t"include": ["**/*.test.ts", "*.spec.ts"],',
+			'\t// \t"exclude": ["**/temp/*.ts"],',
+			'\t// \t"description": "Insert test block"',
+			'\t// }',
 			'}'
 		].join('\n');
+	// --- Start Positron ---
 	}
-
+	// --- End Positron ---
 	await textFileService.write(pick.filepath, contents);
 }
 

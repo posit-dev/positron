@@ -237,7 +237,7 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "snowflake-sdk": "^2.3.1",
+    "snowflake-sdk": "^2.3.4",
     "toml": "^3.0.0"
   }
 }

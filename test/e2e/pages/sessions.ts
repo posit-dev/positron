@@ -631,7 +631,8 @@ export class Sessions {
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {
-				await this.page.getByTestId(`console-tab-${sessionId}`).click();
+				// Use force to bypass notification toasts that may overlay the tab
+				await this.page.getByTestId(`console-tab-${sessionId}`).click({ force: true });
 			}
 
 			const metadata = await this.extractMetadataFromDialog();

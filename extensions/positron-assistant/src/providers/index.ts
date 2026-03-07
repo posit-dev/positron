@@ -22,7 +22,7 @@ import { OpenAIModelProvider } from './openai/openaiProvider';
 import { OpenAICompatibleModelProvider } from './openai/openaiCompatibleProvider';
 import { AnthropicModelProvider } from './anthropic/anthropicProvider';
 import { AnthropicAIModelProvider } from './anthropic/anthropicVercelProvider';
-import { AzureModelProvider } from './azure/azureProvider';
+import { FoundryModelProvider } from './foundry/foundryProvider';
 import { GoogleModelProvider } from './google/googleProvider';
 import { SnowflakeModelProvider } from './snowflake/snowflakeProvider';
 import { AWSModelProvider } from './aws/awsBedrockProvider';
@@ -112,7 +112,7 @@ export function getModelProviders(): ConcreteModelProviderConstructor[] {
 		...testProviders,
 		anthropicClass,
 		AWSModelProvider,
-		AzureModelProvider,
+		FoundryModelProvider,
 		CopilotModelProvider,
 		GoogleModelProvider,
 		OpenAIModelProvider,

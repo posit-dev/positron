@@ -7,18 +7,21 @@ import * as assert from 'assert';
 import { createAutomaticModelConfigs } from '../providers/index.js';
 import { AWSModelProvider } from '../providers/aws/awsBedrockProvider.js';
 import { SnowflakeModelProvider } from '../providers/snowflake/snowflakeProvider.js';
+import { FoundryModelProvider } from '../providers/foundry/foundryProvider.js';
 import { CopilotModelProvider } from '../copilot.js';
 
 suite('Autoconfigured Providers', () => {
 	// Store original autoconfigure methods
 	let originalAWSAutoconfigure: typeof AWSModelProvider.autoconfigure;
 	let originalSnowflakeAutoconfigure: typeof SnowflakeModelProvider.autoconfigure;
+	let originalFoundryAutoconfigure: typeof FoundryModelProvider.autoconfigure;
 	let originalCopilotAutoconfigure: typeof CopilotModelProvider.autoconfigure;
 
 	setup(() => {
 		// Save originals
 		originalAWSAutoconfigure = AWSModelProvider.autoconfigure;
 		originalSnowflakeAutoconfigure = SnowflakeModelProvider.autoconfigure;
+		originalFoundryAutoconfigure = FoundryModelProvider.autoconfigure;
 		originalCopilotAutoconfigure = CopilotModelProvider.autoconfigure;
 
 		// Mock all Custom-type autoconfigure methods to return configured: true
@@ -33,6 +36,11 @@ suite('Autoconfigured Providers', () => {
 			configuration: { apiKey: 'test-key', baseUrl: 'https://example.com' }
 		});
 
+		FoundryModelProvider.autoconfigure = async () => ({
+			configured: true,
+			message: 'Test Foundry creds'
+		});
+
 		// CopilotModelProvider requires CopilotService singleton which isn't available in tests
 		CopilotModelProvider.autoconfigure = async () => ({ configured: false });
 	});
@@ -41,6 +49,7 @@ suite('Autoconfigured Providers', () => {
 		// Restore originals
 		AWSModelProvider.autoconfigure = originalAWSAutoconfigure;
 		SnowflakeModelProvider.autoconfigure = originalSnowflakeAutoconfigure;
+		FoundryModelProvider.autoconfigure = originalFoundryAutoconfigure;
 		CopilotModelProvider.autoconfigure = originalCopilotAutoconfigure;
 	});
 
@@ -48,7 +57,7 @@ suite('Autoconfigured Providers', () => {
 		const configs = await createAutomaticModelConfigs();
 		const failures: string[] = [];
 
-		const expectedProviders = ['amazon-bedrock', 'snowflake-cortex'];
+		const expectedProviders = ['amazon-bedrock', 'snowflake-cortex', 'ms-foundry'];
 		for (const providerId of expectedProviders) {
 			const config = configs.find((c) => c.provider === providerId);
 			if (!config) {
