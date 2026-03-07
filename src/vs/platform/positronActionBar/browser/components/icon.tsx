@@ -123,7 +123,7 @@ export const Icon = React.forwardRef<HTMLDivElement, IconProps>(
 /** An icon representing a developer error. */
 export const DevErrorIcon = () => {
 	// Blank icon with an easy-to-catch background color for debugging
-	return <Icon
+	return <ThemeIcon
 		icon={Codicon.blank}
 		style={{ backgroundColor: asCssVariable(editorErrorForeground) }}
 	/>;
