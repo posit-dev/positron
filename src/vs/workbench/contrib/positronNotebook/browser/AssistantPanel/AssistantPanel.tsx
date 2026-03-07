@@ -180,7 +180,7 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 	onFollowGlobalChanged,
 	onToggle,
 }) => {
-	const infoRef = useRef<HTMLSpanElement>(null);
+	const infoRef = useRef<HTMLDivElement>(null);
 	const labelRef = useRef<HTMLSpanElement>(null);
 	const [showPopover, setShowPopover] = useState(false);
 	const hoverTimeoutRef = useRef<number | null>(null);
@@ -223,19 +223,18 @@ const SettingToggleRow: React.FC<SettingToggleRowProps> = ({
 		<div className='assistant-panel-setting-row'>
 			<span ref={labelRef} className='assistant-panel-setting-label'>
 				{label}
-				<span
+				<ThemeIcon
 					ref={infoRef}
 					aria-label={description}
 					className='assistant-panel-setting-info'
+					icon={Codicon.info}
 					role='button'
 					tabIndex={0}
 					onBlur={handleBlur}
 					onFocus={handleShowPopover}
 					onMouseEnter={handleShowPopover}
 					onMouseLeave={clearHoverTimeout}
-				>
-					<ThemeIcon icon={Codicon.info} />
-				</span>
+				/>
 				{showPopover && infoRef.current && (
 					<Popover
 						anchorElement={infoRef.current}
