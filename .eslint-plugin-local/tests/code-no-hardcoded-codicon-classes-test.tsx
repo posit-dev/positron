@@ -5,6 +5,8 @@
 
 // Test file to verify the code-no-hardcoded-codicon-classes ESLint rule.
 
+import { positronClassNames } from '../../src/vs/base/common/positronUtilities.js';
+
 // -----
 // Valid
 // -----
