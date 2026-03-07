@@ -1837,6 +1837,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Indicates whether this is a new session or a reconnected session.
+	 */
+	isNewSession(): boolean {
+		return this._new;
+	}
+
+	/**
 	 * Processs and emit a state change.
 	 *
 	 * @param newState The new kernel state

@@ -198,6 +198,9 @@ class UiBackendRequest(str, enum.Enum):
     # Active editor context changed
     EditorContextChanged = "editor_context_changed"
 
+    # Notify backend that the frontend is ready
+    FrontendReady = "frontend_ready"
+
 
 class DidChangePlotsRenderSettingsParams(BaseModel):
     """
@@ -308,12 +311,48 @@ class EditorContextChangedRequest(BaseModel):
     )
 
 
+class FrontendReadyParams(BaseModel):
+    """
+    Sent after the UI comm is opened and the frontend is fully
+    initialized. The runtime can use this as a signal to run session
+    initialization hooks (e.g., positron.sessionInit,
+    rstudio.sessionInit).
+    """
+
+    is_new_session: StrictBool = Field(
+        description="True if this is a new session, false if reconnecting to existing session",
+    )
+
+
+class FrontendReadyRequest(BaseModel):
+    """
+    Sent after the UI comm is opened and the frontend is fully
+    initialized. The runtime can use this as a signal to run session
+    initialization hooks (e.g., positron.sessionInit,
+    rstudio.sessionInit).
+    """
+
+    params: FrontendReadyParams = Field(
+        description="Parameters to the FrontendReady method",
+    )
+
+    method: Literal[UiBackendRequest.FrontendReady] = Field(
+        description="The JSON-RPC method name (frontend_ready)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class UiBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
         DidChangePlotsRenderSettingsRequest,
         CallMethodRequest,
         EditorContextChangedRequest,
+        FrontendReadyRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -671,6 +710,10 @@ CallMethodRequest.update_forward_refs()
 EditorContextChangedParams.update_forward_refs()
 
 EditorContextChangedRequest.update_forward_refs()
+
+FrontendReadyParams.update_forward_refs()
+
+FrontendReadyRequest.update_forward_refs()
 
 BusyParams.update_forward_refs()
 
