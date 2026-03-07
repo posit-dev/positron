@@ -1135,21 +1135,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private async onStateChange(state: positron.RuntimeState): Promise<void> {
 		this._state = state;
 		if (state === positron.RuntimeState.Ready) {
-			const promises: Promise<void>[] = [
+			await Promise.all([
 				this.startDap(),
 				this.setConsoleWidth(),
-			];
-
-			// Only source the packages script if the environments feature is enabled
-			const environmentsEnabled = vscode.workspace
-				.getConfiguration('positron.environments')
-				.get<boolean>('enable', false);
-
-			if (environmentsEnabled) {
-				promises.push(this._packageManager!.sourcePackagesScript());
-			}
-
-			await Promise.all(promises);
+			]);
 		} else if (state === positron.RuntimeState.Exited) {
 			await Promise.all([
 				this.deactivateServices('session exited'),
