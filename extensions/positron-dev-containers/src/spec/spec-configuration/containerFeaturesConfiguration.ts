@@ -10,6 +10,7 @@ import * as tar from 'tar';
 import * as crypto from 'crypto';
 import * as semver from 'semver';
 import * as os from 'os';
+import * as fs from 'fs';
 
 import { DevContainerConfig, DevContainerFeature, VSCodeCustomizations } from './configuration';
 import { mkdirpLocal, readLocalFile, rmLocal, writeLocalFile, cpDirectoryLocal, isLocalFile } from '../spec-utils/pfs';
@@ -1097,7 +1098,7 @@ export async function fetchContentsAtTarballUri(params: { output: Log; env: Node
 		}
 
 		// Filter what gets emitted from the tar.extract().
-		const filter = (file: string, _: tar.FileStat) => {
+		const filter = (file: string, _: fs.Stats | tar.ReadEntry) => {
 			// Don't include .dotfiles or the archive itself.
 			if (file.startsWith('./.') || file === `./${V1_ASSET_NAME}` || file === './.') {
 				return false;
@@ -1128,7 +1129,7 @@ export async function fetchContentsAtTarballUri(params: { output: Log; env: Node
 			{
 				file: tempTarballPath,
 				cwd: featCachePath,
-				filter: (path: string, _: tar.FileStat) => {
+				filter: (path: string, _) => {
 					return path === `./${metadataFile}`;
 				}
 			});
