@@ -29,7 +29,7 @@ function matchesText(node: TSESTree.Node, pattern: RegExp, partialPattern?: RegE
 	}
 	if (node.type === 'TemplateLiteral') {
 		const p = (node.expressions.length > 0 && partialPattern) || pattern;
-		return node.quasis.some(q => p.test(q.value.raw));
+		return node.quasis.some((q: TSESTree.TemplateElement) => p.test(q.value.raw));
 	}
 	return false;
 }
