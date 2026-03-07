@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { KeyboardModifiers } from '../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Icon } from '../../../../platform/action/common/action.js';
 
 /**
  * CustomContextMenuItemOptions interface.
@@ -16,7 +16,7 @@ export interface CustomContextMenuItemOptions {
 	 */
 	readonly onWillSelect?: () => void;
 	readonly checked?: boolean;
-	readonly icon?: ThemeIcon;
+	readonly icon?: Icon;
 	readonly label: string;
 	readonly disabled?: boolean;
 	/**

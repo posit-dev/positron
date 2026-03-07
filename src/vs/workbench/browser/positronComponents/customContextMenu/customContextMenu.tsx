@@ -12,8 +12,8 @@ import React, { useRef } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { ThemeIcon as ThemeIconType } from '../../../../base/common/themables.js';
-import { ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
+import { Icon as IconType } from '../../../../platform/action/common/action.js';
+import { Icon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
@@ -36,7 +36,7 @@ export interface CustomContextMenuSubmenuOptions {
 	/**
 	 * Optional icon to display before the label.
 	 */
-	readonly icon?: ThemeIconType;
+	readonly icon?: IconType;
 
 	/**
 	 * The label text for the submenu item.
@@ -246,11 +246,11 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				}}
 			>
 				{options.checked !== undefined && options.checked &&
-					<ThemeIcon className='check' icon={Codicon.positronCheckMark} title={options.label} />
+					<Icon className='check' icon={Codicon.positronCheckMark} title={options.label} />
 				}
 
 				{options.icon &&
-					<ThemeIcon
+					<Icon
 						className={positronClassNames(
 							'icon',
 							{ 'disabled': options.disabled }
@@ -340,7 +340,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				onPressed={openSubmenu}
 			>
 				{options.icon &&
-					<ThemeIcon
+					<Icon
 						aria-hidden='true'
 						className={positronClassNames(
 							'icon',
@@ -359,7 +359,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 					{options.label}
 				</div>
 
-				<ThemeIcon
+				<Icon
 					aria-hidden='true'
 					className={positronClassNames(
 						'submenu-indicator',
