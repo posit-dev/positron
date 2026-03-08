@@ -450,6 +450,13 @@ export class WebClientServer {
 			this._logService.info('[WebClientServer] No POSITRON_ENFORCED_SETTINGS environment variable found');
 		}
 
+		// --- Start Positron ---
+		const positronDocsUrl = process.env['POSITRON_DOCS_URL'];
+		if (positronDocsUrl) {
+			this._logService.info(`[WebClientServer] Using POSITRON_DOCS_URL: ${positronDocsUrl}`);
+		}
+		// --- End Positron ---
+
 		// --- Start PWB: Use secure auth cookie ---
 		const cookies = cookie.parse(req.headers.cookie || '');
 		const connectionTokenFromCookie = cookies[connectionTokenCookieName];
@@ -477,6 +484,7 @@ export class WebClientServer {
 			// --- Start Positron ---
 			disableExtension: this._environmentService.args['disable-extension'],
 			bootstrapExtensionsDir: this._environmentService.args['bootstrap-extensions-dir'],
+			positronDocsUrl,
 			// --- End Positron ---
 			productConfiguration,
 			callbackRoute: callbackRoute,

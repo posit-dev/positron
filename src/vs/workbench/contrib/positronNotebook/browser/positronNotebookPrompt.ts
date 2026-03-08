@@ -17,6 +17,7 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../common/positronNotebookConfig.js';
 import { URI } from '../../../../base/common/uri.js';
+import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
 
 const NOTEBOOK_PROMPT_DISMISSED_KEY = 'positron.notebook.promptDismissed';
 
@@ -47,6 +48,7 @@ export class PositronNotebookPromptContribution extends Disposable implements IW
 		@INotificationService private readonly notificationService: INotificationService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IOpenerService private readonly openerService: IOpenerService,
+		@IPositronDocsService private readonly docsService: IPositronDocsService,
 	) {
 		super();
 
@@ -94,7 +96,7 @@ export class PositronNotebookPromptContribution extends Disposable implements IW
 				{
 					label: localize('positron.notebook.prompt.learnMore', 'Learn more'),
 					run: () => {
-						this.openerService.open(URI.parse('https://positron.posit.co/positron-notebook-editor'));
+						this.openerService.open(URI.parse(this.docsService.getUrl('positron-notebook-editor')));
 					}
 				},
 				{
