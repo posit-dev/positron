@@ -13,15 +13,13 @@ import matplotlib.pyplot as plt
 import pytest
 from PIL import Image
 
-from positron.plot_comm import PlotSize, PlotUnit
+from positron.plot_comm import PlotRenderFormat, PlotSize, PlotUnit
 from positron.plots import PlotsService
 from positron.positron_ipkernel import PositronIPyKernel, _CommTarget
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
     comm_close_message,
-    comm_open_message,
-    json_rpc_notification,
     json_rpc_request,
     json_rpc_response,
     percent_difference,
@@ -68,6 +66,35 @@ def images_path() -> Path:
     return images_path
 
 
+def _verify_comm_open_message(
+    message: Dict[str, Any],
+    expected_intrinsic_size: Optional[Tuple[float, float]] = None,
+) -> None:
+    """Verify a comm_open message has expected structure, ignoring pre_render image data."""
+    assert message["msg_type"] == "comm_open"
+    assert message["target_name"] == _CommTarget.Plot
+
+    data = message.get("data", {})
+
+    # Pre-render should be present
+    if "pre_render" in data:
+        pre_render = data["pre_render"]
+        assert "data" in pre_render  # base64-encoded image data
+        assert pre_render["mime_type"] == "image/png"
+        assert "settings" in pre_render
+        settings = pre_render["settings"]
+        assert settings["format"] == PlotRenderFormat.Png.value
+
+    # Intrinsic size should be present if specified
+    if expected_intrinsic_size is not None:
+        assert "intrinsic_size" in data
+        intrinsic = data["intrinsic_size"]
+        assert intrinsic["width"] == expected_intrinsic_size[0]
+        assert intrinsic["height"] == expected_intrinsic_size[1]
+        assert intrinsic["unit"] == PlotUnit.Inches.value
+        assert intrinsic["source"] == "matplotlib"
+
+
 def _create_mpl_plot(
     shell: PositronShell,
     plots_service: PlotsService,
@@ -83,9 +110,36 @@ def _create_mpl_plot(
 
     shell.run_cell(f"plt.figure({args_code})").raise_error()
     plot_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
-    assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
+
+    assert len(plot_comm.messages) == 1
+    _verify_comm_open_message(plot_comm.messages[0], expected_intrinsic_size=size)
     plot_comm.messages.clear()
     return plot_comm
+
+
+def _verify_event_notification(message: Dict[str, Any], method: str) -> None:
+    """Verify an event notification has expected structure, ignoring pre_render image data."""
+    assert message["msg_type"] == "comm_msg"
+    data = message.get("data", {})
+    assert data.get("jsonrpc") == "2.0"
+    assert data.get("method") == method
+    params = data.get("params", {})
+    # Pre-render should be present
+    if "pre_render" in params:
+        pre_render = params["pre_render"]
+        assert "data" in pre_render  # base64-encoded image data
+        assert "mime_type" in pre_render
+        assert "settings" in pre_render
+
+
+def _verify_update_notification(message: Dict[str, Any]) -> None:
+    """Verify an update notification has expected structure."""
+    _verify_event_notification(message, "update")
+
+
+def _verify_show_notification(message: Dict[str, Any]) -> None:
+    """Verify a show notification has expected structure."""
+    _verify_event_notification(message, "show")
 
 
 def _do_render(
@@ -202,12 +256,14 @@ def test_mpl_show(shell: PositronShell, plots_service: PlotsService) -> None:
 
     # Show the figure again.
     shell.run_cell("plt.show()")
-    assert plot_comm.messages == [json_rpc_notification("show", {})]
+    assert len(plot_comm.messages) == 1
+    _verify_show_notification(plot_comm.messages[0])
     plot_comm.messages.clear()
 
     # It should also work with Figure.show().
     shell.run_cell("plt.gcf().show()")
-    assert plot_comm.messages == [json_rpc_notification("show", {})]
+    assert len(plot_comm.messages) == 1
+    _verify_show_notification(plot_comm.messages[0])
 
 
 def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_path: Path) -> None:
@@ -227,7 +283,14 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     format_ = "png"
     response = _do_render(plot_comm, size, pixel_ratio, format_)
 
-    def verify_response(response, filename: str, expected_size: Tuple[float, float], threshold=0.0):
+    def verify_response(
+        response,
+        filename: str,
+        expected_size: Tuple[float, float],
+        threshold=0.0,
+        *,
+        expect_settings: bool = False,
+    ):
         # Check that the response includes the expected base64-encoded resized image.
         image_bytes = response["data"]["result"].pop("data")
         image = Image.open(io.BytesIO(base64.b64decode(image_bytes)))
@@ -241,9 +304,22 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
         assert percent_difference(image.size[1], expected_size[1] * pixel_ratio) <= threshold
 
         # Check the rest of the response.
-        assert response == json_rpc_response({"mime_type": f"image/{format_}", "settings": None})
+        if expect_settings:
+            # Pop settings for separate verification
+            settings = response["data"]["result"].pop("settings")
+            assert settings["size"]["width"] == size.width
+            assert settings["size"]["height"] == size.height
+            assert settings["pixel_ratio"] == pixel_ratio
+            assert settings["format"] == format_
+            assert response == json_rpc_response({"mime_type": f"image/{format_}"})
+        else:
+            assert response == json_rpc_response(
+                {"mime_type": f"image/{format_}", "settings": None}
+            )
 
-    verify_response(response, "test-mpl-render-0-explicit-size", (size.width, size.height))
+    verify_response(
+        response, "test-mpl-render-0-explicit-size", (size.width, size.height), expect_settings=True
+    )
 
     # Now render the plot at its intrinsic size.
     # Having rendered the plot at an explicit size should not affect the intrinsic size.
@@ -261,7 +337,10 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     # Double-check that we can still render at a requested size.
     response = _do_render(plot_comm, size, pixel_ratio, format_)
     verify_response(
-        response, "test-mpl-render-2-explicit-size-after-intrinsic-size", (size.width, size.height)
+        response,
+        "test-mpl-render-2-explicit-size-after-intrinsic-size",
+        (size.width, size.height),
+        expect_settings=True,
     )
 
 
@@ -292,7 +371,11 @@ def test_mpl_update(
     shell.run_cell(code).raise_error()
 
     # Check whether an update was triggered.
-    assert plot_comm.messages == ([json_rpc_notification("update", {})] if should_update else [])
+    if should_update:
+        assert len(plot_comm.messages) == 1
+        _verify_update_notification(plot_comm.messages[0])
+    else:
+        assert plot_comm.messages == []
 
 
 def _assert_plot_comm_closed(plot_comm: DummyComm) -> None:
@@ -370,7 +453,8 @@ def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService)
     # Draw to the first figure.
     shell.run_cell("plt.figure(1); plt.plot([1, 2])")
 
-    assert plot_comms[0].messages == [json_rpc_notification("update", {})]
+    assert len(plot_comms[0].messages) == 1
+    _verify_update_notification(plot_comms[0].messages[0])
     assert plot_comms[1].messages == []
     plot_comms[0].messages.clear()
 
@@ -378,13 +462,15 @@ def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService)
     shell.run_cell("plt.figure(2); plt.plot([1, 2])")
 
     assert plot_comms[0].messages == []
-    assert plot_comms[1].messages == [json_rpc_notification("update", {})]
+    assert len(plot_comms[1].messages) == 1
+    _verify_update_notification(plot_comms[1].messages[0])
     plot_comms[1].messages.clear()
 
     # Show the first figure.
     shell.run_cell("plt.figure(1).show()")
 
-    assert plot_comms[0].messages == [json_rpc_notification("show", {})]
+    assert len(plot_comms[0].messages) == 1
+    _verify_show_notification(plot_comms[0].messages[0])
     assert plot_comms[1].messages == []
     plot_comms[0].messages.clear()
 
@@ -392,7 +478,8 @@ def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService)
     shell.run_cell("plt.figure(2).show()")
 
     assert plot_comms[0].messages == []
-    assert plot_comms[1].messages == [json_rpc_notification("show", {})]
+    assert len(plot_comms[1].messages) == 1
+    _verify_show_notification(plot_comms[1].messages[0])
 
 
 def test_mpl_issue_2824(shell: PositronShell, plots_service: PlotsService) -> None:
@@ -438,8 +525,8 @@ from plotnine.data import mtcars
 """).raise_error()
     plot_comm = cast("DummyComm", plots_service._plots[0]._comm.comm)  # noqa: SLF001
 
-    assert plot_comm.messages == [
-        comm_open_message(_CommTarget.Plot),
-        json_rpc_notification("show", {}),
-    ]
+    # Verify comm_open with pre-render data
+    assert len(plot_comm.messages) == 2
+    _verify_comm_open_message(plot_comm.messages[0])
+    _verify_show_notification(plot_comm.messages[1])
     assert not plot_comm._closed  # noqa: SLF001

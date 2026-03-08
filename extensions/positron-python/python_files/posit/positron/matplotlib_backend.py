@@ -147,8 +147,18 @@ class FigureManagerPositron(FigureManagerBase):
         self._plot.show()
 
     def destroy(self) -> None:
-        """Called by matplotlib when a figure is closed via `plt.close()`."""
-        self._plot.close()
+        """Called by matplotlib after a figure is closed via `plt.close()`.
+
+        We intentionally don't close the comm here. Matplotlib has already destroyed
+        the figure before calling this method. We keep the comm open so the plot
+        remains visible in the plots pane with its cached render. This avoids race
+        conditions where RPC calls (render, get_intrinsic_size) fail because the comm
+        was closed before the frontend finished processing.
+
+        The comm will be closed when:
+        - The user removes the plot from history
+        - The session ends
+        """
 
     def update(self) -> None:
         """

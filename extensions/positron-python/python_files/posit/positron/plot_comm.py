@@ -298,6 +298,18 @@ class UpdateParams(BaseModel):
     """
 
     pre_render: Optional[PlotResult] = Field(
+        default=None,
+        description="Optional pre-rendering data for immediate display",
+    )
+
+
+class ShowParams(BaseModel):
+    """
+    Show a plot.
+    """
+
+    pre_render: Optional[PlotResult] = Field(
+        default=None,
         description="Optional pre-rendering data for immediate display",
     )
 
@@ -325,3 +337,5 @@ RenderParams.update_forward_refs()
 RenderRequest.update_forward_refs()
 
 UpdateParams.update_forward_refs()
+
+ShowParams.update_forward_refs()
