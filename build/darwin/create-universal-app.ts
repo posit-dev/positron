@@ -230,7 +230,8 @@ async function origMain(
 		// Add to the list of x64-only files
 		// **/node_modules/fsevents/fsevents.node
 		// **/node_modules/@napi-rs/canvas-darwin-x64/skia.darwin-x64.node
-		x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/fsevents/fsevents.node,**/node_modules/@napi-rs/canvas-darwin-x64/skia.darwin-x64.node}',
+		// **/node_modules/snowflake-sdk/dist/lib/minicore/binaries/*.darwin-x64.node
+		x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/fsevents/fsevents.node,**/node_modules/@napi-rs/canvas-darwin-x64/skia.darwin-x64.node,**/node_modules/snowflake-sdk/dist/lib/minicore/binaries/*.darwin-x64.node}',
 		// --- End Positron ---
 		filesToSkipComparison: (file: string) => {
 			for (const expected of filesToSkip) {
