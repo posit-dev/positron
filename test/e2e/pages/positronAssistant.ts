@@ -259,7 +259,7 @@ export class Assistant {
 	async openModelPickerDropdown() {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
-		await chatInput.click();
+		await chatInput.click({ force: true });
 		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 		await this.code.driver.page.keyboard.press(`${modifier}+Alt+Period`);
 	}
