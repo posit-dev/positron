@@ -26,7 +26,7 @@ export class UVInstaller extends ModuleInstaller {
     }
 
     public get name(): string {
-        return 'Uv';
+        return 'uv';
     }
 
     public get displayName(): string {

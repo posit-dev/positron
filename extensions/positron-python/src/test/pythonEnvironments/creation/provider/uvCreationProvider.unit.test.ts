@@ -29,7 +29,7 @@ import {
 
 chaiUse(chaiAsPromised.default);
 
-suite('UV Creation provider tests', () => {
+suite('uv Creation provider tests', () => {
     let uvProvider: CreateEnvironmentProvider;
     let progressMock: typemoq.IMock<CreateEnvironmentProgress>;
     let isUvInstalledStub: sinon.SinonStub;

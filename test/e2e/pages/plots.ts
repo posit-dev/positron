@@ -21,6 +21,7 @@ const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
+const ORIGIN_FILE_BUTTON = '.plot-origin-file';
 const OUTER_WEBVIEW_FRAME = '.webview';
 const INNER_WEBVIEW_FRAME = '#active-frame';
 
@@ -39,6 +40,7 @@ export class Plots {
 	copyPlotButton: Locator;
 	zoomPlotButton: Locator;
 	currentPlot: Locator;
+	originFileButton: Locator;
 	savePlotModal: Locator;
 	overwriteModal: Locator;
 
@@ -53,16 +55,39 @@ export class Plots {
 		this.copyPlotButton = this.code.driver.page.locator(COPY_PLOT_BUTTON);
 		this.zoomPlotButton = this.code.driver.page.locator(ZOOM_PLOT_BUTTON);
 		this.currentPlot = this.code.driver.page.locator(CURRENT_PLOT);
+		this.originFileButton = this.code.driver.page.locator(ORIGIN_FILE_BUTTON);
 		this.savePlotModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'Save Plot' });
 		this.overwriteModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'The file already exists' });
 	}
 
+	async clickOriginFileButton() {
+		await test.step('Click origin file button', async () => {
+			await this.originFileButton.click();
+		});
+	}
+
 	async waitForCurrentPlot() {
-		await expect(this.code.driver.page.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
+		await test.step('Wait for current plot to be visible', async () => {
+			await expect(this.code.driver.page.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
+		});
 	}
 
 	async waitForCurrentStaticPlot() {
-		await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
+		await test.step('Wait for current static plot to be visible', async () => {
+			await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	async expectOriginButtonVisible() {
+		await test.step('Expect origin file button to be visible', async () => {
+			await expect(this.originFileButton).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	async expectOriginButtonContain(text: string) {
+		await test.step(`Expect origin file button to contain text: ${text}`, async () => {
+			await expect(this.originFileButton).toContainText(text);
+		});
 	}
 
 	getWebviewPlotLocator(selector: string): Locator {

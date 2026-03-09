@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -52,7 +52,8 @@ except ImportError:
 
 
 try:
-    import redshift_connector
+    # We don't have the infrastructure to test redshift_connector in CI yet.
+    import redshift_connector  # type: ignore
 
     HAS_REDSHIFT = "REDSHIFT_HOST" in os.environ
 except ImportError:

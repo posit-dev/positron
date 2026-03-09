@@ -94,6 +94,7 @@ import './services/process/electron-browser/processService.js';
 
 // --- Start Positron ---
 import './services/ephemeralState/electron-browser/ephemeralStateService.js';
+import './services/positronMemoryUsage/electron-browser/positronMemoryUsageElectronService.js';
 // --- End Positron ---
 
 import { registerSingleton } from '../platform/instantiation/common/extensions.js';
@@ -158,6 +159,9 @@ import './contrib/externalTerminal/electron-browser/externalTerminal.contributio
 
 // Webview
 import './contrib/webview/electron-browser/webview.contribution.js';
+
+// Browser
+import './contrib/browserView/electron-browser/browserView.contribution.js';
 
 // Splash
 import './contrib/splash/electron-browser/splash.contribution.js';

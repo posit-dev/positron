@@ -23,7 +23,7 @@ interface MessageEmitter {
 }
 
 /**
- * UV Package Manager
+ * uv Package Manager
  *
  * Provides package management functionality for Python sessions using uv.
  * Supports two workflows:
