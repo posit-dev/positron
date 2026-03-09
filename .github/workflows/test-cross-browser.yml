@@ -23,7 +23,7 @@ on:
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
-        default: "/(search|layouts|console-clipboard|notebook-copy-paste).test"
+        default: "/(search|layouts|console-clipboard|notebook-copy-paste|viewer|variables-expanded|variables-filter|variables-sessions|notebook-focus-and-selection|notebook-edit-mode|notebook-cell-action-bar|notebook-undo-redo).test"
         type: string
       notify_on:
         description: "Slack notification on:"
@@ -56,7 +56,7 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || '/(search|layouts|console-clipboard|notebook-copy-paste).test' }}
+      grep: ${{ inputs.grep && inputs.grep || '/(search|layouts|console-clipboard|notebook-copy-paste|viewer|variables-expanded|variables-filter|variables-sessions|notebook-focus-and-selection|notebook-edit-mode|notebook-cell-action-bar|notebook-undo-redo).test' }}
 
   e2e-webkit:
     name: e2e
@@ -69,7 +69,7 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || '/(search|layouts|console-clipboard|notebook-copy-paste).test' }}
+      grep: ${{ inputs.grep && inputs.grep || '/(search|layouts|console-clipboard|notebook-copy-paste|viewer|variables-expanded|variables-filter|variables-sessions|notebook-focus-and-selection|notebook-edit-mode|notebook-cell-action-bar|notebook-undo-redo).test' }}
 
   e2e-edge:
     name: e2e
@@ -82,7 +82,7 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || '/(search|layouts|console-clipboard|notebook-copy-paste).test' }}
+      grep: ${{ inputs.grep && inputs.grep || '/(search|layouts|console-clipboard|notebook-copy-paste|viewer|variables-expanded|variables-filter|variables-sessions|notebook-focus-and-selection|notebook-edit-mode|notebook-cell-action-bar|notebook-undo-redo).test' }}
 
   slack-notify:
     if: always()

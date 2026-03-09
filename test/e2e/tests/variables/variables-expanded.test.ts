@@ -31,10 +31,7 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 	test('R - Verify getting large dataframe children should not cause problems', {
 		tag: [tags.ARK]
 	}, async function ({ app, r }) {
-		const { variables, toasts, console, layouts } = app.workbench;
-
-		// workaround for https://github.com/posit-dev/positron/issues/5718
-		await toasts.closeAll();
+		const { variables, console, layouts } = app.workbench;
 
 		await console.executeCode('R', 'df2 <- data.frame(b=rep(1:1000000))');
 		await layouts.enterLayout('fullSizedAuxBar');

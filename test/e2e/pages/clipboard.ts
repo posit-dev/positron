@@ -12,6 +12,35 @@ export class Clipboard {
 	constructor(private code: Code, private hotKeys: HotKeys) { }
 
 	/**
+	 * Detects if we need to use synthetic paste events.
+	 * - Electron: No (clipboard works fine)
+	 * - Chromium (Chrome): No (grantPermissions works)
+	 * - Firefox: No (keyboard shortcuts work)
+	 * - Edge, WebKit: Yes (clipboard API restrictions)
+	 */
+	private needsSyntheticPaste(): boolean {
+		const browser = this.code.driver.browser;
+
+		// Electron - clipboard works fine
+		if (this.code.electronApp) {
+			return false;
+		}
+
+		// Chromium (Chrome) - grantPermissions works
+		if (browser?.includes('chrome')) {
+			return false;
+		}
+
+		// Firefox - keyboard shortcuts work
+		if (browser === 'firefox') {
+			return false;
+		}
+
+		// Edge, WebKit, or unknown - use synthetic paste
+		return true;
+	}
+
+	/**
 	 * Safely grants clipboard permissions. Chromium-only - Firefox/WebKit
 	 * don't support programmatic clipboard permission grants.
 	 */
@@ -60,8 +89,36 @@ export class Clipboard {
 			.not.toBe(seed);
 	}
 
-	async paste(): Promise<void> {
-		await this.hotKeys.paste();
+	/**
+	 * Pastes content using keyboard shortcut, or synthetic paste event for WebKit.
+	 *
+	 * @param text Optional text to paste. If provided and running on WebKit, uses synthetic
+	 *             paste event to bypass clipboard API restrictions. If not provided or on
+	 *             other browsers, uses keyboard shortcut (Cmd+V / Ctrl+V).
+	 */
+	async paste(text?: string): Promise<void> {
+		if (this.needsSyntheticPaste() && text !== undefined) {
+			await this.pasteText(text);
+		} else {
+			await this.hotKeys.paste();
+		}
+	}
+
+	/**
+	 * Pastes text by dispatching a synthetic paste event with the text embedded in clipboardData.
+	 * This bypasses navigator.clipboard.readText() which is blocked by WebKit without a real user gesture.
+	 */
+	private async pasteText(text: string): Promise<void> {
+		await this.code.driver.page.evaluate((textToPaste) => {
+			const clipboardData = new DataTransfer();
+			clipboardData.setData('text/plain', textToPaste);
+			const pasteEvent = new ClipboardEvent('paste', {
+				bubbles: true,
+				cancelable: true,
+				clipboardData
+			});
+			document.activeElement?.dispatchEvent(pasteEvent);
+		}, text);
 	}
 
 	async getClipboardText(): Promise<string | null> {

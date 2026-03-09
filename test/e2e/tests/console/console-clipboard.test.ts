@@ -32,7 +32,7 @@ test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }
 	for (const { language, testLine, prompt, restartRegex, extraTags } of testCases) {
 
 		test(`${language} - Verify copy from console & paste to console`, { tag: extraTags }, async ({ app, sessions, runCommand, hotKeys }) => {
-			const console = app.workbench.console;
+			const { console, clipboard } = app.workbench;
 
 			// start a new session
 			await sessions.start(language);
@@ -43,7 +43,7 @@ test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }
 
 			// type a line, select it, copy it, and paste it back into the console
 			await console.typeToConsole(testLine);
-			await hotKeys.selectAll()
+			await hotKeys.selectAll();
 			await hotKeys.copy();
 			await console.sendEnterKey();
 			await console.waitForConsoleExecution();
@@ -51,7 +51,8 @@ test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }
 
 			// clear the console, paste the copied line, and execute it
 			await console.clearButton.click();
-			await hotKeys.paste();
+			// Pass text to clipboard.paste() for WebKit compatibility (uses synthetic paste event)
+			await clipboard.paste(testLine);
 			await console.waitForCurrentConsoleLineContents(testLine.replaceAll(' ', ' '));
 			await console.sendEnterKey();
 			await console.waitForConsoleExecution();
