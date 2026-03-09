@@ -28,6 +28,9 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { getErrorMessage } from '../../../../base/common/errors.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -1209,6 +1212,116 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 }
+
+registerAction2(class EvaluateCodeAction extends Action2 {
+
+	constructor() {
+		super({
+			id: 'workbench.action.evaluateCode',
+			title: localize2('positron.command.evaluateCode', "Evaluate Code"),
+			f1: true,
+			category
+		});
+	}
+
+	/**
+	 * Runs the Evaluate Code action.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+		const progressService = accessor.get(IProgressService);
+		const editorService = accessor.get(IEditorService);
+
+		// Get the foreground session
+		const foregroundSession = runtimeSessionService.foregroundSession;
+
+		if (!foregroundSession) {
+			notificationService.warn(
+				localize('positron.evaluateCode.noSession', "No active interpreter session.")
+			);
+			return;
+		}
+
+		// Get the active runtime session wrapper (which has the UI client)
+		const activeSession = runtimeSessionService.getActiveSession(foregroundSession.sessionId);
+
+		if (!activeSession || !activeSession.uiClient) {
+			notificationService.warn(
+				localize('positron.evaluateCode.noUiClient', "Session does not support code evaluation.")
+			);
+			return;
+		}
+
+		// Prompt the user for code to evaluate
+		const code = await quickInputService.input({
+			prompt: localize('positron.evaluateCode.prompt', "Enter code to evaluate"),
+			placeHolder: localize('positron.evaluateCode.placeholder', "Code expression"),
+		});
+
+		if (!code) {
+			return;
+		}
+
+		// Truncate code for display in progress title
+		const codeLabel = code.length > 50 ? code.substring(0, 50) + '...' : code;
+
+		const languageId = foregroundSession.runtimeMetadata.languageId;
+
+		// Build the input section (shared by success and error)
+		const lines: string[] = [];
+		lines.push('## Input');
+		lines.push('');
+		lines.push('```' + languageId + '');
+		lines.push(code);
+		lines.push('```');
+
+		try {
+			const result = await progressService.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: localize('positron.evaluateCode.evaluating', "Evaluating: {0}", codeLabel),
+					delay: 500,
+					cancellable: false,
+				},
+				() => activeSession.uiClient!.evaluateCode(code)
+			);
+
+			const resultStr = JSON.stringify(result.result, null, 2);
+
+			lines.push('');
+			lines.push('## Result');
+			lines.push('');
+			lines.push('```json');
+			lines.push(resultStr);
+			lines.push('```');
+			if (result.output) {
+				lines.push('');
+				lines.push('## Output');
+				lines.push('');
+				lines.push('```');
+				lines.push(result.output);
+				lines.push('```');
+			}
+		} catch (err) {
+			lines.push('');
+			lines.push('## Error');
+			lines.push('');
+			lines.push('```');
+			lines.push(getErrorMessage(err));
+			lines.push('```');
+		}
+
+		await editorService.openEditor({
+			resource: undefined,
+			contents: lines.join('\n'),
+			languageId: 'markdown',
+		});
+	}
+});
 
 registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 	// from explorer

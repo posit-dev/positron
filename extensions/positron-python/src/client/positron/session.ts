@@ -273,6 +273,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    evaluate(code: string): Promise<positron.EvalResult> {
+        if (this._kernel) {
+            return this._kernel.evaluate(code);
+        } else {
+            throw new Error(`Cannot evaluate '${code}'; kernel not started`);
+        }
+    }
+
     isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
         if (this._kernel) {
             return this._kernel.isCodeFragmentComplete(code);
