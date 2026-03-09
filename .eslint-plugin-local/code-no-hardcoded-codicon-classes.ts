@@ -70,12 +70,13 @@ export default ESLintUtils.RuleCreator.withoutDocs({
 					return;
 				}
 
-				// className={positronClassNames('codicon codicon-foo')}
-				// className={positronClassNames('codicon', 'codicon-foo')}
-				// className={positronClassNames(`codicon-${name}`)}
-				if (expression.type === AST_NODE_TYPES.CallExpression &&
-					expression.callee.type === AST_NODE_TYPES.Identifier &&
-					expression.callee.name === 'positronClassNames') {
+				// Don't specifically check for 'positronClassNames' to catch calls like
+				// util.positronClassNames or importing as a different name.
+				//
+				// className={fn('codicon codicon-foo')}
+				// className={fn('codicon', 'codicon-foo')}
+				// className={fn(`codicon-${name}`)}
+				if (expression.type === AST_NODE_TYPES.CallExpression) {
 					for (const arg of expression.arguments) {
 						if (hasCodicon(arg)) {
 							report();
