@@ -12,7 +12,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -93,6 +93,45 @@ class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
 	}
 	constructor(clock: number, readonly state: RuntimeState) {
 		super(clock);
+	}
+}
+
+/**
+ * Adapter class that implements ILanguageRuntimePackageManager by proxying
+ * calls to the extension host.
+ */
+class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePackageManager {
+	constructor(
+		private readonly _proxy: ExtHostLanguageRuntimeShape,
+		private readonly _handle: number,
+	) { }
+
+	getPackages(): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$getPackages(this._handle);
+	}
+
+	installPackages(packages: IPackageSpec[]): Promise<void> {
+		return this._proxy.$installPackages(this._handle, packages);
+	}
+
+	uninstallPackages(packageNames: string[]): Promise<void> {
+		return this._proxy.$uninstallPackages(this._handle, packageNames);
+	}
+
+	updatePackages(packages: IPackageSpec[]): Promise<void> {
+		return this._proxy.$updatePackages(this._handle, packages);
+	}
+
+	updateAllPackages(): Promise<void> {
+		return this._proxy.$updateAllPackages(this._handle);
+	}
+
+	searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$searchPackages(this._handle, query);
+	}
+
+	searchPackageVersions(name: string): Promise<string[]> {
+		return this._proxy.$searchPackageVersions(this._handle, name);
 	}
 }
 
@@ -643,17 +682,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	getPackageManager(): ILanguageRuntimePackageManager {
 		if (!this._packageManager) {
-			const proxy = this._proxy;
-			const handle = this.handle;
-			this._packageManager = {
-				getPackages: () => proxy.$getPackages(handle),
-				installPackages: (packages: IPackageSpec[]) => proxy.$installPackages(handle, packages),
-				uninstallPackages: (packageNames: string[]) => proxy.$uninstallPackages(handle, packageNames),
-				updatePackages: (packages: IPackageSpec[]) => proxy.$updatePackages(handle, packages),
-				updateAllPackages: () => proxy.$updateAllPackages(handle),
-				searchPackages: (query: string) => proxy.$searchPackages(handle, query),
-				searchPackageVersions: (name: string) => proxy.$searchPackageVersions(handle, name),
-			};
+			this._packageManager = new ExtHostLanguageRuntimePackageManagerAdapter(this._proxy, this.handle);
 		}
 		return this._packageManager;
 	}
