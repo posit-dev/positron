@@ -425,7 +425,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			{errorMessage &&
 				<ErrorMessageWithLinks
 					message={errorMessage}
-					openerService={props.renderer.services.openerService}
 					onLinkClick={() => {
 						props.onClose();
 						props.renderer.dispose();
