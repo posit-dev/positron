@@ -330,6 +330,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			});
 	};
 
+	/** Close the dialog */
+	const closeDialog = () => {
+		props.onClose();
+		props.renderer.dispose();
+	};
+
 	/** Radio buttons for the authentication method selection */
 	const authMethodRadioButtons: RadioButtonItem[] = [
 		new RadioButtonItem({
@@ -404,6 +410,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			<LanguageModelConfigComponent
 				authMethod={getAuthMethod()}
 				authStatus={getAuthStatus()}
+				closeDialog={closeDialog}
 				config={providerConfig}
 				source={selectedProvider}
 				onCancel={onCancel}

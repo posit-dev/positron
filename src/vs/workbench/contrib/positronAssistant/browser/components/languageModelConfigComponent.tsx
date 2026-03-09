@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,6 +9,8 @@ import { localize } from '../../../../../nls.js'
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js'
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js'
 import { AuthMethod, AuthStatus } from '../types.js'
+import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js'
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js'
 
 interface LanguageModelConfigComponentProps {
 	authMethod: AuthMethod,
@@ -18,6 +20,7 @@ interface LanguageModelConfigComponentProps {
 	onChange: (config: IPositronLanguageModelConfig) => void,
 	onSignIn: () => void,
 	onCancel: () => void,
+	closeDialog: () => void,
 }
 
 type IProvider = IPositronLanguageModelSource['provider'];
@@ -29,6 +32,11 @@ const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privac
 const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel', 'API Key');
 const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
+const copilotSignoutGuidanceLabel = localize(
+	'positron.languageModelConfig.copilotSignoutGuidance',
+	"Sign out of Copilot using the [Accounts: Manage Accounts]({0}) command.",
+	'command:workbench.action.manageAccounts'
+);
 
 function getProviderTermsOfServiceText(provider: IProvider) {
 	if (provider.id === 'openai-compatible') {
@@ -152,6 +160,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 				</Button>
 			}
 		</div>}
+		{source.provider.id === 'copilot-auth' && authStatus === AuthStatus.SIGNED_IN && <CopilotSignoutGuidance closeDialog={props.closeDialog} />}
 		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} />
 		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
 		<ProviderNotice provider={source.provider} />
@@ -262,3 +271,20 @@ const AutoconfiguredModel = (props: { provider: string, displayName: string, det
 		return null;
 	}
 }
+
+const CopilotSignoutGuidance = (props: { closeDialog: () => void }) => {
+	const { openerService } = usePositronReactServicesContext();
+	return <EmbeddedLink
+		onLinkClick={(e) => {
+			const link = e.currentTarget.href;
+			if (link.startsWith('command:')) {
+				// handle a command
+				e.preventDefault();
+				props.closeDialog();
+				openerService.open(link, { allowCommands: true });
+			}
+		}}>
+		{copilotSignoutGuidanceLabel}
+	</EmbeddedLink>;
+}
+
