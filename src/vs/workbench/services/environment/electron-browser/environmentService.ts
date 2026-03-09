@@ -163,6 +163,11 @@ export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironment
 	get isEnabledFileUploads(): boolean {
 		return true;
 	}
+
+	// Positron docs URL is not used in desktop mode; returns undefined to use default.
+	get positronDocsUrl(): string | undefined {
+		return undefined;
+	}
 	// --- End Positron ---
 
 	constructor(
