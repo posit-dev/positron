@@ -64,6 +64,8 @@ const stashPatterns = [
 	'**/node_modules/@napi-rs/canvas-darwin-arm64/skia.darwin-arm64.node',
 	// Exclusions from positron-assistant
 	'**/resources/copilot/**',  // Copilot language server binary
+	// Exclusions from Snowflake SQL client
+	'**/node_modules/snowflake-sdk/dist/lib/minicore/binaries/**',
 ];
 
 // Some generated files may end up being different in both distributions.
