@@ -61,9 +61,6 @@ export function computeAnsiStyles(styles: ANSIStyle[]): ANSICSSProperties {
  * @returns A CSS color string, or undefined if the color cannot be resolved.
  */
 export function resolveAnsiColor(color: ANSIColor | string): string | undefined {
-	if (typeof color === 'string') {
-		return color;
-	}
 	switch (color) {
 		case ANSIColor.Black:
 		case ANSIColor.Red:
@@ -83,6 +80,11 @@ export function resolveAnsiColor(color: ANSIColor | string): string | undefined 
 		case ANSIColor.BrightWhite:
 			return `var(--vscode-positronConsole-${color})`;
 		default:
+			// Note: ANSIColor is a string enum, so the typeof check must come
+			// after the switch cases, not before.
+			if (typeof color === 'string') {
+				return color;
+			}
 			return undefined;
 	}
 }

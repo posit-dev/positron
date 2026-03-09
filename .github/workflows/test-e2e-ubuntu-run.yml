@@ -3,6 +3,11 @@ name: "Test: E2E (Ubuntu) — Run-only"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -134,6 +139,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
+
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -157,7 +166,7 @@ jobs:
         shell: bash
 
       - name: Download build artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: "positron-build"
           path: /tmp/artifacts
@@ -312,7 +321,7 @@ jobs:
 
       - name: Upload Blob Report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
           path: blob-report
@@ -320,7 +329,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.project }}-ubuntu-logs-${{ matrix.shard }}
           path: test-logs
@@ -329,7 +338,7 @@ jobs:
 
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: inspect-ai-responses-${{ matrix.shard }}
           path: test/assistant-inspect-ai/*.json
@@ -367,7 +376,7 @@ jobs:
           identifier: ${{ inputs.project }}
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: all-blob-reports
           pattern: blob-report-${{ inputs.project }}-*

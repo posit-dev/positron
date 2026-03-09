@@ -202,6 +202,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         id: string,
         mode: positron.RuntimeCodeExecutionMode,
         errorBehavior: positron.RuntimeErrorBehavior,
+        codeLocation?: positron.Utf8Location,
     ): void {
         if (this._kernel) {
             if (this._isUninstallBundledPackageCommand(code, id)) {
@@ -209,7 +210,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 return;
             }
 
-            this._kernel.execute(code, id, mode, errorBehavior);
+            this._kernel.execute(code, id, mode, errorBehavior, codeLocation);
         } else {
             throw new Error(`Cannot execute '${code}'; kernel not started`);
         }

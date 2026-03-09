@@ -419,9 +419,15 @@ export async function createJupyterKernelSpec(
 	}
 
 	// Set the default repositories
+	// Check if r-versions entry specifies a repo (takes precedence over settings)
+	const rVersionsRepoArgs = getRVersionsRepoArgs(packagerMetadata);
+	if (rVersionsRepoArgs) {
+		argv.push(...rVersionsRepoArgs);
+	}
+
 	const defaultRepos = config.get<string>('defaultRepositories') ?? 'auto';
 	const ppmRepo = config.get<string>('packageManagerRepository');
-	if (defaultRepos === 'auto') {
+	if (!rVersionsRepoArgs && defaultRepos === 'auto') {
 		const reposConf = findReposConf();
 		if (reposConf) {
 			// If there's a `repos.conf` file in a well-known directory, use
@@ -440,7 +446,7 @@ export async function createJupyterKernelSpec(
 		// In all other cases when `auto` is set, we don't specify
 		// `--default-repos` at all, and let Ark choose an appropriate
 		// repository (usually `cran.rstudio.com)
-	} else {
+	} else if (!rVersionsRepoArgs) {
 		// Warn the user about inconsistent PPM settings.
 		if (ppmRepo) {
 			const openSettings = vscode.l10n.t('Open Settings');
@@ -510,7 +516,7 @@ export async function createJupyterKernelSpec(
  * Attempt to find a `repos.conf` file in Positron or RStudio XDG
  * configuration directories.
  *
- * Returns the path to the file if found, or `undefined` if no
+ * Returns the path to the file if found, or `undefined` if not.
  */
 function findReposConf(): string | undefined {
 	const xdg = require('xdg-portable/cjs');
@@ -529,4 +535,35 @@ function findReposConf(): string | undefined {
 		}
 	}
 	return;
+}
+
+/**
+ * Get repository configuration args from r-versions metadata.
+ *
+ * The Repo field can be either a file path to a repos.conf file or a URL.
+ * For URLs, use ark's --default-cran-repo.
+ * For file paths, use ark's --repos-conf.
+ * Returns the appropriate argv entries, or `undefined` if no repo is specified.
+ */
+function getRVersionsRepoArgs(packagerMetadata?: PackagerMetadata): string[] | undefined {
+	if (!packagerMetadata || !isRVersionsMetadata(packagerMetadata) || !packagerMetadata.repo) {
+		return undefined;
+	}
+
+	const repo = packagerMetadata.repo;
+
+	// Check if this is a URL, to pass directly to ark's --default-cran-repo
+	if (repo.startsWith('http://') || repo.startsWith('https://')) {
+		LOGGER.info(`Using r-versions repo URL: ${repo}`);
+		return ['--default-cran-repo', repo];
+	}
+
+	// Otherwise treat as a file path, to use with --repos-conf
+	if (fs.existsSync(repo) && fs.statSync(repo).isFile()) {
+		LOGGER.info(`Using r-versions repos.conf: ${repo}`);
+		return ['--repos-conf', repo];
+	}
+
+	LOGGER.warn(`r-versions Repo field is not a valid URL or file path: ${repo}`);
+	return undefined;
 }

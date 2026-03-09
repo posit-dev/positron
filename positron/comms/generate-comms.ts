@@ -14,8 +14,9 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const commsDir = `${__dirname}`;
+const commsDir = path.dirname(fileURLToPath(import.meta.url));
 
 let comms = [...new Set(readdirSync(commsDir)
 	.filter(file => file.endsWith('.json'))
@@ -39,16 +40,16 @@ if (comms.length === 0) {
 const commsFiles = comms.map(comm => comm + '.json');
 
 /// The directory to write the generated Typescript files to
-const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
+const tsOutputDir = `${commsDir}/../../src/vs/workbench/services/languageRuntime/common`;
 
 /// The directory to write the generated Rust files to
 /// By default, presumes that the ark repo is cloned into the same parent directory as the
 /// positron repo. Can be overridden with the ARK_DIRECTORY environment variable.
-const arkDirectory = process.env.ARK_DIRECTORY || `${__dirname}/../../../ark`;
+const arkDirectory = process.env.ARK_DIRECTORY || `${commsDir}/../../../ark`;
 const rustOutputDir = `${arkDirectory}/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
-const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/posit/positron`;
+const pythonOutputDir = `${commsDir}/../../extensions/positron-python/python_files/posit/positron`;
 
 const year = new Date().getFullYear();
 

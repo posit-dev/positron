@@ -22,7 +22,7 @@ export enum EnvironmentType {
     Hatch = 'Hatch',
     Pixi = 'Pixi',
     // --- Start Positron ---
-    Uv = 'Uv',
+    Uv = 'uv',
     Custom = 'Custom',
     Module = 'Module',
     // --- End Positron ---
@@ -64,7 +64,7 @@ export enum ModuleInstallerType {
     Pipenv = 'Pipenv',
     Pixi = 'Pixi',
     // --- Start Positron ---
-    Uv = 'Uv',
+    Uv = 'uv',
     // --- End Positron ---
 }
 

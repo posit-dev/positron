@@ -37,6 +37,15 @@ export type GhostCellProgressCallback = (partial: Partial<GhostCellSuggestionRes
 /** Timeout for fetching session variables (ms) */
 const VARIABLE_FETCH_TIMEOUT_MS = 3000;
 
+/** Timeout for model selection (ms) */
+const MODEL_SELECTION_TIMEOUT_MS = 10000;
+
+/** Timeout for the entire generation process including streaming (ms) */
+const GENERATION_TIMEOUT_MS = 30000;
+
+/** Timeout for iterator cleanup on cancellation (ms) */
+const ITERATOR_CLEANUP_TIMEOUT_MS = 1000;
+
 /**
  * Valid XML tag names for parsing ghost cell suggestions
  */
@@ -96,10 +105,28 @@ export async function generateGhostCellSuggestion(
 	// Start variable fetch concurrently with model selection
 	const variablesSummaryPromise = fetchSessionVariablesSummary(uri, log);
 
-	// Get the model to use for generation
-	const modelSelection = await getModel(participantService, log);
+	// Get the model to use for generation (with timeout to prevent hanging
+	// if a VS Code API call stalls). A dedicated CancellationTokenSource
+	// lets getModel() bail out between API calls when the timeout fires,
+	// avoiding stale work in the background.
+	let modelSelectionTimedOut = false;
+	const modelSelectionCts = new vscode.CancellationTokenSource();
+	const tokenListener = token.onCancellationRequested(() => modelSelectionCts.cancel());
+	let modelSelection: ModelSelectionResult | null | undefined;
+	try {
+		modelSelection = await raceTimeout(
+			getModel(participantService, log, modelSelectionCts.token),
+			MODEL_SELECTION_TIMEOUT_MS,
+			() => { modelSelectionTimedOut = true; modelSelectionCts.cancel(); }
+		);
+	} finally {
+		tokenListener.dispose();
+		modelSelectionCts.dispose();
+	}
 	if (!modelSelection) {
-		log.warn('[ghost-cell] No language model available');
+		log.warn(modelSelectionTimedOut
+			? '[ghost-cell] Model selection timed out'
+			: '[ghost-cell] No language model available');
 		return null;
 	}
 	const { model, usedFallback } = modelSelection;
@@ -144,6 +171,11 @@ export async function generateGhostCellSuggestion(
 		'utf8'
 	);
 
+	// Cancel in-flight generation work if the timeout fires or the caller
+	// cancels, so we don't leave stalled streams alive in the background.
+	const generationCts = new vscode.CancellationTokenSource();
+	const parentCancelListener = token.onCancellationRequested(() => generationCts.cancel());
+
 	try {
 		// Construct messages for the request
 		const systemMessage = new vscode.LanguageModelChatMessage(
@@ -152,17 +184,21 @@ export async function generateGhostCellSuggestion(
 		);
 		const userMessage = vscode.LanguageModelChatMessage.User(contextMessage);
 
-		// Send request to LLM with timeout
-		const timeoutMs = 30000;
-		const timeoutPromise = new Promise<never>((_, reject) => {
-			setTimeout(() => reject(new Error('Ghost cell suggestion timed out')), timeoutMs);
-		});
-
-		const responsePromise = model.sendRequest([systemMessage, userMessage], {}, token);
-		const response = await Promise.race([responsePromise, timeoutPromise]);
-
-		// Parse streaming XML response
-		const result = await parseStreamingXML(response.text, log, token, language, onProgress);
+		// Timeout covers the entire generation process (request + streaming).
+		// Previously the timeout only covered sendRequest(), so a stalled
+		// stream from the model provider could hang indefinitely.
+		const generationPromise = (async () => {
+			const response = await model.sendRequest([systemMessage, userMessage], {}, generationCts.token);
+			return parseStreamingXML(response.text, log, generationCts.token, language, onProgress);
+		})();
+		const result = await raceTimeout(
+			generationPromise,
+			GENERATION_TIMEOUT_MS,
+			() => generationCts.cancel()
+		);
+		if (result === undefined) {
+			throw new Error('Ghost cell suggestion timed out');
+		}
 		if (result) {
 			result.modelName = modelName;
 			result.usedFallback = usedFallback;
@@ -178,6 +214,9 @@ export async function generateGhostCellSuggestion(
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		log.error(`[ghost-cell] Error generating suggestion: ${errorMessage}`);
 		return null;
+	} finally {
+		parentCancelListener.dispose();
+		generationCts.dispose();
 	}
 }
 
@@ -267,7 +306,7 @@ function buildContextMessage(
 /**
  * Parse streaming XML response and build the suggestion result
  */
-async function parseStreamingXML(
+export async function parseStreamingXML(
 	textStream: AsyncIterable<string>,
 	log: vscode.LogOutputChannel,
 	token: vscode.CancellationToken,
@@ -313,20 +352,46 @@ async function parseStreamingXML(
 		}
 	});
 
-	// Stream the response through the lexer
+	// Stream the response through the lexer, racing each chunk against
+	// cancellation so we can break out of a stalled stream promptly.
+	// The original for-await loop only checked cancellation between
+	// chunks, so a blocked iterator would never reach the check.
+	let rejectOnCancel!: (error: Error) => void;
+	const cancelledPromise = new Promise<never>((_, reject) => {
+		rejectOnCancel = reject;
+	});
+	cancelledPromise.catch(() => { });
+	const cancelListener = token.onCancellationRequested(() => {
+		rejectOnCancel(new Error('Cancelled'));
+	});
+
+	const iterator = textStream[Symbol.asyncIterator]();
 	try {
-		for await (const delta of textStream) {
-			if (token.isCancellationRequested) {
+		while (true) {
+			const iterResult = await Promise.race([iterator.next(), cancelledPromise]);
+			if (iterResult.done) {
 				break;
 			}
-			await lexer.process(delta);
+			await Promise.race([lexer.process(iterResult.value), cancelledPromise]);
 		}
 
 		// Flush any remaining content
 		await lexer.flush();
 	} catch (error) {
+		if (token.isCancellationRequested) {
+			return null;
+		}
 		log.error(`[ghost-cell] Error during XML streaming: ${error}`);
 		return null;
+	} finally {
+		cancelListener.dispose();
+		// Clean up the iterator, but don't block indefinitely if the
+		// provider's iterator.return() is stalled (mirrors the same concern
+		// that motivated the cancellation racing above).
+		const returnPromise = iterator.return?.();
+		if (returnPromise) {
+			await raceTimeout(returnPromise, ITERATOR_CLEANUP_TIMEOUT_MS);
+		}
 	}
 
 	// Validate result
@@ -454,6 +519,32 @@ function escapeRegExp(s: string): string {
 }
 
 /**
+ * Race a promise against a timeout. Returns the promise result, or
+ * `undefined` if the timeout fires first. The timer is cleaned up
+ * internally. An optional `onTimeout` callback runs when the timeout fires.
+ */
+async function raceTimeout<T>(
+	promise: Promise<T>,
+	timeoutMs: number,
+	onTimeout?: () => void
+): Promise<T | undefined> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<undefined>(resolve => {
+				timer = setTimeout(() => {
+					onTimeout?.();
+					resolve(undefined);
+				}, timeoutMs);
+			})
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/**
  * Result of model selection
  */
 interface ModelSelectionResult {
@@ -468,10 +559,12 @@ interface ModelSelectionResult {
  */
 async function getModel(
 	participantService: ParticipantService,
-	log: vscode.LogOutputChannel
+	log: vscode.LogOutputChannel,
+	token?: vscode.CancellationToken
 ): Promise<ModelSelectionResult | null> {
 	// Log all available models for debugging
 	const allModels = await vscode.lm.selectChatModels();
+	if (token?.isCancellationRequested) { return null; }
 	log.debug(`[ghost-cell] Available models: ${allModels.length} total`);
 
 	// Check configuration setting first (highest priority)
@@ -506,6 +599,8 @@ async function getModel(
 		log.warn(`[ghost-cell] Configured model patterns not found: ${JSON.stringify(configuredPatterns)}`);
 	}
 
+	if (token?.isCancellationRequested) { return null; }
+
 	// Check for the latest chat session and use its model
 	const sessionModelId = participantService.getCurrentSessionModel();
 	if (sessionModelId) {
@@ -516,18 +611,25 @@ async function getModel(
 		}
 	}
 
+	if (token?.isCancellationRequested) { return null; }
+
 	// Fall back to the first model for the currently selected provider
 	const currentProvider = await positron.ai.getCurrentProvider();
+	if (token?.isCancellationRequested) { return null; }
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
+		if (token?.isCancellationRequested) { return null; }
 		if (models && models.length > 0) {
 			log.debug(`[ghost-cell] Using provider model: ${models[0].name}`);
 			return { model: models[0], usedFallback: hasConfiguredModel };
 		}
 	}
 
+	if (token?.isCancellationRequested) { return null; }
+
 	// Fall back to any available model
 	const [firstModel] = await vscode.lm.selectChatModels();
+	if (token?.isCancellationRequested) { return null; }
 	if (firstModel) {
 		log.debug(`[ghost-cell] Using fallback model: ${firstModel.name}`);
 		return { model: firstModel, usedFallback: hasConfiguredModel };

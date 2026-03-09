@@ -266,13 +266,13 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		// Commands for RStudio addins
-		vscode.commands.registerCommand('r.browseAddins', async () => {
-			await browseAddins();
+		vscode.commands.registerCommand('r.runAddin', async () => {
+			await runAddin();
 		}),
 
 		// Commands for R Markdown templates
-		vscode.commands.registerCommand('r.browseRmdTemplates', async () => {
-			await browseRmdTemplates();
+		vscode.commands.registerCommand('r.newRmdFromTemplate', async () => {
+			await newRmdFromTemplate();
 		}),
 	);
 }
@@ -557,50 +557,65 @@ interface AddinQuickPickItem extends vscode.QuickPickItem {
 }
 
 /**
- * Browse installed RStudio addins.
- * Shows a QuickPick with all addins found in installed packages.
+ * Run an RStudio addin.
+ * Shows a QuickPick with all addins found in installed packages, then executes the selection.
  */
-async function browseAddins(): Promise<void> {
+async function runAddin(): Promise<void> {
+	const session = await RSessionManager.instance.getConsoleSession();
+	if (!session) {
+		vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
+		return;
+	}
+
+	let addins: RStudioAddin[];
 	try {
-		const session = await RSessionManager.instance.getConsoleSession();
-		if (!session) {
-			vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
-			return;
+		addins = await session.getAddins();
+	} catch (err) {
+		vscode.window.showErrorMessage(vscode.l10n.t('Error loading addins: {0}', String(err)));
+		return;
+	}
+
+	if (addins.length === 0) {
+		vscode.window.showInformationMessage(
+			vscode.l10n.t('No RStudio Addins found. Install packages with addins (e.g., reprex, clipr).')
+		);
+		return;
+	}
+
+	// Sort addins by package name
+	addins.sort((a, b) => a.package.localeCompare(b.package));
+
+	// Group addins by package with separators
+	const items: (vscode.QuickPickItem | AddinQuickPickItem)[] = [];
+	let currentPackage = '';
+	for (const a of addins) {
+		if (a.package !== currentPackage) {
+			currentPackage = a.package;
+			items.push({
+				label: a.package,
+				kind: vscode.QuickPickItemKind.Separator
+			});
 		}
-
-		const addins = await session.getAddins();
-
-		if (addins.length === 0) {
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('No RStudio Addins found. Install packages with addins (e.g., reprex, clipr).')
-			);
-			return;
-		}
-
-		const items: AddinQuickPickItem[] = addins.map(a => ({
+		items.push({
 			label: a.name,
-			description: `{${a.package}}`,
 			detail: a.description,
 			addin: a
-		}));
-
-		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: vscode.l10n.t('Select an RStudio Addin'),
-			matchOnDescription: true,
-			matchOnDetail: true
 		});
+	}
 
-		if (selected) {
-			// For now, just show the addin info. Full implementation in a later PR.
-			const a = selected.addin;
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('Selected addin: {0} from {1} (binding: {2})',
-					a.name, a.package, a.binding)
-			);
+	const selected = await vscode.window.showQuickPick(items, {
+		placeHolder: vscode.l10n.t('Select an RStudio Addin'),
+		matchOnDetail: true
+	}) as AddinQuickPickItem | undefined;
+
+	if (selected) {
+		const addin = selected.addin;
+		const code = `${addin.package}:::${addin.binding}()`;
+		try {
+			await positron.runtime.executeCode('r', code, true);
+		} catch {
+			// R errors are already shown in the console
 		}
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		vscode.window.showErrorMessage(vscode.l10n.t('Error loading addins: {0}', message));
 	}
 }
 
@@ -612,56 +627,102 @@ interface TemplateQuickPickItem extends vscode.QuickPickItem {
 }
 
 /**
- * Browse installed R Markdown templates.
- * Shows a QuickPick with all templates found in installed packages.
+ * Create a new R Markdown document from an installed template.
+ * Shows a QuickPick to select a template, then a save dialog for the destination.
  */
-async function browseRmdTemplates(): Promise<void> {
+async function newRmdFromTemplate(): Promise<void> {
 	// Check that rmarkdown is installed first
 	const isInstalled = await checkInstalled('rmarkdown');
 	if (!isInstalled) {
 		return;
 	}
 
+	const session = await RSessionManager.instance.getConsoleSession();
+	if (!session) {
+		vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
+		return;
+	}
+
+	let templates: RmdTemplate[];
 	try {
-		const session = await RSessionManager.instance.getConsoleSession();
-		if (!session) {
-			vscode.window.showErrorMessage(vscode.l10n.t('No R session available'));
-			return;
+		templates = await session.getRmdTemplates(true);
+	} catch (err) {
+		vscode.window.showErrorMessage(vscode.l10n.t('Error loading R Markdown templates: {0}', String(err)));
+		return;
+	}
+
+	if (templates.length === 0) {
+		// The rmarkdown package itself has templates, so something must go really wrong to get here:
+		vscode.window.showInformationMessage(
+			vscode.l10n.t('No R Markdown templates found.')
+		);
+		return;
+	}
+
+	// Sort templates by package name
+	templates.sort((a, b) => a.package.localeCompare(b.package));
+
+	// Group templates by package with separators
+	const items: (vscode.QuickPickItem | TemplateQuickPickItem)[] = [];
+	let currentPackage = '';
+	for (const t of templates) {
+		if (t.package !== currentPackage) {
+			currentPackage = t.package;
+			items.push({
+				label: t.package,
+				kind: vscode.QuickPickItemKind.Separator
+			});
 		}
-
-		const templates = await session.getRmdTemplates();
-
-		if (templates.length === 0) {
-			// The rmarkdown package itself has templates, so something must go really wrong to get here:
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('No R Markdown templates found.')
-			);
-			return;
-		}
-
-		const items: TemplateQuickPickItem[] = templates.map(t => ({
+		items.push({
 			label: t.name,
-			description: `{${t.package}}`,
 			detail: t.description,
 			template: t
-		}));
+		});
+	}
 
-		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: vscode.l10n.t('Select an R Markdown template'),
-			matchOnDescription: true,
-			matchOnDetail: true
+	const selected = await vscode.window.showQuickPick(items, {
+		placeHolder: vscode.l10n.t('Select an R Markdown template'),
+		matchOnDetail: true
+	}) as TemplateQuickPickItem | undefined;
+
+	if (selected) {
+		const t = selected.template;
+
+		// Get save location from user
+		const defaultDir = vscode.workspace.workspaceFolders?.[0]?.uri
+			?? vscode.Uri.file(os.homedir());
+
+		// Find an unused filename
+		let filename = 'Untitled.Rmd';
+		let counter = 1;
+		while (true) {
+			const candidate = vscode.Uri.joinPath(defaultDir, filename);
+			try {
+				await vscode.workspace.fs.stat(candidate);
+				// File exists, try next number
+				filename = `Untitled-${counter}.Rmd`;
+				counter++;
+			} catch {
+				// File doesn't exist, use this name
+				break;
+			}
+		}
+
+		const saveUri = await vscode.window.showSaveDialog({
+			defaultUri: vscode.Uri.joinPath(defaultDir, filename)
 		});
 
-		if (selected) {
-			// For now, just show the template info. Full implementation in a later PR.
-			const t = selected.template;
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('Selected template: {0} from {1} (template dir: {2})',
-					t.name, t.package, t.template)
-			);
+		if (!saveUri) {
+			return;
 		}
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		vscode.window.showErrorMessage(vscode.l10n.t('Error loading R Markdown templates: {0}', message));
+
+		// Create document using rmarkdown::draft() and open via rstudioapi
+		const draftPath = saveUri.fsPath;
+		const code = `rmarkdown::draft(${JSON.stringify(draftPath)}, template = "${t.template}", package = "${t.package}")`;
+		try {
+			await positron.runtime.executeCode('r', code, true);
+		} catch {
+			// R errors are already shown in the console
+		}
 	}
 }

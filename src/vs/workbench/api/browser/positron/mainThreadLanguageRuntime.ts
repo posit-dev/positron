@@ -1815,12 +1815,12 @@ export class MainThreadLanguageRuntime
 		executionId?: string,
 		documentUri?: URI): Promise<string> {
 
+		// Revive the URI from the serialized form, if provided.
+		const revivedUri = documentUri ? URI.revive(documentUri) : undefined;
+
 		// If a document URI is provided, notify the backend that code is being executed from a file.
 		// This allows the backend to temporarily add the file's directory to sys.path.
-		if (documentUri) {
-			// Revive the URI from the serialized form
-			const uri = URI.revive(documentUri);
-
+		if (revivedUri) {
 			// Determine which session(s) to notify:
 			// - If a specific sessionId is provided, only notify that session
 			// - Otherwise, only notify sessions matching the languageId
@@ -1832,7 +1832,7 @@ export class MainThreadLanguageRuntime
 
 				if (shouldNotify && activeSession.uiClient) {
 					try {
-						await activeSession.uiClient.editorContextChanged(uri.toString(), true);
+						await activeSession.uiClient.editorContextChanged(revivedUri.toString(), true);
 					} catch (err) {
 						// Log but don't fail the execution if notification fails
 						console.warn(`Failed to send editor context changed: ${err}`);
@@ -1841,13 +1841,33 @@ export class MainThreadLanguageRuntime
 			}
 		}
 
-		// Attribute this code to the extension that requested it.
-		const attribution: IConsoleCodeAttribution = {
-			source: CodeAttributionSource.Extension,
-			metadata: {
-				extensionId: extensionId,
-			}
-		};
+		// Attribute this code to the extension that requested it. If a document
+		// URI is provided, use Script attribution so that the code location is
+		// forwarded to the kernel (e.g. for plot file attribution).
+		let attribution: IConsoleCodeAttribution;
+		if (revivedUri) {
+			const codeLocation: ICodeLocation = {
+				uri: revivedUri,
+				range: {
+					start: { line: 0, character: 0 },
+					end: { line: 0, character: 0 },
+				}
+			};
+			attribution = {
+				source: CodeAttributionSource.Script,
+				metadata: {
+					extensionId: extensionId,
+					codeLocation,
+				}
+			};
+		} else {
+			attribution = {
+				source: CodeAttributionSource.Extension,
+				metadata: {
+					extensionId: extensionId,
+				}
+			};
+		}
 
 		return this._positronConsoleService.executeCode(
 			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);

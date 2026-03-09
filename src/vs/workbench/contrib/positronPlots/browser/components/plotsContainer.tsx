@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,6 +11,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { DynamicPlotInstance } from './dynamicPlotInstance.js';
 import { DynamicPlotThumbnail } from './dynamicPlotThumbnail.js';
 import { PlotGalleryThumbnail } from './plotGalleryThumbnail.js';
@@ -27,6 +28,7 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { openPlotOriginFile } from '../plotUtils.js';
 
 /**
  * PlotContainerProps interface.
@@ -131,6 +133,22 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// Get the plot name from metadata (reactive to metadata updates)
 	const plotName = useMemo(() => {
 		return currentPlotInstance?.metadata.name;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentPlotInstance, metadataVersion]);
+
+	// Get the origin filename from metadata (reactive to metadata updates)
+	const originFileName = useMemo(() => {
+		const origin = currentPlotInstance?.metadata.origin;
+		if (!origin?.uri) {
+			return undefined;
+		}
+		try {
+			const uri = URI.parse(origin.uri);
+			const parts = uri.path.split('/');
+			return parts[parts.length - 1];
+		} catch {
+			return undefined;
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentPlotInstance, metadataVersion]);
 
@@ -383,6 +401,17 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	};
 
 	/**
+	 * Navigates to the source file that generated the current plot.
+	 */
+	const navigateToOrigin = async () => {
+		await openPlotOriginFile(
+			currentPlotInstance?.metadata.origin,
+			services.editorService,
+			services.logService
+		);
+	};
+
+	/**
 	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot), a
 	 * StaticPlotInstance (static plot image), or a WebviewPlotInstance
 	 * (interactive HTML plot) depending on the type of plot instance.
@@ -426,14 +455,14 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		</div>;
 	};
 
-	// Render the plot info header showing the session name and plot name.
+	// Render the plot info header showing the session name, origin file, and plot name.
 	const renderPlotInfoHeader = () => {
 		if (!currentPlotInstance) {
 			return null;
 		}
 
 		// If no info to display, show a placeholder to maintain consistent height
-		if (!sessionName && !plotName) {
+		if (!sessionName && !plotName && !originFileName) {
 			return <div className='plot-info-header'>
 				<span className='plot-info-text'>&nbsp;</span>
 			</div>;
@@ -442,6 +471,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
 			<span className='plot-info-text'>
 				{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
+				{originFileName && <button className='plot-origin-file' onClick={navigateToOrigin}>{originFileName}</button>}
 				{plotName && <span className='plot-name'>{plotName}</span>}
 			</span>
 		</div>;

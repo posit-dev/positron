@@ -118,12 +118,15 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
 def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
     packages_dict = {}
     for dist in importlib.metadata.distributions():
-        canonical = canonicalize_name(dist.name)
+        name = dist.metadata["Name"]
+        if name is None:
+            continue
+        canonical = canonicalize_name(name)
         # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
         if canonical not in packages_dict:
             packages_dict[canonical] = {
                 "id": f"{canonical}-{dist.version}",
-                "name": dist.name,
+                "name": name,
                 "displayName": canonical,
                 "version": dist.version,
             }

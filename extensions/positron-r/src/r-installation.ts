@@ -125,7 +125,9 @@ export interface RVersionsMetadata {
 	readonly label?: string;
 	/** Shell script to source before launching R */
 	readonly script?: string;
-	// Future PRs will add: repo, library
+	/** CRAN repository URL or path to repos.conf file */
+	readonly repo?: string;
+	// Future PRs will add: library
 }
 
 /**

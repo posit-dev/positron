@@ -25,7 +25,7 @@ export class Editors {
 	}
 
 	async verifyTab(
-		tabName: string,
+		tabName: string | RegExp,
 		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
 	): Promise<void> {
 		await test.step(`Verify tab: ${tabName} is ${isVisible ? '' : 'not'} visible, is ${isSelected ? '' : 'not'} selected`, async () => {

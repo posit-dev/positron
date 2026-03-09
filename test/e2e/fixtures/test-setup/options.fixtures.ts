@@ -7,7 +7,7 @@ import { join } from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as playwright from '@playwright/test';
-import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Browser } from '../../infra';
+import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Browser, StorageFile } from '../../infra';
 import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 
@@ -88,6 +88,10 @@ export function UserDataDirFixture() {
 		// Copy keybindings and settings fixtures to the user data directory
 		await copyFixtureFile('keybindings.json', userDir, true);
 		await copyUserSettings(userDir);
+
+		// Pre-populate storage to dismiss prompts that would interfere with tests
+		const storageFile = new StorageFile(userDir);
+		await storageFile.set('positron.notebook.promptDismissed', true, false /* enable to debug */);
 
 		return userDir;
 	};

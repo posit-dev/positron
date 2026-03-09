@@ -24,7 +24,11 @@
 
 	function showSplash(configuration: INativeWindowConfiguration) {
 		performance.mark('code/willShowPartsSplash');
+		showDefaultSplash(configuration);
+		performance.mark('code/didShowPartsSplash');
+	}
 
+	function showDefaultSplash(configuration: INativeWindowConfiguration) {
 		let data = configuration.partsSplash;
 		if (data) {
 			if (configuration.autoDetectHighContrast && configuration.colorScheme.highContrast) {
@@ -265,8 +269,6 @@
 
 			window.document.body.appendChild(splash);
 		}
-
-		performance.mark('code/didShowPartsSplash');
 	}
 
 	//#endregion
@@ -293,6 +295,21 @@
 
 		// Dev only: CSS import map tricks
 		setupCSSImportMaps<T>(configuration, baseUrl);
+
+		/// --- Start Positron ---
+		// In development mode, setupCSSImportMaps() creates import map entries for 500+ CSS files.
+		// When the ESM imports below execute, they trigger a massive cascade of CSS loads that
+		// overwhelms the event loop. Under this pressure, React's queueMicrotask() calls get dropped,
+		// causing React to hang permanently. A 1-second delay before the cascade gives the event loop
+		// breathing room, preventing microtasks from being dropped.
+		//
+		// Note: Countless alternatives were tried (testing microtask reliability, monitoring CSS load
+		// progress, RAF-based yielding, batched CSS loading), but nothing works as reliably as a
+		// simple 1-second yeld before the cascade starts.
+		if (Array.isArray(configuration.cssModules) && configuration.cssModules.length > 0) {
+			await new Promise(resolve => setTimeout(resolve, 1000));
+		}
+		// --- End Positron ---
 
 		// ESM Import
 		try {

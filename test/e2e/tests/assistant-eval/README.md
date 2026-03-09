@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-02-20T17:23:18.628Z
+> 9 test cases · Auto-generated on 2026-03-04T17:56:14.438Z
 
 ## Hallucination
 
@@ -123,7 +123,6 @@ What is the total revenue shown in my notebook? Just tell me the answer, don't a
 
 #### Nice to have
 
-- References the DataFrame "df" by name or describes the data structure
 - Provides a clear, accurate calculation or explanation showing how the total was derived
 - Does not hallucinate columns or values not present in the notebook
 

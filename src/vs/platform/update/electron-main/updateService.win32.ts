@@ -219,7 +219,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					return Promise.resolve(null);
 				}
 
-				this.setState(State.Downloading);
+				this.setState(State.Downloading(false, false));
 
 				return this.cleanup(update.version).then(() => {
 					return this.getUpdatePackagePath(update.version).then(updatePackagePath => {
@@ -238,7 +238,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 						});
 					}).then(packagePath => {
 						this.availableUpdate = { packagePath };
-						this.setState(State.Downloaded(update));
+						this.setState(State.Downloaded(update, false, false));
 
 						const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
 						if (fastUpdatesEnabled) {
@@ -246,7 +246,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 								this.doApplyUpdate();
 							}
 						} else {
-							this.setState(State.Ready(update));
+							this.setState(State.Ready(update, false, false));
 						}
 					});
 				});
@@ -270,7 +270,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		}
 
 		// TODO: Code for installing updates is disabled due to this.enableAutoUpdate being false
-		this.setState(State.Downloading);
+		this.setState(State.Downloading(false, false));
 
 		this.cleanup(update.version).then(() => {
 			return this.getUpdatePackagePath(update.version).then(updatePackagePath => {
@@ -289,7 +289,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				});
 			}).then(packagePath => {
 				this.availableUpdate = { packagePath };
-				this.setState(State.Downloaded(update));
+				this.setState(State.Downloaded(update, false, false));
 
 				const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
 				if (fastUpdatesEnabled) {
@@ -297,7 +297,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 						this.doApplyUpdate();
 					}
 				} else {
-					this.setState(State.Ready(update));
+					this.setState(State.Ready(update, false, false));
 				}
 			});
 		});
@@ -360,7 +360,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		// poll for mutex-ready
 		pollUntil(() => mutex.isActive(readyMutexName))
-			.then(() => this.setState(State.Ready(update)));
+			.then(() => this.setState(State.Ready(update, false, false)));
 	}
 
 	protected override doQuitAndInstall(): void {
@@ -392,16 +392,16 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
 		const update: IUpdate = { version: 'unknown', productVersion: 'unknown' };
 
-		this.setState(State.Downloading);
+		this.setState(State.Downloading(false, false));
 		this.availableUpdate = { packagePath };
-		this.setState(State.Downloaded(update));
+		this.setState(State.Downloaded(update, false, false));
 
 		if (fastUpdatesEnabled) {
 			if (this.productService.target === 'user') {
 				this.doApplyUpdate();
 			}
 		} else {
-			this.setState(State.Ready(update));
+			this.setState(State.Ready(update, false, false));
 		}
 	}
 }

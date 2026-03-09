@@ -347,10 +347,10 @@ suite('Native Python API', () => {
     });
 
     // --- Start Positron ---
-    test('Uv environment detected and converted during addEnv via triggerRefresh', async () => {
+    test('uv environment detected and converted during addEnv via triggerRefresh', async () => {
         // Create a test environment that looks like a regular VirtualEnv initially
         const uvEnv: NativeEnvInfo = {
-            displayName: 'UV Environment',
+            displayName: 'uv environment',
             name: 'my_uv_env',
             executable: '/home/user/.local/share/uv/python/cpython-3.11.5/bin/python',
             kind: NativePythonEnvironmentKind.VirtualEnv, // Initially detected as VirtualEnv
@@ -388,10 +388,10 @@ suite('Native Python API', () => {
         assert.isTrue(isUvEnvironmentStub.calledWith('/home/user/.local/share/uv/python/cpython-3.11.5/bin/python'));
     });
 
-    test('Uv environment detected and converted during resolveEnv', async () => {
+    test('uv environment detected and converted during resolveEnv', async () => {
         // Create a test environment
         const uvEnv: NativeEnvInfo = {
-            displayName: 'UV Python',
+            displayName: 'uv Python',
             name: 'uv_python',
             executable: '/home/user/.local/share/uv/python/cpython-3.10',
             kind: NativePythonEnvironmentKind.VirtualEnv, // Initially recognized as VirtualEnv

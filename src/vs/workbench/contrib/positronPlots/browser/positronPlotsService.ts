@@ -1569,6 +1569,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			metadata.kind = backendMetadata.kind;
 			metadata.name = backendMetadata.name;
 			metadata.execution_id = backendMetadata.execution_id;
+			metadata.origin = backendMetadata.origin;
 			// Only update code if we don't already have it from recent executions
 			if (!metadata.code) {
 				metadata.code = backendMetadata.code;
@@ -1580,6 +1581,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				plotClient.metadata.kind = backendMetadata.kind;
 				plotClient.metadata.name = backendMetadata.name;
 				plotClient.metadata.execution_id = backendMetadata.execution_id;
+				plotClient.metadata.origin = backendMetadata.origin;
 				if (!plotClient.metadata.code) {
 					plotClient.metadata.code = backendMetadata.code;
 				}
