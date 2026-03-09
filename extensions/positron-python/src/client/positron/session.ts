@@ -129,6 +129,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The package manager for handling package operations */
     private _packageManager: IPackageManager;
 
+    /** Cached runtime package manager adapter */
+    private _runtimePackageManager: positron.LanguageRuntimePackageManager | undefined;
+
     onDidReceiveRuntimeMessage = this._messageEmitter.event;
 
     onDidChangeRuntimeState = this._stateEmitter.event;
@@ -350,27 +353,30 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     getPackageManager(): positron.LanguageRuntimePackageManager {
-        const session = this;
-        const packageManager = this._packageManager;
-        return {
-            async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-                if (session._kernel) {
-                    try {
-                        return await session._kernel.callMethod('getPackagesInstalled');
-                    } catch (err) {
-                        session._kernel.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
-                        throw err;
+        if (!this._runtimePackageManager) {
+            const session = this;
+            const packageManager = this._packageManager;
+            this._runtimePackageManager = {
+                async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+                    if (session._kernel) {
+                        try {
+                            return await session._kernel.callMethod('getPackagesInstalled');
+                        } catch (err) {
+                            session._kernel.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
+                            throw err;
+                        }
                     }
-                }
-                throw new Error(`Cannot get packages: kernel not started`);
-            },
-            installPackages: (packages: positron.PackageSpec[]) => packageManager.installPackages(packages),
-            uninstallPackages: (packageNames: string[]) => packageManager.uninstallPackages(packageNames),
-            updatePackages: (packages: positron.PackageSpec[]) => packageManager.updatePackages(packages),
-            updateAllPackages: () => packageManager.updateAllPackages(),
-            searchPackages: (query: string) => packageManager.searchPackages(query),
-            searchPackageVersions: (name: string) => packageManager.searchPackageVersions(name),
-        };
+                    throw new Error(`Cannot get packages: kernel not started`);
+                },
+                installPackages: (packages: positron.PackageSpec[]) => packageManager.installPackages(packages),
+                uninstallPackages: (packageNames: string[]) => packageManager.uninstallPackages(packageNames),
+                updatePackages: (packages: positron.PackageSpec[]) => packageManager.updatePackages(packages),
+                updateAllPackages: () => packageManager.updateAllPackages(),
+                searchPackages: (query: string) => packageManager.searchPackages(query),
+                searchPackageVersions: (name: string) => packageManager.searchPackageVersions(name),
+            };
+        }
+        return this._runtimePackageManager;
     }
 
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
