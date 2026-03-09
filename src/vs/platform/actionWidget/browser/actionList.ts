@@ -308,10 +308,10 @@ export class ActionList<T> extends Disposable {
 
 	private readonly _actionLineHeight = 28;
 	private readonly _headerLineHeight = 28;
+	private readonly _separatorLineHeight = 8;
 	// --- Start Positron ---
 	// Use a taller separator to accommodate provider logos
-	// private readonly _separatorLineHeight = 8;
-	private readonly _separatorLineHeight = 32;
+	private readonly _iconSeparatorLineHeight = 32;
 	// --- End Positron ---
 
 	private readonly _allMenuItems: readonly IActionListItem<T>[];
@@ -340,7 +340,11 @@ export class ActionList<T> extends Disposable {
 					case ActionListItemKind.Header:
 						return this._headerLineHeight;
 					case ActionListItemKind.Separator:
-						return this._separatorLineHeight;
+						// --- Start Positron ---
+						// Choose the separator height based on whether it has an icon
+						// return this._separatorLineHeight;
+						return !!element.group?.icon ? this._iconSeparatorLineHeight : this._separatorLineHeight;
+					// --- End Positron ---
 					default:
 						return this._actionLineHeight;
 				}
@@ -416,10 +420,22 @@ export class ActionList<T> extends Disposable {
 	layout(minWidth: number): number {
 		// Updating list height, depending on how many separators and headers there are.
 		const numHeaders = this._allMenuItems.filter(item => item.kind === 'header').length;
-		const numSeparators = this._allMenuItems.filter(item => item.kind === 'separator').length;
+		// --- Start Positron ---
+		// Create separate counts for icon vs. regular separators
+		// const numSeparators = this._allMenuItems.filter(item => item.kind === 'separator').length;
+		const numSeparators = this._allMenuItems.filter(item => item.kind === 'separator' && !item.group?.icon).length;
+		const numIconSeparators = this._allMenuItems.filter(item => item.kind === 'separator' && !!item.group?.icon).length;
+		// --- End Positron ---
 		const itemsHeight = this._allMenuItems.length * this._actionLineHeight;
 		const heightWithHeaders = itemsHeight + numHeaders * this._headerLineHeight - numHeaders * this._actionLineHeight;
-		const heightWithSeparators = heightWithHeaders + numSeparators * this._separatorLineHeight - numSeparators * this._actionLineHeight;
+		// --- Start Positron ---
+		// Adjust height calculation to account for icon vs. regular separators
+		// const heightWithSeparators = heightWithHeaders + numSeparators * this._separatorLineHeight - numSeparators * this._actionLineHeight;
+		const heightWithSeparators = heightWithHeaders +
+			numSeparators * this._separatorLineHeight +
+			numIconSeparators * this._iconSeparatorLineHeight -
+			(numSeparators + numIconSeparators) * this._actionLineHeight;
+		// --- End Positron ---
 		this._list.layout(heightWithSeparators);
 		let maxWidth = minWidth;
 
