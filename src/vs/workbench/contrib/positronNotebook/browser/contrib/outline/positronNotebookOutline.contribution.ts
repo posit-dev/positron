@@ -17,7 +17,7 @@ import {
 	IQuickPickDataSource, IQuickPickOutlineElement,
 	OutlineChangeEvent, OutlineConfigCollapseItemsValues, OutlineConfigKeys, OutlineTarget,
 } from '../../../../../services/outline/browser/outline.js';
-import { IEditorService, SIDE_GROUP } from '../../../../../services/editor/common/editorService.js';
+import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { NotebookOutlineConstants } from '../../../../notebook/browser/viewModel/notebookOutlineEntryFactory.js';
 import { getMarkdownHeadersInCell } from '../../../../notebook/browser/viewModel/foldingModel.js';
 import { NotebookCellsChangeType } from '../../../../notebook/common/notebookCommon.js';
@@ -545,17 +545,11 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 	}
 
 	async reveal(entry: PositronOutlineEntry, options: IEditorOptions, sideBySide: boolean): Promise<void> {
-		// Open the notebook at this cell.
-		const notebookOptions = {
-			...options,
-			override: this._editor.input?.editorId,
-		};
-		await this._editorService.openEditor(
-			{ resource: entry.cell.uri, options: notebookOptions },
-			sideBySide ? SIDE_GROUP : undefined,
-		);
-
 		// Select and reveal the cell in the Positron notebook.
+		// We navigate directly via cell methods rather than openEditor because
+		// the Positron notebook does not have cell-URI-to-notebook resolution.
+		// Using openEditor with a cell URI would cause the editor to be
+		// replaced/reopened instead of navigating within the notebook.
 		entry.cell.select(CellSelectionType.Normal);
 		await entry.cell.reveal({ reason: 'programmatic' });
 
