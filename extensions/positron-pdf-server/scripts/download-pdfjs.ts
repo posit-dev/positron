@@ -37,7 +37,7 @@ if (fs.existsSync(viewerHtml)) {
 // Read version from package.json so we stay in sync with the installed version of pdfjs-dist.
 const packageJsonPath = path.join(extensionDir, 'package.json');
 const packageData = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const version = packageData.dependencies['pdfjs-dist'].replace(/[^0-9.]/g, '');
+const version = packageData.devDependencies['pdfjs-dist'].replace(/[^0-9.]/g, '');
 
 // Log the version being downloaded for clarity.
 console.log(`Downloading PDF.js v${version} legacy viewer...`);
