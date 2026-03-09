@@ -10,7 +10,6 @@ import { LabeledTextInput } from '../../../../browser/positronComponents/positro
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js'
 import { AuthMethod, AuthStatus } from '../types.js'
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js'
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js'
 
 interface LanguageModelConfigComponentProps {
 	authMethod: AuthMethod,
@@ -273,17 +272,8 @@ const AutoconfiguredModel = (props: { provider: string, displayName: string, det
 }
 
 const CopilotSignoutGuidance = (props: { closeDialog: () => void }) => {
-	const { openerService } = usePositronReactServicesContext();
 	return <EmbeddedLink
-		onLinkClick={(e) => {
-			const link = e.currentTarget.href;
-			if (link.startsWith('command:')) {
-				// handle a command
-				e.preventDefault();
-				props.closeDialog();
-				openerService.open(link, { allowCommands: true });
-			}
-		}}>
+		onLinkClick={(e) => props.closeDialog()}>
 		{copilotSignoutGuidanceLabel}
 	</EmbeddedLink>;
 }

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { usePositronReactServicesContext } from '../../../positronReactRendererContext.js';
 import './embeddedLink.css';
 
 import React from 'react';
@@ -17,19 +18,41 @@ interface EmbeddedLinkProps {
  * It also handles paragraphs by splitting the input text by newlines and wrapping each paragraph
  * in appropriate HTML elements.
  *
- * Links whose URL starts with `command:` are rendered as `<button>` elements and handled via
- * the `onCommandLink` callback. All other links open in a new tab.
- *
  * @param props the string to display containing markdown links to convert to a link
  */
 export const EmbeddedLink = (props: React.PropsWithChildren<EmbeddedLinkProps>) => {
 	const { onLinkClick } = props;
+
+	// Pull in services
+	const { openerService } = usePositronReactServicesContext();
+
 	// capture markdown links in the format [text](url)
 	const regex = /\[([^\]]*)\]\(([^)]+)\)/g;
 	const text = props.children as string;
 
 	// Split text into paragraphs first
 	const paragraphs = text.split(/\n\n+/);
+
+	const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
+		// Call any provided onLinkClick handler
+		onLinkClick?.(e);
+
+		if (e.isDefaultPrevented()) {
+			return;
+		}
+
+		const link = e.currentTarget.href;
+		// Handle command links here
+		if (link.startsWith('command:')) {
+			// handle a command
+			e.preventDefault();
+			openerService.open(link, { allowCommands: true });
+			return;
+		}
+
+		// For regular links, let the default behavior happen (open in new tab)
+		return;
+	};
 
 	// Splits the text into tuples of [text, linkText, linkUrl]
 	// e.g. "This is a [link](https://example.com)" becomes ["This is a ", "link", "https://example.com"]
@@ -42,7 +65,7 @@ export const EmbeddedLink = (props: React.PropsWithChildren<EmbeddedLinkProps>) 
 				const link = parts[index + 1];
 				const linkText = part || link; // Use URL as text if no text provided
 				return (
-					<a key={index} href={link} rel='noreferrer' target='_blank' onClick={(e) => onLinkClick?.(e)}>
+					<a key={index} href={link} rel='noreferrer' target='_blank' onClick={handleLinkClick}>
 						{linkText}
 					</a>
 				);
