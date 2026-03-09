@@ -37,6 +37,7 @@ export default ESLintUtils.RuleCreator.withoutDocs({
 									return;
 								}
 							}
+							return;
 						}
 						current = current.parent;
 					}
