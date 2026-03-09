@@ -331,6 +331,15 @@ export interface IWorkbenchConstructionOptions {
 	readonly isEnabledFileUploads?: boolean;
 	// --- End PWB ---
 
+	// --- Start Positron ---
+	/**
+	 * URL for Positron documentation. When set, the "Positron Documentation"
+	 * help menu item will open this URL instead of the default.
+	 * This is typically set by Posit Workbench to point to locally-hosted docs.
+	 */
+	readonly positronDocsUrl?: string;
+	// --- End Positron ---
+
 	//#endregion
 
 	//#region Profile options
