@@ -197,6 +197,7 @@ suite('generateCommitMessage', () => {
 		participantService = new ParticipantService();
 		logMessages = [];
 		log = mock<vscode.LogOutputChannel>({
+			debug: (msg: string) => { logMessages.push({ level: 'debug', message: msg }); },
 			info: (msg: string) => { logMessages.push({ level: 'info', message: msg }); },
 			warn: (msg: string) => { logMessages.push({ level: 'warn', message: msg }); },
 			error: (msg: string) => { logMessages.push({ level: 'error', message: msg }); },
