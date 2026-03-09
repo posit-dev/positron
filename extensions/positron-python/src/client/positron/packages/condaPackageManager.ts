@@ -9,7 +9,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
-import { IPackageManager, MessageEmitter } from './types';
+import { IPackageManager, MessageEmitter, PackageKernel } from './types';
 
 /** Package info returned by `conda search --json` */
 interface CondaPackageInfo {
@@ -64,27 +64,11 @@ export class CondaPackageManager implements IPackageManager {
         private readonly _pythonPath: string,
         _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
+        private readonly _kernel: PackageKernel,
     ) {}
 
     async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-        await this._ensureConda();
-
-        const envPrefix = await this._getEnvironmentPrefix();
-        const result = await this._executeCondaWithOutput(['list', '--prefix', envPrefix, '--json']);
-
-        let packages: Array<{ name: string; version: string }> = [];
-        try {
-            packages = JSON.parse(result);
-        } catch {
-            throw new Error('Failed to parse installed packages list');
-        }
-
-        return packages.map((pkg) => ({
-            id: pkg.name,
-            name: pkg.name,
-            displayName: pkg.name,
-            version: pkg.version,
-        }));
+        return this._kernel.callMethod('getPackagesInstalled');
     }
 
     /**

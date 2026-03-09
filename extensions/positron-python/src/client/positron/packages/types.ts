@@ -13,6 +13,13 @@ export interface MessageEmitter {
 }
 
 /**
+ * Interface for a kernel that can list installed packages via RPC.
+ */
+export interface PackageKernel {
+    callMethod(method: 'getPackagesInstalled'): Promise<positron.LanguageRuntimePackage[]>;
+}
+
+/**
  * Interface for package managers.
  *
  * Provides package management functionality for Python sessions.

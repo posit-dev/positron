@@ -7,7 +7,7 @@ import { IServiceContainer } from '../../ioc/types';
 import { EnvironmentType } from '../../pythonEnvironments/info';
 import { CondaPackageManager } from './condaPackageManager';
 import { PipPackageManager } from './pipPackageManager';
-import { IPackageManager, MessageEmitter } from './types';
+import { IPackageManager, MessageEmitter, PackageKernel } from './types';
 import { UvPackageManager } from './uvPackageManager';
 
 /**
@@ -24,6 +24,7 @@ export class PackageManagerFactory {
      * @param pythonPath The path to the Python interpreter
      * @param messageEmitter The emitter for runtime messages
      * @param serviceContainer The service container for dependency injection
+     * @param kernel The kernel for RPC-based package listing
      * @returns The appropriate package manager for the environment
      */
     static create(
@@ -31,21 +32,22 @@ export class PackageManagerFactory {
         pythonPath: string,
         messageEmitter: MessageEmitter,
         serviceContainer: IServiceContainer,
+        kernel: PackageKernel,
     ): IPackageManager {
         if (runtimeSource === EnvironmentType.Uv) {
-            return new UvPackageManager(pythonPath, messageEmitter, serviceContainer);
+            return new UvPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
         if (runtimeSource === EnvironmentType.Conda) {
-            return new CondaPackageManager(pythonPath, messageEmitter, serviceContainer);
+            return new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
         if (runtimeSource === EnvironmentType.Venv) {
-            return new PipPackageManager(pythonPath, messageEmitter, serviceContainer);
+            return new PipPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
         // Default to PipPackageManager for all other environment types
         // This includes Pyenv, Global, System, VirtualEnv, etc.
-        return new PipPackageManager(pythonPath, messageEmitter, serviceContainer);
+        return new PipPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
     }
 }

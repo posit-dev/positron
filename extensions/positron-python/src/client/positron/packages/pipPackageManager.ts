@@ -10,7 +10,7 @@ import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/p
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
-import { IPackageManager, MessageEmitter } from './types';
+import { IPackageManager, MessageEmitter, PackageKernel } from './types';
 
 /**
  * Pip Package Manager
@@ -25,28 +25,11 @@ export class PipPackageManager implements IPackageManager {
         private readonly _pythonPath: string,
         private readonly _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
+        private readonly _kernel: PackageKernel,
     ) {}
 
     async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-        await this._ensurePip();
-
-        const proxyFlags = this._getProxyFlags();
-        const pythonService = await this._getPythonService();
-        const result = await pythonService.execModule('pip', ['list', '--format=json', ...proxyFlags], {});
-
-        let packages: Array<{ name: string; version: string }> = [];
-        try {
-            packages = JSON.parse(result.stdout);
-        } catch {
-            throw new Error('Failed to parse installed packages list');
-        }
-
-        return packages.map((pkg) => ({
-            id: pkg.name,
-            name: pkg.name,
-            displayName: pkg.name,
-            version: pkg.version,
-        }));
+        return this._kernel.callMethod('getPackagesInstalled');
     }
 
     /**

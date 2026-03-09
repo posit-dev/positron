@@ -14,7 +14,7 @@ import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
-import { IPackageManager, MessageEmitter } from './types';
+import { IPackageManager, MessageEmitter, PackageKernel } from './types';
 
 /**
  * uv Package Manager
@@ -29,34 +29,11 @@ export class UvPackageManager implements IPackageManager {
         private readonly _pythonPath: string,
         private readonly _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
+        private readonly _kernel: PackageKernel,
     ) {}
 
     async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-        await this._ensureUv();
-
-        const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
-        const processService = await processServiceFactory.create();
-        const proxyEnv = this._getProxyEnv();
-
-        const result = await processService.exec(
-            'uv',
-            ['pip', 'list', '--format=json', '--python', this._pythonPath],
-            { extraVariables: proxyEnv },
-        );
-
-        let packages: Array<{ name: string; version: string }> = [];
-        try {
-            packages = JSON.parse(result.stdout);
-        } catch {
-            throw new Error('Failed to parse installed packages list');
-        }
-
-        return packages.map((pkg) => ({
-            id: pkg.name,
-            name: pkg.name,
-            displayName: pkg.name,
-            version: pkg.version,
-        }));
+        return this._kernel.callMethod('getPackagesInstalled');
     }
 
     /**
