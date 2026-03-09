@@ -52,9 +52,10 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 		// Create new instances
 		this._register(this._runtimeSessionService.onWillStartSession((e) => {
-			// If the session is starting, but already considered the foreground session, we should activate it immediately. This can happen when a session is restarted.
+			// If the session is starting, but already considered the foreground session, we should activate it if there is no other active session at this time. This can happen when a session is restarted.
 			const foregroundSession = this._runtimeSessionService.foregroundSession;
-			this.createOrAssignInstance(e.session, e.activate || foregroundSession?.metadata.sessionId === e.session.sessionId);
+			const startingSessionIsAlreadyActive = this._activeInstance === undefined && foregroundSession?.metadata.sessionId === e.session.sessionId;
+			this.createOrAssignInstance(e.session, e.activate || startingSessionIsAlreadyActive);
 		}));
 
 		// Register session cleanup handler
