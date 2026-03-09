@@ -17,90 +17,97 @@ test.describe('Evaluate Code', {
 		tag: [tags.ARK]
 	}, () => {
 		test.beforeEach(async function ({ app, r }) {
-			await app.workbench.layouts.enterLayout('fullSizedPanel');
+			await app.workbench.layouts.enterLayout('stacked');
 		});
 
 		test.afterEach(async function ({ app }) {
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 		});
 
-		test('evaluate R expression returns JSON result', async ({ app, page }) => {
-			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+		test('evaluate R expression returns JSON result', async function ({ app, page }) {
+			await test.step('Submit code for evaluation', async () => {
+				await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+				await app.workbench.quickInput.waitForQuickInputOpened();
+				await app.workbench.quickInput.type('list(a = 1, b = TRUE)');
+				await page.keyboard.press('Enter');
+			});
 
-			const inputBox = page.locator('.quick-input-widget .quick-input-box input');
-			await expect(inputBox).toBeVisible();
-			await inputBox.fill('list(a = 1, b = TRUE)');
-			await page.keyboard.press('Enter');
-
-			// Verify the editor opens with input and result sections
-			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
-			await expect(editorContent).toContainText('## Input');
-			await expect(editorContent).toContainText('list(a = 1, b = TRUE)');
-			await expect(editorContent).toContainText('## Result');
-			await expect(editorContent).toContainText('"a"');
-			await expect(editorContent).toContainText('"b"');
+			await test.step('Verify editor content', async () => {
+				const viewLines = page.locator('[id="workbench.parts.editor"] .view-lines');
+				await expect(viewLines).toContainText('## Input', { timeout: 30000 });
+				await expect(viewLines).toContainText('list(a = 1, b = TRUE)');
+				await expect(viewLines).toContainText('## Result');
+				await expect(viewLines).toContainText('"a"');
+				await expect(viewLines).toContainText('"b"');
+			});
 		});
 
-		test('evaluate R expression with output', async ({ app, page }) => {
+		test('evaluate R expression with output', async function ({ app, page }) {
 			// isTRUE(cat('oatmeal')) prints 'oatmeal' and returns FALSE
-			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+			await test.step('Submit code for evaluation', async () => {
+				await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+				await app.workbench.quickInput.waitForQuickInputOpened();
+				await app.workbench.quickInput.type("isTRUE(cat('oatmeal'))");
+				await page.keyboard.press('Enter');
+			});
 
-			const inputBox = page.locator('.quick-input-widget .quick-input-box input');
-			await expect(inputBox).toBeVisible();
-			await inputBox.fill("isTRUE(cat('oatmeal'))");
-			await page.keyboard.press('Enter');
-
-			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
-			await expect(editorContent).toContainText('## Input');
-			await expect(editorContent).toContainText("isTRUE(cat('oatmeal'))");
-			await expect(editorContent).toContainText('## Result');
-			await expect(editorContent).toContainText('false');
-			await expect(editorContent).toContainText('## Output');
-			await expect(editorContent).toContainText('oatmeal');
+			await test.step('Verify editor content', async () => {
+				const viewLines = page.locator('[id="workbench.parts.editor"] .view-lines');
+				await expect(viewLines).toContainText('## Input', { timeout: 30000 });
+				await expect(viewLines).toContainText("isTRUE(cat('oatmeal'))");
+				await expect(viewLines).toContainText('## Result');
+				await expect(viewLines).toContainText('false');
+				await expect(viewLines).toContainText('## Output');
+				await expect(viewLines).toContainText('oatmeal');
+			});
 		});
 	});
 
 	test.describe('Python', () => {
 		test.beforeEach(async function ({ app, python }) {
-			await app.workbench.layouts.enterLayout('fullSizedPanel');
+			await app.workbench.layouts.enterLayout('stacked');
 		});
 
 		test.afterEach(async function ({ app }) {
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 		});
 
-		test('evaluate Python expression returns JSON result', async ({ app, page }) => {
-			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+		test('evaluate Python expression returns JSON result', async function ({ app, page }) {
+			await test.step('Submit code for evaluation', async () => {
+				await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+				await app.workbench.quickInput.waitForQuickInputOpened();
+				await app.workbench.quickInput.type('{"a": 1, "b": True}');
+				await page.keyboard.press('Enter');
+			});
 
-			const inputBox = page.locator('.quick-input-widget .quick-input-box input');
-			await expect(inputBox).toBeVisible();
-			await inputBox.fill('{"a": 1, "b": True}');
-			await page.keyboard.press('Enter');
-
-			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
-			await expect(editorContent).toContainText('## Input');
-			await expect(editorContent).toContainText('{"a": 1, "b": True}');
-			await expect(editorContent).toContainText('## Result');
-			await expect(editorContent).toContainText('"a"');
-			await expect(editorContent).toContainText('"b"');
+			await test.step('Verify editor content', async () => {
+				const viewLines = page.locator('[id="workbench.parts.editor"] .view-lines');
+				await expect(viewLines).toContainText('## Input', { timeout: 30000 });
+				await expect(viewLines).toContainText('{"a": 1, "b": True}');
+				await expect(viewLines).toContainText('## Result');
+				await expect(viewLines).toContainText('"a"');
+				await expect(viewLines).toContainText('"b"');
+			});
 		});
 
-		test('evaluate Python expression with output', async ({ app, page }) => {
+		test('evaluate Python expression with output', async function ({ app, page }) {
 			// print('hello') or 42 prints 'hello' and returns 42
-			await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+			await test.step('Submit code for evaluation', async () => {
+				await app.workbench.quickaccess.runCommand('workbench.action.evaluateCode', { keepOpen: true });
+				await app.workbench.quickInput.waitForQuickInputOpened();
+				await app.workbench.quickInput.type("print('hello') or 42");
+				await page.keyboard.press('Enter');
+			});
 
-			const inputBox = page.locator('.quick-input-widget .quick-input-box input');
-			await expect(inputBox).toBeVisible();
-			await inputBox.fill("print('hello') or 42");
-			await page.keyboard.press('Enter');
-
-			const editorContent = page.locator('[id="workbench.parts.editor"]').getByRole('code');
-			await expect(editorContent).toContainText('## Input');
-			await expect(editorContent).toContainText("print('hello') or 42");
-			await expect(editorContent).toContainText('## Result');
-			await expect(editorContent).toContainText('42');
-			await expect(editorContent).toContainText('## Output');
-			await expect(editorContent).toContainText('hello');
+			await test.step('Verify editor content', async () => {
+				const viewLines = page.locator('[id="workbench.parts.editor"] .view-lines');
+				await expect(viewLines).toContainText('## Input', { timeout: 30000 });
+				await expect(viewLines).toContainText("print('hello') or 42");
+				await expect(viewLines).toContainText('## Result');
+				await expect(viewLines).toContainText('42');
+				await expect(viewLines).toContainText('## Output');
+				await expect(viewLines).toContainText('hello');
+			});
 		});
 	});
 });
