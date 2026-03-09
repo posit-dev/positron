@@ -64,6 +64,8 @@ const stashPatterns = [
 	'**/node_modules/@napi-rs/canvas-darwin-arm64/skia.darwin-arm64.node',
 	// Exclusions from positron-assistant
 	'**/resources/copilot/**',  // Copilot language server binary
+	// Exclusions from Snowflake SQL client
+	'**/node_modules/snowflake-sdk/dist/lib/minicore/binaries/**',
 ];
 
 // Some generated files may end up being different in both distributions.
@@ -230,8 +232,7 @@ async function origMain(
 		// Add to the list of x64-only files
 		// **/node_modules/fsevents/fsevents.node
 		// **/node_modules/@napi-rs/canvas-darwin-x64/skia.darwin-x64.node
-		// **/node_modules/snowflake-sdk/dist/lib/minicore/binaries/*.darwin-x64.node
-		x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/fsevents/fsevents.node,**/node_modules/@napi-rs/canvas-darwin-x64/skia.darwin-x64.node,**/node_modules/snowflake-sdk/dist/lib/minicore/binaries/*.darwin-x64.node}',
+		x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/fsevents/fsevents.node,**/node_modules/@napi-rs/canvas-darwin-x64/skia.darwin-x64.node}',
 		// --- End Positron ---
 		filesToSkipComparison: (file: string) => {
 			for (const expected of filesToSkip) {
