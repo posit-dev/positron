@@ -11,7 +11,6 @@ import * as path from 'path';
 import { ParticipantService } from './participants.js';
 import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
 import { MARKDOWN_DIR } from './constants';
-import { PROVIDER_METADATA } from './providerMetadata.js';
 
 const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
@@ -236,7 +235,7 @@ export async function getCandidateModels(participantService: ParticipantService)
 	// Third priority: all available models from any provider.
 	const models = await vscode.lm.selectChatModels();
 	for (const model of models) {
-		if (model.family !== PROVIDER_METADATA.echo.id && model.family !== PROVIDER_METADATA.error.id) {
+		if (model.family !== 'echo' && model.family !== 'error') {
 			addCandidate(model);
 		}
 	}
