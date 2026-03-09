@@ -250,7 +250,7 @@ class PositronOutlineRenderer implements ITreeRenderer<PositronOutlineEntry, Fuz
 	) { }
 
 	renderTemplate(container: HTMLElement): PositronOutlineTemplate {
-		container.classList.add('notebook-outline-element', 'show-file-icons');
+		container.classList.add('outline-element', 'notebook-outline-element', 'show-file-icons');
 		const iconClass = document.createElement('div');
 		container.append(iconClass);
 		const iconLabel = new IconLabel(container, { supportHighlights: true });
