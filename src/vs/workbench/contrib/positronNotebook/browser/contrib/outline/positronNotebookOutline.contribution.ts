@@ -43,7 +43,7 @@ import { CellKind, IPositronNotebookCell } from '../../PositronNotebookCells/IPo
 import { PositronNotebookInstance } from '../../PositronNotebookInstance.js';
 import { PositronNotebookEditor } from '../../PositronNotebookEditor.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
-import { CellSelectionType, getActiveCell } from '../../selectionMachine.js';
+import { CellSelectionType, SelectionState, getActiveCell } from '../../selectionMachine.js';
 import { slugify } from '../../../../markdown/browser/markedGfmHeadingIdPlugin.js';
 
 // --- Section B: PositronOutlineEntry ---
@@ -469,7 +469,8 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 			if (contentChanges.rawEvents.some(c =>
 				c.kind === NotebookCellsChangeType.ChangeCellContent ||
 				c.kind === NotebookCellsChangeType.Move ||
-				c.kind === NotebookCellsChangeType.ModelChange)) {
+				c.kind === NotebookCellsChangeType.ModelChange ||
+				c.kind === NotebookCellsChangeType.ChangeCellLanguage)) {
 				this._delayedRecomputeState();
 			}
 		}));
@@ -560,7 +561,14 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 	}
 
 	preview(entry: PositronOutlineEntry): IDisposable {
-		entry.cell.reveal({ reason: 'programmatic' });
+		entry.cell.reveal({ reason: 'programmatic' }).then(() => {
+			// For markdown headers, scroll to the specific heading element
+			// so previewing between headings in the same cell works correctly.
+			if (entry.headingId && entry.cell.container) {
+				const headingEl = findElementById(entry.cell.container, entry.headingId);
+				headingEl?.scrollIntoView({ block: 'nearest' });
+			}
+		});
 		return toDisposable(() => { });
 	}
 
@@ -570,18 +578,41 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 			return toDisposable(() => { });
 		}
 
-		// Capture scroll position and active cell for restore.
+		// Capture scroll position and full selection state for restore.
 		const scrollTop = notebook.cellsContainer?.scrollTop;
 		const state = notebook.selectionStateMachine.state.get();
-		const activeCell = getActiveCell(state);
 
 		return toDisposable(() => {
 			// Restore scroll position.
 			if (scrollTop !== undefined && notebook.cellsContainer) {
 				notebook.cellsContainer.scrollTop = scrollTop;
 			}
-			// Restore selection.
-			activeCell?.select(CellSelectionType.Normal);
+			// Restore the full selection state (editing, multi-select, etc.).
+			switch (state.type) {
+				case SelectionState.NoCells:
+					break;
+				case SelectionState.SingleSelection:
+					state.active.select(CellSelectionType.Normal);
+					break;
+				case SelectionState.EditingSelection:
+					state.active.select(CellSelectionType.Edit);
+					break;
+				case SelectionState.MultiSelection: {
+					// Rebuild multi-selection with the correct active cell.
+					// Add the active cell last since Add makes it active.
+					const nonActive = state.selected.filter(c => c !== state.active);
+					if (nonActive.length > 0) {
+						nonActive[0].select(CellSelectionType.Normal);
+						for (let i = 1; i < nonActive.length; i++) {
+							nonActive[i].select(CellSelectionType.Add);
+						}
+						state.active.select(CellSelectionType.Add);
+					} else {
+						state.active.select(CellSelectionType.Normal);
+					}
+					break;
+				}
+			}
 		});
 	}
 }
