@@ -292,8 +292,6 @@ test.describe('R Breakpoints', {
 	}, async ({ app, page, openFile, hotKeys }) => {
 		const { debug, console } = app.workbench;
 
-		await hotKeys.minimizeBottomPanel();
-
 		await openFile('workspaces/r-debugging/breakpoint_test.r');
 		await debug.setUnverifiedBreakpointOnLine(3);
 
@@ -309,8 +307,6 @@ test.describe('R Breakpoints', {
 
 		// Breakpoint should become unverified after edit
 		await debug.expectBreakpointUnverified(0);
-
-		await hotKeys.restoreBottomPanel();
 
 		// Re-execute WITHOUT saving - breakpoint should re-verify
 		await hotKeys.selectAll();
@@ -462,6 +458,8 @@ test.describe('R Breakpoints', {
 		// Trigger breakpoint
 		await debug.expectBrowserModeFrame(1);
 
+		await hotKeys.minimizeBottomPanel();
+
 		// Edit file while at breakpoint
 		await app.workbench.editors.selectTab('breakpoint_test.r');
 		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
@@ -471,6 +469,8 @@ test.describe('R Breakpoints', {
 
 		// Breakpoint should become unverified
 		await debug.expectBreakpointUnverified(0);
+
+		await hotKeys.restoreBottomPanel();
 
 		// Continue - invalidated breakpoint should NOT trigger again
 		await debug.continue();
