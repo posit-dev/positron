@@ -20,24 +20,9 @@ export class Clipboard {
 	 */
 	private needsSyntheticPaste(): boolean {
 		const browser = this.code.driver.browser;
-
-		// Electron - clipboard works fine
-		if (this.code.electronApp) {
-			return false;
-		}
-
-		// Chromium (Chrome) - grantPermissions works
-		if (browser?.includes('chrome')) {
-			return false;
-		}
-
-		// Firefox - keyboard shortcuts work
-		if (browser === 'firefox') {
-			return false;
-		}
-
-		// Edge, WebKit, or unknown - use synthetic paste
-		return true;
+		return !this.code.electronApp
+			&& !browser?.includes('chrome')
+			&& browser !== 'firefox';
 	}
 
 	/**
