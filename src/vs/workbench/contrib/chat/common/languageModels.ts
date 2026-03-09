@@ -538,22 +538,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 				}
 			}
 
-			// One-time sync: ensure the current provider matches the stored model selection.
-			// Normally the Chat view syncs these when it becomes visible, but features like
-			// commit message generation may query the provider before the Chat view opens.
-			if (this._pendingModelSync && this._modelCache.size > 0) {
-				const storedModel = this._modelCache.get(this._pendingModelSync);
-				if (storedModel) {
-					if (this._currentProvider?.id !== storedModel.vendor) {
-						const provider = this.getLanguageModelProviders().find(p => p.id === storedModel.vendor);
-						if (provider) {
-							this._logService.trace('[LM] Syncing current provider with stored model selection', storedModel.vendor);
-							this.currentProvider = provider;
-						}
-					}
-					this._pendingModelSync = undefined;
-				}
-			}
+			this._syncProviderWithStoredModel();
 			// --- End Positron ---
 
 			for (const extension of added) {
@@ -808,6 +793,29 @@ export class LanguageModelsService implements ILanguageModelsService {
 			}
 		}
 	}
+
+	// --- Start Positron ---
+	/**
+	 * One-time sync: ensure the current provider matches the stored model
+	 * selection. Features like commit message generation may query the
+	 * provider before the Chat view opens, where this sync normally happens.
+	 */
+	private _syncProviderWithStoredModel(): void {
+		if (this._pendingModelSync && this._modelCache.size > 0) {
+			const storedModel = this._modelCache.get(this._pendingModelSync);
+			if (storedModel) {
+				if (this._currentProvider?.id !== storedModel.vendor) {
+					const provider = this.getLanguageModelProviders().find(p => p.id === storedModel.vendor);
+					if (provider) {
+						this._logService.trace('[LM] Syncing current provider with stored model selection', storedModel.vendor);
+						this.currentProvider = provider;
+					}
+				}
+				this._pendingModelSync = undefined;
+			}
+		}
+	}
+	// --- End Positron ---
 
 	private _hasStoredModelForVendor(vendor: string): boolean {
 		return Object.keys(this._modelPickerUserPreferences).some(modelId => {
@@ -1103,24 +1111,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 					this.currentProvider = availableProviders.length > 0 ? availableProviders[0] : undefined;
 				}
 
-				// One-time sync: ensure the current provider matches the stored
-				// model selection. Features like commit message generation may
-				// query the provider before the Chat view opens, where this sync
-				// normally happens. Check after model resolution so the model
-				// cache is populated.
-				if (this._pendingModelSync && this._modelCache.size > 0) {
-					const storedModel = this._modelCache.get(this._pendingModelSync);
-					if (storedModel) {
-						if (this._currentProvider?.id !== storedModel.vendor) {
-							const provider = this.getLanguageModelProviders().find(p => p.id === storedModel.vendor);
-							if (provider) {
-								this._logService.trace('[LM] Syncing current provider with stored model selection after model resolution', storedModel.vendor);
-								this.currentProvider = provider;
-							}
-						}
-						this._pendingModelSync = undefined;
-					}
-				}
+				this._syncProviderWithStoredModel();
 				// --- End Positron ---
 			} else {
 				this._logService.trace(`[LM] No changes in language models for vendor ${vendorId}`);
