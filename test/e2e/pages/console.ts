@@ -9,7 +9,6 @@ import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { QuickAccess } from './quickaccess.js';
 
 const CONSOLE_INPUT = '.console-input';
 export const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -40,7 +39,7 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
+	constructor(private code: Code, private quickinput: QuickInput, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		// Standard Console Button Locators
 		this.restartButton = this.code.driver.page.getByTestId('restart-session');
 		this.clearButton = this.code.driver.page.getByLabel('Clear console');

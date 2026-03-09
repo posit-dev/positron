@@ -20,9 +20,10 @@ export class Clipboard {
 	 */
 	private needsSyntheticPaste(): boolean {
 		const browser = this.code.driver.browser;
-		return !this.code.electronApp
-			&& !browser?.includes('chrome')
-			&& browser !== 'firefox';
+		const nativeClipboardWorks = this.code.electronApp
+			|| browser?.includes('chrome')
+			|| browser === 'firefox';
+		return !nativeClipboardWorks;
 	}
 
 	/**
