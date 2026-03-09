@@ -354,26 +354,24 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     getPackageManager(): positron.LanguageRuntimePackageManager {
         if (!this._runtimePackageManager) {
-            const session = this;
-            const packageManager = this._packageManager;
             this._runtimePackageManager = {
-                async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-                    if (session._kernel) {
+                getPackages: async (): Promise<positron.LanguageRuntimePackage[]> => {
+                    if (this._kernel) {
                         try {
-                            return await session._kernel.callMethod('getPackagesInstalled');
+                            return await this._kernel.callMethod('getPackagesInstalled');
                         } catch (err) {
-                            session._kernel.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
+                            this._kernel.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
                             throw err;
                         }
                     }
                     throw new Error(`Cannot get packages: kernel not started`);
                 },
-                installPackages: (packages: positron.PackageSpec[]) => packageManager.installPackages(packages),
-                uninstallPackages: (packageNames: string[]) => packageManager.uninstallPackages(packageNames),
-                updatePackages: (packages: positron.PackageSpec[]) => packageManager.updatePackages(packages),
-                updateAllPackages: () => packageManager.updateAllPackages(),
-                searchPackages: (query: string) => packageManager.searchPackages(query),
-                searchPackageVersions: (name: string) => packageManager.searchPackageVersions(name),
+                installPackages: (packages: positron.PackageSpec[]) => this._packageManager.installPackages(packages),
+                uninstallPackages: (packageNames: string[]) => this._packageManager.uninstallPackages(packageNames),
+                updatePackages: (packages: positron.PackageSpec[]) => this._packageManager.updatePackages(packages),
+                updateAllPackages: () => this._packageManager.updateAllPackages(),
+                searchPackages: (query: string) => this._packageManager.searchPackages(query),
+                searchPackageVersions: (name: string) => this._packageManager.searchPackageVersions(name),
             };
         }
         return this._runtimePackageManager;
