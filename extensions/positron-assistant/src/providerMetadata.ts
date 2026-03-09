@@ -62,10 +62,10 @@ export const PROVIDER_METADATA = {
 		displayName: 'Anthropic',
 		settingName: 'anthropic',
 	},
-	azure: {
-		id: 'azure',
-		displayName: 'Azure',
-		settingName: 'azure',
+	foundry: {
+		id: 'ms-foundry',
+		displayName: 'Microsoft Foundry',
+		settingName: 'msFoundry',
 	},
 	copilot: {
 		id: 'copilot-auth',

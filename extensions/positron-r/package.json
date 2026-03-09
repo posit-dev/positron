@@ -164,9 +164,9 @@
         "title": "%r.command.loadRDataFileWithPicker.title%"
       },
       {
-        "command": "r.browseAddins",
+        "command": "r.runAddin",
         "category": "R",
-        "title": "%r.command.browseAddins.title%"
+        "title": "%r.command.runAddin.title%"
       },
       {
         "command": "r.newRmdFromTemplate",
@@ -1094,7 +1094,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.236"
+      "ark": "0.1.239"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
