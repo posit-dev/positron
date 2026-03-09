@@ -28,21 +28,21 @@ export class PackageManagerFactory {
      * @returns The appropriate package manager for the environment
      */
     static create(
-        runtimeSource: EnvironmentType | string,
+        runtimeSource: EnvironmentType | string | undefined,
         pythonPath: string,
         messageEmitter: MessageEmitter,
         serviceContainer: IServiceContainer,
         kernel: PackageKernel,
     ): IPackageManager {
-        if (runtimeSource.toLowerCase() === EnvironmentType.Uv.toLowerCase()) {
+        if (runtimeSource?.toLowerCase() === EnvironmentType.Uv.toLowerCase()) {
             return new UvPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
-        if (runtimeSource.toLowerCase() === EnvironmentType.Conda.toLowerCase()) {
+        if (runtimeSource?.toLowerCase() === EnvironmentType.Conda.toLowerCase()) {
             return new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
-        if (runtimeSource.toLowerCase() === EnvironmentType.Venv.toLowerCase()) {
+        if (runtimeSource?.toLowerCase() === EnvironmentType.Venv.toLowerCase()) {
             return new PipPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
