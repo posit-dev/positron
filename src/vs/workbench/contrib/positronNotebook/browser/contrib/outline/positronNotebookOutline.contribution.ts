@@ -17,7 +17,6 @@ import {
 	IQuickPickDataSource, IQuickPickOutlineElement,
 	OutlineChangeEvent, OutlineConfigCollapseItemsValues, OutlineConfigKeys, OutlineTarget,
 } from '../../../../../services/outline/browser/outline.js';
-import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { NotebookOutlineConstants } from '../../../../notebook/browser/viewModel/notebookOutlineEntryFactory.js';
 import { getMarkdownHeadersInCell } from '../../../../notebook/browser/viewModel/foldingModel.js';
 import { NotebookCellsChangeType } from '../../../../notebook/common/notebookCommon.js';
@@ -393,7 +392,6 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 	constructor(
 		private readonly _editor: PositronNotebookEditor,
 		private readonly _target: OutlineTarget,
-		@IEditorService private readonly _editorService: IEditorService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IThemeService private readonly _themeService: IThemeService,
