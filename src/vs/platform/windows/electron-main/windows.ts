@@ -175,10 +175,12 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 	}
 
 	// --- Start Positron ---
+	// Use dev icon when running from source to distinguish from production builds
+	const iconName = environmentMainService.isBuilt ? 'positron' : 'positron-dev';
 	if (isLinux) {
-		options.icon = join(environmentMainService.appRoot, 'resources/linux/positron.png'); // always on Linux
+		options.icon = join(environmentMainService.appRoot, `resources/linux/${iconName}.png`); // always on Linux
 	} else if (isWindows && !environmentMainService.isBuilt) {
-		options.icon = join(environmentMainService.appRoot, 'resources/win32/positron_150x150.png'); // only when running out of sources on Windows
+		options.icon = join(environmentMainService.appRoot, `resources/win32/${iconName}_150x150.png`); // only when running out of sources on Windows
 	}
 	// --- End Positron ---
 

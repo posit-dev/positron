@@ -571,6 +571,14 @@ export class CodeApplication extends Disposable {
 			this.logService.error(error);
 		}
 
+		// --- Start Positron ---
+		// Set dev icon on macOS when running from source to distinguish from production builds
+		if (isMacintosh && !this.environmentMainService.isBuilt && app.dock) {
+			const devIconPath = join(this.environmentMainService.appRoot, 'resources/darwin/positron-dev.png');
+			app.dock.setIcon(devIconPath);
+		}
+		// --- End Positron ---
+
 		// Main process server (electron IPC based)
 		const mainProcessElectronServer = new ElectronIPCServer();
 		Event.once(this.lifecycleMainService.onWillShutdown)(e => {
