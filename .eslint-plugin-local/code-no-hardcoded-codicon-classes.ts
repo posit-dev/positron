@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { TSESTree } from '@typescript-eslint/utils';
-import * as eslint from 'eslint';
+import { ESLintUtils, TSESTree, AST_NODE_TYPES } from '@typescript-eslint/utils';
 
 // Matches "codicon-" at a class-token boundary (start of string or after
 // whitespace). Using (?:^|\s) instead of \b avoids false positives on
@@ -14,10 +13,10 @@ const CODICON_PATTERN = /(?:^|\s)codicon-/;
 
 /** Extract string content from a Literal or TemplateLiteral node. */
 function getStrings(node: TSESTree.Node): string[] {
-	if (node.type === 'Literal' && typeof node.value === 'string') {
+	if (node.type === AST_NODE_TYPES.Literal && typeof node.value === 'string') {
 		return [node.value];
 	}
-	if (node.type === 'TemplateLiteral') {
+	if (node.type === AST_NODE_TYPES.TemplateLiteral) {
 		return node.quasis.map((q: TSESTree.TemplateElement) => q.value.raw);
 	}
 	return [];
@@ -27,9 +26,9 @@ function hasCodicon(node: TSESTree.Node): boolean {
 	return getStrings(node).some(s => CODICON_PATTERN.test(s));
 }
 
-export default new class implements eslint.Rule.RuleModule {
-
-	readonly meta: eslint.Rule.RuleMetaData = {
+export default ESLintUtils.RuleCreator.withoutDocs({
+	name: 'no-hardcoded-codicon-classes',
+	meta: {
 		type: 'suggestion',
 		messages: {
 			noHardcodedCodicon:
@@ -38,19 +37,18 @@ export default new class implements eslint.Rule.RuleModule {
 				'ThemeIcon provides a typed interface, makes icon usage easy to find, and simplifies ' +
 				'future migration to themed icons.',
 		},
-		schema: false,
-	};
-
-	create(context: eslint.Rule.RuleContext): eslint.Rule.RuleListener {
+		schema: [],
+	},
+	defaultOptions: [],
+	create(context) {
 		return {
-			'JSXAttribute[name.name="className"]': (ruleNode: eslint.Rule.Node) => {
-				const node = ruleNode as unknown as TSESTree.JSXAttribute;
-				const value = node.value;
+			'JSXAttribute[name.name="className"]': (node: TSESTree.JSXAttribute) => {
+				const { value } = node;
 				if (!value) {
 					return;
 				}
 
-				const report = () => context.report({ node: ruleNode, messageId: 'noHardcodedCodicon' });
+				const report = () => context.report({ node, messageId: 'noHardcodedCodicon' });
 
 				// className='codicon codicon-foo'
 				if (hasCodicon(value)) {
@@ -58,25 +56,27 @@ export default new class implements eslint.Rule.RuleModule {
 					return;
 				}
 
-				if (value.type !== 'JSXExpressionContainer') {
+				if (value.type !== AST_NODE_TYPES.JSXExpressionContainer) {
 					return;
 				}
-				const expr = value.expression;
-				if (expr.type === 'JSXEmptyExpression') {
+				const { expression } = value;
+				if (expression.type === AST_NODE_TYPES.JSXEmptyExpression) {
 					return;
 				}
 
 				// className={'codicon codicon-foo'} or className={`codicon codicon-${x}`}
-				if (hasCodicon(expr)) {
+				if (hasCodicon(expression)) {
 					report();
 					return;
 				}
 
-				// className={fn('codicon codicon-foo')}
-				// className={fn('codicon', 'codicon-foo')}
-				// className={fn(`codicon-${name}`)}
-				if (expr.type === 'CallExpression') {
-					for (const arg of expr.arguments) {
+				// className={positronClassNames('codicon codicon-foo')}
+				// className={positronClassNames('codicon', 'codicon-foo')}
+				// className={positronClassNames(`codicon-${name}`)}
+				if (expression.type === AST_NODE_TYPES.CallExpression &&
+					expression.callee.type === AST_NODE_TYPES.Identifier &&
+					expression.callee.name === 'positronClassNames') {
+					for (const arg of expression.arguments) {
 						if (hasCodicon(arg)) {
 							report();
 							return;
@@ -86,4 +86,4 @@ export default new class implements eslint.Rule.RuleModule {
 			},
 		};
 	}
-};
+});
