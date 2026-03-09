@@ -34,15 +34,15 @@ export class PackageManagerFactory {
         serviceContainer: IServiceContainer,
         kernel: PackageKernel,
     ): IPackageManager {
-        if (runtimeSource === EnvironmentType.Uv) {
+        if (runtimeSource.toLowerCase() === EnvironmentType.Uv.toLowerCase()) {
             return new UvPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
-        if (runtimeSource === EnvironmentType.Conda) {
+        if (runtimeSource.toLowerCase() === EnvironmentType.Conda.toLowerCase()) {
             return new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
-        if (runtimeSource === EnvironmentType.Venv) {
+        if (runtimeSource.toLowerCase() === EnvironmentType.Venv.toLowerCase()) {
             return new PipPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
         }
 
