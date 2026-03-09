@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -76,7 +76,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	private _configuredIntervalMs: number;
 
 	/** Disposable for the debounced post-execution poll timer. */
-	private _postExecutionTimer: { dispose(): void } | undefined;
+	private _postExecutionTimer: IDisposable | undefined;
 
 	constructor(
 		@IPositronMemoryInfoProvider private readonly _provider: IPositronMemoryInfoProvider,
@@ -212,6 +212,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 			this._poll();
 		}, POST_EXECUTION_DELAY_MS);
 		this._postExecutionTimer = toDisposable(() => mainWindow.clearTimeout(handle));
+		this._register(this._postExecutionTimer);
 	}
 
 	private _cancelPostExecutionTimer(): void {
