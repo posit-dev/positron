@@ -34,7 +34,7 @@ const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign 
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
 const copilotSignoutGuidanceLabel = localize(
 	'positron.languageModelConfig.copilotSignoutGuidance',
-	"Sign out of Copilot using the [Accounts: Manage Accounts]({0}) command.",
+	"To sign out of GitHub, use the [Accounts: Manage Accounts]({0}) command. Note that this will sign you out of GitHub for all extensions in Positron.",
 	'command:workbench.action.manageAccounts'
 );
 
