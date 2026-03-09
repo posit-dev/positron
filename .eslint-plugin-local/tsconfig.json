@@ -6,6 +6,12 @@
 		],
 		"rootDir": ".",
 		"module": "esnext",
+		// --- Start Positron ---
+		// Required so TS can resolve packages like @typescript-eslint/utils that
+		// use the 'exports' field in package.json. 'nodenext' would also work but
+		// enforces file extensions on relative imports.
+		"moduleResolution": "bundler",
+		// --- End Positron ---
 		"allowImportingTsExtensions": true,
 		"erasableSyntaxOnly": true,
 		"verbatimModuleSyntax": true,
