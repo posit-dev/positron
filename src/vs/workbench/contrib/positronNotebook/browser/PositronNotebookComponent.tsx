@@ -31,11 +31,13 @@ import { useContextKeyValue } from './useContextKeyValue.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
+import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
+
 	const deletionSentinels = useObservedValue(notebookInstance.deletionSentinels);
 	const fontStyles = useFontStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
@@ -157,7 +159,13 @@ function renderCellsAndSentinels(
 		// Render the cell
 		elements.push(
 			<React.Fragment key={cell.handle}>
-				<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				<NotebookErrorBoundary
+					componentName={`Cell[${cell.handle}]`}
+					level='cell'
+					logService={services.logService}
+				>
+					<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				</NotebookErrorBoundary>
 				<AddCellButtons index={cellArrayIndex + 1} />
 			</React.Fragment>
 		);
