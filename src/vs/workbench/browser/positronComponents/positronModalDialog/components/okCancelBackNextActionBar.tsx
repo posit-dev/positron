@@ -51,7 +51,7 @@ export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, 
 
 	// Render.
 	return (
-		<div className='ok-cancel-back-action-bar top-separator'>
+		<div className='ok-cancel-back-action-bar'>
 			<div className='left-actions'>
 				{backButtonConfig ?
 					<Button className='action-bar-button' disabled={backButtonConfig.disable ?? false} onPressed={backButtonConfig.onClick}>

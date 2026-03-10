@@ -97,6 +97,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri);
 			},
+			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string): Thenable<positron.EvalResult> {
+				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId);
+			},
 			executeInlineCell(documentUri, ranges): Thenable<void> {
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges);

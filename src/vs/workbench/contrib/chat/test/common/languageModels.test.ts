@@ -10,13 +10,13 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { ChatMessageRole, LanguageModelsService, IChatMessage, IChatResponsePart, ILanguageModelChatMetadata } from '../../common/languageModels.js';
+import { ChatMessageRole, IPositronChatProvider, LanguageModelsService, IChatMessage, IChatResponsePart, ILanguageModelChatMetadata } from '../../common/languageModels.js';
 import { IExtensionService, nullExtensionDescription } from '../../../../services/extensions/common/extensions.js';
 import { DEFAULT_MODEL_PICKER_CATEGORY } from '../../common/widget/input/modelPickerWidget.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ILanguageModelsConfigurationService } from '../../common/languageModelsConfiguration.js';
@@ -1017,3 +1017,201 @@ suite('LanguageModels - Vendor Change Events', function () {
 		assert.strictEqual(eventFired, false, 'Should not fire event when vendor list is unchanged');
 	});
 });
+
+// --- Start Positron ---
+suite('LanguageModels - getCurrentProvider', function () {
+
+	const STORAGE_KEY = 'chat.currentLanguageProvider';
+
+	const store = new DisposableStore();
+
+	function createMockProvider(vendor: string) {
+		return {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => [{
+				metadata: {
+					extension: nullExtensionDescription.identifier,
+					name: `${vendor} Model`,
+					vendor,
+					family: `${vendor}-family`,
+					version: '1.0',
+					modelPickerCategory: undefined,
+					id: `${vendor}-model-1`,
+					maxInputTokens: 100,
+					maxOutputTokens: 100,
+					isDefaultForLocation: {},
+					isUserSelectable: true,
+				},
+				identifier: `${vendor}-model-1`,
+			}],
+			sendChatRequest: async () => { throw new Error(); },
+			provideTokenCount: async () => { throw new Error(); },
+		};
+	}
+
+	function registerVendors(service: LanguageModelsService, vendors: string[]) {
+		service.deltaLanguageModelChatProviderDescriptors(
+			vendors.map(vendor => ({
+				vendor,
+				displayName: `${vendor.charAt(0).toUpperCase()}${vendor.slice(1)}`,
+				configuration: undefined,
+				managementCommand: undefined,
+				when: undefined,
+			})),
+			[]
+		);
+
+		for (const vendor of vendors) {
+			store.add(service.registerLanguageModelProvider(vendor, createMockProvider(vendor)));
+		}
+	}
+
+	teardown(function () {
+		store.clear();
+	});
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('restores current provider from storage on init with multiple providers registered', function () {
+		const storedProvider: IPositronChatProvider = { id: 'vendor-b', displayName: 'Vendor B' };
+		const storageService = store.add(new TestStorageService());
+		storageService.store(STORAGE_KEY, storedProvider, StorageScope.APPLICATION, StorageTarget.USER);
+
+		const service = store.add(new LanguageModelsService(
+			new TestConfigurationService(),
+			new TestPositronAssistantConfigurationService(),
+			new class extends mock<IExtensionService>() {
+				override activateByEvent() { return Promise.resolve(); }
+			},
+			new NullLogService(),
+			storageService,
+			new MockContextKeyService(),
+			new class extends mock<ILanguageModelsConfigurationService>() {
+				override onDidChangeLanguageModelGroups = Event.None;
+				override getLanguageModelsProviderGroups() {
+					return [];
+				}
+			},
+			new class extends mock<IQuickInputService>() { },
+			new TestSecretStorageService(),
+		));
+
+		registerVendors(service, ['vendor-a', 'vendor-b', 'vendor-c']);
+
+		// The restored provider should remain vendor-b, not be overwritten by the first registered provider
+		assert.deepStrictEqual(service.currentProvider, storedProvider);
+	});
+
+	test('clears stored provider when it becomes disabled via onChangeEnabledProviders', function () {
+		const storedProvider: IPositronChatProvider = { id: 'disabled-vendor', displayName: 'Disabled Vendor' };
+		const storageService = store.add(new TestStorageService());
+		storageService.store(STORAGE_KEY, storedProvider, StorageScope.APPLICATION, StorageTarget.USER);
+
+		const onChangeEnabledProviders = store.add(new Emitter<void>());
+		const configService = new class extends TestPositronAssistantConfigurationService {
+			override onChangeEnabledProviders = onChangeEnabledProviders.event;
+			override isProviderEnabled(): boolean {
+				return false;
+			}
+		};
+
+		const service = store.add(new LanguageModelsService(
+			new TestConfigurationService(),
+			configService,
+			new class extends mock<IExtensionService>() {
+				override activateByEvent() { return Promise.resolve(); }
+			},
+			new NullLogService(),
+			storageService,
+			new MockContextKeyService(),
+			new class extends mock<ILanguageModelsConfigurationService>() {
+				override onDidChangeLanguageModelGroups = Event.None;
+				override getLanguageModelsProviderGroups() {
+					return [];
+				}
+			},
+			new class extends mock<IQuickInputService>() { },
+			new TestSecretStorageService(),
+		));
+
+		// The stored provider is initially restored (isProviderEnabled is not
+		// checked at construction time because provider metadata is not yet
+		// available).
+		assert.deepStrictEqual(service.currentProvider, storedProvider);
+
+		// When the enabled-providers configuration changes, the service detects
+		// the stored provider is disabled and clears it.
+		onChangeEnabledProviders.fire();
+
+		assert.strictEqual(service.currentProvider, undefined);
+	});
+
+	test('currentProvider is undefined when no stored provider exists and no providers registered', function () {
+		const service = store.add(new LanguageModelsService(
+			new TestConfigurationService(),
+			new TestPositronAssistantConfigurationService(),
+			new class extends mock<IExtensionService>() {
+				override activateByEvent() { return Promise.resolve(); }
+			},
+			new NullLogService(),
+			store.add(new TestStorageService()),
+			new MockContextKeyService(),
+			new class extends mock<ILanguageModelsConfigurationService>() {
+				override onDidChangeLanguageModelGroups = Event.None;
+				override getLanguageModelsProviderGroups() {
+					return [];
+				}
+			},
+			new class extends mock<IQuickInputService>() { },
+			new TestSecretStorageService(),
+		));
+
+		assert.strictEqual(service.currentProvider, undefined);
+	});
+
+	test('syncs provider with stored model when model vendor differs from stored provider', async function () {
+		const storageService = store.add(new TestStorageService());
+
+		// Store provider as vendor-a, but the selected model is from vendor-b
+		const storedProvider: IPositronChatProvider = { id: 'vendor-a', displayName: 'Vendor A' };
+		storageService.store(STORAGE_KEY, storedProvider, StorageScope.APPLICATION, StorageTarget.USER);
+		storageService.store('chat.currentLanguageModel.panel', 'vendor-b-model-1', StorageScope.APPLICATION, StorageTarget.USER);
+
+		const service = store.add(new LanguageModelsService(
+			new TestConfigurationService(),
+			new TestPositronAssistantConfigurationService(),
+			new class extends mock<IExtensionService>() {
+				override activateByEvent() { return Promise.resolve(); }
+			},
+			new NullLogService(),
+			storageService,
+			new MockContextKeyService(),
+			new class extends mock<ILanguageModelsConfigurationService>() {
+				override onDidChangeLanguageModelGroups = Event.None;
+				override getLanguageModelsProviderGroups() {
+					return [];
+				}
+			},
+			new class extends mock<IQuickInputService>() { },
+			new TestSecretStorageService(),
+		));
+
+		// Initially, the provider is restored from storage as vendor-a
+		assert.deepStrictEqual(service.currentProvider, storedProvider);
+
+		registerVendors(service, ['vendor-a', 'vendor-b']);
+
+		// Wait for async model resolution to complete and trigger the sync
+		await new Promise<void>(resolve => {
+			const listener = store.add(service.onDidChangeCurrentProvider(() => {
+				listener.dispose();
+				resolve();
+			}));
+		});
+
+		// After models resolve, the provider should be synced to vendor-b (matching the stored model)
+		assert.strictEqual(service.currentProvider?.id, 'vendor-b');
+	});
+
+});
+// --- End Positron ---
