@@ -1,0 +1,23 @@
+{
+	"name": "authentication",
+	"displayName": "Authentication",
+	"description": "Centralized credential management",
+	"version": "0.0.1",
+	"publisher": "positron",
+	"private": true,
+	"engines": {
+		"vscode": "^1.108.0"
+	},
+	"activationEvents": [
+		"onAuthenticationRequest:anthropic-api"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"authentication": [
+			{
+				"id": "anthropic-api",
+				"label": "Anthropic"
+			}
+		]
+	}
+}
