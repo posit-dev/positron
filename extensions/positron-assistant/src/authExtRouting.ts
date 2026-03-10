@@ -69,8 +69,12 @@ export async function getApiKeyWithMigration(
 		return undefined;
 	}
 	log.info(`Migrating legacy API key for ${providerId}/${accountId} to auth extension`);
-	await storeApiKey(providerId, accountId, label, legacyKey);
-	await secrets.delete(`apiKey-${accountId}`);
+	try {
+		await storeApiKey(providerId, accountId, label, legacyKey);
+		await secrets.delete(`apiKey-${accountId}`);
+	} catch (err) {
+		log.warn(`Migration failed for ${providerId}/${accountId}, using legacy key: ${err}`);
+	}
 	return legacyKey;
 }
 
