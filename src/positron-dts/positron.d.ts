@@ -1160,6 +1160,55 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Interface for package management functionality.
+	 *
+	 * Provides package management operations for a language runtime session.
+	 * Runtimes that support package management should implement this interface
+	 * and return it from getPackageManager().
+	 */
+	export interface LanguageRuntimePackageManager {
+		/**
+		 * Get list of installed packages.
+		 */
+		getPackages(): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Install the list of packages.
+		 * @param packages Array of package install requests with name and optional version
+		 */
+		installPackages(packages: PackageSpec[]): Thenable<void>;
+
+		/**
+		 * Uninstall the list of packages.
+		 * @param packageNames Array of package names to uninstall
+		 */
+		uninstallPackages(packageNames: string[]): Thenable<void>;
+
+		/**
+		 * Update the list of packages.
+		 * @param packages Array of package install requests with name and optional version
+		 */
+		updatePackages(packages: PackageSpec[]): Thenable<void>;
+
+		/**
+		 * Update all installed packages.
+		 */
+		updateAllPackages(): Thenable<void>;
+
+		/**
+		 * Search a repository for packages matching the query.
+		 * @param query Search query string
+		 */
+		searchPackages(query: string): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Search a repository for available versions of a package.
+		 * @param name Package name
+		 */
+		searchPackageVersions(name: string): Thenable<string[]>;
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1370,41 +1419,11 @@ declare module 'positron' {
 		showProfile?(): Thenable<void>;
 
 		/**
-		 * Get list of installed packages.
+		 * Get the package manager for this session, if available.
+		 *
+		 * Returns undefined if the runtime does not support package management.
 		 */
-		getPackages?(): Thenable<LanguageRuntimePackage[]>;
-
-		/**
-		 * Install the list of packages.
-		 * @param packages Array of package install requests with name and optional version
-		 */
-		installPackages?(packages: PackageSpec[]): Thenable<void>;
-
-		/**
-		 * Update the list of packages.
-		 * @param packages Array of package install requests with name and optional version
-		 */
-		updatePackages?(packages: PackageSpec[]): Thenable<void>;
-
-		/**
-		 * Update all installed packages.
-		 */
-		updateAllPackages?(): Thenable<void>;
-
-		/**
-		 * Uninstall the list of packages.
-		 */
-		uninstallPackages?(packageNames: string[]): Thenable<void>;
-
-		/**
-		 * Search a repository for packages matching the query.
-		 */
-		searchPackages?(query: string): Thenable<LanguageRuntimePackage[]>;
-
-		/**
-		 * Search a repository for available versions of a package.
-		 */
-		searchPackageVersions?(name: string): Thenable<string[]>;
+		getPackageManager?(): LanguageRuntimePackageManager;
 	}
 
 

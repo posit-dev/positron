@@ -97,16 +97,21 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._session = session;
 	}
 
-	async refreshPackages(): Promise<ILanguageRuntimePackage[]> {
-		const session = this._session;
-		if (!session.getPackages) {
-			throw new Error('Method not implemented.');
+	private getPackageManagerOrThrow() {
+		const packageManager = this._session.getPackageManager?.();
+		if (!packageManager) {
+			throw new Error('Package management not implemented for this session.');
 		}
+		return packageManager;
+	}
+
+	async refreshPackages(): Promise<ILanguageRuntimePackage[]> {
+		const packageManager = this.getPackageManagerOrThrow();
 
 		// Loading
 		this._onDidChangeRefreshState.fire(true);
 		try {
-			const packages = await session.getPackages();
+			const packages = await packageManager.getPackages();
 			this._onDidRefreshPackagesInstance.fire(packages);
 			return packages;
 		} finally {
@@ -115,22 +120,17 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	async installPackages(packages: IPackageSpec[]): Promise<void> {
-		const session = this._session;
-		if (!session.installPackages) {
-			throw new Error('Method not implemented.');
-		}
+		const packageManager = this.getPackageManagerOrThrow();
 
 		// Loading
 		this._onDidChangeInstallState.fire(true);
 
 		try {
-			await session.installPackages(packages);
+			await packageManager.installPackages(packages);
 
 			// Fire refresh event.
-			const pkgs = await session.getPackages?.();
-			if (pkgs) {
-				this._onDidRefreshPackagesInstance.fire(pkgs);
-			}
+			const pkgs = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(pkgs);
 		} finally {
 			// Completed
 			this._onDidChangeInstallState.fire(false);
@@ -138,22 +138,17 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	async uninstallPackages(packageNames: string[]): Promise<void> {
-		const session = this._session;
-		if (!session.uninstallPackages) {
-			throw new Error('Method not implemented.');
-		}
+		const packageManager = this.getPackageManagerOrThrow();
 
 		// Loading
 		this._onDidChangeUninstallState.fire(true);
 
 		try {
-			await session.uninstallPackages(packageNames);
+			await packageManager.uninstallPackages(packageNames);
 
 			// Fire refresh event.
-			const newPackages = await session.getPackages?.();
-			if (newPackages) {
-				this._onDidRefreshPackagesInstance.fire(newPackages);
-			}
+			const newPackages = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(newPackages);
 		} finally {
 			// Completed
 			this._onDidChangeUninstallState.fire(false);
@@ -161,22 +156,17 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	async updatePackages(packages: IPackageSpec[]): Promise<void> {
-		const session = this._session;
-		if (!session.updatePackages) {
-			throw new Error('Method not implemented.');
-		}
+		const packageManager = this.getPackageManagerOrThrow();
 
 		// Loading
 		this._onDidChangeUpdateState.fire(true);
 
 		try {
-			await session.updatePackages(packages);
+			await packageManager.updatePackages(packages);
 
 			// Fire refresh event.
-			const newPackages = await session.getPackages?.();
-			if (newPackages) {
-				this._onDidRefreshPackagesInstance.fire(newPackages);
-			}
+			const newPackages = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(newPackages);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateState.fire(false);
@@ -184,22 +174,17 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	async updateAllPackages(): Promise<void> {
-		const session = this._session;
-		if (!session.updateAllPackages) {
-			throw new Error('Method not implemented.');
-		}
+		const packageManager = this.getPackageManagerOrThrow();
 
 		// Loading
 		this._onDidChangeUpdateAllState.fire(true);
 
 		try {
-			await session.updateAllPackages();
+			await packageManager.updateAllPackages();
 
 			// Fire refresh event.
-			const newPackages = await session.getPackages?.();
-			if (newPackages) {
-				this._onDidRefreshPackagesInstance.fire(newPackages);
-			}
+			const newPackages = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(newPackages);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);
@@ -207,21 +192,13 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	async searchPackages(name: string): Promise<ILanguageRuntimePackage[]> {
-		const session = this._session;
-		if (!session.searchPackages) {
-			throw new Error('Method not implemented.');
-		}
-
-		return await session.searchPackages(name);
+		const packageManager = this.getPackageManagerOrThrow();
+		return await packageManager.searchPackages(name);
 	}
 
 	async searchPackageVersions(name: string): Promise<string[]> {
-		const session = this._session;
-		if (!session.searchPackageVersions) {
-			throw new Error('Method not implemented.');
-		}
-
-		return await session.searchPackageVersions(name);
+		const packageManager = this.getPackageManagerOrThrow();
+		return await packageManager.searchPackageVersions(name);
 	}
 
 	/**

@@ -13,7 +13,7 @@ import { ITerminalService, ITerminalServiceFactory } from '../../client/common/t
 import { IComponentAdapter, ICondaService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
 import { CondaPackageManager } from '../../client/positron/packages/condaPackageManager';
-import { MessageEmitter } from '../../client/positron/packages/types';
+import { MessageEmitter, PackageKernel } from '../../client/positron/packages/types';
 import { mock } from './utils';
 
 suite('Conda Package Manager', () => {
@@ -23,6 +23,7 @@ suite('Conda Package Manager', () => {
     let componentAdapter: IComponentAdapter;
     let terminalService: ITerminalService;
     let messageEmitter: MessageEmitter;
+    let kernel: PackageKernel;
     let sendCommandStub: sinon.SinonStub;
 
     const pythonPath = '/path/to/conda/envs/myenv/bin/python';
@@ -69,7 +70,11 @@ suite('Conda Package Manager', () => {
             fire: () => {},
         });
 
-        condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer);
+        kernel = mock<PackageKernel>({
+            callMethod: () => Promise.resolve([]),
+        });
+
+        condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
     });
 
     teardown(() => {
@@ -204,7 +209,7 @@ suite('Conda Package Manager', () => {
                 },
             });
 
-            condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer);
+            condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
 
             await assert.rejects(
                 () => condaPackageManager.installPackages([{ name: 'numpy' }]),
@@ -234,7 +239,7 @@ suite('Conda Package Manager', () => {
                 },
             });
 
-            condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer);
+            condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
 
             await assert.rejects(
                 () => condaPackageManager.installPackages([{ name: 'numpy' }]),
