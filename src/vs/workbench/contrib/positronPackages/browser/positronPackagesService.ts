@@ -45,8 +45,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		// Call the disposable constructor.
 		super();
 
-
-
 		// Create new instances
 		this._register(this._runtimeSessionService.onWillStartSession((e) => {
 			this.createOrAssignInstance(e.session, e.activate);
