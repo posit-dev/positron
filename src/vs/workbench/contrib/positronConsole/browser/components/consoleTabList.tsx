@@ -607,8 +607,15 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			services.runtimeSessionService.getSession(sessionId);
 
 		if (session) {
-			// Set the session as the foreground session
-			services.runtimeSessionService.foregroundSession = session;
+			// Only set Console sessions as the foreground session. Notebook
+			// sessions should not become the foreground session, as that would
+			// cause LSP features (e.g. autocomplete) in script files to break.
+			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				services.runtimeSessionService.foregroundSession = session;
+			} else {
+				// For non-Console sessions, just set the active console instance
+				services.positronConsoleService.setActivePositronConsoleSession(sessionId);
+			}
 		} else {
 			// It is possible for a console instance to exist without a
 			// session; this typically happens when we create a provisional
