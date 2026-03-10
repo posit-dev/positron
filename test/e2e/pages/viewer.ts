@@ -22,7 +22,7 @@ export class Viewer {
 
 	constructor(private code: Code) { }
 
-	getViewerLocator(locator: string,): Locator {
+	getViewerLocator(locator: string): Locator {
 		return this.viewerFrame.locator(locator);
 	}
 
@@ -54,25 +54,33 @@ export class Viewer {
 		});
 	}
 
+	async expectUrlToHaveValue(expectedUrl: string, timeout = 10000): Promise<void> {
+		await test.step(`Expect viewer URL to have value: ${expectedUrl}`, async () => {
+			await expect(this.code.driver.page.getByRole('textbox', { name: 'The current URL' })).toHaveValue(expectedUrl, { timeout });
+		});
+	}
+
 	/**
 	 * Wait for content to be visible in the viewer frame, with retry on failure.
 	 *
 	 * Dev servers (Flask, Dash, etc.) may report "running" before actually accepting
 	 * connections, causing ERR_CONNECTION_RESET. If content isn't visible, the onRetry
 	 * callback is called to allow restarting the server before the next attempt.
+	 *
+	 * @param useIframe - Set to false for Positron output (great-tables, modelsummary) that renders directly.
+	 *                    Defaults to true for web apps (Flask, Dash) that render in an iframe.
 	 */
 	async expectContentVisible(
 		getLocator: (frame: FrameLocator) => Locator,
-		options?: { timeout?: number; onRetry?: () => Promise<void> }
+		options?: { timeout?: number; onRetry?: () => Promise<void>; useIframe?: boolean }
 	): Promise<void> {
-		const { timeout = 60000, onRetry } = options ?? {};
+		const { timeout = 60000, onRetry, useIframe = true } = options ?? {};
 
 		await test.step('Expect content visible in viewer frame', async () => {
 			await expect(async () => {
 				// Get the frame and locator for the content
-				const frame = !this.code.electronApp
-					? this.viewerFrame.frameLocator('iframe')
-					: this.getViewerFrame();
+				const baseFrame = this.getViewerFrame();
+				const frame = useIframe ? baseFrame.frameLocator('iframe') : baseFrame;
 				const locator = getLocator(frame);
 
 				// Check if content is visible
