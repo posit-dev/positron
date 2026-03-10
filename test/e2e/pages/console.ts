@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -47,7 +47,7 @@ export class Console {
 		this.trashButton = this.code.driver.page.getByTestId('trash-session');
 
 		// `+` Add Session Split Button Locators
-		this.addSessionDuplicateButton = this.code.driver.page.getByLabel('Duplicate Active Interpreter');
+		this.addSessionDuplicateButton = this.code.driver.page.getByLabel('Duplicate Active Console Session');
 		this.addSessionExpandMenuButton = this.code.driver.page.getByLabel('Quick Launch Session...');
 
 		// Misc

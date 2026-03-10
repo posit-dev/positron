@@ -22,6 +22,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
+import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -71,6 +72,8 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
 	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void;
+	$evaluateCode(languageId: string, sessionId: string | undefined, code: string, evaluationId: string): Promise<EvalResult>;
+	$cancelEvaluation(sessionId: string, evaluationId: string): void;
 }
 
 // The interface to the main thread exposed by the extension host

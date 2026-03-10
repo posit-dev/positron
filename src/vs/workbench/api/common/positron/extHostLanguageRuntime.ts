@@ -23,6 +23,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import * as typeConvert from '../extHostTypeConverters.js';
 
@@ -1385,6 +1386,47 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				});
 
 		return executionObserver.promise.p;
+	}
+
+	/**
+	 * Evaluate code silently and return a JSON-coerced result.
+	 *
+	 * @param languageId The language ID to evaluate in
+	 * @param code The code to evaluate
+	 * @param token An optional cancellation token
+	 * @param sessionId An optional session ID to target
+	 * @returns A promise that resolves with the evaluation result
+	 */
+	public evaluateCode(
+		languageId: string,
+		code: string,
+		token?: CancellationToken,
+		sessionId?: string
+	): Promise<EvalResult> {
+		const evaluationId = generateUuid();
+
+		const promise = this._proxy.$evaluateCode(languageId, sessionId, code, evaluationId);
+
+		// If a cancellation token is provided, register a listener to cancel
+		// the evaluation when the token fires
+		if (token) {
+			const listener = token.onCancellationRequested(() => {
+				// We need to know the session ID to cancel. If we don't have one
+				// yet, we can't cancel (the evaluation hasn't started).
+				// The main thread will figure out the session ID from the
+				// evaluation ID.
+				this._proxy.$cancelEvaluation(sessionId ?? '', evaluationId);
+				listener.dispose();
+			});
+
+			// Dispose the listener when the promise settles
+			promise.then(
+				() => listener.dispose(),
+				() => listener.dispose()
+			);
+		}
+
+		return promise;
 	}
 
 	/**
