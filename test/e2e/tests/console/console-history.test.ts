@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -70,7 +70,7 @@ async function clearConsole(app: Application) {
 
 async function selectFirstHistoryResult(app: Application, expectedLine: string) {
 	await test.step('Select first history result', async () => {
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		await page.keyboard.press('ArrowUp');
 		await page.keyboard.press('ArrowUp');
 		await page.keyboard.press('ArrowUp');
@@ -86,7 +86,7 @@ async function verifyFullHistory(app: Application, lines: string[]) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.code.driver.page.keyboard.press('Control+R');
+		await app.code.driver.currentPage.keyboard.press('Control+R');
 
 		await app.workbench.console.waitForHistoryContents(lines[0], 2);
 		await app.workbench.console.waitForHistoryContents(lines[1]);

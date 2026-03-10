@@ -8,6 +8,7 @@ import { IConfigurationService } from '../../configuration/common/configuration.
 import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
 import { ILifecycleMainService } from '../../lifecycle/electron-main/lifecycleMainService.js';
 import { ILogService } from '../../log/common/log.js';
+import { IMeteredConnectionService } from '../../meteredConnection/common/meteredConnection.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
@@ -23,10 +24,12 @@ export class LinuxUpdateService extends AbstractUpdateService {
 		@IEnvironmentMainService environmentMainService: IEnvironmentMainService,
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
+		// change scope of this service since it's set by the abstract class
 		@INativeHostMainService nativeHostMainService: INativeHostMainService,
-		@IProductService productService: IProductService
+		@IProductService productService: IProductService,
+		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, meteredConnectionService, productService, nativeHostMainService, false);
 	}
 
 	protected buildUpdateFeedUrl(channel: string): string {
@@ -44,7 +47,14 @@ export class LinuxUpdateService extends AbstractUpdateService {
 			return;
 		}
 
-		const url = explicit ? this.url : `${this.url}?bg=true`;
+		// --- Start Positron ---
+		/*
+		const internalOrg = this.getInternalOrg();
+		const background = !explicit && !internalOrg;
+		const url = this.buildUpdateFeedUrl(this.quality, this.productService.commit!, { background, internalOrg });
+		*/
+		const url = this.buildUpdateFeedUrl(this.getUpdateChannel());
+		// --- End Positron ---
 		this.setState(State.CheckingForUpdates(explicit));
 
 		this.requestService.request({ url }, CancellationToken.None)

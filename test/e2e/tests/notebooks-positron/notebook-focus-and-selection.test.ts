@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,7 +17,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test('Arrow keys move cell selection up and down', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 3, markdownCells: 2 });
 
 		// arrow down moves selection down
@@ -50,7 +50,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test('Click away and back: code cell re-enters edit mode, markdown stays in view mode', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 1, markdownCells: 1 });
 
 		// Code cell: click away and back should restore edit mode
@@ -75,7 +75,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test('Enter key in edit mode adds newline within cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 2 });
 
 		const lineText = '# Cell 1';
@@ -93,7 +93,7 @@ test.describe('Notebook Focus and Selection', {
 
 		// Verify the content was splits into two lines
 		await notebooksPositron.expectCellToHaveLineCount({ cellIndex: 1, numLines: 1 });
-		await app.code.driver.page.keyboard.press('Enter');
+		await app.code.driver.currentPage.keyboard.press('Enter');
 		await notebooksPositron.expectCellToHaveLineCount({ cellIndex: 1, numLines: 2 });
 		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
 	});
@@ -101,10 +101,10 @@ test.describe('Notebook Focus and Selection', {
 
 	test('Notebook navigation and default cell selection between tabs', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 3, markdownCells: 1 });
 
-		const clickTab = (name: string | RegExp) => app.code.driver.page.getByRole('tab', { name }).click();
+		const clickTab = (name: string | RegExp) => app.code.driver.currentPage.getByRole('tab', { name }).click();
 		// Depending on when this test is run, the untitled notebook may have a different number
 		const TAB_1 = /Untitled-\d+\.ipynb/;
 		const TAB_2 = 'bitmap-notebook.ipynb';
@@ -152,7 +152,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test('`+ Code` and `+ Markdown` buttons insert the cell after the active cell and make it the new active cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 1 });
 
 		// Select code cell at index 1
@@ -180,7 +180,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test('Multi-select and deselect retains anchor/active cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create a new notebook with 5 cells and select cell 2
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 3 });
@@ -218,7 +218,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test('Multi-select + Shift+Enter runs all selected code cells', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create notebook with 3 code cells containing executable Python
 		await notebooksPositron.newNotebook({ codeCells: 3 });
@@ -260,7 +260,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test('Multi-select and insert cell above/below becomes the active cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Start a new notebook with 5 cells and select cell 2
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 3 });
@@ -288,7 +288,7 @@ test.describe('Notebook Focus and Selection', {
 
 		test('Navigating down scrolls off-screen cell into view', async function ({ app }) {
 			const { notebooksPositron } = app.workbench;
-			const keyboard = app.code.driver.page.keyboard;
+			const keyboard = app.code.driver.currentPage.keyboard;
 			await notebooksPositron.newNotebook({ codeCells: 15 });
 
 			// Start at the first cell in command mode
@@ -304,7 +304,7 @@ test.describe('Notebook Focus and Selection', {
 
 		test('Navigating up scrolls off-screen cell into view', async function ({ app }) {
 			const { notebooksPositron } = app.workbench;
-			const keyboard = app.code.driver.page.keyboard;
+			const keyboard = app.code.driver.currentPage.keyboard;
 			await notebooksPositron.newNotebook({ codeCells: 15 });
 
 			// Navigate to the last cell
@@ -320,7 +320,7 @@ test.describe('Notebook Focus and Selection', {
 
 		test('No scroll when target cell is already fully visible', async function ({ app }) {
 			const { notebooksPositron } = app.workbench;
-			const keyboard = app.code.driver.page.keyboard;
+			const keyboard = app.code.driver.currentPage.keyboard;
 			await notebooksPositron.newNotebook({ codeCells: 3 });
 
 			// Select cell 0 and navigate to cell 1 (both should be visible)
@@ -335,7 +335,7 @@ test.describe('Notebook Focus and Selection', {
 
 		test('Boundary: no scroll at first/last cell', async function ({ app }) {
 			const { notebooksPositron } = app.workbench;
-			const keyboard = app.code.driver.page.keyboard;
+			const keyboard = app.code.driver.currentPage.keyboard;
 			await notebooksPositron.newNotebook({ codeCells: 15 });
 
 			// At first cell, pressing ArrowUp should not scroll
@@ -355,7 +355,7 @@ test.describe('Notebook Focus and Selection', {
 
 		test('Shift+navigation keeps active cell visible', async function ({ app }) {
 			const { notebooksPositron } = app.workbench;
-			const keyboard = app.code.driver.page.keyboard;
+			const keyboard = app.code.driver.currentPage.keyboard;
 			await notebooksPositron.newNotebook({ codeCells: 15 });
 
 			// Start at cell 0, shift-select down through cells
@@ -370,7 +370,7 @@ test.describe('Notebook Focus and Selection', {
 
 		test('Action bar is not clipped when scrolling to oversized cell', async function ({ app }) {
 			const { notebooksPositron } = app.workbench;
-			const keyboard = app.code.driver.page.keyboard;
+			const keyboard = app.code.driver.currentPage.keyboard;
 			await notebooksPositron.newNotebook({ codeCells: 5 });
 
 			// Make cell 3 taller than the viewport by adding many lines
@@ -393,7 +393,7 @@ test.describe('Notebook Focus and Selection', {
 
 		test('Enter/Escape mode transitions do not scroll', async function ({ app }) {
 			const { notebooksPositron } = app.workbench;
-			const keyboard = app.code.driver.page.keyboard;
+			const keyboard = app.code.driver.currentPage.keyboard;
 			await notebooksPositron.newNotebook({ codeCells: 15 });
 
 			// Navigate to a cell in the middle

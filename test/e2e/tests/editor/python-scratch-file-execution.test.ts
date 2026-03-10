@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,8 +20,8 @@ test.describe('Python Scratch File', { tag: [tags.WEB, tags.EDITOR, tags.WIN] },
 
 		await test.step('Exexcute first line of code', async () => {
 			await app.workbench.editor.clickOnTerm(filename, 'print', 1, true);
-			await app.code.driver.page.keyboard.press('ArrowLeft');
-			await app.code.driver.page.keyboard.press('Control+Enter');
+			await app.code.driver.currentPage.keyboard.press('ArrowLeft');
+			await app.code.driver.currentPage.keyboard.press('Control+Enter');
 		});
 
 		// ensure code execution worked

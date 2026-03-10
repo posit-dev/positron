@@ -2332,7 +2332,6 @@ export interface IEventNamePropertyMapping {
        "tensorboard.torch_profiler_import" : { "owner": "donjayamanne" }
      */
     [EventName.TENSORBOARD_TORCH_PROFILER_IMPORT]: never | undefined;
-    [EventName.TENSORBOARD_DETECTED_IN_INTEGRATED_TERMINAL]: never | undefined;
     /**
      * Telemetry event sent before creating an environment.
      */
@@ -2452,12 +2451,12 @@ export interface IEventNamePropertyMapping {
      */
     [EventName.ENVIRONMENT_CHECK_TRIGGER]: {
         trigger:
-            | 'run-in-terminal'
-            | 'debug-in-terminal'
-            | 'run-selection'
-            | 'on-workspace-load'
-            | 'as-command'
-            | 'debug';
+        | 'run-in-terminal'
+        | 'debug-in-terminal'
+        | 'run-selection'
+        | 'on-workspace-load'
+        | 'as-command'
+        | 'debug';
     };
     /**
      * Telemetry event sent when a check for environment creation condition is computed.

@@ -185,9 +185,6 @@ export class ChatTerminalToolConfirmationSubPart extends BaseChatToolInvocationS
 			uriPromise: Promise.resolve(model.uri),
 			chatSessionResource: this.context.element.sessionResource
 		});
-		this._register(editor.object.onDidChangeContentHeight(() => {
-			editor.object.layout(this.currentWidthDelegate());
-		}));
 		this._register(model.onDidChangeContent(e => {
 			const currentValue = model.getValue();
 			// Only set userEdited if the content actually differs from the initial value
@@ -400,6 +397,7 @@ export class ChatTerminalToolConfirmationSubPart extends BaseChatToolInvocationS
 			const tooltip = this.keybindingService.appendKeybinding(tooltipDetail, actionId);
 			return { label, tooltip };
 		};
+
 		return [
 			{
 				...getLabelAndTooltip(localize('tool.allow', "Allow"), AcceptToolConfirmationActionId),

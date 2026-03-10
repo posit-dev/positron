@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,10 +22,10 @@ export class QuickInput {
 	quickInputResult: Locator;
 
 	constructor(private code: Code) {
-		this.quickInputList = this.code.driver.page.locator(QUICK_INPUT_LIST);
-		this.quickInput = this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT);
-		this.quickInputTitleBar = this.code.driver.page.locator(`.quick-input-title`);
-		this.quickInputResult = this.code.driver.page.locator(QuickInput.QUICK_INPUT_RESULT);
+		this.quickInputList = this.code.driver.currentPage.locator(QUICK_INPUT_LIST);
+		this.quickInput = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT);
+		this.quickInputTitleBar = this.code.driver.currentPage.locator(`.quick-input-title`);
+		this.quickInputResult = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_RESULT);
 	}
 
 	async expectTitleBarToHaveText(text: string): Promise<void> {
@@ -41,17 +41,17 @@ export class QuickInput {
 	}
 
 	async waitForQuickInputOpened({ timeout = 3000 }: { timeout?: number } = {}): Promise<void> {
-		await expect(this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT)).toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT)).toBeVisible({ timeout });
 	}
 
 	async type(value: string): Promise<void> {
-		await this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT).selectText();
-		await this.code.driver.page.keyboard.press('Backspace');
-		await this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT).fill(value);
+		await this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT).selectText();
+		await this.code.driver.currentPage.keyboard.press('Backspace');
+		await this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT).fill(value);
 	}
 
 	async waitForQuickInputElementText(): Promise<string> {
-		const quickInputResult = this.code.driver.page.locator(QuickInput.QUICK_INPUT_RESULT);
+		const quickInputResult = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_RESULT);
 
 		// Wait for at least one matching element with non-empty text
 		await expect(async () => {
@@ -66,12 +66,12 @@ export class QuickInput {
 	}
 
 	async closeQuickInput(): Promise<void> {
-		await this.code.driver.page.keyboard.press('Escape');
+		await this.code.driver.currentPage.keyboard.press('Escape');
 		await this.waitForQuickInputClosed();
 	}
 
 	async waitForQuickInputElements(accept: (names: string[]) => boolean): Promise<void> {
-		const locator = this.code.driver.page.locator(QuickInput.QUICK_INPUT_ENTRY_LABEL);
+		const locator = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_ENTRY_LABEL);
 
 		await expect(async () => {
 			const names = await locator.allTextContents();
@@ -80,12 +80,12 @@ export class QuickInput {
 	}
 
 	async waitForQuickInputClosed(): Promise<void> {
-		await expect(this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT)).not.toBeVisible();
+		await expect(this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT)).not.toBeVisible();
 	}
 
 	async selectQuickInputElement(index: number, keepOpen?: boolean): Promise<void> {
 		await this.waitForQuickInputOpened();
-		await this.code.driver.page.locator(QuickInput.QUICK_INPUT_RESULT).nth(index).click();
+		await this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_RESULT).nth(index).click();
 
 		if (!keepOpen) {
 			await this.waitForQuickInputClosed();
@@ -93,16 +93,16 @@ export class QuickInput {
 	}
 
 	async selectQuickInputElementContaining(text: string, { timeout, force = true }: { timeout?: number; force?: boolean } = {}): Promise<string> {
-		const firstMatch = this.code.driver.page.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`).first();
+		const firstMatch = this.code.driver.currentPage.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`).first();
 
 		const firstMatchResult = await firstMatch.locator('.quick-input-list-row').nth(0).textContent({ timeout }) || '';
 		await firstMatch.click({ force, timeout });
-		await this.code.driver.page.mouse.move(0, 0);
+		await this.code.driver.currentPage.mouse.move(0, 0);
 
 		return firstMatchResult.trim();
 	}
 
 	async clickOkButton(): Promise<void> {
-		await this.code.driver.page.locator(QuickInput.QUICKINPUT_OK_BUTTON).click();
+		await this.code.driver.currentPage.locator(QuickInput.QUICKINPUT_OK_BUTTON).click();
 	}
 }

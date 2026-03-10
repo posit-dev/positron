@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -35,23 +35,23 @@ export interface IStackFrame {
  *  Reuseable Positron debug functionality for tests to leverage
  */
 export class Debug {
-	get debugVariablesSection(): Locator { return this.code.driver.page.getByRole('button', { name: 'Debug Variables Section' }); }
-	get callStackSection(): Locator { return this.code.driver.page.getByRole('button', { name: 'Call Stack Section' }); }
-	get callStack(): Locator { return this.code.driver.page.locator(DEBUG_CALL_STACK); }
+	get debugVariablesSection(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Debug Variables Section' }); }
+	get callStackSection(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Call Stack Section' }); }
+	get callStack(): Locator { return this.code.driver.currentPage.locator(DEBUG_CALL_STACK); }
 	stackAtIndex = (index: number) => this.callStack.locator(`.monaco-list-row[data-index="${index}"]`);
 	debugPane: Locator;
 	debugToolbar: Locator;
 
 	constructor(private code: Code, private hotKeys: HotKeys, private quickaccess: QuickAccess) {
-		this.debugPane = this.code.driver.page.locator('.debug-pane');
-		this.debugToolbar = this.code.driver.page.locator(DEBUG_TOOLBAR);
+		this.debugPane = this.code.driver.currentPage.locator('.debug-pane');
+		this.debugToolbar = this.code.driver.currentPage.locator(DEBUG_TOOLBAR);
 	}
 
 	async setBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
 		await test.step(`Debug: Set breakpoint on line ${lineNumber}`, async () => {
-			await expect(this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
-			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
-			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible();
+			await expect(this.code.driver.currentPage.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
+			await this.code.driver.currentPage.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
+			await expect(this.code.driver.currentPage.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible();
 		});
 	}
 
@@ -63,12 +63,12 @@ export class Debug {
 	 */
 	async setUnverifiedBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
 		await test.step(`Debug: Set unverified breakpoint on line ${lineNumber}`, async () => {
-			await expect(this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
-			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
+			await expect(this.code.driver.currentPage.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
+			await this.code.driver.currentPage.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
 			// For R breakpoints, initially expect the breakpoint to be unverified (gray)
 			await expect(
-				this.code.driver.page.locator(BREAKPOINT_GLYPH_UNVERIFIED).nth(index)
-					.or(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index))
+				this.code.driver.currentPage.locator(BREAKPOINT_GLYPH_UNVERIFIED).nth(index)
+					.or(this.code.driver.currentPage.locator(BREAKPOINT_GLYPH).nth(index))
 			).toBeVisible();
 		});
 	}
@@ -81,7 +81,7 @@ export class Debug {
 	 */
 	async expectBreakpointVerified(index = 0, timeout = 30000): Promise<void> {
 		await test.step(`Verify breakpoint ${index} is verified (red)`, async () => {
-			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible({ timeout });
+			await expect(this.code.driver.currentPage.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible({ timeout });
 		});
 	}
 
@@ -92,7 +92,7 @@ export class Debug {
 	 */
 	async expectBreakpointUnverified(index = 0): Promise<void> {
 		await test.step(`Verify breakpoint ${index} is unverified (gray)`, async () => {
-			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH_UNVERIFIED).nth(index)).toBeVisible();
+			await expect(this.code.driver.currentPage.locator(BREAKPOINT_GLYPH_UNVERIFIED).nth(index)).toBeVisible();
 		});
 	}
 
@@ -102,21 +102,21 @@ export class Debug {
 
 	async unSetBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
 		await test.step(`Debug: Unset breakpoint on line ${lineNumber}`, async () => {
-			await this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index).click({ position: { x: 5, y: 5 } });
-			await this.code.driver.page.mouse.move(50, 50);
+			await this.code.driver.currentPage.locator(BREAKPOINT_GLYPH).nth(index).click({ position: { x: 5, y: 5 } });
+			await this.code.driver.currentPage.mouse.move(50, 50);
 		});
 	}
 
 	async startDebugging(): Promise<void> {
 		await test.step('Debug: Start', async () => {
-			await this.code.driver.page.keyboard.press('F5');
-			await expect(this.code.driver.page.locator(STOP)).toBeVisible();
+			await this.code.driver.currentPage.keyboard.press('F5');
+			await expect(this.code.driver.currentPage.locator(STOP)).toBeVisible();
 		});
 	}
 
 	async debugCell(): Promise<void> {
 		await test.step('Debug notebook', async () => {
-			await expect(this.code.driver.page.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible({ timeout: 20000 });
+			await expect(this.code.driver.currentPage.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible({ timeout: 20000 });
 			// Prefer to use hotkey but there is an issue with yellow marker not showing
 			// await this.hotKeys.debugCell();
 			await this.quickaccess.runCommand('notebook.debugCell');
@@ -125,7 +125,7 @@ export class Debug {
 	}
 
 	async getVariables(): Promise<string[]> {
-		const variableLocators = await this.code.driver.page.locator(VARIABLE).all();
+		const variableLocators = await this.code.driver.currentPage.locator(VARIABLE).all();
 
 		const variables: string[] = [];
 		for (const variable of variableLocators) {
@@ -148,30 +148,30 @@ export class Debug {
 
 	async stepOver(): Promise<any> {
 		await test.step('Debug: Step over', async () => {
-			await this.code.driver.page.locator(STEP_OVER).click();
+			await this.code.driver.currentPage.locator(STEP_OVER).click();
 		});
 	}
 
 	async stepInto(): Promise<any> {
 		await test.step('Debug: Step into', async () => {
-			await this.code.driver.page.locator(STEP_INTO).click();
+			await this.code.driver.currentPage.locator(STEP_INTO).click();
 		});
 	}
 
 	async stepOut(): Promise<any> {
 		await test.step('Debug: Step out', async () => {
-			await this.code.driver.page.locator(STEP_OUT).click();
+			await this.code.driver.currentPage.locator(STEP_OUT).click();
 		});
 	}
 
 	async continue(): Promise<any> {
 		await test.step('Debug: Continue', async () => {
-			await this.code.driver.page.locator(CONTINUE).click();
+			await this.code.driver.currentPage.locator(CONTINUE).click();
 		});
 	}
 
 	async getStack(): Promise<IStackFrame[]> {
-		const stackLocators = await this.code.driver.page.locator(STACK_FRAME).all();
+		const stackLocators = await this.code.driver.currentPage.locator(STACK_FRAME).all();
 
 		const stack: IStackFrame[] = [];
 		for (const stackLocator of stackLocators) {
@@ -203,7 +203,7 @@ export class Debug {
 	async expectDebugPaneToContain(variableLabel: string): Promise<void> {
 		await test.step(`Verify debug pane contains: ${variableLabel}`, async () => {
 			await expect(this.debugVariablesSection).toBeVisible();
-			await expect(this.code.driver.page.getByLabel(variableLabel)).toBeVisible();
+			await expect(this.code.driver.currentPage.getByLabel(variableLabel)).toBeVisible();
 		});
 	}
 
@@ -246,7 +246,7 @@ export class Debug {
 	 */
 	async expectBrowserModeFrame(number: number): Promise<void> {
 		await test.step(`Verify in browser mode: frame ${number}`, async () => {
-			await expect(this.code.driver.page.getByText(`Browse[${number}]>`)).toBeVisible();
+			await expect(this.code.driver.currentPage.getByText(`Browse[${number}]>`)).toBeVisible();
 		});
 	}
 
@@ -257,7 +257,7 @@ export class Debug {
 	 */
 	async expectCurrentLineToBe(lineNumber: number): Promise<void> {
 		await test.step(`Verify current line is: ${lineNumber}`, async () => {
-			await expect(this.code.driver.page.locator('[id="workbench.parts.editor"]').locator('.line-numbers.active-line-number')).toHaveText(lineNumber.toString());
+			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.editor"]').locator('.line-numbers.active-line-number')).toHaveText(lineNumber.toString());
 		});
 	}
 
@@ -267,7 +267,7 @@ export class Debug {
 	 */
 	async expectCurrentLineIndicatorVisible(timeout: number = 15000): Promise<void> {
 		await test.step('Verify current line indicator is visible', async () => {
-			await expect(this.code.driver.page.locator('.codicon-debug-stackframe')).toBeVisible({ timeout: timeout });
+			await expect(this.code.driver.currentPage.locator('.codicon-debug-stackframe')).toBeVisible({ timeout: timeout });
 		});
 	}
 }

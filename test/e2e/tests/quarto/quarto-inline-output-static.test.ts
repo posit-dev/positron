@@ -39,7 +39,7 @@ test.describe('Quarto - Inline Output: Static Content', {
 		await expect(inlineQuarto.imagePreviewWrapper.first()).toBeVisible({ timeout: 1000 });
 
 		// Verify specific image
-		const mandelbrotImage = app.code.driver.page.locator('.quarto-image-preview[alt="The Mandlebrot Set"]');
+		const mandelbrotImage = app.code.driver.currentPage.locator('.quarto-image-preview[alt="The Mandlebrot Set"]');
 		await expect(mandelbrotImage).toBeVisible({ timeout: 10000 });
 
 		// Verify image has data URL src
@@ -48,7 +48,7 @@ test.describe('Quarto - Inline Output: Static Content', {
 		expect(imgSrc).toMatch(/^data:image\/jpeg;base64,/);
 
 		// Verify preview container
-		const previewContainer = app.code.driver.page.locator('.quarto-image-preview-container').first();
+		const previewContainer = app.code.driver.currentPage.locator('.quarto-image-preview-container').first();
 		await expect(previewContainer).toBeVisible({ timeout: 5000 });
 	});
 
@@ -66,7 +66,7 @@ test.describe('Quarto - Inline Output: Static Content', {
 		await expect(inlineQuarto.imagePreviewError).toHaveCount(1, { timeout: 1000 });
 
 		// Verify error message
-		const errorText = app.code.driver.page.locator('.quarto-image-preview-error-text');
+		const errorText = app.code.driver.currentPage.locator('.quarto-image-preview-error-text');
 		await expect(errorText).toHaveCount(1, { timeout: 10000 });
 		const errorContent = await errorText.textContent();
 		expect(errorContent).toContain('julia.jpg');

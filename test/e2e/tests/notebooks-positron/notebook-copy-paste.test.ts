@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -103,7 +103,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 
 	test('Multiselect: Cut from top and paste at bottom', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create notebook with 5 cells
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 3 });

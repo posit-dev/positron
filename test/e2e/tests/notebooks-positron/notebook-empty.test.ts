@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,7 @@ test.describe('Notebook: Empty State Behavior', {
 
 	test('Can delete all, undo, redo on empty notebook', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// create a new notebook with 2 code cells and 2 markdown cells
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 2 });
@@ -41,7 +41,7 @@ test.describe('Notebook: Empty State Behavior', {
 
 	test('Can cut/paste on empty notebook', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// create a new notebook with 2 code cells and 2 markdown cells
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 2 });

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,9 +16,9 @@ const FULL_APP = 'body';
 
 export class Viewer {
 
-	get fullApp(): Locator { return this.code.driver.page.locator(FULL_APP); }
-	get viewerFrame(): FrameLocator { return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
-	get interruptButton(): Locator { return this.code.driver.page.locator(ACTION_BAR).getByRole('button', { name: 'Interrupt execution' }); }
+	get fullApp(): Locator { return this.code.driver.currentPage.locator(FULL_APP); }
+	get viewerFrame(): FrameLocator { return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
+	get interruptButton(): Locator { return this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Interrupt execution' }); }
 
 	constructor(private code: Code) { }
 
@@ -31,11 +31,11 @@ export class Viewer {
 	}
 
 	async refreshViewer() {
-		await this.code.driver.page.locator(REFRESH_BUTTON).click({ timeout: 15000 });
+		await this.code.driver.currentPage.locator(REFRESH_BUTTON).click({ timeout: 15000 });
 	}
 
 	async clearViewer() {
-		await this.code.driver.page.getByRole('tab', { name: 'Viewer' }).locator('a').click();
+		await this.code.driver.currentPage.getByRole('tab', { name: 'Viewer' }).locator('a').click();
 
 		const clearRegex = /Clear the/;
 
@@ -45,12 +45,12 @@ export class Viewer {
 	}
 
 	async openViewerToEditor() {
-		await this.code.driver.page.locator('.codicon-go-to-file').click();
+		await this.code.driver.currentPage.locator('.codicon-go-to-file').click();
 	}
 
 	async expectViewerPanelVisible(timeout = 10000): Promise<void> {
 		await test.step('Expect viewer panel visible', async () => {
-			await expect(this.code.driver.page.locator(VIEWER_PANEL)).toBeVisible({ timeout });
+			await expect(this.code.driver.currentPage.locator(VIEWER_PANEL)).toBeVisible({ timeout });
 		});
 	}
 

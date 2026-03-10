@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,22 +19,22 @@ const AUX_BAR = '.part.auxiliarybar';
  */
 export class Help {
 
-	private get auxilaryBar(): Locator { return this.code.driver.page.locator(AUX_BAR); }
+	private get auxilaryBar(): Locator { return this.code.driver.currentPage.locator(AUX_BAR); }
 
 	constructor(private code: Code) { }
 
 	async openHelpPanel(): Promise<void> {
-		await this.code.driver.page.locator('.action-label[aria-label="Help"]').click();
+		await this.code.driver.currentPage.locator('.action-label[aria-label="Help"]').click();
 	}
 
 	async getHelpWelcomePageFrame() {
-		const outerFrame = this.code.driver.page.locator(OUTER_FRAME).first().contentFrame();
+		const outerFrame = this.code.driver.currentPage.locator(OUTER_FRAME).first().contentFrame();
 		const innerInnerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
 		return innerInnerFrame;
 	}
 
 	async getHelpFrame(nth: number): Promise<FrameLocator> {
-		const outerFrame = this.code.driver.page.locator(OUTER_FRAME).nth(nth).contentFrame();
+		const outerFrame = this.code.driver.currentPage.locator(OUTER_FRAME).nth(nth).contentFrame();
 		const innerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
 		const innerInnerFrame = innerFrame.frameLocator(INNER_FRAME);
 		return innerInnerFrame;

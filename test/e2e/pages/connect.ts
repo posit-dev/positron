@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -160,17 +160,17 @@ export class PositConnect {
 	}
 
 	async setPythonVersion(version: string) {
-		const editorContainer = this.code.driver.page.locator('[id="workbench.parts.editor"]');
+		const editorContainer = this.code.driver.currentPage.locator('[id="workbench.parts.editor"]');
 		const dynamicTomlLineRegex = '[python]';
 		const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 
 		await expect(targetLine).toBeVisible({ timeout: 10000 });
 
 		await targetLine.click();
-		await this.code.driver.page.keyboard.press('End');
-		await this.code.driver.page.keyboard.press('Enter');
+		await this.code.driver.currentPage.keyboard.press('End');
+		await this.code.driver.currentPage.keyboard.press('Enter');
 
-		await this.code.driver.page.keyboard.type(`version = '${version}'`, { delay: 50 });
+		await this.code.driver.currentPage.keyboard.type(`version = '${version}'`, { delay: 50 });
 	}
 
 

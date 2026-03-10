@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -42,8 +42,8 @@ export class QuickAccess {
 		// Clear editor history to ensure Quick Access is not "polluted"
 		await this.runCommand('workbench.action.clearEditorHistory');
 
-		if (/(8080|8787)/.test(this.code.driver.page.url())) {
-			await this.code.driver.page.getByRole('button', { name: 'Clear', exact: true }).click();
+		if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
+			await this.code.driver.currentPage.getByRole('button', { name: 'Clear', exact: true }).click();
 		}
 
 		await expect(async () => {
@@ -125,13 +125,13 @@ export class QuickAccess {
 			// Open via keybinding
 			switch (kind) {
 				case QuickAccessKind.Files:
-					await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+P' : 'Control+P');
+					await this.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+P' : 'Control+P');
 					break;
 				case QuickAccessKind.Symbols:
-					await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+O' : 'Control+Shift+O');
+					await this.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+O' : 'Control+Shift+O');
 					break;
 				case QuickAccessKind.Commands:
-					await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+P' : 'Control+Shift+P');
+					await this.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+P' : 'Control+Shift+P');
 					break;
 				default:
 					throw new Error(`Unsupported QuickAccessKind: ${kind}`);
@@ -141,7 +141,7 @@ export class QuickAccess {
 			try {
 				await this.quickInput.waitForQuickInputOpened({ timeout: 3000 });
 			} catch (err) {
-				await this.code.driver.page.keyboard.press('Escape');
+				await this.code.driver.currentPage.keyboard.press('Escape');
 				throw err;
 			}
 		}).toPass({

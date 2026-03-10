@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -146,11 +146,11 @@ test.describe('Console Pane: R Hyperlinks', {
 			return normalizedContents.includes('eight');
 		});
 
-		const cursorTopValue = await app.code.driver.page.locator('.editor .cursor').evaluate((element) => {
+		const cursorTopValue = await app.code.driver.currentPage.locator('.editor .cursor').evaluate((element) => {
 			return window.getComputedStyle(element).getPropertyValue('top');
 		});
 
-		const lineEightTopValue = await app.code.driver.page.locator('div.view-line', { hasText: /^eight$/ }).evaluate((element) => {
+		const lineEightTopValue = await app.code.driver.currentPage.locator('div.view-line', { hasText: /^eight$/ }).evaluate((element) => {
 			return window.getComputedStyle(element).getPropertyValue('top');
 		});
 

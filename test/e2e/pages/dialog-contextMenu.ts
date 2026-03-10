@@ -14,7 +14,7 @@ export type MenuItemState = {
 };
 
 export class ContextMenu {
-	private get page(): Page { return this.code.driver.page; }
+	private get page(): Page { return this.code.driver.currentPage; }
 	private isNativeMenu: boolean;
 	private get contextMenu(): Locator { return this.page.locator('.monaco-menu'); }
 	private getContextMenuItem(label: string | RegExp): Locator { return this.contextMenu.getByRole('menuitem', { name: label }); }

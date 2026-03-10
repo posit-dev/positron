@@ -97,6 +97,7 @@ export let dirs = [
 	// --- End Positron ---
 	'.vscode/extensions/vscode-selfhost-import-aid',
 	'.vscode/extensions/vscode-selfhost-test-provider',
+	'.vscode/extensions/vscode-extras',
 ];
 
 // --- Start Positron ---

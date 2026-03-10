@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,7 @@ import { Code } from '../infra/code.js';
 
 export class Toasts {
 
-	public get toastNotification(): Locator { return this.code.driver.page.locator('.notification-toast'); }
+	public get toastNotification(): Locator { return this.code.driver.currentPage.locator('.notification-toast'); }
 	public get closeButton(): Locator { return this.toastNotification.locator('.codicon-notifications-clear'); }
 	public getOptionButton(button: string): Locator { return this.toastNotification.getByRole('button', { name: button }); }
 
@@ -100,7 +100,7 @@ export class Toasts {
 			if (await this.toastNotification.count() > 0) {
 				throw new Error('Toast appeared unexpectedly');
 			}
-			await this.code.driver.page.waitForTimeout(1000);
+			await this.code.driver.currentPage.waitForTimeout(1000);
 		}
 	}
 

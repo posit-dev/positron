@@ -61,7 +61,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 
 	test('Python - Verify scroll in inline data explorer does not scroll notebook', async function ({ app }) {
 		const { notebooksPositron, inlineDataExplorer } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 
 		await test.step('Execute cell with large DataFrame', async () => {
 			await notebooksPositron.addCodeToCell(0, largeDataFrameCode, { run: true, waitForSpinner: true });
@@ -88,7 +88,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 
 	test('Python - Verify open full Data Explorer and return to inline view', async function ({ app, hotKeys }) {
 		const { notebooksPositron, inlineDataExplorer, dataExplorer } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 
 		await test.step('Execute cell that returns a DataFrame', async () => {
 			await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });

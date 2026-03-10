@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createReadStream, promises } from 'fs';
-import * as http from 'http';
+import type * as http from 'http';
 import * as url from 'url';
 import * as cookie from 'cookie';
 import * as crypto from 'crypto';
@@ -33,6 +33,8 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 // eslint-disable-next-line local/code-import-patterns
 import httpProxy from 'http-proxy';
 import { kProxyRegex } from './pwbConstants.js';
+// eslint-disable-next-line no-duplicate-imports
+import { existsSync } from 'fs';
 // --- End PWB ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
@@ -111,6 +113,7 @@ export class WebClientServer {
 	private readonly _webExtensionResourceUrlTemplate: URI | undefined;
 	// --- Start PWB ---
 	private readonly _proxyServer;
+	private readonly _rsLoginCheckScriptTag: string;
 	// --- End PWB ---
 
 	constructor(
@@ -141,6 +144,12 @@ export class WebClientServer {
 				(res as http.ServerResponse).end(message);
 			}
 		});
+
+		// Cache rsLoginCheck.js existence at startup to avoid synchronous file check on every request
+		const rsLoginCheckPath = join(APP_ROOT, 'out/vs/code/browser/workbench/rsLoginCheck.js');
+		this._rsLoginCheckScriptTag = existsSync(rsLoginCheckPath)
+			? `<script src="{{VS_BASE}}{{STATIC_ROUTE}}/out/vs/code/browser/workbench/rsLoginCheck.js"></script>`
+			: '';
 		// --- End PWB ---
 	}
 
@@ -504,6 +513,13 @@ export class WebClientServer {
 			WORKBENCH_NLS_URL = ''; // fallback will apply
 		}
 
+		// --- Start PWB: Conditionally inject rsLoginCheck.js script if it exists in the build ---
+		// Uses cached value from constructor to avoid blocking I/O on every request
+		const rsLoginCheckScript = this._rsLoginCheckScriptTag
+			.replace('{{VS_BASE}}', vscodeBase)
+			.replace('{{STATIC_ROUTE}}', staticRoute);
+		// --- End PWB ---
+
 		const values: { [key: string]: string } = {
 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
 			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
@@ -515,6 +531,7 @@ export class WebClientServer {
 			WORKBENCH_NLS_FALLBACK_URL: `${vscodeBase}${staticRoute}/out/nls.messages.js`,
 			BASE: base,
 			VS_BASE: vscodeBase,
+			RS_LOGIN_CHECK_SCRIPT: rsLoginCheckScript,
 			// --- End PWB ---
 		};
 

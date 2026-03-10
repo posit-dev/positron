@@ -4,15 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { Emitter } from '../../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
+import { observableValue } from '../../../../../../base/common/observable.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
-import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatSelector, ILanguageModelsGroup, ILanguageModelsService, IUserFriendlyLanguageModel, ILanguageModelProviderDescriptor, IPositronChatProvider, ILanguageModelsChangeEvent } from '../../../common/languageModels.js';
+import { IModelsControlManifest, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatSelector, ILanguageModelsGroup, ILanguageModelsService, IUserFriendlyLanguageModel, ILanguageModelProviderDescriptor } from '../../../common/languageModels.js';
 import { ChatModelGroup, ChatModelsViewModel, ILanguageModelEntry, ILanguageModelProviderEntry, isLanguageModelProviderEntry, isLanguageModelGroupEntry, ILanguageModelGroupEntry } from '../../../browser/chatManagement/chatModelsViewModel.js';
 import { ExtensionIdentifier } from '../../../../../../platform/extensions/common/extensions.js';
 import { IStringDictionary } from '../../../../../../base/common/collections.js';
 import { ILanguageModelsProviderGroup } from '../../../common/languageModelsConfiguration.js';
 import { ChatAgentLocation } from '../../../common/constants.js';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IPositronChatProvider, ILanguageModelsChangeEvent } from '../../../common/languageModels.js';
+// --- End Positron ---
 
 class MockLanguageModelsService implements ILanguageModelsService {
 	_serviceBrand: undefined;
@@ -35,6 +41,7 @@ class MockLanguageModelsService implements ILanguageModelsService {
 	private readonly _onDidChangeProviders = new Emitter<ILanguageModelsChangeEvent>();
 	readonly onDidChangeProviders = this._onDidChangeProviders.event;
 	// --- End Positron ---
+	onDidChangeModelsControlManifest = Event.None;
 
 	addVendor(vendor: IUserFriendlyLanguageModel): void {
 		this.vendors.push(vendor);
@@ -90,10 +97,10 @@ class MockLanguageModelsService implements ILanguageModelsService {
 		return this.models.get(identifier);
 	}
 
-	lookupLanguageModelByQualifiedName(referenceName: string): ILanguageModelChatMetadata | undefined {
-		for (const metadata of this.models.values()) {
+	lookupLanguageModelByQualifiedName(referenceName: string): ILanguageModelChatMetadataAndIdentifier | undefined {
+		for (const [identifier, metadata] of this.models.entries()) {
 			if (ILanguageModelChatMetadata.matchesQualifiedName(referenceName, metadata)) {
-				return metadata;
+				return { metadata, identifier };
 			}
 		}
 		return undefined;
@@ -175,6 +182,12 @@ class MockLanguageModelsService implements ILanguageModelsService {
 	}
 
 	async migrateLanguageModelsProviderGroup(languageModelsProviderGroup: ILanguageModelsProviderGroup): Promise<void> { }
+
+	getRecentlyUsedModelIds(): string[] { return []; }
+	addToRecentlyUsedList(): void { }
+	clearRecentlyUsedList(): void { }
+	getModelsControlManifest(): IModelsControlManifest { return { free: {}, paid: {} }; }
+	restrictedChatParticipants = observableValue('restrictedChatParticipants', Object.create(null));
 }
 
 suite('ChatModelsViewModel', () => {

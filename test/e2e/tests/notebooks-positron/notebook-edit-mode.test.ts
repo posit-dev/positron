@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,7 @@ test.describe('Notebook Edit Mode', {
 
 	test('Clicking/dbl clicking into cell focuses editor and enters into edit mode', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 1 });
 
 		// Code cell: Can successfully enter edit mode by single clicking and typing
@@ -35,7 +35,7 @@ test.describe('Notebook Edit Mode', {
 
 	test('Enter key on selected cell enters edit mode and doesn\'t add new lines', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create a new notebook with 3 cells
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 1 });
@@ -64,7 +64,7 @@ test.describe('Notebook Edit Mode', {
 
 	test('Shift+Enter on last cell creates new cell and enters edit mode', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create a new notebook with 3 cells
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 1 });
@@ -85,7 +85,7 @@ test.describe('Notebook Edit Mode', {
 
 	test('Move cells up and down with keyboard shortcuts', async function ({ app, r, }) {
 		const { notebooksPositron } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create a new notebook with 2 cells
 		await notebooksPositron.newNotebook({ codeCells: 2 });
@@ -106,7 +106,7 @@ test.describe('Notebook Edit Mode', {
 
 	test('Execute and debug cells with keyboard shortcuts', async function ({ app, r, }) {
 		const { notebooksPositron, debug } = app.workbench;
-		const keyboard = app.code.driver.page.keyboard;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		// Create a new notebook with 2 cells
 		await notebooksPositron.newNotebook({ codeCells: 2 });

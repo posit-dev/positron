@@ -214,12 +214,7 @@ suite('KeybindingsEditorModel', () => {
 	});
 
 	test('filter by command id', async () => {
-		// --- Start Positron ---
-		// In a Positron test suite, we (indirectly) import src/vs/workbench/browser/actions/layoutActions.ts
-		// which registers the actual workbench.action.increaseViewSize command, causing this test to
-		// fail. Prepend 'test.' to resolve the conflict.
-		const id = 'test.workbench.action.increaseViewSize';
-		// --- End Positron ---
+		const id = 'workbench.action.view.size.' + uuid.generateUuid();
 		registerCommandWithTitle(id, 'some title');
 		prepareKeybindingService();
 

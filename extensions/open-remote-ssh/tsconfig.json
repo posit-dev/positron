@@ -2,8 +2,10 @@
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
 		"outDir": "out",
+		"rootDir": "src",
 		"strict": true,
 		"sourceMap": true,
+		"skipLibCheck": true,
 		"exactOptionalPropertyTypes": false,
 		"useUnknownInCatchVariables": false,
 		"alwaysStrict": true,

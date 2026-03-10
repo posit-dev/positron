@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -83,7 +83,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 			await test.step('Select Posit Connect as deployment target', async () => {
 				await app.workbench.quickInput.selectQuickInputElement(1, true);
-				await expect(app.code.driver.page.getByText('Please provide the Posit Connect server\'s URL')).toBeVisible({ timeout: 10000 });
+				await expect(app.code.driver.currentPage.getByText('Please provide the Posit Connect server\'s URL')).toBeVisible({ timeout: 10000 });
 				await app.workbench.quickInput.type(connectServer);
 				await page.keyboard.press('Enter');
 			});
@@ -98,7 +98,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			});
 
 			await test.step('Unique name for credential (Connect Server and API key)', async () => {
-				await expect(app.code.driver.page.getByText(`Successfully connected to ${connectServer}`)).toBeVisible({ timeout: 10000 });
+				await expect(app.code.driver.currentPage.getByText(`Successfully connected to ${connectServer}`)).toBeVisible({ timeout: 10000 });
 
 				await app.workbench.quickInput.type('shiny-py-example');
 				await page.keyboard.press('Enter');
@@ -127,7 +127,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await expect(async () => {
 				try {
 					// is tips.csv in the toml file?
-					const editorContainer = app.code.driver.page.locator('[id="workbench.parts.editor"]');
+					const editorContainer = app.code.driver.currentPage.locator('[id="workbench.parts.editor"]');
 					const dynamicTomlLineRegex = 'tips.csv';
 					const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 					await expect(targetLine).toBeVisible({ timeout: 10000 });
@@ -158,15 +158,15 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		await test.step('Deploy, await completion and get appGuid', async () => {
 			await deployButton.click({ timeout: 5000 });
 
-			await expect(app.code.driver.page.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 200000 });
+			await expect(app.code.driver.currentPage.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 200000 });
 
 			await hotKeys.closeSecondarySidebar();
 
 			await hotKeys.restoreBottomPanel();
 
-			await app.code.driver.page.locator('.monaco-action-bar .action-label', { hasText: 'Publisher' }).click({ timeout: 60000 });
+			await app.code.driver.currentPage.locator('.monaco-action-bar .action-label', { hasText: 'Publisher' }).click({ timeout: 60000 });
 
-			const deployedLocator = app.code.driver.page.locator('.monaco-tl-row .monaco-highlighted-label', { hasText: 'Successfully deployed at' });
+			const deployedLocator = app.code.driver.currentPage.locator('.monaco-tl-row .monaco-highlighted-label', { hasText: 'Successfully deployed at' });
 
 			const deploymentText = await deployedLocator.textContent();
 
@@ -187,17 +187,17 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		});
 
 		await test.step('Ensure connect user can access content', async () => {
-			await app.code.driver.page.goto('http://localhost:3939');
+			await app.code.driver.currentPage.goto('http://localhost:3939');
 
-			await app.code.driver.page.locator('[data-automation="signin"]').click();
+			await app.code.driver.currentPage.locator('[data-automation="signin"]').click();
 
-			await app.code.driver.page.fill('input[name="username"]', 'user1');
-			await app.code.driver.page.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
-			await app.code.driver.page.locator('[data-automation="login-panel-submit"]').click();
+			await app.code.driver.currentPage.fill('input[name="username"]', 'user1');
+			await app.code.driver.currentPage.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
+			await app.code.driver.currentPage.locator('[data-automation="login-panel-submit"]').click();
 
-			await app.code.driver.page.locator('[data-automation="content-table__row__display-name"]').first().click();
+			await app.code.driver.currentPage.locator('[data-automation="content-table__row__display-name"]').first().click();
 
-			const headerLocator = app.code.driver.page.frameLocator('#contentIFrame').locator('h1');
+			const headerLocator = app.code.driver.currentPage.frameLocator('#contentIFrame').locator('h1');
 			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
 		});
 

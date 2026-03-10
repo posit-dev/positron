@@ -143,7 +143,7 @@ export const buttonSecondaryBorder = registerColor('button.secondaryBorder',
 	nls.localize('buttonSecondaryBorder', "Secondary button border color."));
 
 export const buttonSecondaryHoverBackground = registerColor('button.secondaryHoverBackground',
-	{ dark: lighten(buttonSecondaryBackground, 0.2), light: lighten(buttonSecondaryBackground, 0.2), hcDark: null, hcLight: null },
+	{ dark: lighten(listHoverBackground, 0.2), light: lighten(listHoverBackground, 0.2), hcDark: null, hcLight: null },
 	nls.localize('buttonSecondaryHoverBackground', "Secondary button background color when hovering."));
 
 // ------ radio

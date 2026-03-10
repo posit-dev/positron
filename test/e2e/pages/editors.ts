@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,16 +9,16 @@ import { Code } from '../infra/code';
 
 export class Editors {
 
-	get activeEditor(): Locator { return this.code.driver.page.locator('div.tab.tab-actions-right.active.selected'); }
-	get editorIcon(): Locator { return this.code.driver.page.locator('.monaco-icon-label.file-icon'); }
-	get editorPart(): Locator { return this.code.driver.page.locator('.split-view-view .part.editor'); }
-	get suggestionList(): Locator { return this.code.driver.page.locator('.suggest-widget .monaco-list-row'); }
+	get activeEditor(): Locator { return this.code.driver.currentPage.locator('div.tab.tab-actions-right.active.selected'); }
+	get editorIcon(): Locator { return this.code.driver.currentPage.locator('.monaco-icon-label.file-icon'); }
+	get editorPart(): Locator { return this.code.driver.currentPage.locator('.split-view-view .part.editor'); }
+	get suggestionList(): Locator { return this.code.driver.currentPage.locator('.suggest-widget .monaco-list-row'); }
 
 	constructor(private code: Code) { }
 
 	async clickTab(tabName: string): Promise<void> {
 		await test.step(`Click tab: ${tabName}`, async () => {
-			const tabLocator = this.code.driver.page.getByRole('tab', { name: tabName });
+			const tabLocator = this.code.driver.currentPage.getByRole('tab', { name: tabName });
 			await expect(tabLocator).toBeVisible();
 			await tabLocator.click();
 		});
@@ -29,7 +29,7 @@ export class Editors {
 		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
 	): Promise<void> {
 		await test.step(`Verify tab: ${tabName} is ${isVisible ? '' : 'not'} visible, is ${isSelected ? '' : 'not'} selected`, async () => {
-			const tabLocator = this.code.driver.page.getByRole('tab', { name: tabName });
+			const tabLocator = this.code.driver.currentPage.getByRole('tab', { name: tabName });
 
 			await (isVisible
 				? expect(tabLocator).toBeVisible()
@@ -61,7 +61,7 @@ export class Editors {
 	}
 	async waitForActiveTabNotDirty(fileName: string): Promise<void> {
 		await expect(
-			this.code.driver.page.locator(
+			this.code.driver.currentPage.locator(
 				`.tabs-container div.tab.active:not(.dirty)[aria-selected="true"][data-resource-name$="${fileName}"]`
 			)
 		).toBeVisible();
@@ -69,9 +69,9 @@ export class Editors {
 
 	async newUntitledFile(): Promise<void> {
 		if (process.platform === 'darwin') {
-			await this.code.driver.page.keyboard.press('Meta+N');
+			await this.code.driver.currentPage.keyboard.press('Meta+N');
 		} else {
-			await this.code.driver.page.keyboard.press('Control+N');
+			await this.code.driver.currentPage.keyboard.press('Control+N');
 		}
 
 		await this.waitForEditorFocus('Untitled-1');
@@ -84,7 +84,7 @@ export class Editors {
 
 	async waitForActiveEditor(fileName: string): Promise<any> {
 		const selector = `.editor-instance .monaco-editor[data-uri$="${fileName}"] .native-edit-context`;
-		await expect(this.code.driver.page.locator(selector)).toBeFocused();
+		await expect(this.code.driver.currentPage.locator(selector)).toBeFocused();
 	}
 
 	async selectTab(fileName: string): Promise<void> {
@@ -95,8 +95,8 @@ export class Editors {
 		// focus away from the editor while we attempt to get focus
 
 		await expect(async () => {
-			await this.code.driver.page.locator(`.tabs-container div.tab[data-resource-name$="${fileName}"]`).click();
-			await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+1' : 'Control+1'); // make editor really active if click failed somehow
+			await this.code.driver.currentPage.locator(`.tabs-container div.tab[data-resource-name$="${fileName}"]`).click();
+			await this.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+1' : 'Control+1'); // make editor really active if click failed somehow
 			await this.waitForEditorFocus(fileName);
 		}).toPass();
 	}
@@ -136,14 +136,14 @@ export class Editors {
 	}
 
 	async waitForSCMTab(fileName: string): Promise<void> {
-		await expect(this.code.driver.page.locator(`.tabs-container div.tab[aria-label^="${fileName}"]`)).toBeVisible();
+		await expect(this.code.driver.currentPage.locator(`.tabs-container div.tab[aria-label^="${fileName}"]`)).toBeVisible();
 	}
 
 	async saveOpenedFile(): Promise<any> {
 		if (process.platform === 'darwin') {
-			await this.code.driver.page.keyboard.press('Meta+S');
+			await this.code.driver.currentPage.keyboard.press('Meta+S');
 		} else {
-			await this.code.driver.page.keyboard.press('Control+S');
+			await this.code.driver.currentPage.keyboard.press('Control+S');
 		}
 	}
 
@@ -159,7 +159,7 @@ export class Editors {
 	 */
 	async expectEditorToContain(text: string): Promise<void> {
 		await test.step(`Verify editor contains: ${text}`, async () => {
-			await expect(this.code.driver.page.locator('[id="workbench.parts.editor"]').getByRole('code').getByText(text)).toBeVisible();
+			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.editor"]').getByRole('code').getByText(text)).toBeVisible();
 		});
 	}
 

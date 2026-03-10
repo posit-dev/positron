@@ -37,24 +37,24 @@ export class Console {
 	private error: Locator;
 
 	get emptyConsole() {
-		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
+		return this.code.driver.currentPage.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		// Standard Console Button Locators
-		this.restartButton = this.code.driver.page.getByTestId('restart-session');
-		this.clearButton = this.code.driver.page.getByLabel('Clear console');
-		this.trashButton = this.code.driver.page.getByTestId('trash-session');
+		this.restartButton = this.code.driver.currentPage.getByTestId('restart-session');
+		this.clearButton = this.code.driver.currentPage.getByLabel('Clear console');
+		this.trashButton = this.code.driver.currentPage.getByTestId('trash-session');
 
 		// `+` Add Session Split Button Locators
-		this.addSessionDuplicateButton = this.code.driver.page.getByLabel('Duplicate Active Console Session');
-		this.addSessionExpandMenuButton = this.code.driver.page.getByLabel('Quick Launch Session...');
+		this.addSessionDuplicateButton = this.code.driver.currentPage.getByLabel('Duplicate Active Console Session');
+		this.addSessionExpandMenuButton = this.code.driver.currentPage.getByLabel('Quick Launch Session...');
 
 		// Misc
-		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
-		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
-		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
-		this.error = this.code.driver.page.locator(ERROR);
+		this.activeConsole = this.code.driver.currentPage.locator(ACTIVE_CONSOLE_INSTANCE);
+		this.suggestionList = this.code.driver.currentPage.locator(SUGGESTION_LIST);
+		this.consoleTab = this.code.driver.currentPage.getByRole('tab', { name: 'Console', exact: true });
+		this.error = this.code.driver.currentPage.locator(ERROR);
 	}
 
 	/**
@@ -73,7 +73,7 @@ export class Console {
 
 			await this.quickinput.waitForQuickInputOpened();
 			await this.quickinput.type(availableRuntimes[runtime].name);
-			await this.code.driver.page.keyboard.press('Enter');
+			await this.code.driver.currentPage.keyboard.press('Enter');
 			await this.quickinput.waitForQuickInputClosed();
 		});
 	}
@@ -135,14 +135,14 @@ export class Console {
 			await this.quickinput.waitForQuickInputOpened();
 			await this.quickinput.type(languageName);
 			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
-			await this.code.driver.page.keyboard.press('Enter');
+			await this.code.driver.currentPage.keyboard.press('Enter');
 
 			await this.quickinput.waitForQuickInputOpened();
 			const unescapedCode = code
 				.replace(/\n/g, '\\n')
 				.replace(/\r/g, '\\r');
 			await this.quickinput.type(unescapedCode);
-			await this.code.driver.page.keyboard.press('Enter');
+			await this.code.driver.currentPage.keyboard.press('Enter');
 			await this.quickinput.waitForQuickInputClosed();
 
 			if (waitForReady) {
@@ -157,7 +157,7 @@ export class Console {
 	async logConsoleContents() {
 		await test.step('Log console contents', async () => {
 			this.code.logger.log('---- START: Console Contents ----');
-			const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
+			const contents = await this.code.driver.currentPage.locator(CONSOLE_LINES).allTextContents();
 			contents.forEach(line => this.code.logger.log(line));
 			this.code.logger.log('---- END: Console Contents ----');
 		});
@@ -165,13 +165,13 @@ export class Console {
 
 	async typeToConsole(text: string, pressEnter = false, delay = 10) {
 		await test.step(`Type to console: ${text}`, async () => {
-			await this.code.driver.page.waitForTimeout(500);
+			await this.code.driver.currentPage.waitForTimeout(500);
 			await this.activeConsole.click();
-			await this.code.driver.page.keyboard.type(text, { delay });
+			await this.code.driver.currentPage.keyboard.type(text, { delay });
 
 			if (pressEnter) {
-				await this.code.driver.page.waitForTimeout(1000);
-				await this.code.driver.page.keyboard.press('Enter');
+				await this.code.driver.currentPage.waitForTimeout(1000);
+				await this.code.driver.currentPage.keyboard.press('Enter');
 			}
 		});
 	}
@@ -180,20 +180,20 @@ export class Console {
 		await test.step('Clear console input', async () => {
 			await this.focus();
 			await this.hotKeys.selectAll();
-			await this.code.driver.page.keyboard.press('Backspace');
+			await this.code.driver.currentPage.keyboard.press('Backspace');
 		});
 	}
 
 	async sendEnterKey() {
 		await test.step('Send Enter key to console', async () => {
 			await this.focus();
-			await this.code.driver.page.waitForTimeout(500);
-			await this.code.driver.page.keyboard.press('Enter');
+			await this.code.driver.currentPage.waitForTimeout(500);
+			await this.code.driver.currentPage.keyboard.press('Enter');
 		});
 	}
 
 	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
-		const activeLine = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
+		const activeLine = this.code.driver.currentPage.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
 		await expect(activeLine).toHaveText(prompt, { timeout });
 	}
 
@@ -212,7 +212,7 @@ export class Console {
 	}
 
 	async doubleClickConsoleText(text: string) {
-		await this.code.driver.page.locator(CONSOLE_LINES).getByText(text).dblclick();
+		await this.code.driver.currentPage.locator(CONSOLE_LINES).getByText(text).dblclick();
 	}
 
 	async waitForConsoleContents(
@@ -232,7 +232,7 @@ export class Console {
 					const errorMessage = `Expected text "${consoleTextOrRegex}" to not appear, but it did.`;
 
 					try {
-						const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleTextOrRegex);
+						const matchingLines = this.code.driver.currentPage.locator(CONSOLE_LINES).getByText(consoleTextOrRegex);
 						const count = await matchingLines.count();
 
 						if (count > 0) {
@@ -250,7 +250,7 @@ export class Console {
 			}
 
 			// Normal case: waiting for `expectedCount` occurrences
-			const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleTextOrRegex, { exact });
+			const matchingLines = this.code.driver.currentPage.locator(CONSOLE_LINES).getByText(consoleTextOrRegex, { exact });
 
 			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 			return expectedCount ? matchingLines.allTextContents() : [];
@@ -259,23 +259,23 @@ export class Console {
 
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
-		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .view-line`);
+		const locator = this.code.driver.currentPage.locator(`${ACTIVE_CONSOLE_INSTANCE} .view-line`);
 		await expect(locator).toContainText(expectedText, { timeout });
 		return await locator.textContent() ?? '';
 	}
 
 	async waitForConsoleExecution({ timeout = 20000 }: { timeout?: number } = {}): Promise<void> {
-		await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.getByLabel('Interrupt execution')).not.toBeVisible({ timeout });
 	}
 
 	async waitForHistoryContents(expectedText: string, count = 1, timeout = 30000): Promise<string[]> {
-		const historyItem = this.code.driver.page.locator(HISTORY_COMPLETION_ITEM);
+		const historyItem = this.code.driver.currentPage.locator(HISTORY_COMPLETION_ITEM);
 		await expect(historyItem.filter({ hasText: expectedText })).toHaveCount(count, { timeout });
 		return await historyItem.allTextContents();
 	}
 
 	async maximizeConsole() {
-		await this.code.driver.page.locator(MAXIMIZE_CONSOLE).click();
+		await this.code.driver.currentPage.locator(MAXIMIZE_CONSOLE).click();
 	}
 
 	async sendInterrupt() {
@@ -288,7 +288,7 @@ export class Console {
 			await this.pasteInMonaco(consoleInput!, code);
 
 			if (sendEnterKey) {
-				await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible();
+				await expect(this.code.driver.currentPage.getByLabel('Interrupt execution')).not.toBeVisible();
 				await this.sendEnterKey();
 			}
 		});
@@ -345,11 +345,11 @@ export class Console {
 	}
 
 	async waitForExecutionStarted(timeout = 30000): Promise<void> {
-		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.locator(INTERRUPT_RUNTIME)).toBeVisible({ timeout });
 	}
 
 	async waitForExecutionComplete(timeout = 30000): Promise<void> {
-		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
+		await expect(this.code.driver.currentPage.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
 	}
 
 	async focus() {
@@ -359,7 +359,7 @@ export class Console {
 	async clickConsoleTab() {
 		// sometimes the click doesn't work (or happens too fast), so adding a retry
 		await expect(async () => {
-			const consoleInput = this.code.driver.page.locator('div.console-input').first();
+			const consoleInput = this.code.driver.currentPage.locator('div.console-input').first();
 
 			if (!await consoleInput.isVisible()) {
 				await this.consoleTab.click();
@@ -370,7 +370,7 @@ export class Console {
 	}
 
 	async interruptExecution() {
-		await this.code.driver.page.getByLabel('Interrupt execution').click();
+		await this.code.driver.currentPage.getByLabel('Interrupt execution').click();
 	}
 
 	async expectSuggestionListCount(count: number): Promise<void> {
@@ -381,7 +381,7 @@ export class Console {
 
 	async expectSuggestionListToContain(label: string): Promise<void> {
 		await test.step(`Expect console suggestion list to contain: ${label}`, async () => {
-			await this.code.driver.page.locator('.suggest-widget').getByLabel(label).isVisible();
+			await this.code.driver.currentPage.locator('.suggest-widget').getByLabel(label).isVisible();
 		});
 	}
 

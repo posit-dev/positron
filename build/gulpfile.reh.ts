@@ -25,6 +25,8 @@ import { untar } from './lib/util.ts';
 import File from 'vinyl';
 import * as fs from 'fs';
 import glob from 'glob';
+import { promisify } from 'util';
+import rceditCallback from 'rcedit';
 import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, copyExtensionBinariesTask } from './gulpfile.extensions.ts';
 import { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } from './gulpfile.vscode.web.ts';
@@ -40,6 +42,8 @@ import { positronBuildNumber } from './utils.ts';
 import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
 // --- End Positron ---
+
+const rcedit = promisify(rceditCallback);
 
 const REPO_ROOT = path.dirname(import.meta.dirname);
 const commit = getVersion(REPO_ROOT);
@@ -66,10 +70,6 @@ const BUILD_TARGETS = [
 ];
 
 const serverResourceIncludes = [
-	// --- Start PWB ---
-	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
-	// --- End PWB ---
-
 	// NLS
 	'out-build/nls.messages.json',
 	'out-build/nls.keys.json',
@@ -91,8 +91,33 @@ const serverResourceIncludes = [
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-rc.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-login.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration.fish',
-
 ];
+
+// --- Start PWB ---
+// Web resources including PWB-specific files (for reh-web-pwb builds)
+const pwbWebResourceIncludes = [
+	...serverResourceIncludes,
+	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
+];
+
+/**
+ * Helper function to check if a build type is a web type.
+ * @param type The build type to check
+ * @returns true if the type is a web build type (reh-web or reh-web-pwb)
+ */
+function isWebType(type: string): boolean {
+	return type === 'reh-web' || type === 'reh-web-pwb';
+}
+
+/**
+ * Helper function to check if a build type is the PWB-specific web type.
+ * @param type The build type to check
+ * @returns true if the type is reh-web-pwb
+ */
+function isPwbWebType(type: string): boolean {
+	return type === 'reh-web-pwb';
+}
+// --- End PWB ---
 
 const serverResourceExcludes = [
 	'!out-build/vs/**/{electron-browser,electron-main,electron-utility}/**',
@@ -124,6 +149,21 @@ const serverWithWebResources = [
 	...serverWithWebResourceIncludes,
 	...serverWithWebResourceExcludes
 ];
+
+// --- Start PWB ---
+// Server with web resources for reh-web-pwb (includes PWB-specific rsLoginCheck.js)
+const pwbServerWithWebResourceIncludes = [
+	...pwbWebResourceIncludes,
+	'out-build/vs/code/browser/workbench/*.html',
+	...vscodeWebResourceIncludes
+];
+
+const pwbServerWithWebResources = [
+	...pwbServerWithWebResourceIncludes,
+	...serverWithWebResourceExcludes
+];
+// --- End PWB ---
+
 const serverEntryPoints = buildfile.codeServer;
 
 const webEntryPoints = [
@@ -302,9 +342,11 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
 			.filter((extensionPath) => {
-				if (type === 'reh-web') {
+				// --- Start PWB ---
+				if (isWebType(type)) {
 					return true; // web: ship all extensions for now
 				}
+				// --- End PWB ---
 
 				// Skip shipping UI extensions because the client side will have them anyways
 				// and they'd just increase the download without being used
@@ -382,7 +424,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		let productJsonContents = '';
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
 			// --- Start Positron ---
-			.pipe(jsonEditor({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber }))
+			.pipe(jsonEditor({ commit, date: readISODate(sourceFolderName), version, positronVersion, positronBuildNumber }))
 			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();
@@ -413,7 +455,9 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const node = gulp.src(`${nodePath}/**`, { base: nodePath, dot: true });
 
 		let web: NodeJS.ReadWriteStream[] = [];
-		if (type === 'reh-web') {
+		// --- Start PWB ---
+		if (isWebType(type)) {
+			// --- End PWB ---
 			web = [
 				'resources/server/favicon.ico',
 				// --- Start Positron ---
@@ -514,6 +558,40 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 	};
 }
 
+function patchWin32DependenciesTask(destinationFolderName: string) {
+	const cwd = path.join(BUILD_ROOT, destinationFolderName);
+
+	return async () => {
+		const deps = (await Promise.all([
+			promisify(glob)('**/*.node', { cwd }),
+			promisify(glob)('**/rg.exe', { cwd }),
+		])).flatMap(o => o);
+		const packageJsonContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'package.json'), 'utf8'));
+		const productContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'product.json'), 'utf8'));
+		const baseVersion = packageJsonContents.version.replace(/-.*$/, '');
+
+		const patchPromises = deps.map<Promise<unknown>>(async dep => {
+			const basename = path.basename(dep);
+
+			await rcedit(path.join(cwd, dep), {
+				'file-version': baseVersion,
+				'version-string': {
+					'CompanyName': 'Microsoft Corporation',
+					'FileDescription': productContents.nameLong,
+					'FileVersion': packageJsonContents.version,
+					'InternalName': basename,
+					'LegalCopyright': 'Copyright (C) 2026 Microsoft. All rights reserved',
+					'OriginalFilename': basename,
+					'ProductName': productContents.nameLong,
+					'ProductVersion': packageJsonContents.version,
+				}
+			});
+		});
+
+		await Promise.all(patchPromises);
+	};
+}
+
 /**
  * @param product The parsed product.json file contents
  */
@@ -523,7 +601,9 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 	return result;
 }
 
-['reh', 'reh-web'].forEach(type => {
+// --- Start PWB ---
+['reh', 'reh-web', 'reh-web-pwb'].forEach(type => {
+	// --- End PWB ---
 	const bundleTask = task.define(`bundle-vscode-${type}`, task.series(
 		util.rimraf(`out-vscode-${type}`),
 		optimize.bundleTask(
@@ -535,10 +615,12 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 						...(type === 'reh' ? serverEntryPoints : serverWithWebEntryPoints),
 						...bootstrapEntryPoints
 					],
-					resources: type === 'reh' ? serverResources : serverWithWebResources,
-					// --- Start Positron ---
-					fileContentMapper: createVSCodeWebFileContentMapper(type === 'reh-web' ? '.build/web/extensions' : '.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
-					// --- End Positron ---
+					// --- Start PWB ---
+					// reh-web-pwb uses pwbServerWithWebResources (includes rsLoginCheck.js for PWB)
+					// reh-web uses serverWithWebResources (no rsLoginCheck.js)
+					resources: type === 'reh' ? serverResources : (isPwbWebType(type) ? pwbServerWithWebResources : serverWithWebResources),
+					fileContentMapper: createVSCodeWebFileContentMapper(isWebType(type) ? '.build/web/extensions' : '.build/extensions', isWebType(type) ? tweakProductForServerWeb(product) : product)
+					// --- End PWB ---
 				}
 			}
 		)
@@ -560,12 +642,18 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 			const sourceFolderName = `out-vscode-${type}${dashed(minified)}`;
 			const destinationFolderName = `vscode-${type}${dashed(platform)}${dashed(arch)}`;
 
-			const serverTaskCI = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(
+			const packageTasks: task.Task[] = [
 				compileNativeExtensionsBuildTask,
 				gulp.task(`node-${platform}-${arch}`) as task.Task,
 				util.rimraf(path.join(BUILD_ROOT, destinationFolderName)),
 				packageTask(type, platform, arch, sourceFolderName, destinationFolderName)
-			));
+			];
+
+			if (platform === 'win32') {
+				packageTasks.push(patchWin32DependenciesTask(destinationFolderName));
+			}
+
+			const serverTaskCI = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(...packageTasks));
 			gulp.task(serverTaskCI);
 
 			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(

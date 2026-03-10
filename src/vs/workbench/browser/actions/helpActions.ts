@@ -361,7 +361,7 @@ class AskVSCodeCopilot extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const commandService = accessor.get(ICommandService);
 		// --- Start Positron ---
-		//commandService.executeCommand('workbench.action.chat.open', { mode: 'ask', query: '@vscode ', isPartialQuery: true });
+		// commandService.executeCommand('workbench.action.chat.open', { mode: 'agent', query: '@vscode ', isPartialQuery: true });
 		commandService.executeCommand('workbench.action.chat.open', { mode: 'ask', query: '', isPartialQuery: true });
 		// --- End Positron ---
 	}

@@ -237,31 +237,31 @@ export class Assistant {
 	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) { }
 
 	async verifyChatButtonVisible() {
-		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
+		await expect(this.code.driver.currentPage.locator(CHAT_BUTTON)).toBeVisible();
 	}
 
 	async openPositronAssistantChat() {
 		await test.step('Verify Assistant is enabled and Open it.', async () => {
 			await this.verifyChatButtonVisible();
-			const addModelLinkIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
+			const addModelLinkIsVisible = await this.code.driver.currentPage.locator(CHAT_PANEL).isVisible();
 			if (!addModelLinkIsVisible) {
-				await this.code.driver.page.locator(CHAT_BUTTON).click();
+				await this.code.driver.currentPage.locator(CHAT_BUTTON).click();
 			}
 		});
 	}
 
 	async closeInlineChat() {
 		await test.step('Close Inline Chat', async () => {
-			this.code.driver.page.getByRole('button', { name: 'Close (Escape)' }).click();
+			this.code.driver.currentPage.getByRole('button', { name: 'Close (Escape)' }).click();
 		});
 	}
 
 	async openModelPickerDropdown() {
-		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
+		const chatInput = this.code.driver.currentPage.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.click({ force: true });
 		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-		await this.code.driver.page.keyboard.press(`${modifier}+Alt+Period`);
+		await this.code.driver.currentPage.keyboard.press(`${modifier}+Alt+Period`);
 	}
 
 	async runConfigureProviders() {
@@ -269,40 +269,40 @@ export class Assistant {
 	}
 
 	async clickConfigureProvidersLink() {
-		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_LINK).click();
+		await this.code.driver.currentPage.locator(CONFIGURE_PROVIDERS_LINK).click();
 	}
 
 	async clickConfigureProvidersButton() {
 		// Ensure chat panel is open first
-		const chatPanelIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
+		const chatPanelIsVisible = await this.code.driver.currentPage.locator(CHAT_PANEL).isVisible();
 		if (!chatPanelIsVisible) {
 			await this.openPositronAssistantChat();
 		}
 
-		const configureProvidersButtonIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
+		const configureProvidersButtonIsVisible = await this.code.driver.currentPage.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
 		if (!configureProvidersButtonIsVisible) {
 			await this.openModelPickerDropdown();
 		}
-		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
+		await this.code.driver.currentPage.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
 	}
 
 	async verifyConfigureProvidersButtonVisible() {
 		await this.openModelPickerDropdown();
-		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
+		await expect(this.code.driver.currentPage.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
 	}
 
 	async verifyInlineChatInputsVisible() {
-		await expect(this.code.driver.page.locator(INLINE_CHAT_TOOLBAR)).toBeVisible();
-		await expect(this.code.driver.page.locator(INLINE_CHAT_TOOLBAR)).toBeInViewport({ ratio: 1 });
+		await expect(this.code.driver.currentPage.locator(INLINE_CHAT_TOOLBAR)).toBeVisible();
+		await expect(this.code.driver.currentPage.locator(INLINE_CHAT_TOOLBAR)).toBeInViewport({ ratio: 1 });
 	}
 
 	async verifyCodeBlockActions() {
-		await expect(this.code.driver.page.locator(RUN_BUTTON)).toHaveCount(1);
+		await expect(this.code.driver.currentPage.locator(RUN_BUTTON)).toHaveCount(1);
 		// PR #10784: "Apply in Editor" button may be disabled depending on model chosen and user settings
-		await expect(await this.code.driver.page.locator(APPLY_IN_EDITOR_BUTTON).count()).toBeLessThanOrEqual(1);
-		await expect(this.code.driver.page.locator(INSERT_AT_CURSOR_BUTTON)).toHaveCount(1);
-		await expect(this.code.driver.page.locator(COPY_BUTTON)).toHaveCount(1);
-		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
+		await expect(await this.code.driver.currentPage.locator(APPLY_IN_EDITOR_BUTTON).count()).toBeLessThanOrEqual(1);
+		await expect(this.code.driver.currentPage.locator(INSERT_AT_CURSOR_BUTTON)).toHaveCount(1);
+		await expect(this.code.driver.currentPage.locator(COPY_BUTTON)).toHaveCount(1);
+		await expect(this.code.driver.currentPage.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
 	}
 
 	async pickModel() {
@@ -310,31 +310,31 @@ export class Assistant {
 	}
 
 	async expectManageModelsVisible() {
-		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible({ timeout: 3000 });
+		await expect(this.code.driver.currentPage.locator(MANAGE_MODELS_ITEM)).toBeVisible({ timeout: 3000 });
 	}
 
 	async selectModelProvider(provider: ModelProvider) {
 		switch (provider.toLowerCase()) {
 			case 'anthropic-api':
-				await this.code.driver.page.locator(ANTHROPIC_BUTTON).click();
+				await this.code.driver.currentPage.locator(ANTHROPIC_BUTTON).click();
 				break;
 			case 'amazon-bedrock':
-				await this.code.driver.page.locator(AWS_BEDROCK_BUTTON).click();
+				await this.code.driver.currentPage.locator(AWS_BEDROCK_BUTTON).click();
 				break;
 			case 'copilot':
-				await this.code.driver.page.locator(COPILOT_BUTTON).click();
+				await this.code.driver.currentPage.locator(COPILOT_BUTTON).click();
 				break;
 			case 'echo':
-				await this.code.driver.page.locator(ECHO_MODEL_BUTTON).click();
+				await this.code.driver.currentPage.locator(ECHO_MODEL_BUTTON).click();
 				break;
 			case 'error':
-				await this.code.driver.page.locator(ERROR_MODEL_BUTTON).click();
+				await this.code.driver.currentPage.locator(ERROR_MODEL_BUTTON).click();
 				break;
 			case 'openai-api':
-				await this.code.driver.page.locator(OPENAI_BUTTON).click();
+				await this.code.driver.currentPage.locator(OPENAI_BUTTON).click();
 				break;
 			case 'posit-ai':
-				await this.code.driver.page.locator(POSIT_AI_BUTTON).click();
+				await this.code.driver.currentPage.locator(POSIT_AI_BUTTON).click();
 				break;
 			default:
 				throw new Error(`Unsupported model provider: ${provider}`);
@@ -384,7 +384,7 @@ export class Assistant {
 			await this.selectModelProvider(provider);
 
 			// Check if already signed in (Sign Out button visible)
-			const alreadySignedIn = await this.code.driver.page.locator(SIGN_OUT_BUTTON).isVisible();
+			const alreadySignedIn = await this.code.driver.currentPage.locator(SIGN_OUT_BUTTON).isVisible();
 			if (alreadySignedIn) {
 				// Already signed in, just close the dialog
 				await this.clickCloseButton();
@@ -470,17 +470,17 @@ export class Assistant {
 	}
 
 	async enterApiKey(apiKey: string) {
-		await this.code.driver.page.locator(APIKEY_RADIO).check();
-		const apiKeyInput = this.code.driver.page.locator(APIKEY_INPUT);
+		await this.code.driver.currentPage.locator(APIKEY_RADIO).check();
+		const apiKeyInput = this.code.driver.currentPage.locator(APIKEY_INPUT);
 		await fillSecretValue(apiKeyInput, apiKey);
 	}
 
 	async clickSignInButton() {
-		await this.code.driver.page.locator(SIGN_IN_BUTTON).click();
+		await this.code.driver.currentPage.locator(SIGN_IN_BUTTON).click();
 	}
 
 	async clickCloseButton({ abandonChanges = true } = {}) {
-		await this.code.driver.page.locator(CLOSE_BUTTON).click();
+		await this.code.driver.currentPage.locator(CLOSE_BUTTON).click();
 
 		const abandonModalisVisible = await this.modals.modalTitle.filter({ hasText: 'Authentication Incomplete' }).isVisible();
 		if (abandonModalisVisible) {
@@ -493,28 +493,28 @@ export class Assistant {
 	}
 
 	async clickSignOutButton() {
-		await this.code.driver.page.locator(SIGN_OUT_BUTTON).click();
+		await this.code.driver.currentPage.locator(SIGN_OUT_BUTTON).click();
 	}
 
 	async verifySignOutButtonVisible(timeout: number = 15000) {
-		await expect(this.code.driver.page.locator(SIGN_OUT_BUTTON)).toBeVisible({ timeout });
-		await expect(this.code.driver.page.locator(SIGN_OUT_BUTTON)).toHaveText('Sign out', { timeout });
+		await expect(this.code.driver.currentPage.locator(SIGN_OUT_BUTTON)).toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.locator(SIGN_OUT_BUTTON)).toHaveText('Sign out', { timeout });
 	}
 
 	async verifySignInButtonVisible(timeout: number = 15000) {
-		await expect(this.code.driver.page.locator(SIGN_IN_BUTTON)).toBeVisible({ timeout });
-		await expect(this.code.driver.page.locator(SIGN_IN_BUTTON)).toHaveText('Sign in', { timeout });
+		await expect(this.code.driver.currentPage.locator(SIGN_IN_BUTTON)).toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.locator(SIGN_IN_BUTTON)).toHaveText('Sign in', { timeout });
 	}
 
 	async verifyAuthMethod(type: 'oauth' | 'apiKey') {
 		switch (type) {
 			case 'oauth':
-				await expect(this.code.driver.page.locator(OAUTH_RADIO)).toBeChecked();
-				await expect(this.code.driver.page.locator(APIKEY_RADIO)).toBeDisabled();
+				await expect(this.code.driver.currentPage.locator(OAUTH_RADIO)).toBeChecked();
+				await expect(this.code.driver.currentPage.locator(APIKEY_RADIO)).toBeDisabled();
 				break;
 			case 'apiKey':
-				await expect(this.code.driver.page.locator(APIKEY_RADIO)).toBeChecked();
-				await expect(this.code.driver.page.locator(OAUTH_RADIO)).toBeDisabled();
+				await expect(this.code.driver.currentPage.locator(APIKEY_RADIO)).toBeChecked();
+				await expect(this.code.driver.currentPage.locator(OAUTH_RADIO)).toBeDisabled();
 				break;
 			default:
 				throw new Error(`Unsupported auth method: ${type}`);
@@ -604,7 +604,7 @@ export class Assistant {
 	private async extractDeviceCodeFromModal(config: OAuthDeviceCodeConfig): Promise<{ verificationCode: string }> {
 		// Wait for the device code modal to appear (not the configuration modal)
 		// The device code modal contains "You will need this code to sign in" text
-		const deviceCodeModalLocator = this.code.driver.page.locator(`${POSITRON_MODAL_DIALOG}:has-text("You will need this code to sign in")`);
+		const deviceCodeModalLocator = this.code.driver.currentPage.locator(`${POSITRON_MODAL_DIALOG}:has-text("You will need this code to sign in")`);
 		await expect(deviceCodeModalLocator).toBeVisible({ timeout: 30000 });
 
 		// Get the modal HTML content - Posit AI uses <code> element for the verification code
@@ -695,7 +695,7 @@ export class Assistant {
 	 * @returns Array of provider display names in display order (e.g., "Posit AI", "Anthropic")
 	 */
 	async getProviderButtonNames(): Promise<string[]> {
-		const providerButtons = this.code.driver.page.locator('div[id$="-provider-button"]');
+		const providerButtons = this.code.driver.currentPage.locator('div[id$="-provider-button"]');
 		await providerButtons.first().waitFor({ state: 'visible' });
 
 		const texts = await providerButtons.allTextContents();
@@ -710,12 +710,12 @@ export class Assistant {
 	 * @param message The message to send
 	 */
 	async enterChatMessage(message: string) {
-		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
+		const chatInput = this.code.driver.currentPage.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.pressSequentially(message);
-		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+		await this.code.driver.currentPage.locator(SEND_MESSAGE_BUTTON).click();
 		// It can take a moment for the loading locator to become visible.
-		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
 	}
 
 	/**
@@ -731,7 +731,7 @@ export class Assistant {
 	 */
 	async sendChatMessageAndWait(message: string, options: { timeout?: number } = {}): Promise<EnterChatMessageResult> {
 		const { timeout = 60000 } = options;
-		const page = this.code.driver.page;
+		const page = this.code.driver.currentPage;
 
 		// Locators for completion states
 		const loadingResponse = page.locator('.chat-most-recent-response.chat-response-loading');
@@ -802,8 +802,8 @@ export class Assistant {
 	 * @param timeout The maximum time to wait for the response to complete (default: 60000ms)
 	 */
 	async waitForResponseComplete(timeout: number = 60000) {
-		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
-		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden', timeout });
+		await this.code.driver.currentPage.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden', timeout });
 	}
 
 	/**
@@ -813,7 +813,7 @@ export class Assistant {
 	 * @param timeout The maximum time to wait for the assertion (default: 10000ms)
 	 */
 	async expectResponseComplete(timeout: number = 10000) {
-		await expect(this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading')).not.toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.locator('.chat-most-recent-response.chat-response-loading')).not.toBeVisible({ timeout });
 	}
 
 	/**
@@ -822,7 +822,7 @@ export class Assistant {
 	 */
 	async expectChatPanelVisible(timeout: number = 10000) {
 		await test.step('Verify chat panel is visible', async () => {
-			await expect(this.code.driver.page.locator(CHAT_PANEL)).toBeVisible({ timeout });
+			await expect(this.code.driver.currentPage.locator(CHAT_PANEL)).toBeVisible({ timeout });
 		});
 	}
 
@@ -832,17 +832,17 @@ export class Assistant {
 	 */
 	async expectChatResponseVisible(timeout: number = 10000) {
 		await test.step('Verify chat response is visible', async () => {
-			await expect(this.code.driver.page.locator('.interactive-response')).toBeVisible({ timeout });
+			await expect(this.code.driver.currentPage.locator('.interactive-response')).toBeVisible({ timeout });
 		});
 	}
 
 	async clickChatCodeRunButton(codeblock: string) {
-		await this.code.driver.page.locator(`span`).filter({ hasText: codeblock }).locator('span').first().dblclick();
-		await this.code.driver.page.locator(RUN_BUTTON).click();
+		await this.code.driver.currentPage.locator(`span`).filter({ hasText: codeblock }).locator('span').first().dblclick();
+		await this.code.driver.currentPage.locator(RUN_BUTTON).click();
 	}
 
 	async clickKeepButton(timeout: number = 10000) {
-		await this.code.driver.page.locator(KEEP_BUTTON).click({ timeout });
+		await this.code.driver.currentPage.locator(KEEP_BUTTON).click({ timeout });
 	}
 
 	/**
@@ -852,7 +852,7 @@ export class Assistant {
 	 */
 	async clickAllowButton(timeout: number = 10000): Promise<boolean> {
 		try {
-			const allowButton = this.code.driver.page.getByRole('button', { name: 'Allow' });
+			const allowButton = this.code.driver.currentPage.getByRole('button', { name: 'Allow' });
 			await allowButton.waitFor({ state: 'visible', timeout });
 			await allowButton.click();
 			return true;
@@ -862,34 +862,34 @@ export class Assistant {
 	}
 
 	async clickNewChatButton() {
-		await this.code.driver.page.locator(NEW_CHAT_BUTTON).click();
-		await expect(this.code.driver.page.locator(CHAT_INPUT)).toBeVisible();
+		await this.code.driver.currentPage.locator(NEW_CHAT_BUTTON).click();
+		await expect(this.code.driver.currentPage.locator(CHAT_INPUT)).toBeVisible();
 	}
 
 	async verifyTokenUsageVisible() {
-		await expect(this.code.driver.page.locator('.token-usage')).toBeVisible();
-		await expect(this.code.driver.page.locator('.token-usage')).toHaveText(/Tokens: ↑\d+ ↓\d+/);
+		await expect(this.code.driver.currentPage.locator('.token-usage')).toBeVisible();
+		await expect(this.code.driver.currentPage.locator('.token-usage')).toHaveText(/Tokens: ↑\d+ ↓\d+/);
 	}
 
 	async verifyTokenUsageNotVisible() {
-		await expect(this.code.driver.page.locator('.token-usage')).not.toBeVisible();
+		await expect(this.code.driver.currentPage.locator('.token-usage')).not.toBeVisible();
 	}
 
 	async verifyTotalTokenUsageVisible() {
-		await expect(this.code.driver.page.locator('.token-usage-total')).toBeVisible();
-		await expect(this.code.driver.page.locator('.token-usage-total')).toHaveText(/Total tokens: ↑\d+ ↓\d+/);
+		await expect(this.code.driver.currentPage.locator('.token-usage-total')).toBeVisible();
+		await expect(this.code.driver.currentPage.locator('.token-usage-total')).toHaveText(/Total tokens: ↑\d+ ↓\d+/);
 	}
 
 	async verifyNumberOfVisibleResponses(expectedCount: number, checkTokenUsage: boolean = false) {
-		const responses = this.code.driver.page.locator('.interactive-response');
+		const responses = this.code.driver.currentPage.locator('.interactive-response');
 		await expect(responses).toHaveCount(expectedCount);
 		if (checkTokenUsage) {
-			this.code.driver.page.locator('.token-usage').nth(expectedCount - 1).waitFor({ state: 'visible' });
+			this.code.driver.currentPage.locator('.token-usage').nth(expectedCount - 1).waitFor({ state: 'visible' });
 		}
 	}
 
 	async getTokenUsage() {
-		const tokenUsageElement = this.code.driver.page.locator('.token-usage');
+		const tokenUsageElement = this.code.driver.currentPage.locator('.token-usage');
 		await expect(tokenUsageElement).toBeVisible();
 		const text = await tokenUsageElement.textContent();
 		expect(text).not.toBeNull();
@@ -902,7 +902,7 @@ export class Assistant {
 	}
 
 	async getTotalTokenUsage() {
-		const totalTokenUsageElement = this.code.driver.page.locator('.token-usage-total');
+		const totalTokenUsageElement = this.code.driver.currentPage.locator('.token-usage-total');
 		await expect(totalTokenUsageElement).toBeVisible();
 		const text = await totalTokenUsageElement.textContent();
 		console.log('Total Token Usage Text:', text);
@@ -915,28 +915,28 @@ export class Assistant {
 	}
 
 	async waitForReadyToSend(timeout: number = 25000) {
-		await this.code.driver.page.waitForSelector('.chat-input-toolbars .codicon-send', { timeout });
-		await this.code.driver.page.waitForSelector('.detail-container .detail:has-text("Working")', { state: 'hidden', timeout });
+		await this.code.driver.currentPage.waitForSelector('.chat-input-toolbars .codicon-send', { timeout });
+		await this.code.driver.currentPage.waitForSelector('.detail-container .detail:has-text("Working")', { state: 'hidden', timeout });
 	}
 
 	async waitForSendButtonVisible() {
-		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.locator(SEND_MESSAGE_BUTTON).waitFor({ state: 'visible' });
 	}
 
 	async selectChatMode(mode: string) {
 		// Use retry logic to handle flaky dropdown opening
 		await expect(async () => {
 			// Click the mode dropdown to open it
-			const dropdown = this.code.driver.page.locator(MODE_DROPDOWN);
+			const dropdown = this.code.driver.currentPage.locator(MODE_DROPDOWN);
 			await dropdown.waitFor({ state: 'visible', timeout: 5000 });
 			await dropdown.click();
 
 			// Wait for the dropdown menu to appear
-			await this.code.driver.page.locator(MODE_DROPDOWN_ITEM).first().waitFor({ state: 'visible', timeout: 5000 });
+			await this.code.driver.currentPage.locator(MODE_DROPDOWN_ITEM).first().waitFor({ state: 'visible', timeout: 5000 });
 		}).toPass({ timeout: 30000 });
 
 		// Find and click the item with the matching text
-		const items = this.code.driver.page.locator(MODE_DROPDOWN_ITEM);
+		const items = this.code.driver.currentPage.locator(MODE_DROPDOWN_ITEM);
 		const count = await items.count();
 
 		for (let i = 0; i < count; i++) {
@@ -959,10 +959,10 @@ export class Assistant {
 		await this.openModelPickerDropdown();
 
 		// Wait for the dropdown menu to appear
-		await this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.locator(MODEL_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
 
 		// Find and click the item with the matching text
-		const items = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM);
+		const items = this.code.driver.currentPage.locator(MODEL_DROPDOWN_ITEM);
 		const count = await items.count();
 
 		for (let i = 0; i < count; i++) {
@@ -987,7 +987,7 @@ export class Assistant {
 	 */
 	async expectModelInPicker(text: string | RegExp): Promise<void> {
 		await test.step(`Expect model in picker: ${text}`, async () => {
-			const locator = this.code.driver.page.locator('.monaco-list-row.action span.title', { hasText: text });
+			const locator = this.code.driver.currentPage.locator('.monaco-list-row.action span.title', { hasText: text });
 			await expect(locator).toHaveCount(1);
 		});
 	}
@@ -999,7 +999,7 @@ export class Assistant {
 	 */
 	async expectVendorSeparator(vendor: string): Promise<void> {
 		await test.step(`Expect vendor separator: ${vendor}`, async () => {
-			const locator = this.code.driver.page.locator('.monaco-list-row.separator span.separator-label', { hasText: vendor });
+			const locator = this.code.driver.currentPage.locator('.monaco-list-row.separator span.separator-label', { hasText: vendor });
 			await expect(locator).toHaveCount(1);
 		});
 	}
@@ -1011,7 +1011,7 @@ export class Assistant {
 	 */
 	async getModelPickerItems(): Promise<Array<{ label: string; isDefault: boolean }>> {
 		// Select only action items (models), excluding separators (vendor headers)
-		const modelRows = this.code.driver.page.locator('.monaco-list-row.action');
+		const modelRows = this.code.driver.currentPage.locator('.monaco-list-row.action');
 		const titles = await modelRows.locator('span.title').allTextContents();
 
 		return titles
@@ -1030,7 +1030,7 @@ export class Assistant {
 	 * @param vendor The vendor name to filter by (e.g., 'Echo', 'Anthropic')
 	 */
 	async getModelPickerItemsForVendor(vendor: string): Promise<Array<{ label: string; isDefault: boolean }>> {
-		const allRows = this.code.driver.page.locator('.action-widget .monaco-list-row');
+		const allRows = this.code.driver.currentPage.locator('.action-widget .monaco-list-row');
 		const count = await allRows.count();
 		const vendorModels: Array<{ label: string; isDefault: boolean }> = [];
 		let inVendorSection = false;
@@ -1091,9 +1091,9 @@ export class Assistant {
 	 * Closes the model picker dropdown by pressing Escape if it is open.
 	 */
 	async closeModelPickerDropdown() {
-		const dropdownItem = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first();
+		const dropdownItem = this.code.driver.currentPage.locator(MODEL_DROPDOWN_ITEM).first();
 		if (await dropdownItem.isVisible()) {
-			await this.code.driver.page.keyboard.press('Escape');
+			await this.code.driver.currentPage.keyboard.press('Escape');
 			await expect(dropdownItem).not.toBeVisible();
 		}
 	}

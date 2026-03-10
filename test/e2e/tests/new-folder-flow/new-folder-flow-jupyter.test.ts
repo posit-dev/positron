@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -42,12 +42,12 @@ test.describe('New Folder Flow: Jupyter Project', {
 });
 
 async function verifyNotebookEditorVisible(app: Application) {
-	const notebookEditorTab = app.code.driver.page.locator('[id="workbench.parts.editor"]').getByText('Untitled-1.ipynb', { exact: true });
+	const notebookEditorTab = app.code.driver.currentPage.locator('[id="workbench.parts.editor"]').getByText('Untitled-1.ipynb', { exact: true });
 	await expect(notebookEditorTab).toBeVisible();
 }
 
 async function verifyNotebookAndConsolePythonVersion(app: Application) {
-	const sessionSelectorButton = app.code.driver.page.getByRole('button', { name: 'Select Session' });
+	const sessionSelectorButton = app.code.driver.currentPage.getByRole('button', { name: 'Select Session' });
 	const sessionSelectorText = await sessionSelectorButton.textContent();
 
 	// Extract the version number (e.g., '3.10.12') from the button text
@@ -60,7 +60,7 @@ async function verifyNotebookAndConsolePythonVersion(app: Application) {
 	// After the runtime starts up the kernel status should be replaced with the kernel name.
 	// The kernel name should contain the Python version from the session selector
 	// Only look within an 'a' tag with class 'kernel-label' to avoid false positives
-	const kernelLabel = app.code.driver.page.locator('a.kernel-label');
+	const kernelLabel = app.code.driver.currentPage.locator('a.kernel-label');
 	await expect(kernelLabel).toContainText(`Python ${pythonVersion}`);
 	await expect(kernelLabel).toContainText('python-notebook-runtime');
 }

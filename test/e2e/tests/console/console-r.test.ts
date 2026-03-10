@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,7 +36,7 @@ test.describe('Console Pane: R', {
 		await app.workbench.console.pasteCodeToConsole('out <- rstudioapi::askForPassword("enter password")', true);
 
 		await app.workbench.quickInput.type('password');
-		await app.code.driver.page.keyboard.press('Enter');
+		await app.code.driver.currentPage.keyboard.press('Enter');
 
 		await app.workbench.layouts.enterLayout('stacked');
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');

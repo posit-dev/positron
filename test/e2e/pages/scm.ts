@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -23,15 +23,15 @@ export class SCM {
 	constructor(private code: Code, private layout: Layouts) { }
 
 	async openSCMViewlet(): Promise<any> {
-		await this.code.driver.page.keyboard.press('Control+Shift+G');
-		await expect(this.code.driver.page.locator(SCM_INPUT_EDIT_CONTEXT)).toBeVisible();
+		await this.code.driver.currentPage.keyboard.press('Control+Shift+G');
+		await expect(this.code.driver.currentPage.locator(SCM_INPUT_EDIT_CONTEXT)).toBeVisible();
 	}
 
 	async waitForChange(name: string, type: 'Staged' | 'Modified'): Promise<void> {
 		await this.layout.enterLayout('fullSizedSidebar');
 
 		const tooltip = type === 'Staged' ? 'Index Modified' : 'Modified';
-		const locator = this.code.driver.page
+		const locator = this.code.driver.currentPage
 			.getByLabel('Source Control Management')
 			.locator(`[data-tooltip="${tooltip}"] .file-icon`)
 			.filter({ hasText: name });
@@ -42,28 +42,28 @@ export class SCM {
 
 	async openChange(name: string): Promise<void> {
 		await this.layout.enterLayout('fullSizedSidebar');
-		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
+		await this.code.driver.currentPage.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
 
-		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).last().click();
+		await this.code.driver.currentPage.locator(SCM_RESOURCE_CLICK(name)).last().click();
 
 		await this.layout.enterLayout('stacked');
 	}
 
 	async stage(name: string): Promise<void> {
-		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
-		await this.code.driver.page.locator(SCM_RESOURCE_ACTION_CLICK(name, 'Stage Changes')).click();
+		await this.code.driver.currentPage.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
+		await this.code.driver.currentPage.locator(SCM_RESOURCE_ACTION_CLICK(name, 'Stage Changes')).click();
 		await this.waitForChange(name, 'Staged');
 	}
 
 	async commit(message: string): Promise<void> {
-		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
-		await this.code.driver.page.locator(SCM_INPUT_EDIT_CONTEXT).click({ force: true });
-		await expect(this.code.driver.page.locator(SCM_INPUT_EDIT_CONTEXT)).toBeFocused();
-		await this.code.driver.page.locator(SCM_INPUT_EDIT_CONTEXT).pressSequentially(message);
-		await this.code.driver.page.locator(COMMIT_COMMAND).click();
+		await this.code.driver.currentPage.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
+		await this.code.driver.currentPage.locator(SCM_INPUT_EDIT_CONTEXT).click({ force: true });
+		await expect(this.code.driver.currentPage.locator(SCM_INPUT_EDIT_CONTEXT)).toBeFocused();
+		await this.code.driver.currentPage.locator(SCM_INPUT_EDIT_CONTEXT).pressSequentially(message);
+		await this.code.driver.currentPage.locator(COMMIT_COMMAND).click();
 	}
 
 	async verifyCurrentHistoryItem(name: string): Promise<void> {
-		await expect(this.code.driver.page.locator(HISTORY_ITEM_CURRENT)).toHaveText(name, { timeout: 20000 });
+		await expect(this.code.driver.currentPage.locator(HISTORY_ITEM_CURRENT)).toHaveText(name, { timeout: 20000 });
 	}
 }

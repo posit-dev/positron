@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -56,7 +56,7 @@ export class Clipboard {
 		// Grant permissions to read from clipboard
 		await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
 
-		const clipboardText = await this.code.driver.page.evaluate(async () => {
+		const clipboardText = await this.code.driver.currentPage.evaluate(async () => {
 			try {
 				return await navigator.clipboard.readText();
 			} catch (error) {
@@ -93,7 +93,7 @@ export class Clipboard {
 		await this.code.driver.browserContext.grantPermissions(['clipboard-write']);
 
 		// Use page context to set clipboard text
-		await this.code.driver.page.evaluate(async (textToCopy) => {
+		await this.code.driver.currentPage.evaluate(async (textToCopy) => {
 			try {
 				await navigator.clipboard.writeText(textToCopy);
 			} catch (error) {
@@ -106,7 +106,7 @@ export class Clipboard {
 		// Grant permissions to read from clipboard
 		await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
 
-		const clipboardImageBuffer = await this.code.driver.page.evaluate(async () => {
+		const clipboardImageBuffer = await this.code.driver.currentPage.evaluate(async () => {
 			const clipboardItems = await navigator.clipboard.read();
 			for (const item of clipboardItems) {
 				if (item.types.includes('image/png')) {
@@ -126,7 +126,7 @@ export class Clipboard {
 		await this.code.driver.browserContext.grantPermissions(['clipboard-write']);
 
 		// Use the page context to overwrite the clipboard
-		await this.code.driver.page.evaluate(async () => {
+		await this.code.driver.currentPage.evaluate(async () => {
 			await navigator.clipboard.writeText(''); // Clear clipboard by writing an empty string
 		});
 	}

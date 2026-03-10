@@ -14,6 +14,10 @@ import product from '../product.json' with { type: 'json' };
 import { getVersion } from './lib/getVersion.ts';
 import * as task from './lib/task.ts';
 import * as util from './lib/util.ts';
+// --- Start Positron ---
+// Not needed since we don't build for the Windows store
+// import type { EmbeddedProductInfo } from './lib/embeddedType.ts';
+// --- End Positron ---
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -127,6 +131,17 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
 		// --- Start Positron ---
 		// Positron doesn't build for the Windows store
 		/*
+		const isInsiderOrExploration = false;
+		const embedded = isInsiderOrExploration
+			? (product as typeof product & { embedded?: EmbeddedProductInfo }).embedded
+			: undefined;
+
+		if (embedded) {
+			definitions['ProxyExeBasename'] = embedded.nameShort;
+			definitions['ProxyAppUserId'] = embedded.win32AppUserModelId;
+			definitions['ProxyNameLong'] = embedded.nameLong;
+		}
+
 		if (quality === 'stable' || quality === 'insider') {
 			definitions['AppxPackage'] = `${quality === 'stable' ? 'code' : 'code_insider'}_${arch}.appx`;
 			definitions['AppxPackageDll'] = `${quality === 'stable' ? 'code' : 'code_insider'}_explorer_command_${arch}.dll`;

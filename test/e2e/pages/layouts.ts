@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -39,7 +39,7 @@ export class Layouts {
 	/**
 	 * Locator for the entire IDE. This is the "body" of the root page.
 	 */
-	get fullApp(): Locator { return this.code.driver.page.locator(FULL_APP); }
+	get fullApp(): Locator { return this.code.driver.currentPage.locator(FULL_APP); }
 
 	/**
 	 * Button in upper right of IDE for customizing layout.
@@ -49,7 +49,7 @@ export class Layouts {
 	/**
 	 * Locator for the panel part of the IDE.
 	 */
-	get panel(): Locator { return this.code.driver.page.locator(PANEL); }
+	get panel(): Locator { return this.code.driver.currentPage.locator(PANEL); }
 
 	/**
 	 * Locator for the tabs in the panel used to navigate to different views.
@@ -71,7 +71,7 @@ export class Layouts {
 	/**
 	 * Locator for the auxiliary bar part of the IDE.
 	 */
-	get auxBar(): Locator { return this.code.driver.page.locator(AUX_BAR); }
+	get auxBar(): Locator { return this.code.driver.currentPage.locator(AUX_BAR); }
 
 	/**
 	 * Locator for the tabs in the auxiliary bar used to navigate to different views.
@@ -81,7 +81,7 @@ export class Layouts {
 	/**
 	 * Locator for the sidebar part of the IDE.
 	 */
-	get sidebar(): Locator { return this.code.driver.page.locator(SIDEBAR); }
+	get sidebar(): Locator { return this.code.driver.currentPage.locator(SIDEBAR); }
 
 	constructor(private code: Code, private workbench: Workbench) { }
 

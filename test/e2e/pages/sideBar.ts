@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -18,11 +18,11 @@ export class SideBar {
 
 	async closeSecondarySideBar() {
 		this.code.logger.log('Hiding secondary side bar');
-		await this.code.driver.page.locator(HIDE_SECONDARY_SIDE_BAR).click();
+		await this.code.driver.currentPage.locator(HIDE_SECONDARY_SIDE_BAR).click();
 	}
 
 	async openSession() {
 		this.code.logger.log('Opening session');
-		await this.code.driver.page.locator(SESSION_BUTTON).click();
+		await this.code.driver.currentPage.locator(SESSION_BUTTON).click();
 	}
 }

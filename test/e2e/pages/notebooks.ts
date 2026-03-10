@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -45,12 +45,12 @@ export class Notebooks {
 		this.quickaccess = quickaccess;
 		this.hotKeys = hotKeys;
 
-		this.kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
-		this.kernelDropdown = this.code.driver.page.locator(KERNEL_DROPDOWN);
-		this.frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
-		this.notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
-		this.cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
-		this.interruptButton = this.code.driver.page.getByRole('button', { name: 'Interrupt' });
+		this.kernelLabel = this.code.driver.currentPage.locator(KERNEL_LABEL);
+		this.kernelDropdown = this.code.driver.currentPage.locator(KERNEL_DROPDOWN);
+		this.frameLocator = this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+		this.notebookProgressBar = this.code.driver.currentPage.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
+		this.cellIndex = (num = 0) => this.code.driver.currentPage.locator('.cell-inner-container > .cell').nth(num);
+		this.interruptButton = this.code.driver.currentPage.getByRole('button', { name: 'Interrupt' });
 	}
 
 	async selectInterpreter(
@@ -61,8 +61,8 @@ export class Notebooks {
 	) {
 		await test.step(`Select kernel: ${desiredKernel}`, async () => {
 			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
-			await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
-			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
 
 			try {
 				// 1. Try finding by text
@@ -75,7 +75,7 @@ export class Notebooks {
 
 			try {
 				// 2. Try finding by label
-				const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
+				const kernelLabelLocator = this.code.driver.currentPage.locator(KERNEL_LABEL);
 				await expect(kernelLabelLocator).toHaveAttribute('aria-label', new RegExp(desiredKernel), { timeout: 2500 });
 				this.code.logger.log(`Kernel: found by label: ${desiredKernel}`);
 				return;
@@ -86,15 +86,15 @@ export class Notebooks {
 			// 3. Open dropdown to select kernel
 			this.code.logger.log(`Kernel: opening dropdown to select: ${desiredKernel}`);
 
-			await this.code.driver.page.locator(KERNEL_DROPDOWN).click();
+			await this.code.driver.currentPage.locator(KERNEL_DROPDOWN).click();
 			await this.quickinput.waitForQuickInputOpened();
-			await this.code.driver.page.getByText('Select Environment...').click();
+			await this.code.driver.currentPage.getByText('Select Environment...').click();
 			await this.quickinput.type(desiredKernel);
 			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} ${desiredKernel}`);
 			await this.quickinput.waitForQuickInputClosed();
 
 			// Wait for kernel initialization
-			await expect(this.code.driver.page.locator('.kernel-action-view-item .codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator('.kernel-action-view-item .codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
 		});
 	}
 
@@ -113,8 +113,8 @@ export class Notebooks {
 		await test.step(`Open notebook: ${path}`, async () => {
 			await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
 			await this.quickinput.selectQuickInputElement(0);
-			await expect(this.code.driver.page.locator('.cell').first()).toBeVisible({ timeout: 60000 });
-			await expect(this.code.driver.page.getByText('Detecting Kernels')).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator('.cell').first()).toBeVisible({ timeout: 60000 });
+			await expect(this.code.driver.currentPage.getByText('Detecting Kernels')).not.toBeVisible({ timeout: 30000 });
 			await this.focusFirstCell();
 		});
 	}
@@ -129,7 +129,7 @@ export class Notebooks {
 	async hoverCellText(cellIndex: number, text: string) {
 		await test.step(`Hover cell ${cellIndex} text: "${text}"`, async () => {
 
-			const cellText = this.code.driver.page.locator(CELL_LINE).nth(cellIndex).locator('span').locator('span').filter(
+			const cellText = this.code.driver.currentPage.locator(CELL_LINE).nth(cellIndex).locator('span').locator('span').filter(
 				{ hasText: text }
 			);
 			await cellText.click();
@@ -140,7 +140,7 @@ export class Notebooks {
 	async executeCodeInCell() {
 		await test.step('Execute code in cell', async () => {
 			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').toHaveCount(0, { timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').toHaveCount(0, { timeout: 30000 });
 		});
 	}
 
@@ -167,8 +167,8 @@ export class Notebooks {
 
 	async runAllCells({ timeout = 15000 } = {}): Promise<void> {
 		await test.step('Run all cells', async () => {
-			await this.code.driver.page.getByLabel('Run All').click();
-			const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
+			await this.code.driver.currentPage.getByLabel('Run All').click();
+			const stopExecutionLocator = this.code.driver.currentPage.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
 			try {
 				await expect(stopExecutionLocator).toBeVisible({ timeout });
 				await expect(stopExecutionLocator).not.toBeVisible({ timeout });
@@ -181,10 +181,10 @@ export class Notebooks {
 	}
 
 	async deleteAllCells() {
-		const cellCount = await this.code.driver.page.locator('.cell-inner-container > .cell').count();
+		const cellCount = await this.code.driver.currentPage.locator('.cell-inner-container > .cell').count();
 		for (let i = cellCount; i > 0; i--) {
 			await this.cellIndex(i - 1).click();
-			await this.code.driver.page.getByRole('button', { name: 'Delete Cell' }).click();
+			await this.code.driver.currentPage.getByRole('button', { name: 'Delete Cell' }).click();
 		}
 	}
 
@@ -192,18 +192,18 @@ export class Notebooks {
 		await test.step(`Type in editor: ${text}`, async () => {
 			const editor = `${ACTIVE_ROW_SELECTOR} .monaco-editor`;
 
-			await this.code.driver.page.locator(editor).isVisible();
+			await this.code.driver.currentPage.locator(editor).isVisible();
 
 			const editContext = `${editor} .native-edit-context`;
-			await expect(this.code.driver.page.locator(editContext)).toBeFocused();
+			await expect(this.code.driver.currentPage.locator(editContext)).toBeFocused();
 
-			await this.code.driver.page.locator(editContext).pressSequentially(text, { delay });
+			await this.code.driver.currentPage.locator(editContext).pressSequentially(text, { delay });
 		});
 	}
 
 	private async _waitForActiveCellEditorContents(accept: (contents: string) => boolean): Promise<string> {
 		const selector = `${ACTIVE_ROW_SELECTOR} .monaco-editor .view-lines`;
-		const locator = this.code.driver.page.locator(selector);
+		const locator = this.code.driver.currentPage.locator(selector);
 
 		let content = '';
 		await expect(async () => {
@@ -234,10 +234,10 @@ export class Notebooks {
 		await test.step(`Select cell at index: ${cellIndex}`, async () => {
 			if (cellIndex === 0) {
 				for (let i = 0; i < 5; i++) {
-					await this.code.driver.page.keyboard.press('ArrowUp');
+					await this.code.driver.currentPage.keyboard.press('ArrowUp');
 				}
 			}
-			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
+			await this.code.driver.currentPage.locator(CELL_LINE).nth(cellIndex).click();
 		});
 	}
 
@@ -247,7 +247,7 @@ export class Notebooks {
 
 	async executeActiveCell(): Promise<void> {
 		await this.hotKeys.executeNotebookCell();
-		await expect(this.code.driver.page.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
+		await expect(this.code.driver.currentPage.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
 	}
 }
 

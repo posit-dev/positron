@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,13 +8,13 @@ import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 
 export class DashboardPage {
-	get title() { return this.code.driver.page.getByRole('link', { name: 'Workbench projects' }); }
-	get launchButton() { return this.code.driver.page.getByRole('button', { name: 'Launch' }); }
-	get quitButton() { return this.code.driver.page.getByRole('button', { name: 'Quit' }); }
-	get newSessionButton() { return this.code.driver.page.getByRole('button', { name: 'New Session', exact: true }).first(); }
-	get positronProButton() { return this.code.driver.page.getByRole('tab', { name: 'Positron Pro' }); }
-	get sessionNameInput() { return this.code.driver.page.getByRole('textbox', { name: 'Session Name' }); }
-	project = (projectName: string) => this.code.driver.page.getByRole('button', { name: projectName });
+	get title() { return this.code.driver.currentPage.getByRole('link', { name: 'Workbench projects' }); }
+	get launchButton() { return this.code.driver.currentPage.getByRole('button', { name: 'Launch' }); }
+	get quitButton() { return this.code.driver.currentPage.getByRole('button', { name: 'Quit' }); }
+	get newSessionButton() { return this.code.driver.currentPage.getByRole('button', { name: 'New Session', exact: true }).first(); }
+	get positronProButton() { return this.code.driver.currentPage.getByRole('tab', { name: 'Positron Pro' }); }
+	get sessionNameInput() { return this.code.driver.currentPage.getByRole('textbox', { name: 'Session Name' }); }
+	project = (projectName: string) => this.code.driver.currentPage.getByRole('button', { name: projectName });
 	projectNewSessionButton = (projectName: string) => this.project(projectName).locator('..').locator('..').getByRole('button', { name: 'Create new session' });
 	projectCheckbox = (projectName: string) => this.project(projectName).locator('..').locator('..').locator('button[role="checkbox"]');
 
@@ -23,7 +23,7 @@ export class DashboardPage {
 	// #region Actions
 
 	async goTo(): Promise<void> {
-		await this.code.driver.page.goto('http://localhost:8787');
+		await this.code.driver.currentPage.goto('http://localhost:8787');
 		await this.expectHeaderToBeVisible();
 	}
 
@@ -54,7 +54,7 @@ export class DashboardPage {
 		await this.positronProButton.click();
 		await this.sessionNameInput.fill(folderToOpen);
 		await this.launchButton.click();
-		await this.code.driver.page.getByRole('button', { name: 'Open Folder', exact: true }).click();
+		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
 		await this.quickInput.selectQuickInputElementContaining(folderToOpen);
 		await this.quickInput.clickOkButton();

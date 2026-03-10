@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -30,11 +30,11 @@ export class Output {
 	}
 
 	async clickOutputTab() {
-		await this.code.driver.page.getByRole('tab', { name: 'Output' }).locator('a').click();
+		await this.code.driver.currentPage.getByRole('tab', { name: 'Output' }).locator('a').click();
 	}
 
 	async waitForOutContaining(fragment: string) {
-		const outputPane = this.code.driver.page.locator(OUTPUT_PANE);
+		const outputPane = this.code.driver.currentPage.locator(OUTPUT_PANE);
 		const outputLine = outputPane.locator(OUTPUT_LINE);
 		await outputLine.getByText(fragment).first().isVisible();
 	}
@@ -50,10 +50,10 @@ export class Output {
 		const platform = os.platform();
 		if (platform === 'darwin') {
 			// On macOS, use Cmd+ArrowUp
-			await this.code.driver.page.keyboard.press('Meta+ArrowUp');
+			await this.code.driver.currentPage.keyboard.press('Meta+ArrowUp');
 		} else {
 			// On Windows/Linux, use Ctrl+Home
-			await this.code.driver.page.keyboard.press('Control+Home');
+			await this.code.driver.currentPage.keyboard.press('Control+Home');
 		}
 	}
 
@@ -64,16 +64,16 @@ export class Output {
 		const isMac = os.platform() === 'darwin';
 		const modifier = isMac ? 'Meta' : 'Control';
 
-		await this.code.driver.page.keyboard.press(`${modifier}+C`);
+		await this.code.driver.currentPage.keyboard.press(`${modifier}+C`);
 
 		// Wait a bit for the copy operation to complete
-		await this.code.driver.page.waitForTimeout(100);
+		await this.code.driver.currentPage.waitForTimeout(100);
 
 		// Grant permissions to read from clipboard
 		await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
 
 		// Read the clipboard content
-		const clipboardText = await this.code.driver.page.evaluate(async () => {
+		const clipboardText = await this.code.driver.currentPage.evaluate(async () => {
 			try {
 				return await navigator.clipboard.readText();
 			} catch (error) {
@@ -89,7 +89,7 @@ export class Output {
 	 * Select the first N lines of output text
 	 */
 	async selectFirstNLines(lineCount: number): Promise<void> {
-		const outputPane = this.code.driver.page.locator(OUTPUT_PANE);
+		const outputPane = this.code.driver.currentPage.locator(OUTPUT_PANE);
 		const outputLines = outputPane.locator('.view-line');
 		const totalLines = await outputLines.count();
 

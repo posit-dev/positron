@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -163,10 +163,10 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 						'df'
 					]);
 				} catch (e) {
-					await app.code.driver.page.keyboard.press('PageDown');
-					await app.code.driver.page.keyboard.press('End');
-					await app.code.driver.page.keyboard.press('Enter');
-					await app.code.driver.page.keyboard.press('Enter');
+					await app.code.driver.currentPage.keyboard.press('PageDown');
+					await app.code.driver.currentPage.keyboard.press('End');
+					await app.code.driver.currentPage.keyboard.press('Enter');
+					await app.code.driver.currentPage.keyboard.press('Enter');
 					throw e;
 				}
 			}).toPass({ timeout: 60000 });

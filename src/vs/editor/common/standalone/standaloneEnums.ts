@@ -349,7 +349,8 @@ export enum EditorOption {
 	scrollOnMiddleClick = 172,
 	effectiveAllowVariableFonts = 173,
 	quickSuggestionsMinimumLength = 174,
-	tabSuggest = 175
+	doubleClickSelectsBlock = 175,
+	tabSuggest = 176
 }
 
 /**

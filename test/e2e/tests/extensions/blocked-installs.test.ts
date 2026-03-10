@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,7 +21,7 @@ test.describe('Extensions', {
 
 		await app.workbench.extensions.installExtension('mikhail-arkhipov.r', false, true);
 
-		await expect(app.code.driver.page.getByLabel('DialogService: refused to show dialog in tests. Contents: Cannot install the \'R Tools\' extension because it conflicts with Positron built-in features').first()).toBeVisible();
+		await expect(app.code.driver.currentPage.getByLabel('DialogService: refused to show dialog in tests. Contents: Cannot install the \'R Tools\' extension because it conflicts with Positron built-in features').first()).toBeVisible();
 
 	});
 });

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -43,7 +43,7 @@ export async function WorkbenchApp(
 		await app.positWorkbench.dashboard.openSession('qa-example-content');
 
 		// Wait for Positron to be ready
-		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 

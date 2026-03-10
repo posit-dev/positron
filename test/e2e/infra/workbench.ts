@@ -136,7 +136,7 @@ export class Workbench {
 		this.extensions = new Extensions(code, this.quickaccess);
 		this.settings = new UserSettings(code, this.hotKeys);
 		this.debug = new Debug(code, this.hotKeys, this.quickaccess);
-		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
+		this.editorActionBar = new EditorActionBar(code.driver.currentPage, this.viewer, this.quickaccess);
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
@@ -144,7 +144,7 @@ export class Workbench {
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
 		this.positConnect = new PositConnect(code);
 		this.databot = new Databot(code, this.quickaccess);
-		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
+		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 	}
 }

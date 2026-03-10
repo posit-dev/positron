@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,7 +19,7 @@ const OUTLINE_ELEMENT = '.outline-element';
  */
 export class Outline {
 
-	get outlineElement(): Locator { return this.code.driver.page.locator(OUTLINE_TREE).locator(OUTLINE_ELEMENT); }
+	get outlineElement(): Locator { return this.code.driver.currentPage.locator(OUTLINE_TREE).locator(OUTLINE_ELEMENT); }
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
 
@@ -31,7 +31,7 @@ export class Outline {
 
 		await this.focus();
 
-		const sashLocator = this.code.driver.page.locator(HORIZONTAL_SASH).nth(1);
+		const sashLocator = this.code.driver.currentPage.locator(HORIZONTAL_SASH).nth(1);
 		const sashBoundingBox = await sashLocator.boundingBox();
 
 		if (sashBoundingBox) {
@@ -50,7 +50,7 @@ export class Outline {
 			fail('Bounding box not found');
 		}
 
-		const outllineElements = await this.code.driver.page.locator(OUTLINE_ELEMENT).all();
+		const outllineElements = await this.code.driver.currentPage.locator(OUTLINE_ELEMENT).all();
 
 		const outlineData: string[] = [];
 		for (const element of outllineElements) {
@@ -78,7 +78,7 @@ export class Outline {
 
 	async expectOutlineToBeEmpty(): Promise<void> {
 		await test.step('Expect outline to be empty', async () => {
-			await expect(this.code.driver.page.getByText(/^No symbols found in document/)).toBeVisible();
+			await expect(this.code.driver.currentPage.getByText(/^No symbols found in document/)).toBeVisible();
 		});
 	}
 

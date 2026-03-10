@@ -2,7 +2,7 @@
 # Shows the status of Positron build daemons (watch-clientd, watch-extensionsd, watch-e2ed)
 set -euo pipefail
 
-DAEMONS=("watch-client" "watch-extensions" "watch-e2e")
+DAEMONS=("watch-client-transpile" "watch-client" "watch-extensions" "watch-e2e")
 PS_OUTPUT=$(ps aux)
 
 printf "%-20s %-10s %-10s %s\n" "DAEMON" "STATUS" "PID" "STARTED"

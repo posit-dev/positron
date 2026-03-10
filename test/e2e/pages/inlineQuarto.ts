@@ -68,7 +68,7 @@ export class InlineQuarto {
 		this.code = code;
 		this.quickaccess = quickaccess;
 		this.hotKeys = hotKeys;
-		const page = code.driver.page;
+		const page = code.driver.currentPage;
 
 		this.kernelStatusWidget = page.locator(KERNEL_STATUS_WIDGET);
 		this.inlineOutput = page.locator(INLINE_OUTPUT);
@@ -121,8 +121,8 @@ export class InlineQuarto {
 	async gotoLine(lineNumber: number): Promise<void> {
 		await test.step(`Go to line ${lineNumber}`, async () => {
 			await this.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await this.code.driver.page.keyboard.type(String(lineNumber));
-			await this.code.driver.page.keyboard.press('Enter');
+			await this.code.driver.currentPage.keyboard.type(String(lineNumber));
+			await this.code.driver.currentPage.keyboard.press('Enter');
 		});
 	}
 
@@ -220,7 +220,7 @@ export class InlineQuarto {
 
 	async selectStdoutTextViaDrag(): Promise<void> {
 		await test.step('Select stdout text via click-and-drag', async () => {
-			const page = this.code.driver.page;
+			const page = this.code.driver.currentPage;
 			const boundingBox = await this.stdoutOutput.first().boundingBox();
 			expect(boundingBox).not.toBeNull();
 
@@ -322,7 +322,7 @@ export class InlineQuarto {
 
 	async expectTextSelectedAndContains(expectedStrings: string[]): Promise<void> {
 		await test.step(`Verify text is selected and contains one of: ${expectedStrings.join(', ')}`, async () => {
-			const selectedText = await this.code.driver.page.evaluate(() => {
+			const selectedText = await this.code.driver.currentPage.evaluate(() => {
 				const selection = window.getSelection();
 				return selection ? selection.toString().trim() : '';
 			});

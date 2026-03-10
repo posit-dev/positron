@@ -550,7 +550,7 @@ export function findElements(element: IElement, fn: (element: IElement) => boole
 /**
  * Creates a minimal Code instance from a Playwright Page for use with POMs in secondary windows.
  * This is not a fully functional Code instance - only suitable for POM interactions that primarily
- * use code.driver.page. Operations requiring the main process (like exit() or tracing) will not work.
+ * use code.driver.currentPage. Operations requiring the main process (like exit() or tracing) will not work.
  *
  * @param parentCode The parent Code instance to borrow configuration from
  * @param page The Playwright Page for the secondary window

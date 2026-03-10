@@ -65,10 +65,10 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
         Uri | string,
         (
             | {
-                  installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
-                  installPreReleaseVersion?: boolean;
-                  donotSync?: boolean;
-              }
+                installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
+                installPreReleaseVersion?: boolean;
+                donotSync?: boolean;
+            }
             | undefined
         ),
     ];
@@ -87,7 +87,6 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     ['notebook.undo']: [];
     ['notebook.redo']: [];
     ['python.viewLanguageServerOutput']: [];
-    ['vscode.open']: [Uri];
     ['workbench.action.files.saveAs']: [Uri];
     ['workbench.action.files.save']: [Uri];
     ['jupyter.opennotebook']: [undefined | Uri, undefined | CommandSource];

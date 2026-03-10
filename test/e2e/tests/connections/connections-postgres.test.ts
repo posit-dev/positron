@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -32,10 +32,10 @@ test.describe('Postgres DB Connection', {
 			'Password': password,
 		});
 
-		await expect(app.code.driver.page.locator(viewLine, { hasText: '%connection_show conn' })).toBeVisible();
-		await expect(app.code.driver.page.locator(viewLine, { hasText: dbName })).toBeVisible();
-		await expect(app.code.driver.page.locator(`${viewLine}:has-text("username=\\"${user}\\"")`)).toBeVisible();
-		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password=\\"${password}\\"")`)).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: '%connection_show conn' })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: dbName })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("username=\\"${user}\\"")`)).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("password=\\"${password}\\"")`)).toBeVisible();
 
 		await app.workbench.connections.connect();
 
@@ -43,7 +43,7 @@ test.describe('Postgres DB Connection', {
 
 			await app.workbench.connections.expandConnectionDetails('public');
 
-			await app.code.driver.page.locator('.codicon-positron-table-connection').first().click();
+			await app.code.driver.currentPage.locator('.codicon-positron-table-connection').first().click();
 
 			// hack to allow for different beahavior based on how db was imported
 			try {
@@ -75,11 +75,11 @@ test.describe('Postgres DB Connection', {
 		await test.step('Remove connection', async () => {
 			await app.workbench.connections.openConnectionPane();
 
-			await app.code.driver.page.getByRole('button', { name: 'Disconnect' }).click();
+			await app.code.driver.currentPage.getByRole('button', { name: 'Disconnect' }).click();
 
-			await app.code.driver.page.locator('.col-name', { hasText: 'SQLAlchemy (postgresql)' }).click();
+			await app.code.driver.currentPage.locator('.col-name', { hasText: 'SQLAlchemy (postgresql)' }).click();
 
-			await app.code.driver.page.getByRole('button', { name: 'Delete Connection' }).click();
+			await app.code.driver.currentPage.getByRole('button', { name: 'Delete Connection' }).click();
 
 			await app.code.wait(3000);  // small sleep to ensure everything is truly closed
 		});
@@ -100,10 +100,10 @@ test.describe('Postgres DB Connection', {
 			'Password': password,
 		});
 
-		await expect(app.code.driver.page.locator(viewLine, { hasText: 'connections::connection_view(con)' })).toBeVisible();
-		await expect(app.code.driver.page.locator(viewLine, { hasText: dbName })).toBeVisible();
-		await expect(app.code.driver.page.locator(`${viewLine}:has-text("user = \\\'${user}\\\'")`)).toBeVisible();
-		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password = \\\'${password}\\\'")`)).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: 'connections::connection_view(con)' })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: dbName })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("user = \\\'${user}\\\'")`)).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("password = \\\'${password}\\\'")`)).toBeVisible();
 
 		await app.workbench.connections.connect();
 
@@ -115,7 +115,7 @@ test.describe('Postgres DB Connection', {
 
 			await app.workbench.connections.expandConnectionDetails('public');
 
-			await app.code.driver.page.locator('.codicon-positron-table-connection').first().click();
+			await app.code.driver.currentPage.locator('.codicon-positron-table-connection').first().click();
 
 			// hack to allow for different beahavior based on how db was imported
 			try {
@@ -146,11 +146,11 @@ test.describe('Postgres DB Connection', {
 		await test.step('Remove connection', async () => {
 			await app.workbench.connections.openConnectionPane();
 
-			await app.code.driver.page.getByRole('button', { name: 'Disconnect' }).click();
+			await app.code.driver.currentPage.getByRole('button', { name: 'Disconnect' }).click();
 
-			await app.code.driver.page.locator('.col-name', { hasText: 'PqConnection' }).click();
+			await app.code.driver.currentPage.locator('.col-name', { hasText: 'PqConnection' }).click();
 
-			await app.code.driver.page.getByRole('button', { name: 'Delete Connection' }).click();
+			await app.code.driver.currentPage.getByRole('button', { name: 'Delete Connection' }).click();
 
 			await app.code.wait(3000);  // small sleep to ensure everything is truly closed
 		});

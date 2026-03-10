@@ -11,7 +11,7 @@ import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { IApplicationEnvironment, IWorkspaceService } from '../application/types';
 import { PVSC_EXTENSION_ID } from '../constants';
-import { IExperimentService, IPersistentStateFactory } from '../types';
+import { IExperimentService, IPersistentState, IPersistentStateFactory } from '../types';
 import { ExperimentationTelemetry } from './telemetry';
 
 const EXP_MEMENTO_KEY = 'VSCode.ABExp.FeatureData';
@@ -29,10 +29,7 @@ export class ExperimentService implements IExperimentService {
      */
     public _optOutFrom: string[] = [];
 
-    private readonly experiments = this.persistentState.createGlobalPersistentState<{ features: string[] }>(
-        EXP_MEMENTO_KEY,
-        { features: [] },
-    );
+    private readonly experiments: IPersistentState<{ features: string[] }>;
 
     private readonly enabled: boolean;
 
@@ -43,6 +40,11 @@ export class ExperimentService implements IExperimentService {
         @inject(IApplicationEnvironment) private readonly appEnvironment: IApplicationEnvironment,
         @inject(IPersistentStateFactory) private readonly persistentState: IPersistentStateFactory,
     ) {
+        // Initialize experiments state - must be done in constructor after dependency injection
+        this.experiments = this.persistentState.createGlobalPersistentState<{ features: string[] }>(
+            EXP_MEMENTO_KEY,
+            { features: [] },
+        );
         const settings = this.workspaceService.getConfiguration('python');
         // Users can only opt in or out of experiment groups, not control groups.
         const optInto = settings.get<string[]>('experiments.optInto') || [];

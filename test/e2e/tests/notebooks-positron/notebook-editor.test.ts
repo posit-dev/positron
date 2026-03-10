@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -83,7 +83,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		await editors.waitForTab(/^Untitled-\d+\.ipynb$/, true); // true = isDirty
 
 		// Count tabs before reload (checking for multiple tabs with same file is the ghost editor symptom)
-		const tabsBefore = app.code.driver.page.locator('.tabs-container div.tab');
+		const tabsBefore = app.code.driver.currentPage.locator('.tabs-container div.tab');
 		await expect(tabsBefore).toHaveCount(1);
 
 		// Reload the window to simulate restart
@@ -93,15 +93,15 @@ test.describe('Positron Notebooks: Open & Save', {
 		// The bug would cause both a Positron notebook AND a VS Code notebook to be visible
 
 		// Check tab count - should still be 1, not 2
-		const tabsAfter = app.code.driver.page.locator('.tabs-container div.tab');
+		const tabsAfter = app.code.driver.currentPage.locator('.tabs-container div.tab');
 		await expect(tabsAfter).toHaveCount(1);
 
 		// Verify that the Positron notebook is visible
 		await notebooksPositron.expectToBeVisible();
 
 		// Verify that the VS Code notebook is NOT visible (this is the ghost editor we're trying
-		const positronNotebookElements = app.code.driver.page.locator('.positron-notebook');
-		const vscodeNotebookElements = app.code.driver.page.locator('.notebook-editor');
+		const positronNotebookElements = app.code.driver.currentPage.locator('.positron-notebook');
+		const vscodeNotebookElements = app.code.driver.currentPage.locator('.notebook-editor');
 
 		// Should have only one notebook editor, and it should be the Positron one
 		await expect(positronNotebookElements).toHaveCount(1);

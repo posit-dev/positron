@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -274,7 +274,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	}, { auto: true, scope: 'test' }],
 
 	page: async ({ app }, use) => {
-		await use(app.code.driver.page);
+		await use(app.code.driver.currentPage);
 	},
 
 	autoTestFixture: [async ({ logger, suiteId, app }, use, testInfo) => {

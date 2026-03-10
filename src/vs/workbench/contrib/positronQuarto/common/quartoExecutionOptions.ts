@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { parse as parseYaml, YamlObjectNode } from '../../../../base/common/yaml.js';
+import { parse as parseYaml, YamlMapNode } from '../../../../base/common/yaml.js';
 
 /**
  * Execution options parsed from cell YAML comments.
@@ -100,17 +100,23 @@ export function parseCellExecutionOptions(code: string): ParsedCellOptions {
 		const errors: import('../../../../base/common/yaml.js').YamlParseError[] = [];
 		const parsed = parseYaml(yamlContent, errors);
 
-		if (parsed && parsed.type === 'object') {
-			const obj = parsed as YamlObjectNode;
+		if (parsed && parsed.type === 'map') {
+			const obj = parsed as YamlMapNode;
 			for (const prop of obj.properties) {
 				const key = prop.key.value;
 				const value = prop.value;
 
-				if (key === 'eval' && value.type === 'boolean') {
-					(options as { eval: boolean }).eval = value.value;
+				if (key === 'eval' && value.type === 'scalar') {
+					const boolValue = value.value.toLowerCase();
+					if (boolValue === 'true' || boolValue === 'false') {
+						(options as { eval: boolean }).eval = boolValue === 'true';
+					}
 				}
-				if (key === 'error' && value.type === 'boolean') {
-					(options as { error: boolean }).error = value.value;
+				if (key === 'error' && value.type === 'scalar') {
+					const boolValue = value.value.toLowerCase();
+					if (boolValue === 'true' || boolValue === 'false') {
+						(options as { error: boolean }).error = boolValue === 'true';
+					}
 				}
 			}
 		}

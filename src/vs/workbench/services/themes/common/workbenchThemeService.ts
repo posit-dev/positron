@@ -11,6 +11,9 @@ import { ConfigurationTarget } from '../../../../platform/configuration/common/c
 import { isBoolean, isString } from '../../../../base/common/types.js';
 import { IconContribution, IconDefinition } from '../../../../platform/theme/common/iconRegistry.js';
 import { ColorScheme, ThemeTypeSelector } from '../../../../platform/theme/common/theme.js';
+// --- Start Positron ---
+// import product from '../../../../platform/product/common/product.js';
+// --- End Positron ---
 
 export const IWorkbenchThemeService = refineServiceDecorator<IThemeService, IWorkbenchThemeService>(IThemeService);
 
@@ -38,19 +41,23 @@ export enum ThemeSettings {
 	SYSTEM_COLOR_THEME = 'window.systemColorTheme'
 }
 
-export enum ThemeSettingDefaults {
+// --- Start Positron ---
+// const isOSS = !product.quality;
+// --- End Positron ---
+
+export namespace ThemeSettingDefaults {
 	// --- Start Positron ---
-	COLOR_THEME_DARK = 'Default Positron Dark',
-	COLOR_THEME_LIGHT = 'Default Positron Light',
+	export const COLOR_THEME_DARK = 'Default Positron Dark';
+	export const COLOR_THEME_LIGHT = 'Default Positron Light';
 	// --- End Positron ---
-	COLOR_THEME_HC_DARK = 'Default High Contrast',
-	COLOR_THEME_HC_LIGHT = 'Default High Contrast Light',
+	export const COLOR_THEME_HC_DARK = 'Default High Contrast';
+	export const COLOR_THEME_HC_LIGHT = 'Default High Contrast Light';
 
-	COLOR_THEME_DARK_OLD = 'Default Dark+',
-	COLOR_THEME_LIGHT_OLD = 'Default Light+',
+	export const COLOR_THEME_DARK_OLD = 'Default Dark+';
+	export const COLOR_THEME_LIGHT_OLD = 'Default Light+';
 
-	FILE_ICON_THEME = 'vs-seti',
-	PRODUCT_ICON_THEME = 'Default',
+	export const FILE_ICON_THEME = 'vs-seti';
+	export const PRODUCT_ICON_THEME = 'Default';
 }
 
 export const COLOR_THEME_DARK_INITIAL_COLORS = {

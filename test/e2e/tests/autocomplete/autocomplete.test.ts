@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -183,13 +183,13 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 	retrigger?: boolean;
 }) {
 	const { sessions, hotKeys } = app.workbench;
-	const keyboard = app.code.driver.page.keyboard;
+	const keyboard = app.code.driver.currentPage.keyboard;
 
 	await sessions.select(session.id);
 	await hotKeys.firstTab();
 
 	// Wait for the editor to actually have focus before typing
-	const editorInput = app.code.driver.page.locator('.editor-instance .monaco-editor .native-edit-context');
+	const editorInput = app.code.driver.currentPage.locator('.editor-instance .monaco-editor .native-edit-context');
 	await expect(editorInput).toBeFocused();
 
 	if (retrigger) {

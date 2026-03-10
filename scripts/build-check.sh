@@ -23,9 +23,17 @@ node scripts/deemon-status.mts \
 	--command "npm run watch-e2e" &
 pid3=$!
 
-r1=0; r2=0; r3=0
+node scripts/deemon-status.mts \
+	--name watch-client-transpile \
+	--begins "Starting transpilation\.\.\." \
+	--ends "Finished transpilation with" \
+	--command "npm run watch-client-transpile" &
+pid4=$!
+
+r1=0; r2=0; r3=0; r4=0
 wait $pid1 || r1=$?
 wait $pid2 || r2=$?
 wait $pid3 || r3=$?
+wait $pid4 || r4=$?
 
-exit $((r1 || r2 || r3))
+exit $((r1 || r2 || r3 || r4))

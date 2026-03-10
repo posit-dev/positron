@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,26 +24,26 @@ type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
  */
 export class PositronNotebooks extends Notebooks {
 	// Containers, generic locators
-	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
+	private positronNotebook = this.code.driver.currentPage.locator('.positron-notebook').first();
 	private cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
-	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
-	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
+	private newCellButton = this.code.driver.currentPage.getByLabel(/new code cell/i);
+	private spinner = this.code.driver.currentPage.getByLabel(/cell is executing/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .native-edit-context');
-	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
-	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
-	markdownCell = this.code.driver.page.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
-	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
-	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
+	cell = this.code.driver.currentPage.locator('[data-testid="notebook-cell"]');
+	codeCell = this.code.driver.currentPage.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
+	markdownCell = this.code.driver.currentPage.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
+	cellStatusSyncIcon = this.code.driver.currentPage.locator('.cell-status-item-has-runnable .codicon-sync');
+	detectingKernelsText = this.code.driver.currentPage.getByText(/detecting kernels/i);
 
 	// Editor action bar
-	editorActionBar = this.code.driver.page.locator('.editor-action-bar-container');
+	editorActionBar = this.code.driver.currentPage.locator('.editor-action-bar-container');
 	kernel: Kernel;
 	private addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
 	private addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 
 	// Cell action buttons, menus, tooltips, output, etc
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /More Cell Actions/i });
-	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
+	moreActionsOption = (option: string) => this.code.driver.currentPage.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
@@ -53,16 +53,16 @@ export class PositronNotebooks extends Notebooks {
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/Cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
-	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
-	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
+	viewMarkdown = this.code.driver.currentPage.getByRole('button', { name: 'View markdown' });
+	expandMarkdownEditor = this.code.driver.currentPage.getByRole('button', { name: 'Open markdown editor' });
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
-	private fixErrorButton = this.code.driver.page.getByRole('button', { name: /Ask assistant to fix/i });
-	private explainErrorButton = this.code.driver.page.getByRole('button', { name: /Ask assistant to explain/i });
+	private fixErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask assistant to fix/i });
+	private explainErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask assistant to explain/i });
 
 	// Search Widget
-	private searchWidget = this.code.driver.page.locator('.positron-find-widget');
+	private searchWidget = this.code.driver.currentPage.locator('.positron-find-widget');
 	private findInput = this.searchWidget.getByRole('textbox', { name: 'Find' });
 	private toggleReplaceButton = this.searchWidget.getByRole('button', { name: 'Toggle Replace' });
 	private replaceInput = this.searchWidget.getByRole('textbox', { name: 'Replace' });
@@ -71,7 +71,7 @@ export class PositronNotebooks extends Notebooks {
 	private searchNextButton = this.searchWidget.getByRole('button', { name: 'Next Match' });
 	private searchPreviousButton = this.searchWidget.getByRole('button', { name: 'Previous Match' });
 	private searchCloseButton = this.searchWidget.getByRole('button', { name: 'Close', exact: true });
-	private searchDecoration = this.code.driver.page.locator('.findMatchInline');
+	private searchDecoration = this.code.driver.currentPage.locator('.findMatchInline');
 
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
@@ -266,7 +266,7 @@ export class PositronNotebooks extends Notebooks {
 		const x = box.x + box.width - OFFSET;
 		const y = box.y + box.height + OFFSET;
 
-		await this.code.driver.page.mouse.click(x, y);
+		await this.code.driver.currentPage.mouse.click(x, y);
 	}
 
 	/**
@@ -308,11 +308,11 @@ export class PositronNotebooks extends Notebooks {
 				if (!editMode) {
 					await test.step('Exit edit mode', async () => {
 						// give the editor a moment to settle before toggling mode
-						await this.code.driver.page.waitForTimeout(500);
+						await this.code.driver.currentPage.waitForTimeout(500);
 
 						await expect(
 							async () => {
-								await this.code.driver.page.keyboard.press('Escape');
+								await this.code.driver.currentPage.keyboard.press('Escape');
 								await this.expectCellIndexToBeSelected(cellIndex, {
 									isSelected: true,
 									inEditMode: false,
@@ -464,34 +464,34 @@ export class PositronNotebooks extends Notebooks {
 			// in command mode, not the standard Cmd+C/X/V/Z shortcuts
 			switch (action) {
 				case 'copy':
-					await this.code.driver.page.keyboard.press('KeyC');
+					await this.code.driver.currentPage.keyboard.press('KeyC');
 					break;
 				case 'cut':
-					await this.code.driver.page.keyboard.press('KeyX');
+					await this.code.driver.currentPage.keyboard.press('KeyX');
 					break;
 				case 'paste':
-					await this.code.driver.page.keyboard.press('KeyV');
+					await this.code.driver.currentPage.keyboard.press('KeyV');
 					break;
 				case 'undo':
-					await this.code.driver.page.keyboard.press('KeyZ');
+					await this.code.driver.currentPage.keyboard.press('KeyZ');
 					break;
 				case 'redo':
-					await this.code.driver.page.keyboard.press('Shift+KeyZ');
+					await this.code.driver.currentPage.keyboard.press('Shift+KeyZ');
 					break;
 				case 'delete':
-					await this.code.driver.page.keyboard.press('Backspace');
+					await this.code.driver.currentPage.keyboard.press('Backspace');
 					break;
 				case 'addCellBelow':
-					await this.code.driver.page.keyboard.press('KeyB');
+					await this.code.driver.currentPage.keyboard.press('KeyB');
 					break;
 				case 'changeToCode':
-					await this.code.driver.page.keyboard.press('KeyY');
+					await this.code.driver.currentPage.keyboard.press('KeyY');
 					break;
 				case 'changeToMarkdown':
-					await this.code.driver.page.keyboard.press('KeyM');
+					await this.code.driver.currentPage.keyboard.press('KeyM');
 					break;
 				case 'changeToRaw':
-					await this.code.driver.page.keyboard.press('KeyR');
+					await this.code.driver.currentPage.keyboard.press('KeyR');
 					break;
 				default:
 					throw new Error(`Unknown cell action: ${action}`);
@@ -517,7 +517,7 @@ export class PositronNotebooks extends Notebooks {
 			await expect(this.cell).toHaveCount(initialCount - 1, { timeout: DEFAULT_TIMEOUT });
 
 			// Give a small delay for focus to settle
-			await this.code.driver.page.waitForTimeout(100);
+			await this.code.driver.currentPage.waitForTimeout(100);
 		});
 	}
 
@@ -573,7 +573,7 @@ export class PositronNotebooks extends Notebooks {
 			await this.findInput.fill(searchText);
 
 			if (enterKey) {
-				await this.code.driver.page.keyboard.press('Enter');
+				await this.code.driver.currentPage.keyboard.press('Enter');
 			}
 
 			// If replace text is provided, expand replace row and perform replace
@@ -600,7 +600,7 @@ export class PositronNotebooks extends Notebooks {
 	async searchNext(mode: 'button' | 'keyboard' = 'button'): Promise<void> {
 		await test.step('Search next match', async () => {
 			mode === 'keyboard'
-				? await this.code.driver.page.keyboard.press('Enter')
+				? await this.code.driver.currentPage.keyboard.press('Enter')
 				: await this.searchNextButton.click();
 		});
 	}
@@ -621,7 +621,7 @@ export class PositronNotebooks extends Notebooks {
 	async searchClose(mode: 'button' | 'keyboard' = 'button'): Promise<void> {
 		await test.step('Close search widget', async () => {
 			mode === 'keyboard'
-				? await this.code.driver.page.keyboard.press('Escape')
+				? await this.code.driver.currentPage.keyboard.press('Escape')
 				: await this.searchCloseButton.click();
 
 			await expect(this.searchWidget).not.toBeVisible({ timeout: 2000 });
@@ -698,7 +698,7 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectNotebookErrorVisible(timeout: number = 10000): Promise<void> {
 		await test.step('Expect notebook error to be visible', async () => {
-			await this.code.driver.page.waitForSelector('.notebook-error', { timeout });
+			await this.code.driver.currentPage.waitForSelector('.notebook-error', { timeout });
 		});
 	}
 
@@ -1156,7 +1156,7 @@ export class Kernel {
 	private disconnectedStatus: Locator;
 
 	constructor(private code: Code, private notebooks: PositronNotebooks, private contextMenu: ContextMenu, private hotKeys: HotKeys, private quickinput: QuickInput) {
-		this.statusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' });
+		this.statusBadge = this.code.driver.currentPage.getByRole('button', { name: 'Kernel Actions' });
 		this.activeStatus = this.notebooks.editorActionBar.locator(ACTIVE_STATUS_ICON);
 		this.idleStatus = this.notebooks.editorActionBar.locator(IDLE_STATUS_ICON);
 		this.disconnectedStatus = this.notebooks.editorActionBar.locator(DISCONNECTED_STATUS_ICON);

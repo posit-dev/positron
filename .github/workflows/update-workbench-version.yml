@@ -51,6 +51,5 @@ jobs:
 
             @:vscode
           branch: update-pwb-code-server-${{ env.VERSION }}
-          draft: true
           reviewers: melissa-barca
           path: rstudio-pro

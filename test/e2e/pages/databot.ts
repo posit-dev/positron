@@ -73,7 +73,7 @@ export class Databot {
 	 * All Databot UI elements live inside this nested iframe.
 	 */
 	get frame(): FrameLocator {
-		return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+		return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	}
 
 	/**
@@ -81,7 +81,7 @@ export class Databot {
 	 */
 	async open(): Promise<void> {
 		await this.quickaccess.runCommand('Open Databot in Editor Panel');
-		await expect(this.code.driver.page.getByRole('tab', { name: 'Databot' })).toBeVisible();
+		await expect(this.code.driver.currentPage.getByRole('tab', { name: 'Databot' })).toBeVisible();
 	}
 
 	/**
@@ -99,7 +99,7 @@ export class Databot {
 	 * Verifies that the Databot tab is visible (tab is on the main page, not in the webview).
 	 */
 	async expectTabVisible(): Promise<void> {
-		await expect(this.code.driver.page.locator(DATABOT_TAB)).toBeVisible();
+		await expect(this.code.driver.currentPage.locator(DATABOT_TAB)).toBeVisible();
 	}
 
 	/**
@@ -361,7 +361,7 @@ export class Databot {
 	 * Closes the Databot tab (tab is on the main page, not in the webview).
 	 */
 	async close(): Promise<void> {
-		await this.code.driver.page.locator(`${DATABOT_TAB} .codicon-close`).click();
+		await this.code.driver.currentPage.locator(`${DATABOT_TAB} .codicon-close`).click();
 	}
 
 }

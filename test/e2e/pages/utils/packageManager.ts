@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -38,7 +38,7 @@ export class PackageManager {
 			const expectedOutput = this.getExpectedOutput(packageName, action);
 
 			await this.app.workbench.console.executeCode(packageInfo.type, command);
-			await expect(this.app.code.driver.page.getByText(expectedOutput)).toBeVisible();
+			await expect(this.app.code.driver.currentPage.getByText(expectedOutput)).toBeVisible();
 		});
 	}
 

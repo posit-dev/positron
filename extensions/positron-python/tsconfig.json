@@ -1,9 +1,5 @@
 {
     "compilerOptions": {
-        "baseUrl": ".",
-        "paths": {
-            "*": ["types/*"]
-        },
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "target": "es2018",

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -47,7 +47,7 @@ export function FileOperationsFixture(app: Application) {
 							break;
 						} catch (error) {
 							// Press PageDown if not found
-							await app.code.driver.page.keyboard.press('PageDown');
+							await app.code.driver.currentPage.keyboard.press('PageDown');
 
 							// If last attempt, rethrow
 							if (i === maxRetries - 1) {
