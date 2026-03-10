@@ -11,6 +11,7 @@ import { exec, pathExists, readFile, resolveSymbolicLink } from '../externalDepe
 import { isTestExecution } from '../../../common/constants';
 import { getPyvenvConfigPathsFrom } from './simplevirtualenvs';
 import { splitLines } from '../../../common/stringUtils';
+import { CreateEnv } from '../../../common/utils/localize';
 
 /** Regex to extract version from uv python list output (e.g., "cpython-3.14.0a5-macos-aarch64-none") */
 const UV_VERSION_REGEX = /cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i;
@@ -334,7 +335,7 @@ export async function getStablePythonAfterUpdate(
     onProgress?: (message: string) => void,
 ): Promise<GetStablePythonResult> {
     // Update uv
-    onProgress?.('Updating uv...');
+    onProgress?.(CreateEnv.Uv.updatingUv);
     traceVerbose('Running uv self update...');
     const updateSuccess = await updateUv();
     if (!updateSuccess) {
@@ -360,7 +361,7 @@ export async function getStablePythonAfterUpdate(
 
     // Found a stable version - install it if not already local
     if (!stableVersionInfo.path) {
-        onProgress?.(`Installing Python ${stableVersionInfo.version}...`);
+        onProgress?.(CreateEnv.Uv.installingPython(stableVersionInfo.version));
         traceVerbose(`Installing stable Python ${stableVersionInfo.version}...`);
         const installSuccess = await installUvPython(stableVersionInfo.version);
         if (!installSuccess) {
