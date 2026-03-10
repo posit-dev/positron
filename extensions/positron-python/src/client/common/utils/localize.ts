@@ -550,7 +550,7 @@ export namespace CreateEnv {
                 'Your uv installation would use Python {0}, which is a pre-release version. Pre-release Python versions may cause compatibility issues. Run "uv self update" to get the latest stable Python versions.',
                 version,
             );
-        export const errorUpdatingUv = l10n.t('Failed to update uv. See Output > Python for more info.');
+        export const errorUpdatingUv = l10n.t('Failed to update uv. See Output > Python Language Pack for more info.');
         export const stillPrereleaseWarning = (version: string) =>
             l10n.t(
                 'After updating uv, Python {0} is still a pre-release. No stable version is available. Proceeding with environment creation.',
@@ -558,7 +558,7 @@ export namespace CreateEnv {
             );
         export const installingPython = (version: string) => l10n.t('Installing Python {0}...', version);
         export const errorInstallingPython = (version: string) =>
-            l10n.t('Failed to install Python {0}. See Output > Python for more info.', version);
+            l10n.t('Failed to install Python {0}. See Output > Python Language Pack for more info.', version);
     }
     // --- End Positron ---
 
