@@ -25,6 +25,7 @@ import { IWorkspaceTrustManagementService } from '../../../../platform/workspace
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IPositronNewFolderService } from '../../positronNewFolder/common/positronNewFolder.js';
+import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Barrier } from '../../../../base/common/async.js';
@@ -144,6 +145,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
 	) {
 
 		super();
@@ -1741,6 +1743,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Skip on web - the browser's architecture doesn't relate to where
 		// the interpreter is running
 		if (isWeb) {
+			return;
+		}
+
+		// Skip on remote sessions - Linux remotes don't have architecture emulation,
+		// and comparing interpreter arch against the local client arch is meaningless
+		if (this._environmentService.remoteAuthority) {
 			return;
 		}
 
