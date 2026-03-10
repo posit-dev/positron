@@ -11,7 +11,8 @@ import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { CurrentWorkingDirectory } from './currentWorkingDirectory.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -397,7 +398,7 @@ export const ActionBar = (props: ActionBarProps) => {
 					tooltip={positronInterruptExecution}
 					onPressed={interruptHandler}
 				>
-					<div className={'action-bar-button-icon	interrupt codicon codicon-positron-interrupt-runtime'} />
+					<ThemeIcon className='action-bar-button-icon interrupt' icon={Codicon.positronInterruptRuntime} />
 				</ActionBarButton>
 			)
 		});
@@ -413,14 +414,14 @@ export const ActionBar = (props: ActionBarProps) => {
 				ariaLabel={positronRestartSession}
 				dataTestId='restart-session'
 				disabled={!canShutdown || restarting}
-				icon={ThemeIcon.fromId('positron-restart-runtime-thin')}
+				icon={Codicon.positronRestartRuntimeThin}
 				tooltip={(positronRestartSession)}
 				onPressed={restartConsoleHandler}
 			/>
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.restartRuntime',
-			icon: 'positron-restart-runtime-thin',
+			icon: Codicon.positronRestartRuntimeThin,
 			label: positronRestartSession,
 			onSelected: restartConsoleHandler
 		}
@@ -437,14 +438,14 @@ export const ActionBar = (props: ActionBarProps) => {
 					ariaLabel={positronDeleteSession}
 					dataTestId='trash-session'
 					disabled={!(canShutdown || canStart)}
-					icon={ThemeIcon.fromId('trash')}
+					icon={Codicon.trash}
 					tooltip={positronDeleteSession}
 					onPressed={deleteSessionHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.trashSession',
-				icon: 'trash',
+				icon: Codicon.trash,
 				label: positronDeleteSession,
 				onSelected: deleteSessionHandler
 			}
@@ -468,14 +469,14 @@ export const ActionBar = (props: ActionBarProps) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={positronToggleTrace}
-					icon={ThemeIcon.fromId('wand')}
+					icon={Codicon.wand}
 					tooltip={positronToggleTrace}
 					onPressed={toggleTraceHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.toggleTrace',
-				icon: 'wand',
+				icon: Codicon.wand,
 				label: positronToggleTrace,
 				onSelected: toggleTraceHandler
 			}
@@ -490,14 +491,14 @@ export const ActionBar = (props: ActionBarProps) => {
 			<ActionBarButton
 				align='right'
 				ariaLabel={positronToggleWordWrap}
-				icon={ThemeIcon.fromId('word-wrap')}
+				icon={Codicon.wordWrap}
 				tooltip={positronToggleWordWrap}
 				onPressed={toggleWordWrapHandler}
 			/>
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.toggleWordWrap',
-			icon: 'word-wrap',
+			icon: Codicon.wordWrap,
 			label: positronToggleWordWrap,
 			onSelected: toggleWordWrapHandler
 		}
@@ -511,14 +512,14 @@ export const ActionBar = (props: ActionBarProps) => {
 			<ActionBarButton
 				align='right'
 				ariaLabel={positronOpenInEditor}
-				icon={ThemeIcon.fromId('positron-open-in-editor')}
+				icon={Codicon.positronOpenInEditor}
 				tooltip={positronOpenInEditor}
 				onPressed={openInEditorHandler}
 			/>
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.openInEditor',
-			icon: 'positron-open-in-editor',
+			icon: Codicon.positronOpenInEditor,
 			label: positronOpenInEditor,
 			onSelected: openInEditorHandler
 		}
@@ -532,14 +533,14 @@ export const ActionBar = (props: ActionBarProps) => {
 			<ActionBarButton
 				align='right'
 				ariaLabel={positronClearConsole}
-				icon={ThemeIcon.fromId('clear-all')}
+				icon={Codicon.clearAll}
 				tooltip={positronClearConsole}
 				onPressed={clearConsoleHandler}
 			/>
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.clearConsole',
-			icon: 'clear-all',
+			icon: Codicon.clearAll,
 			label: positronClearConsole,
 			onSelected: clearConsoleHandler
 		}

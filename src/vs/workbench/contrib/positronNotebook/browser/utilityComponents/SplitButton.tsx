@@ -10,6 +10,9 @@ import './SplitButton.css';
 import React, { PropsWithChildren, useRef } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon as ThemeIconType } from '../../../../../base/common/themables.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
@@ -36,8 +39,8 @@ export interface SplitButtonProps {
 	dropdownActions: IAction[];
 	/** Context menu service for showing the dropdown */
 	contextMenuService: IContextMenuService;
-	/** Custom dropdown icon class (defaults to codicon-chevron-down) */
-	dropdownIconClass?: string;
+	/** Custom dropdown icon (defaults to chevron-down) */
+	dropdownIcon?: ThemeIconType;
 }
 
 /**
@@ -56,7 +59,7 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 	onMainAction,
 	dropdownActions,
 	contextMenuService,
-	dropdownIconClass = 'codicon-chevron-down',
+	dropdownIcon = Codicon.chevronDown,
 	children
 }) => {
 	const dropdownRef = useRef<HTMLDivElement>(null);
@@ -109,7 +112,7 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 					}
 				}}
 			>
-				<span className={`codicon ${dropdownIconClass}`} />
+				<ThemeIcon icon={dropdownIcon} />
 			</div>
 		</div>
 	);

@@ -11,6 +11,8 @@ import React, { forwardRef, JSX, ReactElement, Ref, useEffect, useImperativeHand
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../platform/positronActionBar/browser/components/icon.js';
 import { DropDownListBoxItem } from './dropDownListBoxItem.js';
 import { DropDownListBoxSeparator } from './dropDownListBoxSeparator.js';
 import { PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
@@ -154,7 +156,7 @@ const DropDownListBoxActual = <T extends NonNullable<any>, V extends NonNullable
 				<Title />
 			</div>
 			<div aria-hidden='true' className='chevron'>
-				<div className='codicon codicon-chevron-down' />
+				<ThemeIcon icon={Codicon.chevronDown} />
 			</div>
 		</Button>
 	);
@@ -216,13 +218,12 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 											{entry.options.title}
 										</div>
 										{entry.options.icon &&
-											<div
+											<ThemeIcon
 												className={positronClassNames(
 													'icon',
-													'codicon',
-													`codicon-${entry.options.icon}`,
 													{ 'disabled': entry.options.disabled }
 												)}
+												icon={entry.options.icon}
 												title={entry.options.title}
 											/>
 										}

@@ -8,6 +8,7 @@ import { JSX } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
@@ -324,14 +325,14 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 		const entries: CustomContextMenuEntry[] = [
 			new CustomContextMenuItem({
 				checked: false,
-				icon: 'copy',
+				icon: Codicon.copy,
 				label: localize('positron.dataExplorer.copyColumn', "Copy Column"),
 				onSelected: async () => this.copyToClipboard()
 			}),
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
 				checked: false,
-				icon: 'positron-select-column',
+				icon: Codicon.positronSelectColumn,
 				label: localize('positron.dataExplorer.selectColumn', "Select Column"),
 				disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
 				onSelected: () => this.selectColumn(columnIndex)
@@ -339,19 +340,19 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
 				checked: columnSortKey?.ascending === true,
-				icon: 'arrow-up',
+				icon: Codicon.arrowUp,
 				label: localize('positron.sortAscending', "Sort Ascending"),
 				onSelected: async () => this.setColumnSortKey(columnIndex, true)
 			}),
 			new CustomContextMenuItem({
 				checked: columnSortKey?.ascending === false,
-				icon: 'arrow-down',
+				icon: Codicon.arrowDown,
 				label: localize('positron.sortDescending', "Sort Descending"),
 				onSelected: async () => this.setColumnSortKey(columnIndex, false)
 			}),
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
-				icon: 'positron-clear-sorting',
+				icon: Codicon.positronClearSorting,
 				label: localize('positron.clearSorting', "Clear Sorting"),
 				disabled: !columnSortKey,
 				onSelected: async () => this.removeColumnSortKey(columnIndex)
@@ -386,14 +387,14 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 		const entries: CustomContextMenuEntry[] = [
 			new CustomContextMenuItem({
 				checked: false,
-				icon: 'copy',
+				icon: Codicon.copy,
 				label: localize('positron.dataExplorer.copyRow', "Copy Row"),
 				onSelected: async () => this.copyToClipboard()
 			}),
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
 				checked: false,
-				icon: 'positron-select-row',
+				icon: Codicon.positronSelectRow,
 				label: localize('positron.dataExplorer.selectRow', "Select Row"),
 				disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 				onSelected: () => this.selectRow(rowIndex)
@@ -429,21 +430,21 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 		const entries: CustomContextMenuEntry[] = [
 			new CustomContextMenuItem({
 				checked: false,
-				icon: 'copy',
+				icon: Codicon.copy,
 				label: localize('positron.dataExplorer.copy', "Copy"),
 				onSelected: async () => this.copyToClipboard()
 			}),
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
 				checked: false,
-				icon: 'positron-select-column',
+				icon: Codicon.positronSelectColumn,
 				label: localize('positron.dataExplorer.selectColumn', "Select Column"),
 				disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
 				onSelected: () => this.selectColumn(columnIndex)
 			}),
 			new CustomContextMenuItem({
 				checked: false,
-				icon: 'positron-select-row',
+				icon: Codicon.positronSelectRow,
 				label: localize('positron.dataExplorer.selectRow', "Select Row"),
 				disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 				onSelected: () => this.selectRow(rowIndex)
@@ -451,19 +452,19 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
 				checked: columnSortKey?.ascending === true,
-				icon: 'arrow-up',
+				icon: Codicon.arrowUp,
 				label: localize('positron.sortAscending', "Sort Ascending"),
 				onSelected: async () => this.setColumnSortKey(columnIndex, true)
 			}),
 			new CustomContextMenuItem({
 				checked: columnSortKey?.ascending === false,
-				icon: 'arrow-down',
+				icon: Codicon.arrowDown,
 				label: localize('positron.sortDescending', "Sort Descending"),
 				onSelected: async () => this.setColumnSortKey(columnIndex, false)
 			}),
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
-				icon: 'positron-clear-sorting',
+				icon: Codicon.positronClearSorting,
 				label: localize('positron.clearSorting', "Clear Sorting"),
 				disabled: !columnSortKey,
 				onSelected: async () => this.removeColumnSortKey(columnIndex)

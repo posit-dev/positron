@@ -10,7 +10,7 @@ import * as React from 'react';
 import { localize } from '../../../../nls.js';
 import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
@@ -204,7 +204,7 @@ export class EditorActionBarFactory extends Disposable {
 				ariaLabel={positronMoveIntoNewWindowAriaLabel}
 				commandId='workbench.action.moveEditorToNewWindow'
 				disabled={auxiliaryWindow}
-				icon={ThemeIcon.fromId('positron-open-in-new-window')}
+				icon={Codicon.positronOpenInNewWindow}
 				tooltip={positronMoveIntoNewWindowTooltip}
 			/>
 		);
@@ -488,7 +488,7 @@ export class EditorActionBarFactory extends Disposable {
 					align='left'
 					ariaLabel={positronMoreActionsAriaLabel}
 					dropdownIndicator='disabled'
-					icon={ThemeIcon.fromId('toolbar-more')}
+					icon={Codicon.toolBarMore}
 					tooltip={positronMoreActionsTooltip}
 				/>
 			);

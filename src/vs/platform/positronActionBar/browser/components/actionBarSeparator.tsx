@@ -7,6 +7,8 @@
 import './actionBarSeparator.css';
 
 // Other dependencies.
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from './icon.js';
 import { optionalBoolean, positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
@@ -29,7 +31,7 @@ export const ActionBarSeparator = (props: ActionBarSeparatorProps) => {
 				'action-bar-separator',
 				{ 'fade-in': optionalBoolean(props.fadeIn) }
 			)} >
-			<div className='action-bar-separator-icon codicon codicon-positron-separator' />
+			<ThemeIcon className='action-bar-separator-icon' icon={Codicon.positronSeparator} />
 		</div>
 	);
 };

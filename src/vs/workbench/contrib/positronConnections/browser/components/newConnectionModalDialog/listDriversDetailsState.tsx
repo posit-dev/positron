@@ -13,6 +13,8 @@ import { IDriver, Input } from '../../../../../services/positronConnections/comm
 import { localize } from '../../../../../../nls.js';
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 
 
 interface ListDriversDetailsProps {
@@ -93,8 +95,7 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 								{')'}
 							</small>
 						</div>
-						<div className={`driver-button codicon codicon-chevron-right`}>
-						</div>
+						<ThemeIcon className='driver-button' icon={Codicon.chevronRight} />
 					</div>
 				</button>
 			))}

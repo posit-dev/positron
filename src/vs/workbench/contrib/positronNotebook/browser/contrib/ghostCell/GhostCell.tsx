@@ -22,6 +22,8 @@ import { PositronModalReactRenderer } from '../../../../../../base/browser/posit
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 import { IAction } from '../../../../../../base/common/actions.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { SegmentedToggle } from '../../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
 
 /** Prevents Space key from scrolling the page when activating native buttons. */
@@ -248,11 +250,13 @@ const GhostCellAwaitingRequest: React.FC<GhostCellAwaitingRequestProps> = ({
 		<SuggestionModeToggle automatic={automatic} onToggle={onToggleMode} />
 		<button
 			aria-label={infoButtonLabel}
-			className='ghost-cell-info-button codicon codicon-info'
+			className='ghost-cell-info-button'
 			title={infoButtonLabel}
 			onClick={onShowInfo}
 			onKeyDown={preventSpaceScroll}
-		/>
+		>
+			<ThemeIcon icon={Codicon.info} />
+		</button>
 	</div>
 );
 
@@ -261,7 +265,7 @@ const GhostCellAwaitingRequest: React.FC<GhostCellAwaitingRequestProps> = ({
  */
 const GhostCellLoading: React.FC = () => (
 	<div className='ghost-cell-loading'>
-		<div className='ghost-cell-loading-spinner codicon codicon-loading codicon-modifier-spin' />
+		<ThemeIcon className='ghost-cell-loading-spinner codicon-modifier-spin' icon={Codicon.loading} />
 		<div className='ghost-cell-loading-text'>{loadingText}</div>
 	</div>
 );
@@ -271,7 +275,7 @@ const GhostCellLoading: React.FC = () => (
  */
 const GhostCellError: React.FC<{ message: string }> = ({ message }) => (
 	<div className='ghost-cell-error'>
-		<div className='ghost-cell-error-icon codicon codicon-warning' />
+		<ThemeIcon className='ghost-cell-error-icon' icon={Codicon.warning} />
 		<div className='ghost-cell-error-text'>{message}</div>
 	</div>
 );
@@ -343,12 +347,14 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 				/>
 				<button
 					aria-label={regenerateLabel}
-					className='ghost-cell-regenerate codicon codicon-refresh'
+					className='ghost-cell-regenerate'
 					disabled={isStreaming}
 					title={regenerateLabel}
 					onClick={onRegenerate}
 					onKeyDown={preventSpaceScroll}
-				/>
+				>
+					<ThemeIcon icon={Codicon.refresh} />
+				</button>
 			</div>
 			<div className='ghost-cell-code-preview'>
 				<pre className='ghost-cell-code-text'>{code}</pre>
@@ -356,16 +362,19 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 			<div className='ghost-cell-footer'>
 				<button
 					aria-label={infoButtonLabel}
-					className='ghost-cell-info-button codicon codicon-info'
+					className='ghost-cell-info-button'
 					title={infoButtonLabel}
 					onClick={onShowInfo}
 					onKeyDown={preventSpaceScroll}
-				/>
+				>
+					<ThemeIcon icon={Codicon.info} />
+				</button>
 				{modelName && (
 					<div className='ghost-cell-model-info'>
 						{usedFallback && (
-							<span
-								className='ghost-cell-fallback-warning codicon codicon-warning'
+							<ThemeIcon
+								className='ghost-cell-fallback-warning'
+								icon={Codicon.warning}
 								title={fallbackWarningTooltip}
 							/>
 						)}

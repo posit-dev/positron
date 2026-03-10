@@ -6,11 +6,15 @@
 // CSS.
 import './dropdownEntry.css';
 
+// Other dependencies.
+import { ThemeIcon as ThemeIconType } from '../../../../../base/common/themables.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+
 /**
  * DropdownEntryProps interface.
  */
 interface DropdownEntryProps {
-	codicon?: string;
+	icon?: ThemeIconType;
 	title: string;
 	subtitle: string;
 	hoverText?: string;
@@ -26,7 +30,7 @@ export const DropdownEntry = (props: DropdownEntryProps) => {
 	// Render.
 	return (
 		<div className='dropdown-entry' title={props.hoverText}>
-			{props.codicon ? <div className={`dropdown-entry-icon codicon ${props.codicon}`} /> : null}
+			{props.icon ? <ThemeIcon className='dropdown-entry-icon' icon={props.icon} /> : null}
 			<div className='dropdown-entry-title'>
 				{props.title}
 			</div>

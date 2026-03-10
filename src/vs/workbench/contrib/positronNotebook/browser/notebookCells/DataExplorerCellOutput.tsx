@@ -13,6 +13,8 @@ import { parseOutputData } from '../getOutputContents.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { InlineDataExplorer } from './InlineDataExplorer.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { localize } from '../../../../../nls.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 
@@ -63,7 +65,7 @@ export const DataExplorerCellOutput = React.memo(function DataExplorerCellOutput
 		// Show an explicit message instead of re-rendering InlineDataExplorer
 		// (which would loop back to loading/fallback indefinitely).
 		return <div className='inline-data-explorer-error'>
-			<span className='codicon codicon-warning' />
+			<ThemeIcon icon={Codicon.warning} />
 			{localize('dataUnavailableFallback', 'Data unavailable. Re-run cell to view.')}
 		</div>;
 	}

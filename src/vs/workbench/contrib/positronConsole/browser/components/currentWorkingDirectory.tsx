@@ -17,6 +17,8 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 /**
  * Localized strings for UI.
@@ -71,7 +73,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 			// Build the context menu entries.
 			const entries: CustomContextMenuEntry[] = [
 				new CustomContextMenuItem({
-					icon: 'copy',
+					icon: Codicon.copy,
 					label: localize('positron.dataExplorer.copy', "Copy"),
 					onSelected: async () => await services.clipboardService.writeText(
 						props.directoryLabel
@@ -113,7 +115,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 				positronActionBarContext.hoverManager?.hideHover();
 			}}
 		>
-			<span className='codicon codicon-folder' role='presentation' />
+			<ThemeIcon icon={Codicon.folder} role='presentation' />
 			<span className='label'>
 				{isWindows ? toSlashes(props.directoryLabel) : props.directoryLabel}
 			</span>

@@ -13,6 +13,8 @@ import React from 'react';
 import * as nls from '../../../../../nls.js';
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { ActivityItemOutputPlot } from '../../../../services/positronConsole/browser/classes/activityItemOutputPlot.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 // ActivityOutputPlot interface.
 export interface ActivityOutputPlotProps {
@@ -41,7 +43,7 @@ export const ActivityOutputPlot = (props: ActivityOutputPlotProps) => {
 				title={linkTitle}
 				onClick={handleClick}>
 				<img src={props.activityItemOutputPlot.plotUri} />
-				<span className='inspect codicon codicon-positron-search' />
+				<ThemeIcon className='inspect' icon={Codicon.positronSearch} />
 			</a>
 		</>
 	);

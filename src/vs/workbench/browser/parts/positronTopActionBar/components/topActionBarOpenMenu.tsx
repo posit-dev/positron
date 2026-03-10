@@ -23,7 +23,7 @@ import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/b
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from '../../../actions/workspaceActions.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
-import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
@@ -147,7 +147,7 @@ export const TopActionBarOpenMenu = () => {
 	return (
 		<ActionBarMenuButton
 			actions={actions}
-			icon={ThemeIcon.fromId('folder-opened')}
+			icon={Codicon.folderOpened}
 			iconFontSize={18}
 			label={positronOpen}
 			tooltip={positronOpenFileFolder}

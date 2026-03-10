@@ -10,6 +10,7 @@ import './rConfigurationStep.css';
 import { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { useNewFolderFlowContext } from '../../newFolderFlowContext.js';
 import { NewFolderFlowStepProps } from '../../interfaces/newFolderFlowStepProps.js';
 import { localize } from '../../../../../nls.js';
@@ -23,6 +24,7 @@ import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/Extern
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { FlowFormattedText, FlowFormattedTextType } from '../flowFormattedText.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 
 // NOTE: If you are making changes to this file, the equivalent Python component may benefit from
 // similar changes. See src/vs/workbench/browser/positronNewFolderFlow/components/steps/pythonEnvironmentStep.tsx
@@ -191,7 +193,7 @@ export const RConfigurationStep = (props: PropsWithChildren<NewFolderFlowStepPro
 						href='https://rstudio.github.io/renv/articles/renv.html'
 						title='https://rstudio.github.io/renv/articles/renv.html'
 					>
-						<div className='codicon codicon-link-external' />
+						<ThemeIcon icon={Codicon.linkExternal} />
 					</ExternalLink>
 				</div>
 			</PositronFlowSubStep>

@@ -11,7 +11,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { IChatEditingService } from '../../chat/common/editing/chatEditingService.js';
@@ -39,7 +39,7 @@ export class AskAssistantAction extends Action2 {
 			id: ASK_ASSISTANT_ACTION_ID,
 			title: localize2('askAssistant', 'Ask Assistant'),
 			tooltip: localize2('askAssistant.tooltip', 'Ask the assistant about this notebook'),
-			icon: ThemeIcon.fromId('positron-assistant'),
+			icon: Codicon.positronAssistant,
 			f1: true,
 			category: localize2('positronNotebook.category', 'Notebook'),
 			positronActionBarOptions: {

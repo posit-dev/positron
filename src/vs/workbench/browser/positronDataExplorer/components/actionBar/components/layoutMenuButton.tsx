@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { IAction } from '../../../../../../base/common/actions.js';
-import { ThemeIcon } from '../../../../../../base/common/themables.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
 import { ActionBarMenuButton } from '../../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
@@ -97,11 +97,11 @@ export const LayoutMenuButton = () => {
 		switch (layout) {
 			// Summary on left.
 			case PositronDataExplorerLayout.SummaryOnLeft:
-				return ThemeIcon.fromId('positron-data-explorer-summary-on-left');
+				return Codicon.positronDataExplorerSummaryOnLeft;
 
 			// Summary on right.
 			case PositronDataExplorerLayout.SummaryOnRight:
-				return ThemeIcon.fromId('positron-data-explorer-summary-on-right');
+				return Codicon.positronDataExplorerSummaryOnRight;
 
 			// Can't happen.
 			default:

@@ -28,6 +28,8 @@ import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ResourceUsageStats } from './resourceUsageStats.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { MAX_RESOURCE_USAGE_HISTORY } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -508,7 +510,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 								onKeyDown={handleDeleteKeyDown}
 								onMouseDown={handleDeleteMouseDown}
 							>
-								<span className='codicon codicon-trash' />
+								<ThemeIcon icon={Codicon.trash} />
 							</button>
 						}
 					</>

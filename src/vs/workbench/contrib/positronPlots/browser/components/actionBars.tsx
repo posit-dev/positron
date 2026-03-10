@@ -30,6 +30,7 @@ import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/b
 import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { AUX_WINDOW_GROUP_TYPE, ACTIVE_GROUP_TYPE, SIDE_GROUP_TYPE, AUX_WINDOW_GROUP, ACTIVE_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -282,11 +283,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	};
 
-	const iconForDarkFilter = (filter: DarkFilter): string => {
+	const iconForDarkFilter = (filter: DarkFilter): ThemeIcon => {
 		switch (filter) {
-			case DarkFilter.On: return 'circle-large-filled';
-			case DarkFilter.Off: return 'circle-large';
-			case DarkFilter.Auto: return 'color-mode';
+			case DarkFilter.On: return Codicon.circleLargeFilled;
+			case DarkFilter.Off: return Codicon.circleLarge;
+			case DarkFilter.Auto: return Codicon.colorMode;
 		}
 	};
 
@@ -566,7 +567,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<ActionBarButton
 				ariaLabel={showPreviousPlot}
 				disabled={disableLeft}
-				icon={ThemeIcon.fromId('positron-left-arrow')}
+				icon={Codicon.positronLeftArrow}
 				tooltip={showPreviousPlot}
 				onPressed={showPreviousPlotHandler}
 			/>
@@ -581,7 +582,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<ActionBarButton
 				ariaLabel={showNextPlot}
 				disabled={disableRight}
-				icon={ThemeIcon.fromId('positron-right-arrow')}
+				icon={Codicon.positronRightArrow}
 				tooltip={showNextPlot}
 				onPressed={showNextPlotHandler}
 			/>
@@ -596,7 +597,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarButton
 					ariaLabel={savePlot}
-					icon={ThemeIcon.fromId('positron-save')}
+					icon={Codicon.positronSave}
 					tooltip={savePlot}
 					onPressed={savePlotHandler}
 				/>
@@ -613,13 +614,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				<ActionBarButton
 					ariaLabel={copyPlotToClipboard}
 					disabled={!hasPlots}
-					icon={ThemeIcon.fromId('copy')}
+					icon={Codicon.copy}
 					tooltip={copyPlotToClipboard}
 					onPressed={copyPlotHandler}
 				/>
 			),
 			overflowContextMenuItem: {
-				icon: 'copy',
+				icon: Codicon.copy,
 				label: copyPlotToClipboard,
 				disabled: !hasPlots,
 				onSelected: copyPlotHandler
@@ -637,13 +638,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarMenuButton
 					actions={zoomActions}
-					icon={ThemeIcon.fromId('positron-size-to-fit')}
+					icon={Codicon.positronSizeToFit}
 					label={zoomLevelLabel}
 					tooltip={zoomPlotTooltip}
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'positron-size-to-fit',
+				icon: Codicon.positronSizeToFit,
 				label: zoomLabel,
 				entries: zoomOverflowEntries
 			}
@@ -659,13 +660,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarMenuButton
 					actions={sizingPolicyActions}
-					icon={ThemeIcon.fromId('symbol-ruler')}
+					icon={Codicon.symbolRuler}
 					label={activePolicyLabel}
 					tooltip={sizingPolicyTooltip}
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'symbol-ruler',
+				icon: Codicon.symbolRuler,
 				label: sizingPolicyLabel,
 				entries: sizingPolicyOverflowEntries
 			}
@@ -680,13 +681,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarButton
 					ariaLabel={openPlotInNewWindow}
-					icon={ThemeIcon.fromId('positron-open-in-new-window')}
+					icon={Codicon.positronOpenInNewWindow}
 					tooltip={openPlotInNewWindow}
 					onPressed={popoutPlotHandler}
 				/>
 			),
 			overflowContextMenuItem: {
-				icon: 'positron-open-in-new-window',
+				icon: Codicon.positronOpenInNewWindow,
 				label: openPlotInNewWindow,
 				onSelected: popoutPlotHandler
 			}
@@ -705,12 +706,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					dropdownAriaLabel={openInEditorDropdownLabel}
 					dropdownIndicator='enabled-split'
 					dropdownTooltip={openInEditorDropdownLabel}
-					icon={ThemeIcon.fromId('go-to-file')}
+					icon={Codicon.goToFile}
 					tooltip={openInEditorTab}
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'go-to-file',
+				icon: Codicon.goToFile,
 				label: openInEditorLabel,
 				entries: openInEditorOverflowEntries
 			}
@@ -725,12 +726,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarMenuButton
 					actions={plotCodeActions}
-					icon={ThemeIcon.fromId('code')}
+					icon={Codicon.code}
 					tooltip={selectedPlot?.metadata.code ?? plotCodeActionsTooltip}
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'code',
+				icon: Codicon.code,
 				label: plotCodeLabel,
 				entries: plotCodeOverflowEntries
 			}
@@ -749,7 +750,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					actions={darkFilterActions}
 					align='right'
 					ariaLabel={darkFilterTooltip}
-					icon={ThemeIcon.fromId(iconForDarkFilter(darkFilterMode))}
+					icon={iconForDarkFilter(darkFilterMode)}
 					tooltip={darkFilterTooltip}
 				/>
 			),
@@ -773,13 +774,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={openPlotsGalleryInNewWindow}
-					icon={ThemeIcon.fromId('window')}
+					icon={Codicon.window}
 					tooltip={openPlotsGalleryInNewWindow}
 					onPressed={openGalleryInNewWindowHandler}
 				/>
 			),
 			overflowContextMenuItem: {
-				icon: 'window',
+				icon: Codicon.window,
 				label: openPlotsGalleryInNewWindow,
 				onSelected: openGalleryInNewWindowHandler
 			}
@@ -795,13 +796,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				align='right'
 				ariaLabel={clearAllPlots}
 				disabled={noPlots}
-				icon={ThemeIcon.fromId('clear-all')}
+				icon={Codicon.clearAll}
 				tooltip={clearAllPlots}
 				onPressed={clearAllPlotsHandler}
 			/>
 		),
 		overflowContextMenuItem: {
-			icon: 'clear-all',
+			icon: Codicon.clearAll,
 			label: clearAllPlots,
 			disabled: noPlots,
 			onSelected: clearAllPlotsHandler

@@ -11,7 +11,9 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../../../nls.js';
+import { Codicon } from '../../../../../../../../base/common/codicons.js';
 import { positronClassNames } from '../../../../../../../../base/common/positronUtilities.js';
+import { ThemeIcon } from '../../../../../../../../platform/positronActionBar/browser/components/icon.js';
 
 /**
  * ColumnSearchProps interface.
@@ -80,8 +82,8 @@ export const ColumnSearch = (props: ColumnSearchProps) => {
 				/>
 				{searchText !== '' && (
 					<button className='clear-button'>
-						<div
-							className={'codicon codicon-positron-search-cancel'}
+						<ThemeIcon
+							icon={Codicon.positronSearchCancel}
 							onClick={() => {
 								inputRef.current.value = '';
 								setSearchText('');

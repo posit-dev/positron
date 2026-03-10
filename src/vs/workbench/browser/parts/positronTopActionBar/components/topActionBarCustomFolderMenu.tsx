@@ -10,6 +10,8 @@ import './topActionBarCustomFolderMenu.css';
 import { useRef } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
@@ -74,7 +76,7 @@ export const TopActionBarCustomFolderMenu = () => {
 			<div className='top-action-bar-custom-folder-menu'>
 				<div aria-hidden='true' className='left'>
 					<div className='label'>
-						<div className={'action-bar-button-icon codicon codicon-folder'} />
+						<ThemeIcon className='action-bar-button-icon' icon={Codicon.folder} />
 						{context.workspaceFolder &&
 							<div className='label-text' id='top-action-bar-current-working-folder'>
 								{context.workspaceFolder ? context.workspaceFolder.name : ''}
@@ -83,7 +85,7 @@ export const TopActionBarCustomFolderMenu = () => {
 					</div>
 				</div>
 				<div aria-hidden='true' className='right'>
-					<div className='chevron codicon codicon-chevron-down' />
+					<ThemeIcon className='chevron' icon={Codicon.chevronDown} />
 				</div>
 			</div>
 		</ActionBarButton>

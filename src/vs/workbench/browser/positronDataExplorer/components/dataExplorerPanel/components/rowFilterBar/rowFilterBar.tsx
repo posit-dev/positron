@@ -10,6 +10,7 @@ import './rowFilterBar.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import { Codicon } from '../../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../../nls.js';
 import * as DOM from '../../../../../../../base/browser/dom.js';
 import { RowFilterWidget } from './components/rowFilterWidget.js';
@@ -25,6 +26,7 @@ import { usePositronReactServicesContext } from '../../../../../../../base/brows
 import { CustomContextMenuItem } from '../../../../../positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
+import { ThemeIcon } from '../../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../../../positronDataGrid/classes/layoutManager.js';
 
 /**
@@ -168,7 +170,7 @@ export const RowFilterBar = () => {
 		// Build the context menu entries.
 		const entries: CustomContextMenuEntry[] = [];
 		entries.push(new CustomContextMenuItem({
-			icon: 'positron-add-filter',
+			icon: Codicon.positronAddFilter,
 			label: localize('positron.dataExplorer.addFilter', "Add Filter"),
 			disabled: !canFilter,
 			onSelected: () => addRowFilterHandler(
@@ -179,21 +181,21 @@ export const RowFilterBar = () => {
 		entries.push(new CustomContextMenuSeparator());
 		if (!rowFiltersHidden) {
 			entries.push(new CustomContextMenuItem({
-				icon: 'positron-hide-filters',
+				icon: Codicon.positronHideFilters,
 				label: localize('positron.dataExplorer.hideFilters', "Hide Filters"),
 				disabled: rowFilterDescriptors.length === 0,
 				onSelected: () => setRowFiltersHidden(true)
 			}));
 		} else {
 			entries.push(new CustomContextMenuItem({
-				icon: 'positron-show-filters',
+				icon: Codicon.positronShowFilters,
 				label: localize('positron.dataExplorer.showFilters', "Show Filters"),
 				onSelected: () => setRowFiltersHidden(false)
 			}));
 		}
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
-			icon: 'positron-clear-row-filters',
+			icon: Codicon.positronClearRowFilters,
 			label: localize('positron.dataExplorer.clearFilters', "Clear Filters"),
 			disabled: rowFilterDescriptors.length === 0,
 			onSelected: async () => {
@@ -272,7 +274,7 @@ export const RowFilterBar = () => {
 				tooltip={localize('positron.dataExplorer.manageFilters', "Manage Filters")}
 				onPressed={filterButtonPressedHandler}
 			>
-				<div className='codicon codicon-positron-row-filter' />
+				<ThemeIcon icon={Codicon.positronRowFilter} />
 				{rowFilterDescriptors.length !== 0 && <div className='counter'>{rowFilterDescriptors.length}</div>}
 			</Button>
 			<div className='filter-entries'>
@@ -309,7 +311,7 @@ export const RowFilterBar = () => {
 						rowFilterDescriptors.length === 0
 					)}
 				>
-					<div className='codicon codicon-positron-add-filter' />
+					<ThemeIcon icon={Codicon.positronAddFilter} />
 				</Button>
 			</div>
 		</div >
