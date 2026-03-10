@@ -444,6 +444,14 @@ export class InstallAction extends ExtensionAction {
 	private readonly updateThrottler = new Throttler();
 	public readonly options: InstallOptions;
 
+	// --- Start Positron ---
+	// The compatible gallery version resolved by the extension editor, if any.
+	private _positronCompatibleGallery: IGalleryExtension | null = null;
+	set positronCompatibleGallery(gallery: IGalleryExtension | null) {
+		this._positronCompatibleGallery = gallery;
+	}
+	// --- End Positron ---
+
 	constructor(
 		options: InstallOptions,
 		@IExtensionsWorkbenchService private readonly extensionsWorkbenchService: IExtensionsWorkbenchService,
@@ -457,6 +465,11 @@ export class InstallAction extends ExtensionAction {
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
 		@IAllowedExtensionsService private readonly allowedExtensionsService: IAllowedExtensionsService,
 		@IExtensionGalleryManifestService private readonly extensionGalleryManifestService: IExtensionGalleryManifestService,
+		// --- Start Positron ---
+		@IExtensionGalleryService private readonly galleryService: IExtensionGalleryService,
+		@IProductService private readonly productService: IProductService,
+		@ILogService private readonly logService: ILogService,
+		// --- End Positron ---
 	) {
 		super('extensions.install', localize('install', "Install"), InstallAction.CLASS, false);
 		this.hideOnDisabled = false;
@@ -643,10 +656,35 @@ export class InstallAction extends ExtensionAction {
 	}
 
 	private async install(extension: IExtension): Promise<IExtension | undefined> {
+		// --- Start Positron ---
+		// If the extension editor resolved a compatible version, install that
+		// specific version. Otherwise, check compatibility on the fly.
+		const installOptions: InstallExtensionOptions = { ...this.options };
+		if (this._positronCompatibleGallery) {
+			installOptions.version = this._positronCompatibleGallery.version;
+		} else if (extension.gallery) {
+			const compatibleGallery = await getLatestPositronCompatibleVersion(
+				extension.gallery,
+				this.galleryService,
+				this.productService,
+				this.logService,
+				CancellationToken.None,
+			);
+			if (!compatibleGallery) {
+				this.dialogService.info(
+					localize('positronIncompatibleExtension', "No version of '{0}' is compatible with this version of Positron.", extension.displayName || extension.identifier.id),
+				);
+				return undefined;
+			}
+			if (compatibleGallery.version !== extension.gallery.version) {
+				installOptions.version = compatibleGallery.version;
+			}
+		}
+		// --- End Positron ---
 		try {
-			return await this.extensionsWorkbenchService.install(extension, this.options);
+			return await this.extensionsWorkbenchService.install(extension, installOptions);
 		} catch (error) {
-			await this.instantiationService.createInstance(PromptExtensionInstallFailureAction, extension, this.options, extension.latestVersion, InstallOperation.Install, error).run();
+			await this.instantiationService.createInstance(PromptExtensionInstallFailureAction, extension, installOptions, extension.latestVersion, InstallOperation.Install, error).run();
 			return undefined;
 		}
 	}
@@ -697,6 +735,12 @@ export class InstallDropdownAction extends ButtonWithDropDownExtensionAction {
 		this.extensionActions.forEach(a => (<InstallAction>a).manifest = manifest);
 		this.update();
 	}
+
+	// --- Start Positron ---
+	set positronCompatibleGallery(gallery: IGalleryExtension | null) {
+		this.extensionActions.forEach(a => (<InstallAction>a).positronCompatibleGallery = gallery);
+	}
+	// --- End Positron ---
 
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,

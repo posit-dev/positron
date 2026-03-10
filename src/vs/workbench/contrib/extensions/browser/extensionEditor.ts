@@ -442,6 +442,11 @@ export class ExtensionEditor extends EditorPane {
 		const content = append(body, $('.content'));
 		content.id = generateUuid(); // An id is needed for the webview parent flow to
 
+		// --- Start Positron ---
+		// Backing store for the positronCompatibleGallery getter/setter on the template.
+		let positronCompatibleGalleryValue: IGalleryExtension | null = null;
+		// --- End Positron ---
+
 		this.template = {
 			builtin,
 			content,
@@ -475,8 +480,13 @@ export class ExtensionEditor extends EditorPane {
 			set positronCompatibilityPending(pending: boolean) {
 				updateAction.positronCompatibilityPending = pending;
 			},
+			get positronCompatibleGallery(): IGalleryExtension | null {
+				return positronCompatibleGalleryValue;
+			},
 			set positronCompatibleGallery(gallery: IGalleryExtension | null) {
+				positronCompatibleGalleryValue = gallery;
 				updateAction.positronCompatibleGallery = gallery;
+				installAction.positronCompatibleGallery = gallery;
 			},
 			// --- End Positron ---
 		};
@@ -754,7 +764,10 @@ export class ExtensionEditor extends EditorPane {
 		this.contentDisposables.add(toDisposable(arrays.insert(this.layoutParticipants, { layout })));
 
 		// Render additional details synchronously to avoid flicker
-		this.renderAdditionalDetails(additionalDetailsContainer, extension);
+		// --- Start Positron ---
+		// Pass the template so the Marketplace version reflects the Positron-compatible version.
+		this.renderAdditionalDetails(additionalDetailsContainer, extension, template);
+		// --- End Positron ---
 
 		switch (id) {
 			case ExtensionEditorTab.Readme: return this.openDetails(extension, contentContainer, token);
@@ -992,7 +1005,7 @@ export class ExtensionEditor extends EditorPane {
 		return { focus: () => extensionPackContent.focus() };
 	}
 
-	private renderAdditionalDetails(container: HTMLElement, extension: IExtension): void {
+	private renderAdditionalDetails(container: HTMLElement, extension: IExtension, template: IExtensionEditorTemplate): void {
 		const content = $('div', { class: 'additional-details-content', tabindex: '0' });
 		const scrollableContent = new DomScrollableElement(content, {});
 		const layout = () => scrollableContent.scanDomNode();
@@ -1000,7 +1013,15 @@ export class ExtensionEditor extends EditorPane {
 		this.contentDisposables.add(toDisposable(removeLayoutParticipant));
 		this.contentDisposables.add(scrollableContent);
 
-		this.contentDisposables.add(this.instantiationService.createInstance(AdditionalDetailsWidget, content, extension));
+		/// --- Start Positron ---
+		const additionalDetailsWidget = this.instantiationService.createInstance(AdditionalDetailsWidget, content, extension);
+		// --- Start Positron ---
+		// Pass the compatible gallery version so the Marketplace panel shows
+		// the correct version instead of the unfiltered latest.
+		additionalDetailsWidget.positronCompatibleGallery = template.positronCompatibleGallery;
+		// --- End Positron ---
+		this.contentDisposables.add(additionalDetailsWidget);
+		// --- End Positron ---
 
 		append(container, scrollableContent.getDomNode());
 		scrollableContent.scanDomNode();
@@ -1130,6 +1151,20 @@ class AdditionalDetailsWidget extends Disposable {
 
 	private readonly disposables = this._register(new DisposableStore());
 
+	// --- Start Positron ---
+	// When set, the Marketplace version display uses this gallery object
+	// instead of extension.gallery.
+	private _positronCompatibleGallery: IGalleryExtension | null = null;
+	private _lastExtension: IExtension | null = null;
+	set positronCompatibleGallery(gallery: IGalleryExtension | null) {
+		this._positronCompatibleGallery = gallery;
+		// Re-render to update the Marketplace version display.
+		if (this._lastExtension) {
+			this.render(this._lastExtension);
+		}
+	}
+	// --- End Positron ---
+
 	constructor(
 		private readonly container: HTMLElement,
 		extension: IExtension,
@@ -1152,6 +1187,9 @@ class AdditionalDetailsWidget extends Disposable {
 	}
 
 	private render(extension: IExtension): void {
+		// --- Start Positron ---
+		this._lastExtension = extension;
+		// --- End Positron ---
 		this.container.innerText = '';
 		this.disposables.clear();
 
@@ -1324,6 +1362,10 @@ class AdditionalDetailsWidget extends Disposable {
 		const moreInfo = append(moreInfoContainer, $('.more-info'));
 		if (gallery) {
 			if (!extension.local) {
+				// --- Start Positron ---
+				// Show the compatible version if available, otherwise the gallery version.
+				const displayVersion = this._positronCompatibleGallery?.version ?? gallery.version;
+				// --- End Positron ---
 				append(moreInfo,
 					$('.more-info-entry', undefined,
 						$('div.more-info-entry-name', undefined, localize('id', "Identifier")),
@@ -1332,7 +1374,7 @@ class AdditionalDetailsWidget extends Disposable {
 				append(moreInfo,
 					$('.more-info-entry', undefined,
 						$('div.more-info-entry-name', undefined, localize('Version', "Version")),
-						$('code', undefined, gallery.version)
+						$('code', undefined, displayVersion)
 					)
 				);
 			}
