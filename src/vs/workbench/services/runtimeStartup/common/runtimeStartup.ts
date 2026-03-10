@@ -407,12 +407,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 
-			// If we were awaiting trust, and we now have language packs, move on
-			// to the discovery phase if we haven't already and there are now registered
-			// language packs.
+			// If we were awaiting trust, and we now have language packs, the
+			// workspace has been trusted and extensions have been activated.
+			// Run the full startup sequence (not just discovery) so that
+			// session restoration, affiliated runtimes, etc. are handled.
 			if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
 				if (this._languagePacks.size > 0) {
-					this.discoverAllRuntimes();
+					this.startupSequence();
 				} else {
 					this._logService.debug(`[Runtime startup] No language packs were found.`);
 					this.setStartupPhase(RuntimeStartupPhase.Complete);
@@ -464,6 +465,31 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		}));
+
+		// If the workspace is not trusted, immediately transition to the
+		// AwaitingTrust phase so the console shows the correct message
+		// (rather than "Waiting for extensions", which is misleading since
+		// extensions won't activate until the workspace is trusted).
+		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+			this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
+			this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
+				if (!trusted) {
+					return;
+				}
+				// When the workspace becomes trusted while we are still
+				// awaiting trust, the extension host will restart and the
+				// ext point handler will fire with language packs, which
+				// drives the startup sequence forward. However, if no
+				// language packs arrive (e.g. no extensions contribute
+				// runtimes), we need a fallback to avoid hanging forever
+				// in the AwaitingTrust phase. Route through the full
+				// startup sequence so session restore, new-folder tasks,
+				// and affiliated/recommended startup are not skipped.
+				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+					this.startupSequence();
+				}
+			}));
+		}
 
 		// Find all the sessions that need to be restored.
 		this.findRestoredSessions().then(() => {
@@ -584,6 +610,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * The main entry point for the runtime startup service.
 	 */
 	private async startupSequence() {
+
+		// Guard against double entry. Both the ext-point handler and the
+		// onDidChangeTrust handler can call startupSequence() when the
+		// workspace transitions from untrusted to trusted. Setting the
+		// phase synchronously before the first await ensures only the
+		// first caller proceeds.
+		if (this._startupPhase !== RuntimeStartupPhase.AwaitingTrust &&
+			this._startupPhase !== RuntimeStartupPhase.Initializing) {
+			return;
+		}
+		this.setStartupPhase(RuntimeStartupPhase.Starting);
 
 		// Attempt to reconnect to any active sessions first.
 		await this.restoreSessions();
