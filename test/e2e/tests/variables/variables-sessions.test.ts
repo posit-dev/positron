@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Variables: Sessions', {
-	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.VARIABLES, tags.SESSIONS]
+	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.VARIABLES, tags.SESSIONS, tags.CROSS_BROWSER]
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {

@@ -27,11 +27,11 @@ const testCases = [
 	},
 ] as const;
 
-test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }, () => {
+test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB, tags.CROSS_BROWSER] }, () => {
 
 	for (const { language, testLine, prompt, restartRegex, extraTags } of testCases) {
 
-		test(`${language} - Verify copy from console & paste to console`, { tag: extraTags }, async ({ app, sessions, runCommand, hotKeys }) => {
+		test(`${language} - Verify copy from console & paste to console`, { tag: extraTags }, async ({ app, sessions, hotKeys }) => {
 			const { console, clipboard } = app.workbench;
 
 			// start a new session

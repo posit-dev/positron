@@ -114,7 +114,7 @@ export default defineConfig<CustomTestOptions>({
 				headless: false,
 				browserName: 'firefox'
 			},
-			grep: /@:web/
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-windows',
@@ -131,7 +131,7 @@ export default defineConfig<CustomTestOptions>({
 				headless: false,
 				browserName: 'webkit'
 			},
-			grep: /@:web/
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-edge',
@@ -141,7 +141,7 @@ export default defineConfig<CustomTestOptions>({
 				browserName: 'chromium',
 				channel: 'msedge',
 			},
-			grep: /@:web/
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-server',

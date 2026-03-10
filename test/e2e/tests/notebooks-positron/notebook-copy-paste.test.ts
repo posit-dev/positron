@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER]
 }, () => {
 
 	test.beforeAll(async function ({ hotKeys }) {

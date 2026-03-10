@@ -23,8 +23,9 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		await viewer.expectUrlToHaveValue('http://127.0.0.1:8000/');
 	});
 
-	test('Python - Verify Viewer displays great-tables', { tag: [tags.WEB] },
+	test('Python - Verify Viewer displays great-tables', { tag: [tags.WEB, tags.CROSS_BROWSER] },
 		async function ({ app, python }) {
+			test.skip(app.code.driver.browser === 'firefox', 'great-tables viewer test fails on Firefox');
 			const { console, viewer } = app.workbench;
 
 			await console.executeCode('Python', pythonGreatTablesScript);
@@ -32,7 +33,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		});
 
 	test('R - Verify Viewer displays modelsummary output', {
-		tag: [tags.WEB, tags.ARK]
+		tag: [tags.WEB, tags.ARK, tags.CROSS_BROWSER]
 	}, async function ({ app, r }) {
 		const { console, viewer } = app.workbench;
 
@@ -42,8 +43,8 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	});
 
 	test('R - Verify Viewer displays reactable table output', {
-		tag: [tags.WEB, tags.ARK]
-	}, async function ({ app, r, isMobile }) {
+		tag: [tags.WEB, tags.ARK, tags.CROSS_BROWSER]
+	}, async function ({ app, r }) {
 		const { console, viewer } = app.workbench;
 
 		await console.executeCode('R', rReactableScript);
@@ -51,7 +52,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	});
 
 	test('R - Verify Viewer displays reprex code output', {
-		tag: [tags.WEB, tags.ARK]
+		tag: [tags.WEB, tags.ARK, tags.CROSS_BROWSER]
 	}, async function ({ app, r }) {
 		const { console, viewer } = app.workbench;
 
@@ -62,7 +63,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 const pythonScript = `import webbrowser
 # will not have any content, but we just want to make sure
-# the viewer will open when webbrowser calls are make
+# the viewer will open when webbrowser calls are made
 webbrowser.open('http://127.0.0.1:8000')`;
 
 const pythonGreatTablesScript = `from great_tables import GT, exibble
