@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
-import * as vscode from 'vscode';
 import { CancellationToken, ProgressLocation, WorkspaceFolder } from 'vscode';
 import { Commands, PVSC_EXTENSION_ID } from '../../../common/constants';
 import { execObservable } from '../../../common/process/rawProcessApis';
@@ -13,7 +12,12 @@ import { Common, CreateEnv } from '../../../common/utils/localize';
 import { traceError, traceInfo, traceLog, traceWarn } from '../../../logging';
 import { CreateEnvironmentOptionsInternal, CreateEnvironmentProgress } from '../types';
 import { pickWorkspaceFolder } from '../common/workspaceSelection';
-import { MultiStepAction, MultiStepNode, withProgress } from '../../../common/vscodeApis/windowApis';
+import {
+    MultiStepAction,
+    MultiStepNode,
+    showWarningMessage,
+    withProgress,
+} from '../../../common/vscodeApis/windowApis';
 import { getVenvExecutable, showPositronErrorMessageWithLogs } from '../common/commonUtils';
 import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from './venvUtils';
 import {
@@ -210,7 +214,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                     traceWarn(
                         `uv would install pre-release Python ${versionInfo.version} for requested version ${version}`,
                     );
-                    const choice = await vscode.window.showWarningMessage(
+                    const choice = await showWarningMessage(
                         CreateEnv.Uv.prereleaseWarning(versionInfo.version),
                         { modal: false },
                         CreateEnv.Uv.updateUv,
@@ -251,12 +255,12 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                             // Update version to use the specific stable version
                             version = stableVersionInfo.version;
                         } else {
-                            // No stable version available - warn user but continue with pre-release
+                            // No stable version available - fail
                             const fallbackInfo = stableVersionInfo ?? versionInfo;
-                            traceWarn(
-                                `No stable Python version available for ${version}, using pre-release ${fallbackInfo.version}`,
+                            traceError(
+                                `No stable Python version available for ${version}, only pre-release ${fallbackInfo.version}`,
                             );
-                            vscode.window.showWarningMessage(CreateEnv.Uv.stillPrereleaseWarning(fallbackInfo.version));
+                            throw new Error(CreateEnv.Uv.noStableVersionAvailable(version));
                         }
                     } else if (choice !== CreateEnv.Uv.proceedAnyway) {
                         // User cancelled or closed the dialog

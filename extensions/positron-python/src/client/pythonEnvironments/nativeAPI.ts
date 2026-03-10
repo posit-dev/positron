@@ -122,8 +122,20 @@ function kindToShortString(kind: PythonEnvKind): string | undefined {
     }
 }
 
+// --- Start Positron ---
+// @ts-ignore: Keeping original function for upstream compatibility
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function toShortVersionString(version: PythonVersion): string {
+    return `${version.major}.${version.minor}.${version.micro}`.trim();
+}
+// --- End Positron ---
+
 function getDisplayName(version: PythonVersion, kind: PythonEnvKind, arch: Architecture, name?: string): string {
+    // --- Start Positron ---
+    // use getShortVersionString instead of toShortVersionString
+    // to get all version info (e.g. for pre-releases, alpha)
     const versionStr = getShortVersionString(version);
+    // --- End Positron ---
     const kindStr = kindToShortString(kind);
     if (arch === Architecture.x86) {
         if (kindStr) {
@@ -274,7 +286,10 @@ async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[])
             major: version.major,
             minor: version.minor,
             micro: version.micro,
+            // --- Start Positron ---
+            // add info if this is a pre-release version (e.g. alpha, beta, rc)
             ...(version.release && { release: version.release }),
+            // --- End Positron ---
         },
         arch,
         distro: {
