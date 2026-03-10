@@ -137,7 +137,7 @@ jobs:
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
-      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      max_failures: 6  # 20 max failures / 4 shards = 5
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-windows:
@@ -156,7 +156,7 @@ jobs:
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
-      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      max_failures: 6  # 20 max failures / 4 shards = 5
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium:
@@ -176,7 +176,7 @@ jobs:
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
-      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      max_failures: 6  # 20 max failures / 4 shards = 5
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-rhel:
