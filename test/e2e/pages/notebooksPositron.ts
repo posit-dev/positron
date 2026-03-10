@@ -276,9 +276,14 @@ export class PositronNotebooks extends Notebooks {
 	async addCell(type: 'code' | 'markdown'): Promise<void> {
 		const beforeCount = await this.getCellCount();
 
-		type === 'code'
-			? await this.addCodeButton.click()
-			: await this.addMarkdownButton.click();
+		if (type === 'code') {
+			await this.addCodeButton.click();
+		} else {
+			// WebKit has trouble clicking the Markdown button (tabindex="-1")
+			this.code.driver.browser === 'webkit'
+				? await this.addMarkdownButton.dispatchEvent('click')
+				: await this.addMarkdownButton.click();
+		}
 
 		await expect(this.cell).toHaveCount(beforeCount + 1, { timeout: DEFAULT_TIMEOUT });
 	}

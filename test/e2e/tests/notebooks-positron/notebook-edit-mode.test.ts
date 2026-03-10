@@ -14,6 +14,10 @@ test.describe('Notebook Edit Mode', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
+	test.beforeAll(async function ({ hotKeys }) {
+		await hotKeys.minimizeBottomPanel();
+	});
+
 	test('Clicking/dbl clicking into cell focuses editor and enters into edit mode', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
