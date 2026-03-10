@@ -127,11 +127,20 @@ export class ArkLsp implements vscode.Disposable {
 		const { notebookUri } = this._metadata;
 
 		const clientOptions: LanguageClientOptions = {
-			// If this client belongs to a notebook, set the document selector to only include that notebook.
+			// If this client belongs to a notebook, set the document selector to only include that notebook
+			// and any Quarto virtual documents (vdocs) in its directory.
 			// Otherwise, this is the main client for this language, so set the document selector to include
 			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
 			documentSelector: notebookUri ?
-				[{ language: 'r', pattern: notebookUri.fsPath }] :
+				[
+					{ language: 'r', pattern: notebookUri.fsPath },
+					// Match Quarto virtual documents (vdocs). Vdocs are
+					// temporary .r files created for LSP features in
+					// embedded code blocks (e.g. completions, hover).
+					// They may be in the document's directory or in a
+					// system temp directory, so use a global pattern.
+					{ language: 'r', pattern: '**/.vdoc.*.{r,R}' },
+				] :
 				R_DOCUMENT_SELECTORS,
 			synchronize: notebookUri ?
 				undefined :
@@ -159,6 +168,22 @@ export class ArkLsp implements vscode.Disposable {
 					}
 					return next(uri, diagnostics);
 				},
+				// For the console LSP only: skip completions for Quarto
+				// virtual documents so the notebook LSP handles them instead.
+				// Without this, the console LSP's broad document selectors
+				// (e.g. `**/*.{r,R}`) match vdoc files and provide
+				// completions from the wrong session.
+				...(!notebookUri ? {
+					provideCompletionItem(document, position, context, token, next) {
+						if (document.uri.scheme === 'file') {
+							const baseName = path.basename(document.uri.fsPath);
+							if (VDOC_PATTERN.test(baseName)) {
+								return undefined;
+							}
+						}
+						return next(document, position, context, token);
+					},
+				} : {}),
 			}
 		};
 

@@ -107,11 +107,20 @@ export class PythonLsp implements vscode.Disposable {
 
         const { notebookUri, workingDirectory } = this._metadata;
 
-        // If this client belongs to a notebook, set the document selector to only include that notebook.
+        // If this client belongs to a notebook, set the document selector to only include that notebook
+        // and any Quarto virtual documents (vdocs) in its directory.
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
         this._clientOptions.documentSelector = notebookUri
-            ? [{ language: 'python', pattern: notebookUri.fsPath }]
+            ? [
+                  { language: 'python', pattern: notebookUri.fsPath },
+                  // Match Quarto virtual documents (vdocs). Vdocs are
+                  // temporary .py files created for LSP features in
+                  // embedded code blocks (e.g. completions, hover).
+                  // They may be in the document's directory or in a
+                  // system temp directory, so use a global pattern.
+                  { language: 'python', pattern: '**/.vdoc.*.py' },
+              ]
             : [
                   { language: 'python', scheme: 'untitled' },
                   { language: 'python', scheme: 'inmemory' }, // Console
@@ -153,7 +162,18 @@ export class PythonLsp implements vscode.Disposable {
                 return next(uri, diagnostics);
             },
             // Apply per-completion-item priority set by the Positron LSP server.
+            // For the console LSP only: skip completions for Quarto virtual
+            // documents so the notebook LSP handles them instead. Without
+            // this, the console LSP's broad document selectors (e.g.
+            // `**/*.py`) match vdoc files and provide completions from the
+            // wrong session.
             provideCompletionItem(document, position, context, token, next) {
+                if (!notebookUri && document.uri.scheme === 'file') {
+                    const baseName = path.basename(document.uri.fsPath);
+                    if (VDOC_PATTERN.test(baseName)) {
+                        return undefined;
+                    }
+                }
                 return Promise.resolve(next(document, position, context, token)).then((res) => {
                     if (res) {
                         const items = Array.isArray(res) ? res : (res as vscode.CompletionList).items;
@@ -168,7 +188,14 @@ export class PythonLsp implements vscode.Disposable {
                 });
             },
             // Apply hover priority set by the Positron LSP server.
+            // Same vdoc filtering as for completions above.
             provideHover(document, position, token, next) {
+                if (!notebookUri && document.uri.scheme === 'file') {
+                    const baseName = path.basename(document.uri.fsPath);
+                    if (VDOC_PATTERN.test(baseName)) {
+                        return undefined;
+                    }
+                }
                 return Promise.resolve(next(document, position, token)).then((result) => {
                     if (result) {
                         const data = (result as any).data;
