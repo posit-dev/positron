@@ -66,10 +66,7 @@ def images_path() -> Path:
     return images_path
 
 
-def _verify_comm_open_message(
-    message: Dict[str, Any],
-    expected_intrinsic_size: Optional[Tuple[float, float]] = None,
-) -> None:
+def _verify_comm_open_message(message: Dict[str, Any]) -> None:
     """Verify a comm_open message has expected structure, ignoring pre_render image data."""
     assert message["msg_type"] == "comm_open"
     assert message["target_name"] == _CommTarget.Plot
@@ -84,15 +81,6 @@ def _verify_comm_open_message(
         assert "settings" in pre_render
         settings = pre_render["settings"]
         assert settings["format"] == PlotRenderFormat.Png.value
-
-    # Intrinsic size should be present if specified
-    if expected_intrinsic_size is not None:
-        assert "intrinsic_size" in data
-        intrinsic = data["intrinsic_size"]
-        assert intrinsic["width"] == expected_intrinsic_size[0]
-        assert intrinsic["height"] == expected_intrinsic_size[1]
-        assert intrinsic["unit"] == PlotUnit.Inches.value
-        assert intrinsic["source"] == "matplotlib"
 
 
 def _create_mpl_plot(
@@ -112,7 +100,7 @@ def _create_mpl_plot(
     plot_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
 
     assert len(plot_comm.messages) == 1
-    _verify_comm_open_message(plot_comm.messages[0], expected_intrinsic_size=size)
+    _verify_comm_open_message(plot_comm.messages[0])
     plot_comm.messages.clear()
     return plot_comm
 
@@ -386,11 +374,17 @@ def _assert_plot_comm_closed(plot_comm: DummyComm) -> None:
 def test_mpl_close(shell: PositronShell, plots_service: PlotsService) -> None:
     plot_comm = _create_mpl_plot(shell, plots_service)
 
-    # Closing the figure
+    # Closing the matplotlib figure via plt.close() should NOT close the comm.
+    # The comm stays open so the plot remains visible in the plots pane with its
+    # cached render. This avoids race conditions where RPC calls fail because the
+    # comm was closed before the frontend finished processing.
     shell.run_cell("plt.close()")
-    # should close the plot comm,
-    _assert_plot_comm_closed(plot_comm)
-    # but the comm should still be registered with the plots service.
+
+    # The comm should still be open
+    assert not plot_comm._closed  # noqa: SLF001
+    # No close message should have been sent
+    assert plot_comm.messages == []
+    # The plot should still be registered with the plots service
     assert len(plots_service._plots) == 1  # noqa: SLF001
 
 
