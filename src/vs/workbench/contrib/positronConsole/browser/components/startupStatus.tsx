@@ -93,19 +93,17 @@ export const StartupStatus = () => {
 		};
 	}, [services.languageRuntimeService, services.runtimeStartupService]);
 
-	// When awaiting trust, show a static message without a progress bar.
-	if (startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-		return (
-			<div className='startup-status'>
-				<div className='awaiting'>{awaitingTrust}</div>
-			</div>
-		);
-	}
+	// Whether we are awaiting workspace trust. In this state we show a
+	// static message and hide the progress bar.
+	const isAwaitingTrust = startupPhase === RuntimeStartupPhase.AwaitingTrust;
 
-	// Render.
+	// Render. The progress bar div must always be in the DOM so that the
+	// ref is available when the useEffect creates the ProgressBar instance;
+	// it is hidden during the AwaitingTrust phase via display:none.
 	return (
 		<div className='startup-status'>
-			<div ref={progressRef} className='progress'></div>
+			<div ref={progressRef} className='progress'
+				style={isAwaitingTrust ? { display: 'none' } : undefined}></div>
 			{runtimeStartupEvent &&
 				<RuntimeStartupProgress evt={runtimeStartupEvent} />
 			}
@@ -114,6 +112,9 @@ export const StartupStatus = () => {
 			}
 			{startupPhase === RuntimeStartupPhase.Reconnecting && !runtimeStartupEvent &&
 				<div className='reconnecting'>{reconnecting}...</div>
+			}
+			{isAwaitingTrust &&
+				<div className='awaiting'>{awaitingTrust}</div>
 			}
 			{startupPhase === RuntimeStartupPhase.NewFolderTasks &&
 				<div className='new-folder-tasks'>{newFolderTasks}...</div>
