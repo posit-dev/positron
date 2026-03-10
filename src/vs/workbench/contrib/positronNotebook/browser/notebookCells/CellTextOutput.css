@@ -12,17 +12,6 @@
 	white-space: pre-wrap;
 }
 
-.positron-notebook-text-output.long-output-scroll {
-	/* TODO: This should match the height of the output if truncated */
-	max-height: 400px;
-	overflow: scroll;
-	border: var(--vscode-positronNotebook-border);
-	border-radius: var(--vscode-positronNotebook-cell-radius);
-	padding: 0.15rem 0.25rem;
-	position: relative;
-}
-
-
 .notebook-output-truncation-message {
 	display: block;
 	font-size: 0.95em;
@@ -37,13 +26,3 @@
 .notebook-output-truncation-message a:active {
 	color: var(--vscode-textLink-activeForeground);
 }
-
-.positron-notebook-text-output.long-output-scroll + .notebook-output-truncation-message {
-	text-align: right;
-}
-
-/* Hide the truncation message when were not showing scrollbars. */
-.positron-notebook-text-output:not(.long-output-scroll) + .notebook-output-truncation-message {
-	display: none;
-}
-

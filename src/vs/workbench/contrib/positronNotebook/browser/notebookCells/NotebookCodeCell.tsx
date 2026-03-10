@@ -22,6 +22,7 @@ import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNoteb
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
+import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
@@ -38,6 +39,8 @@ interface CellOutputsSectionProps {
 
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const notebookOptions = useNotebookOptions();
+	const layout = notebookOptions.getLayoutConfiguration();
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionLeft,
@@ -79,7 +82,10 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 				data-testid='cell-output'
 				onContextMenu={handleContextMenu}
 			>
-				<div className='positron-notebook-code-cell-outputs-inner'>
+				<div className={positronClassNames(
+					'positron-notebook-code-cell-outputs-inner',
+					{ 'output-scrolling': layout.outputScrolling }
+				)}>
 					{isCollapsed
 						? <Button
 							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
