@@ -65,13 +65,12 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		}
 
 		let instance = this._instancesBySessionId.get(session.sessionId);
-		if (!instance) {
+		if (instance) {
+			instance.setRuntimeSession(session);
+		} else {
 			instance = new PositronPackagesInstance(session, this._logService);
 			this._instancesBySessionId.set(session.sessionId, instance);
-		} else {
-			instance.setRuntimeSession(session);
 		}
-
 
 		if (activate) {
 			this.setActiveInstance(session.sessionId);
