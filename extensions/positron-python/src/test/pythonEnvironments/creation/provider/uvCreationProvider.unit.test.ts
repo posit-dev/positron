@@ -358,8 +358,7 @@ suite('UV Creation provider tests', () => {
 
     suite('Pre-release version handling', () => {
         let showWarningMessageStub: sinon.SinonStub;
-        let updateUvStub: sinon.SinonStub;
-        let installUvPythonStub: sinon.SinonStub;
+        let getStablePythonAfterUpdateStub: sinon.SinonStub;
 
         const workspace1 = {
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
@@ -369,8 +368,7 @@ suite('UV Creation provider tests', () => {
 
         setup(() => {
             showWarningMessageStub = sinon.stub(windowApis, 'showWarningMessage');
-            updateUvStub = sinon.stub(uv, 'updateUv');
-            installUvPythonStub = sinon.stub(uv, 'installUvPython');
+            getStablePythonAfterUpdateStub = sinon.stub(uv, 'getStablePythonAfterUpdate');
 
             pickWorkspaceFolderStub.resolves(workspace1);
             pickPythonVersionStub.resolves('3.14');
@@ -442,21 +440,13 @@ suite('UV Creation provider tests', () => {
             const result = await promise;
             assert.isDefined(result?.path);
             assert.isTrue(showWarningMessageStub.calledOnce);
-            assert.isTrue(updateUvStub.notCalled);
+            assert.isTrue(getStablePythonAfterUpdateStub.notCalled);
         });
 
         test('User chooses Update uv and stable version becomes available', async () => {
-            // First call returns prerelease, second call (after update) returns stable
-            getUvPythonVersionInfoStub
-                .onFirstCall()
-                .resolves({ version: '3.14.0a5', isPrerelease: true, path: undefined });
-            getUvPythonVersionInfoStub
-                .onSecondCall()
-                .resolves({ version: '3.14.0', isPrerelease: false, path: undefined });
-
+            getUvPythonVersionInfoStub.resolves({ version: '3.14.0a5', isPrerelease: true, path: undefined });
             showWarningMessageStub.resolves(CreateEnv.Uv.updateUv);
-            updateUvStub.resolves(true);
-            installUvPythonStub.resolves(true);
+            getStablePythonAfterUpdateStub.resolves({ success: true, version: '3.14.0', wasInstalled: true });
 
             const deferred = createDeferred();
             let _next: undefined | ((value: Output<string>) => void);
@@ -487,25 +477,59 @@ suite('UV Creation provider tests', () => {
 
             const result = await promise;
             assert.isDefined(result?.path);
-            assert.isTrue(updateUvStub.calledOnce);
-            assert.isTrue(installUvPythonStub.calledOnce);
+            assert.isTrue(getStablePythonAfterUpdateStub.calledOnce);
+        });
+
+        test('User chooses Update uv and stable version is already local', async () => {
+            getUvPythonVersionInfoStub.resolves({ version: '3.14.0a5', isPrerelease: true, path: undefined });
+            showWarningMessageStub.resolves(CreateEnv.Uv.updateUv);
+            getStablePythonAfterUpdateStub.resolves({ success: true, version: '3.14.0', wasInstalled: false });
+
+            const deferred = createDeferred();
+            let _next: undefined | ((value: Output<string>) => void);
+            let _complete: undefined | (() => void);
+            execObservableStub.callsFake(() => {
+                deferred.resolve();
+                return {
+                    proc: { exitCode: 0 },
+                    out: {
+                        subscribe: (
+                            next?: (value: Output<string>) => void,
+                            _error?: (error: unknown) => void,
+                            complete?: () => void,
+                        ) => {
+                            _next = next;
+                            _complete = complete;
+                        },
+                    },
+                    dispose: () => undefined,
+                };
+            });
+
+            const promise = uvProvider.createEnvironment();
+            await deferred.promise;
+
+            _next!({ out: 'Created virtual environment', source: 'stdout' });
+            _complete!();
+
+            const result = await promise;
+            assert.isDefined(result?.path);
+            assert.isTrue(getStablePythonAfterUpdateStub.calledOnce);
         });
 
         test('User chooses Update uv but only prerelease still available - fails', async () => {
-            getUvPythonVersionInfoStub
-                .onFirstCall()
-                .resolves({ version: '3.14.0a5', isPrerelease: true, path: undefined });
-            getUvPythonVersionInfoStub
-                .onSecondCall()
-                .resolves({ version: '3.14.0a6', isPrerelease: true, path: undefined });
-
+            getUvPythonVersionInfoStub.resolves({ version: '3.14.0a5', isPrerelease: true, path: undefined });
             showWarningMessageStub.resolves(CreateEnv.Uv.updateUv);
-            updateUvStub.resolves(true);
+            getStablePythonAfterUpdateStub.resolves({
+                success: false,
+                error: 'no_stable_version',
+                version: '3.14.0a6',
+            });
 
             const result = await uvProvider.createEnvironment();
 
             assert.isDefined(result?.error);
-            assert.isTrue(updateUvStub.calledOnce);
+            assert.isTrue(getStablePythonAfterUpdateStub.calledOnce);
             assert.isTrue(execObservableStub.notCalled);
             assert.isTrue(showErrorMessageWithLogsStub.calledOnce);
         });
@@ -513,12 +537,25 @@ suite('UV Creation provider tests', () => {
         test('User chooses Update uv but update fails', async () => {
             getUvPythonVersionInfoStub.resolves({ version: '3.14.0a5', isPrerelease: true, path: undefined });
             showWarningMessageStub.resolves(CreateEnv.Uv.updateUv);
-            updateUvStub.resolves(false);
+            getStablePythonAfterUpdateStub.resolves({ success: false, error: 'update_failed' });
 
             const result = await uvProvider.createEnvironment();
 
             assert.isDefined(result?.error);
-            assert.isTrue(updateUvStub.calledOnce);
+            assert.isTrue(getStablePythonAfterUpdateStub.calledOnce);
+            assert.isTrue(execObservableStub.notCalled);
+            assert.isTrue(showErrorMessageWithLogsStub.calledOnce);
+        });
+
+        test('User chooses Update uv but Python install fails', async () => {
+            getUvPythonVersionInfoStub.resolves({ version: '3.14.0a5', isPrerelease: true, path: undefined });
+            showWarningMessageStub.resolves(CreateEnv.Uv.updateUv);
+            getStablePythonAfterUpdateStub.resolves({ success: false, error: 'install_failed', version: '3.14.0' });
+
+            const result = await uvProvider.createEnvironment();
+
+            assert.isDefined(result?.error);
+            assert.isTrue(getStablePythonAfterUpdateStub.calledOnce);
             assert.isTrue(execObservableStub.notCalled);
             assert.isTrue(showErrorMessageWithLogsStub.calledOnce);
         });

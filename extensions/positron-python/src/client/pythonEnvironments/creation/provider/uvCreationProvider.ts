@@ -25,7 +25,7 @@ import {
     CreateEnvironmentOptions,
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
-import { getUvPythonVersionInfo, installUvPython, isUvInstalled, updateUv } from '../../common/environmentManagers/uv';
+import { getStablePythonAfterUpdate, getUvPythonVersionInfo, isUvInstalled } from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
@@ -223,45 +223,22 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                     );
 
                     if (choice === CreateEnv.Uv.updateUv) {
-                        // Run uv self update and wait for it to complete
-                        progress.report({ message: CreateEnv.Uv.updatingUv });
-                        traceInfo('Updating uv...');
-                        const updateSuccess = await updateUv();
-                        if (!updateSuccess) {
-                            traceError('Failed to update uv');
-                            throw new Error(CreateEnv.Uv.errorUpdatingUv);
-                        }
-                        traceInfo('uv updated successfully, checking for stable Python version...');
-
-                        // Look for a stable version, skipping local pre-releases
-                        const stableVersionInfo = await getUvPythonVersionInfo(version, {
-                            skipLocalPrereleases: true,
+                        const result = await getStablePythonAfterUpdate(version, (message) => {
+                            progress.report({ message });
                         });
 
-                        if (stableVersionInfo && !stableVersionInfo.isPrerelease) {
-                            // Found a stable version - install it if not already local
-                            if (!stableVersionInfo.path) {
-                                traceInfo(`Installing stable Python ${stableVersionInfo.version}...`);
-                                progress.report({
-                                    message: CreateEnv.Uv.installingPython(stableVersionInfo.version),
-                                });
-                                const installSuccess = await installUvPython(stableVersionInfo.version);
-                                if (!installSuccess) {
-                                    traceError(`Failed to install Python ${stableVersionInfo.version}`);
-                                    throw new Error(CreateEnv.Uv.errorInstallingPython(stableVersionInfo.version));
-                                }
+                        if (!result.success) {
+                            if (result.error === 'update_failed') {
+                                throw new Error(CreateEnv.Uv.errorUpdatingUv);
+                            } else if (result.error === 'install_failed') {
+                                throw new Error(CreateEnv.Uv.errorInstallingPython(result.version ?? version));
+                            } else {
+                                throw new Error(CreateEnv.Uv.noStableVersionAvailable(version));
                             }
-                            traceInfo(`Using stable Python ${stableVersionInfo.version}`);
-                            // Update version to use the specific stable version
-                            version = stableVersionInfo.version;
-                        } else {
-                            // No stable version available - fail
-                            const fallbackInfo = stableVersionInfo ?? versionInfo;
-                            traceError(
-                                `No stable Python version available for ${version}, only pre-release ${fallbackInfo.version}`,
-                            );
-                            throw new Error(CreateEnv.Uv.noStableVersionAvailable(version));
                         }
+
+                        traceInfo(`Using stable Python ${result.version}`);
+                        version = result.version;
                     } else if (choice !== CreateEnv.Uv.proceedAnyway) {
                         // User cancelled or closed the dialog
                         return undefined;

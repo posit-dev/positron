@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { cache } from '../../../common/utils/decorators';
-import { traceVerbose } from '../../../logging';
+import { traceError, traceVerbose } from '../../../logging';
 import { exec, pathExists, readFile, resolveSymbolicLink } from '../externalDependencies';
 import { isTestExecution } from '../../../common/constants';
 import { getPyvenvConfigPathsFrom } from './simplevirtualenvs';
@@ -312,6 +312,67 @@ export async function installUvPython(version: string): Promise<boolean> {
         traceVerbose(`Error running uv python install: ${ex}`);
         return false;
     }
+}
+
+/**
+ * Result of attempting to get a stable Python version after updating uv.
+ */
+export type GetStablePythonResult =
+    | { success: true; version: string; wasInstalled: boolean }
+    | { success: false; error: 'update_failed' | 'install_failed' | 'no_stable_version'; version?: string };
+
+/**
+ * Updates uv and attempts to find/install a stable Python version.
+ * This handles the flow: update uv -> check for stable -> install if needed.
+ *
+ * @param requestedVersion The version requested (e.g., "3.14", "3.13")
+ * @param onProgress Optional callback for progress updates
+ * @returns Result indicating success with version info, or failure with error type
+ */
+export async function getStablePythonAfterUpdate(
+    requestedVersion: string,
+    onProgress?: (message: string) => void,
+): Promise<GetStablePythonResult> {
+    // Update uv
+    onProgress?.('Updating uv...');
+    traceVerbose('Running uv self update...');
+    const updateSuccess = await updateUv();
+    if (!updateSuccess) {
+        traceError('Failed to update uv');
+        return { success: false, error: 'update_failed' };
+    }
+    traceVerbose('uv updated successfully, checking for stable Python version...');
+
+    // Look for a stable version, skipping local pre-releases
+    const stableVersionInfo = await getUvPythonVersionInfo(requestedVersion, {
+        skipLocalPrereleases: true,
+    });
+
+    if (!stableVersionInfo || stableVersionInfo.isPrerelease) {
+        // No stable version available
+        traceError(
+            `No stable Python version available for ${requestedVersion}, only pre-release ${
+                stableVersionInfo?.version ?? 'unknown'
+            }`,
+        );
+        return { success: false, error: 'no_stable_version', version: stableVersionInfo?.version };
+    }
+
+    // Found a stable version - install it if not already local
+    if (!stableVersionInfo.path) {
+        onProgress?.(`Installing Python ${stableVersionInfo.version}...`);
+        traceVerbose(`Installing stable Python ${stableVersionInfo.version}...`);
+        const installSuccess = await installUvPython(stableVersionInfo.version);
+        if (!installSuccess) {
+            traceError(`Failed to install Python ${stableVersionInfo.version}`);
+            return { success: false, error: 'install_failed', version: stableVersionInfo.version };
+        }
+        traceVerbose(`Using stable Python ${stableVersionInfo.version}`);
+        return { success: true, version: stableVersionInfo.version, wasInstalled: true };
+    }
+
+    traceVerbose(`Using existing stable Python ${stableVersionInfo.version}`);
+    return { success: true, version: stableVersionInfo.version, wasInstalled: false };
 }
 
 /**
