@@ -9,8 +9,9 @@ import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js'
 import { isEqual } from '../../../../base/common/resources.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { NotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
 import { PositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
@@ -44,17 +45,31 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		// Call the disposable constructor.
 		super();
 
+
+
 		// Create new instances
 		this._register(this._runtimeSessionService.onWillStartSession((e) => {
-			// If the session is starting, but already considered the foreground session, we should activate it if there is no other active session at this time. This can happen when a session is restarted.
+			const startupPhase = _languageRuntimeService.startupPhase
+
+			// If the session is starting, but already considered the foreground session, we should try to active it.
+			// This can happen when a session is restarted.
 			const foregroundSession = this._runtimeSessionService.foregroundSession;
-			const startingSessionIsAlreadyActive = this._activeInstance === undefined && foregroundSession?.metadata.sessionId === e.session.sessionId;
+			const startingSessionIsAlreadyActive =
+				// Startup phase is complete: We're careful to only do this if the runtime startup is complete, otherwise we might cause session flicker.
+				RuntimeStartupPhase.Complete === startupPhase &&
+				// No current active instance
+				this._activeInstance === undefined &&
+				// Starting session matches the global foreground session
+				foregroundSession?.metadata.sessionId === e.session.sessionId;
+
 			this.createOrAssignInstance(e.session, e.activate || startingSessionIsAlreadyActive);
 		}));
 
