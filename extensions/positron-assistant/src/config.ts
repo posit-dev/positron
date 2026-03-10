@@ -148,6 +148,7 @@ export async function showConfigurationDialog(
 									signedIn: result.configured,
 									defaults: {
 										...source.defaults,
+										...(result.configuration?.baseUrl && { baseUrl: result.configuration.baseUrl }),
 										autoconfigure: {
 											type: positron.ai.LanguageModelAutoconfigureType.Custom,
 											message: result.message ?? source.defaults.autoconfigure.message,
@@ -250,7 +251,9 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			[...existingConfigs, newConfig]
 		);
 
-		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
+		const addedSource = expandConfigToSource(newConfig);
+		addedSource.signedIn = true;
+		positron.ai.addLanguageModelConfig(addedSource);
 
 		// Remember the base URL for this provider so it can be pre-populated after sign-out
 		if (baseUrl) {
@@ -398,7 +401,9 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, id: 
 
 	clearTokenUsage(targetConfig.provider);
 
-	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
+	const removedSource = expandConfigToSource(targetConfig);
+	removedSource.signedIn = false;
+	positron.ai.removeLanguageModelConfig(removedSource);
 
 	// Refresh CopilotService signed-in state if this was a copilot model
 	if (targetConfig.provider === 'copilot-auth') {

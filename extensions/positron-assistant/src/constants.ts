@@ -29,7 +29,7 @@ export const MIN_TOKEN_LIMIT = 512;
 export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
 
 /** Default patterns for selectable models */
-export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt'];
+export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt', 'model-router'];
 
 /** Settings search string for provider enable settings */
 export const PROVIDER_ENABLE_SETTINGS_SEARCH = 'positron.assistant.provider enable';

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -158,24 +158,45 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	</>;
 }
 
-// Language config parts
-const BaseUrl = (props: { baseUrl?: string, signedIn?: boolean, onChange: (newBaseUrl: string) => void, provider: IProvider }) => {
+const DEPLOYMENT_URL_PATTERN = /\/openai\/deployments\//;
+
+const BaseUrl = (props: { baseUrl?: string; signedIn?: boolean; onChange: (newBaseUrl: string) => void; provider: IProvider }) => {
 	const baseUrlLabel = props.provider.id === 'openai-compatible' ? localize('positron.languageModelConfig.baseUrlOpenAICompatibleInputLabel', 'Base URL (must be OpenAI compatible)') : localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL');
+	const isDeploymentUrl = props.baseUrl ? DEPLOYMENT_URL_PATTERN.test(props.baseUrl) : false;
+
+	// When signed in with a deployment URL, show the normalized v1 URL
+	let displayUrl = props.baseUrl;
+	if (isDeploymentUrl && props.baseUrl) {
+		const deploymentIndex = props.baseUrl.indexOf('/openai/deployments/');
+		displayUrl = props.baseUrl.substring(0, deploymentIndex) + '/openai/v1';
+	}
+
 	return (<>
 		<div className='language-model-authentication-container' id='base-url-input'>
 			{
 				props.signedIn ?
-					<p>{localize('positron.languageModelConfig.baseUrlSignedIn', "Base URL: {0}", props.baseUrl)}</p>
+					<p>{localize('positron.languageModelConfig.baseUrlSignedIn', "Base URL: {0}", displayUrl)}</p>
 					:
 					<LabeledTextInput
 						label={baseUrlLabel}
 						type='text'
 						value={props.baseUrl ?? ''}
-						onChange={e => { props.onChange(e.currentTarget.value) }} />
+						onChange={e => { props.onChange(e.currentTarget.value); }} />
 			}
 		</div>
-	</>)
-}
+		{isDeploymentUrl &&
+			<div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: 'var(--vscode-editorWarning-foreground)', fontSize: '0.85em', wordBreak: 'break-word' }}>
+				<span className='codicon codicon-warning' />
+				<span>
+					{localize(
+						'positron.languageModelConfig.deploymentUrlWarning',
+						"Deployment URL rewritten to use the OpenAI v1 endpoint."
+					)}
+				</span>
+			</div>
+		}
+	</>);
+};
 
 const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void }) => {
 	return (<>

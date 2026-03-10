@@ -16,9 +16,11 @@ import { log } from '../../log.js';
 /**
  * Microsoft Foundry model provider implementation.
  *
- * Uses the OpenAI v1 API (`{endpoint}/openai/v1/chat/completions`) which is
- * compatible with both `.openai.azure.com` and `.services.ai.azure.com` endpoints.
+ * Uses the OpenAI v1 API (`{endpoint}/openai/v1/chat/completions`)
  * The model is specified in the request body (no deployment-based URLs or api-version).
+ *
+ * If a user provides a deployment-based URL (containing `/openai/deployments/`),
+ * it is automatically converted to the v1 format by extracting the endpoint base.
  *
  * Supports two authentication paths within a single class:
  * - **API key** (manual): User configures via settings UI
@@ -68,15 +70,53 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 	/**
 	 * Gets the base URL for the Azure OpenAI v1 API.
 	 *
-	 * In managed mode, constructs from the Workbench endpoint setting.
-	 * In manual mode, uses the user-provided baseUrl.
+	 * Normalizes the raw URL from config (manual or Workbench) to the v1 format.
+	 * Deployment-based URLs are converted by extracting the endpoint base.
 	 */
 	get baseUrl(): string {
 		const rawUrl = this.isWorkbenchManaged
 			? FoundryModelProvider.getWorkbenchConfig().endpoint
 			: (this._config.baseUrl ?? '');
-		const url = rawUrl.replace(/\/+$/, '');
-		return url.endsWith('/openai/v1') ? url : `${url}/openai/v1`;
+		return FoundryModelProvider.normalizeToV1Url(rawUrl);
+	}
+
+	/**
+	 * Normalizes any Foundry URL to the v1 API format.
+	 *
+	 * Handles deployment URLs (e.g., `{endpoint}/openai/deployments/{name}/...?api-version=...`)
+	 * by extracting the endpoint base. Strips query parameters since the v1 API
+	 * rejects `api-version`. Appends `/openai/v1` if not already present.
+	 */
+	static normalizeToV1Url(rawUrl: string): string {
+		let url = rawUrl.trim();
+
+		// Strip query parameters (v1 API rejects api-version)
+		const queryIndex = url.indexOf('?');
+		if (queryIndex !== -1) {
+			url = url.substring(0, queryIndex);
+		}
+
+		url = url.replace(/\/+$/, '');
+
+		// Deployment URL: extract endpoint base before /openai/deployments/
+		const deploymentIndex = url.indexOf('/openai/deployments/');
+		if (deploymentIndex !== -1) {
+			url = url.substring(0, deploymentIndex);
+		}
+
+		if (url.endsWith('/openai/v1')) {
+			return url;
+		}
+
+		return `${url}/openai/v1`;
+	}
+
+	/**
+	 * Returns true if the URL is a deployment-based Azure OpenAI URL.
+	 * Used by the UI to show a warning when a deployment URL is entered.
+	 */
+	static isDeploymentUrl(rawUrl: string): boolean {
+		return /\/openai\/deployments\//.test(rawUrl);
 	}
 
 	/**
@@ -95,6 +135,14 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 			FoundryModelProvider.source.provider.id,
 			FoundryModelProvider.source.provider.displayName
 		);
+
+		if (result.configured) {
+			const endpoint = FoundryModelProvider.getWorkbenchConfig().endpoint;
+			result.configuration = {
+				baseUrl: FoundryModelProvider.normalizeToV1Url(endpoint),
+			};
+		}
+
 		return result;
 	}
 
