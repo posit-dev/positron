@@ -749,13 +749,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 			// Set the foreground session so that other panes (e.g. Variables)
 			// will show the results of the code we're about to evaluate.
-			// Only set the foreground session for Console sessions; notebook
-			// sessions should not become the foreground session as that would
-			// cause LSP features in script files to break.
-			if (positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-				positronConsoleInstance.session) {
-				this._runtimeSessionService.foregroundSession = positronConsoleInstance.session;
-			}
+			this._runtimeSessionService.foregroundSession = positronConsoleInstance.session;
 		}
 
 		// Focus the Positron console instance, if we're supposed to.
