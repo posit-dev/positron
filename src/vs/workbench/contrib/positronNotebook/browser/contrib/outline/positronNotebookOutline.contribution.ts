@@ -46,7 +46,7 @@ import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCom
 import { CellSelectionType, SelectionState, getActiveCell } from '../../selectionMachine.js';
 import { slugify } from '../../../../markdown/browser/markedGfmHeadingIdPlugin.js';
 
-// --- Section B: PositronOutlineEntry ---
+// --- PositronOutlineEntry ---
 
 /**
  * Custom outline entry for Positron notebooks. Holds a direct reference to the
@@ -86,7 +86,7 @@ export class PositronOutlineEntry {
 	}
 }
 
-// --- Section C: Pure functions (exported for testing) ---
+// --- Pure functions (exported for testing) ---
 
 /**
  * Extract markdown headers from cell content, with a fallback to HTML heading
@@ -230,7 +230,7 @@ function findElementById(root: HTMLElement, id: string): HTMLElement | null {
 	return null;
 }
 
-// --- Section D: Renderer, delegate, comparator, accessibility ---
+// --- Renderer, delegate, comparator, accessibility ---
 
 class PositronOutlineTemplate {
 	static readonly templateId = 'PositronNotebookOutlineRenderer';
@@ -319,7 +319,7 @@ class PositronOutlineComparator implements IOutlineComparator<PositronOutlineEnt
 	}
 }
 
-// --- Section E: Data sources (tree, quickpick, breadcrumbs) ---
+// --- Data sources (tree, quickpick, breadcrumbs) ---
 
 class PositronOutlinePaneProvider implements IDataSource<PositronNotebookCellOutline, PositronOutlineEntry> {
 
@@ -361,7 +361,7 @@ class PositronOutlineBreadcrumbsProvider implements IBreadcrumbsDataSource<Posit
 	}
 }
 
-// --- Section F: The IOutline implementation ---
+// --- The IOutline implementation ---
 
 export class PositronNotebookCellOutline extends Disposable implements IOutline<PositronOutlineEntry> {
 	readonly outlineKind = 'positronNotebookCells';
@@ -639,7 +639,7 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 	}
 }
 
-// --- Section G: The IOutlineCreator and registration ---
+// --- The IOutlineCreator and registration ---
 
 class PositronNotebookOutlineCreator implements IOutlineCreator<PositronNotebookEditor, PositronOutlineEntry> {
 	readonly dispose: () => void;
