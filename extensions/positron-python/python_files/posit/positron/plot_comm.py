@@ -298,7 +298,6 @@ class UpdateParams(BaseModel):
     """
 
     pre_render: Optional[PlotResult] = Field(
-        default=None,
         description="Optional pre-rendering data for immediate display",
     )
 
@@ -309,7 +308,6 @@ class ShowParams(BaseModel):
     """
 
     pre_render: Optional[PlotResult] = Field(
-        default=None,
         description="Optional pre-rendering data for immediate display",
     )
 

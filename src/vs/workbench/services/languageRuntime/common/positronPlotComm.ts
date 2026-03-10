@@ -221,6 +221,16 @@ export interface UpdateParams {
 }
 
 /**
+ * Parameters for the Show method.
+ */
+export interface ShowParams {
+	/**
+	 * Optional pre-rendering data for immediate display
+	 */
+	pre_render?: PlotResult;
+}
+
+/**
  * Event: Notification that a plot has been updated on the backend.
  */
 export interface UpdateEvent {
