@@ -9,7 +9,8 @@
 		"vscode": "^1.108.0"
 	},
 	"activationEvents": [
-		"onAuthenticationRequest:anthropic-api"
+		"onAuthenticationRequest:anthropic-api",
+		"onCommand:authentication.configureProviders"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
