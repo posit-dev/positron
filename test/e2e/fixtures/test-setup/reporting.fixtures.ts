@@ -99,10 +99,14 @@ export function TracingFixture() {
 	return async (options: TracingOptions, use: (arg0: Application) => Promise<void>) => {
 		const { app, testInfo } = options;
 
-		// Use Playwright's built-in tracing only for browser-based UI mode runs.
-		// Use custom tracing for all CLI runs (electron or browser).
-		const isUIMode = process.env.PW_UI_MODE === 'true';
-		if (testInfo.project.use.browserName && isUIMode) {
+		// Determine execution mode
+		const isCommandLineRun = process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
+		// Use Playwright's built-in tracing only for browser-based runs (extension, UI mode).
+		// Use custom tracing for Positron desktop runs or CLI runs.
+		if (
+			testInfo.project.use.browserName &&
+			!isCommandLineRun
+		) {
 			await use(app);
 		} else {
 			// start tracing
