@@ -75,6 +75,12 @@ import { IAuthenticationUsageService } from '../../../services/authentication/br
 import { IExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 import { IWorkbenchIssueService } from '../../issue/common/issue.js';
 import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
+// --- Start Positron ---
+import { getLatestPositronCompatibleVersion } from './positronCompatibleVersion.js';
+// eslint-disable-next-line no-duplicate-imports
+import { InstallExtensionOptions } from '../common/extensions.js';
+// --- End Positron ---
+
 
 export class PromptExtensionInstallFailureAction extends Action {
 
@@ -959,12 +965,35 @@ export class UpdateAction extends ExtensionAction {
 
 	private readonly updateThrottler = new Throttler();
 
+	// --- Start Positron ---
+	// When set, overrides the version shown in the "Update to" label and
+	// the version installed when the user clicks the button. While
+	// _positronCompatibilityPending is true, the button is hidden to avoid
+	// briefly showing an incompatible version.
+	private _positronCompatibilityPending = false;
+	private _positronCompatibleGallery: IGalleryExtension | null = null;
+	set positronCompatibilityPending(pending: boolean) {
+		this._positronCompatibilityPending = pending;
+		this.update();
+	}
+	set positronCompatibleGallery(gallery: IGalleryExtension | null) {
+		this._positronCompatibleGallery = gallery;
+		this._positronCompatibilityPending = false;
+		this.update();
+	}
+	// --- End Positron ---
+
 	constructor(
 		private readonly verbose: boolean,
 		@IExtensionsWorkbenchService private readonly extensionsWorkbenchService: IExtensionsWorkbenchService,
 		@IDialogService private readonly dialogService: IDialogService,
 		@IOpenerService private readonly openerService: IOpenerService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		@IExtensionGalleryService private readonly galleryService: IExtensionGalleryService,
+		@IProductService private readonly productService: IProductService,
+		@ILogService private readonly logService: ILogService,
+		// --- End Positron ---
 	) {
 		super(`extensions.update`, localize('update', "Update"), UpdateAction.DisabledClass, false);
 		this.update();
@@ -973,7 +1002,10 @@ export class UpdateAction extends ExtensionAction {
 	update(): void {
 		this.updateThrottler.queue(() => this.computeAndUpdateEnablement());
 		if (this.extension) {
-			this.label = this.verbose ? localize('update to', "Update to v{0}", this.extension.latestVersion) : localize('update', "Update");
+			// --- Start Positron ---
+			const version = this._positronCompatibleGallery?.version ?? this.extension.latestVersion;
+			// --- End Positron ---
+			this.label = this.verbose ? localize('update to', "Update to v{0}", version) : localize('update', "Update");
 		}
 	}
 
@@ -985,6 +1017,12 @@ export class UpdateAction extends ExtensionAction {
 			return;
 		}
 
+		// --- Start Positron ---
+		if (this._positronCompatibilityPending) {
+			return;
+		}
+		// --- End Positron ---
+
 		if (this.extension.deprecationInfo) {
 			return;
 		}
@@ -993,6 +1031,13 @@ export class UpdateAction extends ExtensionAction {
 		const isInstalled = this.extension.state === ExtensionState.Installed;
 
 		this.enabled = canInstall === true && isInstalled && this.extension.outdated;
+		// --- Start Positron ---
+		// If we resolved a compatible version that matches the installed
+		// version, there is no update to offer.
+		if (this.enabled && this._positronCompatibleGallery && this.extension.version === this._positronCompatibleGallery.version) {
+			this.enabled = false;
+		}
+		// --- End Positron ---
 		this.class = this.enabled ? UpdateAction.EnabledClass : UpdateAction.DisabledClass;
 	}
 
@@ -1032,19 +1077,57 @@ export class UpdateAction extends ExtensionAction {
 			}
 		}
 
-		const installOptions: InstallOptions = {};
+		const installOptions: InstallExtensionOptions = {};
 		if (this.extension.local?.source === 'vsix' && this.extension.local.pinned) {
 			installOptions.pinned = false;
 		}
 		if (this.extension.local?.preRelease) {
 			installOptions.installPreReleaseVersion = true;
 		}
+
+		// --- Start Positron ---
+		// Check engines.positron compatibility before updating. The gallery
+		// service only checks engines.vscode; engines.positron is only
+		// available in the full manifest, not in the Open VSX metadata.
+		// If the extension editor already resolved a compatible version, use
+		// it directly to avoid redundant manifest fetches.
+		let targetVersion = this.extension.latestVersion;
+		if (this._positronCompatibleGallery) {
+			targetVersion = this._positronCompatibleGallery.version;
+			installOptions.version = this._positronCompatibleGallery.version;
+		} else if (this.extension.gallery) {
+			const compatibleGallery = await getLatestPositronCompatibleVersion(
+				this.extension.gallery,
+				this.galleryService,
+				this.productService,
+				this.logService,
+				CancellationToken.None,
+			);
+			if (!compatibleGallery) {
+				this.dialogService.info(
+					localize('positronIncompatibleExtension', "No version of '{0}' is compatible with this version of Positron.", this.extension.displayName || this.extension.identifier.id),
+				);
+				return;
+			}
+			if (compatibleGallery.version === this.extension.version) {
+				this.dialogService.info(
+					localize('positronAlreadyCompatible', "'{0}' is already at the latest version compatible with this version of Positron (v{1}).", this.extension.displayName || this.extension.identifier.id, this.extension.version),
+				);
+				return;
+			}
+			if (compatibleGallery.version !== this.extension.gallery.version) {
+				targetVersion = compatibleGallery.version;
+				installOptions.version = compatibleGallery.version;
+			}
+		}
+		// --- End Positron ---
+
 		try {
-			alert(localize('updateExtensionStart', "Updating extension {0} to version {1} started.", this.extension.displayName, this.extension.latestVersion));
+			alert(localize('updateExtensionStart', "Updating extension {0} to version {1} started.", this.extension.displayName, targetVersion));
 			await this.extensionsWorkbenchService.install(this.extension, installOptions);
-			alert(localize('updateExtensionComplete', "Updating extension {0} to version {1} completed.", this.extension.displayName, this.extension.latestVersion));
+			alert(localize('updateExtensionComplete', "Updating extension {0} to version {1} completed.", this.extension.displayName, targetVersion));
 		} catch (err) {
-			this.instantiationService.createInstance(PromptExtensionInstallFailureAction, this.extension, installOptions, this.extension.latestVersion, InstallOperation.Update, err).run();
+			this.instantiationService.createInstance(PromptExtensionInstallFailureAction, this.extension, installOptions, targetVersion, InstallOperation.Update, err).run();
 		}
 	}
 }
