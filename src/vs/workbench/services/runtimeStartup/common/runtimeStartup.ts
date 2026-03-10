@@ -480,9 +480,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// drives the startup sequence forward. However, if no
 				// language packs arrive (e.g. no extensions contribute
 				// runtimes), we need a fallback to avoid hanging forever
-				// in the AwaitingTrust phase.
+				// in the AwaitingTrust phase. Route through the full
+				// startup sequence so session restore, new-folder tasks,
+				// and affiliated/recommended startup are not skipped.
 				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-					this.discoverAllRuntimes();
+					this.startupSequence();
 				}
 			}));
 		}
@@ -606,6 +608,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * The main entry point for the runtime startup service.
 	 */
 	private async startupSequence() {
+
+		// Guard against double entry. Both the ext-point handler and the
+		// onDidChangeTrust handler can call startupSequence() when the
+		// workspace transitions from untrusted to trusted. Setting the
+		// phase synchronously before the first await ensures only the
+		// first caller proceeds.
+		if (this._startupPhase !== RuntimeStartupPhase.AwaitingTrust &&
+			this._startupPhase !== RuntimeStartupPhase.Initializing) {
+			return;
+		}
+		this.setStartupPhase(RuntimeStartupPhase.Starting);
 
 		// Attempt to reconnect to any active sessions first.
 		await this.restoreSessions();
