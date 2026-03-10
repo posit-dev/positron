@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 import { ApiKeyAuthenticationProvider } from './apiKeyProvider';
 import { log } from './log';
 
-const apiKeyProviders = new Map<string, ApiKeyAuthenticationProvider>();
+export const apiKeyProviders = new Map<string, ApiKeyAuthenticationProvider>();
 
 /**
  * Register an API key provider so the config dialog can store/remove

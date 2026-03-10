@@ -9,8 +9,11 @@
 		"vscode": "^1.108.0"
 	},
 	"activationEvents": [
+		"onStartupFinished",
 		"onAuthenticationRequest:anthropic-api",
-		"onCommand:authentication.configureProviders"
+		"onCommand:authentication.configureProviders",
+		"onCommand:authentication.storeApiKey",
+		"onCommand:authentication.removeApiKey"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
