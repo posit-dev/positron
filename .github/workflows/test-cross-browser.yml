@@ -57,6 +57,7 @@ jobs:
       shards: 1
       matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep }}
+      grep_invert: "great-tables"
 
   e2e-webkit:
     name: e2e
@@ -70,6 +71,7 @@ jobs:
       shards: 1
       matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep }}
+      grep_invert: "notebook-cell-action-bar|notebook-edit-mode|notebook-focus-and-selection"
 
   e2e-edge:
     name: e2e

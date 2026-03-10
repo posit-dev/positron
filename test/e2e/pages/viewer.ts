@@ -74,14 +74,20 @@ export class Viewer {
 		getLocator: (frame: FrameLocator) => Locator,
 		options?: { timeout?: number; onRetry?: () => Promise<void>; useIframe?: boolean }
 	): Promise<void> {
-		const { timeout = 60000, onRetry, useIframe = true } = options ?? {};
+		const { timeout = 60000, onRetry, useIframe = undefined } = options ?? {};
 
 		await test.step('Expect content visible in viewer frame', async () => {
 			await expect(async () => {
 				// Get the frame and locator for the content
-				const baseFrame = this.getViewerFrame();
-				const frame = useIframe ? baseFrame.frameLocator('iframe') : baseFrame;
+				const frame = useIframe === undefined
+					? !this.code.electronApp
+						? this.viewerFrame.frameLocator('iframe')
+						: this.getViewerFrame()
+					: useIframe
+						? this.viewerFrame.frameLocator('iframe')
+						: this.getViewerFrame();
 				const locator = getLocator(frame);
+
 
 				// Check if content is visible
 				let isVisible = false;

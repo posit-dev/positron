@@ -78,6 +78,11 @@ on:
         description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
         type: boolean
         default: false
+      grep_invert:
+        required: false
+        description: "Exclude tests matching this regex pattern (passed to --grep-invert)"
+        type: string
+        default: ""
 
 permissions:
   id-token: write
@@ -293,6 +298,12 @@ jobs:
             GREP_ARG="--grep \"$PW_TAGS\""
           fi
 
+          if [ -z "${{ inputs.grep_invert }}" ]; then
+            GREP_INVERT_ARG=""
+          else
+            GREP_INVERT_ARG="--grep-invert \"${{ inputs.grep_invert }}\""
+          fi
+
           if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
             echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
             npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
@@ -310,6 +321,7 @@ jobs:
             --project ${{ inputs.project }} \
             --workers ${{ inputs.workers }} \
             $GREP_ARG \
+            $GREP_INVERT_ARG \
             --repeat-each ${{ inputs.repeat_each }} \
             --max-failures ${{ inputs.max_failures }}"
 

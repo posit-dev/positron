@@ -132,8 +132,7 @@ export class QuickAccess {
 					break;
 				case QuickAccessKind.Commands:
 					// Use custom keybinding (Cmd+J E) instead of default Ctrl+Shift+P
-					// because Ctrl+Shift+P opens private browsing in Firefox,
-					// blocking cross-browser e2e tests.
+					// because Ctrl+Shift+P opens private browsing in Firefox, blocking cross-browser e2e tests.
 					await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+J' : 'Control+J');
 					await this.code.driver.page.keyboard.press('E');
 					break;

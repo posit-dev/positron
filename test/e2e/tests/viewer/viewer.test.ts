@@ -23,9 +23,9 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		await viewer.expectUrlToHaveValue('http://127.0.0.1:8000/');
 	});
 
+	// note: this test is skipped on firefox - it fails
 	test('Python - Verify Viewer displays great-tables', { tag: [tags.WEB, tags.CROSS_BROWSER] },
 		async function ({ app, python }) {
-			test.skip(app.code.driver.browser === 'firefox', 'great-tables viewer test fails on Firefox');
 			const { console, viewer } = app.workbench;
 
 			await console.executeCode('Python', pythonGreatTablesScript);
@@ -39,7 +39,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 		await console.executeCode('R', rModelSummaryScript);
 		// await viewer.expectContentVisible(frame => frame.getByRole('cell', { name: 'bill_depth_mm' }));
-		await viewer.expectContentVisible(frame => frame.locator('tr').filter({ hasText: 'bill_depth_mm' }), { useIframe: app.web });
+		await viewer.expectContentVisible(frame => frame.locator('tr').filter({ hasText: 'bill_depth_mm' }));
 	});
 
 	test('R - Verify Viewer displays reactable table output', {
@@ -48,7 +48,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		const { console, viewer } = app.workbench;
 
 		await console.executeCode('R', rReactableScript);
-		await viewer.expectContentVisible(frame => frame.getByText('Datsun 710'), { useIframe: app.web });
+		await viewer.expectContentVisible(frame => frame.getByText('Datsun 710'));
 	});
 
 	test('R - Verify Viewer displays reprex code output', {
@@ -57,7 +57,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		const { console, viewer } = app.workbench;
 
 		await console.executeCode('R', rReprexScript);
-		await viewer.expectContentVisible(frame => frame.getByText('rbinom'), { useIframe: app.web });
+		await viewer.expectContentVisible(frame => frame.getByText('rbinom'));
 	});
 });
 
