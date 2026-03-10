@@ -17,7 +17,7 @@ import { PositModelProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 import { StoredModelConfig, ModelConfig } from './configTypes.js';
 // --- Start Positron ---
-import { isAuthExtProvider, storeApiKey, getApiKey, removeApiKey } from './authExtRouting.js';
+import { isAuthExtProvider, storeApiKey, getApiKeyWithMigration, removeApiKey } from './authExtRouting.js';
 // --- End Positron ---
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
@@ -34,7 +34,7 @@ export async function getModelConfiguration(id: string, context: vscode.Extensio
 
 	// --- Start Positron ---
 	const apiKey = isAuthExtProvider(config.provider)
-		? await getApiKey(config.provider, config.id)
+		? await getApiKeyWithMigration(config.provider, config.id, config.name, context.secrets)
 		: await context.secrets.get(`apiKey-${config.id}`);
 	// --- End Positron ---
 	return {
@@ -50,7 +50,7 @@ export async function getModelConfigurations(context: vscode.ExtensionContext): 
 		storedConfigs.map(async (config) => {
 			// --- Start Positron ---
 			const apiKey = isAuthExtProvider(config.provider)
-				? await getApiKey(config.provider, config.id)
+				? await getApiKeyWithMigration(config.provider, config.id, config.name, context.secrets)
 				: await context.secrets.get(`apiKey-${config.id}`);
 			// --- End Positron ---
 			return {

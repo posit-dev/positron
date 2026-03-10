@@ -13,7 +13,7 @@ import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 import { AssistantError } from './errors';
 import { log } from './log.js';
 // --- Start Positron ---
-import { isAuthExtProvider, getApiKey } from './authExtRouting.js';
+import { isAuthExtProvider, getApiKeyWithMigration } from './authExtRouting.js';
 // --- End Positron ---
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
@@ -98,7 +98,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 
 		// --- Start Positron ---
 		const apiKey = isAuthExtProvider(modelConfig.provider)
-			? await getApiKey(modelConfig.provider, modelConfig.id)
+			? await getApiKeyWithMigration(modelConfig.provider, modelConfig.id, modelConfig.name, context.secrets)
 			: await context.secrets.get(`apiKey-${modelConfig.id}`);
 		// --- End Positron ---
 		if (apiKey) {

@@ -12,6 +12,7 @@
 // --- End Positron ---
 
 import * as vscode from 'vscode';
+import { log } from './log.js';
 
 /** Providers whose credentials are managed by the authentication extension. */
 const AUTH_EXT_PROVIDERS = new Set<string>([
@@ -42,9 +43,35 @@ export async function getApiKey(
 			providerId, [], { silent: true, account: { id: accountId, label: '' } }
 		);
 		return session?.accessToken;
-	} catch {
+	} catch (err) {
+		log.warn(`Failed to read auth session for ${providerId}/${accountId}: ${err}`);
 		return undefined;
 	}
+}
+
+/**
+ * Migrate a legacy API key from context.secrets to the auth extension.
+ * Returns the key if migration succeeded or the key was already in the
+ * auth extension; undefined if no key exists anywhere.
+ */
+export async function getApiKeyWithMigration(
+	providerId: string,
+	accountId: string,
+	label: string,
+	secrets: vscode.SecretStorage
+): Promise<string | undefined> {
+	const authKey = await getApiKey(providerId, accountId);
+	if (authKey) {
+		return authKey;
+	}
+	const legacyKey = await secrets.get(`apiKey-${accountId}`);
+	if (!legacyKey) {
+		return undefined;
+	}
+	log.info(`Migrating legacy API key for ${providerId}/${accountId} to auth extension`);
+	await storeApiKey(providerId, accountId, label, legacyKey);
+	await secrets.delete(`apiKey-${accountId}`);
+	return legacyKey;
 }
 
 export async function removeApiKey(
