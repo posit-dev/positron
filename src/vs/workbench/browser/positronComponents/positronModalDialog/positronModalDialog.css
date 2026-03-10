@@ -11,6 +11,7 @@
 }
 
 .positron-modal-dialog-box {
+	--_positron-modal-action-bar-height: 64px;
 	display: flex;
 	overflow: hidden;
 	position: absolute;
