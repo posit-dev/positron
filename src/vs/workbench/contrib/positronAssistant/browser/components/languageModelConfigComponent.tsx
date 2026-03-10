@@ -160,7 +160,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 			}
 		</div>}
 		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} />
-		{source.provider.id === 'copilot-auth' && authStatus === AuthStatus.SIGNED_IN && <CopilotSignoutGuidance closeDialog={props.closeDialog} />}``
+		{source.provider.id === 'copilot-auth' && authStatus === AuthStatus.SIGNED_IN && <CopilotSignoutGuidance closeDialog={props.closeDialog} />}
 		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
 		<ProviderNotice provider={source.provider} />
 	</>;
