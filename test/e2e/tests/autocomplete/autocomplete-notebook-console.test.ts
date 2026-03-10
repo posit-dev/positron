@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,8 +11,8 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Autocomplete with Notebook Console #9759', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.EDITOR, tags.NOTEBOOKS]
+test.describe('Autocomplete with Notebook Console', {
+	tag: [tags.CONSOLE, tags.EDITOR, tags.NOTEBOOKS]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys, settings }) {
