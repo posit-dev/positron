@@ -561,7 +561,12 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 	}
 
 	preview(entry: PositronOutlineEntry): IDisposable {
-		entry.cell.reveal({ reason: 'programmatic' }).then(() => {
+		let disposed = false;
+		entry.cell.reveal({ reason: 'programmatic' }).then((revealed) => {
+			// Guard against stale previews: if disposed or reveal failed, skip.
+			if (disposed || !revealed) {
+				return;
+			}
 			// For markdown headers, scroll to the specific heading element
 			// so previewing between headings in the same cell works correctly.
 			if (entry.headingId && entry.cell.container) {
@@ -569,7 +574,7 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 				headingEl?.scrollIntoView({ block: 'nearest' });
 			}
 		});
-		return toDisposable(() => { });
+		return toDisposable(() => { disposed = true; });
 	}
 
 	captureViewState(): IDisposable {
@@ -587,27 +592,44 @@ export class PositronNotebookCellOutline extends Disposable implements IOutline<
 			if (scrollTop !== undefined && notebook.cellsContainer) {
 				notebook.cellsContainer.scrollTop = scrollTop;
 			}
+
+			// Verify captured cells still exist before restoring selection.
+			const currentCells = notebook.cells.get();
+			const cellStillExists = (cell: IPositronNotebookCell) => currentCells.includes(cell);
+
 			// Restore the full selection state (editing, multi-select, etc.).
 			switch (state.type) {
 				case SelectionState.NoCells:
 					break;
 				case SelectionState.SingleSelection:
-					state.active.select(CellSelectionType.Normal);
+					if (cellStillExists(state.active)) {
+						state.active.select(CellSelectionType.Normal);
+					}
 					break;
 				case SelectionState.EditingSelection:
-					state.active.select(CellSelectionType.Edit);
+					if (cellStillExists(state.active)) {
+						state.active.select(CellSelectionType.Edit);
+					}
 					break;
 				case SelectionState.MultiSelection: {
+					// Filter to cells that still exist in the notebook.
+					const validSelected = state.selected.filter(cellStillExists);
+					if (validSelected.length === 0) {
+						break;
+					}
 					// Rebuild multi-selection with the correct active cell.
 					// Add the active cell last since Add makes it active.
-					const nonActive = state.selected.filter(c => c !== state.active);
+					const activeExists = cellStillExists(state.active);
+					const nonActive = validSelected.filter(c => c !== state.active);
 					if (nonActive.length > 0) {
 						nonActive[0].select(CellSelectionType.Normal);
 						for (let i = 1; i < nonActive.length; i++) {
 							nonActive[i].select(CellSelectionType.Add);
 						}
-						state.active.select(CellSelectionType.Add);
-					} else {
+						if (activeExists) {
+							state.active.select(CellSelectionType.Add);
+						}
+					} else if (activeExists) {
 						state.active.select(CellSelectionType.Normal);
 					}
 					break;
