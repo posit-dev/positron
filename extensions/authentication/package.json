@@ -12,8 +12,7 @@
 		"onStartupFinished",
 		"onAuthenticationRequest:anthropic-api",
 		"onCommand:authentication.configureProviders",
-		"onCommand:authentication.storeApiKey",
-		"onCommand:authentication.removeApiKey"
+		"onCommand:authentication.migrateApiKey"
 	],
 	"main": "./out/extension.js",
 	"contributes": {

@@ -22,37 +22,22 @@ export function activate(context: vscode.ExtensionContext) {
 				sources?: positron.ai.LanguageModelSource[],
 				options?: positron.ai.ShowLanguageModelConfigOptions
 			) => {
-				await showConfigurationDialog(sources ?? [], options);
+				return showConfigurationDialog(sources ?? [], options);
 			}
 		),
 		vscode.commands.registerCommand(
-			'authentication.storeApiKey',
+			'authentication.migrateApiKey',
 			async (providerId: string, accountId: string, label: string, key: string) => {
 				const provider = apiKeyProviders.get(providerId);
 				if (!provider) {
 					throw new Error(`No auth provider registered for ${providerId}`);
 				}
-				await provider.storeKey(accountId, label, key);
-			}
-		),
-		vscode.commands.registerCommand(
-			'authentication.removeApiKey',
-			async (providerId: string, accountId: string) => {
-				const provider = apiKeyProviders.get(providerId);
-				if (!provider) {
-					throw new Error(`No auth provider registered for ${providerId}`);
+				const existing = await provider.getSessions([], { account: { id: accountId, label: '' } });
+				if (existing.length > 0) {
+					log.info(`Skipping migration for ${providerId}/${accountId}: session already exists`);
+					return;
 				}
-				await provider.removeSession(accountId);
-			}
-		),
-		// TODO: Remove before merging. Dev-only command for testing auth flow.
-		vscode.commands.registerCommand(
-			'authentication.testSignIn',
-			async () => {
-				const session = await vscode.authentication.getSession(
-					'anthropic-api', [], { createIfNone: true }
-				);
-				log.info(`Test sign-in result: ${session.account.label} (${session.account.id})`);
+				await provider.storeKey(accountId, label, key);
 			}
 		)
 	);

@@ -3,16 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// --- Start Positron ---
 // Temporary routing layer for per-provider credential migration to the
-// authentication extension. Providers listed here store and read API keys
-// through the auth extension's vscode.authentication API instead of
-// context.secrets directly. Remove this file when all providers are migrated
-// (Phase 7).
-// --- End Positron ---
+// authentication extension. Authentication for these providers are managed by
+// the auth extension's vscode.authentication API.
+// Remove this file when all providers are migrated.
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { log } from './log.js';
+
+/** Result returned by the auth extension's config dialog command. */
+export interface ConfigDialogResult {
+	action: string;
+	config: positron.ai.LanguageModelConfig;
+	accountId?: string;
+}
 
 /** Providers whose credentials are managed by the authentication extension. */
 const AUTH_EXT_PROVIDERS = new Set<string>([
@@ -23,66 +28,52 @@ export function isAuthExtProvider(providerId: string): boolean {
 	return AUTH_EXT_PROVIDERS.has(providerId);
 }
 
-export async function storeApiKey(
-	providerId: string,
-	accountId: string,
-	label: string,
-	key: string
-): Promise<void> {
-	await vscode.commands.executeCommand(
-		'authentication.storeApiKey', providerId, accountId, label, key
-	);
-}
-
-export async function getApiKey(
-	providerId: string,
-	accountId: string
-): Promise<string | undefined> {
-	try {
-		const session = await vscode.authentication.getSession(
-			providerId, [], { silent: true, account: { id: accountId, label: '' } }
-		);
-		return session?.accessToken;
-	} catch (err) {
-		log.warn(`Failed to read auth session for ${providerId}/${accountId}: ${err}`);
-		return undefined;
-	}
-}
-
 /**
- * Migrate a legacy API key from context.secrets to the auth extension.
- * Returns the key if migration succeeded or the key was already in the
- * auth extension; undefined if no key exists anywhere.
+ * Read an API key from the auth extension via vscode.authentication.
+ * Falls back to context.secrets for legacy keys and migrates them to
+ * the auth extension on first read.
  */
-export async function getApiKeyWithMigration(
+export async function getApiKey(
 	providerId: string,
 	accountId: string,
 	label: string,
 	secrets: vscode.SecretStorage
 ): Promise<string | undefined> {
-	const authKey = await getApiKey(providerId, accountId);
-	if (authKey) {
-		return authKey;
+	try {
+		const session = await vscode.authentication.getSession(
+			providerId, [], { silent: true, account: { id: accountId, label: '' } }
+		);
+		if (session?.accessToken) {
+			return session.accessToken;
+		}
+	} catch (err) {
+		log.warn(`Failed to read auth session for ${providerId}/${accountId}: ${err}`);
 	}
 	const legacyKey = await secrets.get(`apiKey-${accountId}`);
-	if (!legacyKey) {
-		return undefined;
-	}
-	log.info(`Migrating legacy API key for ${providerId}/${accountId} to auth extension`);
-	try {
-		await storeApiKey(providerId, accountId, label, legacyKey);
-		await secrets.delete(`apiKey-${accountId}`);
-	} catch (err) {
-		log.warn(`Migration failed for ${providerId}/${accountId}, using legacy key: ${err}`);
+	if (legacyKey) {
+		log.info(`Migrating legacy API key for ${providerId}/${accountId} to auth extension`);
+		try {
+			await vscode.commands.executeCommand(
+				'authentication.migrateApiKey', providerId, accountId, label, legacyKey
+			);
+			await secrets.delete(`apiKey-${accountId}`);
+		} catch (err) {
+			log.warn(`Migration failed for ${providerId}/${accountId}, using legacy key: ${err}`);
+		}
 	}
 	return legacyKey;
 }
 
-export async function removeApiKey(
-	providerId: string,
-	accountId: string
-): Promise<void> {
-	await vscode.commands.executeCommand(
-		'authentication.removeApiKey', providerId, accountId
+/**
+ * Delegate the config dialog to the authentication extension.
+ * Returns the actions taken so the caller can handle model lifecycle.
+ */
+export async function delegateConfigDialog(
+	sources: positron.ai.LanguageModelSource[],
+	options?: positron.ai.ShowLanguageModelConfigOptions
+): Promise<ConfigDialogResult[]> {
+	const results = await vscode.commands.executeCommand<ConfigDialogResult[]>(
+		'authentication.configureProviders', sources, options
 	);
+	return results ?? [];
 }

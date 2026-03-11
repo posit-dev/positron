@@ -12,9 +12,7 @@ import { newCompletionProvider } from './completion';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 import { AssistantError } from './errors';
 import { log } from './log.js';
-// --- Start Positron ---
-import { isAuthExtProvider, getApiKeyWithMigration } from './authExtRouting.js';
-// --- End Positron ---
+import { isAuthExtProvider, getApiKey } from './authExtRouting.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -96,11 +94,9 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			apiKey: undefined // will be filled in below if needed
 		};
 
-		// --- Start Positron ---
 		const apiKey = isAuthExtProvider(modelConfig.provider)
-			? await getApiKeyWithMigration(modelConfig.provider, modelConfig.id, modelConfig.name, context.secrets)
+			? await getApiKey(modelConfig.provider, modelConfig.id, modelConfig.name, context.secrets)
 			: await context.secrets.get(`apiKey-${modelConfig.id}`);
-		// --- End Positron ---
 		if (apiKey) {
 			modelConfig.apiKey = apiKey;
 		}

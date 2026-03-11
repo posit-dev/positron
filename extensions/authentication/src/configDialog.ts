@@ -9,6 +9,12 @@ import { randomUUID } from 'crypto';
 import { ApiKeyAuthenticationProvider } from './apiKeyProvider';
 import { log } from './log';
 
+export interface ConfigDialogResult {
+	action: string;
+	config: positron.ai.LanguageModelConfig;
+	accountId?: string;
+}
+
 export const apiKeyProviders = new Map<string, ApiKeyAuthenticationProvider>();
 
 /**
@@ -50,33 +56,51 @@ async function enrichWithCredentialState(
 /**
  * Show the language model configuration dialog. Enriches the caller-provided
  * sources with credential state from this extension's auth providers, then
- * delegates to the Positron core modal.
+ * delegates to the core modal.
+ *
+ * For providers with a registered auth provider, credential storage and
+ * removal are handled directly within this callback. For all other
+ * providers the action is recorded and returned so the caller can handle
+ * model lifecycle.
  *
  * Called via `vscode.commands.executeCommand('authentication.configureProviders', sources, options)`.
  */
 export async function showConfigurationDialog(
 	sources: positron.ai.LanguageModelSource[],
 	options?: positron.ai.ShowLanguageModelConfigOptions
-): Promise<void> {
+): Promise<ConfigDialogResult[]> {
 	const enrichedSources = await enrichWithCredentialState(sources);
 	log.info(`Opening config dialog with ${enrichedSources.length} source(s)`);
 
-	return positron.ai.showLanguageModelConfig(
+	const results: ConfigDialogResult[] = [];
+
+	await positron.ai.showLanguageModelConfig(
 		enrichedSources,
 		async (config, action) => {
 			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
 			switch (action) {
-				case 'save':
-					await handleSave(config);
+				case 'save': {
+					if (apiKeyProviders.has(config.provider)) {
+						const accountId = await handleSave(config);
+						results.push({ action, config, accountId });
+					} else {
+						results.push({ action, config });
+					}
 					break;
+				}
 				case 'delete':
-					await handleDelete(config);
+					if (apiKeyProviders.has(config.provider)) {
+						await handleDelete(config);
+					}
+					results.push({ action, config });
 					break;
 				case 'oauth-signin':
 					// Phase 5: handle OAuth sign-in
+					results.push({ action, config });
 					break;
 				case 'oauth-signout':
 					// Phase 5: handle OAuth sign-out
+					results.push({ action, config });
 					break;
 				case 'cancel':
 					// Phase 5: cancel pending OAuth operations
@@ -89,9 +113,17 @@ export async function showConfigurationDialog(
 		},
 		options
 	);
+
+	return results;
 }
 
-async function handleSave(config: positron.ai.LanguageModelConfig): Promise<void> {
+/**
+ * Store the API key credential. Returns the generated account ID so the
+ * caller can use it for model registration.
+ */
+async function handleSave(
+	config: positron.ai.LanguageModelConfig
+): Promise<string> {
 	const provider = apiKeyProviders.get(config.provider);
 	if (!provider) {
 		throw new Error(
@@ -102,11 +134,15 @@ async function handleSave(config: positron.ai.LanguageModelConfig): Promise<void
 	if (!apiKey) {
 		throw new Error(vscode.l10n.t('API key is required'));
 	}
-	log.info(`Saving credential for provider "${config.provider}", name "${config.name}"`);
-	await provider.storeKey(randomUUID(), config.name, apiKey);
+	const accountId = randomUUID();
+	log.info(`Saving credential for provider "${config.provider}", name "${config.name}" (${accountId})`);
+	await provider.storeKey(accountId, config.name, apiKey);
+	return accountId;
 }
 
-async function handleDelete(config: positron.ai.LanguageModelConfig): Promise<void> {
+async function handleDelete(
+	config: positron.ai.LanguageModelConfig
+): Promise<void> {
 	const provider = apiKeyProviders.get(config.provider);
 	if (!provider) {
 		log.warn(`handleDelete: no auth provider for "${config.provider}"`);
