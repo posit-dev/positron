@@ -23,9 +23,9 @@ const startSession = localize('positron.console.startSession', "Start Session");
 
 /**
  * This component allows users to manage the foreground session.
- * - It displays the current foreground session
- * - It allows users to switch between sessions
- * - It allows the user to start a new session
+ * - displays the current foreground session (console or notebook)
+ * - allows users to switch between console sessions
+ * - allows the user to start a new console session
  */
 export const TopActionBarSessionManager = () => {
 	const services = usePositronReactServicesContext();
@@ -47,21 +47,22 @@ export const TopActionBarSessionManager = () => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeForegroundSession event handler.
+		// Add the onDidChangeForegroundSession event handler to listen for changes
+		// to the foreground session and update the label and active session accordingly.
 		disposableStore.add(
 			services.runtimeSessionService.onDidChangeForegroundSession(session => {
-				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-					setActiveSession(
-						services.runtimeSessionService.foregroundSession);
+				if (session) {
+					setActiveSession(session);
 					setLabelText(session.dynState.sessionName);
-				} else if (!session) {
+				} else {
 					setActiveSession(undefined);
 					setLabelText(startSession);
 				}
 			})
 		);
 
-		// Add the onDidUpdateSessionName event handler.
+		// Add the onDidUpdateSessionName event handler to listen for changes
+		// to the session name and update the label accordingly.
 		disposableStore.add(
 			services.runtimeSessionService.onDidUpdateSessionName(session => {
 				if (session.sessionId === services.runtimeSessionService.foregroundSession?.sessionId) {
@@ -90,4 +91,4 @@ export const TopActionBarSessionManager = () => {
 			}
 		/>
 	);
-}
+};
