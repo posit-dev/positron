@@ -6,6 +6,9 @@
 // CSS.
 import './CellTextOutput.css';
 
+// React.
+import React from 'react';
+
 // Other dependencies.
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
@@ -16,7 +19,7 @@ import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOption
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
 
-type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
+export type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 
 type TruncationResult =
 	{ content: string } & (
@@ -80,7 +83,10 @@ const TruncationMessage = ({ numLinesTruncated, commandService }: {
 	numLinesTruncated: number;
 	commandService: ICommandService;
 }) => {
-	const openSettings = () => {
+	const openSettings = (e: React.MouseEvent<HTMLAnchorElement>) => {
+		// Prevent the anchor from navigating, which would reload the
+		// Electron renderer and hang the window.
+		e.preventDefault();
 		commandService.executeCommand(
 			'workbench.action.openSettings',
 			'notebook.output scroll'
