@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Python Pandas', {
-	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER, tags.WORKBENCH]
+	tag: [tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER, tags.WORKBENCH]
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {
@@ -20,73 +20,75 @@ test.describe('Data Explorer - Python Pandas', {
 		await hotKeys.showSecondarySidebar();
 	});
 
-	test('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, executeCode, hotKeys, python }) {
-		const { dataExplorer, variables, editors, clipboard } = app.workbench;
+	test('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover',
+		{ tag: tags.WIN }, async function ({ app, executeCode, hotKeys, python }) {
+			const { dataExplorer, variables, editors, clipboard } = app.workbench;
 
-		// execute code to create a DataFrame
-		await executeCode('Python', df);
-		await variables.doubleClickVariableRow('df');
-		await editors.verifyTab('Data: df', { isVisible: true });
-		await hotKeys.closeSecondarySidebar();
+			// execute code to create a DataFrame
+			await executeCode('Python', df);
+			await variables.doubleClickVariableRow('df');
+			await editors.verifyTab('Data: df', { isVisible: true });
+			await hotKeys.closeSecondarySidebar();
 
-		// verify table data, clipboard, sparkline hover, and null percentage hover
-		await dataExplorer.grid.verifyTableData([
-			{ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' },
-			{ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' },
-			{ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' },
-			{ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' }
-		]);
+			// verify table data, clipboard, sparkline hover, and null percentage hover
+			await dataExplorer.grid.verifyTableData([
+				{ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' },
+				{ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' },
+				{ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' },
+				{ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' }
+			]);
 
-		// verify can copy data to clipboard
-		await dataExplorer.grid.clickCell(0, 0);
-		await clipboard.copy();
-		await clipboard.expectClipboardTextToBe('Jai');
+			// verify can copy data to clipboard
+			await dataExplorer.grid.clickCell(0, 0);
+			await clipboard.copy();
+			await clipboard.expectClipboardTextToBe('Jai');
 
-		// verify sparkline hover dialog
-		await dataExplorer.summaryPanel.show();
-		await dataExplorer.summaryPanel.verifySparklineHoverDialog(['Value', 'Count']);
+			// verify sparkline hover dialog
+			await dataExplorer.summaryPanel.show();
+			await dataExplorer.summaryPanel.verifySparklineHoverDialog(['Value', 'Count']);
 
-		// verify null percentage hover dialog
-		await dataExplorer.summaryPanel.verifyNullPercentHoverDialog();
-	});
+			// verify null percentage hover dialog
+			await dataExplorer.summaryPanel.verifyNullPercentHoverDialog();
+		});
 
-	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python }) {
-		const { dataExplorer, console, variables, editors } = app.workbench;
+	test('Python Pandas - Verify data explorer functionality with empty fields',
+		{ tag: tags.WIN }, async function ({ app, python }) {
+			const { dataExplorer, console, variables, editors } = app.workbench;
 
-		// execute code to create a DataFrame with empty fields
-		await console.executeCode('Python', emptyFieldsScript);
-		await variables.doubleClickVariableRow('emptyFields');
-		await editors.verifyTab('Data: emptyFields', { isVisible: true, isSelected: true });
-		await dataExplorer.maximize(false);
+			// execute code to create a DataFrame with empty fields
+			await console.executeCode('Python', emptyFieldsScript);
+			await variables.doubleClickVariableRow('emptyFields');
+			await editors.verifyTab('Data: emptyFields', { isVisible: true, isSelected: true });
+			await dataExplorer.maximize(false);
 
-		// verify table data with empty fields
-		await dataExplorer.grid.verifyTableData([
-			{ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' },
-			{ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' },
-			{ 'A': 'NaN', 'B': 'bar', 'C': '3.10', 'D': '2023-01-01 00:00:00', 'E': 'more text' },
-			{ 'A': '4.00', 'B': 'baz', 'C': 'NaN', 'D': 'NaT', 'E': 'NaN' },
-			{ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' }
-		]);
+			// verify table data with empty fields
+			await dataExplorer.grid.verifyTableData([
+				{ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' },
+				{ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' },
+				{ 'A': 'NaN', 'B': 'bar', 'C': '3.10', 'D': '2023-01-01 00:00:00', 'E': 'more text' },
+				{ 'A': '4.00', 'B': 'baz', 'C': 'NaN', 'D': 'NaT', 'E': 'NaN' },
+				{ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' }
+			]);
 
-		// verify missing percentages
-		await dataExplorer.summaryPanel.show();
-		await dataExplorer.summaryPanel.verifyMissingPercent([
-			{ column: 1, expected: '20%' },
-			{ column: 2, expected: '40%' },
-			{ column: 3, expected: '40%' },
-			{ column: 4, expected: '60%' },
-			{ column: 5, expected: '40%' }
-		]);
+			// verify missing percentages
+			await dataExplorer.summaryPanel.show();
+			await dataExplorer.summaryPanel.verifyMissingPercent([
+				{ column: 1, expected: '20%' },
+				{ column: 2, expected: '40%' },
+				{ column: 3, expected: '40%' },
+				{ column: 4, expected: '60%' },
+				{ column: 5, expected: '40%' }
+			]);
 
-		// verify column profile data
-		await dataExplorer.summaryPanel.verifyColumnData([
-			{ column: 1, expected: { 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' } },
-			{ column: 2, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } },
-			{ column: 3, expected: { 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' } },
-			{ column: 4, expected: { 'Missing': '3', 'Min': '2023-01-01 00:00:00', 'Median': 'NaT', 'Max': '2023-02-01 00:00:00', 'Timezone': 'None' } },
-			{ column: 5, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } }
-		]);
-	});
+			// verify column profile data
+			await dataExplorer.summaryPanel.verifyColumnData([
+				{ column: 1, expected: { 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' } },
+				{ column: 2, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } },
+				{ column: 3, expected: { 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' } },
+				{ column: 4, expected: { 'Missing': '3', 'Min': '2023-01-01 00:00:00', 'Median': 'NaT', 'Max': '2023-02-01 00:00:00', 'Timezone': 'None' } },
+				{ column: 5, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } }
+			]);
+		});
 
 
 	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, hotKeys, python }) {
@@ -122,41 +124,43 @@ test.describe('Data Explorer - Python Pandas', {
 		await dataExplorer.grid.verifyTableDataRowValue(0, { 'Year': '2025' });
 	});
 
-	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
-		const { variables, console, editors } = app.workbench;
+	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back',
+		{ tag: tags.WIN }, async function ({ app, python }) {
+			const { variables, console, editors } = app.workbench;
 
-		// execute code to create a DataFrame
-		await console.executeCode('Python', mtcarsDf);
-		await variables.focusVariablesView();
-		await variables.doubleClickVariableRow('Data_Frame');
-		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
+			// execute code to create a DataFrame
+			await console.executeCode('Python', mtcarsDf);
+			await variables.focusVariablesView();
+			await variables.doubleClickVariableRow('Data_Frame');
+			await editors.verifyTab('Data: Data_Frame', { isVisible: true });
 
-		// move focus out of the the data explorer pane and verify focus returns via variable double click
-		await editors.newUntitledFile();
-		await variables.focusVariablesView();
-		await variables.doubleClickVariableRow('Data_Frame');
-		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
-	});
+			// move focus out of the the data explorer pane and verify focus returns via variable double click
+			await editors.newUntitledFile();
+			await variables.focusVariablesView();
+			await variables.doubleClickVariableRow('Data_Frame');
+			await editors.verifyTab('Data: Data_Frame', { isVisible: true });
+		});
 
-	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, hotKeys, python }) {
-		const { dataExplorer, console, variables, editors, modals } = app.workbench;
+	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior',
+		{ tag: tags.WIN }, async function ({ app, hotKeys, python }) {
+			const { dataExplorer, console, variables, editors, modals } = app.workbench;
 
-		// execute code to create a DataFrame with blank spaces
-		await console.executeCode('Python', blankSpacesScript);
-		await variables.doubleClickVariableRow('df');
-		await editors.verifyTab('Data: df', { isVisible: true });
-		await dataExplorer.grid.verifyTableData([
-			{ 'x': 'a·' },
-			{ 'x': 'a' },
-			{ 'x': '···' },
-			{ 'x': '<empty>' }
-		]);
+			// execute code to create a DataFrame with blank spaces
+			await console.executeCode('Python', blankSpacesScript);
+			await variables.doubleClickVariableRow('df');
+			await editors.verifyTab('Data: df', { isVisible: true });
+			await dataExplorer.grid.verifyTableData([
+				{ 'x': 'a·' },
+				{ 'x': 'a' },
+				{ 'x': '···' },
+				{ 'x': '<empty>' }
+			]);
 
-		// verify disconnect modal dialog box when session is closed
-		await hotKeys.stackedLayout();
-		await console.trashButton.click();
-		await modals.expectMessageToContain('Connection Closed');
-	});
+			// verify disconnect modal dialog box when session is closed
+			await hotKeys.stackedLayout();
+			await console.trashButton.click();
+			await modals.expectMessageToContain('Connection Closed');
+		});
 });
 
 
