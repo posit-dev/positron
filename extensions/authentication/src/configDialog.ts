@@ -37,6 +37,9 @@ async function enrichWithCredentialState(
 	sources: positron.ai.LanguageModelSource[]
 ): Promise<positron.ai.LanguageModelSource[]> {
 	return Promise.all(sources.map(async (source) => {
+		if (!apiKeyProviders.has(source.provider.id)) {
+			return source;
+		}
 		try {
 			const session = await vscode.authentication.getSession(
 				source.provider.id, [], { silent: true }
@@ -45,9 +48,7 @@ async function enrichWithCredentialState(
 				return { ...source, signedIn: true };
 			}
 		} catch (err) {
-			if (!(err instanceof Error) || !err.message.includes('is currently registered')) {
-				throw err;
-			}
+			log.warn(`Failed to check credential state for ${source.provider.id}: ${err}`);
 		}
 		return source;
 	}));

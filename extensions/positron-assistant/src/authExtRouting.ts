@@ -10,7 +10,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { log } from './log.js';
+import { ModelProviderLogger } from './providers/base/modelProviderLogger.js';
 
 /** Result returned by the auth extension's config dialog command. */
 export interface ConfigDialogResult {
@@ -39,26 +39,28 @@ export async function getApiKey(
 	label: string,
 	secrets: vscode.SecretStorage
 ): Promise<string | undefined> {
+	const providerLogger = new ModelProviderLogger(label);
 	try {
 		const session = await vscode.authentication.getSession(
 			providerId, [], { silent: true, account: { id: accountId, label: '' } }
 		);
 		if (session?.accessToken) {
+			providerLogger.logAuthentication('success', 'via Authentication extension');
 			return session.accessToken;
 		}
 	} catch (err) {
-		log.warn(`Failed to read auth session for ${providerId}/${accountId}: ${err}`);
+		providerLogger.warn(`Failed to read auth session for ${accountId}`, err);
 	}
 	const legacyKey = await secrets.get(`apiKey-${accountId}`);
 	if (legacyKey) {
-		log.info(`Migrating legacy API key for ${providerId}/${accountId} to auth extension`);
+		providerLogger.info(`Migrating legacy API key for ${accountId} to auth extension`);
 		try {
 			await vscode.commands.executeCommand(
 				'authentication.migrateApiKey', providerId, accountId, label, legacyKey
 			);
 			await secrets.delete(`apiKey-${accountId}`);
 		} catch (err) {
-			log.warn(`Migration failed for ${providerId}/${accountId}, using legacy key: ${err}`);
+			providerLogger.warn(`Migration failed for ${accountId}, using legacy key`, err);
 		}
 	}
 	return legacyKey;

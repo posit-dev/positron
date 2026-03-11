@@ -71,7 +71,7 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 				});
 			}
 		}
-		log.debug(`[${this.providerId}] getSessions: returned ${sessions.length} session(s)`);
+		log.debug(`[${this.displayName}] getSessions: returned ${sessions.length} session(s)`);
 		return sessions;
 	}
 
@@ -91,7 +91,7 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 		if (!key) {
 			throw new Error(vscode.l10n.t('API key is required'));
 		}
-		log.info(`[${this.providerId}] Creating session via Accounts menu`);
+		log.info(`[${this.displayName}] Creating session via Accounts menu`);
 		return this.storeKey(randomUUID(), this.displayName, key);
 	}
 
@@ -124,7 +124,7 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 		this._onDidChangeSessions.fire({
 			added: [session], removed: [], changed: [],
 		});
-		log.info(`[${this.providerId}] Stored key for account "${label}" (${accountId})`);
+		log.info(`[${this.displayName}] Stored key for account "${label}"`);
 		return session;
 	}
 
@@ -132,7 +132,7 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 		const accounts = this.getStoredAccounts();
 		const account = accounts.find(a => a.id === sessionId);
 		if (!account) {
-			log.warn(`[${this.providerId}] removeSession: no account found for ${sessionId}`);
+			log.warn(`[${this.displayName}] removeSession: no account found for ${sessionId}`);
 			return;
 		}
 
@@ -149,6 +149,6 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 			}],
 			changed: [],
 		});
-		log.info(`[${this.providerId}] Removed session for account "${account.label}" (${sessionId})`);
+		log.info(`[${this.displayName}] Removed session for account "${account.label}" (${sessionId})`);
 	}
 }
