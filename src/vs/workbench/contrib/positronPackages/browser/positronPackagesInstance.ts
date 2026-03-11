@@ -93,8 +93,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		return this._session;
 	}
 
+	/**
+	 * Sets the runtime session and re-attaches the runtime.
+	 *
+	 * @param session The runtime session.
+	 */
 	setRuntimeSession(session: ILanguageRuntimeSession): void {
 		this._session = session;
+		this.attachRuntime();
 	}
 
 	async refreshPackages(): Promise<ILanguageRuntimePackage[]> {
@@ -233,6 +239,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 * Attaches to the runtime to listen for state changes and trigger initial refresh.
 	 */
 	attachRuntime(): void {
+		// Clear any existing disposables to avoid duplicate handlers if re-attaching.
+		this._runtimeDisposableStore.clear();
+
 		// Add the onDidChangeRuntimeState event handler to refresh packages when ready
 		this._runtimeDisposableStore.add(
 			this._session.onDidChangeRuntimeState(async runtimeState => {
