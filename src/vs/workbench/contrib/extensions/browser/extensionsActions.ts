@@ -1127,7 +1127,10 @@ export class UpdateAction extends ExtensionAction {
 			}
 		}
 
+		// --- Start Positron ---
+		// const installOptions: InstallOptions = {};
 		const installOptions: InstallExtensionOptions = {};
+		// --- End Positron ---
 		if (this.extension.local?.source === 'vsix' && this.extension.local.pinned) {
 			installOptions.pinned = false;
 		}
@@ -1173,11 +1176,20 @@ export class UpdateAction extends ExtensionAction {
 		// --- End Positron ---
 
 		try {
+			// --- Start Positron ---
+			// alert(localize('updateExtensionStart', "Updating extension {0} to version {1} started.", this.extension.displayName, this.extension.latestVersion));
 			alert(localize('updateExtensionStart', "Updating extension {0} to version {1} started.", this.extension.displayName, targetVersion));
+			// --- End Positron ---
 			await this.extensionsWorkbenchService.install(this.extension, installOptions);
+			// --- Start Positron ---
+			// alert(localize('updateExtensionComplete', "Updating extension {0} to version {1} completed.", this.extension.displayName, this.extension.latestVersion));
 			alert(localize('updateExtensionComplete', "Updating extension {0} to version {1} completed.", this.extension.displayName, targetVersion));
+			// --- End Positron ---
 		} catch (err) {
+			// --- Start Positron ---
+			// this.instantiationService.createInstance(PromptExtensionInstallFailureAction, this.extension, installOptions, this.extension.latestVersion, InstallOperation.Update, err).run();
 			this.instantiationService.createInstance(PromptExtensionInstallFailureAction, this.extension, installOptions, targetVersion, InstallOperation.Update, err).run();
+			// --- End Positron ---
 		}
 	}
 }
