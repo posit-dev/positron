@@ -1212,10 +1212,10 @@
         ]
       },
       {
-        "name": "runNotebookCells",
-        "displayName": "Run Notebook Cells",
-        "modelDescription": "Execute one or more cells in the active notebook and return their outputs. Use this when the user wants to run code cells or see the results of cell execution.",
-        "toolReferenceName": "runNotebookCells",
+        "name": "executeNotebook",
+        "displayName": "Execute Notebook",
+        "modelDescription": "Manage notebook execution lifecycle. Use operation='run' to execute specific cells by index and return their outputs. Use operation='runAll' to execute all cells in order. Use operation='interrupt' to cancel a running execution. Use operation='restartKernel' to restart the kernel (optionally with runAll=true to run all cells after restart).",
+        "toolReferenceName": "executeNotebook",
         "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant",
@@ -1224,24 +1224,38 @@
         "inputSchema": {
           "type": "object",
           "properties": {
+            "operation": {
+              "type": "string",
+              "enum": [
+                "run",
+                "runAll",
+                "interrupt",
+                "restartKernel"
+              ],
+              "description": "Type of execution operation. 'run' executes specific cells by index, 'runAll' executes all cells in order, 'interrupt' cancels running execution, 'restartKernel' restarts the kernel."
+            },
             "cellIndices": {
               "type": "array",
-              "description": "Array of cell indices to execute. Each index is a 0-based position of the cell in the notebook.",
+              "description": "Array of cell indices to execute (0-based). Required when operation is 'run'.",
               "items": {
                 "type": "number"
               }
+            },
+            "runAll": {
+              "type": "boolean",
+              "description": "When true with operation='restartKernel', run all cells after the kernel restarts. Defaults to false."
             }
           },
           "required": [
-            "cellIndices"
+            "operation"
           ]
         }
       },
       {
-        "name": "editNotebookCells",
-        "displayName": "Edit Notebook Cells",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndices array, e.g., [0] for single cell or [0,1,2] for multiple), or operation='reorder' to reorganize cells. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
-        "toolReferenceName": "editNotebookCells",
+        "name": "editNotebook",
+        "displayName": "Edit Notebook",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndices array, e.g., [0] for single cell or [0,1,2] for multiple), operation='reorder' to reorganize cells, or operation='clearOutputs' to clear cell outputs (optionally pass cellIndices to clear specific cells, or omit to clear all). For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
+        "toolReferenceName": "editNotebook",
         "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
@@ -1255,9 +1269,10 @@
                 "add",
                 "update",
                 "delete",
-                "reorder"
+                "reorder",
+                "clearOutputs"
               ],
-              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell, 'reorder' moves cells to new positions."
+              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell, 'reorder' moves cells to new positions, 'clearOutputs' clears cell outputs (optionally for specific cells via cellIndices)."
             },
             "cellType": {
               "type": "string",
@@ -1284,7 +1299,7 @@
               "items": {
                 "type": "number"
               },
-              "description": "Array of cell indices to delete (0-based). Required when operation is 'delete'. Use [0] for single cell or [0,1,2] for multiple cells."
+              "description": "Array of cell indices (0-based). Required for 'delete'. Optional for 'clearOutputs' (omit to clear all). Use [0] for single cell or [0,1,2] for multiple."
             },
             "run": {
               "type": "boolean",
@@ -1312,10 +1327,10 @@
         }
       },
       {
-        "name": "getNotebookCells",
-        "displayName": "Get Notebook Cells",
-        "modelDescription": "Retrieve information about notebook cells with flexible operations. Use operation='get' to fetch specific cells by index or all cells if cellIndices is omitted, operation='getSelected' to get only selected cells, operation='getOutputs' to retrieve cell execution outputs (requires cellIndices), or operation='getMetadata' to get only cell status information without content.",
-        "toolReferenceName": "getNotebookCells",
+        "name": "getNotebookInfo",
+        "displayName": "Get Notebook Info",
+        "modelDescription": "Retrieve information about notebook cells and kernel status. Use operation='get' to fetch specific cells by index or all cells if cellIndices is omitted, operation='getSelected' to get only selected cells, operation='getOutputs' to retrieve cell execution outputs (requires cellIndices), operation='getMetadata' to get only cell status information without content, or operation='getKernelStatus' to get kernel state and session metadata.",
+        "toolReferenceName": "getNotebookInfo",
         "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
@@ -1329,9 +1344,10 @@
                 "get",
                 "getSelected",
                 "getOutputs",
-                "getMetadata"
+                "getMetadata",
+                "getKernelStatus"
               ],
-              "description": "Type of read operation. 'get' retrieves cell info, 'getSelected' gets only selected cells, 'getOutputs' retrieves cell execution outputs, 'getMetadata' gets only status/execution info without content."
+              "description": "Type of read operation. 'get' retrieves cell info, 'getSelected' gets only selected cells, 'getOutputs' retrieves cell execution outputs, 'getMetadata' gets only status/execution info without content, 'getKernelStatus' gets kernel state and session metadata."
             },
             "cellIndices": {
               "type": "array",
@@ -1349,7 +1365,7 @@
       {
         "name": "createNotebook",
         "displayName": "Create Notebook",
-        "modelDescription": "Create a new Jupyter notebook with the specified language kernel (Python or R). Use when the user wants to start a new notebook. After creation, use EditNotebookCells to add content.",
+        "modelDescription": "Create a new Jupyter notebook with the specified language kernel (Python or R). Use when the user wants to start a new notebook. After creation, use editNotebook to add content.",
         "toolReferenceName": "createNotebook",
         "canBeReferencedInPrompt": true,
         "tags": [

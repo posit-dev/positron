@@ -2202,6 +2202,13 @@ declare module 'positron' {
 			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
 
 		/**
+		 * Interrupt a running session.
+		 *
+		 * @param sessionId The ID of the session to interrupt.
+		 */
+		export function interruptSession(sessionId: string): Thenable<void>;
+
+		/**
 		 * Restart a running session.
 		 *
 		 * @param sessionId The ID of the session to restart.
@@ -2794,6 +2801,12 @@ declare module 'positron' {
 			 * to fit without taking too much context.
 			 */
 			allCells?: NotebookCell[];
+
+			/**
+			 * The current state of the runtime session (e.g. 'idle', 'busy', 'restarting').
+			 * Undefined if no runtime session is associated with this notebook.
+			 */
+			runtimeState?: string;
 		}
 
 		/**
@@ -2985,5 +2998,12 @@ declare module 'positron' {
 		 * @param cellIndex The index of the cell to scroll to
 		 */
 		export function scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Thenable<void>;
+
+		/**
+		 * Clear cell outputs in a notebook.
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndices Optional array of cell indices to clear. If omitted, clears all cells.
+		 */
+		export function clearCellOutputs(notebookUri: string, cellIndices?: number[]): Thenable<void>;
 	}
 }
