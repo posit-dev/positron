@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -136,7 +136,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		// Add the onDidChangeState event handler.
 		disposableStore.add(
 			positronConsoleInstance.onDidChangeState(state => {
-				setConsoleState(state)
+				setConsoleState(state);
 			})
 		);
 
@@ -176,7 +176,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			cancelled = true;
 			disposableStore.dispose();
 		};
-	}, [services.configurationService, services.runtimeSessionService, services.resourceUsageHistoryService, positronConsoleInstance.sessionId]);
+	}, [services.configurationService, services.runtimeSessionService, services.resourceUsageHistoryService, positronConsoleInstance]);
 
 	/**
 	 * Handles the click event for the console tab.
@@ -217,13 +217,13 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
 				showContextMenu(e.clientX, e.clientY);
 			}
-		}
+		};
 
 	/**
 	 * Shows the context menu when a user right-clicks on a console instance tab.
-	 * @param {number} x The x coordinate of the mouse event.
-	 * @param {number} y The y coordinate of the mouse event.
-	 * @returns {Promise<void>} A promise that resolves when the context menu is shown.
+	 * @param x The x coordinate of the mouse event.
+	 * @param y The y coordinate of the mouse event.
+	 * @returns A promise that resolves when the context menu is shown.
 	 */
 	const showContextMenu = async (x: number, y: number): Promise<void> => {
 		// The actions that are built below.
@@ -272,7 +272,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			anchorAlignment: AnchorAlignment.LEFT,
 			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
 		});
-	}
+	};
 
 	/**
 	 * Shows the rename console session prompt in the UI.
@@ -287,7 +287,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				inputRef.current.select();
 			}
 		}, 0);
-	}
+	};
 
 	/**
 	 * Submits the new session name on Enter or blur.
@@ -322,7 +322,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			// Hide the input field
 			setIsRenamingSession(false);
 		}
-	}
+	};
 
 	/**
 	 * This function is called when the user clicks on the delete button.
@@ -330,7 +330,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const handleDeleteClick = async (e: MouseEvent<HTMLButtonElement>) => {
 		e.stopPropagation();
 		deleteSession();
-	}
+	};
 
 	/**
 	 * This function attempts to delete the console instance and the accompanying session.
@@ -361,7 +361,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			// button is no longer clickable anyway.
 			setDeleteDisabled(false);
 		}
-	}
+	};
 
 	/**
 	 * The mouse down handler for the delete button.
@@ -371,7 +371,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const handleDeleteMouseDown = (e: MouseEvent<HTMLButtonElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
-	}
+	};
 
 	/**
 	 * Handles the key down event for the delete button.
@@ -536,8 +536,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 					</div>
 				)}
 		</div>
-	)
-}
+	);
+};
 
 
 // ConsoleCoreProps interface.
@@ -599,7 +599,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	/**
 	 * Function to change the active console instance that is tied to a specific session
 	 *
-	 * @param {string}   sessionId The Id of the session that should be active
+	 * @param sessionId The Id of the session that should be active
 	 */
 	const handleChangeForegroundSession = async (sessionId: string): Promise<void> => {
 		// Find the session
@@ -693,4 +693,4 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			)}
 		</div>
 	);
-}
+};
