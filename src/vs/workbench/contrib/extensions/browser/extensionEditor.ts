@@ -1013,9 +1013,9 @@ export class ExtensionEditor extends EditorPane {
 		this.contentDisposables.add(toDisposable(removeLayoutParticipant));
 		this.contentDisposables.add(scrollableContent);
 
-		/// --- Start Positron ---
-		const additionalDetailsWidget = this.instantiationService.createInstance(AdditionalDetailsWidget, content, extension);
 		// --- Start Positron ---
+		const additionalDetailsWidget = this.instantiationService.createInstance(AdditionalDetailsWidget, content, extension);
+		// --- End Positron ---
 		// Pass the compatible gallery version so the Marketplace panel shows
 		// the correct version instead of the unfiltered latest.
 		additionalDetailsWidget.positronCompatibleGallery = template.positronCompatibleGallery;
