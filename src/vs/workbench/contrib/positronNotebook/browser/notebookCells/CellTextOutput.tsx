@@ -33,13 +33,6 @@ type TruncationResult =
 	);
 
 
-function useLongOutputBehavior(content: string): TruncationResult {
-	const notebookOptions = useNotebookOptions();
-	const layoutOptions = notebookOptions.getLayoutConfiguration();
-	return truncateToNumberOfLines(content, layoutOptions);
-}
-
-
 function truncateToNumberOfLines(content: string, { outputScrolling, outputLineLimit: maxLines }: LongOutputOptions): TruncationResult {
 	// Trim newline from end of content if it exists.
 	const splitByLine = content.trimEnd().split('\n');
@@ -63,9 +56,9 @@ function truncateToNumberOfLines(content: string, { outputScrolling, outputLineL
 export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
 	const services = usePositronReactServicesContext();
-	const truncation = useLongOutputBehavior(content);
-	const notebookOptions = useNotebookOptions();
-	const outputWordWrap = notebookOptions.getLayoutConfiguration().outputWordWrap;
+	const layoutConfig = useNotebookOptions().getLayoutConfiguration();
+	const truncation = truncateToNumberOfLines(content, layoutConfig);
+	const outputWordWrap = layoutConfig.outputWordWrap;
 
 	return <>
 		<div className={positronClassNames(`notebook-${type}`, 'positron-notebook-text-output', { 'word-wrap': outputWordWrap })}>
