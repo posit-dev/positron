@@ -49,7 +49,6 @@ async function enrichWithCredentialState(
 			}
 		} catch (err) {
 			log.error(`Failed to check credential state for ${source.provider.id}: ${err instanceof Error ? err.message : String(err)}`);
-			throw err;
 		}
 		return source;
 	}));

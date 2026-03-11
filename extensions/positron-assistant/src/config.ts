@@ -16,7 +16,7 @@ import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 import { StoredModelConfig, ModelConfig } from './configTypes.js';
-import { isAuthExtProvider, getApiKey, delegateConfigDialog, ConfigDialogResult } from './authExtRouting.js';
+import { isAuthExtProvider, getApiKey, delegateConfigDialog } from './authExtRouting.js';
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
 	return context.globalState.get('positron.assistant.models') || [];
@@ -181,7 +181,9 @@ export async function showConfigurationDialog(
 		switch (result.action) {
 			case 'save':
 				if (isAuthExtProvider(result.config.provider) && result.accountId) {
-					await saveModelFromAuthResult(result, sources, context);
+					await saveModel(result.config, sources, context, {
+						id: result.accountId, skipSecretStorage: true
+					});
 				} else {
 					await saveModel(result.config, sources, context);
 				}
@@ -205,16 +207,19 @@ export async function showConfigurationDialog(
 	}
 }
 
-async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
+async function saveModel(
+	userConfig: positron.ai.LanguageModelConfig,
+	sources: positron.ai.LanguageModelSource[],
+	context: vscode.ExtensionContext,
+	options?: { id?: string; skipSecretStorage?: boolean }
+) {
 	const { name: nameRaw, model: modelRaw, baseUrl: baseUrlRaw, apiKey: apiKeyRaw, oauth: oauth, ...otherConfig } = userConfig;
 	const name = nameRaw.trim();
 	const model = modelRaw.trim();
 	const baseUrl = baseUrlRaw?.trim();
 	const apiKey = apiKeyRaw?.trim();
 
-	// Create unique ID for the configuration
-	const id = randomUUID();
-
+	const id = options?.id ?? randomUUID();
 
 	// Filter out sources that use autoconfiguration for required field validation
 	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
@@ -231,8 +236,8 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			}
 		});
 
-	// Store API key in secret storage
-	if (apiKey) {
+	// Store API key in secret storage (skipped when the auth extension owns credentials)
+	if (!options?.skipSecretStorage && apiKey) {
 		await context.secrets.store(`apiKey-${id}`, apiKey);
 	}
 
@@ -248,7 +253,6 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		model,
 		baseUrl,
 	};
-
 
 	// Register the new model FIRST, before saving configuration
 	// Note: Autoconfigurable providers are registered upon extension activation, so don't need to be handled here.
@@ -283,71 +287,15 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
 		);
 	} catch (error) {
-		await context.secrets.delete(`apiKey-${id}`);
+		if (!options?.skipSecretStorage) {
+			await context.secrets.delete(`apiKey-${id}`);
+		}
 		await context.globalState.update(
 			'positron.assistant.models',
 			existingConfigs
 		);
 		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
 		throw new Error(vscode.l10n.t(`Failed to add language model {0}: {1}`, name, err.message));
-	}
-}
-
-/**
- * Register a model after the auth extension's dialog has already stored
- * the credential. Uses the accountId from the dialog result as the
- * model config ID so reads via vscode.authentication.getSession match.
- */
-async function saveModelFromAuthResult(
-	result: ConfigDialogResult,
-	sources: positron.ai.LanguageModelSource[],
-	context: vscode.ExtensionContext
-): Promise<void> {
-	const { config, accountId } = result;
-	const name = config.name.trim();
-	const model = config.model.trim();
-	const baseUrl = config.baseUrl?.trim();
-	const id = accountId!;
-
-	const existingConfigs: Array<StoredModelConfig> =
-		context.globalState.get('positron.assistant.models') || [];
-
-	const newConfig: StoredModelConfig = {
-		type: config.type,
-		provider: config.provider,
-		id,
-		name,
-		model,
-		baseUrl,
-	};
-
-	try {
-		await registerModel(newConfig, context);
-		await context.globalState.update(
-			'positron.assistant.models',
-			[...existingConfigs, newConfig]
-		);
-		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
-		if (baseUrl) {
-			await context.globalState.update(
-				`positron.assistant.lastBaseUrl.${newConfig.provider}`,
-				baseUrl
-			);
-		}
-		PositronAssistantApi.get().notifySignIn(name);
-		vscode.window.showInformationMessage(
-			vscode.l10n.t('Language Model {0} has been added successfully.', name)
-		);
-	} catch (error) {
-		await context.globalState.update(
-			'positron.assistant.models',
-			existingConfigs
-		);
-		const err = error instanceof Error
-			? error : new Error(JSON.stringify(error));
-		throw new Error(
-			vscode.l10n.t('Failed to add language model {0}: {1}', name, err.message)
-		);
 	}
 }
 
