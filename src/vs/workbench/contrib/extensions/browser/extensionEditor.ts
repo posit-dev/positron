@@ -92,9 +92,9 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { fromNow } from '../../../../base/common/date.js';
 // --- Start Positron ---
-import { IProductService } from '../../../../platform/product/common/productService.js'; // --- Positron ---
-import { ILogService } from '../../../../platform/log/common/log.js'; // --- Positron ---
-import { getLatestPositronCompatibleVersion } from './positronCompatibleVersion.js'; // --- Positron ---
+import { IProductService } from '../../../../platform/product/common/productService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { getLatestPositronCompatibleVersion } from './positronCompatibleVersion.js';
 // --- End Positron ---
 
 class NavBar extends Disposable {
