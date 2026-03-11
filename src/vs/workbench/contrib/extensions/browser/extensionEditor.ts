@@ -337,7 +337,7 @@ export class ExtensionEditor extends EditorPane {
 		const description = append(details, $('.description'));
 
 		// --- Start Positron ---
-		const updateAction = this.instantiationService.createInstance(UpdateAction, true); // --- Positron ---
+		const updateAction = this.instantiationService.createInstance(UpdateAction, true);
 		// --- End Positron ---
 		const installAction = this.instantiationService.createInstance(InstallDropdownAction);
 		const actions = [
