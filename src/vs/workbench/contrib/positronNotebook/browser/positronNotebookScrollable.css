@@ -9,7 +9,7 @@
  * Chromium does not support CSS transitions on ::-webkit-scrollbar-*
  * pseudo-elements. To work around this, we use a CSS Houdini registered
  * custom property (@property) for the thumb color. Registering it with
- * `syntax: "<color>"` tells the browser it is interpolatable, so we can
+ * `syntax: "<color>"` tells the browser it can be interpolated, so we can
  * transition the property value on a real element and the scrollbar thumb
  * picks up the animated value via var().
  *
@@ -18,13 +18,11 @@
  */
 @property --_positron-notebook-scrollbar-thumb-bg {
 	syntax: "<color>";
-	inherits: true;
+	inherits: false; /* Prevent ancestor :hover from leaking into nested scrollables */
 	initial-value: transparent;
 }
 
 .positron-notebook-scrollable {
-	/* Reset to prevent inheritance from an ancestor that happens to be :hover */
-	--_positron-notebook-scrollbar-thumb-bg: transparent;
 	transition: --_positron-notebook-scrollbar-thumb-bg 800ms linear; /* fade out */
 
 	&:hover {
@@ -40,7 +38,7 @@
 	/* Use background-color (not background shorthand) to avoid resetting
 	 * background-clip, which creates the inset padding around the thumb.
 	 *
-	 * The !important declarations below should not be necessary for scoped
+	 * TODO: The !important declarations below should not be necessary for scoped
 	 * styles, but are needed to override the global unscoped ::-webkit-scrollbar
 	 * rules in variablesInstance.css. Those global selectors should eventually
 	 * be scoped to their own component. */
