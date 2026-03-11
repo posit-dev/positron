@@ -128,6 +128,12 @@
     {
         "key": "cmd+l r",
         "command": "quarto.runCurrent" // Quarto: Run Current Code
-
+    },
+    // Custom keybinding for command palette to avoid browser shortcut conflicts.
+    // The default Ctrl+Shift+P opens private browsing in Firefox, so we use a
+    // multi-key sequence that browsers won't intercept.
+    {
+        "key": "cmd+j e",
+        "command": "workbench.action.showCommands" // Show Command Palette
     }
 ]
