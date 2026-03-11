@@ -1,13 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Drag handle for sortable cells */
+/* Drag handle for sortable cells - overlaps cell edge like the action bar */
 .cell-drag-handle {
 	position: absolute;
-	left: 4px; /* Positioned inside cell to avoid clipping */
-	top: 8px;
+	/* Center the handle on the cell's 1px left border:
+	 * cell margin-left (12px) - handle width (16px)/2 + border (1px)/2 */
+	left: 4.5px;
+	top: 6px;
 	width: 16px;
 	height: 24px;
 	display: flex;
@@ -15,45 +17,149 @@
 	justify-content: center;
 	cursor: grab;
 	opacity: 0;
-	transition: opacity 0.15s ease;
+	transform: scaleX(0);
+	transition: opacity 0.15s ease, transform 0.15s ease;
 	color: var(--vscode-foreground);
 	border-radius: 3px;
-	border: none;
-	background: transparent;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-positronNotebook-border-color);
+	background: var(--vscode-editor-background);
 	padding: 0;
 	z-index: 10; /* Ensure handle is above cell content */
 }
 
 /* Ensure drag handle isn't clipped */
 .sortable-cell {
+	position: relative;
 	overflow: visible;
 }
 
-.sortable-cell:hover .cell-drag-handle,
+/* Invisible hover zone covering the left gutter. When the cursor enters
+ * this strip the adjacent drag handle fades in via the sibling combinator. */
+.cell-drag-zone {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 24px;
+	height: 100%;
+	z-index: 9; /* Below handle (z:10) so handle hover takes priority */
+}
+
+/* Reveal handle: slide out from the cell border and fade in */
+.cell-drag-zone:hover ~ .cell-drag-handle,
 .cell-drag-handle:focus-visible {
-	opacity: 0.6;
+	opacity: 1;
+	transform: scaleX(1);
 }
 
 .cell-drag-handle:hover {
 	opacity: 1;
-	background: var(--vscode-toolbar-hoverBackground);
+	transform: scale(1.1);
+}
+
+/* Mirror the cell's border color on the drag handle */
+.sortable-cell:has(.positron-notebook-cell.selected) > .cell-drag-handle,
+.sortable-cell:has(.positron-notebook-cell.editing) > .cell-drag-handle {
+	border-color: var(--vscode-focusBorder);
+}
+
+.sortable-cell:has(.positron-notebook-cell:not(.selected):not(.editing):hover) > .cell-drag-handle,
+.cell-drag-handle:hover {
+	border-color: var(--vscode-editorWidget-border);
+}
+
+.cell-drag-handle > * {
+	cursor: inherit;
 }
 
 .cell-drag-handle:active {
 	cursor: grabbing;
 }
 
-/* Cell being dragged (placeholder) */
-.sortable-cell.dragging {
-	opacity: 0.4;
+/* Global cursor during drag operation */
+body.dragging-notebook-cell,
+body.dragging-notebook-cell * {
+	cursor: grabbing !important;
 }
 
-/* Drag overlay (preview following cursor) */
-.cell-drag-overlay {
+/* Suppress hover effects (action bars, add-cell buttons) while dragging.
+	The scroll container is the parent so scrolling still works, and dnd-kit
+	uses document-level listeners so collision detection is unaffected. */
+body.dragging-notebook-cell .positron-notebook-cells-container {
+	pointer-events: none;
+}
+
+/* Keep handle mounted during drag for focus continuity, but hide it */
+.cell-drag-handle.drag-handle-hidden {
+	visibility: hidden;
+	pointer-events: none;
+}
+
+/* --- Floating overlay preview (follows cursor) --- */
+
+/* Container for the cursor-following overlay. Uses position:fixed at (0,0)
+	and translate() via JS to follow the pointer without layout reflow. */
+.cursor-following-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	pointer-events: none;
+	z-index: 10000;
+}
+
+.drag-overlay-preview {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	border-radius: var(--vscode-positronNotebook-cell-radius, 8px);
+	background-color: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-focusBorder, #007acc);
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	border-radius: 4px;
-	background: var(--vscode-editor-background);
-	border: 1px solid var(--vscode-focusBorder);
-	opacity: 0.95;
+	max-width: 400px;
+	opacity: 0.9;
+	font-size: 12px;
+	pointer-events: none;
+}
+
+.drag-overlay-content {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--vscode-foreground);
+	font-family: var(--monaco-monospace-font);
+}
+
+.drag-overlay-badge {
+	flex-shrink: 0;
+	padding: 1px 6px;
+	border-radius: 10px;
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	font-weight: 500;
+}
+
+/* Grey out dragged cells so the user can see where they came from. */
+.sortable-cell.sortable-cell-hidden {
+	opacity: 0.3;
+	pointer-events: none;
+}
+
+/* When hovering over the cell's original position (no-op), show a
+	translucent overlay in the focus border color over the inner cell. */
+.sortable-cell.sortable-cell-noop > .positron-notebook-cell::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background-color: var(--vscode-focusBorder, #007acc);
+	opacity: 0.15;
+	pointer-events: none;
+}
+
+/* Hide add-cell buttons adjacent to dragged cells */
+.sortable-cell.sortable-cell-hidden + .positron-add-cell-buttons:not(.drop-target) {
+	opacity: 0;
 	pointer-events: none;
 }
