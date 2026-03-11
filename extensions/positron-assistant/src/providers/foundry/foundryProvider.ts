@@ -90,6 +90,11 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 	static normalizeToV1Url(rawUrl: string): string {
 		let url = rawUrl.trim();
 
+		// Early return for empty URL
+		if (!url) {
+			return '';
+		}
+
 		// Strip query parameters (v1 API rejects api-version)
 		const queryIndex = url.indexOf('?');
 		if (queryIndex !== -1) {
@@ -97,6 +102,11 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 		}
 
 		url = url.replace(/\/+$/, '');
+
+		// Early return if URL became empty after normalization
+		if (!url) {
+			return '';
+		}
 
 		// Deployment URL: extract endpoint base before /openai/deployments/
 		const deploymentIndex = url.indexOf('/openai/deployments/');
