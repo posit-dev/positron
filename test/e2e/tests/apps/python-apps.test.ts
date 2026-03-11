@@ -21,7 +21,7 @@ interface AppTestConfig {
 const appTests: AppTestConfig[] = [
 	{
 		name: 'Dash',
-		tags: [tags.WIN, tags.WORKBENCH],
+		tags: [tags.WORKBENCH], // this test is flaky on Windows, so not tagged
 		filePath: 'dash_example/dash_example.py',
 		locator: frame => frame.getByText('Hello World'),
 	},
@@ -56,13 +56,64 @@ test.describe('Python Applications', {
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {
-		const { terminal, viewer } = app.workbench;
-
 		await hotKeys.closeAllEditors();
 		await hotKeys.focusConsole();
-		await terminal.clickTerminalTab();
-		await terminal.sendKeysToTerminal('Control+C');
-		await viewer.clearViewer();
+		await app.workbench.terminal.clickTerminalTab(); // ensure we are in the terminal tab for cleanup
+		await app.workbench.terminal.sendKeysToTerminal('Control+C');
+		await app.workbench.viewer.clearViewer();
+	});
+
+	test('Python - Verify Clear Current URL button in Viewer', { tag: [tags.WIN, tags.WORKBENCH] }, async function ({ app, openFile, python }) {
+		const viewer = app.workbench.viewer;
+
+		await openFile(join('workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
+		await app.workbench.editor.pressPlay();
+
+		await expect(
+			app.web
+				? viewer.viewerFrame.frameLocator('iframe').getByText('Hello World')
+				: viewer.getViewerFrame().getByText('Hello World')
+		).toBeVisible({ timeout: 30000 });
+
+		await test.step('Verify Clear Current URL button clears Viewer', async () => {
+			// Click the Viewer tab to ensure buttons are visible
+			await app.code.driver.page.getByRole('tab', { name: 'Viewer' }).locator('a').click();
+
+			// Click the clear button
+			const clearButton = viewer.fullApp.getByLabel(/Clear the current URL/);
+			await expect(clearButton).toBeVisible({ timeout: 5000 });
+			await clearButton.click();
+
+			// Verify the iframe is removed
+			await expect(async () => {
+				const iframeLocator = app.web
+					? viewer.viewerFrame.locator('iframe')
+					: viewer.getViewerFrame().locator('iframe');
+				const count = await iframeLocator.count();
+				expect(count).toBe(0);
+			}).toPass({ timeout: 10000 });
+		});
+
+		await test.step('Verify app can be opened in editor', async () => {
+			// Re-run the app since we cleared it
+			await app.workbench.editor.pressPlay();
+			await expect(
+				app.web
+					? viewer.viewerFrame.frameLocator('iframe').getByText('Hello World')
+					: viewer.getViewerFrame().getByText('Hello World')
+			).toBeVisible({ timeout: 30000 });
+
+			await app.workbench.viewer.openViewerToEditor();
+			await app.workbench.viewer.clearViewer();
+
+			const editorFrameLocator = app.workbench.editor.getEditorViewerFrame();
+
+			await expect(
+				app.web
+					? editorFrameLocator.frameLocator('iframe').getByText('Hello World')
+					: editorFrameLocator.getByText('Hello World')
+			).toBeVisible({ timeout: 30000 });
+		});
 	});
 
 	for (const appTest of appTests) {

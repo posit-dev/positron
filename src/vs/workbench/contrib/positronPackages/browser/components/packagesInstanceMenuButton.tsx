@@ -4,17 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { IAction } from '../../../../../base/common/actions.js';
-import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { localize } from '../../../../../nls.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
-import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { localize } from '../../../../../nls.js';
 
 // Helper method to calculate the label for a runtime.
 const labelForRuntime = (session?: ILanguageRuntimeSession): string => {
@@ -31,7 +29,7 @@ const labelForRuntime = (session?: ILanguageRuntimeSession): string => {
 export const PackagesInstanceMenuButton = () => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
-	const { activeInstance, instances } = usePositronPackagesContext();
+	const { activeInstance } = usePositronPackagesContext();
 
 	// Store just the label in state instead of the entire session
 	const [sessionLabel, setSessionLabel] = useState<string>(
@@ -57,35 +55,9 @@ export const PackagesInstanceMenuButton = () => {
 		return () => disposables.dispose();
 	}, [services.positronPackagesService, services.runtimeSessionService, activeInstance]);
 
-	// Builds the actions.
-	const actions = (): IAction[] => {
-		return instances.map(instance => {
-			return {
-				id: instance.session.sessionId,
-				label: labelForRuntime(instance.session),
-				tooltip: '',
-				class: undefined,
-				enabled: true,
-				run: () => {
-					// Set the active packages session to the one the user selected.
-					const session = instance.session;
-					services.positronPackagesService.setActivePositronPackagesSession(session);
-
-					// If this is a console session, set it as the foreground
-					// session, too, so that the rest of the UI can pick it up.
-					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-						services.runtimeSessionService.foregroundSession =
-							instance.session;
-					}
-				}
-			};
-		});
-	};
-
 	// Render.
 	return (
-		<ActionBarMenuButton
-			actions={actions}
+		<ActionBarButton
 			label={sessionLabel}
 		/>
 	);

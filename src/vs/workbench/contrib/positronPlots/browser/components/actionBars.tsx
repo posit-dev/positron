@@ -457,7 +457,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Open in editor actions builder.
 	const openInEditorActions = (): IAction[] => {
 		return openInEditorCommands.map(command => ({
-			id: PlotsEditorAction.ID,
+			id: `${PlotsEditorAction.ID}.${command.editorTarget}`,
 			label: command.label,
 			tooltip: '',
 			class: undefined,

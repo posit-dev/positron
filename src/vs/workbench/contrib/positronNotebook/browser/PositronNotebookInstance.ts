@@ -2153,22 +2153,44 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	clearAllCellOutputs(): void {
 		this._assertTextModel();
+		const allIndices = this.cells.get().map((_, i) => i);
+		if (allIndices.length === 0) {
+			// Preserve legacy behavior: always fire content-change even on empty notebooks
+			this._onDidChangeContent.fire();
+			return;
+		}
+		this.clearCellOutputsByIndex(allIndices);
+	}
+
+	/**
+	 * Clears outputs from specific cells in the notebook by index.
+	 * @param cellIndices Array of cell indices whose outputs should be cleared.
+	 */
+	clearCellOutputsByIndex(cellIndices: number[]): void {
+		this._assertTextModel();
+
+		if (cellIndices.length === 0) {
+			return;
+		}
 
 		try {
 			const computeUndoRedo = !this.isReadOnly;
+			const cells = this.cells.get();
 
-			// Clear outputs from all cells
-			this.textModel.cells.forEach((cell, index) => {
-				this.clearCellOutput(this.cells.get()[index], true);
-			});
+			// Clear outputs from specified cells
+			for (const idx of cellIndices) {
+				this.clearCellOutput(cells[idx], true);
+			}
 
-			// Clear execution metadata for non-executing cells
-			const clearExecutionMetadataEdits = this.textModel.cells.map((cell, index) => {
-				const runState = this.notebookExecutionStateService.getCellExecution(cell.uri)?.state;
+			// Clear execution metadata for non-executing cells at specified indices
+			const clearExecutionMetadataEdits: ICellEditOperation[] = [];
+			for (const idx of cellIndices) {
+				const cellModel = this.textModel.cells[idx];
+				const runState = this.notebookExecutionStateService.getCellExecution(cellModel.uri)?.state;
 				if (runState !== NotebookCellExecutionState.Executing) {
-					return {
+					clearExecutionMetadataEdits.push({
 						editType: CellEditType.PartialInternalMetadata,
-						index,
+						index: idx,
 						internalMetadata: {
 							runStartTime: null,
 							runStartTimeAdjustment: null,
@@ -2176,20 +2198,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 							executionOrder: null,
 							lastRunSuccess: null
 						}
-					};
+					});
 				}
-				return undefined;
-			}).filter((edit): edit is ICellEditOperation & {
-				editType: CellEditType.PartialInternalMetadata;
-				index: number;
-				internalMetadata: {
-					runStartTime: null;
-					runStartTimeAdjustment: null;
-					runEndTime: null;
-					executionOrder: null;
-					lastRunSuccess: null;
-				};
-			} => !!edit);
+			}
 
 			if (clearExecutionMetadataEdits.length) {
 				this.textModel.applyEdits(clearExecutionMetadataEdits, true, undefined, () => undefined, undefined, computeUndoRedo);

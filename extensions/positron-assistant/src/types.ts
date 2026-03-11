@@ -19,9 +19,9 @@ export enum PositronAssistantToolName {
 	DocumentCreate = 'documentCreate',
 	TextSearch = 'positron_findTextInProject_internal',
 	FileContents = 'positron_getFileContents_internal',
-	RunNotebookCells = 'runNotebookCells',
-	EditNotebookCells = 'editNotebookCells',
-	GetNotebookCells = 'getNotebookCells',
+	ExecuteNotebook = 'executeNotebook',
+	EditNotebook = 'editNotebook',
+	GetNotebookInfo = 'getNotebookInfo',
 	CreateNotebook = 'createNotebook',
 }
 

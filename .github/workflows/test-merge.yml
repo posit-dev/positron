@@ -28,7 +28,7 @@ jobs:
       matrix: '{"shard":[1,2]}'
       workers: 2
       allow_soft_fail: true
-      max_failures: 5  # 10 max failures / 2 shards = 5
+      max_failures: 10  # 20 max failures / 2 shards = 10
     secrets: inherit
 
   e2e-windows:
@@ -44,7 +44,7 @@ jobs:
       upload_logs: false
       shards: 3
       matrix: '{"shard":[1,2,3]}'
-      max_failures: 3  # 10 max failures / 3 shards = 3.33, rounded down to 3
+      max_failures: 7  # 20 max failures / 3 shards = 6.66, rounded up to 7
 
   e2e-ubuntu-chromium:
     name: e2e
@@ -61,7 +61,7 @@ jobs:
       matrix: '{"shard":[1,2]}'
       workers: 2
       allow_soft_fail: true
-      max_failures: 5  # 10 max failures / 2 shards = 5
+      max_failures: 10  # 20 max failures / 2 shards = 10
     secrets: inherit
 
   unit-tests:
