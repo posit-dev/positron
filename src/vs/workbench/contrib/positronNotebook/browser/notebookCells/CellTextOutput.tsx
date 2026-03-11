@@ -63,9 +63,11 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
 	const services = usePositronReactServicesContext();
 	const truncation = useLongOutputBehavior(content);
+	const notebookOptions = useNotebookOptions();
+	const outputWordWrap = notebookOptions.getLayoutConfiguration().outputWordWrap;
 
 	return <>
-		<div className={`notebook-${type} positron-notebook-text-output`}>
+		<div className={`notebook-${type} positron-notebook-text-output${outputWordWrap ? ' word-wrap' : ''}`}>
 			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />
 			{truncation.mode === 'truncate' && <>
 				<TruncationMessage

@@ -68,14 +68,14 @@ suite('CellTextOutput', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
-	let layoutConfig: LongOutputOptions;
+	let layoutConfig: LongOutputOptions & { outputWordWrap: boolean };
 	let commandService: TestCommandService;
 	let configurationService: TestConfigurationService;
 	let contextKeyService: MockContextKeyService;
 
 	setup(() => {
 		optionsEmitter = disposables.add(new Emitter<NotebookOptionsChangeEvent>());
-		layoutConfig = { outputLineLimit: 30, outputScrolling: false };
+		layoutConfig = { outputLineLimit: 30, outputScrolling: false, outputWordWrap: false };
 
 		const instantiationService = disposables.add(new TestInstantiationService());
 		commandService = new TestCommandService(instantiationService);
@@ -185,6 +185,19 @@ suite('CellTextOutput', () => {
 
 		assert.ok(fixture.outputContainer.textContent?.includes('line 35'), 'Expected all lines rendered');
 		assert.strictEqual(fixture.truncationMessage, null, 'Expected no truncation message');
+	});
+
+	test('does not apply word-wrap class when outputWordWrap is false', () => {
+		const fixture = renderCellTextOutput({ content: 'hello', type: 'stdout' });
+
+		assert.ok(!fixture.hasClass('word-wrap'), 'Expected no word-wrap class');
+	});
+
+	test('applies word-wrap class when outputWordWrap is true', () => {
+		layoutConfig = { ...layoutConfig, outputWordWrap: true };
+		const fixture = renderCellTextOutput({ content: 'hello', type: 'stdout' });
+
+		assert.ok(fixture.hasClass('word-wrap'), 'Expected word-wrap class');
 	});
 
 	// TODO: useNotebookOptions has a bug where setNotebookOptions(instance.notebookOptions)
