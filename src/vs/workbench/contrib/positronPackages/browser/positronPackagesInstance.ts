@@ -93,8 +93,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		return this._session;
 	}
 
+	/**
+	 * Sets the runtime session and re-attaches the runtime.
+	 *
+	 * @param session The runtime session.
+	 */
 	setRuntimeSession(session: ILanguageRuntimeSession): void {
 		this._session = session;
+		this.attachRuntime();
 	}
 
 	private getPackageManagerOrThrow() {
@@ -111,9 +117,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Loading
 		this._onDidChangeRefreshState.fire(true);
 		try {
-			const packages = await packageManager.getPackages();
-			this._onDidRefreshPackagesInstance.fire(packages);
-			return packages;
+			this._packages = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(this._packages);
+			return this._packages;
 		} finally {
 			this._onDidChangeRefreshState.fire(false);
 		}
@@ -129,8 +135,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			await packageManager.installPackages(packages);
 
 			// Fire refresh event.
-			const pkgs = await packageManager.getPackages();
-			this._onDidRefreshPackagesInstance.fire(pkgs);
+			this._packages = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
 			this._onDidChangeInstallState.fire(false);
@@ -147,8 +153,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			await packageManager.uninstallPackages(packageNames);
 
 			// Fire refresh event.
-			const newPackages = await packageManager.getPackages();
-			this._onDidRefreshPackagesInstance.fire(newPackages);
+			this._packages = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
 			this._onDidChangeUninstallState.fire(false);
@@ -165,8 +171,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			await packageManager.updatePackages(packages);
 
 			// Fire refresh event.
-			const newPackages = await packageManager.getPackages();
-			this._onDidRefreshPackagesInstance.fire(newPackages);
+			this._packages = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateState.fire(false);
@@ -183,8 +189,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			await packageManager.updateAllPackages();
 
 			// Fire refresh event.
-			const newPackages = await packageManager.getPackages();
-			this._onDidRefreshPackagesInstance.fire(newPackages);
+			this._packages = await packageManager.getPackages();
+			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);
@@ -205,6 +211,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 * Attaches to the runtime to listen for state changes and trigger initial refresh.
 	 */
 	attachRuntime(): void {
+		// Clear any existing disposables to avoid duplicate handlers if re-attaching.
+		this._runtimeDisposableStore.clear();
+
 		// Add the onDidChangeRuntimeState event handler to refresh packages when ready
 		this._runtimeDisposableStore.add(
 			this._session.onDidChangeRuntimeState(async runtimeState => {

@@ -17,7 +17,6 @@ import { IPositronPackagesInstance } from './positronPackagesInstance.js';
  */
 export interface PositronPackagesState extends PositronPackagesEnvironment {
 	readonly activeInstance?: IPositronPackagesInstance;
-	readonly instances: IPositronPackagesInstance[];
 }
 
 /**
@@ -29,7 +28,6 @@ export const usePositronPackagesState = (
 ): PositronPackagesState => {
 	// Hooks.
 	const services = usePositronReactServicesContext();
-	const [instances, setInstances] = useState<IPositronPackagesInstance[]>([]);
 	const [instance, setInstance] = useState<IPositronPackagesInstance>();
 
 	// When the active session changes
@@ -37,16 +35,9 @@ export const usePositronPackagesState = (
 		const disposableStore = new DisposableStore();
 		disposableStore.add(
 			services.positronPackagesService.onDidChangeActivePackagesInstance((instance) => {
-				setInstances(services.positronPackagesService.getInstances());
 				setInstance(instance);
 			})
-		)
-
-		disposableStore.add(
-			services.positronPackagesService.onDidStopPackagesInstance(() => {
-				setInstances(services.positronPackagesService.getInstances());
-			})
-		)
+		);
 		return () => disposableStore.dispose();
 	}, [
 		services.positronPackagesService,
@@ -62,6 +53,5 @@ export const usePositronPackagesState = (
 	return {
 		...positronPackagesEnvironment,
 		activeInstance: instance,
-		instances,
 	};
 };
