@@ -12,6 +12,7 @@ import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlF
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -920,14 +921,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// https://github.com/posit-dev/positron/issues/4997.
 		if (session.runtimeMetadata.uiSubscriptions?.includes(UiRuntimeNotifications.DidChangePlotsRenderSettings)) {
 			this._register(this._runtimeSessionService.watchUiClient(session.sessionId, (uiClient) => {
-				// Forward future settings updates. Note that the lifecycle of that event
-				// handler is tied to the UI client itself, not to the lifecycle of the session.
-				uiClient.register(this.onDidChangePlotsRenderSettings(settings => {
-					uiClient.didChangePlotsRenderSettings(settings);
-				}));
-
 				// Send initial settings immediately
 				uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
+
+				// Forward future settings updates
+				return this.onDidChangePlotsRenderSettings(settings => {
+					uiClient.didChangePlotsRenderSettings(settings);
+				});
 			}));
 		}
 	}

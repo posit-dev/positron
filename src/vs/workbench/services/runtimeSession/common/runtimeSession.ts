@@ -1894,26 +1894,44 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
 	 *
 	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 * The `IDisposable` returned by `handler` is automatically disposed before the next
+	 * invocation, ensuring resources tied to a previous UI client are cleaned up on restart.
 	 *
 	 * @param sessionId The ID of the session to observe.
-	 * @param handler Called with started UI clients.
-	 * @returns An `IDisposable` to clean up the event handler.
+	 * @param handler Called with started UI clients. The returned `IDisposable` is
+	 *   disposed before the next invocation and on outer disposal.
+	 * @returns An `IDisposable` to clean up the event handler and the current handler disposable.
 	 */
-	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => IDisposable | void): IDisposable {
+		const store = new DisposableStore();
+		let handlerDisposable: IDisposable | undefined;
+
+		// Enforces "one at a time" invariant. Disposes the previous handler before
+		// running new one.
+		const runHandler = (uiClient: UiClientInstance) => {
+			handlerDisposable?.dispose();
+			handlerDisposable = handler(uiClient) ?? undefined;
+		};
+
 		// Run handler with currently started client, if any
 		const currentUiClient = this.getActiveSession(sessionId)?.uiClient;
 		if (currentUiClient) {
-			handler(currentUiClient);
+			runHandler(currentUiClient);
 		}
 
 		// Run handler on future instances, e.g. after reconnect
-		const disposable = this.onDidStartUiClient((event) => {
+		store.add(this.onDidStartUiClient((event) => {
 			if (event.sessionId === sessionId) {
-				handler(event.uiClient);
+				runHandler(event.uiClient);
 			}
-		});
+		}));
 
-		return disposable;
+		store.add(toDisposable(() => {
+			handlerDisposable?.dispose();
+			handlerDisposable = undefined;
+		}));
+
+		return store;
 	}
 
 	/**
