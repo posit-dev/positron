@@ -1,0 +1,129 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.cell-comments-content {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 8px 4px;
+}
+
+.cell-comments-thread {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.cell-comments-empty {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+	padding: 8px 0;
+}
+
+.cell-comment-item {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px;
+	border-radius: 4px;
+	background-color: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.cell-comment-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.cell-comment-author {
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.cell-comment-time {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.cell-comment-text {
+	font-size: 13px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.cell-comment-delete-button {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--vscode-descriptionForeground);
+	padding: 2px 4px;
+	border-radius: 3px;
+	font-size: 11px;
+	line-height: 1;
+}
+
+.cell-comment-delete-button:hover {
+	color: var(--vscode-errorForeground);
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.cell-comments-new-comment {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	border-top: 1px solid var(--vscode-widget-border);
+	padding-top: 12px;
+}
+
+.cell-comments-new-comment label {
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.cell-comments-new-comment input,
+.cell-comments-new-comment textarea {
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
+	border-radius: 4px;
+	padding: 6px 8px;
+	font-family: inherit;
+	font-size: 13px;
+	outline: none;
+}
+
+.cell-comments-new-comment input:focus,
+.cell-comments-new-comment textarea:focus {
+	border-color: var(--vscode-focusBorder);
+}
+
+.cell-comments-new-comment textarea {
+	resize: vertical;
+	min-height: 60px;
+}
+
+.cell-comments-add-button {
+	align-self: flex-end;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border: none;
+	border-radius: 4px;
+	padding: 4px 14px;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.cell-comments-add-button:hover:not(:disabled) {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.cell-comments-add-button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}

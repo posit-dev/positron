@@ -1,0 +1,30 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.cell-comment-indicator {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	padding: 2px 6px;
+	border-radius: 10px;
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1;
+	pointer-events: none;
+	z-index: 5;
+}
+
+.cell-comment-indicator-icon {
+	font-size: 12px;
+}
+
+.cell-comment-indicator-count {
+	font-size: 11px;
+}

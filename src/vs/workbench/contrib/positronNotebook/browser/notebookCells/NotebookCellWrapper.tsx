@@ -24,6 +24,7 @@ import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronCompone
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
+import { CellCommentIndicator } from '../contrib/cellComments/CellCommentIndicator.js';
 
 export function NotebookCellWrapper({ cell, children }: {
 	cell: IPositronNotebookCell;
@@ -173,6 +174,7 @@ export function NotebookCellWrapper({ cell, children }: {
 			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
 	>
+		<CellCommentIndicator cell={cell} />
 		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>
 			<NotebookCellActionBar cell={cell} />
 			<NotebookErrorBoundary
