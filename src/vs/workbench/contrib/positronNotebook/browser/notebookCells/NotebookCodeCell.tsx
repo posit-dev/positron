@@ -24,6 +24,7 @@ import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
 import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
+import { isHTMLElement } from '../../../../../base/browser/dom.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -70,6 +71,12 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const handleContextMenu = (event: React.MouseEvent) => {
 		// Only show context menu if there are outputs
 		if (outputs.length === 0) {
+			return;
+		}
+		// Let the browser handle right-click on images natively so the user
+		// gets the standard "Copy Image" option for the specific image they
+		// clicked, rather than our custom menu which always copies the first.
+		if (isHTMLElement(event.target) && event.target.tagName === 'IMG') {
 			return;
 		}
 		showContextMenu({ x: event.clientX, y: event.clientY });

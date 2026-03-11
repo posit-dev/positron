@@ -7,6 +7,7 @@ import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
+import { POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT, bindCellContextKeys } from '../../browser/ContextKeysManager.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
 
 function pngOutputItem() {
@@ -112,7 +113,7 @@ suite('Positron Notebook Cell Outputs', () => {
 			assert.strictEqual(outputs[0].parsed.type, 'image');
 		});
 
-		test('hasImageOutput check works on parsed outputs', () => {
+		test('hasImageOutput context key is set for cells with image output', () => {
 			const cellWithMixedOutputs: TestCellInput = {
 				source: 'display()',
 				language: 'python',
@@ -136,9 +137,20 @@ suite('Positron Notebook Cell Outputs', () => {
 			const outputs = cell.outputs.get();
 			assert.strictEqual(outputs.length, 2);
 
-			// This is the same check used by the context key in useCellContextKeys.ts
-			const hasImageOutput = outputs.some(o => o.parsed.type === 'image');
-			assert.ok(hasImageOutput, 'should detect image output among mixed outputs');
+			// Bind context keys to a cell-scoped service (mirrors useCellContextKeys.ts)
+			const cellElement = document.createElement('div');
+			const cellContextKeyService = notebook.scopedContextKeyService.createScoped(cellElement);
+			disposables.add(cellContextKeyService);
+			const keys = bindCellContextKeys(cellContextKeyService);
+
+			// Update the context key using the same logic as useCellContextKeys.ts
+			keys.hasImageOutput.set(outputs.some(o => o.parsed.type === 'image'));
+
+			assert.strictEqual(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT.key),
+				true,
+				'hasImageOutput context key should be true when cell has image output'
+			);
 		});
 	});
 });
