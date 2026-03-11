@@ -15,7 +15,6 @@ import {
 	usingQuartoInlineOutput,
 } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { IQuartoKernelManager } from '../../positronQuarto/browser/quartoKernelManager.js';
-import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookEditorInput } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 
 /**
@@ -52,7 +51,6 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
-		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
@@ -63,30 +61,6 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		this._register(this._editorService.onDidActiveEditorChange(() => {
 			this._handleActiveEditorChange();
 		}));
-
-		// Listen for console instance selection (e.g., clicking a console tab or focusing the console pane)
-		this._register(this._positronConsoleService.onDidSelectConsoleInstance((sessionId) => {
-			this._handleConsoleInstanceSelected(sessionId);
-		}));
-	}
-
-	/**
-	 * Handle console instance selection (e.g., clicking a console tab or focusing the console pane).
-	 */
-	private _handleConsoleInstanceSelected(sessionId: string): void {
-		const session = this._runtimeSessionService.getSession(sessionId);
-		if (session) {
-			this._logService.trace(`[ForegroundSessionContribution] Console instance selected, setting foreground session: ${sessionId}`);
-			this._runtimeSessionService.foregroundSession = session;
-		} else {
-			// It's possible for a console instance to exist without a session.
-			// This typically happens when we create a provisional instance while
-			// waiting for a session to be connected, but the session never connects.
-			// In this case we can't set the foreground session, but we can still
-			// set the console instance as the active console instance.
-			this._logService.trace(`[ForegroundSessionContribution] Console instance selected but no session found, setting active console instance: ${sessionId}`);
-			this._positronConsoleService.setActivePositronConsoleSession(sessionId);
-		}
 	}
 
 	/**

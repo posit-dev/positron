@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -991,6 +991,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param positronConsoleInstance
 	 */
 	private setActivePositronConsoleInstance(positronConsoleInstance?: IPositronConsoleInstance) {
+		// Guard: don't fire event if the instance hasn't changed
+		if (this._activePositronConsoleInstance === positronConsoleInstance) {
+			return;
+		}
+
 		// Set the active instance and fire the onDidChangeActivePositronConsoleInstance event.
 		this._activePositronConsoleInstance = positronConsoleInstance;
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);

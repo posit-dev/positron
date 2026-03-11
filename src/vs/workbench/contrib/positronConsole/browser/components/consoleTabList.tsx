@@ -180,21 +180,22 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 
 	/**
 	 * Handles the click event for the console tab.
-	 * Sets the active console instance and focuses the tab element.
+	 * If clicking the already-active tab, focus the tab for keyboard navigation.
+	 * If clicking a different tab, change the active instance and let the console pane get focus.
 	 */
 	const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-		// Prevent the console from stealing focus from the tab element
-		e.stopPropagation();
-
-		// Focus the tab element so the PositronConsoleTabFocused context key
-		// gets set and keyboard interactions work as expected.
-		setTimeout(() => {
-			if (tabRef.current) {
-				tabRef.current.focus();
-			}
-		}, 0);
-
-		onChangeSession(positronConsoleInstance);
+		if (isActiveTab) {
+			// Clicking the already-active tab: focus the tab for keyboard navigation
+			e.stopPropagation();
+			setTimeout(() => {
+				if (tabRef.current) {
+					tabRef.current.focus();
+				}
+			}, 0);
+		} else {
+			// Clicking a different tab: change active instance, let console pane get focus
+			onChangeSession(positronConsoleInstance);
+		}
 	};
 
 	/**
@@ -597,14 +598,15 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	}, [positronConsoleTabFocusedContextKey]);
 
 	/**
-	 * Function to change the active console instance that is tied to a specific session
+	 * Function to change the active console instance to the one tied to the given session.
+	 * This is called when a user clicks on a console tab or uses the keyboard to
+	 * navigate between tabs.
 	 *
 	 * @param sessionId The Id of the session that should be active
 	 */
 	const handleChangeForegroundSession = async (sessionId: string): Promise<void> => {
 		// Find the session
-		const session =
-			services.runtimeSessionService.getSession(sessionId);
+		const session = services.runtimeSessionService.getSession(sessionId);
 
 		if (session) {
 			// Set the session as the foreground session

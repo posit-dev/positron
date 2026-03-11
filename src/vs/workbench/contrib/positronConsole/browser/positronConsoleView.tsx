@@ -143,6 +143,12 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._positronConsoleFocusedContextKey.set(focused);
 
 		if (focused) {
+			// Set the foreground session to the active console instance's session.
+			// This ensures the Variables/Packages panes show data for this console.
+			const activeInstance = this.positronConsoleService.activePositronConsoleInstance;
+			if (activeInstance?.attachedRuntimeSession) {
+				this.runtimeSessionService.foregroundSession = activeInstance.attachedRuntimeSession;
+			}
 			this._onFocusedEmitter.fire();
 		}
 	}
@@ -343,7 +349,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			// Remove duplicates, and current runtime.
 			.filter((runtime, index, runtimes) =>
 				runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
-			)
+			);
 
 		// Add current runtime first, if present.
 		// Allows for "plus" + enter behavior to clone session.
