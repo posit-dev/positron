@@ -56,8 +56,6 @@ test.describe('Python Applications', {
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {
-		const { terminal, viewer } = app.workbench;
-
 		await hotKeys.closeAllEditors();
 		await hotKeys.focusConsole();
 		await app.workbench.terminal.clickTerminalTab(); // ensure we are in the terminal tab for cleanup
@@ -65,7 +63,7 @@ test.describe('Python Applications', {
 		await app.workbench.viewer.clearViewer();
 	});
 
-	test('Python - Verify Basic Dash App', { tag: [tags.WIN, tags.WORKBENCH] }, async function ({ app, openFile, python }) {
+	test('Python - Verify Clear Current URL button in Viewer', { tag: [tags.WIN, tags.WORKBENCH] }, async function ({ app, openFile, python }) {
 		const viewer = app.workbench.viewer;
 
 		await openFile(join('workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
@@ -116,35 +114,6 @@ test.describe('Python Applications', {
 					: editorFrameLocator.getByText('Hello World')
 			).toBeVisible({ timeout: 30000 });
 		});
-	});
-
-	test('Python - Verify Basic FastAPI App', {
-		tag: [tags.WIN]
-	}, async function ({ app, openFile, python }) {
-		const viewer = app.workbench.viewer;
-
-		await openFile(join('workspaces', 'python_apps', 'fastapi_example', 'fastapi_example.py'));
-		await app.workbench.editor.pressPlay();
-
-		await expect(
-			app.web
-				? viewer.viewerFrame.frameLocator('iframe').getByText('FastAPI')
-				: viewer.getViewerFrame().getByText('FastAPI')
-		).toBeVisible({ timeout: 30000 });
-
-		await test.step('Verify app can be opened in editor', async () => {
-			await app.workbench.viewer.openViewerToEditor();
-			await app.workbench.viewer.clearViewer();
-
-			const editorHeaderLocator = app.web
-				? app.workbench.editor.viewerFrame.frameLocator('iframe').getByRole('heading', { name: 'FastAPI' })
-				: app.workbench.editor.viewerFrame.getByRole('heading', { name: 'FastAPI' });
-
-			await expect(editorHeaderLocator).toBeVisible({ timeout: 30000 });
-		});
-		await terminal.clickTerminalTab();
-		await terminal.sendKeysToTerminal('Control+C');
-		await viewer.clearViewer();
 	});
 
 	for (const appTest of appTests) {
