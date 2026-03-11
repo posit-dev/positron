@@ -67,6 +67,19 @@ export async function getApiKey(
 }
 
 /**
+ * Resolve an API key for a stored model config. Routes to the auth
+ * extension for migrated providers, falls back to legacy secret storage.
+ */
+export async function resolveApiKey(
+	config: { provider: string; id: string; name: string },
+	secrets: vscode.SecretStorage
+): Promise<string | undefined> {
+	return isAuthExtProvider(config.provider)
+		? getApiKey(config.provider, config.id, config.name, secrets)
+		: secrets.get(`apiKey-${config.id}`);
+}
+
+/**
  * Delegate the config dialog to the authentication extension.
  * Returns the actions taken so the caller can handle model lifecycle.
  */

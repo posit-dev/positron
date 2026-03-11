@@ -16,7 +16,7 @@ import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 import { StoredModelConfig, ModelConfig } from './configTypes.js';
-import { isAuthExtProvider, getApiKey, delegateConfigDialog } from './authExtRouting.js';
+import { isAuthExtProvider, resolveApiKey, delegateConfigDialog } from './authExtRouting.js';
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
 	return context.globalState.get('positron.assistant.models') || [];
@@ -30,9 +30,7 @@ export async function getModelConfiguration(id: string, context: vscode.Extensio
 		return undefined;
 	}
 
-	const apiKey = isAuthExtProvider(config.provider)
-		? await getApiKey(config.provider, config.id, config.name, context.secrets)
-		: await context.secrets.get(`apiKey-${config.id}`);
+	const apiKey = await resolveApiKey(config, context.secrets);
 	return {
 		...config,
 		apiKey: apiKey || ''
@@ -44,9 +42,7 @@ export async function getModelConfigurations(context: vscode.ExtensionContext): 
 
 	const fullConfigs: ModelConfig[] = await Promise.all(
 		storedConfigs.map(async (config) => {
-			const apiKey = isAuthExtProvider(config.provider)
-				? await getApiKey(config.provider, config.id, config.name, context.secrets)
-				: await context.secrets.get(`apiKey-${config.id}`);
+			const apiKey = await resolveApiKey(config, context.secrets);
 			return {
 				...config,
 				apiKey: apiKey || ''
