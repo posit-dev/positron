@@ -23,7 +23,7 @@ import {
 } from './base/locators/common/nativePythonFinder';
 import { createDeferred, Deferred } from '../common/utils/async';
 import { Architecture, getPathEnvVariable, getUserHomeDir } from '../common/utils/platform';
-import { parseVersion } from './base/info/pythonVersion';
+import { getShortVersionString, parseVersion } from './base/info/pythonVersion';
 import { cache } from '../common/utils/decorators';
 import { traceError, traceInfo, traceLog, traceVerbose, traceWarn } from '../logging';
 import { StopWatch } from '../common/utils/stopWatch';
@@ -122,12 +122,20 @@ function kindToShortString(kind: PythonEnvKind): string | undefined {
     }
 }
 
+// --- Start Positron ---
+// @ts-ignore: Keeping original function for upstream compatibility
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function toShortVersionString(version: PythonVersion): string {
     return `${version.major}.${version.minor}.${version.micro}`.trim();
 }
+// --- End Positron ---
 
 function getDisplayName(version: PythonVersion, kind: PythonEnvKind, arch: Architecture, name?: string): string {
-    const versionStr = toShortVersionString(version);
+    // --- Start Positron ---
+    // use getShortVersionString instead of toShortVersionString
+    // to get all version info (e.g. for pre-releases, alpha)
+    const versionStr = getShortVersionString(version);
+    // --- End Positron ---
     const kindStr = kindToShortString(kind);
     if (arch === Architecture.x86) {
         if (kindStr) {
@@ -278,6 +286,10 @@ async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[])
             major: version.major,
             minor: version.minor,
             micro: version.micro,
+            // --- Start Positron ---
+            // add info if this is a pre-release version (e.g. alpha, beta, rc)
+            ...(version.release && { release: version.release }),
+            // --- End Positron ---
         },
         arch,
         distro: {

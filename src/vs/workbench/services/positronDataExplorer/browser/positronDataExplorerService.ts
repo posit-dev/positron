@@ -18,7 +18,7 @@ import { PositronDataExplorerInstance } from './positronDataExplorerInstance.js'
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { IPositronDataExplorerService } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
-import { PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { DataExplorerBackendRequest, PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -91,7 +91,11 @@ class DataExplorerRuntime extends Disposable {
 				}
 
 				// Create and register the DataExplorerClientInstance for the client instance.
-				const commInstance = new PositronDataExplorerComm(e.client);
+				const commInstance = new PositronDataExplorerComm(e.client, {
+					[DataExplorerBackendRequest.GetDataValues]: {
+						timeout: 10000, // 10 seconds instead of the default 5
+					},
+				});
 				const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
 				this._register(dataExplorerClientInstance);
 
@@ -395,7 +399,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 				const existingInstance = this.getInstance(client.getClientId());
 				// If we don't have a Data Explorer client instance, create one and open the editor.
 				if (!existingInstance) {
-					const commInstance = new PositronDataExplorerComm(client);
+					const commInstance = new PositronDataExplorerComm(client, {
+						[DataExplorerBackendRequest.GetDataValues]: {
+							timeout: 10000, // 10 seconds instead of the default 5
+						},
+					});
 					const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
 					this.openEditor(session.runtimeMetadata.languageName, dataExplorerClientInstance);
 				}

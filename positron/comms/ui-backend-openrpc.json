@@ -63,6 +63,40 @@
 			}
 		},
 		{
+			"name": "evaluate_code",
+			"summary": "Evaluate a statement in the interpreter",
+			"description": "Execute a code fragment silently and return a JSON-serialized result.",
+			"params": [
+				{
+					"name": "code",
+					"description": "The code string to evaluate",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "eval_result",
+					"description": "The results of evaluating the statement",
+					"type": "object",
+					"properties": {
+						"result": {
+							"description": "The result value"
+						},
+						"output": {
+							"description": "The output, if any, emitted during evaluation",
+							"type": "string"
+						}
+					},
+					"required": [
+						"result",
+						"output"
+					]
+				}
+			}
+		},
+		{
 			"name": "editor_context_changed",
 			"summary": "Active editor context changed",
 			"description": "This notification is sent from the frontend to the backend when the active text editor changes or when code is about to be executed from a file. It provides the document URI and indicates whether this is the source file for code execution.",

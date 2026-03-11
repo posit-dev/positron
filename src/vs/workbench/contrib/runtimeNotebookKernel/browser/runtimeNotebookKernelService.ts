@@ -24,7 +24,7 @@ import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { LANGUAGE_RUNTIME_SELECT_RUNTIME_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { isNotebookRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
@@ -193,7 +193,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 					{
 						label: 'Select Environment...',
 						command: {
-							id: LANGUAGE_RUNTIME_SELECT_RUNTIME_ID,
+							id: LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID,
 							title: 'Select Environment',
 						},
 					}

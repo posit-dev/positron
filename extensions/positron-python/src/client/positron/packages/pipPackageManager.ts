@@ -10,7 +10,7 @@ import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/p
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
-import { IPackageManager, MessageEmitter } from './types';
+import { IPackageManager, MessageEmitter, PackageKernel } from './types';
 
 /**
  * Pip Package Manager
@@ -25,7 +25,12 @@ export class PipPackageManager implements IPackageManager {
         private readonly _pythonPath: string,
         private readonly _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
+        private readonly _kernel: PackageKernel,
     ) {}
+
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        return this._kernel.callMethod('getPackagesInstalled');
+    }
 
     /**
      * Check if pip is available in the current Python environment.

@@ -23,6 +23,20 @@ Param = Any
 CallMethodResult = Any
 
 
+class EvalResult(BaseModel):
+    """
+    The results of evaluating the statement
+    """
+
+    result: Any = Field(
+        description="The result value",
+    )
+
+    output: StrictStr = Field(
+        description="The output, if any, emitted during evaluation",
+    )
+
+
 @enum.unique
 class OpenEditorKind(str, enum.Enum):
     """
@@ -195,6 +209,9 @@ class UiBackendRequest(str, enum.Enum):
     # Run a method in the interpreter and return the result to the frontend
     CallMethod = "call_method"
 
+    # Evaluate a statement in the interpreter
+    EvaluateCode = "evaluate_code"
+
     # Active editor context changed
     EditorContextChanged = "editor_context_changed"
 
@@ -269,6 +286,35 @@ class CallMethodRequest(BaseModel):
     )
 
 
+class EvaluateCodeParams(BaseModel):
+    """
+    Execute a code fragment silently and return a JSON-serialized result.
+    """
+
+    code: StrictStr = Field(
+        description="The code string to evaluate",
+    )
+
+
+class EvaluateCodeRequest(BaseModel):
+    """
+    Execute a code fragment silently and return a JSON-serialized result.
+    """
+
+    params: EvaluateCodeParams = Field(
+        description="Parameters to the EvaluateCode method",
+    )
+
+    method: Literal[UiBackendRequest.EvaluateCode] = Field(
+        description="The JSON-RPC method name (evaluate_code)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class EditorContextChangedParams(BaseModel):
     """
     This notification is sent from the frontend to the backend when the
@@ -313,6 +359,7 @@ class UiBackendMessageContent(BaseModel):
     data: Union[
         DidChangePlotsRenderSettingsRequest,
         CallMethodRequest,
+        EvaluateCodeRequest,
         EditorContextChangedRequest,
     ] = Field(..., discriminator="method")
 
@@ -648,6 +695,8 @@ class OpenWithSystemParams(BaseModel):
     )
 
 
+EvalResult.update_forward_refs()
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -667,6 +716,10 @@ DidChangePlotsRenderSettingsRequest.update_forward_refs()
 CallMethodParams.update_forward_refs()
 
 CallMethodRequest.update_forward_refs()
+
+EvaluateCodeParams.update_forward_refs()
+
+EvaluateCodeRequest.update_forward_refs()
 
 EditorContextChangedParams.update_forward_refs()
 

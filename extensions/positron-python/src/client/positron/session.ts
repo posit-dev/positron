@@ -126,8 +126,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     private dynState: positron.LanguageRuntimeDynState;
 
-    /** The package manager for handling package operations */
-    private _packageManager: IPackageManager;
+    /** The package manager for handling package operations (created in start()) */
+    private _packageManager: IPackageManager | undefined;
 
     onDidReceiveRuntimeMessage = this._messageEmitter.event;
 
@@ -173,12 +173,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
-        this._packageManager = PackageManagerFactory.create(
-            runtimeMetadata.runtimeSource,
-            this._pythonPath,
-            this._messageEmitter,
-            serviceContainer,
-        );
     }
 
     get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
@@ -273,6 +267,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    evaluate(code: string): Promise<positron.EvalResult> {
+        if (this._kernel) {
+            return this._kernel.evaluate(code);
+        } else {
+            throw new Error(`Cannot evaluate '${code}'; kernel not started`);
+        }
+    }
+
     isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
         if (this._kernel) {
             return this._kernel.isCodeFragmentComplete(code);
@@ -349,55 +351,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-        if (this._kernel) {
-            try {
-                return await this._kernel?.callMethod('getPackagesInstalled');
-            } catch (err) {
-                this._kernel?.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
-                throw err;
-            }
+    getPackageManager(): positron.LanguageRuntimePackageManager {
+        if (!this._packageManager) {
+            throw new Error('Package manager not available; session not started');
         }
-
-        throw new Error(`Cannot get packages: kernel not started`);
-    }
-
-    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
-        return this._packageManager.searchPackages(query);
-    }
-
-    async searchPackageVersions(name: string): Promise<string[]> {
-        return this._packageManager.searchPackageVersions(name);
-    }
-
-    /**
-     * Install one or more packages.
-     * Supports specifying versions with == syntax (e.g., "package==1.0.0").
-     */
-    async installPackages(packages: positron.PackageSpec[]): Promise<void> {
-        await this._packageManager.installPackages(packages);
-    }
-
-    /**
-     * Uninstall one or more packages.
-     */
-    async uninstallPackages(packageNames: string[]): Promise<void> {
-        await this._packageManager.uninstallPackages(packageNames);
-    }
-
-    /**
-     * Update specific packages to latest versions.
-     * Supports specifying versions with == syntax (e.g., "package==1.0.0").
-     */
-    async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
-        await this._packageManager.updatePackages(packages);
-    }
-
-    /**
-     * Update all installed packages to their latest versions.
-     */
-    async updateAllPackages(): Promise<void> {
-        await this._packageManager.updateAllPackages();
+        return this._packageManager;
     }
 
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
@@ -539,6 +497,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // Ensure the Jupyter kernel instance is created
         if (!this._kernel) {
             this._kernel = await this.createKernel();
+
+            // Create package manager now that kernel is available
+            this._packageManager = PackageManagerFactory.create(
+                this.runtimeMetadata.runtimeSource,
+                this._pythonPath,
+                this._messageEmitter,
+                this.serviceContainer,
+                this._kernel,
+            );
         }
 
         if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console && !this._isExternallyManaged) {

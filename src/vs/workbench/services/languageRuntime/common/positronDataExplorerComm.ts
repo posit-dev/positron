@@ -1747,6 +1747,8 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * data. The new comm has its own state (filters, sorts). Used when
 	 * promoting an inline notebook data explorer to a full data explorer
 	 * panel.
+	 *
+	 *
 	 */
 	openDataExplorer(): Promise<void> {
 		return super.performRpc('open_data_explorer', [], []);
