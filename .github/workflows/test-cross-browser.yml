@@ -2,7 +2,7 @@ name: "Test: E2E Cross Browser"
 
 on:
   schedule:
-    - cron: '0 10 * * 1-5' # 4:00 AM CST = 10:00 UTC, Mon-Fri only
+    - cron: '0 10 * * 1,4' # 4:00 AM CST = 10:00 UTC, Mon & Thu only
   workflow_dispatch:
     inputs:
       run_e2e_firefox:
