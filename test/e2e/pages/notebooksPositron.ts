@@ -45,6 +45,10 @@ export class PositronNotebooks extends Notebooks {
 
 	// Cell action buttons, menus, tooltips, output, etc
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /More Cell Actions/i });
+	// Drag handle is a sibling of the cell inside .sortable-cell parent
+	sortableCellAtIndex = (index: number) => this.code.driver.page.locator('.sortable-cell').nth(index);
+	dragHandleAtIndex = (index: number) => this.sortableCellAtIndex(index).getByRole('button', { name: /Drag to reorder cell/i });
+	dragZoneAtIndex = (index: number) => this.sortableCellAtIndex(index).locator('.cell-drag-zone');
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
@@ -349,6 +353,194 @@ export class PositronNotebooks extends Notebooks {
 		await test.step(`Select action from More Actions menu: ${action}`, async () => {
 			await this.moreActionsButtonAtIndex(cellIndex).click();
 			await this.moreActionsOption(action).click();
+		});
+	}
+
+	/**
+	 * Internal helper: activate a drag on a cell's handle.
+	 * Hovers the cell, waits for the handle, presses mouse down, and moves
+	 * past the 10px activation threshold. Returns the start coordinates.
+	 */
+	private async _activateDrag(cellIndex: number): Promise<{ startX: number; startY: number }> {
+		const dragHandle = this.dragHandleAtIndex(cellIndex);
+
+		// Hover the left-edge drag zone to reveal the handle via CSS :hover
+		await this.dragZoneAtIndex(cellIndex).hover();
+		await expect(dragHandle).toBeVisible({ timeout: 2000 });
+
+		const handleBox = await dragHandle.boundingBox();
+		if (!handleBox) {
+			throw new Error('Could not get bounding box for drag handle');
+		}
+
+		const startX = handleBox.x + handleBox.width / 2;
+		const startY = handleBox.y + handleBox.height / 2;
+
+		// Start drag and move past activation threshold (10px in SortableCellList.tsx)
+		await this.code.driver.page.mouse.move(startX, startY);
+		await this.code.driver.page.mouse.down();
+		await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
+
+		return { startX, startY };
+	}
+
+	/**
+	 * Action: Drag a cell from one position to another using the drag handle.
+	 * @param fromIndex - The index of the cell to drag
+	 * @param toIndex - The index of the cell to drop onto
+	 */
+	async dragCellToPosition(fromIndex: number, toIndex: number): Promise<void> {
+		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex}`, async () => {
+			const { startX } = await this._activateDrag(fromIndex);
+
+			// Wait for the dragged cell to collapse and CSS transitions to settle.
+			// The dragged cell gets `height: 0` which shifts siblings.
+			await this.code.driver.page.waitForTimeout(200);
+
+			// Get the target cell's position after collapse settles
+			const targetCell = this.sortableCellAtIndex(toIndex);
+			const targetBox = await targetCell.boundingBox();
+			if (!targetBox) {
+				throw new Error('Could not get bounding box for target cell during drag');
+			}
+
+			// For downward drags, target just past the bottom of the target cell.
+			// For upward drags, target just above the top.
+			// dnd-kit uses closestCenter, so we need to be clearly past the
+			// center of the target cell.
+			const targetY = toIndex > fromIndex
+				? targetBox.y + targetBox.height + 5
+				: targetBox.y - 5;
+
+			// Keep X on the same column as the drag handle start position.
+			// Moving diagonally across the page can take the cursor outside
+			// the notebook area during long drags.
+			await this.code.driver.page.mouse.move(startX, targetY, { steps: 20 });
+			await this.code.driver.page.mouse.up();
+		});
+	}
+
+	/**
+	 * Action: Start dragging a cell (without releasing). Useful for testing drag cancellation.
+	 * @param cellIndex - The index of the cell to start dragging
+	 */
+	async startDragCell(cellIndex: number): Promise<void> {
+		await test.step(`Start dragging cell at index ${cellIndex}`, async () => {
+			await this._activateDrag(cellIndex);
+			// Leave mouse down - caller controls what happens next
+		});
+	}
+
+	/**
+	 * Action: Drag a cell to a position that requires auto-scrolling.
+	 * This method handles dragging across long notebooks where the target
+	 * position is not initially visible.
+	 * @param fromIndex - The index of the cell to drag
+	 * @param toIndex - The target index (may be off-screen)
+	 */
+	async dragCellToPositionWithScroll(fromIndex: number, toIndex: number): Promise<void> {
+		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex} (with auto-scroll)`, async () => {
+			// Ensure source cell is visible before activating drag
+			const sourceCell = this.sortableCellAtIndex(fromIndex);
+			await sourceCell.scrollIntoViewIfNeeded();
+			await expect(sourceCell).toBeVisible();
+
+			const { startX } = await this._activateDrag(fromIndex);
+
+			// Wait for the dragged cell to collapse and CSS transitions to settle
+			await this.code.driver.page.waitForTimeout(200);
+
+			// Get the notebook container for viewport bounds
+			const notebookContainer = this.positronNotebook;
+			const containerBox = await notebookContainer.boundingBox();
+			if (!containerBox) {
+				throw new Error('Could not get notebook container bounding box');
+			}
+
+			// Determine scroll direction
+			const scrollingDown = toIndex > fromIndex;
+
+			// Move to the edge of the viewport to trigger auto-scroll
+			// dnd-kit's auto-scroll triggers near viewport edges
+			const edgeY = scrollingDown
+				? containerBox.y + containerBox.height * 0.85  // Near bottom edge
+				: containerBox.y + containerBox.height * 0.15; // Near top edge
+
+			// Helper to check if target cell is visible and in a good drop position
+			const isTargetReachable = async (): Promise<{ reachable: boolean; targetY?: number }> => {
+				const targetCell = this.sortableCellAtIndex(toIndex);
+				const targetBox = await targetCell.boundingBox();
+
+				if (!targetBox) {
+					return { reachable: false };
+				}
+
+				// Ensure target is sufficiently visible within container (not just peeking)
+				const targetCenter = targetBox.y + targetBox.height / 2;
+				const containerTop = containerBox.y + containerBox.height * 0.1;
+				const containerBottom = containerBox.y + containerBox.height * 0.9;
+
+				if (targetCenter >= containerTop && targetCenter <= containerBottom) {
+					const dropY = scrollingDown
+						? targetBox.y + targetBox.height * 0.75
+						: targetBox.y + targetBox.height * 0.25;
+					return { reachable: true, targetY: dropY };
+				}
+
+				return { reachable: false };
+			};
+
+			// First check if target is already visible (no scrolling needed)
+			const initialCheck = await isTargetReachable();
+			if (initialCheck.reachable && initialCheck.targetY !== undefined) {
+				await this.code.driver.page.mouse.move(startX, initialCheck.targetY, { steps: 10 });
+				await this.code.driver.page.mouse.up();
+				return;
+			}
+
+			// Move to edge and wait for auto-scroll to bring target into view
+			// Use polling with timeout instead of fixed iteration count
+			await this.code.driver.page.mouse.move(startX, edgeY, { steps: 5 });
+
+			try {
+				await expect(async () => {
+					// Keep cursor at edge to maintain auto-scroll
+					await this.code.driver.page.mouse.move(startX, edgeY, { steps: 2 });
+
+					const result = await isTargetReachable();
+					if (!result.reachable) {
+						throw new Error('Target not yet reachable');
+					}
+					return result;
+				}).toPass({ timeout: 15000, intervals: [100, 200, 300, 500] });
+
+				// Target is now reachable - get fresh position and drop
+				const finalCheck = await isTargetReachable();
+				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
+					await this.code.driver.page.mouse.move(startX, finalCheck.targetY, { steps: 10 });
+					// Wait one frame for dnd-kit to process the final position
+					await this.code.driver.page.evaluate(() => new Promise(requestAnimationFrame));
+					await this.code.driver.page.mouse.up();
+					return;
+				}
+			} catch {
+				// Auto-scroll didn't bring target into view - clean up and fail
+				await this.code.driver.page.mouse.up();
+				throw new Error(`Could not reach target cell at index ${toIndex} via auto-scroll`);
+			}
+
+			await this.code.driver.page.mouse.up();
+		});
+	}
+
+	/**
+	 * Action: Hover over a cell to show the drag handle.
+	 * @param cellIndex - The index of the cell to hover over
+	 */
+	async hoverCell(cellIndex: number): Promise<void> {
+		await test.step(`Hover over cell at index ${cellIndex}`, async () => {
+			// Hover the left-edge drag zone to trigger drag handle visibility
+			await this.dragZoneAtIndex(cellIndex).hover();
 		});
 	}
 
@@ -946,6 +1138,31 @@ export class PositronNotebooks extends Notebooks {
 			for (const index of expectedIndices) {
 				await this.expectCellIndexToBeSelected(index, { isSelected: true, timeout });
 			}
+		});
+	}
+
+	/**
+	 * Verify: drag handle visibility state for a cell.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param visible - Whether the drag handle should be visible.
+	 * @param timeout - Timeout for the expectation.
+	 */
+	async expectDragHandleVisibility(cellIndex: number, visible: boolean, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect drag handle at index ${cellIndex} to be ${visible ? 'visible' : 'hidden'}`, async () => {
+			const dragHandle = this.dragHandleAtIndex(cellIndex);
+
+			// Note: Drag handle uses opacity for show/hide (see SortableCell.css)
+			// opacity: 0 when hidden, 1 on hover (via CSS :hover on .cell-drag-zone)
+			await expect(async () => {
+				const opacity = await dragHandle.evaluate(el =>
+					parseFloat(window.getComputedStyle(el).opacity)
+				);
+				if (visible) {
+					expect(opacity).toBeGreaterThan(0);
+				} else {
+					expect(opacity).toBe(0);
+				}
+			}).toPass({ timeout });
 		});
 	}
 
