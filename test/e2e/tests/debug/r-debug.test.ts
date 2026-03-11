@@ -304,6 +304,7 @@ test.describe('R Breakpoints', {
 		await page.keyboard.type('# test comment');
 
 		await hotKeys.minimizeBottomPanel();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Home' : 'Control+Home');
 
 		// Breakpoint should become unverified after edit
 		await debug.expectBreakpointUnverified(0);
