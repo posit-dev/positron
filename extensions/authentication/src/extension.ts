@@ -30,7 +30,7 @@ export function activate(context: vscode.ExtensionContext) {
 			async (providerId: string, accountId: string, label: string, key: string) => {
 				const provider = apiKeyProviders.get(providerId);
 				if (!provider) {
-					throw new Error(`No auth provider registered for ${providerId}`);
+					throw new Error(vscode.l10n.t("No auth provider registered for {0}", providerId));
 				}
 				const existing = await provider.getSessions([], { account: { id: accountId, label: '' } });
 				if (existing.length > 0) {
