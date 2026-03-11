@@ -343,7 +343,7 @@ export class ActionList<T> extends Disposable {
 						// --- Start Positron ---
 						// Choose the separator height based on whether it has an icon
 						// return this._separatorLineHeight;
-						return !!element.group?.icon ? this._iconSeparatorLineHeight : this._separatorLineHeight;
+						return isTallSeparator(element) ? this._iconSeparatorLineHeight : this._separatorLineHeight;
 					// --- End Positron ---
 					default:
 						return this._actionLineHeight;
@@ -423,8 +423,8 @@ export class ActionList<T> extends Disposable {
 		// --- Start Positron ---
 		// Create separate counts for icon vs. regular separators
 		// const numSeparators = this._allMenuItems.filter(item => item.kind === 'separator').length;
-		const numSeparators = this._allMenuItems.filter(item => item.kind === 'separator' && !item.group?.icon).length;
-		const numIconSeparators = this._allMenuItems.filter(item => item.kind === 'separator' && !!item.group?.icon).length;
+		const numSeparators = this._allMenuItems.filter(item => item.kind === 'separator' && !isTallSeparator(item)).length;
+		const numIconSeparators = this._allMenuItems.filter(item => item.kind === 'separator' && isTallSeparator(item)).length;
 		// --- End Positron ---
 		const itemsHeight = this._allMenuItems.length * this._actionLineHeight;
 		const heightWithHeaders = itemsHeight + numHeaders * this._headerLineHeight - numHeaders * this._actionLineHeight;
@@ -586,3 +586,10 @@ export class ActionList<T> extends Disposable {
 function stripNewlines(str: string): string {
 	return str.replace(/\r\n|\r|\n/g, ' ');
 }
+
+// --- Start Positron ---
+// Helper to determine if a separator is "tall" (has icon or title)
+function isTallSeparator<T>(element: IActionListItem<T>): boolean {
+	return !!element.group?.icon || !!element.group?.title?.length || !!element.label?.length;
+}
+// --- End Positron ---
