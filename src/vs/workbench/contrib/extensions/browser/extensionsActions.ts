@@ -682,9 +682,15 @@ export class InstallAction extends ExtensionAction {
 		}
 		// --- End Positron ---
 		try {
+			// --- Start Positron ---
+			// return await this.extensionsWorkbenchService.install(extension, this.options);
 			return await this.extensionsWorkbenchService.install(extension, installOptions);
+			// --- End Positron ---
 		} catch (error) {
+			// --- Start Positron ---
+			// await this.instantiationService.createInstance(PromptExtensionInstallFailureAction, extension, this.options, extension.latestVersion, InstallOperation.Install, error).run();
 			await this.instantiationService.createInstance(PromptExtensionInstallFailureAction, extension, installOptions, extension.latestVersion, InstallOperation.Install, error).run();
+			// --- End Positron ---
 			return undefined;
 		}
 	}
