@@ -1,0 +1,39 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Scoped scrollbar styles for Positron notebook scroll containers. */
+.positron-notebook-scrollable {
+	&::-webkit-scrollbar {
+		width: 14px;
+		height: 14px;
+	}
+
+	&::-webkit-scrollbar:vertical {
+		border-left: 1px solid var(--vscode-positronScrollBar-border);
+	}
+
+	&::-webkit-scrollbar:horizontal {
+		border-top: 1px solid var(--vscode-positronScrollBar-border);
+	}
+
+	&::-webkit-scrollbar-track {
+		opacity: 0;
+	}
+
+	&::-webkit-scrollbar-thumb {
+		min-height: 20px;
+		background-color: var(--vscode-scrollbarSlider-background) !important;
+	}
+
+	&::-webkit-scrollbar-thumb:hover {
+		cursor: pointer !important;
+		background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+	}
+
+	&::-webkit-scrollbar-corner {
+		border-top: 1px solid var(--vscode-positronScrollBar-border);
+		border-left: 1px solid var(--vscode-positronScrollBar-border);
+	}
+}

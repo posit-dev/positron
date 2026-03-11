@@ -87,6 +87,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			>
 				<div className={positronClassNames(
 					'positron-notebook-code-cell-outputs-inner',
+					'positron-notebook-scrollable',
 					{ 'output-scrolling': layout.outputScrolling }
 				)}>
 					{isCollapsed
