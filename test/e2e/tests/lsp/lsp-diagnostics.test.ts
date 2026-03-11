@@ -177,7 +177,7 @@ test.describe('Diagnostics', {
 		await test.step('Fix the error', async () => {
 			await notebooksPositron.selectCellAtIndex(0, { editMode: true });
 			await hotKeys.selectAll();
-			await notebooksPositron.editorAtIndex(0).pressSequentially('x = 1\nprint(x)');
+			await app.code.driver.page.keyboard.type('x = 1\nprint(x)');
 			await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(x)']);
 		});
 
