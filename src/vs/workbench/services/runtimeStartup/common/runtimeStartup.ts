@@ -472,23 +472,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// extensions won't activate until the workspace is trusted).
 		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 			this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
-			this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
-				if (!trusted) {
-					return;
-				}
-				// When the workspace becomes trusted while we are still
-				// awaiting trust, the extension host will restart and the
-				// ext point handler will fire with language packs, which
-				// drives the startup sequence forward. However, if no
-				// language packs arrive (e.g. no extensions contribute
-				// runtimes), we need a fallback to avoid hanging forever
-				// in the AwaitingTrust phase. Route through the full
-				// startup sequence so session restore, new-folder tasks,
-				// and affiliated/recommended startup are not skipped.
-				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-					this.startupSequence();
-				}
-			}));
 		}
 
 		// Find all the sessions that need to be restored.
@@ -611,11 +594,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async startupSequence() {
 
-		// Guard against double entry. Both the ext-point handler and the
-		// onDidChangeTrust handler can call startupSequence() when the
-		// workspace transitions from untrusted to trusted. Setting the
-		// phase synchronously before the first await ensures only the
-		// first caller proceeds.
+		// Guard against double entry. Multiple code paths can call
+		// startupSequence() (e.g. the ext-point handler and
+		// startupAfterTrust). Setting the phase synchronously before
+		// the first await ensures only the first caller proceeds.
 		if (this._startupPhase !== RuntimeStartupPhase.AwaitingTrust &&
 			this._startupPhase !== RuntimeStartupPhase.Initializing) {
 			return;
