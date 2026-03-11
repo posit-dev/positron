@@ -28,7 +28,11 @@ export const MIN_TOKEN_LIMIT = 512;
 /** Tag used by tools to indicate a workspace must be open in order to use the tool */
 export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
 
-/** Default patterns for selectable models */
+/**
+ * Default patterns for selectable models
+ * model-router is a special value for Foundry that indicates the endpoint
+ * supports dynamic model selection that will be handled by Foundry
+ */
 export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt', 'model-router'];
 
 /** Settings search string for provider enable settings */
