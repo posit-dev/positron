@@ -922,11 +922,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (session.runtimeMetadata.uiSubscriptions?.includes(UiRuntimeNotifications.DidChangePlotsRenderSettings)) {
 			this._register(this._runtimeSessionService.watchUiClient(session.sessionId, (uiClient) => {
 				// Send initial settings immediately
-				uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
+				uiClient.
+					didChangePlotsRenderSettings(this.getPlotsRenderSettings()).
+					catch(onUnexpectedError);
 
 				// Forward future settings updates
 				return this.onDidChangePlotsRenderSettings(settings => {
-					uiClient.didChangePlotsRenderSettings(settings);
+					uiClient.
+						didChangePlotsRenderSettings(settings).
+						catch(onUnexpectedError);
 				});
 			}));
 		}
