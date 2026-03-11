@@ -3,37 +3,54 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Scoped scrollbar styles for Positron notebook scroll containers. */
+/*
+ * Reusable overlay-scrollbar styling for Positron notebooks.
+ *
+ * Chromium does not support CSS transitions on ::-webkit-scrollbar-*
+ * pseudo-elements. To work around this, we use a CSS Houdini registered
+ * custom property (@property) for the thumb color. Registering it with
+ * `syntax: "<color>"` tells the browser it is interpolatable, so we can
+ * transition the property value on a real element and the scrollbar thumb
+ * picks up the animated value via var().
+ *
+ * Fade timings (100ms in, 800ms out) match the VS Code custom scrollbar
+ * widget (src/vs/base/browser/ui/scrollbar/media/scrollbars.css).
+ */
+@property --_positron-notebook-scrollbar-thumb-bg {
+	syntax: "<color>";
+	inherits: true;
+	initial-value: transparent;
+}
+
 .positron-notebook-scrollable {
+	/* Reset to prevent inheritance from an ancestor that happens to be :hover */
+	--_positron-notebook-scrollbar-thumb-bg: transparent;
+	transition: --_positron-notebook-scrollbar-thumb-bg 800ms linear; /* fade out */
+
+	&:hover {
+		--_positron-notebook-scrollbar-thumb-bg: var(--vscode-scrollbarSlider-background);
+		transition: --_positron-notebook-scrollbar-thumb-bg 100ms linear; /* fade in */
+	}
+
 	&::-webkit-scrollbar {
-		width: 14px;
-		height: 14px;
+		width: 8px;
+		height: 8px;
 	}
 
-	&::-webkit-scrollbar:vertical {
-		border-left: 1px solid var(--vscode-positronScrollBar-border);
-	}
-
-	&::-webkit-scrollbar:horizontal {
-		border-top: 1px solid var(--vscode-positronScrollBar-border);
-	}
-
-	&::-webkit-scrollbar-track {
-		opacity: 0;
-	}
-
+	/* Use background-color (not background shorthand) to avoid resetting
+	 * background-clip, which creates the inset padding around the thumb.
+	 *
+	 * The !important declarations below should not be necessary for scoped
+	 * styles, but are needed to override the global unscoped ::-webkit-scrollbar
+	 * rules in variablesInstance.css. Those global selectors should eventually
+	 * be scoped to their own component. */
 	&::-webkit-scrollbar-thumb {
-		min-height: 20px;
-		background-color: var(--vscode-scrollbarSlider-background) !important;
+		background-color: var(--_positron-notebook-scrollbar-thumb-bg) !important;
+		background-clip: padding-box;
 	}
 
+	/* Brighter highlight when hovering directly over the thumb. */
 	&::-webkit-scrollbar-thumb:hover {
-		cursor: pointer !important;
 		background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
-	}
-
-	&::-webkit-scrollbar-corner {
-		border-top: 1px solid var(--vscode-positronScrollBar-border);
-		border-left: 1px solid var(--vscode-positronScrollBar-border);
 	}
 }
