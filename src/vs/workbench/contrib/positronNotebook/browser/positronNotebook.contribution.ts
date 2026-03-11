@@ -1603,14 +1603,8 @@ registerAction2(class extends NotebookAction2 {
 					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
 				)
 			},
-			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_COMMAND_MODE,
-					POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT
-				),
-				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.CtrlCmd | KeyCode.KeyC
-			}
+			// Keybinding deferred to #12434 (output-focused state for
+			// context-dependent Cmd+C)
 		});
 	}
 

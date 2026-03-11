@@ -69,35 +69,4 @@ test.describe('Positron Notebooks: Copy Output Image', {
 		});
 	});
 
-	test('Cmd+C copies image when cell with plot is active in command mode', async function ({ app, hotKeys, headless }) {
-		test.skip(!!headless, 'Clipboard image tests require headed mode');
-
-		const { notebooksPositron } = app.workbench;
-
-		await test.step('Execute cell that generates a plot', async () => {
-			await notebooksPositron.addCodeToCell(0, matplotlibPlotCode, { run: true, waitForSpinner: true });
-		});
-
-		await test.step('Verify plot image appears in output', async () => {
-			const cellOutput = notebooksPositron.cell.nth(0).getByTestId('cell-output');
-			await expect(cellOutput.locator('img')).toBeVisible();
-		});
-
-		await test.step('Exit edit mode and copy with Cmd+C', async () => {
-			// Press Escape to enter command mode
-			await app.code.driver.page.keyboard.press('Escape');
-
-			// Clear clipboard first
-			await app.workbench.clipboard.clearClipboard();
-
-			// Cmd+C should copy the image since cell has image output
-			await hotKeys.copy();
-
-			// Allow time for clipboard write
-			await app.code.wait(500);
-
-			const clipboardImageBuffer = await app.workbench.clipboard.getClipboardImage();
-			expect(clipboardImageBuffer).not.toBeNull();
-		});
-	});
 });
