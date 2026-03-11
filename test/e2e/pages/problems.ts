@@ -53,19 +53,22 @@ export class Problems {
 	 * @param badgeCount - The expected problem count shown in the Problems tab badge (total)
 	 * @param errorCount - The expected error count shown in the Problems view
 	 * @param warningCount - The expected warning count shown in the Problems view
+	 * @param timeout - Optional timeout in milliseconds to wait for diagnostics to stabilize (default: 1500ms)
 	 */
 	async expectDiagnosticsToBe({
 		badgeCount,
 		errorCount,
-		warningCount
+		warningCount,
+		timeout = 1500
 	}: {
 		badgeCount?: number;
 		errorCount?: number;
 		warningCount?: number;
+		timeout?: number;
 	}): Promise<void> {
 		await test.step(`Expect diagnostics - Problems: ${badgeCount ?? 'N/A'}, Errors: ${errorCount ?? 'N/A'}, Warnings: ${warningCount ?? 'N/A'}`, async () => {
 			// Waiting for debounce to complete, ensuring counts reflect the final state
-			await this.code.driver.page.waitForTimeout(1500);
+			await this.code.driver.page.waitForTimeout(timeout);
 			await this.showProblemsView();
 
 			if (badgeCount !== undefined) {
