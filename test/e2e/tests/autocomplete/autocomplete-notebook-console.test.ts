@@ -169,31 +169,43 @@ test.describe('Autocomplete with Notebook Console', {
 		// Start an R console session and define a variable
 		await sessions.start(['r']);
 		await hotKeys.closeSecondarySidebar();
-		await console.typeToConsole('quux1234 <- faithful', true, 0);
+		await console.executeCode('R', 'quux1234 <- faithful');
 		await sessions.expectAllSessionsToBeReady();
 
 		await test.step('Open Quarto file and run cell to start notebook session', async () => {
-			await openFile(join('workspaces', 'quarto_inline_output', 'simple_r.rmd'));
-			await editors.waitForActiveTab('simple_r.rmd');
+			await openFile(join('workspaces', 'quarto_inline_output', 'console_test.rmd'));
+			await editors.waitForActiveTab('console_test.rmd');
 			await inlineQuarto.expectKernelStatusVisible();
 
 			// Run the cell to start the Quarto kernel session
 			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
 		});
 
-		await test.step('Define a variable in the notebook console', async () => {
-			// Switch to the notebook console
-			await sessions.select('simple_r.rmd');
-
-			// Define a variable in the notebook session
-			await console.typeToConsole('quux2345 <- mtcars', true, 0);
+		await test.step('Define a variable in the notebook session', async () => {
+			// Define quux2345 by adding it to the existing code cell
+			// and running it. This avoids typing into the console
+			// input where the suggest widget can intercept Enter.
+			await editors.selectTab('console_test.rmd');
+			await inlineQuarto.gotoLine(11);
+			await keyboard.press('End');
+			await keyboard.press('Enter');
+			await keyboard.type('quux2345 <- mtcars', { delay: 0 });
+			await inlineQuarto.runCurrentCell();
 			await sessions.expectAllSessionsToBeReady();
+
+			// Undo the file edit so later tests see the original file
+			await keyboard.press('Meta+z');
+			await keyboard.press('Meta+z');
 		});
 
 		await test.step('Verify notebook console autocomplete uses notebook session', async () => {
-			// Clear the console input and type the prefix
+			// Switch to the notebook console
+			await sessions.select('console_test.rmd');
+			await console.waitForReady('>');
+
+			// Clear the console input and type the prefix.
 			await console.clearInput();
-			await console.typeToConsole('quux', false, 250);
+			await keyboard.type('quux', { delay: 250 });
 
 			// Trigger completions and verify we see quux2345 (from the
 			// notebook session). If the console LSP is incorrectly
