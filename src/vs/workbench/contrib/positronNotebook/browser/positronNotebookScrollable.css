@@ -35,13 +35,19 @@
 	--_positron-notebook-scrollbar-thumb-bg: transparent; /* reset for nested scrollables */
 	transition: --_positron-notebook-scrollbar-thumb-bg 800ms linear; /* fade out */
 
-	&:hover {
+	/* On hover of the scroll container or while actively scrolling
+	 * (e.g. via keyboard). The .is-scrolling class is toggled by the
+	 * useScrollingIndicator hook. */
+	&:hover,
+	&.is-scrolling {
 		--_positron-notebook-scrollbar-thumb-bg: var(--vscode-scrollbarSlider-background);
 		transition: --_positron-notebook-scrollbar-thumb-bg 100ms linear; /* fade in */
 	}
 
 	&::-webkit-scrollbar {
+		/* Vertical scrollbar width */
 		width: 8px;
+		/* Horizontal scrollbar height */
 		height: 8px;
 	}
 
