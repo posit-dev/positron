@@ -40,7 +40,7 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 - Core tests (`src/**/*.ts`):
 	- `./scripts/test.sh`: run all tests
 	- `./scripts/test.sh --run <file>.ts`: run a specific file
-	- `./scripts/test.sh --run <file>.ts --glob '<pattern>'`: run specific tests in a file
+	- `./scripts/test.sh --run <file>.ts --grep '<pattern>'`: run specific tests in a file
 	- `./scripts/test.sh --runGlob <glob>.js`: run files matching a glob (use `.js` extension with `--runGlob`)
 - Extension tests (`extensions/<extension-name>/*.test.ts`, preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- For positron-python, see that extension's CLAUDE.md
