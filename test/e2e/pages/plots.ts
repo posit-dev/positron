@@ -21,6 +21,7 @@ const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
+const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
 const OUTER_WEBVIEW_FRAME = '.webview';
 const INNER_WEBVIEW_FRAME = '#active-frame';
@@ -40,6 +41,7 @@ export class Plots {
 	copyPlotButton: Locator;
 	zoomPlotButton: Locator;
 	currentPlot: Locator;
+	sessionNameButton: Locator;
 	originFileButton: Locator;
 	savePlotModal: Locator;
 	overwriteModal: Locator;
@@ -55,9 +57,16 @@ export class Plots {
 		this.copyPlotButton = this.code.driver.page.locator(COPY_PLOT_BUTTON);
 		this.zoomPlotButton = this.code.driver.page.locator(ZOOM_PLOT_BUTTON);
 		this.currentPlot = this.code.driver.page.locator(CURRENT_PLOT);
+		this.sessionNameButton = this.code.driver.page.locator(SESSION_NAME_BUTTON);
 		this.originFileButton = this.code.driver.page.locator(ORIGIN_FILE_BUTTON);
 		this.savePlotModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'Save Plot' });
 		this.overwriteModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'The file already exists' });
+	}
+
+	async clickSessionNameButton() {
+		await test.step('Click session name button on plot', async () => {
+			await this.sessionNameButton.click();
+		});
 	}
 
 	async clickOriginFileButton() {
