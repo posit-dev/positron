@@ -17,6 +17,7 @@ import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
 
 export type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
@@ -67,7 +68,7 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 	const outputWordWrap = notebookOptions.getLayoutConfiguration().outputWordWrap;
 
 	return <>
-		<div className={`notebook-${type} positron-notebook-text-output${outputWordWrap ? ' word-wrap' : ''}`}>
+		<div className={positronClassNames(`notebook-${type}`, 'positron-notebook-text-output', { 'word-wrap': outputWordWrap })}>
 			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />
 			{truncation.mode === 'truncate' && <>
 				<TruncationMessage
