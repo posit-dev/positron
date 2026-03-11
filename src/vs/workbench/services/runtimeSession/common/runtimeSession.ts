@@ -372,7 +372,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined {
 		// Return the foreground session if the languageId matches
-		if (this._foregroundSession?.runtimeMetadata.languageId === languageId) {
+		if (this._foregroundSession?.runtimeMetadata.languageId === languageId && this._foregroundSession.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			return this.foregroundSession;
 		}
 		// Otherwise, return the last active session for the languageId if there is one
@@ -809,7 +809,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		this._foregroundSession = session;
 
-		if (session) {
+		if (session && session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			// Update the map of active console sessions per language
 			this._lastActiveConsoleSessionByLanguageId.set(session.runtimeMetadata.languageId, session);
 		}
