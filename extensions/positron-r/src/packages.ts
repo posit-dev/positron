@@ -25,8 +25,10 @@ export class RPackageManager {
 	 */
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
 		const method = await this._getPakMethod();
-		const result = await this._session.callMethod('pkg_list', method);
-		return result ?? [];
+		const result = await this._session.callMethod('pkg_list', method) as positron.LanguageRuntimePackage[] ?? [];
+		// Sort packages alphabetically by name (case-insensitive)
+		result.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+		return result;
 	}
 
 	/**
@@ -47,7 +49,7 @@ export class RPackageManager {
 			// renv: use renv::install with lock=TRUE to update lockfile
 			const pkgNames = packages.map(p => p.name);
 			const pkgVector = this._formatRVector(pkgNames);
-			code = `renv::install(${pkgVector}, lock = TRUE)`;
+			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
 			// If we're installing pak, don't prompt to install pak
 			let method: string;
@@ -92,7 +94,7 @@ export class RPackageManager {
 			// renv: use renv::update with lock=TRUE to update lockfile
 			const pkgNames = packages.map(p => p.name);
 			const pkgVector = this._formatRVector(pkgNames);
-			code = `renv::update(${pkgVector}, lock = TRUE)`;
+			code = `renv::update(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
 			const method = await this._ensurePak();
 
@@ -121,7 +123,7 @@ export class RPackageManager {
 
 		if (isRenv) {
 			// renv: update all packages with lock=TRUE
-			await this._executeAndWait(`renv::update(lock = TRUE)`);
+			await this._executeAndWait(`renv::update(lock = TRUE, prompt = FALSE)`);
 		} else {
 			const method = await this._ensurePak();
 
