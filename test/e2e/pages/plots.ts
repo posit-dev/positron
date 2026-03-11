@@ -19,6 +19,7 @@ const PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .pos
 const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Save plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
+const OPEN_IN_EDITOR_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Open in editor tab"]';
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
@@ -233,6 +234,31 @@ export class Plots {
 			} else {
 				throw new Error('Could not find "Open in Editor" button in action bar or overflow menu');
 			}
+		});
+	}
+
+	async clickOpenInEditorButton() {
+		await test.step('Click the main Open in Editor button', async () => {
+			const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_BUTTON);
+			await openInEditorButton.click();
+		});
+	}
+
+	async verifyOpenPlotDropdownCheckedOption(expectedOption: PlotLocations) {
+		const menuItemLabels: Record<PlotLocations, string> = {
+			'editor': 'Open in editor tab',
+			'new window': 'Open in new window',
+			'editor tab to the side': 'Open in editor tab to the Side'
+		};
+		await test.step(`Verify dropdown checked option is: ${expectedOption}`, async () => {
+			const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);
+			await this.contextMenu.triggerAndVerifyMenuItems({
+				menuTrigger: openInEditorButton,
+				menuItemStates: Object.entries(menuItemLabels).map(([key, label]) => ({
+					label,
+					checked: key === expectedOption
+				}))
+			});
 		});
 	}
 
