@@ -10,6 +10,9 @@ fi
 function code() {
 	pushd $ROOT
 
+	# Required for Node 22+ to run TypeScript files directly
+	export NODE_OPTIONS="--experimental-strip-types"
+
 	# Get electron, compile, built-in extensions
 	if [[ -z "${VSCODE_SKIP_PRELAUNCH}" ]]; then
 		node build/lib/preLaunch.ts

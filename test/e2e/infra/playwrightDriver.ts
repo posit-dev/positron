@@ -120,14 +120,6 @@ export class PlaywrightDriver {
 			}
 
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing${name ? ` for ${name}` : ''}`, this.options.logger);
-
-			// To ensure we have a screenshot at the end where
-			// it failed, also trigger one explicitly. Tracing
-			// does not guarantee to give us a screenshot unless
-			// some driver action ran before.
-			if (persist) {
-				await this.takeScreenshot(name);
-			}
 		} catch (error) {
 			// Ignore
 		}
