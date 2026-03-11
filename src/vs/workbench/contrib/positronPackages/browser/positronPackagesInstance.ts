@@ -107,6 +107,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._onDidChangeRefreshState.fire(true);
 		try {
 			const packages = await session.getPackages();
+			this._packages = packages;
 			this._onDidRefreshPackagesInstance.fire(packages);
 			return packages;
 		} finally {
@@ -129,6 +130,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Fire refresh event.
 			const pkgs = await session.getPackages?.();
 			if (pkgs) {
+				this._packages = pkgs;
 				this._onDidRefreshPackagesInstance.fire(pkgs);
 			}
 		} finally {
@@ -152,6 +154,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Fire refresh event.
 			const newPackages = await session.getPackages?.();
 			if (newPackages) {
+				this._packages = newPackages;
 				this._onDidRefreshPackagesInstance.fire(newPackages);
 			}
 		} finally {
@@ -175,6 +178,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Fire refresh event.
 			const newPackages = await session.getPackages?.();
 			if (newPackages) {
+				this._packages = newPackages;
 				this._onDidRefreshPackagesInstance.fire(newPackages);
 			}
 		} finally {
@@ -198,6 +202,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Fire refresh event.
 			const newPackages = await session.getPackages?.();
 			if (newPackages) {
+				this._packages = newPackages;
 				this._onDidRefreshPackagesInstance.fire(newPackages);
 			}
 		} finally {
