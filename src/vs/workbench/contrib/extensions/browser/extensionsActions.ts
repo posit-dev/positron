@@ -672,7 +672,7 @@ export class InstallAction extends ExtensionAction {
 			);
 			if (!compatibleGallery) {
 				this.dialogService.info(
-					localize('positronIncompatibleExtension', "No version of '{0}' is compatible with this version of Positron.", extension.displayName || extension.identifier.id),
+					localize('positronIncompatibleExtensionInstall', "No version of '{0}' is compatible with this version of Positron (v{1}).", extension.displayName || extension.identifier.id, this.productService.positronVersion),
 				);
 				return undefined;
 			}
@@ -1149,13 +1149,13 @@ export class UpdateAction extends ExtensionAction {
 			);
 			if (!compatibleGallery) {
 				this.dialogService.info(
-					localize('positronIncompatibleExtension', "No version of '{0}' is compatible with this version of Positron.", this.extension.displayName || this.extension.identifier.id),
+					localize('positronIncompatibleExtensionUpdate', "No update for '{0}' is compatible with this version of Positron (v{1}).", this.extension.displayName || this.extension.identifier.id, this.productService.positronVersion),
 				);
 				return;
 			}
 			if (compatibleGallery.version === this.extension.version) {
 				this.dialogService.info(
-					localize('positronAlreadyCompatible', "'{0}' is already at the latest version compatible with this version of Positron (v{1}).", this.extension.displayName || this.extension.identifier.id, this.extension.version),
+					localize('positronAlreadyCompatible', "'{0}' v{1} is already at the latest version compatible with this version of Positron (v{2}).", this.extension.displayName || this.extension.identifier.id, this.extension.version, this.productService.positronVersion),
 				);
 				return;
 			}

@@ -1374,7 +1374,10 @@ class AdditionalDetailsWidget extends Disposable {
 				append(moreInfo,
 					$('.more-info-entry', undefined,
 						$('div.more-info-entry-name', undefined, localize('Version', "Version")),
+						// --- Start Positron ---
+						// $('code', undefined, gallery.version)
 						$('code', undefined, displayVersion)
+						// --- End Positron ---
 					)
 				);
 			}
