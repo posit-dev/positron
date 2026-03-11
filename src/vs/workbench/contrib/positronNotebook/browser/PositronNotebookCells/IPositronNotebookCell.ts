@@ -285,7 +285,8 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 
 	/**
 	 * Data URL of the image that was last right-clicked in the output area.
-	 * Set before showing the context menu, cleared when the menu closes.
+	 * Set before showing the context menu, cleared when the action runs or
+	 * the next context menu opens.
 	 * Used by the "Copy Image" action to copy the specific image the user
 	 * targeted rather than always the first image.
 	 */
