@@ -321,6 +321,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				positronContext: contextInfo ? { prompts: contextInfo.prompts, attachedDataTypes: contextInfo.attachedDataTypes } : undefined,
 				systemPrompt,
 			},
+			details: request.model.name,
 		};
 	}
 

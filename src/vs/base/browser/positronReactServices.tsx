@@ -44,6 +44,7 @@ import { IPositronPreviewService } from '../../workbench/contrib/positronPreview
 import { IPositronNewFolderService } from '../../workbench/services/positronNewFolder/common/positronNewFolder.js';
 import { ILanguageRuntimeService } from '../../workbench/services/languageRuntime/common/languageRuntimeService.js';
 import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
+import { IPositronMemoryUsageService } from '../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { IPositronModalDialogsService } from '../../workbench/services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService } from '../../workbench/services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IResourceUsageHistoryService } from '../../workbench/services/positronConsole/browser/resourceUsageHistoryService.js';
@@ -115,6 +116,7 @@ export class PositronReactServices {
 		@IPositronConsoleService public readonly positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService public readonly positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronHelpService public readonly positronHelpService: IPositronHelpService,
+		@IPositronMemoryUsageService public readonly positronMemoryUsageService: IPositronMemoryUsageService,
 		@IPositronModalDialogsService public readonly positronModalDialogsService: IPositronModalDialogsService,
 		@IPositronNewFolderService public readonly positronNewFolderService: IPositronNewFolderService,
 		@IPositronNotebookOutputWebviewService public readonly positronNotebookOutputWebviewService: IPositronNotebookOutputWebviewService,

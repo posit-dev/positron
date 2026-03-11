@@ -401,7 +401,7 @@ function convertKind(kind: PythonEnvKind): EnvironmentTools | undefined {
             return 'Pyenv';
         // --- Start Positron ---
         case PythonEnvKind.Uv:
-            return 'Uv';
+            return 'uv';
         // --- End Positron ---
         default:
             return undefined;

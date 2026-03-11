@@ -50,6 +50,21 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
 	]],
+	// Microsoft Foundry models -- common deployments; admins can override via models.overrides.msFoundry
+	['ms-foundry', [
+		{
+			name: 'GPT-5.3 Chat',
+			identifier: 'gpt-5.3-chat',
+			maxInputTokens: 1_047_576,
+			maxOutputTokens: 32_768,
+		},
+		{
+			name: 'GPT-4.1',
+			identifier: 'gpt-4.1',
+			maxInputTokens: 1_047_576,
+			maxOutputTokens: 32_768,
+		},
+	]],
 	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api#model-availability
 	['snowflake-cortex', [
 		{

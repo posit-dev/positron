@@ -239,6 +239,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	clearAllCellOutputs(): void;
 
 	/**
+	 * Clears outputs from specific cells in the notebook by index.
+	 * @param cellIndices Array of cell indices whose outputs should be cleared.
+	 */
+	clearCellOutputsByIndex(cellIndices: number[]): void;
+
+	/**
 	 * Creates and inserts a new cell into the notebook.
 	 *
 	 * @param type The kind of cell to create (e.g., code, markdown)

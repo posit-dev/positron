@@ -15,18 +15,6 @@ test.use({
  */
 test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	/**
-	 * Verifies that the Positron Assistant can be opened and that the
-	 * add model button is visible in the interface. Once Assistant is on by default,
-	 * this test can be removed.
-	 *
-	 * @param app - Application fixture providing access to UI elements
-	 */
-	test('Verify Positron Assistant enabled', async function ({ app }) {
-		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.verifyConfigureProvidersButtonVisible();
-	});
-
-	/**
 	 * Verifies that Posit AI is the first provider in the Configure Providers modal.
 	 * This ensures Posit AI has prominence as the default/recommended provider.
 	 *

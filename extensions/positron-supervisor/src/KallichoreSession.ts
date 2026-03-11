@@ -166,6 +166,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	private _activeSession: ActiveSession | undefined;
 
+	/** Cached OS process ID of the kernel, used for resource usage reporting. */
+	private _processId: number | undefined;
+
+	/** Guard flag to prevent concurrent getSession() calls when fetching the PID. */
+	private _fetchingProcessId = false;
+
 	/**
 	 * The message header for the current requests if any is active.  This is
 	 * used for input requests (e.g. from `readline()` in R) Concurrent requests
@@ -666,6 +672,80 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Evaluates a code fragment silently in the runtime and returns the
+	 * JSON-serialized result, without displaying output in the console.
+	 *
+	 * @param code The code string to evaluate
+	 * @returns A promise that resolves with the result of the evaluation
+	 */
+	async evaluate(code: string): Promise<positron.EvalResult> {
+		// Wait for the runtime to be idle before evaluating
+		await this.waitForIdle();
+
+		const promise = new PromiseHandles<positron.EvalResult>;
+
+		// Find the UI comm
+		const uiComm = Array.from(this._clients.values())
+			.find(c => c.target === positron.RuntimeClientType.Ui);
+
+		if (!uiComm) {
+			promise.reject(new Error('No UI comm is open; cannot evaluate code'));
+			return promise.promise;
+		}
+
+		// Build the JSON-RPC request for evaluate_code
+		const request = {
+			jsonrpc: '2.0',
+			method: 'evaluate_code',
+			params: {
+				code
+			},
+			id: createUniqueId(),
+		};
+
+		const commMsg: JupyterCommMsg = {
+			comm_id: uiComm.id,
+			data: request
+		};
+
+		const commRequest = new CommMsgRequest(createUniqueId(), commMsg);
+		this.sendRequest(commRequest).then((reply) => {
+			const response = reply.data;
+
+			// If the response is an error, throw it
+			if (Object.keys(response).includes('error')) {
+				const error = response.error as any;
+				error.name = `RPC Error ${error.code}`;
+				promise.reject(error);
+				return;
+			}
+
+			// JSON-RPC specifies that the return value must have either a
+			// 'result' or an 'error'; make sure we got a result.
+			if (!Object.keys(response).includes('result')) {
+				const error: positron.RuntimeMethodError = {
+					code: positron.RuntimeMethodErrorCode.InternalError,
+					message: `Invalid response from UI comm: no 'result' field. ` +
+						`(response = ${JSON.stringify(response)})`,
+					name: `InvalidResponseError`,
+					data: {},
+				};
+				promise.reject(error);
+				return;
+			}
+
+			// Return the result
+			promise.resolve(response.result as positron.EvalResult);
+		})
+			.catch((err) => {
+				this.log(`Failed to send evaluate_code request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+				promise.reject(err);
+			});
+
+		return promise.promise;
+	}
+
+	/**
 	 * Gets the path to the kernel's log file, if any.
 	 *
 	 * @returns The kernel's log file.
@@ -990,6 +1070,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Save the kernel info
 		this.runtimeInfoFromKernelInfo(session.kernel_info as KernelInfoReply);
 		this._activeSession = session;
+		this._processId = session.process_id;
 	}
 
 	/**
@@ -1361,9 +1442,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * out or reject.
 	 */
 	async waitForIdle(): Promise<void> {
+		// If already idle, resolve immediately
+		if (this._runtimeState === positron.RuntimeState.Idle) {
+			return;
+		}
 		return new Promise((resolve, _reject) => {
-			this._state.event(async (state) => {
+			const listener = this._state.event(async (state) => {
 				if (state === positron.RuntimeState.Idle) {
+					listener.dispose();
 					resolve();
 				}
 			});
@@ -1727,6 +1813,24 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._kernelChannel.append(output.output[1]);
 		} else if (data.hasOwnProperty('resourceUsage')) {
 			const resourceUsage = data.resourceUsage as positron.RuntimeResourceUsage;
+
+			// Supplement with the kernel's OS process ID so the memory
+			// usage service can exclude it from the Positron process tree.
+			if (this._processId) {
+				resourceUsage.process_id = this._processId;
+			} else if (!this._fetchingProcessId) {
+				// For new sessions, fetch the PID lazily from Kallichore.
+				// Guard with an in-flight flag to avoid flooding the API
+				// when resourceUsage events arrive faster than the fetch.
+				this._fetchingProcessId = true;
+				this._api.getSession(this.metadata.sessionId).then(result => {
+					if (result.data.process_id) {
+						this._processId = result.data.process_id;
+					}
+				}).catch(() => { /* ignore; will retry on next message */ })
+					.finally(() => { this._fetchingProcessId = false; });
+			}
+
 			this._resourceUsage.fire(resourceUsage);
 		} else if (data.hasOwnProperty('clientDisconnected')) {
 			// Log the disconnection and close the socket

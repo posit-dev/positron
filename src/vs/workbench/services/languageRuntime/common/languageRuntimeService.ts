@@ -486,6 +486,9 @@ export interface ILanguageRuntimeResourceUsage {
 
 	/** Timestamp of the resource usage data in milliseconds since epoch */
 	timestamp: number;
+
+	/** The OS process ID of the kernel, if known */
+	process_id?: number;
 }
 
 /**

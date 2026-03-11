@@ -59,6 +59,23 @@ _SHELL_PREFIX = "!"
 # Custom LSP method for help topic requests
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 
+# Highest-priority item wins deduplication in Positron core.
+_PRIORITY_HIGH = 1
+_PRIORITY_LOW = -1
+
+
+@attrs.define
+class PositronHover:
+    """Hover response with an extra ``data`` field for priority.
+
+    Extends lsprotocol's Hover with a ``data`` field carrying priority info.
+    See the patch to the client's protocol in positron-python/src/client/positron/lsp.ts.
+    """
+
+    contents: types.MarkupContent = attrs.field()
+    data: dict[str, int] = attrs.field()
+
+
 # Pre-compiled regex patterns used throughout the LSP server
 _RE_STATEMENT_SPLIT = re.compile(r"[;\n]")
 """Split source code by statement separators (semicolons or newlines)"""
@@ -150,6 +167,47 @@ class _ColParam(NamedTuple):
 
     name: str
     pos: int | None
+
+
+class _StringContext(NamedTuple):
+    """Cursor position inside a string literal."""
+
+    quote_char: str  # opening quote (' or ")
+    prefix: str  # text typed inside the string so far
+    before_string: str  # text_before_cursor up to the opening quote
+
+
+def _parse_string_context(
+    text_before_cursor: str,
+) -> _StringContext | None:
+    """Return string-literal context if the cursor is inside one, else None."""
+    match = _RE_STRING_LITERAL.search(text_before_cursor)
+    if not match:
+        return None
+    return _StringContext(
+        quote_char=match.group(1),
+        prefix=match.group(2) or "",
+        before_string=text_before_cursor[: match.start()],
+    )
+
+
+class _DocumentContext(NamedTuple):
+    """Document and current line for a position-based request."""
+
+    document: TextDocument
+    line: str
+
+
+def _get_document_line(
+    server: PositronLanguageServer,
+    params: types.CompletionParams | types.TextDocumentPositionParams | HelpTopicParams,
+) -> _DocumentContext:
+    """Extract the document and current line from a position request."""
+    document = server.workspace.get_text_document(params.text_document.uri)
+    lines = document.lines
+    line_idx = params.position.line
+    line = lines[line_idx] if lines and 0 <= line_idx < len(lines) else ""
+    return _DocumentContext(document=document, line=line)
 
 
 _PANDAS_COLUMN_METHODS: dict[str, list[_ColParam]] = {
@@ -380,8 +438,6 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
 
     def __init__(self, server: PositronLanguageServer, converter: cattrs.Converter):
         super().__init__(server, converter)
-        # Queue for handling message batching (performance optimization)
-        self._messages_to_handle: list[Any] = []
 
     @lru_cache  # noqa: B019
     def get_message_type(self, method: str) -> type | None:
@@ -619,7 +675,7 @@ def _register_features(server: PositronLanguageServer) -> None:
 
     # --- Hover ---
     @server.feature(types.TEXT_DOCUMENT_HOVER)
-    def hover(params: types.TextDocumentPositionParams) -> types.Hover | None:
+    def hover(params: types.TextDocumentPositionParams) -> PositronHover | None:
         """Provide hover information."""
         return _handle_hover(server, params)
 
@@ -642,12 +698,25 @@ def _register_features(server: PositronLanguageServer) -> None:
 # --- Completion Handlers ---
 
 
+def _set_completion_priority(items: list[types.CompletionItem]) -> None:
+    """Set priority on positron-python completion items for deduplication.
+
+    High for most items (win over static analysis), low for magic commands (lose to static analysis).
+    """
+    for item in items:
+        is_magic = isinstance(item.label, str) and item.label.startswith(_LINE_MAGIC_PREFIX)
+        priority = _PRIORITY_LOW if is_magic else _PRIORITY_HIGH
+        if isinstance(item.data, dict):
+            item.data["priority"] = priority
+        else:
+            item.data = {"priority": priority}
+
+
 def _handle_completion(
     server: PositronLanguageServer, params: types.CompletionParams
 ) -> types.CompletionList | None:
     """Handle completion requests."""
-    document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    document, line = _get_document_line(server, params)
     trimmed_line = line.lstrip()
 
     # Don't complete comments or shell commands
@@ -720,6 +789,7 @@ def _handle_completion(
             server, text_before_cursor, text_after_cursor, params.position
         )
         if path_items:
+            _set_completion_priority(path_items)
             return types.CompletionList(is_incomplete=False, items=path_items)
 
     if not subscript_match:
@@ -745,6 +815,8 @@ def _handle_completion(
     if not (is_completing_attribute or has_whitespace or has_string):
         items.extend(_get_magic_completions(server, text_before_cursor))
 
+    if items:
+        _set_completion_priority(items)
     return types.CompletionList(is_incomplete=False, items=items) if items else None
 
 
@@ -857,7 +929,8 @@ def _get_namespace_completions(
     items = []
     # Get the partial word being typed
     match = _RE_TRAILING_WORD.search(text_before_cursor)
-    prefix = match.group(1) if match else ""
+    assert match is not None
+    prefix = match.group(1)
 
     for name, obj in server.shell.user_ns.items():
         # Skip private names unless explicitly typing underscore
@@ -1213,15 +1286,12 @@ def _get_path_completions(
         List of completion items for matching filesystem paths
     """
     # Detect if cursor is inside a string literal
-    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
-    if not string_match:
+    sc = _parse_string_context(text_before_cursor)
+    if sc is None:
         return []
 
-    quote_char = string_match.group(1)
-    partial_path = string_match.group(2) or ""
-
-    # Check for closing quote after cursor
-    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
+    partial_path = sc.prefix
+    has_closing_quote = text_after_cursor.lstrip().startswith(sc.quote_char)
 
     # Get base directory
     base_dir = _get_path_completion_base_dir(server)
@@ -1248,7 +1318,7 @@ def _get_path_completions(
             completion_text = remaining + "/"
         else:
             # Files: auto-close quote if needed
-            completion_text = remaining if has_closing_quote else remaining + quote_char
+            completion_text = remaining if has_closing_quote else remaining + sc.quote_char
 
         # Use InsertReplaceEdit as expected by tests
         text_edit = types.InsertReplaceEdit(
@@ -1286,27 +1356,23 @@ def _get_getenv_completions(
     if server.shell is None or "getenv" not in text_before_cursor:
         return []
 
-    # Check if cursor is inside a string literal (matches opening quote + optional prefix)
-    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
-    if not string_match:
+    # Check if cursor is inside a string literal
+    sc = _parse_string_context(text_before_cursor)
+    if sc is None:
         return []
 
-    quote_char = string_match.group(1)
-    prefix = string_match.group(2) or ""
-    before_string = text_before_cursor[: string_match.start()]
-
     # Check for keyword argument (e.g., "key=") - only complete for 'key', not 'default'
-    keyword_match = _RE_KWARG_TRAILING.search(before_string)
+    keyword_match = _RE_KWARG_TRAILING.search(sc.before_string)
     if keyword_match and keyword_match.group(1) != "key":
         return []
 
     # Find the enclosing function call's opening parenthesis
-    func_paren_pos = _find_enclosing_paren(before_string)
+    func_paren_pos = _find_enclosing_paren(sc.before_string)
     if func_paren_pos < 0:
         return []
 
     # Extract and validate the function name
-    func_match = _RE_DOTTED_IDENTIFIER_WS.search(before_string[:func_paren_pos])
+    func_match = _RE_DOTTED_IDENTIFIER_WS.search(sc.before_string[:func_paren_pos])
     if not func_match or not func_match.group(1).endswith("getenv"):
         return []
 
@@ -1326,12 +1392,12 @@ def _get_getenv_completions(
 
     # For positional args, only complete the first argument (not 'default')
     if not keyword_match:
-        args_text = before_string[func_paren_pos + 1 :]
+        args_text = sc.before_string[func_paren_pos + 1 :]
         if _count_arg_commas(args_text) > 0:
             return []
 
-    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
-    return _make_env_var_completions(prefix, quote_char, has_closing_quote=has_closing_quote)
+    has_closing_quote = text_after_cursor.lstrip().startswith(sc.quote_char)
+    return _make_env_var_completions(sc.prefix, sc.quote_char, has_closing_quote=has_closing_quote)
 
 
 def _find_enclosing_paren(text: str) -> int:
@@ -1412,7 +1478,7 @@ def _get_attribute_completions(
 
     items = []
 
-    # Special handling for DataFrame/Series column access
+    # Special handling for DataFrame column access
     if _is_dataframe_like(obj):
         items.extend(_get_dataframe_column_completions(obj, attr_prefix))
 
@@ -1459,17 +1525,11 @@ def _is_dataframe_like(obj: Any) -> bool:
 
 
 def _get_dataframe_column_completions(obj: Any, prefix: str) -> list[types.CompletionItem]:
-    """Get column name completions for DataFrame/Series objects."""
+    """Get column name completions for DataFrame objects."""
     items = []
 
     try:
-        # Get column names
-        if hasattr(obj, "columns"):
-            columns = list(obj.columns)
-        elif hasattr(obj, "name"):  # Series
-            columns = [obj.name] if obj.name else []
-        else:
-            columns = []
+        columns = list(obj.columns) if hasattr(obj, "columns") else []
 
         for col in columns:
             if col is None:
@@ -1567,25 +1627,21 @@ def _get_column_name_completions(
         return []
 
     # Check if cursor is inside a string literal
-    string_match = _RE_STRING_LITERAL.search(text_before_cursor)
-    if not string_match:
+    sc = _parse_string_context(text_before_cursor)
+    if sc is None:
         return []
 
-    quote_char = string_match.group(1)
-    prefix = string_match.group(2) or ""
-    before_string = text_before_cursor[: string_match.start()]
-
     # Check for keyword argument (e.g., "by=")
-    keyword_match = _RE_KWARG_TRAILING.search(before_string)
+    keyword_match = _RE_KWARG_TRAILING.search(sc.before_string)
     kwarg_name = keyword_match.group(1) if keyword_match else None
 
     # Find the enclosing function call's opening parenthesis
-    func_paren_pos = _find_enclosing_paren(before_string)
+    func_paren_pos = _find_enclosing_paren(sc.before_string)
     if func_paren_pos < 0:
         return []
 
     # Extract receiver.method before the opening paren
-    func_match = _RE_DOTTED_IDENTIFIER_WS.search(before_string[:func_paren_pos])
+    func_match = _RE_DOTTED_IDENTIFIER_WS.search(sc.before_string[:func_paren_pos])
     if not func_match:
         return []
 
@@ -1614,13 +1670,15 @@ def _get_column_name_completions(
         return []
 
     # Determine positional index and check parameter match
-    args_text = before_string[func_paren_pos + 1 :]
+    args_text = sc.before_string[func_paren_pos + 1 :]
     positional_index = _count_arg_commas(args_text)
     if not _col_param_matches(col_params, kwarg_name, positional_index):
         return []
 
-    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
-    return _make_column_completions(obj, prefix, quote_char, has_closing_quote=has_closing_quote)
+    has_closing_quote = text_after_cursor.lstrip().startswith(sc.quote_char)
+    return _make_column_completions(
+        obj, sc.prefix, sc.quote_char, has_closing_quote=has_closing_quote
+    )
 
 
 def _get_magic_completions(
@@ -1664,10 +1722,12 @@ def _create_magic_completion_item(
 
     # Determine insert_text - handle existing '%' characters
     match = _RE_TRAILING_TOKEN.search(chars_before_cursor)
-    text = match.group(1) if match else ""
+    assert match is not None
+    text = match.group(1)
 
     match2 = _RE_LEADING_PERCENT.match(text)
-    count = len(match2.group(1)) if match2 else 0
+    assert match2 is not None
+    count = len(match2.group(1))
     pad_count = max(0, len(prefix) - count)
     insert_text = prefix[0] * pad_count + name
 
@@ -1768,13 +1828,12 @@ def _handle_completion_resolve(
 
 def _handle_hover(
     server: PositronLanguageServer, params: types.TextDocumentPositionParams
-) -> types.Hover | None:
+) -> PositronHover | None:
     """Handle hover requests for Console documents."""
     if server.shell is None:
         return None
 
-    document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    _, line = _get_document_line(server, params)
 
     # Get the expression at cursor
     expr = _get_expression_at_position(line, params.position.character)
@@ -1798,6 +1857,10 @@ def _handle_hover(
         preview = _get_dataframe_preview(obj)
         if preview:
             parts.append(f"\n```\n{preview}\n```")
+    elif _is_series_like(obj):
+        preview = _get_series_repr_preview(obj)
+        if preview:
+            parts.append(f"\n```\n{preview}\n```")
 
     # Docstring for functions/classes
     doc = inspect.getdoc(obj)
@@ -1806,11 +1869,17 @@ def _handle_hover(
 
     content = "\n".join(parts)
 
-    return types.Hover(
+    # High priority for hovers with unique positron-python data (DataFrame/Series previews);
+    # low for basic type info so the static analysis provider's hover wins.
+    priority = (
+        _PRIORITY_HIGH if (_is_dataframe_like(obj) or _is_series_like(obj)) else _PRIORITY_LOW
+    )
+    return PositronHover(
         contents=types.MarkupContent(
             kind=types.MarkupKind.Markdown,
             value=content,
-        )
+        ),
+        data={"priority": priority},
     )
 
 
@@ -1863,8 +1932,7 @@ def _handle_signature_help(
     if server.shell is None:
         return None
 
-    document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    _, line = _get_document_line(server, params)
     text_before_cursor = line[: params.position.character]
 
     # Find function call context
@@ -1954,8 +2022,7 @@ def _handle_help_topic(
     if server.shell is None:
         return None
 
-    document = server.workspace.get_text_document(params.text_document.uri)
-    line = document.lines[params.position.line] if document.lines else ""
+    _, line = _get_document_line(server, params)
 
     # Get the expression at cursor
     expr = _get_expression_at_position(line, params.position.character)

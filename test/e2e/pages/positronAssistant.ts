@@ -69,10 +69,9 @@ const CHAT_INPUT = '.chat-editor-container .interactive-input-editor .native-edi
 const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
-const MODE_DROPDOWN = '.chat-input-toolbars a.action-label[aria-label^="Set"]'; // "Set Agent" or "Set Model" depending on context
+const MODE_DROPDOWN = '.chat-input-toolbars a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-// Use :is() to match either Ctrl (Linux/Windows) or ⌘ (macOS) in the keybinding
-const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item a.action-label:is([aria-label*="Ctrl+Alt+."], [aria-label*="⌥⌘."]) .codicon.codicon-chevron-down';
+// const MODEL_PICKER_DROPDOWN = '.action-item.chat-input-picker-item a.action-label[aria-label^="Pick Model"] .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 
@@ -257,6 +256,14 @@ export class Assistant {
 		});
 	}
 
+	async openModelPickerDropdown() {
+		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
+		await chatInput.waitFor({ state: 'visible' });
+		await chatInput.click({ force: true });
+		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+		await this.code.driver.page.keyboard.press(`${modifier}+Alt+Period`);
+	}
+
 	async runConfigureProviders() {
 		await this.quickaccess.runCommand('positron-assistant.configureProviders');
 	}
@@ -274,13 +281,13 @@ export class Assistant {
 
 		const configureProvidersButtonIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
 		if (!configureProvidersButtonIsVisible) {
-			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+			await this.openModelPickerDropdown();
 		}
 		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
 	}
 
 	async verifyConfigureProvidersButtonVisible() {
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		await this.openModelPickerDropdown();
 		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
 	}
 
@@ -299,7 +306,7 @@ export class Assistant {
 	}
 
 	async pickModel() {
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		await this.openModelPickerDropdown();
 	}
 
 	async expectManageModelsVisible() {
@@ -948,8 +955,8 @@ export class Assistant {
 	}
 
 	async selectChatModel(model: string) {
-		// Click the model picker dropdown to open it
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		// Open the model picker dropdown
+		await this.openModelPickerDropdown();
 
 		// Wait for the dropdown menu to appear
 		await this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
@@ -1023,7 +1030,7 @@ export class Assistant {
 	 * @param vendor The vendor name to filter by (e.g., 'Echo', 'Anthropic')
 	 */
 	async getModelPickerItemsForVendor(vendor: string): Promise<Array<{ label: string; isDefault: boolean }>> {
-		const allRows = this.code.driver.page.locator('.monaco-list-row');
+		const allRows = this.code.driver.page.locator('.action-widget .monaco-list-row');
 		const count = await allRows.count();
 		const vendorModels: Array<{ label: string; isDefault: boolean }> = [];
 		let inVendorSection = false;

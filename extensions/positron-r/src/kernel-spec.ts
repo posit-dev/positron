@@ -387,6 +387,11 @@ export async function createJupyterKernelSpec(
 			startup_command = `. ${packagerMetadata.script}`;
 			LOGGER.info(`Using r-versions startup script: ${packagerMetadata.script}`);
 		}
+		// Set custom library paths via R_LIBS environment variable
+		if (packagerMetadata.library) {
+			env['R_LIBS'] = packagerMetadata.library;
+			LOGGER.info(`Using r-versions library paths: ${packagerMetadata.library}`);
+		}
 	}
 
 	// R script to run on session startup

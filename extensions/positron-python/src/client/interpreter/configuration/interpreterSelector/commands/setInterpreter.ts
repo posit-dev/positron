@@ -95,7 +95,7 @@ export namespace EnvGroups {
     export const Hatch = 'Hatch';
     export const Pixi = 'Pixi';
     // --- Start Positron ---
-    export const Uv = 'Uv';
+    export const Uv = 'uv';
     export const Module = 'Module';
     export const Unsupported = 'Unsupported';
     // --- End Positron ---
@@ -781,6 +781,8 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
             return EnvGroups.Global;
         case EnvironmentType.Module:
             return EnvGroups.Module;
+        case EnvironmentType.Uv:
+            return EnvGroups.Uv;
         // --- End Positron ---
         case EnvironmentType.Global:
         case EnvironmentType.System:

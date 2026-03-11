@@ -12,8 +12,8 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
@@ -24,13 +24,14 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientStatus, RuntimeClientType } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { CancellationError } from '../../../../base/common/errors.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { IPositronHelpService } from '../../../contrib/positronHelp/browser/positronHelpService.js';
 import { INotebookService } from '../../../contrib/notebook/common/notebookService.js';
 import { IRuntimeClientEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { URI } from '../../../../base/common/uri.js';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent, OpenWithSystemEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent, OpenWithSystemEvent, EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { Selection } from '../../../../editor/common/core/selection.js';
@@ -52,10 +53,30 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState, LanguageRuntimePackage } from 'positron';
+import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 import * as perf from '../../../../base/common/performance.js';
+
+/**
+ * Represents a pending code evaluation in the evaluation queue.
+ */
+interface EvaluationEntry {
+	/** Unique ID for this evaluation */
+	evaluationId: string;
+
+	/** The code to evaluate */
+	code: string;
+
+	/** The session ID to evaluate in */
+	sessionId: string;
+
+	/** The deferred promise that resolves with the result */
+	deferred: DeferredPromise<EvalResult>;
+
+	/** Whether this entry is currently executing */
+	executing: boolean;
+}
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -93,6 +114,45 @@ class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
 	}
 	constructor(clock: number, readonly state: RuntimeState) {
 		super(clock);
+	}
+}
+
+/**
+ * Adapter class that implements ILanguageRuntimePackageManager by proxying
+ * calls to the extension host.
+ */
+class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePackageManager {
+	constructor(
+		private readonly _proxy: ExtHostLanguageRuntimeShape,
+		private readonly _handle: number,
+	) { }
+
+	getPackages(): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$getPackages(this._handle);
+	}
+
+	installPackages(packages: IPackageSpec[]): Promise<void> {
+		return this._proxy.$installPackages(this._handle, packages);
+	}
+
+	uninstallPackages(packageNames: string[]): Promise<void> {
+		return this._proxy.$uninstallPackages(this._handle, packageNames);
+	}
+
+	updatePackages(packages: IPackageSpec[]): Promise<void> {
+		return this._proxy.$updatePackages(this._handle, packages);
+	}
+
+	updateAllPackages(): Promise<void> {
+		return this._proxy.$updateAllPackages(this._handle);
+	}
+
+	searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$searchPackages(this._handle, query);
+	}
+
+	searchPackageVersions(name: string): Promise<string[]> {
+		return this._proxy.$searchPackageVersions(this._handle, name);
 	}
 }
 
@@ -639,32 +699,13 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
-	async getPackages(): Promise<LanguageRuntimePackage[]> {
-		return this._proxy.$getPackages(this.handle);
-	}
+	private _packageManager: ILanguageRuntimePackageManager | undefined;
 
-	async installPackages(packages: IPackageSpec[]): Promise<void> {
-		return this._proxy.$installPackages(this.handle, packages);
-	}
-
-	async uninstallPackages(packageNames: string[]): Promise<void> {
-		return this._proxy.$uninstallPackages(this.handle, packageNames);
-	}
-
-	async updatePackages(packages: IPackageSpec[]): Promise<void> {
-		return this._proxy.$updatePackages(this.handle, packages);
-	}
-
-	async updateAllPackages(): Promise<void> {
-		return this._proxy.$updateAllPackages(this.handle);
-	}
-
-	async searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
-		return this._proxy.$searchPackages(this.handle, query);
-	}
-
-	async searchPackageVersions(name: string): Promise<string[]> {
-		return this._proxy.$searchPackageVersions(this.handle, name);
+	getPackageManager(): ILanguageRuntimePackageManager {
+		if (!this._packageManager) {
+			this._packageManager = new ExtHostLanguageRuntimePackageManagerAdapter(this._proxy, this.handle);
+		}
+		return this._packageManager;
 	}
 
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
@@ -1481,6 +1522,12 @@ export class MainThreadLanguageRuntime
 
 	private readonly _registeredRuntimes: Map<string, ILanguageRuntimeMetadata> = new Map();
 
+	/** Per-session evaluation queues for $evaluateCode */
+	private readonly _evaluationQueues: Map<string, EvaluationEntry[]> = new Map();
+
+	/** Per-session state listeners for the evaluation queue, to avoid duplicate registrations */
+	private readonly _evaluationStateListeners: Map<string, IDisposable> = new Map();
+
 	/**
 	 * Instance counter
 	 */
@@ -1896,7 +1943,242 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(session.shutdown(exitReason));
 	}
 
+	async $evaluateCode(
+		languageId: string,
+		sessionId: string | undefined,
+		code: string,
+		evaluationId: string
+	): Promise<EvalResult> {
+		// Find the appropriate session
+		let activeSession;
+		if (sessionId) {
+			activeSession = this._runtimeSessionService.getActiveSessions()
+				.find(s => s.session.sessionId === sessionId);
+		} else {
+			activeSession = this._runtimeSessionService.getActiveSessions()
+				.find(s => s.session.runtimeMetadata.languageId === languageId);
+		}
+
+		if (!activeSession) {
+			// Start a session via the console service, following the $executeCode pattern
+			const newSessionId = await this._positronConsoleService.executeCode(
+				languageId,
+				undefined,
+				'', // empty code just to start the session
+				{ source: CodeAttributionSource.Extension, metadata: {} },
+				false,
+				true,
+			);
+
+			// Try to find the session again after starting
+			activeSession = this._runtimeSessionService.getActiveSessions()
+				.find(s => s.session.sessionId === newSessionId ||
+					s.session.runtimeMetadata.languageId === languageId);
+		}
+
+		if (!activeSession) {
+			throw new Error(`No session available for language '${languageId}'`);
+		}
+
+		const resolvedSessionId = activeSession.session.sessionId;
+
+		// If the UI client isn't ready yet, wait for it. This handles the case
+		// where we just started a session and the UI comm hasn't been established.
+		if (!activeSession.uiClient) {
+			await new Promise<void>((resolve, reject) => {
+				const timeout = setTimeout(() => {
+					listener.dispose();
+					reject(new Error(`Timed out waiting for UI client on session '${resolvedSessionId}'`));
+				}, 30_000);
+
+				const listener = activeSession.onUiClientStarted(() => {
+					clearTimeout(timeout);
+					listener.dispose();
+					resolve();
+				});
+
+				// Check again in case it arrived between our check and registering the listener
+				if (activeSession.uiClient) {
+					clearTimeout(timeout);
+					listener.dispose();
+					resolve();
+				}
+			});
+		}
+
+		// Create the evaluation entry
+		const deferred = new DeferredPromise<any>();
+		const entry: EvaluationEntry = {
+			evaluationId,
+			code,
+			sessionId: resolvedSessionId,
+			deferred,
+			executing: false,
+		};
+
+		// Add to the per-session queue
+		let queue = this._evaluationQueues.get(resolvedSessionId);
+		if (!queue) {
+			queue = [];
+			this._evaluationQueues.set(resolvedSessionId, queue);
+		}
+		queue.push(entry);
+
+		// Try to process the queue immediately
+		this.processEvaluationQueue(resolvedSessionId);
+
+		return deferred.p;
+	}
+
+	$cancelEvaluation(sessionId: string, evaluationId: string): void {
+		// Find the entry across all queues. The caller may not know the
+		// resolved session ID (e.g. when no sessionId was supplied to
+		// evaluateCode), so search by evaluationId.
+		let foundQueue: EvaluationEntry[] | undefined;
+		let foundSessionId: string | undefined;
+		let foundIndex = -1;
+
+		if (sessionId) {
+			foundQueue = this._evaluationQueues.get(sessionId);
+			if (foundQueue) {
+				foundIndex = foundQueue.findIndex(e => e.evaluationId === evaluationId);
+				foundSessionId = sessionId;
+			}
+		}
+		if (foundIndex < 0) {
+			// Search all queues
+			for (const [sid, queue] of this._evaluationQueues) {
+				const idx = queue.findIndex(e => e.evaluationId === evaluationId);
+				if (idx >= 0) {
+					foundQueue = queue;
+					foundSessionId = sid;
+					foundIndex = idx;
+					break;
+				}
+			}
+		}
+
+		if (!foundQueue || foundIndex < 0 || !foundSessionId) {
+			return;
+		}
+
+		const entry = foundQueue[foundIndex];
+		if (!entry.executing) {
+			// Not yet executing: remove from queue and reject
+			foundQueue.splice(foundIndex, 1);
+			entry.deferred.error(new CancellationError());
+		} else {
+			// Currently executing our evaluation: interrupt the session
+			this._runtimeSessionService.interruptSession(foundSessionId);
+		}
+	}
+
+	private processEvaluationQueue(sessionId: string): void {
+		const queue = this._evaluationQueues.get(sessionId);
+		if (!queue || queue.length === 0) {
+			return;
+		}
+
+		// Check if something is already executing
+		if (queue.some(e => e.executing)) {
+			return;
+		}
+
+		// Find the session and check if it's idle
+		const activeSession = this._runtimeSessionService.getActiveSessions()
+			.find(s => s.session.sessionId === sessionId);
+
+		if (!activeSession) {
+			// Session is gone; reject all queued entries
+			this.rejectEvaluationQueue(sessionId, new Error(`Session '${sessionId}' is no longer available`));
+			return;
+		}
+
+		const session = activeSession.session;
+		const state = session.getRuntimeState();
+
+		if (state === RuntimeState.Idle || state === RuntimeState.Ready) {
+			// Session is idle; process the next entry
+			const entry = queue[0];
+			entry.executing = true;
+
+			if (!activeSession.uiClient) {
+				// UI client went away
+				queue.shift();
+				entry.deferred.error(new Error(`Session '${sessionId}' UI client is not available`));
+				this.processEvaluationQueue(sessionId);
+				return;
+			}
+
+			activeSession.uiClient.evaluateCode(entry.code).then(
+				(result) => {
+					queue.shift();
+					entry.deferred.complete(result);
+					// Process next entry in queue
+					this.processEvaluationQueue(sessionId);
+				},
+				(err) => {
+					queue.shift();
+					entry.deferred.error(err);
+					// Process next entry in queue
+					this.processEvaluationQueue(sessionId);
+				}
+			);
+		} else if (state === RuntimeState.Busy || state === RuntimeState.Starting ||
+			state === RuntimeState.Initializing) {
+			// Session is not idle; subscribe to state changes and wait.
+			// Guard against duplicate listeners for the same session.
+			if (this._evaluationStateListeners.has(sessionId)) {
+				return;
+			}
+
+			const listener = session.onDidChangeRuntimeState((newState) => {
+				if (newState === RuntimeState.Idle || newState === RuntimeState.Ready) {
+					this._evaluationStateListeners.get(sessionId)?.dispose();
+					this._evaluationStateListeners.delete(sessionId);
+					this.processEvaluationQueue(sessionId);
+				} else if (newState === RuntimeState.Exited) {
+					this._evaluationStateListeners.get(sessionId)?.dispose();
+					this._evaluationStateListeners.delete(sessionId);
+					this.rejectEvaluationQueue(sessionId, new Error('The session exited'));
+				}
+			});
+			this._evaluationStateListeners.set(sessionId, listener);
+		} else if (state === RuntimeState.Exited) {
+			// Session has already exited; reject all queued entries
+			this.rejectEvaluationQueue(sessionId, new Error('The session has exited'));
+		} else {
+			// Session is in an unexpected state; reject the first entry and try again
+			const entry = queue.shift()!;
+			entry.deferred.error(new Error(`Session is in unexpected state '${state}'`));
+			this.processEvaluationQueue(sessionId);
+		}
+	}
+
+	/**
+	 * Rejects all entries in the evaluation queue for a given session and cleans up.
+	 */
+	private rejectEvaluationQueue(sessionId: string, error: Error): void {
+		const queue = this._evaluationQueues.get(sessionId);
+		if (queue) {
+			for (const entry of queue) {
+				if (!entry.deferred.isSettled) {
+					entry.deferred.error(error);
+				}
+			}
+			this._evaluationQueues.delete(sessionId);
+		}
+		this._evaluationStateListeners.get(sessionId)?.dispose();
+		this._evaluationStateListeners.delete(sessionId);
+	}
+
 	public dispose(): void {
+		// Reject all pending evaluations
+		for (const sessionId of this._evaluationQueues.keys()) {
+			this.rejectEvaluationQueue(sessionId,
+				new Error('Extension host is shutting down'));
+		}
+
 		// Check each session that is still running and emit an exit event for it
 		// so we can clean it up properly on the front end.
 		this._sessions.forEach((session) => {

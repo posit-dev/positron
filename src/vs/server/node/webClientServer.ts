@@ -317,6 +317,9 @@ export class WebClientServer {
 				queryConnectionToken,
 				{
 					sameSite: 'lax',
+					// --- Start PWB: Use secure auth cookie
+					httpOnly: true,
+					// --- End PWB
 					maxAge: 60 * 60 * 24 * 7 /* 1 week */
 				}
 			);
@@ -420,6 +423,9 @@ export class WebClientServer {
 			// Assistant and Copilot Chat to work with Github authenticaiton out
 			// of the box)
 			trustedExtensionAuthAccess: this._productService.trustedExtensionAuthAccess,
+			// Pass defaultChatAgent so the DefaultAccountService can initialize
+			// (required by upstream VS Code 1.109+, not in the web dev fallback product config)
+			defaultChatAgent: this._productService.defaultChatAgent,
 			// --- End Positron ---
 		} satisfies Partial<IProductConfiguration>;
 
@@ -443,6 +449,17 @@ export class WebClientServer {
 		} else {
 			this._logService.info('[WebClientServer] No POSITRON_ENFORCED_SETTINGS environment variable found');
 		}
+
+		// --- Start Positron ---
+		const positronDocsUrl = process.env['POSITRON_DOCS_URL'];
+		if (positronDocsUrl) {
+			this._logService.info(`[WebClientServer] Using POSITRON_DOCS_URL: ${positronDocsUrl}`);
+		}
+		// --- End Positron ---
+
+		// --- Start PWB: Use secure auth cookie ---
+		const cookies = cookie.parse(req.headers.cookie || '');
+		const connectionTokenFromCookie = cookies[connectionTokenCookieName];
 		// --- End PWB ---
 
 		const workbenchWebConfiguration = {
@@ -467,15 +484,16 @@ export class WebClientServer {
 			// --- Start Positron ---
 			disableExtension: this._environmentService.args['disable-extension'],
 			bootstrapExtensionsDir: this._environmentService.args['bootstrap-extensions-dir'],
+			positronDocsUrl,
 			// --- End Positron ---
 			productConfiguration,
 			callbackRoute: callbackRoute,
 			// --- Start PWB: Admin enforced settings ---
-			adminPoliciesData: enforcedSettings
+			adminPoliciesData: enforcedSettings,
+			// --- Start PWB: Use secure auth cookie ---
+			connectionToken: connectionTokenFromCookie
 			// --- End PWB ---
 		};
-
-		const cookies = cookie.parse(req.headers.cookie || '');
 		const locale = cookies['vscode.nls.locale'] || req.headers['accept-language']?.split(',')[0]?.toLowerCase() || 'en';
 		let WORKBENCH_NLS_BASE_URL: string | undefined;
 		let WORKBENCH_NLS_URL: string;
@@ -557,6 +575,9 @@ export class WebClientServer {
 				this._connectionToken.value,
 				{
 					sameSite: 'lax',
+					// --- Start PWB: Use secure auth cookie
+					httpOnly: true,
+					// --- End PWB
 					maxAge: 60 * 60 * 24 * 7 /* 1 week */
 				}
 			);

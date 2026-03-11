@@ -40,9 +40,6 @@ export default defineConfig<CustomTestOptions>({
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
-	shardingMode: 'duration-round-robin',
-	// @ts-expect-error lastRunFile added by playwright patch
-	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: process.env.ALLOW_PYREFLY === 'true'
 		? baseIgnore
 		: [...baseIgnore, '**/lsp/**'],
@@ -117,6 +114,7 @@ export default defineConfig<CustomTestOptions>({
 				headless: false,
 				browserName: 'firefox'
 			},
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-windows',
@@ -133,7 +131,7 @@ export default defineConfig<CustomTestOptions>({
 				headless: false,
 				browserName: 'webkit'
 			},
-			grep: /@:web/
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-edge',
@@ -143,7 +141,7 @@ export default defineConfig<CustomTestOptions>({
 				browserName: 'chromium',
 				channel: 'msedge',
 			},
-			grep: /@:web/
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-server',

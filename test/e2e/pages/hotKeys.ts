@@ -85,6 +85,20 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+S', 'Save');
 	}
 
+	// ---------------------------
+	// --- Command Palette ---
+	// ---------------------------
+
+	/**
+	 * Opens the command palette using a custom keybinding.
+	 * We use Cmd+J E instead of the default Ctrl+Shift+P because
+	 * Ctrl+Shift+P opens private browsing in Firefox, blocking
+	 * cross-browser e2e tests.
+	 */
+	public async openCommandPalette() {
+		await this.pressHotKeys('Cmd+J E', 'Open Command Palette');
+	}
+
 	// -------------------------
 	// --- Find & Navigation ---
 	// -------------------------

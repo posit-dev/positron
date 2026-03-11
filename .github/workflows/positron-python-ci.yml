@@ -26,7 +26,6 @@ defaults:
 
 env:
   NODE_VERSION: '22.21.1'
-  PYTHON_VERSION: '3.10'
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
   # Force a path with spaces and to test extension works in these scenarios
@@ -55,7 +54,7 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.14'
           enable-cache: true
           activate-environment: true
 
@@ -89,6 +88,11 @@ jobs:
   check-types:
     name: Check Python types
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Run pyright on the oldest and most recent versions of Python.
+        python: ['3.9', '3.14']
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -96,7 +100,7 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python }}
           enable-cache: true
           activate-environment: true
 

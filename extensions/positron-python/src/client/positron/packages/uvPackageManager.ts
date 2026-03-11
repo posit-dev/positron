@@ -14,28 +14,27 @@ import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
+import { IPackageManager, MessageEmitter, PackageKernel } from './types';
 
 /**
- * Interface for emitting messages to the Positron console
- */
-interface MessageEmitter {
-    fire(message: positron.LanguageRuntimeMessage): void;
-}
-
-/**
- * UV Package Manager
+ * uv Package Manager
  *
  * Provides package management functionality for Python sessions using uv.
  * Supports two workflows:
  * - Project workflow: Uses `uv add`/`uv remove` when a valid pyproject.toml exists
  * - Environment workflow: Uses `uv pip install`/`uv pip uninstall` otherwise
  */
-export class UvPackageManager {
+export class UvPackageManager implements IPackageManager {
     constructor(
         private readonly _pythonPath: string,
         private readonly _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
+        private readonly _kernel: PackageKernel,
     ) {}
+
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        return this._kernel.callMethod('getPackagesInstalled');
+    }
 
     /**
      * Check if uv is available.
