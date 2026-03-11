@@ -39,25 +39,35 @@ export class RPackageManager {
 			this._validatePackageName(pkg.name);
 		}
 
-		// If we're installing pak, don't prompt to install pak
-		let method: string;
-		if (packages.some((pkg) => pkg.name === 'pak')) {
-			method = await this._getPakMethod();
-		} else {
-			method = await this._ensurePak();
-		}
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
 
 		let code: string;
-		if (method === 'pak') {
-			// pak supports "pkg@version" syntax directly
-			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
-			const pkgVector = this._formatRVector(pkgSpecs);
-			code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
-		} else {
-			// base R: version not supported
+		if (isRenv) {
+			// renv: use renv::install with lock=TRUE to update lockfile
 			const pkgNames = packages.map(p => p.name);
 			const pkgVector = this._formatRVector(pkgNames);
-			code = `install.packages(${pkgVector})`;
+			code = `renv::install(${pkgVector}, lock = TRUE)`;
+		} else {
+			// If we're installing pak, don't prompt to install pak
+			let method: string;
+			if (packages.some((pkg) => pkg.name === 'pak')) {
+				method = await this._getPakMethod();
+			} else {
+				method = await this._ensurePak();
+			}
+
+			if (method === 'pak') {
+				// pak supports "pkg@version" syntax directly
+				const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+				const pkgVector = this._formatRVector(pkgSpecs);
+				code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
+			} else {
+				// base R: version not supported
+				const pkgNames = packages.map(p => p.name);
+				const pkgVector = this._formatRVector(pkgNames);
+				code = `install.packages(${pkgVector})`;
+			}
 		}
 
 		await this._executeAndWait(code);
@@ -74,18 +84,28 @@ export class RPackageManager {
 			this._validatePackageName(pkg.name);
 		}
 
-		const method = await this._ensurePak();
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
 
 		let code: string;
-		if (method === 'pak') {
-			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
-			const pkgVector = this._formatRVector(pkgSpecs);
-			code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
-		} else {
-			// base R: version not supported
+		if (isRenv) {
+			// renv: use renv::update with lock=TRUE to update lockfile
 			const pkgNames = packages.map(p => p.name);
 			const pkgVector = this._formatRVector(pkgNames);
-			code = `install.packages(${pkgVector})`;
+			code = `renv::update(${pkgVector}, lock = TRUE)`;
+		} else {
+			const method = await this._ensurePak();
+
+			if (method === 'pak') {
+				const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+				const pkgVector = this._formatRVector(pkgSpecs);
+				code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
+			} else {
+				// base R: version not supported
+				const pkgNames = packages.map(p => p.name);
+				const pkgVector = this._formatRVector(pkgNames);
+				code = `install.packages(${pkgVector})`;
+			}
 		}
 
 		await this._executeAndWait(code);
@@ -96,20 +116,27 @@ export class RPackageManager {
 	 * Update all packages with available updates.
 	 */
 	async updateAllPackages(): Promise<void> {
-		const method = await this._ensurePak();
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
 
-		if (method === 'pak') {
-			// Get outdated packages via RPC, then update with pak
-			const outdated = await this._session.callMethod('pkg_outdated') as string[] ?? [];
-			if (outdated.length > 0) {
-				const pkgVector = this._formatRVector(outdated);
-				await this._executeAndWait(`pak::pkg_install(${pkgVector}, ask = FALSE)`);
-			} else {
-				// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
-			}
-
+		if (isRenv) {
+			// renv: update all packages with lock=TRUE
+			await this._executeAndWait(`renv::update(lock = TRUE)`);
 		} else {
-			await this._executeAndWait(`update.packages(ask = FALSE)`);
+			const method = await this._ensurePak();
+
+			if (method === 'pak') {
+				// Get outdated packages via RPC, then update with pak
+				const outdated = await this._session.callMethod('pkg_outdated') as string[] ?? [];
+				if (outdated.length > 0) {
+					const pkgVector = this._formatRVector(outdated);
+					await this._executeAndWait(`pak::pkg_install(${pkgVector}, ask = FALSE)`);
+				} else {
+					// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
+				}
+			} else {
+				await this._executeAndWait(`update.packages(ask = FALSE)`);
+			}
 		}
 
 		this._session.invalidatePackageResourceCaches();
@@ -124,14 +151,23 @@ export class RPackageManager {
 			this._validatePackageName(pkg);
 		}
 
-		const method = await this._getPakMethod();
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
 		const pkgVector = this._formatRVector(packageNames);
 
 		let code: string;
-		if (method === 'pak') {
-			code = `pak::pkg_remove(${pkgVector})`;
+		if (isRenv) {
+			// renv: use renv::remove (no lock parameter available)
+			// Print a reminder to run renv::snapshot() to update lockfile
+			code = `renv::remove(${pkgVector}); message("Note: Run renv::snapshot() to update your lockfile.")`;
 		} else {
-			code = `remove.packages(${pkgVector})`;
+			const method = await this._getPakMethod();
+
+			if (method === 'pak') {
+				code = `pak::pkg_remove(${pkgVector})`;
+			} else {
+				code = `remove.packages(${pkgVector})`;
+			}
 		}
 
 		await this._executeAndWait(code);
@@ -187,6 +223,18 @@ export class RPackageManager {
 	private async _detectPak(): Promise<boolean> {
 		const pak = await this._session.packageVersion('pak', null, true);
 		return pak?.compatible ?? false;
+	}
+
+	/**
+	 * Detect if the session is running in an renv project.
+	 */
+	private async _detectRenv(): Promise<boolean> {
+		try {
+			const result = await this._session.evaluate('!is.null(getOption("renv.project.path"))');
+			return result.result === true;
+		} catch {
+			return false;
+		}
 	}
 
 	/**
