@@ -91,6 +91,12 @@
 
 	height: 100%;
 	overflow: auto;
+
+	/* Wider scrollbar for the main notebook scroll area */
+	&::-webkit-scrollbar {
+		width: 14px;
+		height: 14px;
+	}
 }
 
 .positron-notebook .scroll-decoration {
