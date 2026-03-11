@@ -18,11 +18,15 @@
  */
 @property --_positron-notebook-scrollbar-thumb-bg {
 	syntax: "<color>";
-	inherits: false; /* Prevent ancestor :hover from leaking into nested scrollables */
+	/* Must be true so ::-webkit-scrollbar-thumb pseudo-elements can read the
+	 * value from their originating element. We reset on each .positron-notebook-scrollable
+	 * to prevent ancestor :hover from leaking into nested scrollables. */
+	inherits: true;
 	initial-value: transparent;
 }
 
 .positron-notebook-scrollable {
+	--_positron-notebook-scrollbar-thumb-bg: transparent; /* reset for nested scrollables */
 	transition: --_positron-notebook-scrollbar-thumb-bg 800ms linear; /* fade out */
 
 	&:hover {
