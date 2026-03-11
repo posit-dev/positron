@@ -4,13 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Reusable overlay-scrollbar styling for Positron notebooks.
+ * Reusable VS Code + webkit scrollbars for Positron notebooks.
  *
- * Chromium does not support CSS transitions on ::-webkit-scrollbar-*
- * pseudo-elements. To work around this, we use a CSS Houdini registered
- * custom property (@property) for the thumb color. Registering it with
- * `syntax: "<color>"` tells the browser it can be interpolated, so we can
- * transition the property value on a real element and the scrollbar thumb
+ * VS Code scrollbars:
+ * - Do not show by default
+ * - Show on hover of the scroll container
+ * - Show on scroll (e.g. via the keyboard)
+ * - Change background color on hover of the scrollbar thumb
+ *
+ * This is tricky to implement with ::-webkit-scrollbar pseudo-elements,
+ * since they do not support CSS transitions. To work around this, we use
+ * a CSS Houdini registered custom property (@property) for the thumb color.
+ * Registering it with `syntax: "<color>"` tells the browser it can be interpolated,
+ * so we can transition the property value on a real element and the scrollbar thumb
  * picks up the animated value via var().
  *
  * Fade timings (100ms in, 800ms out) match the VS Code custom scrollbar
