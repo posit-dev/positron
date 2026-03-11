@@ -24,6 +24,8 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	// Output collapse state
 	private readonly _outputIsCollapsed: ISettableObservable<boolean>;
 
+	targetImageDataUrl: string | undefined;
+
 	// Execution timing observables
 	lastExecutionDuration;
 	lastExecutionOrder;

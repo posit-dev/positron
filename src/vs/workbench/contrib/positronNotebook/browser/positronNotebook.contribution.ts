@@ -1617,14 +1617,22 @@ registerAction2(class extends NotebookAction2 {
 			return;
 		}
 
-		const outputs = cell.outputs.get();
-		const imageOutput = outputs.find(o => o.parsed.type === 'image');
-		if (!imageOutput || imageOutput.parsed.type !== 'image') {
+		// Use the right-clicked image if available, otherwise fall back to
+		// the first image output (e.g. when triggered from the ellipsis menu).
+		let dataUrl = cell.targetImageDataUrl;
+		cell.targetImageDataUrl = undefined;
+		if (!dataUrl) {
+			const imageOutput = cell.outputs.get().find(o => o.parsed.type === 'image');
+			if (imageOutput?.parsed.type === 'image') {
+				dataUrl = imageOutput.parsed.dataUrl;
+			}
+		}
+		if (!dataUrl) {
 			return;
 		}
 
 		try {
-			await clipboardService.writeImage(imageOutput.parsed.dataUrl);
+			await clipboardService.writeImage(dataUrl);
 		} catch (err) {
 			logService.error('Failed to copy image to clipboard:', err);
 		}

@@ -73,11 +73,15 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		if (outputs.length === 0) {
 			return;
 		}
-		// Let the browser handle right-click on images natively so the user
-		// gets the standard "Copy Image" option for the specific image they
-		// clicked, rather than our custom menu which always copies the first.
-		if (isHTMLElement(event.target) && event.target.tagName === 'IMG') {
-			return;
+		// If the user right-clicked on an image, store its data URL so the
+		// "Copy Image" action can copy that specific image instead of the first.
+		const src = isHTMLElement(event.target) && event.target.tagName === 'IMG'
+			? (event.target as HTMLImageElement).src
+			: undefined;
+		if (src?.startsWith('data:')) {
+			cell.targetImageDataUrl = src;
+		} else {
+			cell.targetImageDataUrl = undefined;
 		}
 		showContextMenu({ x: event.clientX, y: event.clientY });
 	};

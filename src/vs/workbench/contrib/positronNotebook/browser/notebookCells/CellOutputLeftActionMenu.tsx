@@ -51,6 +51,9 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 			return;
 		}
 
+		// Clear any stale right-click target so the ellipsis menu always
+		// falls back to copying the first image output.
+		cell.targetImageDataUrl = undefined;
 		setIsMenuOpen(true);
 		showContextMenu(buttonRef.current, undefined, () => setIsMenuOpen(false));
 	};
