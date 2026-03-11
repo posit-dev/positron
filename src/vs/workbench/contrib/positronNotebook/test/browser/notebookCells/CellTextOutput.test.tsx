@@ -16,12 +16,12 @@ import { MockContextKeyService } from '../../../../../../platform/keybinding/tes
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { TestInstantiationService } from '../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { TestCommandService } from '../../../../../../editor/test/browser/editorTestServices.js';
-import { NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
+import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { PositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronReactServices } from '../../../../../../base/browser/positronReactServices.js';
-import { CellTextOutput, LongOutputOptions } from '../../../browser/notebookCells/CellTextOutput.js';
+import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
 import { ParsedTextOutput } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 
 class CellTextOutputFixture {
@@ -68,7 +68,7 @@ suite('CellTextOutput', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
-	let layoutConfig: LongOutputOptions & { outputWordWrap: boolean };
+	let layoutConfig: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>;
 	let commandService: TestCommandService;
 	let configurationService: TestConfigurationService;
 	let contextKeyService: MockContextKeyService;
@@ -86,7 +86,7 @@ suite('CellTextOutput', () => {
 
 	function renderCellTextOutput(
 		props: ParsedTextOutput,
-		options?: Partial<LongOutputOptions>,
+		options?: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>,
 	) {
 		if (options !== undefined) {
 			layoutConfig = { ...layoutConfig, ...options };
@@ -194,8 +194,10 @@ suite('CellTextOutput', () => {
 	});
 
 	test('applies word-wrap class when outputWordWrap is true', () => {
-		layoutConfig = { ...layoutConfig, outputWordWrap: true };
-		const fixture = renderCellTextOutput({ content: 'hello', type: 'stdout' });
+		const fixture = renderCellTextOutput(
+			{ content: 'hello', type: 'stdout' },
+			{ outputWordWrap: true },
+		);
 
 		assert.ok(fixture.hasClass('word-wrap'), 'Expected word-wrap class');
 	});
