@@ -27,6 +27,9 @@ import { VirtualDocumentProvider } from './virtual-documents';
 // Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
 const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
 
+// Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
+const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
+
 /**
  * Global output channel for R LSP sessions
  *
@@ -127,8 +130,8 @@ export class ArkLsp implements vscode.Disposable {
 		const { notebookUri } = this._metadata;
 
 		const clientOptions: LanguageClientOptions = {
-			// If this client belongs to a notebook, set the document selector to only include that notebook
-			// and any Quarto virtual documents (vdocs) in its directory.
+			// If this client belongs to a notebook, set the document selector to only include that notebook,
+			// Quarto virtual documents (vdocs), and notebook console inputs (inmemory scheme).
 			// Otherwise, this is the main client for this language, so set the document selector to include
 			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
 			documentSelector: notebookUri ?
@@ -140,6 +143,10 @@ export class ArkLsp implements vscode.Disposable {
 					// They may be in the document's directory or in a
 					// system temp directory, so use a global pattern.
 					{ language: 'r', pattern: '**/.vdoc.*.{r,R}' },
+					// Match notebook console inputs. These use the
+					// inmemory scheme with a notebook-repl path prefix
+					// to distinguish them from regular console inputs.
+					{ language: 'r', scheme: 'inmemory' },
 				] :
 				R_DOCUMENT_SELECTORS,
 			synchronize: notebookUri ?
@@ -168,22 +175,33 @@ export class ArkLsp implements vscode.Disposable {
 					}
 					return next(uri, diagnostics);
 				},
-				// For the console LSP only: skip completions for Quarto
-				// virtual documents so the notebook LSP handles them instead.
-				// Without this, the console LSP's broad document selectors
-				// (e.g. `**/*.{r,R}`) match vdoc files and provide
-				// completions from the wrong session.
-				...(!notebookUri ? {
-					provideCompletionItem(document, position, context, token, next) {
+				// Filter completions so each LSP only handles its own
+				// documents. The console LSP skips vdocs and notebook
+				// console inputs; the notebook LSP skips regular console
+				// inputs.
+				provideCompletionItem(document, position, context, token, next) {
+					if (!notebookUri) {
+						// Console LSP: skip vdoc files (notebook LSP handles them)
 						if (document.uri.scheme === 'file') {
 							const baseName = path.basename(document.uri.fsPath);
 							if (VDOC_PATTERN.test(baseName)) {
 								return undefined;
 							}
 						}
-						return next(document, position, context, token);
-					},
-				} : {}),
+						// Console LSP: skip notebook console inputs
+						if (document.uri.scheme === 'inmemory' &&
+							NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+							return undefined;
+						}
+					} else {
+						// Notebook LSP: skip regular (non-notebook) console inputs
+						if (document.uri.scheme === 'inmemory' &&
+							!NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+							return undefined;
+						}
+					}
+					return next(document, position, context, token);
+				},
 			}
 		};
 

@@ -151,6 +151,63 @@ test.describe('Autocomplete with Notebook Console', {
 		});
 	});
 
+	test('R - Notebook console autocomplete uses notebook session not console session', {
+		tag: [tags.ARK, tags.QUARTO]
+	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+		const { console, inlineQuarto, editors } = app.workbench;
+		const page = app.code.driver.page;
+		const keyboard = page.keyboard;
+
+		await test.step('Enable inline output and notebook consoles', async () => {
+			await settings.set({
+				'positron.quarto.inlineOutput.enabled': true,
+				'console.showNotebookConsoles': true,
+				'workbench.editor.enablePreview': false,
+			}, { reload: true, waitMs: 1000 });
+		});
+
+		// Start an R console session and define a variable
+		await sessions.start(['r']);
+		await hotKeys.closeSecondarySidebar();
+		await console.typeToConsole('quux1234 <- faithful', true, 0);
+		await sessions.expectAllSessionsToBeReady();
+
+		await test.step('Open Quarto file and run cell to start notebook session', async () => {
+			await openFile(join('workspaces', 'quarto_inline_output', 'simple_r.rmd'));
+			await editors.waitForActiveTab('simple_r.rmd');
+			await inlineQuarto.expectKernelStatusVisible();
+
+			// Run the cell to start the Quarto kernel session
+			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
+		});
+
+		await test.step('Define a variable in the notebook console', async () => {
+			// Switch to the notebook console
+			await sessions.select('simple_r.rmd');
+
+			// Define a variable in the notebook session
+			await console.typeToConsole('quux2345 <- mtcars', true, 0);
+			await sessions.expectAllSessionsToBeReady();
+		});
+
+		await test.step('Verify notebook console autocomplete uses notebook session', async () => {
+			// Clear the console input and type the prefix
+			await console.clearInput();
+			await console.typeToConsole('quux', false, 250);
+
+			// Trigger completions and verify we see quux2345 (from the
+			// notebook session). If the console LSP is incorrectly
+			// active, we would see quux1234 instead.
+			const suggestWidget = page.locator('.suggest-widget.visible');
+			await expect(async () => {
+				await keyboard.press('Control+Space');
+				await expect(suggestWidget).toBeVisible({ timeout: 5000 });
+			}).toPass({ timeout: 30000 });
+
+			await expect(suggestWidget.getByLabel(/quux2345/)).toBeVisible();
+		});
+	});
+
 	test('R - Autocomplete in Quarto uses Quarto LSP after switching to console', {
 		tag: [tags.ARK, tags.QUARTO]
 	}, async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {

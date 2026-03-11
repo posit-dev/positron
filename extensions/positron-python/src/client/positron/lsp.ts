@@ -21,6 +21,9 @@ import { PythonStatementRangeProvider } from './statementRange';
 // Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
 const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
 
+// Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
+const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
+
 /**
  * Global output channel for Python LSP sessions
  *
@@ -107,8 +110,8 @@ export class PythonLsp implements vscode.Disposable {
 
         const { notebookUri, workingDirectory } = this._metadata;
 
-        // If this client belongs to a notebook, set the document selector to only include that notebook
-        // and any Quarto virtual documents (vdocs) in its directory.
+        // If this client belongs to a notebook, set the document selector to only include that notebook,
+        // Quarto virtual documents (vdocs), and notebook console inputs (inmemory scheme).
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
         this._clientOptions.documentSelector = notebookUri
@@ -120,6 +123,10 @@ export class PythonLsp implements vscode.Disposable {
                   // They may be in the document's directory or in a
                   // system temp directory, so use a global pattern.
                   { language: 'python', pattern: '**/.vdoc.*.py' },
+                  // Match notebook console inputs. These use the
+                  // inmemory scheme with a notebook-repl path prefix
+                  // to distinguish them from regular console inputs.
+                  { language: 'python', scheme: 'inmemory' },
               ]
             : [
                   { language: 'python', scheme: 'untitled' },
@@ -162,15 +169,27 @@ export class PythonLsp implements vscode.Disposable {
                 return next(uri, diagnostics);
             },
             // Apply per-completion-item priority set by the Positron LSP server.
-            // For the console LSP only: skip completions for Quarto virtual
-            // documents so the notebook LSP handles them instead. Without
-            // this, the console LSP's broad document selectors (e.g.
-            // `**/*.py`) match vdoc files and provide completions from the
-            // wrong session.
+            // Filter completions so each LSP only handles its own documents.
+            // The console LSP skips vdocs and notebook console inputs;
+            // the notebook LSP skips regular console inputs.
             provideCompletionItem(document, position, context, token, next) {
-                if (!notebookUri && document.uri.scheme === 'file') {
-                    const baseName = path.basename(document.uri.fsPath);
-                    if (VDOC_PATTERN.test(baseName)) {
+                if (!notebookUri) {
+                    // Console LSP: skip vdoc files (notebook LSP handles them)
+                    if (document.uri.scheme === 'file') {
+                        const baseName = path.basename(document.uri.fsPath);
+                        if (VDOC_PATTERN.test(baseName)) {
+                            return undefined;
+                        }
+                    }
+                    // Console LSP: skip notebook console inputs
+                    if (document.uri.scheme === 'inmemory' &&
+                        NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                        return undefined;
+                    }
+                } else {
+                    // Notebook LSP: skip regular (non-notebook) console inputs
+                    if (document.uri.scheme === 'inmemory' &&
+                        !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                         return undefined;
                     }
                 }
@@ -188,11 +207,22 @@ export class PythonLsp implements vscode.Disposable {
                 });
             },
             // Apply hover priority set by the Positron LSP server.
-            // Same vdoc filtering as for completions above.
+            // Same session filtering as for completions above.
             provideHover(document, position, token, next) {
-                if (!notebookUri && document.uri.scheme === 'file') {
-                    const baseName = path.basename(document.uri.fsPath);
-                    if (VDOC_PATTERN.test(baseName)) {
+                if (!notebookUri) {
+                    if (document.uri.scheme === 'file') {
+                        const baseName = path.basename(document.uri.fsPath);
+                        if (VDOC_PATTERN.test(baseName)) {
+                            return undefined;
+                        }
+                    }
+                    if (document.uri.scheme === 'inmemory' &&
+                        NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                        return undefined;
+                    }
+                } else {
+                    if (document.uri.scheme === 'inmemory' &&
+                        !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                         return undefined;
                     }
                 }
