@@ -2377,7 +2377,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				session.dynState.currentNotebookUri = oldUri;
 			}
 			if (isEqual(session.metadata.notebookUri, newUri)) {
-				session.dynState.currentNotebookUri = oldUri;
+				session.metadata.notebookUri = oldUri;
 			}
 
 			return undefined;
