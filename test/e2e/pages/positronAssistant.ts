@@ -9,6 +9,7 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
 import { Modals } from './dialog-modals.js';
+import { HotKeys } from './hotKeys.js';
 
 /**
  * Fills an input element's value using evaluate() instead of Playwright's
@@ -234,7 +235,11 @@ function isProviderAutoSignedIn(provider: ModelProvider): boolean {
  */
 export class Assistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) { }
+	private hotKeys: HotKeys;
+
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) {
+		this.hotKeys = new HotKeys(code);
+	}
 
 	async verifyChatButtonVisible() {
 		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
@@ -265,7 +270,7 @@ export class Assistant {
 	}
 
 	async runConfigureProviders() {
-		await this.quickaccess.runCommand('positron-assistant.configureProviders');
+		await this.hotKeys.configureProviders();
 	}
 
 	async clickConfigureProvidersLink() {
@@ -377,8 +382,8 @@ export class Assistant {
 		}
 
 		await test.step(`Sign in to ${provider} model provider`, async () => {
-			// Open the model configuration dialog via command (more reliable than clicking UI)
-			await this.quickaccess.runCommand('positron-assistant.configureProviders');
+			// Open the model configuration dialog via hotkey (more reliable than command palette UI)
+			await this.hotKeys.configureProviders();
 
 			// Select the provider
 			await this.selectModelProvider(provider);
