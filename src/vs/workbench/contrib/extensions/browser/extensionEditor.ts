@@ -1019,7 +1019,7 @@ export class ExtensionEditor extends EditorPane {
 		// Pass the compatible gallery version so the Marketplace panel shows
 		// the correct version instead of the unfiltered latest.
 		additionalDetailsWidget.positronCompatibleGallery = template.positronCompatibleGallery;
-		// --- End Positron ---
+		// --- Start Positron ---
 		this.contentDisposables.add(additionalDetailsWidget);
 		// --- End Positron ---
 
