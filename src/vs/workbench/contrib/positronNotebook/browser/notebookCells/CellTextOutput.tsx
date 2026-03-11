@@ -6,9 +6,6 @@
 // CSS.
 import './CellTextOutput.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
@@ -35,10 +32,7 @@ type TruncationResult =
 function useLongOutputBehavior(content: string): TruncationResult {
 	const notebookOptions = useNotebookOptions();
 	const layoutOptions = notebookOptions.getLayoutConfiguration();
-	return React.useMemo(
-		() => truncateToNumberOfLines(content, layoutOptions),
-		[content, layoutOptions]
-	);
+	return truncateToNumberOfLines(content, layoutOptions);
 }
 
 
