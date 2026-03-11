@@ -9,7 +9,7 @@ test.use({
 });
 
 test.describe('Search', {
-	tag: [tags.SEARCH, tags.WEB, tags.WIN]
+	tag: [tags.SEARCH, tags.WEB, tags.WIN, tags.CROSS_BROWSER]
 }, () => {
 
 	test.afterEach(async function ({ app }) {

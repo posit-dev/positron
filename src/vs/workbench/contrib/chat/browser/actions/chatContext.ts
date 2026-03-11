@@ -2,11 +2,9 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { isElectron } from '../../../../../base/common/platform.js';
-import { dirname } from '../../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { localize } from '../../../../../nls.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
@@ -22,9 +20,8 @@ import { UntitledTextEditorInput } from '../../../../services/untitled/common/un
 import { FileEditorInput } from '../../../files/browser/editors/fileEditorInput.js';
 import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInput.js';
 import { IChatContextPickService, IChatContextValueItem, IChatContextPickerItem, IChatContextPickerPickItem, IChatContextPicker } from '../attachments/chatContextPickService.js';
-import { IChatEditingService } from '../../common/editing/chatEditingService.js';
-import { IChatRequestToolEntry, IChatRequestToolSetEntry, IChatRequestVariableEntry, IImageVariableEntry, OmittedState, toToolSetVariableEntry, toToolVariableEntry } from '../../common/attachments/chatVariableEntries.js';
-import { ToolDataSource, ToolSet } from '../../common/tools/languageModelToolsService.js';
+import { IChatRequestToolEntry, IChatRequestToolSetEntry, IChatRequestVariableEntry, IImageVariableEntry, toToolSetVariableEntry, toToolVariableEntry } from '../../common/attachments/chatVariableEntries.js';
+import { isToolSet, ToolDataSource } from '../../common/tools/languageModelToolsService.js';
 import { IChatWidget } from '../chat.js';
 import { imageToHash, isImage } from '../widget/input/editor/chatPasteProviders.js';
 import { convertBufferToScreenshotVariable } from '../attachments/chatScreenshotContext.js';
@@ -59,7 +56,6 @@ export class ChatContextContributions extends Disposable implements IWorkbenchCo
 		this._store.add(contextPickService.registerChatContextItem(instantiationService.createInstance(ToolsContextPickerPick)));
 		this._store.add(contextPickService.registerChatContextItem(instantiationService.createInstance(ChatInstructionsPickerPick)));
 		this._store.add(contextPickService.registerChatContextItem(instantiationService.createInstance(OpenEditorContextValuePick)));
-		this._store.add(contextPickService.registerChatContextItem(instantiationService.createInstance(RelatedFilesContextPickerPick)));
 		this._store.add(contextPickService.registerChatContextItem(instantiationService.createInstance(ClipboardImageContextValuePick)));
 		this._store.add(contextPickService.registerChatContextItem(instantiationService.createInstance(ScreenshotContextValuePick)));
 	}
@@ -88,12 +84,12 @@ class ToolsContextPickerPick implements IChatContextPickerItem {
 		const items: Pick[] = [];
 
 		// --- Start Positron ---
-		const selectedLanguageModel = widget.input.selectedLanguageModel;
+		const selectedLanguageModel = widget.input.selectedLanguageModel.get();
 		// --- End Positron ---
 
 		for (const [entry, enabled] of widget.input.selectedToolsModel.entriesMap.get()) {
 			if (enabled) {
-				if (entry instanceof ToolSet) {
+				if (isToolSet(entry)) {
 					// --- Start Positron ---
 					// If no tools in the set are enabled for the selected model, skip the set
 					const tools = entry.getTools();
@@ -202,66 +198,6 @@ class OpenEditorContextValuePick implements IChatContextValueItem {
 
 }
 
-class RelatedFilesContextPickerPick implements IChatContextPickerItem {
-
-	readonly type = 'pickerPick';
-
-	readonly label: string = localize('chatContext.relatedFiles', 'Related Files');
-	readonly icon: ThemeIcon = Codicon.sparkle;
-	readonly ordinal = 300;
-
-	constructor(
-		@IChatEditingService private readonly _chatEditingService: IChatEditingService,
-		@ILabelService private readonly _labelService: ILabelService,
-	) { }
-
-	isEnabled(widget: IChatWidget): boolean {
-		return this._chatEditingService.hasRelatedFilesProviders() && (Boolean(widget.getInput()) || widget.attachmentModel.fileAttachments.length > 0);
-	}
-
-	asPicker(widget: IChatWidget): IChatContextPicker {
-
-		const picks = (async () => {
-			const chatSessionResource = widget.viewModel?.sessionResource;
-			if (!chatSessionResource) {
-				return [];
-			}
-			const relatedFiles = await this._chatEditingService.getRelatedFiles(chatSessionResource, widget.getInput(), widget.attachmentModel.fileAttachments, CancellationToken.None);
-			if (!relatedFiles) {
-				return [];
-			}
-			const attachments = widget.attachmentModel.getAttachmentIDs();
-			return this._chatEditingService.getRelatedFiles(chatSessionResource, widget.getInput(), widget.attachmentModel.fileAttachments, CancellationToken.None)
-				.then((files) => (files ?? []).reduce<(IChatContextPickerPickItem | IQuickPickSeparator)[]>((acc, cur) => {
-					acc.push({ type: 'separator', label: cur.group });
-					for (const file of cur.files) {
-						const label = this._labelService.getUriBasenameLabel(file.uri);
-						acc.push({
-							label: label,
-							description: this._labelService.getUriLabel(dirname(file.uri), { relative: true }),
-							disabled: attachments.has(file.uri.toString()),
-							asAttachment: () => {
-								return {
-									kind: 'file',
-									id: file.uri.toString(),
-									value: file.uri,
-									name: label,
-									omittedState: OmittedState.NotOmitted
-								};
-							}
-						});
-					}
-					return acc;
-				}, []));
-		})();
-
-		return {
-			placeholder: localize('relatedFiles', 'Add related files to your working set'),
-			picks,
-		};
-	}
-}
-
 
 class ClipboardImageContextValuePick implements IChatContextValueItem {
 	readonly type = 'valuePick';
@@ -276,7 +212,7 @@ class ClipboardImageContextValuePick implements IChatContextValueItem {
 		if (!widget.attachmentCapabilities.supportsImageAttachments) {
 			return false;
 		}
-		if (!widget.input.selectedLanguageModel?.metadata.capabilities?.vision) {
+		if (!widget.input.selectedLanguageModel.get()?.metadata.capabilities?.vision) {
 			return false;
 		}
 		const imageData = await this._clipboardService.readImage();
@@ -375,7 +311,7 @@ class ScreenshotContextValuePick implements IChatContextValueItem {
 	) { }
 
 	async isEnabled(widget: IChatWidget) {
-		return !!widget.attachmentCapabilities.supportsImageAttachments && !!widget.input.selectedLanguageModel?.metadata.capabilities?.vision;
+		return !!widget.attachmentCapabilities.supportsImageAttachments && !!widget.input.selectedLanguageModel.get()?.metadata.capabilities?.vision;
 	}
 
 	async asAttachment(): Promise<IChatRequestVariableEntry | undefined> {

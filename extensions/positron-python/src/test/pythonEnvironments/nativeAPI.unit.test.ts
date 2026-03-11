@@ -347,10 +347,10 @@ suite('Native Python API', () => {
     });
 
     // --- Start Positron ---
-    test('Uv environment detected and converted during addEnv via triggerRefresh', async () => {
+    test('uv environment detected and converted during addEnv via triggerRefresh', async () => {
         // Create a test environment that looks like a regular VirtualEnv initially
         const uvEnv: NativeEnvInfo = {
-            displayName: 'UV Environment',
+            displayName: 'uv environment',
             name: 'my_uv_env',
             executable: '/home/user/.local/share/uv/python/cpython-3.11.5/bin/python',
             kind: NativePythonEnvironmentKind.VirtualEnv, // Initially detected as VirtualEnv
@@ -388,10 +388,10 @@ suite('Native Python API', () => {
         assert.isTrue(isUvEnvironmentStub.calledWith('/home/user/.local/share/uv/python/cpython-3.11.5/bin/python'));
     });
 
-    test('Uv environment detected and converted during resolveEnv', async () => {
+    test('uv environment detected and converted during resolveEnv', async () => {
         // Create a test environment
         const uvEnv: NativeEnvInfo = {
-            displayName: 'UV Python',
+            displayName: 'uv Python',
             name: 'uv_python',
             executable: '/home/user/.local/share/uv/python/cpython-3.10',
             kind: NativePythonEnvironmentKind.VirtualEnv, // Initially recognized as VirtualEnv
@@ -418,6 +418,47 @@ suite('Native Python API', () => {
         // Verify isUvEnvironment was called twice (once when adding; once when resolving)
         assert.isTrue(isUvEnvironmentStub.calledTwice);
         assert.isTrue(isUvEnvironmentStub.calledWith('/home/user/.local/share/uv/python/cpython-3.10'));
+    });
+
+    test('Pre-release version (alpha) is included in display name', async () => {
+        // Create a test environment with an alpha version (e.g., Python 3.14.0a5)
+        const alphaEnv: NativeEnvInfo = {
+            displayName: 'Alpha Python',
+            name: 'alpha_python',
+            executable: '/usr/bin/python3.14',
+            kind: NativePythonEnvironmentKind.LinuxGlobal,
+            version: '3.14.0a5', // Alpha version
+            prefix: '/usr/bin',
+        };
+
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [alphaEnv];
+                }
+                return generator();
+            })
+            .verifiable(typemoq.Times.once());
+
+        mockFinder.setup((f) => f.resolve(typemoq.It.isAny())).verifiable(typemoq.Times.never());
+
+        await api.triggerRefresh();
+        const envs = api.getEnvs();
+        assert.equal(envs.length, 1);
+
+        const addedEnv = envs[0];
+        assert.isDefined(addedEnv);
+        // Verify that the display name includes the alpha suffix
+        assert.include(addedEnv.display ?? '', '3.14.0a5');
+        assert.include(addedEnv.detailedDisplayName ?? '', '3.14.0a5');
+        // Verify version info
+        assert.equal(addedEnv.version.major, 3);
+        assert.equal(addedEnv.version.minor, 14);
+        assert.equal(addedEnv.version.micro, 0);
+        assert.isDefined(addedEnv.version.release);
+        assert.equal(addedEnv.version.release?.level, 'alpha');
+        assert.equal(addedEnv.version.release?.serial, 5);
     });
     // --- End Positron ---
 });

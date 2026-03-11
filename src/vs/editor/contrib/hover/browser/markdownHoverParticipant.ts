@@ -173,8 +173,8 @@ export class MarkdownHoverParticipant implements IEditorHoverParticipant<Markdow
 		const hoverProviderResults = getHoverProviderResultsAsAsyncIterable(hoverProviderRegistry, model, position, token);
 
 		// --- Start Positron ---
-		// Collect all hover results first so we can filter out Python extension hovers when other hovers exist
-		// (to avoid redundant hover content from other Python LSP extensions)
+		// Collect all hover results, then yield only the one with the highest priority.
+		// When multiple hovers tie for the highest priority, all of them are shown.
 		const allResults: { item: HoverProviderResult; hover: MarkdownHover }[] = [];
 		for await (const item of hoverProviderResults) {
 			if (!isEmptyMarkdownString(item.hover.contents)) {
@@ -185,14 +185,15 @@ export class MarkdownHoverParticipant implements IEditorHoverParticipant<Markdow
 			}
 		}
 
-		const msPythonExtensionId = 'ms-python.python';
-		const hasNonMsPythonHovers = allResults.some(r => r.item.hover.extensionId !== msPythonExtensionId);
-		const hasMsPythonHovers = allResults.some(r => r.item.hover.extensionId === msPythonExtensionId);
+		const safePriority = (p: number | undefined) => (Number.isFinite(p) ? p! : 0);
+		const maxPriority = allResults.reduce(
+			(max, r) => Math.max(max, safePriority(r.item.hover.priority)),
+			-Infinity,
+		);
 		for (const result of allResults) {
-			if (hasNonMsPythonHovers && hasMsPythonHovers && result.item.hover.extensionId === msPythonExtensionId) {
-				continue;
+			if (safePriority(result.item.hover.priority) === maxPriority) {
+				yield result.hover;
 			}
-			yield result.hover;
 		}
 		// --- End Positron ---
 	}
@@ -547,17 +548,9 @@ function renderMarkdown(
 
 export function labelForHoverVerbosityAction(keybindingService: IKeybindingService, action: HoverVerbosityAction): string {
 	switch (action) {
-		case HoverVerbosityAction.Increase: {
-			const kb = keybindingService.lookupKeybinding(INCREASE_HOVER_VERBOSITY_ACTION_ID);
-			return kb ?
-				nls.localize('increaseVerbosityWithKb', "Increase Hover Verbosity ({0})", kb.getLabel()) :
-				nls.localize('increaseVerbosity', "Increase Hover Verbosity");
-		}
-		case HoverVerbosityAction.Decrease: {
-			const kb = keybindingService.lookupKeybinding(DECREASE_HOVER_VERBOSITY_ACTION_ID);
-			return kb ?
-				nls.localize('decreaseVerbosityWithKb', "Decrease Hover Verbosity ({0})", kb.getLabel()) :
-				nls.localize('decreaseVerbosity', "Decrease Hover Verbosity");
-		}
+		case HoverVerbosityAction.Increase:
+			return keybindingService.appendKeybinding(nls.localize('increaseVerbosity', "Increase Hover Verbosity"), INCREASE_HOVER_VERBOSITY_ACTION_ID);
+		case HoverVerbosityAction.Decrease:
+			return keybindingService.appendKeybinding(nls.localize('decreaseVerbosity', "Decrease Hover Verbosity"), DECREASE_HOVER_VERBOSITY_ACTION_ID);
 	}
 }

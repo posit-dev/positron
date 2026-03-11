@@ -49,6 +49,13 @@ export interface IBrowserWorkbenchEnvironmentService extends IWorkbenchEnvironme
 	readonly isEnabledFileUploads?: boolean;
 	// --- End PWB ---
 
+	// --- Start Positron ---
+	/**
+	 * URL for Positron documentation, if provided by Posit Workbench.
+	 */
+	readonly positronDocsUrl?: string;
+	// --- End Positron ---
+
 	/**
 	 * Gets whether a resolver extension is expected for the environment.
 	 */
@@ -144,6 +151,12 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	}
 	// --- End PWB ---
 
+	// --- Start Positron ---
+	get positronDocsUrl(): string | undefined {
+		return this.options.positronDocsUrl;
+	}
+	// --- End Positron ---
+
 	@memoize
 	get argvResource(): URI { return joinPath(this.userRoamingDataHome, 'argv.json'); }
 
@@ -177,6 +190,9 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 
 	@memoize
 	get untitledWorkspacesHome(): URI { return joinPath(this.userRoamingDataHome, 'Workspaces'); }
+
+	@memoize
+	get builtinWorkbenchModesHome(): URI { return joinPath(this.userRoamingDataHome, 'builtinWorkbenchModes'); }
 
 	@memoize
 	get serviceMachineIdResource(): URI { return joinPath(this.userRoamingDataHome, 'machineid'); }

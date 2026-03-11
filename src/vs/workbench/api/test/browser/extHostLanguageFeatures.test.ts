@@ -500,6 +500,25 @@ suite('ExtHostLanguageFeatures', function () {
 		assert.strictEqual(hovers.length, 1);
 	});
 
+	// --- Start Positron ---
+	test('HoverProvider, priority round-trip', async () => {
+
+		disposables.add(extHost.registerHoverProvider(defaultExtension, defaultSelector, new class implements vscode.HoverProvider {
+			provideHover(): any {
+				const hover = new types.Hover('Hello');
+				// eslint-disable-next-line local/code-no-any-casts
+				(hover as any).priority = 42;
+				return hover;
+			}
+		}));
+
+		await rpcProtocol.sync();
+		const hovers = await getHoversPromise(languageFeaturesService.hoverProvider, model, new EditorPosition(1, 1), CancellationToken.None);
+		assert.strictEqual(hovers.length, 1);
+		assert.strictEqual(hovers[0].priority, 42);
+	});
+	// --- End Positron ---
+
 	// --- occurrences
 
 	test('Occurrences, data conversion', async () => {
@@ -1077,6 +1096,27 @@ suite('ExtHostLanguageFeatures', function () {
 			});
 		});
 	});
+
+	// --- Start Positron ---
+	test('Suggest, priority round-trip', async () => {
+		return runWithFakedTimers({ useFakeTimers: true }, async () => {
+			disposables.add(extHost.registerCompletionItemProvider(defaultExtension, defaultSelector, new class implements vscode.CompletionItemProvider {
+				provideCompletionItems(): any {
+					const item = new types.CompletionItem('priority-test');
+					// eslint-disable-next-line local/code-no-any-casts
+					(item as any).priority = 7;
+					return [item];
+				}
+			}, []));
+
+			await rpcProtocol.sync();
+			const value = await provideSuggestionItems(languageFeaturesService.completionProvider, model, new EditorPosition(1, 1), new CompletionOptions(undefined, new Set<languages.CompletionItemKind>().add(languages.CompletionItemKind.Snippet)));
+			assert.strictEqual(value.items.length, 1);
+			assert.strictEqual(value.items[0].completion.priority, 7);
+			value.disposable.dispose();
+		});
+	});
+	// --- End Positron ---
 
 	// --- format
 

@@ -89,6 +89,15 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	externalEdit(_target: vscode.Uri | vscode.Uri[], callback: () => Thenable<unknown>): Thenable<string> {
 		return callback() as Thenable<string>;
 	}
+	workspaceEdit(_edits: vscode.ChatWorkspaceFileEdit[]): void {
+	}
+	questionCarousel(_questions: vscode.ChatQuestion[], _allowSkip?: boolean): Thenable<Record<string, unknown> | undefined> {
+		return Promise.resolve(undefined);
+	}
+	beginToolInvocation(_toolCallId: string, _toolName: string, _streamData?: vscode.ChatToolInvocationStreamData & { subagentInvocationId?: string }): void {
+	}
+	updateToolInvocation(_toolCallId: string, _streamData: vscode.ChatToolInvocationStreamData): void {
+	}
 }
 
 suite('PositronAssistantParticipant', () => {
@@ -353,6 +362,7 @@ function makeChatRequest(
 	return {
 		id: 'test-request-id',
 		sessionId: 'test-session-id',
+		sessionResource: vscode.Uri.file('/test/session'),
 		prompt: 'Hello, world!',
 		command: undefined,
 		references: options.references,

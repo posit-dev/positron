@@ -652,6 +652,8 @@ export const codiconsLibrary = {
 	worktree: register('worktree', 0xec7e),
 	screenCut: register('screen-cut', 0xec7f),
 	ask: register('ask', 0xec80),
+	openai: register('openai', 0xec81),
+	claude: register('claude', 0xec82),
 	positronNew: register('positron-new', 0xf230),
 	positronOpen: register('positron-open', 0xf231),
 	positronSave: register('positron-save', 0xf232),
@@ -756,4 +758,6 @@ export const codiconsLibrary = {
 	positronAssistantInProgress: register('positron-assistant-in-progress', 0xf295),
 	positronAssistantUnavailable: register('positron-assistant-unavailable', 0xf296),
 	positronClearPlot: register('positron-clear-plot', 0xf297),
+	positronPin: register('positron-pin', 0xf298),
+	positronUnpin: register('positron-unpin', 0xf299),
 } as const;

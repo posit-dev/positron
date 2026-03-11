@@ -28,6 +28,20 @@ export class Editor {
 	constructor(private code: Code) { }
 
 	/**
+	 * Wait for content to be visible in the editor viewer frame.
+	 */
+	async expectEditorViewerContentVisible(
+		getLocator: (frame: FrameLocator) => Locator,
+		options?: { timeout?: number }
+	): Promise<void> {
+		const { timeout = 30000 } = options ?? {};
+		const frame = !this.code.electronApp
+			? this.getEditorViewerFrame().frameLocator('iframe')
+			: this.getEditorViewerFrame();
+		await expect(getLocator(frame)).toBeVisible({ timeout });
+	}
+
+	/**
 	 * Action: Enter text in the editor
 	 * @param text the text to type into the editor
 	 * @param pressEnter whether to press Enter after typing the text
@@ -62,14 +76,16 @@ export class Editor {
 	}
 
 	async pressPlay(skipToastVerification: boolean = false): Promise<void> {
-		await this.code.driver.page.locator(PLAY_BUTTON).click();
+		await test.step('Press play button', async () => {
+			await this.code.driver.page.locator(PLAY_BUTTON).click();
 
-		if (!skipToastVerification) {
-			// await appearance and disappearance of the toast
-			const appRunningToast = this.code.driver.page.locator('.notifications-toasts').getByText(/Running.*application:/);
-			await expect(appRunningToast).toBeVisible({ timeout: 30000 });
-			await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
-		}
+			if (!skipToastVerification) {
+				// await appearance and disappearance of the toast
+				const appRunningToast = this.code.driver.page.locator('.notifications-toasts').getByText(/Running.*application:/);
+				await expect(appRunningToast).toBeVisible({ timeout: 30000 });
+				await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
+			}
+		});
 	}
 
 	async pressToLine(filename: string, lineNumber: number, press: string): Promise<void> {

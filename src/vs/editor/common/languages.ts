@@ -72,8 +72,8 @@ export interface IFontToken {
 	readonly startIndex: number;
 	readonly endIndex: number;
 	readonly fontFamily: string | null;
-	readonly fontSize: string | null;
-	readonly lineHeight: number | null;
+	readonly fontSizeMultiplier: number | null;
+	readonly lineHeightMultiplier: number | null;
 }
 
 /**
@@ -211,10 +211,10 @@ export interface Hover {
 
 	// --- Start Positron ---
 	/**
-	 * Id of the extension that provided this hover.
-	 * Used to filter duplicate hovers from certain extensions.
+	 * Priority for deduplication. Only the hover(s) with the highest
+	 * priority are shown; all others are suppressed.
 	 */
-	extensionId?: string;
+	priority?: number;
 	// --- End Positron ---
 }
 
@@ -650,6 +650,14 @@ export interface CompletionItem {
 	 */
 	extensionId?: ExtensionIdentifier;
 
+	// --- Start Positron ---
+	/**
+	 * Priority for deduplication and sorting. Higher priority items win
+	 * dedup contests and sort before lower priority items.
+	 */
+	priority?: number;
+	// --- End Positron ---
+
 	/**
 	 * @internal
 	 */
@@ -761,6 +769,18 @@ export enum InlineCompletionTriggerKind {
 	Explicit = 1,
 }
 
+/**
+ * Arbitrary data that the provider can pass when firing {@link InlineCompletionsProvider.onDidChangeInlineCompletions}.
+ * This data is passed back to the provider in {@link InlineCompletionContext.changeHint}.
+ */
+export interface IInlineCompletionChangeHint {
+	/**
+	 * Arbitrary data that the provider can use to identify what triggered the change.
+	 * This data must be JSON serializable.
+	 */
+	readonly data?: unknown;
+}
+
 export interface InlineCompletionContext {
 
 	/**
@@ -783,6 +803,12 @@ export interface InlineCompletionContext {
 	readonly includeInlineCompletions: boolean;
 	readonly requestIssuedDateTime: number;
 	readonly earliestShownDateTime: number;
+
+	/**
+	 * The change hint that was passed to {@link InlineCompletionsProvider.onDidChangeInlineCompletions}.
+	 * Only set if this request was triggered by such an event.
+	 */
+	readonly changeHint?: IInlineCompletionChangeHint;
 }
 
 export interface IInlineCompletionModelInfo {
@@ -954,7 +980,12 @@ export interface InlineCompletionsProvider<T extends InlineCompletions = InlineC
 	*/
 	disposeInlineCompletions(completions: T, reason: InlineCompletionsDisposeReason): void;
 
-	onDidChangeInlineCompletions?: Event<void>;
+	/**
+	 * Fired when the provider wants to trigger a new completion request.
+	 * The event can pass a {@link IInlineCompletionChangeHint} which will be
+	 * included in the {@link InlineCompletionContext} of the subsequent request.
+	 */
+	onDidChangeInlineCompletions?: Event<IInlineCompletionChangeHint | void>;
 
 	/**
 	 * Only used for {@link yieldsToGroupIds}.

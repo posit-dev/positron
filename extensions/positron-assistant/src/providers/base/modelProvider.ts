@@ -22,7 +22,7 @@ import { ErrorContext } from './errorContext';
  * Abstract base class for all model providers in the Positron Assistant extension.
  *
  * This class provides a universal interface for interacting with various AI model providers
- * (Anthropic, OpenAI, Google, Azure, etc.) through a consistent API. It implements the
+ * (Anthropic, OpenAI, Google, Microsoft Foundry, etc.) through a consistent API. It implements the
  * {@link positron.ai.LanguageModelChatProvider} interface to integrate with Positron's
  * language model system.
  *

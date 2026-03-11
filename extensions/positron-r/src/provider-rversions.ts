@@ -220,7 +220,7 @@ export async function discoverRVersionsBinaries(): Promise<RBinary[]> {
 			label: entry.label,
 			script: entry.script,
 			repo: entry.repo,
-			// Future PRs will add: library
+			library: entry.library,
 		};
 
 		binaries.push({

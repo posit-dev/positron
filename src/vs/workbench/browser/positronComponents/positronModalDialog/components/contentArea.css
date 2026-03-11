@@ -12,6 +12,8 @@
 	position: absolute;
 	/* Allow overflow of extra long content */
 	overflow: auto;
+	/* Preserve explicit newlines in text content */
+	white-space: pre-line;
 }
 
 .positron-modal-dialog-box .content-area code {

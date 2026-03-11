@@ -122,25 +122,28 @@ test.describe('Quarto - Inline Output: Popout', {
 		await expect(inlineQuarto.popoutButton).not.toBeVisible({ timeout: 5000 });
 	});
 
-	test('Python - Verify popout button opens interactive HTML in viewer panel', async function ({ app, openFile }) {
-		const { editors, inlineQuarto, viewer, toasts } = app.workbench;
+	test.skip('Python - Verify popout button opens interactive HTML in viewer panel',
+		{
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12373' }]
+		}, async function ({ app, openFile }) {
+			const { editors, inlineQuarto, viewer, toasts } = app.workbench;
 
-		// Open a Quarto file and wait for the kernel to be ready
-		await openFile(join('workspaces', 'quarto_inline_output', 'interactive_plot.qmd'));
-		await editors.waitForActiveTab('interactive_plot.qmd');
-		await inlineQuarto.expectKernelStatusVisible();
+			// Open a Quarto file and wait for the kernel to be ready
+			await openFile(join('workspaces', 'quarto_inline_output', 'interactive_plot.qmd'));
+			await editors.waitForActiveTab('interactive_plot.qmd');
+			await inlineQuarto.expectKernelStatusVisible();
 
-		// Run the cell and wait for output
-		await editors.clickTab('interactive_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 15 });
-		await inlineQuarto.expectOutputVisible();
+			// Run the cell and wait for output
+			await editors.clickTab('interactive_plot.qmd');
+			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 15 });
+			await inlineQuarto.expectOutputVisible();
 
-		// Run the popout command and verify viewer panel opens with interactive HTML
-		await inlineQuarto.gotoLine(8);
-		await inlineQuarto.runPopoutCommand();
-		await viewer.expectViewerPanelVisible();
-		await toasts.expectToastWithTitleNotToAppear('Failed to open');
-	});
+			// Run the popout command and verify viewer panel opens with interactive HTML
+			await inlineQuarto.gotoLine(8);
+			await inlineQuarto.runPopoutCommand();
+			await viewer.expectViewerPanelVisible();
+			await toasts.expectToastWithTitleNotToAppear('Failed to open');
+		});
 
 	test('Python - Verify Open Output in New Tab command works', async function ({ app, openFile }) {
 		const { editors, inlineQuarto } = app.workbench;

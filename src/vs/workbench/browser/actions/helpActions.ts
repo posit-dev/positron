@@ -17,6 +17,9 @@ import { KeybindingWeight } from '../../../platform/keybinding/common/keybinding
 import { Categories } from '../../../platform/action/common/actionCommonCategories.js';
 import { ICommandService } from '../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
+// --- Start Positron ---
+import { IPositronDocsService } from '../../services/positronDocs/browser/positronDocsService.js';
+// --- End Positron ---
 
 class KeybindingsReferenceAction extends Action2 {
 
@@ -422,7 +425,6 @@ registerAction2(AskVSCodeCopilot);
 // --- Start Positron ---
 registerAction2(class extends Action2 {
 	static readonly ID = 'workbench.action.openPositronDocumentation';
-	private readonly URL = 'https://positron.posit.co/';
 
 	constructor() {
 		super({
@@ -440,9 +442,8 @@ registerAction2(class extends Action2 {
 
 	run(accessor: ServicesAccessor): void {
 		const openerService = accessor.get(IOpenerService);
-		openerService.open(
-			URI.parse(this.URL)
-		);
+		const docsService = accessor.get(IPositronDocsService);
+		openerService.open(URI.parse(docsService.baseUrl));
 	}
 });
 

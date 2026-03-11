@@ -215,7 +215,7 @@ test.describe('R Debugging', {
 // R Breakpoints - Tests for gutter-click breakpoints feature (#1766)
 // These tests verify the new R breakpoint support added in PR #11407
 // skipping for now as they are failing in e2e tests, but not manually. We are investigating.
-test.describe.skip('R Breakpoints', {
+test.describe('R Breakpoints', {
 	tag: [tags.DEBUG, tags.WIN, tags.ARK]
 }, () => {
 	let breakpointSession: SessionMetaData;
@@ -224,7 +224,7 @@ test.describe.skip('R Breakpoints', {
 		breakpointSession = await sessions.start('r');
 	});
 
-	test.afterEach(async ({ app, page, hotKeys }) => {
+	test.afterEach(async ({ app, page, hotKeys, cleanup }) => {
 		// Focus the console
 		await app.workbench.console.focus();
 
@@ -242,13 +242,15 @@ test.describe.skip('R Breakpoints', {
 		// Close all editors (handles "Don't Save" dialog)
 		await hotKeys.closeAllEditors();
 
+		// Discard any file changes so next test starts clean
+		await cleanup.discardAllChanges();
+
 		// Clear console
 		await app.workbench.console.clearButton.click();
 	});
 
 	test('R - Verify breakpoint set and hit via gutter click', {
-		tag: [tags.WEB],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+		tag: [tags.WEB]
 	}, async ({ app, page, openFile, hotKeys }) => {
 		const { debug, console } = app.workbench;
 
@@ -284,9 +286,7 @@ test.describe.skip('R Breakpoints', {
 		await console.waitForReady('>');
 	});
 
-	test('R - Verify breakpoints in dirty (unsaved) documents', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
-	}, async ({ app, page, openFile, hotKeys }) => {
+	test('R - Verify breakpoints in dirty (unsaved) documents', async ({ app, page, openFile, hotKeys }) => {
 		const { debug, console } = app.workbench;
 
 		await openFile('workspaces/r-debugging/breakpoint_test.r');
@@ -298,6 +298,7 @@ test.describe.skip('R Breakpoints', {
 		await debug.expectBreakpointVerified(0, 30000);
 
 		// Edit file to make it dirty
+		await page.keyboard.press('Escape'); // Clear any selection first
 		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
 		await page.keyboard.press('Enter');
 		await page.keyboard.type('# test comment');
@@ -323,30 +324,30 @@ test.describe.skip('R Breakpoints', {
 	});
 
 	test('R - Verify session switching preserves breakpoint state', {
-		tag: [tags.WEB],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+		tag: [tags.WEB]
 	}, async ({ app, page, openFile, hotKeys, sessions }) => {
 		const { debug, console } = app.workbench;
 
-		// Start a second R session
-		const rSession2 = await sessions.start('r', { reuse: false });
-
-		// Switch back to first session (use ID since both have same name)
-		await sessions.select(breakpointSession.id);
-
+		// Set up and verify breakpoint in Session 1 before switching.
+		// This ensures the breakpoint is verified (document hash stored)
+		// so we can later poll for `expectBreakpointVerified` as a
+		// signal that the DAP has reconnected after a session switch.
 		await openFile('workspaces/r-debugging/breakpoint_test.r');
 		await debug.setUnverifiedBreakpointOnLine(3);
-
-		// Verify breakpoint in Session 1
 		await hotKeys.selectAll();
 		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
 		await debug.expectBreakpointVerified(0, 30000);
 
-		// Switch to Session 2 - breakpoint should be unverified
-		await sessions.select(rSession2.id);
+		// Start a second R session (this switches away from Session 1)
+		const rSession2 = await sessions.start('r', { reuse: false });
+
+		// Breakpoint should be unverified while Session 2 is active
 		await debug.expectBreakpointUnverified(0);
 
-		// Switch back to Session 1 - breakpoint should still be verified
+		// Switch back to Session 1. Poll for verified breakpoint as a
+		// signal that the DAP has reconnected and `sendAllBreakpoints`
+		// has completed (ark re-confirms `verified: true` because the
+		// document hash matches).
 		await sessions.select(breakpointSession.id);
 		await debug.expectBreakpointVerified(0, 5000);
 
@@ -408,8 +409,7 @@ test.describe.skip('R Breakpoints', {
 	});
 
 	test('R - Verify DAP disconnect/reconnect preserves breakpoints', {
-		tag: [tags.WEB],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+		tag: [tags.WEB]
 	}, async ({ app, page, openFile, hotKeys }) => {
 		const { debug, console } = app.workbench;
 
@@ -438,9 +438,7 @@ test.describe.skip('R Breakpoints', {
 		await console.waitForReady('>');
 	});
 
-	test('R - Verify editing file while at breakpoint invalidates breakpoints', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
-	}, async ({ app, page, openFile, hotKeys }) => {
+	test('R - Verify editing file while at breakpoint invalidates breakpoints', async ({ app, page, openFile, hotKeys }) => {
 		const { debug, console } = app.workbench;
 
 		await openFile('workspaces/r-debugging/breakpoint_test.r');
@@ -454,8 +452,11 @@ test.describe.skip('R Breakpoints', {
 		// Trigger breakpoint
 		await debug.expectBrowserModeFrame(1);
 
+		await hotKeys.minimizeBottomPanel();
+
 		// Edit file while at breakpoint
 		await app.workbench.editors.selectTab('breakpoint_test.r');
+		await page.keyboard.press('Escape'); // Clear any selection first
 		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
 		await page.keyboard.press('Enter');
 		await page.keyboard.type('# edit while debugging');
@@ -463,6 +464,8 @@ test.describe.skip('R Breakpoints', {
 
 		// Breakpoint should become unverified
 		await debug.expectBreakpointUnverified(0);
+
+		await hotKeys.restoreBottomPanel();
 
 		// Continue - invalidated breakpoint should NOT trigger again
 		await debug.continue();
