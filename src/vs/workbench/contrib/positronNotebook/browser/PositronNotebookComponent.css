@@ -92,8 +92,8 @@
 	height: 100%;
 	overflow: auto;
 
-	/* Wider scrollbar for the main notebook scroll area */
-	&::-webkit-scrollbar {
+	/* Wider scrollbar for the main notebook scroll area. */
+	&.positron-notebook-scrollable::-webkit-scrollbar {
 		width: 14px;
 		height: 14px;
 	}
