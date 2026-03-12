@@ -144,6 +144,14 @@ export function NotebookCellWrapper({ cell, children }: {
 		role='article'
 		tabIndex={0}
 		onClick={(e) => {
+			// If a modifier key is held, treat as multi-select regardless of
+			// where in the cell the click landed (including inside the editor).
+			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
+			if (addMode) {
+				selectionStateMachine.selectCell(cell, CellSelectionType.Add);
+				return;
+			}
+
 			const clickTarget = e.nativeEvent.target as HTMLElement;
 			// If any of the element or its parents have the class
 			// 'positron-cell-editor-monaco-widget' then don't run the select code as the editor
@@ -169,8 +177,7 @@ export function NotebookCellWrapper({ cell, children }: {
 				return;
 			}
 
-			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
-			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
+			selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 		}}
 	>
 		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>

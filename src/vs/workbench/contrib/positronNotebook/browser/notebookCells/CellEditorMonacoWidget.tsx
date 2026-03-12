@@ -179,6 +179,15 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editor.contextKeyService);
 
 		disposables.add(editor.onDidFocusEditorWidget(() => {
+			// If the user shift/ctrl/cmd-clicked to multi-select, the click handler
+			// already transitioned to MultiSelection. Don't override that by entering
+			// edit mode just because the editor received focus.
+			const currentState = instance.selectionStateMachine.state.get();
+			if (currentState.type === SelectionState.MultiSelection) {
+				cellEditorFocusedKey.set(true);
+				return;
+			}
+
 			// enterEditor() automatically detects that editor has focus and skips focus management
 			instance.selectionStateMachine.enterEditor(cell);
 			cellEditorFocusedKey.set(true);
