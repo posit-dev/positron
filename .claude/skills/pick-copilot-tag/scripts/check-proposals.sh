@@ -133,10 +133,28 @@ check_tag_list() {
 	local positron_proposals="$2"
 	_FOUND_OK=""
 
+	local total checked=0
+	total=$(echo "$tags" | wc -l | tr -d ' ')
+
+	# Progress indicator (only when stderr is a terminal).
+	local show_progress=false
+	[[ -t 2 ]] && show_progress=true
+	_progress() {
+		if [[ "$show_progress" == true ]]; then
+			printf '\r\033[K  checking %d/%d: %s ...' "$@" >&2
+		fi
+	}
+	_clear_progress() {
+		if [[ "$show_progress" == true ]]; then
+			printf '\r\033[K' >&2
+		fi
+	}
+
 	# Track consecutive skips to print a summary instead of one line per tag.
 	local skip_count=0 skip_first="" skip_last="" skip_reason=""
 	_flush_skips() {
 		if [[ "$skip_count" -eq 0 ]]; then return; fi
+		_clear_progress
 		if [[ "$skip_count" -eq 1 ]]; then
 			echo "SKIP $skip_first ($skip_reason)"
 		else
@@ -146,6 +164,9 @@ check_tag_list() {
 	}
 
 	for tag in $tags; do
+		checked=$((checked + 1))
+		_progress "$checked" "$total" "$tag"
+
 		local content
 		content=$(gh api "repos/$REPO/contents/package.json?ref=$tag" \
 			--jq '.content' 2>/dev/null) || continue
@@ -183,6 +204,7 @@ for p in sorted(p for p in pkg.get('enabledApiProposals', []) if '@' in p):
 
 		# Flush any accumulated skips before printing a non-skip result
 		_flush_skips
+		_clear_progress
 
 		local issues=""
 		while IFS= read -r prop; do
@@ -202,6 +224,7 @@ for p in sorted(p for p in pkg.get('enabledApiProposals', []) if '@' in p):
 		if [[ -z "$issues" ]]; then
 			echo "OK  $tag"
 			_FOUND_OK="$tag"
+			_clear_progress
 			return
 		else
 			echo "BAD $tag"
@@ -210,6 +233,7 @@ for p in sorted(p for p in pkg.get('enabledApiProposals', []) if '@' in p):
 	done
 
 	_flush_skips
+	_clear_progress
 }
 
 # --- Check a single tag series ------------------------------------------------
