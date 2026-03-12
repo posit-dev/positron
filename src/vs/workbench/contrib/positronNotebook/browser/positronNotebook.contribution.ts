@@ -1513,7 +1513,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.collapseOutput',
 			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
-			icon: ThemeIcon.fromId('chevron-up'),
+			icon: ThemeIcon.fromId('chevron-down'),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
 				group: PositronNotebookCellOutputActionGroup.Visibility,
@@ -1541,7 +1541,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.expandOutput',
 			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
-			icon: ThemeIcon.fromId('chevron-down'),
+			icon: ThemeIcon.fromId('chevron-right'),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
 				group: PositronNotebookCellOutputActionGroup.Visibility,

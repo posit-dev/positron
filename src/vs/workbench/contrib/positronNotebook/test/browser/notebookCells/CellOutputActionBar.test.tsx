@@ -132,7 +132,7 @@ suite('CellOutputActionBar', () => {
 
 	test('toolbar has an accessible label', () => {
 		menuActions = [
-			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-up')]],
+			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-down')]],
 		];
 		const fixture = renderActionBar();
 
@@ -143,8 +143,8 @@ suite('CellOutputActionBar', () => {
 	test('renders buttons for a single group', () => {
 		menuActions = [
 			['0_visibility', [
-				mockAction('collapse', 'Collapse', 'chevron-up'),
-				mockAction('expand', 'Expand', 'chevron-down'),
+				mockAction('collapse', 'Collapse', 'chevron-down'),
+				mockAction('expand', 'Expand', 'chevron-right'),
 			]],
 		];
 		const fixture = renderActionBar();
@@ -156,8 +156,8 @@ suite('CellOutputActionBar', () => {
 	test('renders separator before the last group', () => {
 		menuActions = [
 			['0_visibility', [
-				mockAction('collapse', 'Collapse', 'chevron-up'),
-				mockAction('expand', 'Expand', 'chevron-down'),
+				mockAction('collapse', 'Collapse', 'chevron-down'),
+				mockAction('expand', 'Expand', 'chevron-right'),
 			]],
 			['1_destructive', [
 				mockAction('clear', 'Clear', 'close'),
@@ -171,7 +171,7 @@ suite('CellOutputActionBar', () => {
 
 	test('only shows separator before the last group with three groups', () => {
 		menuActions = [
-			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-up')]],
+			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-down')]],
 			['1_middle', [mockAction('middle', 'Middle', 'info')]],
 			['2_destructive', [mockAction('clear', 'Clear', 'close')]],
 		];
