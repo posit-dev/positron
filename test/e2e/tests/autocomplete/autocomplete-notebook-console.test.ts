@@ -291,4 +291,147 @@ test.describe('Autocomplete with Notebook Console', {
 			await expect(suggestWidget.getByLabel(/^x,/)).toBeVisible();
 		});
 	});
+
+	test('Python - Notebook console autocomplete uses notebook session not console session', {
+		tag: [tags.QUARTO]
+	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+		const { console, inlineQuarto, editors } = app.workbench;
+		const page = app.code.driver.page;
+		const keyboard = page.keyboard;
+
+		await test.step('Enable inline output and notebook consoles', async () => {
+			await settings.set({
+				'positron.quarto.inlineOutput.enabled': true,
+				'console.showNotebookConsoles': true,
+				'workbench.editor.enablePreview': false,
+			}, { reload: true, waitMs: 1000 });
+		});
+
+		// Start a Python console session and define a variable
+		await sessions.start(['python']);
+		await hotKeys.closeSecondarySidebar();
+		await console.executeCode('Python', 'quux1234 = 42');
+		await sessions.expectAllSessionsToBeReady();
+
+		await test.step('Open Quarto file and run cell to start notebook session', async () => {
+			await openFile(join('workspaces', 'quarto_inline_output', 'console_test_py.qmd'));
+			await editors.waitForActiveTab('console_test_py.qmd');
+			await inlineQuarto.expectKernelStatusVisible();
+
+			// Run the cell to start the Quarto kernel session
+			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 15 });
+		});
+
+		await test.step('Define a variable in the notebook session', async () => {
+			// Define quux2345 by adding it to the existing code cell
+			// and running it. This avoids typing into the console
+			// input where the suggest widget can intercept Enter.
+			await editors.selectTab('console_test_py.qmd');
+			await inlineQuarto.gotoLine(11);
+			await keyboard.press('End');
+			await keyboard.press('Enter');
+			await keyboard.type('quux2345 = 99', { delay: 0 });
+			await inlineQuarto.runCurrentCell();
+			await sessions.expectAllSessionsToBeReady();
+
+			// Undo the file edit so later tests see the original file
+			await keyboard.press('Meta+z');
+			await keyboard.press('Meta+z');
+		});
+
+		await test.step('Verify notebook console autocomplete uses notebook session', async () => {
+			// Switch to the notebook console
+			await sessions.select('console_test_py.qmd');
+			await console.waitForReady('>>>');
+
+			// Clear the console input and type the prefix.
+			await console.clearInput();
+			await keyboard.type('quux', { delay: 250 });
+
+			// Trigger completions and verify we see quux2345 (from the
+			// notebook session). If the console LSP is incorrectly
+			// active, we would see quux1234 instead.
+			const suggestWidget = page.locator('.suggest-widget.visible');
+			await expect(async () => {
+				await keyboard.press('Control+Space');
+				await expect(suggestWidget).toBeVisible({ timeout: 5000 });
+			}).toPass({ timeout: 30000 });
+
+			await expect(suggestWidget.getByLabel(/quux2345/)).toBeVisible();
+		});
+	});
+
+	test('Python - Autocomplete in Quarto uses Quarto LSP after switching to console', {
+		tag: [tags.QUARTO]
+	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
+		const { editors, inlineQuarto } = app.workbench;
+		const page = app.code.driver.page;
+		const keyboard = page.keyboard;
+		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
+
+		await test.step('Enable inline output and notebook consoles', async () => {
+			await settings.set({
+				'positron.quarto.inlineOutput.enabled': true,
+				'console.showNotebookConsoles': true,
+				'workbench.editor.enablePreview': false,
+			}, { reload: true, waitMs: 1000 });
+		});
+
+		// Start a Python console session
+		const [pySession] = await sessions.start(['python']);
+		await hotKeys.closeSecondarySidebar();
+		await sessions.expectAllSessionsToBeReady();
+
+		await test.step('Open Quarto file, run cell, and keep file open', async () => {
+			// Open the simple Python qmd file - it defines x and df
+			await openFile(join('workspaces', 'quarto_inline_output', 'simple_py.qmd'));
+			await editors.waitForActiveTab('simple_py.qmd');
+			await inlineQuarto.expectKernelStatusVisible();
+
+			// Run the cell to start the Quarto kernel session and define df
+			await inlineQuarto.runCellAndWaitForOutput({ cellLine: 11, outputLine: 14 });
+
+			// Re-focus the file in the editor after inline output
+			await editors.selectTab('simple_py.qmd');
+		});
+
+		await test.step('Switch to Quarto console then back to Python console', async () => {
+			// Select the Quarto console tab to make it the foreground
+			await sessions.select('simple_py.qmd');
+
+			// Now switch back to the Python console tab - this makes
+			// the console session the foreground, which is the key
+			// trigger for the bug
+			await sessions.select(pySession.id);
+		});
+
+		await test.step('Type in Quarto and verify completions use Quarto LSP', async () => {
+			// Switch back to the Quarto file in the editor
+			await editors.selectTab('simple_py.qmd');
+
+			// Go to line 11 (df = pd.DataFrame(...)), press End to go
+			// to end of line, Enter to create a new line inside the
+			// code block, then type df. to trigger completions.
+			// If the Quarto LSP is active, df is known and we should
+			// see DataFrame attribute completions.
+			// If the console LSP is wrongly active, df does not exist
+			// in the console session, so no completions.
+			await inlineQuarto.gotoLine(11);
+			await keyboard.press('End');
+			await keyboard.press('Enter');
+			await keyboard.type('df.', { delay: 250 });
+
+			// Explicitly trigger completions
+			await expect(async () => {
+				await keyboard.press('Control+Space');
+				await expect(suggestionList.first()).toBeVisible({ timeout: 5000 });
+			}).toPass({ timeout: 30000 });
+
+			// The toPass loop above already verifies that suggestion
+			// items appeared. If the console LSP were wrongly active,
+			// df would not exist and we'd get no completions. The
+			// presence of suggestions confirms the Quarto LSP is
+			// correctly providing them.
+		});
+	});
 });
