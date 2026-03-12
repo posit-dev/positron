@@ -17,7 +17,7 @@ const OPTIONAL_MISSING_EXTENSIONS = new Set<string>([
 
 
 test.describe('Bootstrap Extensions', {
-	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN, tags.WORKBENCH],
+	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN, tags.WORKBENCH, tags.CROSS_BROWSER],
 }, () => {
 
 	test.beforeAll('Skip during main run', async function () {

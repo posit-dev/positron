@@ -722,90 +722,51 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].forceQuit();
 	}
 
-	async $getPackages(handle: number): Promise<positron.LanguageRuntimePackage[]> {
+	private getPackageManagerOrThrow(handle: number, operation: string): positron.LanguageRuntimePackageManager {
 		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot get packages from runtime: session handle '${handle}' not found or no longer valid.`);
+			throw new Error(`Cannot ${operation}: session handle '${handle}' not found or no longer valid.`);
 		}
 		const session = this._runtimeSessions[handle];
-		if (!session.getPackages) {
-			throw new Error(`Cannot get packages from runtime: session handle '${handle}' does not implement package management.`);
+		const packageManager = session.getPackageManager?.();
+		if (!packageManager) {
+			throw new Error(`Cannot ${operation}: session handle '${handle}' does not implement package management.`);
 		}
+		return packageManager;
+	}
 
-		return session.getPackages();
+	async $getPackages(handle: number): Promise<positron.LanguageRuntimePackage[]> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'get packages from runtime');
+		return packageManager.getPackages();
 	}
 
 	async $installPackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot install package from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.installPackages) {
-			throw new Error(`Cannot install packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.installPackages(packages);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'install packages');
+		return packageManager.installPackages(packages);
 	}
 
 	async $uninstallPackages(handle: number, packageNames: string[]): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot uninstall package from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.uninstallPackages) {
-			throw new Error(`Cannot uninstall packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.uninstallPackages(packageNames);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'uninstall packages');
+		return packageManager.uninstallPackages(packageNames);
 	}
 
 	async $updatePackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot update packages from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-
-		const session = this._runtimeSessions[handle];
-		if (!session.updatePackages) {
-			throw new Error(`Cannot update packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-
-		return session.updatePackages(packages);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'update packages');
+		return packageManager.updatePackages(packages);
 	}
 
 	async $updateAllPackages(handle: number): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot update all packages from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.updateAllPackages) {
-			throw new Error(`Cannot update all packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.updateAllPackages();
+		const packageManager = this.getPackageManagerOrThrow(handle, 'update all packages');
+		return packageManager.updateAllPackages();
 	}
 
 	async $searchPackages(handle: number, query: string): Promise<positron.LanguageRuntimePackage[]> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot search packages from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.searchPackages) {
-			throw new Error(`Cannot search packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.searchPackages(query);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'search packages');
+		return packageManager.searchPackages(query);
 	}
 
 	async $searchPackageVersions(handle: number, name: string): Promise<string[]> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot search package versions from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.searchPackageVersions) {
-			throw new Error(`Cannot search package versions from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.searchPackageVersions(name);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'search package versions');
+		return packageManager.searchPackageVersions(name);
 	}
 
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {

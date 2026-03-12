@@ -85,6 +85,13 @@ export class PlaywrightDriver {
 		return this.page;
 	}
 
+	/**
+	 * Returns the browser type used for this driver (e.g., 'chromium', 'webkit', 'firefox', 'chromium-msedge').
+	 */
+	get browser(): string | undefined {
+		return this.options.browser;
+	}
+
 	async startTracing(name?: string): Promise<void> {
 		if (!this.options.tracing) {
 			return; // tracing disabled
@@ -93,13 +100,13 @@ export class PlaywrightDriver {
 		try {
 			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing${name ? ` for ${name}` : ''}`, this.options.logger);
 		} catch (error) {
-			// Ignore
+			// Tracing may not have initialized successfully on some browsers - ignore
 		}
 	}
 
 	// --- Start Positron ---
 	async stopTracing(name?: string, persist: boolean = false, customPath?: string): Promise<void> {
-	// --- End Positron ---
+		// --- End Positron ---
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
@@ -113,14 +120,6 @@ export class PlaywrightDriver {
 			}
 
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing${name ? ` for ${name}` : ''}`, this.options.logger);
-
-			// To ensure we have a screenshot at the end where
-			// it failed, also trigger one explicitly. Tracing
-			// does not guarantee to give us a screenshot unless
-			// some driver action ran before.
-			if (persist) {
-				await this.takeScreenshot(name);
-			}
 		} catch (error) {
 			// Ignore
 		}
@@ -232,7 +231,7 @@ export class PlaywrightDriver {
 				await measureAndLog(() => this.context.tracing.stop(), 'stop tracing', this.options.logger);
 			}
 		} catch (error) {
-			// Ignore
+			// Tracing may not have initialized successfully on some browsers - ignore
 		}
 
 		// Web: Extract client logs

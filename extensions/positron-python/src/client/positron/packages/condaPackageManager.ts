@@ -9,7 +9,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
-import { IPackageManager, MessageEmitter } from './types';
+import { IPackageManager, MessageEmitter, PackageKernel } from './types';
 
 /** Package info returned by `conda search --json` */
 interface CondaPackageInfo {
@@ -64,7 +64,12 @@ export class CondaPackageManager implements IPackageManager {
         private readonly _pythonPath: string,
         _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
+        private readonly _kernel: PackageKernel,
     ) {}
+
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        return this._kernel.callMethod('getPackagesInstalled');
+    }
 
     /**
      * Check if conda is available.

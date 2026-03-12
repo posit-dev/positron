@@ -237,6 +237,7 @@ export interface MainThreadNotebookFeaturesShape extends IDisposable {
 	$moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void>;
 	$reorderCells(notebookUri: string, newOrder: number[]): Promise<void>;
 	$scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void>;
+	$clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void>;
 }
 
 /**

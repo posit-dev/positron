@@ -9,10 +9,15 @@ import { Commands, PVSC_EXTENSION_ID } from '../../../common/constants';
 import { execObservable } from '../../../common/process/rawProcessApis';
 import { createDeferred } from '../../../common/utils/async';
 import { Common, CreateEnv } from '../../../common/utils/localize';
-import { traceError, traceInfo, traceLog } from '../../../logging';
+import { traceError, traceInfo, traceLog, traceWarn } from '../../../logging';
 import { CreateEnvironmentOptionsInternal, CreateEnvironmentProgress } from '../types';
 import { pickWorkspaceFolder } from '../common/workspaceSelection';
-import { MultiStepAction, MultiStepNode, withProgress } from '../../../common/vscodeApis/windowApis';
+import {
+    MultiStepAction,
+    MultiStepNode,
+    showWarningMessage,
+    withProgress,
+} from '../../../common/vscodeApis/windowApis';
 import { getVenvExecutable, showPositronErrorMessageWithLogs } from '../common/commonUtils';
 import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from './venvUtils';
 import {
@@ -20,7 +25,7 @@ import {
     CreateEnvironmentOptions,
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
-import { isUvInstalled } from '../../common/environmentManagers/uv';
+import { getStablePythonAfterUpdate, getUvPythonVersionInfo, isUvInstalled } from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
@@ -201,6 +206,44 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
 
                 if (!version) {
                     throw new Error('Failed to create uv environment. Python version is undefined.');
+                }
+
+                // Check if uv would install a pre-release version and warn the user
+                const versionInfo = await getUvPythonVersionInfo(version);
+                if (versionInfo?.isPrerelease) {
+                    traceWarn(
+                        `uv would install pre-release Python ${versionInfo.version} for requested version ${version}`,
+                    );
+                    const choice = await showWarningMessage(
+                        CreateEnv.Uv.prereleaseWarning(versionInfo.version),
+                        { modal: false },
+                        CreateEnv.Uv.updateUv,
+                        CreateEnv.Uv.proceedAnyway,
+                        Common.cancel,
+                    );
+
+                    if (choice === CreateEnv.Uv.updateUv) {
+                        const result = await getStablePythonAfterUpdate(version, (message) => {
+                            progress.report({ message });
+                        });
+
+                        if (!result.success) {
+                            if (result.error === 'update_failed') {
+                                throw new Error(CreateEnv.Uv.errorUpdatingUv);
+                            } else if (result.error === 'install_failed') {
+                                throw new Error(CreateEnv.Uv.errorInstallingPython(result.version ?? version));
+                            } else {
+                                throw new Error(CreateEnv.Uv.noStableVersionAvailable(version));
+                            }
+                        }
+
+                        traceInfo(`Using stable Python ${result.version}`);
+                        version = result.version;
+                    } else if (choice !== CreateEnv.Uv.proceedAnyway) {
+                        // User cancelled or closed the dialog
+                        return undefined;
+                    }
+                    traceInfo(`Proceeding with Python ${version}`);
                 }
 
                 envPath = await createUvVenv(workspace, version, progress, token, options?.envName);
