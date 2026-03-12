@@ -677,18 +677,18 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			});
 
 			// --- Start Positron ---
+			if (isLinux) {
+				options.icon = join(this.environmentMainService.appRoot, 'resources/linux/positron.png');
+			} else if (isWindows && !this.environmentMainService.isBuilt) {
+				options.icon = join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png');
+			}
+
 			// Use dev icon when running from source to distinguish from production builds
 			const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('dev.iconColor') : undefined;
-			if (customColor) {
+			if (customColor && typeof options.icon === 'string') {
 				// Use has custom color set + we are running in dev mode
-				const iconPath = join(environmentMainService.appRoot, 'resources', 'dev', 'positron-dev.png');
-				const coloredIcon = recolorDevIcon(iconPath, customColor);
+				const coloredIcon = recolorDevIcon(options.icon, customColor);
 				options.icon = coloredIcon;
-			} else if (isLinux) {
-				// Otherwise use default icons
-				options.icon = join(environmentMainService.appRoot, 'resources/linux/positron.png');
-			} else if (isWindows) {
-				options.icon = join(environmentMainService.appRoot, 'resources/win32/positron_150x150.png');
 			}
 			// --- End Positron ---
 

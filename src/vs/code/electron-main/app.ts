@@ -575,7 +575,7 @@ export class CodeApplication extends Disposable {
 		// --- Start Positron ---
 		// Set dev icon on macOS when running from source to distinguish from production builds
 		if (isMacintosh && !this.environmentMainService.isBuilt && app.dock) {
-			const devIconPath = join(this.environmentMainService.appRoot, 'resources/positron-dev.png');
+			const devIconPath = join(this.environmentMainService.appRoot, 'resources/darwin/positron.png');
 			const customColor = this.configurationService.getValue<string>('dev.iconColor');
 			if (customColor) {
 				app.dock.setIcon(recolorDevIcon(devIconPath, customColor));
