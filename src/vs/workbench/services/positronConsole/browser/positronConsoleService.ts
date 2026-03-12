@@ -970,11 +970,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			throw new Error(`Cannot reveal execution: no Positron console instance found for session ID ${sessionId}.`);
 		}
 
-		// Open the console view to ensure it's visible.
 		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
-		// Set this console instance as active.
-		this.setActivePositronConsoleInstance(consoleInstance);
+		// Activate the console instance if it isn't already active
+		if (consoleInstance !== this._activePositronConsoleInstance) {
+			this.setActivePositronConsoleInstance(consoleInstance);
+			this._runtimeSessionService.foregroundSession = consoleInstance.session;
+		}
 
 		// Ask the console instance to reveal the execution.
 		if (!consoleInstance.revealExecution(executionId)) {
