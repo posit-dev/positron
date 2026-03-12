@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Event } from '../../../../../base/common/event.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -32,23 +33,51 @@ export interface IPositronPackagesService {
 	setActivePositronPackagesSession(session: ILanguageRuntimeSession): unknown;
 
 	/**
-	 * Gets the installed packages for the given session ID.
-	 *
-	 * @param sessionId
+	 * Gets the installed packages for the active session.
+	 * @param token Optional cancellation token
 	 */
-	refreshPackages(): Promise<ILanguageRuntimePackage[]>;
+	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
-	installPackages(packages: IPackageSpec[]): Promise<void>;
+	/**
+	 * Install packages in the active session.
+	 * @param packages Array of package specifications to install
+	 * @param token Optional cancellation token
+	 */
+	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 
-	uninstallPackages(packageNames: string[]): Promise<void>;
+	/**
+	 * Uninstall packages from the active session.
+	 * @param packageNames Array of package names to uninstall
+	 * @param token Optional cancellation token
+	 */
+	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
 
-	updatePackages(packages: IPackageSpec[]): Promise<void>;
+	/**
+	 * Update packages in the active session.
+	 * @param packages Array of package specifications to update
+	 * @param token Optional cancellation token
+	 */
+	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 
-	updateAllPackages(): Promise<void>;
+	/**
+	 * Update all packages in the active session.
+	 * @param token Optional cancellation token
+	 */
+	updateAllPackages(token?: CancellationToken): Promise<void>;
 
-	searchPackages(query: string): Promise<ILanguageRuntimePackage[]>;
+	/**
+	 * Search for packages matching a query.
+	 * @param query Search query
+	 * @param token Optional cancellation token
+	 */
+	searchPackages(query: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
-	searchPackageVersions(name: string): Promise<string[]>;
+	/**
+	 * Search for available versions of a package.
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
 	getInstances(): IPositronPackagesInstance[];
 }
