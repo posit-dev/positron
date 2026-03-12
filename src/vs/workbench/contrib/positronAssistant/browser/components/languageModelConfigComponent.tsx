@@ -162,7 +162,7 @@ const DEPLOYMENT_URL_PATTERN = /\/openai\/deployments\//;
 
 const BaseUrl = (props: { baseUrl?: string; signedIn?: boolean; onChange: (newBaseUrl: string) => void; provider: IProvider }) => {
 	const baseUrlLabel = props.provider.id === 'openai-compatible' ? localize('positron.languageModelConfig.baseUrlOpenAICompatibleInputLabel', 'Base URL (must be OpenAI compatible)') : localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL');
-	const isDeploymentUrl = props.provider.id === 'foundry' && props.baseUrl ? DEPLOYMENT_URL_PATTERN.test(props.baseUrl) : false;
+	const isDeploymentUrl = props.provider.id === 'ms-foundry' && props.baseUrl ? DEPLOYMENT_URL_PATTERN.test(props.baseUrl) : false;
 
 	// When signed in with a deployment URL, show the normalized v1 URL
 	let displayUrl = props.baseUrl;
@@ -185,7 +185,7 @@ const BaseUrl = (props: { baseUrl?: string; signedIn?: boolean; onChange: (newBa
 			}
 		</div>
 		{isDeploymentUrl &&
-			<div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', color: 'var(--vscode-editorWarning-foreground)', fontSize: '0.85em', wordBreak: 'break-word' }}>
+			<div className='language-model-url-info'>
 				<span className='codicon codicon-warning' />
 				<span>
 					{props.signedIn
