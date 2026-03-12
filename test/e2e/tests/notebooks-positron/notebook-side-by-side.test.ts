@@ -9,9 +9,6 @@
  * Verifies that when two notebooks are open side-by-side:
  * 1. Kernel selection and status are independent per notebook
  * 2. The "Run All" button executes cells in its own notebook, not the focused one
- *
- * BUG: These tests are expected to FAIL, demonstrating that kernel status is
- * shared across notebooks and Run All targets the focused editor.
  */
 
 import { expect, tags } from '../_test.setup';
@@ -27,9 +24,6 @@ test.describe('Notebook Side-by-Side Isolation', {
 }, () => {
 
 	test('Kernel status is independent per notebook when side-by-side',
-		{
-			annotation: [{ type: 'bug', description: 'Kernel selection and status is shared across side-by-side notebooks' }]
-		},
 		async function ({ app, page }) {
 			const { notebooksPositron } = app.workbench;
 			const pythonVersion = process.env.POSITRON_PY_VER_SEL!;
@@ -70,9 +64,6 @@ test.describe('Notebook Side-by-Side Isolation', {
 				await expect(leftGroup.locator('.editor-action-bar-container').locator(IDLE_STATUS_ICON)).toBeVisible({ timeout: 15000 });
 			});
 
-			// BUG: Kernel status is shared across notebooks. The right notebook
-			// (which has no kernel selected) incorrectly shows the Python kernel
-			// from the left notebook.
 			await test.step('Verify right notebook (nb2) does NOT show Python kernel', async () => {
 				const rightKernelBadge = rightGroup.getByRole('button', { name: 'Kernel Actions' });
 				await expect(rightKernelBadge).not.toContainText(pythonVersion, { timeout: 5000 });
@@ -80,9 +71,6 @@ test.describe('Notebook Side-by-Side Isolation', {
 		});
 
 	test('Run All button executes cells in its own notebook, not the focused one',
-		{
-			annotation: [{ type: 'bug', description: 'Run All button is scoped to the focused editor, not the editor it is rendered in' }]
-		},
 		async function ({ app, page }) {
 			const { notebooksPositron } = app.workbench;
 
@@ -118,8 +106,6 @@ test.describe('Notebook Side-by-Side Isolation', {
 			});
 
 			// Click "Run All" in the RIGHT notebook's (nb2) editor action bar.
-			// BUG: This executes cells in the focused (left) notebook instead of
-			// the right notebook where the button lives.
 			await test.step('Click Run All in right notebook action bar', async () => {
 				const rightRunAll = rightGroup.locator('.editor-action-bar-container')
 					.getByRole('button', { name: 'Run All' });

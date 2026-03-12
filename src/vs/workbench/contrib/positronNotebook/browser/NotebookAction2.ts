@@ -27,7 +27,7 @@ export abstract class NotebookAction2 extends Action2 {
 
 		// If a resource URI was passed (e.g. from the editor action bar),
 		// find the notebook instance for that specific resource.
-		const resourceUri = args[0] instanceof URI ? args[0] : undefined;
+		const resourceUri = URI.isUri(args[0]) ? args[0] : undefined;
 		if (resourceUri) {
 			for (const pane of editorService.visibleEditorPanes) {
 				const candidate = getNotebookInstanceFromEditorPane(pane);
