@@ -581,7 +581,7 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
     display_shape = f"({shape[0]})" if len(shape) == 1 else str(tuple(shape))
     verify_inspector(
         value=value,
-        display_value=np.array2string(value, separator=","),
+        display_value=np.array2string(value, separator=",", formatter={"all": lambda x: str(x)}),
         kind=VariableKind.Collection,
         display_type=f"numpy.int64 {display_shape}",
         type_info="numpy.ndarray",
@@ -602,7 +602,7 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
 def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
     verify_inspector(
         value=value,
-        display_value=np.array2string(value, separator=","),
+        display_value=np.array2string(value, separator=",", formatter={"all": lambda x: str(x)}),
         kind=VariableKind.Number,
         display_type="numpy.int64",
         type_info="numpy.ndarray",

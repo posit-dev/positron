@@ -718,6 +718,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
                 threshold=ARRAY_THRESHOLD,
                 edgeitems=ARRAY_EDGEITEMS,
                 separator=",",
+                formatter={"all": lambda x: str(x)},
             ),
             True,
         )
