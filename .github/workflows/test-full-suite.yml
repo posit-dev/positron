@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       run_name:
-        description: "Custom run name"
+        description: "Custom run name:"
         required: false
         default: "Test: Full Suite"
         type: string
@@ -75,7 +75,7 @@ on:
         default: false
         type: boolean
       commit:
-        description: "Commit SHA to test"
+        description: "Commit SHA to test:"
         required: false
         default: "latest"
         type: string
