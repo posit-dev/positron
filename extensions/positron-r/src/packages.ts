@@ -26,7 +26,7 @@ export class RPackageManager {
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
 		const method = await this._getPakMethod();
 		const result = await this._session.callMethod('pkg_list', method) as positron.LanguageRuntimePackage[] ?? [];
-		// Sort packages alphabetically by name (case-insensitive)
+		// Result is not sorted, sort packages alphabetically by name (case-insensitive)
 		result.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 		return result;
 	}
@@ -46,7 +46,6 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
-			// renv: use renv::install with lock=TRUE to update lockfile
 			const pkgNames = packages.map(p => p.name);
 			const pkgVector = this._formatRVector(pkgNames);
 			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
@@ -86,12 +85,10 @@ export class RPackageManager {
 			this._validatePackageName(pkg.name);
 		}
 
-		// Check if we're in an renv project
 		const isRenv = await this._detectRenv();
 
 		let code: string;
 		if (isRenv) {
-			// renv: use renv::update with lock=TRUE to update lockfile
 			const pkgNames = packages.map(p => p.name);
 			const pkgVector = this._formatRVector(pkgNames);
 			code = `renv::update(${pkgVector}, lock = TRUE, prompt = FALSE)`;
@@ -99,6 +96,7 @@ export class RPackageManager {
 			const method = await this._ensurePak();
 
 			if (method === 'pak') {
+				// pak supports "pkg@version" syntax directly
 				const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
 				const pkgVector = this._formatRVector(pkgSpecs);
 				code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
@@ -122,7 +120,6 @@ export class RPackageManager {
 		const isRenv = await this._detectRenv();
 
 		if (isRenv) {
-			// renv: update all packages with lock=TRUE
 			await this._executeAndWait(`renv::update(lock = TRUE, prompt = FALSE)`);
 		} else {
 			const method = await this._ensurePak();
@@ -159,7 +156,6 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
-			// renv: use renv::remove (no lock parameter available)
 			// Print a reminder to run renv::snapshot() to update lockfile
 			code = `renv::remove(${pkgVector}); message("Note: Run renv::snapshot() to update your lockfile.")`;
 		} else {
