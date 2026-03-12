@@ -532,7 +532,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}));
 
-		// Register the onDidChangeActiveRuntime event handler so we can activate the REPL for the active runtime.
+		// Register the onDidChangeForegroundSession event handler so we can activate the REPL for the active runtime.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			if (!session) {
 				this.setActivePositronConsoleInstance();
