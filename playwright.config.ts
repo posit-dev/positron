@@ -43,13 +43,11 @@ if (process.env.CI) {
 		['json', { outputFile: jsonOut }],
 		['list'], ['html'], ['blob'],
 	];
-} else if (process.env.CLAUDE_CODE) {
-	reporter = [['list']];
 } else {
-	reporter = [
-		['list'],
-		['html', { open: 'on-failure' }],
-	];
+	reporter = [['list']];
+	if (!process.env.CLAUDE_CODE) {
+		reporter.push(['html', { open: 'on-failure' }]);
+	}
 }
 
 export default defineConfig<CustomTestOptions>({
