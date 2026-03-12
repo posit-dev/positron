@@ -26,7 +26,6 @@ import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/co
 interface IConfiguration extends IWindowsConfiguration {
 	// --- Start Positron ---
 	update?: { mode?: string; autoUpdate?: boolean; positron: { channel?: string } };
-	positron?: { dev?: { iconColor?: string } };
 	// --- End Positron ---
 	debug?: { console?: { wordWrap?: boolean } };
 	editor?: { accessibilitySupport?: 'on' | 'off' | 'auto' };
