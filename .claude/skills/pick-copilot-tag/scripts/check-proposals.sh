@@ -44,12 +44,13 @@ resolve_proposals() {
 		local js
 		js=$(find "$source" -name 'sharedProcessMain.js' -print -quit 2>/dev/null)
 		[[ -n "$js" ]] || die "Could not find sharedProcessMain.js inside $source"
-		# Extract name@version from the proposals map structure (minified:
-		# name:{proposal:"...",version:N} )
+		# Extract name@version from the proposals map structure. The JS may
+		# be minified (name:{proposal:"...",version:N}) or pretty-printed
+		# with newlines and indentation, so allow optional whitespace.
 		python3 -c "
 import re, sys
 content = open(sys.argv[1]).read()
-for m in re.finditer(r'(\w+):\{proposal:\"[^\"]+\",version:(\d+)\}', content):
+for m in re.finditer(r'(\w+):\s*\{\s*proposal:\s*\"[^\"]+\"\s*,\s*version:\s*(\d+)\s*\}', content):
     print(f'{m.group(1)}@{m.group(2)}')
 " "$js" | sort -u
 	elif [[ -f "$source" && "$source" == *.ts ]]; then
