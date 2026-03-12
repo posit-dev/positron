@@ -55,6 +55,14 @@ export class PositronNotebooks extends Notebooks {
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/Cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
+
+	// Output action bar
+	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
+	private outputsSection = (index: number) => this.cell.nth(index).locator('.positron-notebook-outputs-section');
+	private collapseOutputButton = (index: number) => this.outputActionBar(index).getByRole('button', { name: 'Collapse Output' });
+	private expandOutputButton = (index: number) => this.outputActionBar(index).getByRole('button', { name: 'Expand Output' });
+	private clearOutputButton = (index: number) => this.outputActionBar(index).getByRole('button', { name: 'Clear Output' });
+	private showHiddenOutputButton = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Show hidden output' });
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
 
@@ -525,6 +533,83 @@ export class PositronNotebooks extends Notebooks {
 
 			// Give a small delay for focus to settle
 			await this.code.driver.page.waitForTimeout(100);
+		});
+	}
+
+	/**
+	 * Action: Hover over the output section to reveal the output action bar.
+	 */
+	async hoverOutputSection(cellIndex: number): Promise<void> {
+		await test.step(`Hover output section for cell ${cellIndex}`, async () => {
+			await this.outputsSection(cellIndex).hover();
+		});
+	}
+
+	/**
+	 * Action: Collapse the output for a cell using the output action bar.
+	 */
+	async collapseOutput(cellIndex: number): Promise<void> {
+		await test.step(`Collapse output for cell ${cellIndex}`, async () => {
+			await this.hoverOutputSection(cellIndex);
+			await this.collapseOutputButton(cellIndex).click();
+		});
+	}
+
+	/**
+	 * Action: Expand the output for a cell using the output action bar.
+	 */
+	async expandOutput(cellIndex: number): Promise<void> {
+		await test.step(`Expand output for cell ${cellIndex}`, async () => {
+			// When collapsed, the "Expand Output" button appears.
+			// We need to hover the outputs section to reveal the action bar.
+			await this.hoverOutputSection(cellIndex);
+			await this.expandOutputButton(cellIndex).click();
+		});
+	}
+
+	/**
+	 * Action: Clear the output for a cell using the output action bar.
+	 */
+	async clearOutputWithActionBar(cellIndex: number): Promise<void> {
+		await test.step(`Clear output for cell ${cellIndex}`, async () => {
+			await this.hoverOutputSection(cellIndex);
+			await this.clearOutputButton(cellIndex).click();
+		});
+	}
+
+	/**
+	 * Verify: the output action bar is visible for the cell at the specified index.
+	 */
+	async expectOutputActionBarToBeVisible(cellIndex: number): Promise<void> {
+		await test.step(`Verify output action bar visible for cell ${cellIndex}`, async () => {
+			await expect(this.outputActionBar(cellIndex)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Verify: the output action bar is not visible for the cell at the specified index.
+	 */
+	async expectOutputActionBarToBeHidden(cellIndex: number): Promise<void> {
+		await test.step(`Verify output action bar hidden for cell ${cellIndex}`, async () => {
+			await expect(this.outputActionBar(cellIndex)).toBeHidden({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Verify: the output is collapsed (shows "Show hidden output" button).
+	 */
+	async expectOutputToBeCollapsed(cellIndex: number): Promise<void> {
+		await test.step(`Verify output collapsed for cell ${cellIndex}`, async () => {
+			await expect(this.showHiddenOutputButton(cellIndex)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Verify: the output is not collapsed (no "Show hidden output" button).
+	 */
+	async expectOutputToBeExpanded(cellIndex: number): Promise<void> {
+		await test.step(`Verify output expanded for cell ${cellIndex}`, async () => {
+			await expect(this.showHiddenOutputButton(cellIndex)).toBeHidden({ timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
