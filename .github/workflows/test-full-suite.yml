@@ -94,7 +94,7 @@ on:
         default: ""
         type: string
       enable_diagnostic_logging:
-        description: "Diagnostic logging:"
+        description: "Diagnostic logging"
         required: false
         default: false
         type: boolean
