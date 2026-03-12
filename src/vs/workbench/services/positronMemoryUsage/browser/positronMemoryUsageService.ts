@@ -208,11 +208,10 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	private _schedulePostExecutionPoll(): void {
 		this._cancelPostExecutionTimer();
 		const handle = mainWindow.setTimeout(() => {
-			this._postExecutionTimer = undefined;
+			this._cancelPostExecutionTimer();
 			this._poll();
 		}, POST_EXECUTION_DELAY_MS);
 		this._postExecutionTimer = toDisposable(() => mainWindow.clearTimeout(handle));
-		this._register(this._postExecutionTimer);
 	}
 
 	private _cancelPostExecutionTimer(): void {
