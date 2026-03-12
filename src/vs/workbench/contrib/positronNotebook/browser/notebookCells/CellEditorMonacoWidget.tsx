@@ -161,8 +161,15 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			...defaultOptions,
 			// Override padding for Positron notebooks to add breathing room between action bar and editor content
 			padding: { top: 16, bottom: 16 },
-			// Smaller scrollbars since we embed many editor widgets
-			scrollbar: { ...defaultOptions.scrollbar, verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
+			scrollbar: {
+				...defaultOptions.scrollbar,
+				// Always show scrollbars to match with the rest of the notebook UI
+				vertical: 'visible',
+				horizontal: 'visible',
+				// Smaller scrollbars since we embed many editor widgets
+				verticalScrollbarSize: 8,
+				horizontalScrollbarSize: 8
+			},
 			tabIndex: -1, // Remove editor from tab order - use Enter to focus
 			dimension: {
 				width: 0,

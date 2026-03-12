@@ -4,67 +4,32 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Reusable VS Code + webkit scrollbars for Positron notebooks.
+ * Webkit scrollbars for Positron notebooks using theme colours.
  *
- * VS Code scrollbars:
- * - Do not show by default
- * - Show on hover of the scroll container
- * - Show on scroll (e.g. via the keyboard)
- * - Change background color on hover of the scrollbar thumb
- *
- * This is tricky to implement with ::-webkit-scrollbar pseudo-elements,
- * since they do not support CSS transitions. To work around this, we use
- * a CSS Houdini registered custom property (@property) for the thumb color.
- * Registering it with `syntax: "<color>"` tells the browser it can be interpolated,
- * so we can transition the property value on a real element and the scrollbar thumb
- * picks up the animated value via var().
- *
- * Fade timings (100ms in, 800ms out) match the VS Code custom scrollbar
- * widget (src/vs/base/browser/ui/scrollbar/media/scrollbars.css).
+ * TODO: The !important declarations below should not be necessary for scoped
+ * styles, but are needed to override the global unscoped ::-webkit-scrollbar
+ * rules in variablesInstance.css. Those global selectors should eventually
+ * be scoped to their own component.
  */
-@property --_positron-notebook-scrollbar-thumb-bg {
-	syntax: "<color>";
-	/* Must be true so ::-webkit-scrollbar-thumb pseudo-elements can read the
-	 * value from their originating element. We reset on each .positron-notebook-scrollable
-	 * to prevent ancestor :hover from leaking into nested scrollables. */
-	inherits: true;
-	initial-value: transparent;
-}
-
 .positron-notebook-scrollable {
-	--_positron-notebook-scrollbar-thumb-bg: transparent; /* reset for nested scrollables */
-	transition: --_positron-notebook-scrollbar-thumb-bg 800ms linear; /* fade out */
-
-	/* On hover of the scroll container or while actively scrolling
-	 * (e.g. via keyboard). The .is-scrolling class is toggled by the
-	 * useScrollingIndicator hook. */
-	&:hover,
-	&.is-scrolling {
-		--_positron-notebook-scrollbar-thumb-bg: var(--vscode-scrollbarSlider-background);
-		transition: --_positron-notebook-scrollbar-thumb-bg 100ms linear; /* fade in */
-	}
-
 	&::-webkit-scrollbar {
-		/* Vertical scrollbar width */
 		width: 8px;
-		/* Horizontal scrollbar height */
 		height: 8px;
 	}
 
-	/* Use background-color (not background shorthand) to avoid resetting
-	 * background-clip, which creates the inset padding around the thumb.
-	 *
-	 * TODO: The !important declarations below should not be necessary for scoped
-	 * styles, but are needed to override the global unscoped ::-webkit-scrollbar
-	 * rules in variablesInstance.css. Those global selectors should eventually
-	 * be scoped to their own component. */
-	&::-webkit-scrollbar-thumb {
-		background-color: var(--_positron-notebook-scrollbar-thumb-bg) !important;
-		background-clip: padding-box;
+	&::-webkit-scrollbar-track {
+		background: var(--vscode-scrollbar-background);
 	}
 
-	/* Brighter highlight when hovering directly over the thumb. */
+	&::-webkit-scrollbar-thumb {
+		background-color: var(--vscode-scrollbarSlider-background) !important;
+	}
+
 	&::-webkit-scrollbar-thumb:hover {
 		background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+	}
+
+	&::-webkit-scrollbar-thumb:active {
+		background-color: var(--vscode-scrollbarSlider-activeBackground) !important;
 	}
 }

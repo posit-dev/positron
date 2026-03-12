@@ -26,7 +26,6 @@ import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
-import { useScrollingIndicator } from './notebookCells/useScrollingIndicator.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { useContextKeyValue } from './useContextKeyValue.js';
@@ -82,10 +81,6 @@ export function PositronNotebookComponent() {
 
 		previousCellCount.current = currentCount;
 	}, [notebookCells.length]);
-
-	// Toggle `is-scrolling` class while the cells container is being scrolled,
-	// so CSS can show the scrollbar thumb during keyboard-driven scrolling.
-	useScrollingIndicator(containerRef);
 
 	// Observe scroll events and fire to notebook instance, also track scroll position
 	useScrollObserver(containerRef as React.RefObject<HTMLElement>, React.useCallback(() => {
