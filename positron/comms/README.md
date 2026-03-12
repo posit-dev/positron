@@ -69,7 +69,7 @@ If you've already installed dependencies, just run the code generator.
 This will (re-)generate code for all comms.
 
 ```sh
-npx tsx generate-comms.ts
+npx ts-node generate-comms.ts
 ```
 
 If you have `just` installed, then just run `just`:
@@ -85,7 +85,7 @@ You can also limit code generation to one or more specific comms by supplying ad
 This will (re-)generate code only for the ui and variables comms.
 
 ```
-npx tsx generate-comms.ts ui variables
+npx ts-node generate-comms.ts ui variables
 ```
 
 You can pass arguments via `just` as well but you'll need to explicitly name the `gen` recipe instead of relying on it being the default:
