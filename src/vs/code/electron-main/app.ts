@@ -579,8 +579,6 @@ export class CodeApplication extends Disposable {
 			const customColor = this.configurationService.getValue<string>('dev.iconColor');
 			if (customColor) {
 				app.dock.setIcon(recolorDevIcon(devIconPath, customColor));
-			} else {
-				app.dock.setIcon(devIconPath);
 			}
 		}
 		// --- End Positron ---

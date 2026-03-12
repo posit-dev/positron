@@ -179,14 +179,17 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 
 	// --- Start Positron ---
 	// Use dev icon when running from source to distinguish from production builds
-	if (isLinux) {
-		const iconPath = join(environmentMainService.appRoot, environmentMainService.isBuilt ? 'resources/linux/positron.png' : 'resources/positron-dev.png');
-		const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('dev.iconColor') : undefined;
-		options.icon = customColor ? recolorDevIcon(iconPath, customColor) : iconPath;
-	} else if (isWindows && !environmentMainService.isBuilt) {
-		const iconPath = join(environmentMainService.appRoot, environmentMainService.isBuilt ? 'resources/win32/positron_150x150.png' : 'resources/positron-dev.png');
-		const customColor = configurationService.getValue<string>('dev.iconColor');
-		options.icon = customColor ? recolorDevIcon(iconPath, customColor) : iconPath;
+	const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('dev.iconColor') : undefined;
+	if (customColor && !environmentMainService.isBuilt) {
+		// Use has custom color set + we are running in dev mode
+		const iconPath = join(environmentMainService.appRoot, 'resources', 'dev', 'positron-dev.png');
+		const coloredIcon = recolorDevIcon(iconPath, customColor);
+		options.icon = coloredIcon;
+	} else if (isLinux) {
+		// Otherwise use default icons
+		options.icon = join(environmentMainService.appRoot, 'resources/linux/positron.png');
+	} else if (isWindows) {
+		options.icon = join(environmentMainService.appRoot, 'resources/win32/positron_150x150.png');
 	}
 	// --- End Positron ---
 
