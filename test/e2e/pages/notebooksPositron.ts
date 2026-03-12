@@ -28,7 +28,7 @@ export class PositronNotebooks extends Notebooks {
 	private cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
-	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .native-edit-context');
+	editorAtIndex = (index: number) => this.cell.nth(index).locator('.monaco-editor :is(.native-edit-context, .inputarea)');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
 	markdownCell = this.code.driver.page.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
@@ -276,9 +276,14 @@ export class PositronNotebooks extends Notebooks {
 	async addCell(type: 'code' | 'markdown'): Promise<void> {
 		const beforeCount = await this.getCellCount();
 
-		type === 'code'
-			? await this.addCodeButton.click()
-			: await this.addMarkdownButton.click();
+		if (type === 'code') {
+			await this.addCodeButton.click();
+		} else {
+			// WebKit has trouble clicking the Markdown button (tabindex="-1")
+			this.code.driver.browser === 'webkit'
+				? await this.addMarkdownButton.dispatchEvent('click')
+				: await this.addMarkdownButton.click();
+		}
 
 		await expect(this.cell).toHaveCount(beforeCount + 1, { timeout: DEFAULT_TIMEOUT });
 	}

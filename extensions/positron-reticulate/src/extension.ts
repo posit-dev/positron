@@ -931,45 +931,12 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		this.pythonSession.updateSessionName(sessionName);
 	}
 
-	public async getPackages() {
-		if (!this.pythonSession.getPackages) {
+	public getPackageManager(): positron.LanguageRuntimePackageManager {
+		const pythonPackageManager = this.pythonSession.getPackageManager?.();
+		if (!pythonPackageManager) {
 			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
 		}
-
-		return this.pythonSession.getPackages();
-	}
-
-	public async installPackages(packages: positron.PackageSpec[]) {
-		if (!this.pythonSession.installPackages) {
-			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
-		}
-
-		return this.pythonSession.installPackages?.(packages);
-	}
-
-	public async updatePackages(packages: positron.PackageSpec[]) {
-		if (!this.pythonSession.updatePackages) {
-			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
-		}
-
-		return this.pythonSession.updatePackages?.(packages);
-	}
-
-	public async updateAllPackages() {
-		if (!this.pythonSession.updateAllPackages) {
-			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
-		}
-
-		return this.pythonSession.updateAllPackages?.();
-
-	}
-
-	public async uninstallPackages(packageNames: string[]) {
-		if (!this.pythonSession.uninstallPackages) {
-			throw new Error(vscode.l10n.t('Package management is not supported for Reticulate sessions.'));
-		}
-
-		return this.pythonSession.uninstallPackages?.(packageNames);
+		return pythonPackageManager;
 	}
 }
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {

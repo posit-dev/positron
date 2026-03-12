@@ -104,7 +104,7 @@ suite('CreateNotebook Tool', () => {
 			assert.ok(executeCommandStub.calledWith('ipynb.newUntitledIpynb', 'python'));
 		});
 
-		test('includes EditNotebookCells guidance when no prior notebook exists', async () => {
+		test('includes editNotebook guidance when no prior notebook exists', async () => {
 			sandbox.stub(vscode.commands, 'executeCommand').resolves();
 			mockNotebookEditorActivation();
 
@@ -120,8 +120,8 @@ suite('CreateNotebook Tool', () => {
 			);
 
 			const textPart = result.content[0] as vscode.LanguageModelTextPart;
-			// Should include detailed EditNotebookCells guidance
-			assert.ok(textPart.value.includes('EditNotebookCells'));
+			// Should include detailed editNotebook guidance
+			assert.ok(textPart.value.includes('editNotebook'));
 			assert.ok(textPart.value.includes('operation'));
 			assert.ok(textPart.value.includes('cellType'));
 		});

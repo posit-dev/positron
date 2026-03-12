@@ -29,6 +29,8 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
+import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 
 interface CellOutputsSectionProps {
@@ -37,6 +39,7 @@ interface CellOutputsSectionProps {
 }
 
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
+	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
@@ -90,7 +93,14 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 						</Button>
 						: <>
 							{outputs?.map((output) => (
-								<CellOutput key={output.outputId} {...output} />
+								<NotebookErrorBoundary
+									key={output.outputId}
+									componentName={`CellOutput[${output.parsed.type}]`}
+									level='output'
+									logService={services.logService}
+								>
+									<CellOutput {...output} />
+								</NotebookErrorBoundary>
 							))}
 						</>
 					}

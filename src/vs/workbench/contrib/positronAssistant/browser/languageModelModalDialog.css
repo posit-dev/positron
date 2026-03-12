@@ -128,13 +128,6 @@
 	color: var(--vscode-textLink-foreground);
 }
 
-.language-model-modal-dialog .ok-action-bar.top-separator {
-	border-top: none;
-	padding-bottom: 16px;
-	padding-top: 0px;
-	height: 32px;
-}
-
 .language-model-modal-dialog .content-area {
 	padding: 16px 16px 0 16px;
 }

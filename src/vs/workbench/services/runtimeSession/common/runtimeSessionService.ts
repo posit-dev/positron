@@ -254,14 +254,12 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** Updates the session's name */
 	updateSessionName(sessionName: string): void;
 
-	getPackages?: () => Promise<ILanguageRuntimePackage[]>;
-	installPackages?: (packages: IPackageSpec[]) => Promise<void>;
-	uninstallPackages?: (packageNames: string[]) => Promise<void>;
-	updatePackages?: (packages: IPackageSpec[]) => Promise<void>;
-	updateAllPackages?: () => Promise<void>;
-
-	searchPackages?(query: string): Promise<ILanguageRuntimePackage[]>;
-	searchPackageVersions?(name: string): Promise<string[]>;
+	/**
+	 * Get the package manager for this session, if available.
+	 *
+	 * Returns undefined if the runtime does not support package management.
+	 */
+	getPackageManager?(): ILanguageRuntimePackageManager;
 }
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
@@ -287,6 +285,53 @@ export interface IPackageSpec {
 	name: string;
 	/** Optional version to install (if not specified, installs latest) */
 	version?: string;
+}
+
+/**
+ * Interface for package management functionality.
+ *
+ * Provides package management operations for a language runtime session.
+ */
+export interface ILanguageRuntimePackageManager {
+	/**
+	 * Get list of installed packages.
+	 */
+	getPackages(): Promise<ILanguageRuntimePackage[]>;
+
+	/**
+	 * Install the list of packages.
+	 * @param packages Array of package install requests with name and optional version
+	 */
+	installPackages(packages: IPackageSpec[]): Promise<void>;
+
+	/**
+	 * Uninstall the list of packages.
+	 * @param packageNames Array of package names to uninstall
+	 */
+	uninstallPackages(packageNames: string[]): Promise<void>;
+
+	/**
+	 * Update the list of packages.
+	 * @param packages Array of package install requests with name and optional version
+	 */
+	updatePackages(packages: IPackageSpec[]): Promise<void>;
+
+	/**
+	 * Update all installed packages.
+	 */
+	updateAllPackages(): Promise<void>;
+
+	/**
+	 * Search a repository for packages matching the query.
+	 * @param query Search query string
+	 */
+	searchPackages(query: string): Promise<ILanguageRuntimePackage[]>;
+
+	/**
+	 * Search a repository for available versions of a package.
+	 * @param name Package name
+	 */
+	searchPackageVersions(name: string): Promise<string[]>;
 }
 
 /**
@@ -630,12 +675,14 @@ export interface IRuntimeSessionService {
 	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
 	 *
 	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 * If the handler returns an `IDisposable`, it is disposed before the handler is called again
+	 * with a new client (e.g. after restart).
 	 *
 	 * @param sessionId The ID of the session to observe.
-	 * @param handler Called with started UI clients.
+	 * @param handler Called with started UI clients. May return an `IDisposable` for per-client cleanup.
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
-	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => IDisposable | void): IDisposable;
 
 	/**
 	 * When true, suppresses implicit runtime auto-start triggered by

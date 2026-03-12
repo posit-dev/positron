@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -25,22 +25,24 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 
 	test('Verify Quarto can render html', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'html');
-		await verifyDocumentExists(app, 'html', testInfo.project.name === 'e2e-workbench', runDockerCommand);
+		await expectFileToExist(app, testInfo, runDockerCommand, 'html');
 	});
 
 	test('Verify Quarto can render docx ', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'docx');
-		await verifyDocumentExists(app, 'docx', testInfo.project.name === 'e2e-workbench', runDockerCommand);
+		await expectFileToExist(app, testInfo, runDockerCommand, 'docx');
 	});
 
 	test('Verify Quarto can render pdf (LaTeX)', async function ({ app, runDockerCommand }, testInfo) {
-		await renderQuartoDocument(app, 'pdf');
-		await verifyDocumentExists(app, 'pdf', testInfo.project.name === 'e2e-workbench', runDockerCommand);
+		await expect(async () => {
+			await renderQuartoDocument(app, 'pdf');
+			await expectFileToExist(app, testInfo, runDockerCommand, 'pdf');
+		}).toPass({ timeout: 60000 });
 	});
 
 	test('Verify Quarto can render pdf (typst)', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
 		await renderQuartoDocument(app, 'typst');
-		await verifyDocumentExists(app, 'pdf', testInfo.project.name === 'e2e-workbench', runDockerCommand);
+		await expectFileToExist(app, testInfo, runDockerCommand, 'pdf');
 	});
 
 	test('Verify Quarto can generate preview', async function ({ app }) {
@@ -64,6 +66,8 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 });
 
 
+type DockerCommandFn = (command: string, description: string) => Promise<{ stdout: string; stderr: string }>;
+
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {
 	await test.step(`render quarto document`, async () => {
 		await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
@@ -71,19 +75,15 @@ const renderQuartoDocument = async (app: Application, fileExtension: string) => 
 	});
 };
 
-const verifyDocumentExists = async (app: Application, fileExtension: string, isWorkbench: boolean, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>) => {
+const expectFileToExist = async (app: Application, testInfo: { project: { name: string } }, runDockerCommand: DockerCommandFn, fileExtension: string) => {
+	const dockerCommand = testInfo.project.name === 'e2e-workbench' ? runDockerCommand : undefined;
 	await expect(async () => {
-		expect(await fileExists(app, `quarto_basic.${fileExtension}`, isWorkbench, runDockerCommand)).toBe(true);
-	}).toPass({ timeout: 30000 });
+		expect(await fileExists(app, `quarto_basic.${fileExtension}`, dockerCommand)).toBe(true);
+	}).toPass({ timeout: 20000 });
 };
 
-const fileExists = async (
-	app: Application,
-	file: string,
-	isWorkbench: boolean,
-	runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>
-) => {
-	if (isWorkbench && runDockerCommand) {
+const fileExists = async (app: Application, file: string, runDockerCommand?: DockerCommandFn) => {
+	if (runDockerCommand) {
 		// Check inside the container at the known workbench workspace path
 		const containerPath = `/home/user1/qa-example-content/workspaces/quarto_basic/${file}`;
 		try {
