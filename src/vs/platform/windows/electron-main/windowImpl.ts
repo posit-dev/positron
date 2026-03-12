@@ -679,7 +679,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			// --- Start Positron ---
 			// Use dev icon when running from source to distinguish from production builds
 			const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('dev.iconColor') : undefined;
-			if (customColor && !environmentMainService.isBuilt) {
+			if (customColor) {
 				// Use has custom color set + we are running in dev mode
 				const iconPath = join(environmentMainService.appRoot, 'resources', 'dev', 'positron-dev.png');
 				const coloredIcon = recolorDevIcon(iconPath, customColor);
