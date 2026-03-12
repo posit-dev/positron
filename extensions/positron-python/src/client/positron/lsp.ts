@@ -384,27 +384,31 @@ export class PythonLsp implements vscode.Disposable {
      * @param client The language client instance
      */
     private registerPositronLspExtensions(client: LanguageClient) {
-        // Only register the statement range and help topic providers for
-        // console (non-notebook) sessions. These providers are registered
-        // globally for the language, so a notebook session's provider
-        // would compete with the console session's and fail for script
-        // files that aren't synced to the notebook LSP.
+        // Register the statement range and help topic providers with a
+        // selector appropriate for the session type:
+        // - Console sessions: register for 'python' to cover all Python documents
+        // - Notebook sessions: register for 'python' but only matching vdoc
+        //   files (Quarto virtual documents). The Quarto extension's
+        //   statement range provider for 'quarto' language delegates to
+        //   'python' providers via vdocs. We must not match regular .py
+        //   script files to avoid competing with the console session's
+        //   provider for files that aren't synced to the notebook LSP.
         const { notebookUri } = this._metadata;
-        if (!notebookUri) {
-            // Register a statement range provider to detect Python statements
-            const rangeDisposable = positron.languages.registerStatementRangeProvider(
-                'python',
-                new PythonStatementRangeProvider(this.serviceContainer),
-            );
-            this.activationDisposables.push(rangeDisposable);
+        const selector: vscode.DocumentSelector = notebookUri
+            ? [{ language: 'python', pattern: '**/.vdoc.*.{py,PY}' }]
+            : 'python';
 
-            // Register a help topic provider to provide help topics for Python
-            const helpDisposable = positron.languages.registerHelpTopicProvider(
-                'python',
-                new PythonHelpTopicProvider(client),
-            );
-            this.activationDisposables.push(helpDisposable);
-        }
+        const rangeDisposable = positron.languages.registerStatementRangeProvider(
+            selector,
+            new PythonStatementRangeProvider(this.serviceContainer),
+        );
+        this.activationDisposables.push(rangeDisposable);
+
+        const helpDisposable = positron.languages.registerHelpTopicProvider(
+            selector,
+            new PythonHelpTopicProvider(client),
+        );
+        this.activationDisposables.push(helpDisposable);
     }
 
     /**

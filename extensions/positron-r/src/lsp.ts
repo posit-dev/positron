@@ -364,22 +364,26 @@ export class ArkLsp implements vscode.Disposable {
 			new VirtualDocumentProvider(client));
 		this.activationDisposables.push(vdocDisposable);
 
-		// Only register the statement range and help topic providers for
-		// console (non-notebook) sessions. These providers are registered
-		// globally for language 'r', so a notebook session's provider
-		// would compete with the console session's and fail for script
-		// files that aren't synced to the notebook LSP.
-		if (!this._metadata.notebookUri) {
-			// Register a statement range provider to detect R statements
-			const rangeDisposable = positron.languages.registerStatementRangeProvider('r',
-				new RStatementRangeProvider(client));
-			this.activationDisposables.push(rangeDisposable);
+		// Register the statement range and help topic providers with a
+		// selector appropriate for the session type:
+		// - Console sessions: register for 'r' to cover all R documents
+		// - Notebook sessions: register for 'r' but only matching vdoc
+		//   files (Quarto virtual documents). The Quarto extension's
+		//   statement range provider for 'quarto' language delegates to
+		//   'r' providers via vdocs. We must not match regular .r script
+		//   files to avoid competing with the console session's provider
+		//   for files that aren't synced to the notebook LSP.
+		const selector: vscode.DocumentSelector = this._metadata.notebookUri
+			? [{ language: 'r', pattern: '**/.vdoc.*.{r,R}' }]
+			: 'r';
 
-			// Register a help topic provider to provide help topics for R
-			const helpDisposable = positron.languages.registerHelpTopicProvider('r',
-				new RHelpTopicProvider(client));
-			this.activationDisposables.push(helpDisposable);
-		}
+		const rangeDisposable = positron.languages.registerStatementRangeProvider(selector,
+			new RStatementRangeProvider(client));
+		this.activationDisposables.push(rangeDisposable);
+
+		const helpDisposable = positron.languages.registerHelpTopicProvider(selector,
+			new RHelpTopicProvider(client));
+		this.activationDisposables.push(helpDisposable);
 	}
 
 	/**
