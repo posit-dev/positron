@@ -1,8 +1,13 @@
 name: "Test: Full Suite"
+run-name: "${{ inputs.run_name || 'Test: Full Suite' }}"
 
 on:
   workflow_dispatch:
     inputs:
+      run_name:
+        description: "Custom run name (to identify your test run)"
+        required: false
+        type: string
       run_e2e_linux:
         description: "E2E Tests / Electron (Ubuntu)"
         required: false
