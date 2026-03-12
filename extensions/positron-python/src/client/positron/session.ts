@@ -772,10 +772,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return this._kernel?.getLaunchInfo?.();
     }
 
-    isNewSession(): boolean {
-        return this._kernel?.isNewSession?.() ?? true;
-    }
-
     async forceQuit(): Promise<void> {
         if (this._kernel) {
             this._kernel.emitJupyterLog('Force quitting');
