@@ -678,14 +678,13 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 
 			// --- Start Positron ---
 			// Use dev icon when running from source to distinguish from production builds
-			const iconName = this.environmentMainService.isBuilt ? 'positron' : 'positron-dev';
 			if (isLinux) {
-				const iconPath = join(this.environmentMainService.appRoot, `resources/linux/${iconName}.png`);
-				const customColor = !this.environmentMainService.isBuilt ? configurationService.getValue<string>('positron.dev.iconColor') : undefined;
+				const iconPath = join(this.environmentMainService.appRoot, this.environmentMainService.isBuilt ? 'resources/linux/positron.png' : 'resources/positron-dev.png');
+				const customColor = !this.environmentMainService.isBuilt ? configurationService.getValue<string>('dev.iconColor') : undefined;
 				options.icon = customColor ? recolorDevIcon(iconPath, customColor) : iconPath;
 			} else if (isWindows && !this.environmentMainService.isBuilt) {
-				const iconPath = join(this.environmentMainService.appRoot, `resources/win32/${iconName}_150x150.png`);
-				const customColor = configurationService.getValue<string>('positron.dev.iconColor');
+				const iconPath = join(this.environmentMainService.appRoot, this.environmentMainService.isBuilt ? 'resources/win32/positron_150x150.png' : 'resources/positron-dev.png');
+				const customColor = configurationService.getValue<string>('dev.iconColor');
 				options.icon = customColor ? recolorDevIcon(iconPath, customColor) : iconPath;
 			}
 			// --- End Positron ---
