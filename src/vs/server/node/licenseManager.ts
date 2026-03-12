@@ -38,13 +38,19 @@ class LicenseManager {
 	 */
 	async runCommand(command: string, args: string[] = []): Promise<string> {
 		try {
-			// Set LD_LIBRARY_PATH to the directory containing the license-manager binary
-			// so it can find its shared libraries
 			const licenseManagerDir = path.dirname(this.licenseManagerPath);
+			const existingLdPath = process.env.LD_LIBRARY_PATH;
+			const ldLibraryPath = existingLdPath
+				? `${licenseManagerDir}:${existingLdPath}`
+				: licenseManagerDir;
 			const env = {
 				...process.env,
-				LD_LIBRARY_PATH: licenseManagerDir,
+				LD_LIBRARY_PATH: ldLibraryPath,
 			};
+
+			console.log(`[LicenseManager] Running: ${this.licenseManagerPath} ${command} ${args.join(' ')}`);
+			console.log(`[LicenseManager] LD_LIBRARY_PATH: ${ldLibraryPath}`);
+			console.log(`[LicenseManager] Existing LD_LIBRARY_PATH: ${existingLdPath || '(not set)'}`);
 
 			const { stdout } = await execFileAsync(
 				this.licenseManagerPath,
