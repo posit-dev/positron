@@ -5,8 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       run_name:
-        description: "Custom run name (to identify your test run)"
+        description: "Custom run name"
         required: false
+        default: "Test: Full Suite"
         type: string
       run_e2e_linux:
         description: "E2E Tests / Electron (Ubuntu)"
@@ -87,16 +88,16 @@ on:
           - failure
           - always
           - never
-      enable_diagnostic_logging:
-        description: "Enable diagnostic logging"
-        required: false
-        default: false
-        type: boolean
       grep:
-        description: "Test name pattern to filter tests (grep)"
+        description: "Grep pattern:"
         required: false
         default: ""
         type: string
+      enable_diagnostic_logging:
+        description: "Diagnostic logging:"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   validate-commit:
