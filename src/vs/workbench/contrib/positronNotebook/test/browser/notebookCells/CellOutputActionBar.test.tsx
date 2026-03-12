@@ -54,7 +54,7 @@ class CellOutputActionBarFixture {
 	}
 
 	get separatorButtons() {
-		return this.container.querySelectorAll<HTMLElement>('.action-button.primary-action');
+		return this.container.querySelectorAll<HTMLElement>('.action-button.separator-after');
 	}
 }
 

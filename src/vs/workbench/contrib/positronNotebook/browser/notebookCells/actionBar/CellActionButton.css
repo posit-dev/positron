@@ -1,0 +1,47 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.cell-action-button {
+	padding: 3px;
+	border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
+	min-width: unset;
+	aspect-ratio: 1;
+	display: grid;
+	place-content: center;
+	outline: revert;
+
+	.button-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		aspect-ratio: 1;
+	}
+}
+
+.cell-action-button.disabled {
+	color: var(--vscode-positronActionBar-disabledForeground);
+}
+
+/* The debug codicon is misaligned with run above / run below icons by 1 pixel */
+.cell-action-button.codicon-debug-alt-small {
+	position: relative;
+	top: -1px;
+}
+
+/* Separator after this button */
+.cell-action-button.separator-after {
+	position: relative;
+}
+
+.cell-action-button.separator-after::after {
+	content: '';
+	position: absolute;
+	right: calc(-0.25rem / 2);
+	top: 4px;
+	bottom: 4px;
+	width: 1px;
+	background-color: var(--vscode-widget-border, var(--vscode-positronNotebook-action-bar-border-color));
+}

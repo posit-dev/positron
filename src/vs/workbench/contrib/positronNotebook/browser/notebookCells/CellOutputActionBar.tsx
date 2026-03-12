@@ -31,7 +31,11 @@ export function CellOutputActionBar({ cell }: CellOutputActionBarProps) {
 	}
 
 	return (
-		<div aria-label={localize('positron.notebook.cellOutputActions', 'Cell output actions')} className='cell-output-action-bar' role='toolbar'>
+		<div
+			aria-label={localize('positron.notebook.cellOutputActions', 'Cell output actions')}
+			className='cell-output-action-bar'
+			role='toolbar'
+		>
 			{actionGroups.map(([_group, groupActions], groupIndex) =>
 				groupActions.map((action, actionIndex) => (
 					<CellActionButton
@@ -40,6 +44,7 @@ export function CellOutputActionBar({ cell }: CellOutputActionBarProps) {
 						cell={cell}
 						hoverManager={instance.hoverManager}
 						showSeparator={
+							// Show a separator before the last group
 							groupIndex === actionGroups.length - 2 &&
 							actionIndex === groupActions.length - 1
 						}

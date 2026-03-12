@@ -14,44 +14,11 @@
 	gap: 0.25rem;
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	background-color: var(--vscode-positronNotebook-action-bar-background);
-	border: 1px solid var(--vscode-widget-border, var(--vscode-positronNotebook-action-bar-border-color));
+	border: 1px solid var(--vscode-widget-border);
 
 	/* Hidden by default, shown on output hover or keyboard focus */
 	opacity: 0;
 	pointer-events: none;
-
-	.action-button {
-		padding: 3px;
-		border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
-		min-width: unset;
-		aspect-ratio: 1;
-		display: grid;
-		place-content: center;
-		outline: revert;
-
-		.button-icon {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 16px;
-			aspect-ratio: 1;
-		}
-	}
-
-	/* Separator between action groups */
-	.action-button.primary-action {
-		position: relative;
-	}
-
-	.action-button.primary-action::after {
-		content: '';
-		position: absolute;
-		right: calc(-0.25rem / 2); /* Center in the gap */
-		top: 4px;
-		bottom: 4px;
-		width: 1px;
-		background-color: var(--vscode-widget-border, var(--vscode-positronNotebook-action-bar-border-color));
-	}
 }
 
 /* Show on hover of the output area or when a button inside has focus */
