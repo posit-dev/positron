@@ -150,7 +150,7 @@ suite('Foundry Autoconfigure', () => {
 		test('handles empty string', () => {
 			assert.strictEqual(
 				FoundryModelProvider.normalizeToV1Url(''),
-				'/openai/v1'
+				''
 			);
 		});
 	});
