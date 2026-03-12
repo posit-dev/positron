@@ -16,8 +16,9 @@
 	background-color: var(--vscode-positronNotebook-action-bar-background);
 	border: 1px solid var(--vscode-widget-border, var(--vscode-positronNotebook-action-bar-border-color));
 
-	/* Hidden by default, shown on output hover */
-	visibility: hidden;
+	/* Hidden by default, shown on output hover or keyboard focus */
+	opacity: 0;
+	pointer-events: none;
 
 	.action-button {
 		padding: 3px;
@@ -56,5 +57,6 @@
 /* Show on hover of the output area or when a button inside has focus */
 .positron-notebook-outputs-section:hover > .cell-output-action-bar,
 .cell-output-action-bar:focus-within {
-	visibility: visible;
+	opacity: 1;
+	pointer-events: auto;
 }
