@@ -53,7 +53,8 @@
 	}
 }
 
-/* Show on hover of the output area */
-.positron-notebook-outputs-section:hover > .cell-output-action-bar {
+/* Show on hover of the output area or when a button inside has focus */
+.positron-notebook-outputs-section:hover > .cell-output-action-bar,
+.cell-output-action-bar:focus-within {
 	visibility: visible;
 }

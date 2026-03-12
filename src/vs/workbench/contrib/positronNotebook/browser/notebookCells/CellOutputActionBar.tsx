@@ -7,6 +7,7 @@
 import './CellOutputActionBar.css';
 
 // Other dependencies.
+import { localize } from '../../../../../nls.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { CellActionButton } from './actionBar/CellActionButton.js';
 import { useMenu } from '../useMenu.js';
@@ -30,7 +31,7 @@ export function CellOutputActionBar({ cell }: CellOutputActionBarProps) {
 	}
 
 	return (
-		<div className='cell-output-action-bar' role='toolbar'>
+		<div className='cell-output-action-bar' role='toolbar' aria-label={localize('positron.notebook.cellOutputActions', 'Cell output actions')}>
 			{actionGroups.map(([group, groupActions], groupIndex) =>
 				groupActions.map((action, actionIndex) => (
 					<CellActionButton
