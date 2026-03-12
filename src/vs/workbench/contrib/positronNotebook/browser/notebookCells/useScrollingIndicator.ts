@@ -5,6 +5,9 @@
 
 import { useEffect, type RefObject } from 'react';
 
+/** CSS class toggled on scrollable elements while actively scrolling. */
+export const SCROLLING_CSS_CLASS = 'is-scrolling';
+
 /**
  * Delay before removing the scrolling indicator class after the last scroll
  * event, matching the VS Code custom scrollbar widget timeout.
@@ -29,18 +32,19 @@ export function useScrollingIndicator(
 			return;
 		}
 
-		let timer: ReturnType<typeof setTimeout>;
+		let timer: ReturnType<typeof setTimeout> | undefined;
 
 		const handleScroll = () => {
-			el.classList.add('is-scrolling');
+			el.classList.add(SCROLLING_CSS_CLASS);
 			clearTimeout(timer);
-			timer = setTimeout(() => el.classList.remove('is-scrolling'), SCROLLING_HIDE_TIMEOUT);
+			timer = setTimeout(() => el.classList.remove(SCROLLING_CSS_CLASS), SCROLLING_HIDE_TIMEOUT);
 		};
 
 		el.addEventListener('scroll', handleScroll);
 		return () => {
 			el.removeEventListener('scroll', handleScroll);
 			clearTimeout(timer);
+			el.classList.remove(SCROLLING_CSS_CLASS);
 		};
 	}, [ref]);
 }
