@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { isEqual } from '../../../../base/common/resources.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import {
 	isQuartoDocument,
 	usingQuartoInlineOutput,
@@ -18,25 +20,23 @@ import { IQuartoKernelManager } from '../../positronQuarto/browser/quartoKernelM
 import { isNotebookEditorInput } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 
 /**
- * Contribution that coordinates foreground session changes between user interactions
- * and programmatic session changes.
+ * Contribution that coordinates foreground session changes between different editors.
  *
- * This contribution consolidates the logic for determining which runtime session
- * should be the "foreground" session, based on the following user gestures:
+ * This contribution handles the following scenarios:
  *
- * Editor Gestures:
- * - When a notebook editor is focused -> notebook session becomes foreground
- * - When a Quarto file (with inline output enabled) is focused -> quarto "notebook" session becomes foreground
- * - When a language file or Quarto file (without inline output enabled) is focused -> console session for that language becomes foreground
- * - When a notebook session is restarted -> that notebook session remains foreground or becomes foreground if it wasn't already?????
+ * Editor Focus Changes:
+ * - Notebook editor focused -> notebook session becomes foreground (if session exists)
+ * - Quarto file focused (with inline output enabled) -> Quarto session becomes foreground
+ * - Regular file focused -> console session for that language becomes foreground
  *
- * Console Gestures:
- * - When a console instance is selected (tab click or pane focus) -> that console session becomes foreground
- * - When a new console session is started -> that console session becomes foreground
- * - When a console session is restarted -> that console session remains foreground or becomes foreground if it wasn't already
+ * Notebook Session Lifecycle:
+ * - Notebook session starts -> becomes foreground if its notebook is the active editor
+ * - Notebook session becomes ready (e.g., after restart) -> becomes foreground if its notebook is the active editor
  *
- * Plots Pane Gestures:
- * - When the session button in the plots pane is selected -> the session associated with the plot becomes foreground
+ * Console session foreground changes are handled directly by:
+ * - consoleTabList.tsx: Sets foreground when user clicks a tab
+ * - positronConsoleView.tsx: Sets foreground when console pane gains focus
+ * - runtimeSession.ts: Sets foreground when console session starts or becomes ready
  *
  * The foreground session is used by:
  * - Variables pane (shows variables for foreground session)
@@ -61,6 +61,44 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		this._register(this._editorService.onDidActiveEditorChange(() => {
 			this._handleActiveEditorChange();
 		}));
+
+		// Listen for new notebook sessions starting
+		this._register(this._runtimeSessionService.onDidStartRuntime((session) => {
+			this._handleNotebookSessionStartedOrReady(session);
+		}));
+
+		// Listen for notebook sessions becoming ready (e.g., after a restart)
+		this._register(this._runtimeSessionService.onDidChangeRuntimeState((event) => {
+			if (event.new_state === RuntimeState.Ready) {
+				const session = this._runtimeSessionService.getSession(event.session_id);
+				if (session) {
+					this._handleNotebookSessionStartedOrReady(session);
+				}
+			}
+		}));
+	}
+
+	/**
+	 * Handle notebook session started or became ready.
+	 * Sets the notebook session as foreground if its notebook is the active editor.
+	 */
+	private _handleNotebookSessionStartedOrReady(session: ILanguageRuntimeSession): void {
+		// Only handle notebook sessions - console sessions are handled elsewhere
+		if (session.metadata.sessionMode !== LanguageRuntimeSessionMode.Notebook) {
+			return;
+		}
+
+		const notebookUri = session.metadata.notebookUri;
+		if (!notebookUri) {
+			return;
+		}
+
+		// Check if the notebook is the active editor
+		const activeEditor = this._editorService.activeEditor;
+		if (isNotebookEditorInput(activeEditor) && isEqual(activeEditor.resource, notebookUri)) {
+			this._logService.trace(`[ForegroundSessionContribution] Notebook session started/ready, setting foreground session: ${session.sessionId}`);
+			this._runtimeSessionService.foregroundSession = session;
+		}
 	}
 
 	/**
