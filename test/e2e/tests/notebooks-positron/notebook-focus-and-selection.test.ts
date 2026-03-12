@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Notebook Focus and Selection', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER]
 }, () => {
 
 	test('Arrow keys move cell selection up and down', async function ({ app }) {

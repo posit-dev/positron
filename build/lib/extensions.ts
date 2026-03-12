@@ -669,24 +669,14 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 
 // --- Start Positron ---
 export function packageBootstrapExtensionsStream(): Stream {
-	const bootstrapExtensionsStream = minifyExtensionResources(
-		es.merge(
-			...bootstrapExtensions
-				.map(extension => {
-					const src = getBootstrapExtensionStream(extension);
-					return updateExtensionPackageJSON(src, (data: any) => {
-						delete data.scripts;
-						delete data.dependencies;
-						delete data.devDependencies;
-						return data;
-					});
-				})
-		)
-	);
-
-	return (
-		bootstrapExtensionsStream
-			.pipe(util2.setExecutableBit(['**/*.sh']))
+	return es.merge(
+		...bootstrapExtensions
+			.map(extension => {
+				const src = getBootstrapExtensionStream(extension).pipe(rename(p => {
+					p.dirname = `extensions/bootstrap/${p.dirname}`;
+				}));
+				return src;
+			})
 	);
 }
 // --- End Positron ---

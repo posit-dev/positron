@@ -28,6 +28,22 @@ export interface CallMethodResult {
 }
 
 /**
+ * The results of evaluating the statement
+ */
+export interface EvalResult {
+	/**
+	 * The result value
+	 */
+	result: any;
+
+	/**
+	 * The output, if any, emitted during evaluation
+	 */
+	output: string;
+
+}
+
+/**
  * Parameters for the DidChangePlotsRenderSettings method.
  */
 export interface DidChangePlotsRenderSettingsParams {
@@ -50,6 +66,16 @@ export interface CallMethodParams {
 	 * The parameters for `method`
 	 */
 	params: Array<Param>;
+}
+
+/**
+ * Parameters for the EvaluateCode method.
+ */
+export interface EvaluateCodeParams {
+	/**
+	 * The code string to evaluate
+	 */
+	code: string;
 }
 
 /**
@@ -980,6 +1006,7 @@ export enum UiFrontendRequest {
 export enum UiBackendRequest {
 	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 	CallMethod = 'call_method',
+	EvaluateCode = 'evaluate_code',
 	EditorContextChanged = 'editor_context_changed'
 }
 
@@ -1033,6 +1060,19 @@ export class PositronUiComm extends PositronBaseComm {
 	 */
 	callMethod(method: string, params: Array<Param>): Promise<CallMethodResult> {
 		return super.performRpc('call_method', ['method', 'params'], [method, params]);
+	}
+
+	/**
+	 * Evaluate a statement in the interpreter
+	 *
+	 * Execute a code fragment silently and return a JSON-serialized result.
+	 *
+	 * @param code The code string to evaluate
+	 *
+	 * @returns The results of evaluating the statement
+	 */
+	evaluateCode(code: string): Promise<EvalResult> {
+		return super.performRpc('evaluate_code', ['code'], [code]);
 	}
 
 	/**

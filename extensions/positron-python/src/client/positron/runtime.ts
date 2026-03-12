@@ -24,6 +24,7 @@ import {
 } from '../interpreter/configuration/environmentTypeComparer';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { moduleMetadataMap } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+import { getShortVersionString, parseVersion } from '../pythonEnvironments/base/info/pythonVersion';
 
 /**
  * Module metadata for Python interpreters discovered via environment modules.
@@ -109,7 +110,9 @@ export async function createPythonRuntimeMetadata(
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
     // Get the Python version from sysVersion since only that includes alpha/beta info (e.g '3.12.0b1')
-    const pythonVersion = interpreter.sysVersion?.split(' ')[0] || interpreter.version?.raw || '0.0.1';
+    // Use parseVersion + getShortVersionString to properly format the version (strips "final" suffix)
+    const rawVersion = interpreter.sysVersion?.split(' ')[0] || interpreter.version?.raw || '0.0.1';
+    const pythonVersion = getShortVersionString(parseVersion(rawVersion));
 
     // Get the environment name, using parent directory name for .venv/.conda folders (like uv does)
     let envName = interpreter.envName ?? '';

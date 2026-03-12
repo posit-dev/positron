@@ -97,6 +97,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri);
 			},
+			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string): Thenable<positron.EvalResult> {
+				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId);
+			},
 			executeInlineCell(documentUri, ranges): Thenable<void> {
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges);
@@ -141,6 +144,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					sessionName,
 					sessionMode,
 					notebookUri);
+			},
+			interruptSession(sessionId: string): Thenable<void> {
+				return extHostLanguageRuntime.interruptSession(sessionId);
 			},
 			restartSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.restartSession(sessionId);
@@ -437,7 +443,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					kernelLanguage: context.kernelLanguage,
 					cellCount: context.cellCount,
 					selectedCells: context.selectedCells,
-					allCells: context.allCells
+					allCells: context.allCells,
+					runtimeState: context.runtimeState
 				};
 			},
 
@@ -507,6 +514,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 			async scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
 				return extHostNotebookFeatures.scrollToCellIfNeeded(notebookUri, cellIndex);
+			},
+
+			async clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void> {
+				return extHostNotebookFeatures.clearCellOutputs(notebookUri, cellIndices);
 			}
 		};
 
