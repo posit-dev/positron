@@ -130,6 +130,16 @@ suite('CellOutputActionBar', () => {
 		assert.strictEqual(fixture.toolbar, null);
 	});
 
+	test('toolbar has an accessible label', () => {
+		menuActions = [
+			['0_visibility', [mockAction('collapse', 'Collapse', 'chevron-up')]],
+		];
+		const fixture = renderActionBar();
+
+		assert.ok(fixture.toolbar);
+		assert.strictEqual(fixture.toolbar.getAttribute('aria-label'), 'Cell output actions');
+	});
+
 	test('renders buttons for a single group', () => {
 		menuActions = [
 			['0_visibility', [

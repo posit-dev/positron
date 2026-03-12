@@ -31,8 +31,8 @@ export function CellOutputActionBar({ cell }: CellOutputActionBarProps) {
 	}
 
 	return (
-		<div className='cell-output-action-bar' role='toolbar' aria-label={localize('positron.notebook.cellOutputActions', 'Cell output actions')}>
-			{actionGroups.map(([group, groupActions], groupIndex) =>
+		<div aria-label={localize('positron.notebook.cellOutputActions', 'Cell output actions')} className='cell-output-action-bar' role='toolbar'>
+			{actionGroups.map(([_group, groupActions], groupIndex) =>
 				groupActions.map((action, actionIndex) => (
 					<CellActionButton
 						key={action.id}
