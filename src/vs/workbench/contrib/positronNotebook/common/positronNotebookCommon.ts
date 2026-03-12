@@ -30,4 +30,5 @@ export enum PositronNotebookCellActionBarLeftGroup {
 // Group IDs for output actions menu
 export enum PositronNotebookCellOutputActionGroup {
 	Visibility = '0_visibility',
+	Destructive = '1_destructive',
 }

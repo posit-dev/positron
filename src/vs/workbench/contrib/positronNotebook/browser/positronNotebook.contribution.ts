@@ -1513,6 +1513,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.collapseOutput',
 			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
+			icon: ThemeIcon.fromId('chevron-up'),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
 				group: PositronNotebookCellOutputActionGroup.Visibility,
@@ -1540,6 +1541,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.expandOutput',
 			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
+			icon: ThemeIcon.fromId('chevron-down'),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
 				group: PositronNotebookCellOutputActionGroup.Visibility,
@@ -1567,10 +1569,11 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.clearOutput',
 			title: localize2('positronNotebook.cell.clearOutput', "Clear Output"),
+			icon: ThemeIcon.fromId('close'),
 			menu: {
 				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Visibility,
-				order: 3,
+				group: PositronNotebookCellOutputActionGroup.Destructive,
+				order: 1,
 				when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
 			}
 		});

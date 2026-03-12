@@ -33,6 +33,7 @@ import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
+import { CellOutputActionBar } from './CellOutputActionBar.js';
 
 
 interface CellOutputsSectionProps {
@@ -82,6 +83,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
 		)}>
 			<CellOutputLeftActionMenu cell={cell} />
+			<CellOutputActionBar cell={cell} />
 			<section
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
 				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
@@ -102,9 +104,8 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 						>
 							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
 						</Button>
-						: <>
-							{outputs?.map((output) => (
-								<NotebookErrorBoundary
+						: outputs?.map((output) => (
+							<NotebookErrorBoundary
 									key={output.outputId}
 									componentName={`CellOutput[${output.parsed.type}]`}
 									level='output'
@@ -112,8 +113,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 								>
 									<CellOutput {...output} />
 								</NotebookErrorBoundary>
-							))}
-						</>
+						))
 					}
 				</div>
 			</section>

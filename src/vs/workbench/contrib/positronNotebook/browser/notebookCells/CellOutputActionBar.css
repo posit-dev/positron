@@ -1,0 +1,59 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Floating action bar in the top-right corner of the cell output area */
+.cell-output-action-bar {
+	position: absolute;
+	top: 0.25rem;
+	right: 0.25rem;
+	z-index: 10;
+
+	display: flex;
+	gap: 0.25rem;
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	background-color: var(--vscode-positronNotebook-action-bar-background);
+	border: 1px solid var(--vscode-widget-border, var(--vscode-positronNotebook-action-bar-border-color));
+
+	/* Hidden by default, shown on output hover */
+	visibility: hidden;
+
+	.action-button {
+		padding: 3px;
+		border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
+		min-width: unset;
+		aspect-ratio: 1;
+		display: grid;
+		place-content: center;
+		outline: revert;
+
+		.button-icon {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 16px;
+			aspect-ratio: 1;
+		}
+	}
+
+	/* Separator between action groups */
+	.action-button.primary-action {
+		position: relative;
+	}
+
+	.action-button.primary-action::after {
+		content: '';
+		position: absolute;
+		right: calc(-0.25rem / 2); /* Center in the gap */
+		top: 4px;
+		bottom: 4px;
+		width: 1px;
+		background-color: var(--vscode-widget-border, var(--vscode-positronNotebook-action-bar-border-color));
+	}
+}
+
+/* Show on hover of the output area */
+.positron-notebook-outputs-section:hover > .cell-output-action-bar {
+	visibility: visible;
+}
