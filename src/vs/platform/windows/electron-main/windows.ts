@@ -185,7 +185,7 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 	}
 
 	// Use dev icon when running from source to distinguish from production builds
-	const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('dev.iconColor') : undefined;
+	const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('development.iconColor') : undefined;
 	if (customColor && typeof options.icon === 'string') {
 		// Use has custom color set + we are running in dev mode
 		const coloredIcon = recolorDevIcon(options.icon, customColor);

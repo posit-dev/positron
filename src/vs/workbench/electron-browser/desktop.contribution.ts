@@ -317,13 +317,13 @@ import product from '../../platform/product/common/product.js';
 				'included': isMacintosh
 			},
 			// --- Start Positron ---
-			'dev.iconColor': {
+			'development.iconColor': {
 				'type': 'string',
 				'default': '',
 				'scope': ConfigurationScope.APPLICATION,
 				'pattern': '^(#[0-9a-fA-F]{6})?$',
 				'included': !product.commit,
-				'markdownDescription': localize('dev.iconColor', "Custom hex color for the Positron development icon background (e.g., `#FF5733`). Leave empty to use the default icon. Only applies when running from source. Requires restart to take effect.")
+				'markdownDescription': localize('development.iconColor', "Custom hex color for the Positron development icon background (e.g., `#FF5733`). Leave empty to use the default green. Only applies when running from source. Requires restart to take effect.")
 			},
 			// --- End Positron ---
 			'window.border': {
