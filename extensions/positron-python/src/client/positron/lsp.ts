@@ -384,19 +384,27 @@ export class PythonLsp implements vscode.Disposable {
      * @param client The language client instance
      */
     private registerPositronLspExtensions(client: LanguageClient) {
-        // Register a statement range provider to detect Python statements
-        const rangeDisposable = positron.languages.registerStatementRangeProvider(
-            'python',
-            new PythonStatementRangeProvider(this.serviceContainer),
-        );
-        this.activationDisposables.push(rangeDisposable);
+        // Only register the statement range and help topic providers for
+        // console (non-notebook) sessions. These providers are registered
+        // globally for the language, so a notebook session's provider
+        // would compete with the console session's and fail for script
+        // files that aren't synced to the notebook LSP.
+        const { notebookUri } = this._metadata;
+        if (!notebookUri) {
+            // Register a statement range provider to detect Python statements
+            const rangeDisposable = positron.languages.registerStatementRangeProvider(
+                'python',
+                new PythonStatementRangeProvider(this.serviceContainer),
+            );
+            this.activationDisposables.push(rangeDisposable);
 
-        // Register a help topic provider to provide help topics for Python
-        const helpDisposable = positron.languages.registerHelpTopicProvider(
-            'python',
-            new PythonHelpTopicProvider(client),
-        );
-        this.activationDisposables.push(helpDisposable);
+            // Register a help topic provider to provide help topics for Python
+            const helpDisposable = positron.languages.registerHelpTopicProvider(
+                'python',
+                new PythonHelpTopicProvider(client),
+            );
+            this.activationDisposables.push(helpDisposable);
+        }
     }
 
     /**

@@ -364,15 +364,22 @@ export class ArkLsp implements vscode.Disposable {
 			new VirtualDocumentProvider(client));
 		this.activationDisposables.push(vdocDisposable);
 
-		// Register a statement range provider to detect R statements
-		const rangeDisposable = positron.languages.registerStatementRangeProvider('r',
-			new RStatementRangeProvider(client));
-		this.activationDisposables.push(rangeDisposable);
+		// Only register the statement range and help topic providers for
+		// console (non-notebook) sessions. These providers are registered
+		// globally for language 'r', so a notebook session's provider
+		// would compete with the console session's and fail for script
+		// files that aren't synced to the notebook LSP.
+		if (!this._metadata.notebookUri) {
+			// Register a statement range provider to detect R statements
+			const rangeDisposable = positron.languages.registerStatementRangeProvider('r',
+				new RStatementRangeProvider(client));
+			this.activationDisposables.push(rangeDisposable);
 
-		// Register a help topic provider to provide help topics for R
-		const helpDisposable = positron.languages.registerHelpTopicProvider('r',
-			new RHelpTopicProvider(client));
-		this.activationDisposables.push(helpDisposable);
+			// Register a help topic provider to provide help topics for R
+			const helpDisposable = positron.languages.registerHelpTopicProvider('r',
+				new RHelpTopicProvider(client));
+			this.activationDisposables.push(helpDisposable);
+		}
 	}
 
 	/**
