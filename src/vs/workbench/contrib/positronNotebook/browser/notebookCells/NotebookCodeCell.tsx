@@ -32,6 +32,7 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { useScrollingIndicator } from './useScrollingIndicator.js';
 
 
 interface CellOutputsSectionProps {
@@ -45,6 +46,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
+	useScrollingIndicator(outputsInnerRef);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionLeft,
@@ -89,6 +91,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 				<div ref={outputsInnerRef} className={positronClassNames(
 					'positron-notebook-code-cell-outputs-inner',
 					'positron-notebook-scrollable',
+					'positron-notebook-scrollable-fade',
 					{ 'output-scrolling': layout.outputScrolling }
 				)}>
 					{isCollapsed

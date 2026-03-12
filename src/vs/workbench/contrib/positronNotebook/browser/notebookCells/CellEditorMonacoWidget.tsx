@@ -163,9 +163,6 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			padding: { top: 16, bottom: 16 },
 			scrollbar: {
 				...defaultOptions.scrollbar,
-				// Always show scrollbars to match with the rest of the notebook UI
-				vertical: 'visible',
-				horizontal: 'visible',
 				// Smaller scrollbars since we embed many editor widgets
 				verticalScrollbarSize: 8,
 				horizontalScrollbarSize: 8
