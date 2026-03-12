@@ -65,7 +65,7 @@
 		position: relative;
 	}
 
-	/* Add separator pseudo-element after the last action before a new group */
+	/* Add separator pseudo-element after this button */
 	.action-button.separator-after::after {
 		content: '';
 		position: absolute;
