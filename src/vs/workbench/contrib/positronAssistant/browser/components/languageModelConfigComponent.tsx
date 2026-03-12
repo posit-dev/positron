@@ -186,7 +186,7 @@ const BaseUrl = (props: { baseUrl?: string; signedIn?: boolean; onChange: (newBa
 		</div>
 		{isDeploymentUrl &&
 			<div className='language-model-url-info'>
-				<span className='codicon codicon-warning' />
+				<span className='codicon codicon-info' />
 				<span>
 					{props.signedIn
 						? localize(
