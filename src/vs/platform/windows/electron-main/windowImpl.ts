@@ -50,6 +50,7 @@ import { FocusMode } from '../../native/common/native.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { join } from '../../../base/common/path.js';
+import { recolorDevIcon } from './devIconColorizer.js';
 // -- End Positron ---
 
 export interface IWindowCreationOptions {
@@ -679,9 +680,13 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			// Use dev icon when running from source to distinguish from production builds
 			const iconName = this.environmentMainService.isBuilt ? 'positron' : 'positron-dev';
 			if (isLinux) {
-				options.icon = join(this.environmentMainService.appRoot, `resources/linux/${iconName}.png`);
+				const iconPath = join(this.environmentMainService.appRoot, `resources/linux/${iconName}.png`);
+				const customColor = !this.environmentMainService.isBuilt ? configurationService.getValue<string>('positron.dev.iconColor') : undefined;
+				options.icon = customColor ? recolorDevIcon(iconPath, customColor) : iconPath;
 			} else if (isWindows && !this.environmentMainService.isBuilt) {
-				options.icon = join(this.environmentMainService.appRoot, `resources/win32/${iconName}_150x150.png`);
+				const iconPath = join(this.environmentMainService.appRoot, `resources/win32/${iconName}_150x150.png`);
+				const customColor = configurationService.getValue<string>('positron.dev.iconColor');
+				options.icon = customColor ? recolorDevIcon(iconPath, customColor) : iconPath;
 			}
 			// --- End Positron ---
 

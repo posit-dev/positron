@@ -28,6 +28,9 @@ import { NativeWindow } from './window.js';
 import { ModifierKeyEmitter } from '../../base/browser/dom.js';
 import { applicationConfigurationNodeBase, securityConfigurationNodeBase } from '../common/configuration.js';
 import { MAX_ZOOM_LEVEL, MIN_ZOOM_LEVEL } from '../../platform/window/electron-browser/window.js';
+// --- Start Positron ---
+import product from '../../platform/product/common/product.js';
+// --- End Positron ---
 
 // Actions
 (function registerActions(): void {
@@ -313,6 +316,16 @@ import { MAX_ZOOM_LEVEL, MIN_ZOOM_LEVEL } from '../../platform/window/electron-b
 				'description': localize('window.clickThroughInactive', "If enabled, clicking on an inactive window will both activate the window and trigger the element under the mouse if it is clickable. If disabled, clicking anywhere on an inactive window will activate it only and a second click is required on the element."),
 				'included': isMacintosh
 			},
+			// --- Start Positron ---
+			'positron.dev.iconColor': {
+				'type': 'string',
+				'default': '',
+				'scope': ConfigurationScope.APPLICATION,
+				'pattern': '^(#[0-9a-fA-F]{6})?$',
+				'included': !product.commit,
+				'markdownDescription': localize('positron.dev.iconColor', "Custom hex color for the Positron development icon background (e.g., `#FF5733`). Leave empty to use the default green. Only applies when running from source. Requires restart to take effect.")
+			},
+			// --- End Positron ---
 			'window.border': {
 				'type': 'string',
 				'default': 'default',

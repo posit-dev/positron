@@ -26,6 +26,7 @@ import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/co
 interface IConfiguration extends IWindowsConfiguration {
 	// --- Start Positron ---
 	update?: { mode?: string; autoUpdate?: boolean; positron: { channel?: string } };
+	positron?: { dev?: { iconColor?: string } };
 	// --- End Positron ---
 	debug?: { console?: { wordWrap?: boolean } };
 	editor?: { accessibilitySupport?: 'on' | 'off' | 'auto' };
@@ -56,6 +57,7 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 		// --- Start Positron ---
 		'update.autoUpdate',
 		'update.positron.channel',
+		'positron.dev.iconColor',
 		// --- End Positron ---
 		'accessibility.verbosity.debug',
 		'telemetry.feedback.enabled',
@@ -81,6 +83,7 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 	// --- Start Positron ---
 	private readonly autoUpdate = new ChangeObserver('boolean');
 	private readonly updateChannel = new ChangeObserver('string');
+	private readonly devIconColor = new ChangeObserver('string');
 	// --- End Positron ---
 
 	constructor(
@@ -150,6 +153,7 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 			// --- Start Positron ---
 			processChanged(this.autoUpdate.handleChange(config.update?.autoUpdate));
 			processChanged(this.updateChannel.handleChange(config.update?.positron.channel));
+			processChanged(this.devIconColor.handleChange(config.positron?.dev?.iconColor));
 			// --- End Positron ---
 
 			// On linux turning on accessibility support will also pass this flag to the chrome renderer, thus a restart is required

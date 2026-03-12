@@ -19,6 +19,9 @@ import { IProductService } from '../../product/common/productService.js';
 import { IThemeMainService } from '../../theme/electron-main/themeMainService.js';
 import { IOpenEmptyWindowOptions, IWindowOpenable, IWindowSettings, TitlebarStyle, WindowMinimumSize, hasNativeTitlebar, useNativeFullScreen, useWindowControlsOverlay, zoomLevelToZoomFactor } from '../../window/common/window.js';
 import { ICodeWindow, IWindowState, WindowMode, defaultWindowState } from '../../window/electron-main/window.js';
+// --- Start Positron ---
+import { recolorDevIcon } from './devIconColorizer.js';
+// --- End Positron ---
 
 export const IWindowsMainService = createDecorator<IWindowsMainService>('windowsMainService');
 
@@ -178,9 +181,13 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 	// Use dev icon when running from source to distinguish from production builds
 	const iconName = environmentMainService.isBuilt ? 'positron' : 'positron-dev';
 	if (isLinux) {
-		options.icon = join(environmentMainService.appRoot, `resources/linux/${iconName}.png`); // always on Linux
+		const iconPath = join(environmentMainService.appRoot, `resources/linux/${iconName}.png`); // always on Linux
+		const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('positron.dev.iconColor') : undefined;
+		options.icon = customColor ? recolorDevIcon(iconPath, customColor) : iconPath;
 	} else if (isWindows && !environmentMainService.isBuilt) {
-		options.icon = join(environmentMainService.appRoot, `resources/win32/${iconName}_150x150.png`); // only when running out of sources on Windows
+		const iconPath = join(environmentMainService.appRoot, `resources/win32/${iconName}_150x150.png`); // only when running out of sources on Windows
+		const customColor = configurationService.getValue<string>('positron.dev.iconColor');
+		options.icon = customColor ? recolorDevIcon(iconPath, customColor) : iconPath;
 	}
 	// --- End Positron ---
 
