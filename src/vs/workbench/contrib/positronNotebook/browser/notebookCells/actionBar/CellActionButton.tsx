@@ -3,10 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS.
-import './CellActionButton.css';
-
-// Other dependencies.
 import { CellSelectionType } from '../../selectionMachine.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
@@ -14,7 +10,7 @@ import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNote
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { DevErrorIcon, Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
-import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
+
 
 interface CellActionButtonProps {
 	action: MenuItemAction | SubmenuItemAction;
@@ -50,10 +46,7 @@ export function CellActionButton({ action, cell, hoverManager, showSeparator }: 
 		<ActionButton
 			key={action.id}
 			ariaLabel={action.label}
-			className={positronClassNames(
-				'cell-action-button',
-				{ 'separator-after': showSeparator }
-			)}
+			className={showSeparator ? 'separator-after' : ''}
 			hoverManager={hoverManager}
 			// Match VSCode behavior: prefer tooltip but default to label
 			tooltip={action.tooltip && action.tooltip.length > 0 ? action.tooltip : action.label}
