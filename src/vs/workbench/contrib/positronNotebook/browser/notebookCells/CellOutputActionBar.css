@@ -7,7 +7,7 @@
 .cell-output-action-bar {
 	position: absolute;
 	top: 0.25rem;
-	right: 0.25rem;
+	right: calc(0.25rem + 8px); /* 8px to clear the scrollbar */
 	z-index: 10;
 
 	display: flex;
