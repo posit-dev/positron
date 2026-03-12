@@ -56,28 +56,25 @@ Use `-v` / `--verbose` to show the full proposals list instead of just the count
 ## Example Output
 
 ```
-Positron proposals: 23 versioned (from src/vs/.../extensionsApiProposals.ts)
+Positron proposals: 9 versioned (from src/vs/.../extensionsApiProposals.ts)
 
 Code OSS version: 1.109.0
 Checking recent tag series for engine compatibility:
   v0.36 -> ^1.108.0 (compatible)
   v0.37 -> ^1.109.0 (compatible)
-  v0.38 -> ^1.110.0 (needs Code OSS > 1.109.0)
+  v0.38 -> ^1.110.0 (needs Code OSS >= 1.110.0)
 
 --- v0.37 ---
+Releases (10 tags):
 BAD v0.37.9
    chatHooks@6 (not in Positron)
    chatParticipantPrivate@13 (Positron has chatParticipantPrivate@12)
 BAD v0.37.6
    chatHooks@6 (not in Positron)
-   chatParticipantPrivate@13 (Positron has chatParticipantPrivate@12)
 OK  v0.37.5
-OK  v0.37.4
-OK  v0.37.0
+Pre-releases (41 tags):
+OK  v0.37.2026020406
 
---- v0.36 ---
-OK  v0.36.4
-OK  v0.36.0
-
-Latest compatible: v0.37.5
+Latest compatible release: v0.37.5
+Latest compatible pre-release: v0.37.2026020406
 ```

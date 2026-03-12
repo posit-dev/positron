@@ -30,7 +30,7 @@ that are not compatible with the current version of VS Code.
 
 - **In the extension**: `package.json` -> `enabledApiProposals` array
 - **In Positron**: compiled into `sharedProcessMain.js` (extracted at build time
-  from `src/vs/workbench/services/extensions/common/extensionsApiProposals.ts`)
+  from `src/vs/platform/extensions/common/extensionsApiProposals.ts`)
 - **In product.json**: `extensionsEnabledWithApiProposalVersion` controls which
   extensions get the strict check
 
