@@ -76,7 +76,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	private _configuredIntervalMs: number;
 
 	/** Disposable for the debounced post-execution poll timer. */
-	private _postExecutionTimer: IDisposable | undefined;
+	private _postExecutionTimer: number | undefined;
 
 	constructor(
 		@IPositronMemoryInfoProvider private readonly _provider: IPositronMemoryInfoProvider,
@@ -207,16 +207,15 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	 */
 	private _schedulePostExecutionPoll(): void {
 		this._cancelPostExecutionTimer();
-		const handle = mainWindow.setTimeout(() => {
-			this._cancelPostExecutionTimer();
+		this._postExecutionTimer = mainWindow.setTimeout(() => {
+			this._postExecutionTimer = undefined;
 			this._poll();
 		}, POST_EXECUTION_DELAY_MS);
-		this._postExecutionTimer = toDisposable(() => mainWindow.clearTimeout(handle));
 	}
 
 	private _cancelPostExecutionTimer(): void {
 		if (this._postExecutionTimer !== undefined) {
-			this._postExecutionTimer.dispose();
+			mainWindow.clearTimeout(this._postExecutionTimer);
 			this._postExecutionTimer = undefined;
 		}
 	}
