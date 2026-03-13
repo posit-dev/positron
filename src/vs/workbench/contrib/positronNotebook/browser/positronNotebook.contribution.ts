@@ -1664,7 +1664,14 @@ function toBase64DataUrl(dataUrl: string): string {
 		return dataUrl;
 	}
 	const header = dataUrl.substring(0, commaIndex); // e.g. "data:image/svg+xml"
-	const payload = decodeURIComponent(dataUrl.substring(commaIndex + 1));
+	const raw = dataUrl.substring(commaIndex + 1);
+	let payload: string;
+	try {
+		payload = decodeURIComponent(raw);
+	} catch {
+		// Raw payload may contain literal '%' that is not URL-encoded
+		payload = raw;
+	}
 	return `${header};base64,${encodeBase64(VSBuffer.fromString(payload))}`;
 }
 
