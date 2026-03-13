@@ -114,11 +114,12 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeRefreshState.fire(true);
 		try {
-			this._packages = await packageManager.getPackages(token);
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 			return this._packages;
 		} finally {
@@ -128,15 +129,17 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
+		console.log(`FOO: effectiveToken = ${effectiveToken === CancellationToken.None}`);
 
 		// Loading
 		this._onDidChangeInstallState.fire(true);
 
 		try {
-			await packageManager.installPackages(packages, token);
+			await packageManager.installPackages(packages, effectiveToken);
 
 			// Fire refresh event.
-			this._packages = await packageManager.getPackages(token);
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
@@ -146,15 +149,16 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeUninstallState.fire(true);
 
 		try {
-			await packageManager.uninstallPackages(packageNames, token);
+			await packageManager.uninstallPackages(packageNames, effectiveToken);
 
 			// Fire refresh event.
-			this._packages = await packageManager.getPackages(token);
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
@@ -164,18 +168,19 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeUpdateState.fire(true);
 
 		try {
-			await packageManager.updatePackages(packages, token);
-			if (token?.isCancellationRequested) {
+			await packageManager.updatePackages(packages, effectiveToken);
+			if (effectiveToken.isCancellationRequested) {
 				return;
 			}
 
 			// Fire refresh event.
-			this._packages = await packageManager.getPackages(token);
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
@@ -185,18 +190,19 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async updateAllPackages(token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeUpdateAllState.fire(true);
 
 		try {
-			await packageManager.updateAllPackages(token);
-			if (token?.isCancellationRequested) {
+			await packageManager.updateAllPackages(effectiveToken);
+			if (effectiveToken.isCancellationRequested) {
 				return;
 			}
 
 			// Fire refresh event.
-			this._packages = await packageManager.getPackages(token);
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
@@ -206,8 +212,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const packageManager = this.getPackageManagerOrThrow();
-		const results = await packageManager.searchPackages(name, token);
-		if (token?.isCancellationRequested) {
+		const effectiveToken = token ?? CancellationToken.None;
+		const results = await packageManager.searchPackages(name, effectiveToken);
+		if (effectiveToken.isCancellationRequested) {
 			return [];
 		}
 		return results;
@@ -215,8 +222,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]> {
 		const packageManager = this.getPackageManagerOrThrow();
-		const results = await packageManager.searchPackageVersions(name, token);
-		if (token?.isCancellationRequested) {
+		const effectiveToken = token ?? CancellationToken.None;
+		const results = await packageManager.searchPackageVersions(name, effectiveToken);
+		if (effectiveToken.isCancellationRequested) {
 			return [];
 		}
 		return results;

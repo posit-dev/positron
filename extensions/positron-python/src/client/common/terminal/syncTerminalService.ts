@@ -133,7 +133,7 @@ export class SynchronousTerminalService implements ITerminalService, Disposable 
         try {
             const pythonExec = this.pythonInterpreter || (await this.interpreter.getActiveInterpreter(undefined));
             const sendArgs = internalScripts.shell_exec(command, lockFile.filePath, args);
-            await this.terminalService.sendCommand(pythonExec?.path || 'python', sendArgs);
+            await this.terminalService.sendCommand(pythonExec?.path || 'python', sendArgs, cancel);
             const promise = swallowExceptions ? state.completed : state.completed.catch(noop);
             await Cancellation.race(() => promise, cancel);
         } finally {

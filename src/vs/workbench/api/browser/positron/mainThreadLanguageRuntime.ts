@@ -128,32 +128,32 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 		private readonly _handle: number,
 	) { }
 
-	getPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
-		return this._proxy.$getPackages(this._handle, token ?? CancellationToken.None);
+	getPackages(token: CancellationToken): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$getPackages(this._handle, token);
 	}
 
-	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
-		return this._proxy.$installPackages(this._handle, packages, token ?? CancellationToken.None);
+	installPackages(packages: IPackageSpec[], token: CancellationToken): Promise<void> {
+		return this._proxy.$installPackages(this._handle, packages, token);
 	}
 
-	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void> {
-		return this._proxy.$uninstallPackages(this._handle, packageNames, token ?? CancellationToken.None);
+	uninstallPackages(packageNames: string[], token: CancellationToken): Promise<void> {
+		return this._proxy.$uninstallPackages(this._handle, packageNames, token);
 	}
 
-	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
-		return this._proxy.$updatePackages(this._handle, packages, token ?? CancellationToken.None);
+	updatePackages(packages: IPackageSpec[], token: CancellationToken): Promise<void> {
+		return this._proxy.$updatePackages(this._handle, packages, token);
 	}
 
-	updateAllPackages(token?: CancellationToken): Promise<void> {
-		return this._proxy.$updateAllPackages(this._handle, token ?? CancellationToken.None);
+	updateAllPackages(token: CancellationToken): Promise<void> {
+		return this._proxy.$updateAllPackages(this._handle, token);
 	}
 
-	searchPackages(query: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
-		return this._proxy.$searchPackages(this._handle, query, token ?? CancellationToken.None);
+	searchPackages(query: string, token: CancellationToken): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$searchPackages(this._handle, query, token);
 	}
 
-	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]> {
-		return this._proxy.$searchPackageVersions(this._handle, name, token ?? CancellationToken.None);
+	searchPackageVersions(name: string, token: CancellationToken): Promise<string[]> {
+		return this._proxy.$searchPackageVersions(this._handle, name, token);
 	}
 }
 

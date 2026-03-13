@@ -15,7 +15,7 @@ import { IWorkspaceService } from '../../client/common/application/types';
 import { IFileSystem } from '../../client/common/platform/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { UvPackageManager } from '../../client/positron/packages/uvPackageManager';
-import { PackageKernel } from '../../client/positron/packages/types';
+import { PackageSession } from '../../client/positron/packages/types';
 
 /**
  * Interface for emitting messages to the Positron console (matches the one in uvPackageManager.ts)
@@ -38,7 +38,7 @@ suite('UvPackageManager Tests', () => {
     let workspaceService: IWorkspaceService;
     let fileSystem: IFileSystem;
     let messageEmitter: MessageEmitter;
-    let kernel: PackageKernel;
+    let session: PackageSession;
 
     setup(() => {
         // Create mocks for services
@@ -71,13 +71,13 @@ suite('UvPackageManager Tests', () => {
             fire: sinon.stub(),
         };
 
-        // Create kernel mock
-        kernel = {
+        // Create session mock
+        session = {
             callMethod: sinon.stub().resolves([]),
         };
 
         // Create package manager instance
-        uvPackageManager = new UvPackageManagerTest('/path/to/python', messageEmitter, serviceContainer, kernel);
+        uvPackageManager = new UvPackageManagerTest('/path/to/python', messageEmitter, serviceContainer, session);
     });
 
     teardown(() => {
