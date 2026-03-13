@@ -1634,7 +1634,7 @@ registerAction2(class extends NotebookAction2 {
 		}
 
 		try {
-			await clipboardService.writeImage(dataUrl);
+			await clipboardService.writeImage(toBase64DataUrl(dataUrl));
 		} catch (err) {
 			logService.error('Failed to copy image to clipboard:', err);
 		}
@@ -1647,6 +1647,24 @@ interface CopyImageMenuArg {
 
 function isCopyImageMenuArg(arg: unknown): arg is CopyImageMenuArg {
 	return typeof arg === 'object' && arg !== null && typeof (arg as CopyImageMenuArg).imageDataUrl === 'string';
+}
+
+/**
+ * Ensure a data URL uses base64 encoding. SVG data URLs from notebook outputs
+ * use URL-encoding (`data:image/svg+xml,<encoded>`), but
+ * `IClipboardService.writeImage` expects base64 (`data:...;base64,...`).
+ */
+function toBase64DataUrl(dataUrl: string): string {
+	if (dataUrl.includes(';base64,')) {
+		return dataUrl;
+	}
+	const commaIndex = dataUrl.indexOf(',');
+	if (commaIndex === -1) {
+		return dataUrl;
+	}
+	const header = dataUrl.substring(0, commaIndex); // e.g. "data:image/svg+xml"
+	const payload = decodeURIComponent(dataUrl.substring(commaIndex + 1));
+	return `${header};base64,${btoa(payload)}`;
 }
 
 //#endregion Cell Commands
