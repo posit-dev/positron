@@ -10,7 +10,8 @@ test.use({
 });
 
 test.describe('Variables: Memory Usage', {
-	tag: [tags.WIN, tags.VARIABLES, tags.SESSIONS]
+	tag: [tags.WIN, tags.VARIABLES, tags.SESSIONS, tags.SOFT_FAIL],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/actions/runs/23053059849' }]
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {
