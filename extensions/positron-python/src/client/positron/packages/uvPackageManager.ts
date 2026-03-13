@@ -154,27 +154,11 @@ export class UvPackageManager implements IPackageManager {
     }
 
     async searchPackages(query: string, token: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        if (token.isCancellationRequested) {
-            throw new vscode.CancellationError();
-        }
-        // TODO: Pass token to searchPyPI for fetch cancellation
-        const result = await searchPyPI(query);
-        if (token.isCancellationRequested) {
-            throw new vscode.CancellationError();
-        }
-        return result;
+        return searchPyPI(query, token);
     }
 
     async searchPackageVersions(name: string, token: vscode.CancellationToken): Promise<string[]> {
-        if (token.isCancellationRequested) {
-            throw new vscode.CancellationError();
-        }
-        // TODO: Pass token to searchPyPIVersions for fetch cancellation
-        const result = await searchPyPIVersions(name);
-        if (token.isCancellationRequested) {
-            throw new vscode.CancellationError();
-        }
-        return result;
+        return searchPyPIVersions(name, token);
     }
 
     // =========================================================================
@@ -308,7 +292,16 @@ export class UvPackageManager implements IPackageManager {
         // Ensure terminal is created and ready before sending command
         await terminalService.show();
 
-        await terminalService.sendCommand('uv', args, token);
+        const disposable = token.onCancellationRequested(async () => {
+            // Send Ctrl+C to interrupt the running command
+            await terminalService.sendText('\x03');
+        });
+
+        try {
+            await terminalService.sendCommand('uv', args, token);
+        } finally {
+            disposable.dispose();
+        }
     }
 
     /**

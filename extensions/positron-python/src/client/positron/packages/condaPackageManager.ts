@@ -271,7 +271,16 @@ export class CondaPackageManager implements IPackageManager {
         // Ensure terminal is created and ready before sending command
         await terminalService.show();
 
-        await terminalService.sendCommand(condaFile, args, token);
+        const disposable = token.onCancellationRequested(async () => {
+            // Send Ctrl+C to interrupt the running command
+            await terminalService.sendText('\x03');
+        });
+
+        try {
+            await terminalService.sendCommand(condaFile, args, token);
+        } finally {
+            disposable.dispose();
+        }
     }
 
     /**
