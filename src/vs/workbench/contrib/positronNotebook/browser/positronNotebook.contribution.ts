@@ -10,7 +10,7 @@ import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
 import './contrib/dataExplorer/positronNotebookDataExplorer.contribution.js';
 
-import { VSBuffer, encodeBase64 } from '../../../../base/common/buffer.js';
+import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -1642,38 +1642,6 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
-interface CopyImageMenuArg {
-	imageDataUrl: string;
-}
-
-function isCopyImageMenuArg(arg: unknown): arg is CopyImageMenuArg {
-	return typeof arg === 'object' && arg !== null && typeof (arg as CopyImageMenuArg).imageDataUrl === 'string';
-}
-
-/**
- * Ensure a data URL uses base64 encoding. SVG data URLs from notebook outputs
- * use URL-encoding (`data:image/svg+xml,<encoded>`), but
- * `IClipboardService.writeImage` expects base64 (`data:...;base64,...`).
- */
-function toBase64DataUrl(dataUrl: string): string {
-	if (dataUrl.includes(';base64,')) {
-		return dataUrl;
-	}
-	const commaIndex = dataUrl.indexOf(',');
-	if (commaIndex === -1) {
-		return dataUrl;
-	}
-	const header = dataUrl.substring(0, commaIndex); // e.g. "data:image/svg+xml"
-	const raw = dataUrl.substring(commaIndex + 1);
-	let payload: string;
-	try {
-		payload = decodeURIComponent(raw);
-	} catch {
-		// Raw payload may contain literal '%' that is not URL-encoded
-		payload = raw;
-	}
-	return `${header};base64,${encodeBase64(VSBuffer.fromString(payload))}`;
-}
 
 //#endregion Cell Commands
 

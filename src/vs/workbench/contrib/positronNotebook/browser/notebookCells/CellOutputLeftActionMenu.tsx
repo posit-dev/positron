@@ -23,16 +23,9 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { CopyImageMenuArg } from '../copyImageUtils.js';
 
 const cellOutputActions = localize('cellOutputActions', 'Cell Output Actions');
-
-/**
- * Shape of the arg passed to `positronNotebook.cell.copyOutputImage` to target
- * a specific image. Must match the interface in positronNotebook.contribution.ts.
- */
-interface CopyImageMenuArg {
-	imageDataUrl: string;
-}
 
 interface CellOutputLeftActionMenuProps {
 	cell: PositronNotebookCodeCell;
