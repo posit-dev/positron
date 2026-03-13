@@ -11,6 +11,7 @@ import { useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { IAction, toAction } from '../../../../../base/common/actions.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -21,8 +22,17 @@ import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const cellOutputActions = localize('cellOutputActions', 'Cell Output Actions');
+
+/**
+ * Shape of the arg passed to `positronNotebook.cell.copyOutputImage` to target
+ * a specific image. Must match the interface in positronNotebook.contribution.ts.
+ */
+interface CopyImageMenuArg {
+	imageDataUrl: string;
+}
 
 interface CellOutputLeftActionMenuProps {
 	cell: PositronNotebookCodeCell;
@@ -36,6 +46,7 @@ interface CellOutputLeftActionMenuProps {
  */
 export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps) {
 	const instance = useNotebookInstance();
+	const { commandService } = usePositronReactServicesContext();
 	const contextKeyService = useCellScopedContextKeyService();
 	const outputImageTargeted = useMemo(
 		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
@@ -58,10 +69,47 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 			return;
 		}
 
-		// Set the context key so "Copy Image" appears when the cell has image output
-		outputImageTargeted?.set(outputs.some(o => o.parsed.type === 'image'));
+		const imageOutputs = outputs.filter(o => o.parsed.type === 'image');
+
+		// For a single image, show the static "Copy Image" action.
+		// For multiple images, hide the static action and inject dynamic per-plot actions.
+		const hasMultipleImages = imageOutputs.length > 1;
+		outputImageTargeted?.set(imageOutputs.length === 1);
+
+		const getActions = hasMultipleImages ? (): IAction[] => {
+			const MAX_PLOT_COPY_ACTIONS = 5;
+			const limit = Math.min(imageOutputs.length, MAX_PLOT_COPY_ACTIONS);
+			const actions: IAction[] = [];
+
+			for (let i = 0; i < limit; i++) {
+				const parsed = imageOutputs[i].parsed;
+				if (parsed.type === 'image') {
+					const imageDataUrl = parsed.dataUrl;
+					actions.push(toAction({
+						id: `positronNotebook.cell.copyOutputImage.${i}`,
+						label: localize('positronNotebook.cell.copyPlotN', "Copy Plot {0}", i + 1),
+						run: () => commandService.executeCommand(
+							'positronNotebook.cell.copyOutputImage',
+							{ imageDataUrl } satisfies CopyImageMenuArg,
+						),
+					}));
+				}
+			}
+
+			if (imageOutputs.length > MAX_PLOT_COPY_ACTIONS) {
+				actions.push(toAction({
+					id: 'positronNotebook.cell.copyOutputImage.hint',
+					label: localize('positronNotebook.cell.copyPlotHint', "Right-click a plot to copy it"),
+					enabled: false,
+					run: () => { },
+				}));
+			}
+
+			return actions;
+		} : undefined;
+
 		setIsMenuOpen(true);
-		showContextMenu(buttonRef.current, undefined, () => {
+		showContextMenu(buttonRef.current, getActions, () => {
 			outputImageTargeted?.set(false);
 			setIsMenuOpen(false);
 		});
