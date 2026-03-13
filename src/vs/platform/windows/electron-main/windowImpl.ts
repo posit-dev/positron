@@ -1137,7 +1137,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		// Windows taskbar overlay icon: update when the dev icon color setting changes.
 		// On Windows the app icon is embedded in the .exe and cannot be recolored at runtime,
 		// so we use setOverlayIcon() to paint a small colored circle on the taskbar button.
-		if (isWindows && !this.environmentMainService.isBuilt && this._win &&
+		if (isWindows && !this.environmentMainService.isBuilt &&
 			(!e || e.affectsConfiguration('development.iconColor'))) {
 			const newColor = this.configurationService.getValue<string>('development.iconColor');
 			if (newColor) {

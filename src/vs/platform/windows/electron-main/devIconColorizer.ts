@@ -161,29 +161,45 @@ export function recolorDevIcon(iconPath: string, hexColor: string): NativeImage 
 }
 
 /**
- * Creates a NativeImage suitable for use as a Windows taskbar overlay icon.
- * The image is a rounded rectangle filled with the given color containing the
- * white text "DEV", making it easy to spot dev builds in the taskbar.
+ * Creates a small solid-color circle NativeImage suitable for use as a Windows
+ * taskbar overlay icon. The circle fills most of the canvas with a small
+ * transparent border so Windows renders it cleanly on top of the taskbar button.
  *
  * Falls back to an empty NativeImage if the hex color is invalid.
  *
- * @param hexColor Background color as a 6-digit hex string, e.g. "#FF5733".
- * @param size     Canvas size in pixels (default 64 - rendered down to ~16px by Windows).
+ * @param hexColor Target color as a 6-digit hex string, e.g. "#FF5733".
+ * @param size     Canvas size in pixels (default 16 - recommended by Microsoft).
  * @returns A NativeImage containing the overlay, or an empty image on failure.
  */
-export function createOverlayIcon(hexColor: string, size: number = 64): NativeImage {
-	if (!parseHexColor(hexColor)) {
+export function createOverlayIcon(hexColor: string, size: number = 16): NativeImage {
+	const rgb = parseHexColor(hexColor);
+	if (!rgb) {
 		return nativeImage.createEmpty();
 	}
 
-	// Use an SVG so the text is crisp at any size. Windows scales the overlay
-	// icon down to roughly 16x16 on the taskbar button, but supplying a larger
-	// image (64px) lets the OS downsample it with better quality.
-	const r = size / 2;
-	const fontSize = Math.round(size * 0.38);
-	// Collapsed to a single line to satisfy the no-spaces-indentation hygiene rule.
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" rx="${r}" ry="${r}" fill="${hexColor}"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="bold" font-size="${fontSize}px" fill="white">DEV</text></svg>`;
+	const [r, g, b] = rgb;
+	const pixels = Buffer.alloc(size * size * 4, 0); // BGRA, all transparent
 
-	const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
-	return nativeImage.createFromDataURL(dataUrl);
+	// Draw a filled circle with a 1-pixel transparent border.
+	const center = (size - 1) / 2;
+	const radius = center - 1;
+
+	for (let y = 0; y < size; y++) {
+		for (let x = 0; x < size; x++) {
+			const dx = x - center;
+			const dy = y - center;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+
+			if (dist <= radius) {
+				const i = (y * size + x) * 4;
+				// BGRA order
+				pixels[i] = b;
+				pixels[i + 1] = g;
+				pixels[i + 2] = r;
+				pixels[i + 3] = 255;
+			}
+		}
+	}
+
+	return nativeImage.createFromBitmap(pixels, { width: size, height: size });
 }
