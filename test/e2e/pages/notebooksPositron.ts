@@ -29,6 +29,8 @@ export class PositronNotebooks extends Notebooks {
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.monaco-editor :is(.native-edit-context, .inputarea)');
+	/** The visible editor code area -- clickable even when the editor is not focused. */
+	editorWidgetAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .view-lines');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
 	markdownCell = this.code.driver.page.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
