@@ -50,7 +50,7 @@ import { FocusMode } from '../../native/common/native.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { join } from '../../../base/common/path.js';
-import { recolorDevIcon, createOverlayIcon } from './devIconColorizer.js';
+import { recolorDevIcon } from './devIconColorizer.js';
 // -- End Positron ---
 
 export interface IWindowCreationOptions {
@@ -683,11 +683,10 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 				options.icon = join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png');
 			}
 
-			// Use dev icon when running from source to distinguish from production builds.
-			// On Windows, the taskbar icon is embedded in the .exe and cannot be recolored at runtime;
-			// a colored overlay is applied via setOverlayIcon() below instead.
+			// Use dev icon when running from source to distinguish from production builds
 			const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('development.iconColor') : undefined;
-			if (customColor && typeof options.icon === 'string' && !isWindows) {
+			if (customColor && typeof options.icon === 'string') {
+				// Use has custom color set + we are running in dev mode
 				const coloredIcon = recolorDevIcon(options.icon, customColor);
 				options.icon = coloredIcon;
 			}
@@ -700,17 +699,6 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 
 			this._id = this._win.id;
 			this.setWin(this._win, options);
-
-			// --- Start Positron ---
-			// On Windows the taskbar icon comes from the .exe embedded resources and cannot be
-			// recolored at runtime. Use a colored overlay icon on the taskbar button instead.
-			if (isWindows && !this.environmentMainService.isBuilt && customColor) {
-				this._win.setOverlayIcon(
-					createOverlayIcon(customColor),
-					`Dev build - icon color ${customColor}`
-				);
-			}
-			// --- End Positron ---
 
 			// Apply some state after window creation
 			this.applyState(this.windowState, hasMultipleDisplays);
@@ -1132,25 +1120,6 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 				electron.app.setProxy({ proxyRules, proxyBypassRules, pacScript: '' });
 			}
 		}
-
-		// --- Start Positron ---
-		// Windows taskbar overlay icon: update when the dev icon color setting changes.
-		// On Windows the app icon is embedded in the .exe and cannot be recolored at runtime,
-		// so we use setOverlayIcon() to paint a small colored circle on the taskbar button.
-		if (isWindows && !this.environmentMainService.isBuilt &&
-			(!e || e.affectsConfiguration('development.iconColor'))) {
-			const newColor = this.configurationService.getValue<string>('development.iconColor');
-			if (newColor) {
-				this._win.setOverlayIcon(
-					createOverlayIcon(newColor),
-					`Dev build - icon color ${newColor}`
-				);
-			} else {
-				// Clear the overlay when the setting is removed
-				this._win.setOverlayIcon(null, '');
-			}
-		}
-		// --- End Positron ---
 	}
 
 	private readonly swipeListenerDisposable = this._register(new MutableDisposable());
