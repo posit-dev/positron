@@ -136,7 +136,7 @@ export class UvPackageManager implements IPackageManager {
             await this._executeUvInTerminal(args, token);
         } else {
             // Environment workflow: get outdated packages and upgrade them
-            const outdatedPackages = await this._getOutdatedPackages();
+            const outdatedPackages = await this._getOutdatedPackages(token);
 
             if (token.isCancellationRequested) {
                 throw new vscode.CancellationError();
@@ -234,7 +234,7 @@ export class UvPackageManager implements IPackageManager {
     /**
      * Get list of outdated packages using uv pip list.
      */
-    private async _getOutdatedPackages(): Promise<Array<{ name: string }>> {
+    private async _getOutdatedPackages(token: vscode.CancellationToken): Promise<Array<{ name: string }>> {
         const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         const processService = await processServiceFactory.create();
         const proxyEnv = this._getProxyEnv();
@@ -243,7 +243,7 @@ export class UvPackageManager implements IPackageManager {
             const result = await processService.exec(
                 'uv',
                 ['pip', 'list', '--outdated', '--format=json', '--python', this._pythonPath],
-                { extraVariables: proxyEnv },
+                { extraVariables: proxyEnv, token },
             );
 
             if (result.stdout) {

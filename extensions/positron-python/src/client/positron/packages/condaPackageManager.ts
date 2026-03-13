@@ -146,7 +146,7 @@ export class CondaPackageManager implements IPackageManager {
 
         try {
             // Use wildcard pattern for partial matching
-            const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json']);
+            const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json'], token);
 
             if (token.isCancellationRequested) {
                 throw new vscode.CancellationError();
@@ -182,7 +182,7 @@ export class CondaPackageManager implements IPackageManager {
         await this._ensureConda();
 
         try {
-            const result = await this._executeCondaWithOutput(['search', name, '--json']);
+            const result = await this._executeCondaWithOutput(['search', name, '--json'], token);
 
             if (token.isCancellationRequested) {
                 throw new vscode.CancellationError();
@@ -286,12 +286,12 @@ export class CondaPackageManager implements IPackageManager {
     /**
      * Execute a conda command and capture stdout.
      */
-    private async _executeCondaWithOutput(args: string[]): Promise<string> {
+    private async _executeCondaWithOutput(args: string[], token: vscode.CancellationToken): Promise<string> {
         const condaFile = await this._getCondaFile();
         const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         const processService = await processServiceFactory.create();
 
-        const result = await processService.exec(condaFile, args);
+        const result = await processService.exec(condaFile, args, { token });
         return result.stdout;
     }
 
