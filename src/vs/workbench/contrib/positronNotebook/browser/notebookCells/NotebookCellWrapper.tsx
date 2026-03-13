@@ -13,7 +13,7 @@ import React from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType } from '../selectionMachine.js';
+import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
@@ -148,7 +148,16 @@ export function NotebookCellWrapper({ cell, children }: {
 			// where in the cell the click landed (including inside the editor).
 			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
 			if (addMode) {
+				const stateBefore = selectionStateMachine.state.get();
 				selectionStateMachine.selectCell(cell, CellSelectionType.Add);
+				const stateAfter = selectionStateMachine.state.get();
+				// The mousedown that preceded this click gave the editor DOM focus.
+				// Move focus to the cell wrapper so no editor appears active during
+				// multi-selection. Only do this when the state actually changed
+				// (e.g., skip when shift-clicking the same cell you're editing).
+				if (stateBefore !== stateAfter) {
+					cellElement?.focus();
+				}
 				return;
 			}
 
@@ -172,9 +181,13 @@ export function NotebookCellWrapper({ cell, children }: {
 				return;
 			}
 
-			// If already selected, do nothing - maintain selection invariant
+			// In single selection, clicking the already-selected cell's non-editor
+			// area is a no-op. In multi-selection, collapse to single selection.
 			if (selectionStatus === CellSelectionStatus.Selected) {
-				return;
+				const currentState = selectionStateMachine.state.get();
+				if (currentState.type !== SelectionState.MultiSelection) {
+					return;
+				}
 			}
 
 			selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
