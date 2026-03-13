@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -28,7 +28,6 @@ test.describe('Quarto - Inline Output: Statement Range', {
 
 	test('R - Multi-line statement execution in script works after opening Quarto document', async function ({ app, openFile, sessions, hotKeys, r }) {
 		const { editors, console, inlineQuarto } = app.workbench;
-		const page = app.code.driver.page;
 
 		await test.step('Open Quarto document and run a cell to start notebook session', async () => {
 			await openFile(join('workspaces', 'quarto_inline_output', 'multiple_statements.qmd'));

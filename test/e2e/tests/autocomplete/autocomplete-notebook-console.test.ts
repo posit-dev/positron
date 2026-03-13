@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -214,9 +213,8 @@ test.describe('Autocomplete with Notebook Console', {
 			await expect(async () => {
 				await keyboard.press('Control+Space');
 				await expect(suggestWidget).toBeVisible({ timeout: 5000 });
+				await expect(suggestWidget.getByLabel(/quux2345/)).toBeVisible({ timeout: 5000 });
 			}).toPass({ timeout: 30000 });
-
-			await expect(suggestWidget.getByLabel(/quux2345/)).toBeVisible();
 		});
 	});
 
@@ -334,9 +332,10 @@ test.describe('Autocomplete with Notebook Console', {
 			await inlineQuarto.runCurrentCell();
 			await sessions.expectAllSessionsToBeReady();
 
-			// Undo the file edit so later tests see the original file
-			await keyboard.press('Meta+z');
-			await keyboard.press('Meta+z');
+			// Unlike the R version, do NOT undo the edit here.
+			// Python's LSP provides completions via static analysis
+			// of the source code, so quux2345 must remain visible
+			// in the file for the notebook LSP to offer it.
 		});
 
 		await test.step('Verify notebook console autocomplete uses notebook session', async () => {
@@ -355,9 +354,8 @@ test.describe('Autocomplete with Notebook Console', {
 			await expect(async () => {
 				await keyboard.press('Control+Space');
 				await expect(suggestWidget).toBeVisible({ timeout: 5000 });
+				await expect(suggestWidget.getByLabel(/quux2345/)).toBeVisible({ timeout: 5000 });
 			}).toPass({ timeout: 30000 });
-
-			await expect(suggestWidget.getByLabel(/quux2345/)).toBeVisible();
 		});
 	});
 
