@@ -817,7 +817,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		if (executionMetadata) {
 			request.positron = {
 				...request.positron,
-				executionMetadata
+				...executionMetadata
 			};
 		}
 
