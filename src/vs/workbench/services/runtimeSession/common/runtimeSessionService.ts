@@ -189,6 +189,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
+		executionMetadata?: Record<string, unknown>,
 	): void;
 
 	/** Test a code fragment for completeness */

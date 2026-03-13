@@ -792,6 +792,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior,
 		codeLocation?: positron.Utf8Location,
+		executionMetadata?: Record<string, unknown>
 	): void {
 
 		// Translate the parameters into a Jupyter execute request
@@ -810,6 +811,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					uri: codeLocation.uri.toString(),
 					range: codeLocation.range,
 				}
+			};
+		}
+
+		if (executionMetadata) {
+			request.positron = {
+				...request.positron,
+				executionMetadata
 			};
 		}
 

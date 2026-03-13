@@ -241,8 +241,10 @@ export class ExtHostRuntimeSessionProxy
 	execute(code: string,
 		id: string,
 		mode: RuntimeCodeExecutionMode,
-		errorBehavior: RuntimeErrorBehavior) {
-		return this._proxy.$executeInSession(this.sessionId, code, id, mode, errorBehavior);
+		errorBehavior: RuntimeErrorBehavior,
+		_codeLocation?: positron.Utf8Location,
+		executionMetadata?: Record<string, unknown>) {
+		return this._proxy.$executeInSession(this.sessionId, code, id, mode, errorBehavior, executionMetadata);
 	}
 
 	/**
@@ -849,7 +851,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimeSessions[handle].openResource!(resource));
 	}
 
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation): void {
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, _executionId?: string, executionMetadata?: Record<string, unknown>): void {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot execute code: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -863,7 +865,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			};
 		}
 
-		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived);
+		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived, executionMetadata);
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {
@@ -1336,7 +1338,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		errorBehavior?: RuntimeErrorBehavior,
 		observer?: IExecutionObserver,
 		sessionId?: string,
-		documentUri?: URI): Promise<Record<string, unknown>> {
+		documentUri?: URI,
+		executionMetadata?: Record<string, unknown>): Promise<Record<string, unknown>> {
 
 		// Create a UUID and an observer for this execution request
 		const executionId = generateUuid();
@@ -1350,7 +1353,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// more or less fixed since it's part of the public API, but the
 		// internal parameter order can be more logical.
 		this._proxy.$executeCode(
-			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri).then(
+			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri, executionMetadata).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;
@@ -1438,13 +1441,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @returns A promise that resolves when the request has been sent
 	 */
-	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: any[]): Promise<void> {
+	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: any[], executionMetadata?: Record<string, unknown>[]): Promise<void> {
 		// Convert vscode.Range objects to serializable IRange format
 		// Filter out undefined/null ranges in case any are invalid
 		const convertedRanges = cellRanges
 			.filter(r => r != null)
 			.map(r => typeConvert.Range.from(r)!);
-		return this._proxy.$executeInlineCells(extensionId, documentUri, convertedRanges);
+		return this._proxy.$executeInlineCells(extensionId, documentUri, convertedRanges, executionMetadata);
 	}
 
 	/**

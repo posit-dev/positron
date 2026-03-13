@@ -141,7 +141,8 @@ export interface IPositronConsoleService {
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
-		documentUri?: URI): Promise<string>;
+		documentUri?: URI,
+		executionMetadata?: Record<string, unknown>): Promise<string>;
 
 	/**
 	 * Fires when code is executed in any Positron console instance.
@@ -480,7 +481,8 @@ export interface IPositronConsoleInstance {
 		attribution: IConsoleCodeAttribution,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string): void;
+		executionId?: string,
+		executionMetadata?: Record<string, unknown>): void;
 
 	/**
 	 * Replies to the active prompt.
