@@ -66,10 +66,10 @@ test.describe('Positron Notebooks: Copy Output Image', {
 				menuItemLabel: 'Copy Image',
 			});
 
-			await app.code.wait(500);
-
-			const clipboardImageBuffer = await app.workbench.clipboard.getClipboardImage();
-			expect(clipboardImageBuffer).not.toBeNull();
+			await expect(async () => {
+				const clipboardImageBuffer = await app.workbench.clipboard.getClipboardImage();
+				expect(clipboardImageBuffer).not.toBeNull();
+			}).toPass({ timeout: 15000 });
 		});
 	});
 
