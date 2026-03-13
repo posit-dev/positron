@@ -1512,6 +1512,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 											fontInfo={props.fontInfo}
 											historyItem={item}
 											instantiationService={instantiationService}
+											isExpanded={index === anchorIndex}
 											isSelected={selectedIndices.has(index)}
 											languageId={currentLanguage || ''}
 											searchText={debouncedSearchText}
