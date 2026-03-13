@@ -99,7 +99,7 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 			if (imageOutputs.length > MAX_PLOT_COPY_ACTIONS) {
 				actions.push(toAction({
 					id: 'positronNotebook.cell.copyOutputImage.hint',
-					label: localize('positronNotebook.cell.copyPlotHint', "Right-click a plot to copy it"),
+					label: localize('positronNotebook.cell.copyPlotHint', "Right-click to copy additional plots"),
 					enabled: false,
 					run: () => { },
 				}));
