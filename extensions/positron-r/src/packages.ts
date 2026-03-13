@@ -28,11 +28,11 @@ export class RPackageManager {
 		if (token?.isCancellationRequested) {
 			throw new vscode.CancellationError();
 		}
+
 		const method = await this._getPakMethod();
-		const result = await this._session.callMethod('pkg_list', method);
-		if (token?.isCancellationRequested) {
-			throw new vscode.CancellationError();
-		}
+		const result = await this._callMethod<positron.LanguageRuntimePackage[] | null>(
+			'pkg_list', token, method
+		);
 		return result ?? [];
 	}
 
@@ -42,13 +42,13 @@ export class RPackageManager {
 	 * @param token Optional cancellation token
 	 */
 	async installPackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
 		// Validate package names
 		for (const pkg of packages) {
 			this._validatePackageName(pkg.name);
-		}
-
-		if (token?.isCancellationRequested) {
-			throw new vscode.CancellationError();
 		}
 
 		// If we're installing pak, don't prompt to install pak
@@ -72,7 +72,7 @@ export class RPackageManager {
 			code = `install.packages(${pkgVector})`;
 		}
 
-		await this._executeAndWait(code, token);
+		await this._execute(code, token);
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -82,13 +82,13 @@ export class RPackageManager {
 	 * @param token Optional cancellation token
 	 */
 	async updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
 		// Validate package names
 		for (const pkg of packages) {
 			this._validatePackageName(pkg.name);
-		}
-
-		if (token?.isCancellationRequested) {
-			throw new vscode.CancellationError();
 		}
 
 		const method = await this._ensurePak();
@@ -105,7 +105,7 @@ export class RPackageManager {
 			code = `install.packages(${pkgVector})`;
 		}
 
-		await this._executeAndWait(code, token);
+		await this._execute(code, token);
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -122,19 +122,18 @@ export class RPackageManager {
 
 		if (method === 'pak') {
 			// Get outdated packages via RPC, then update with pak
-			const outdated = await this._session.callMethod('pkg_outdated') as string[] ?? [];
-			if (token?.isCancellationRequested) {
-				throw new vscode.CancellationError();
-			}
+			const outdated = await this._callMethod<string[] | null>(
+				'pkg_outdated', token
+			) ?? [];
 			if (outdated.length > 0) {
 				const pkgVector = this._formatRVector(outdated);
-				await this._executeAndWait(`pak::pkg_install(${pkgVector}, ask = FALSE)`, token);
+				await this._execute(`pak::pkg_install(${pkgVector}, ask = FALSE)`, token);
 			} else {
 				// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
 			}
 
 		} else {
-			await this._executeAndWait(`update.packages(ask = FALSE)`, token);
+			await this._execute(`update.packages(ask = FALSE)`, token);
 		}
 
 		this._session.invalidatePackageResourceCaches();
@@ -146,13 +145,13 @@ export class RPackageManager {
 	 * @param token Optional cancellation token
 	 */
 	async uninstallPackages(packageNames: string[], token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
 		// Validate package names
 		for (const pkg of packageNames) {
 			this._validatePackageName(pkg);
-		}
-
-		if (token?.isCancellationRequested) {
-			throw new vscode.CancellationError();
 		}
 
 		const method = await this._getPakMethod();
@@ -165,7 +164,7 @@ export class RPackageManager {
 			code = `remove.packages(${pkgVector})`;
 		}
 
-		await this._executeAndWait(code, token);
+		await this._execute(code, token);
 
 		// Silently unload namespaces after removal (ignore errors)
 		try {
@@ -189,11 +188,11 @@ export class RPackageManager {
 		if (token?.isCancellationRequested) {
 			throw new vscode.CancellationError();
 		}
+
 		const method = await this._getPakMethod();
-		const result = await this._session.callMethod('pkg_search', query, method);
-		if (token?.isCancellationRequested) {
-			throw new vscode.CancellationError();
-		}
+		const result = await this._callMethod<positron.LanguageRuntimePackage[] | null>(
+			'pkg_search', token, query, method
+		);
 		return result ?? [];
 	}
 
@@ -206,23 +205,15 @@ export class RPackageManager {
 	 * TODO: Add support for historical versions from repo archive.
 	 */
 	async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
-		this._validatePackageName(name);
-
 		if (token?.isCancellationRequested) {
 			throw new vscode.CancellationError();
 		}
 
-		try {
-			const result = await this._session.callMethod('pkg_search_versions', name);
-			if (token?.isCancellationRequested) {
-				throw new vscode.CancellationError();
-			}
-			return result ?? [];
-		} catch (e) {
-			console.log(e);
-			// Return empty if we can't get versions
-			return [];
-		}
+		this._validatePackageName(name);
+		const result = await this._callMethod<string[] | null>(
+			'pkg_search_versions', token, name
+		);
+		return result ?? [];
 	}
 
 	// =========================================================================
@@ -275,7 +266,7 @@ export class RPackageManager {
 		const install = await this._promptInstallPak();
 		if (install) {
 			// Use base R to install pak
-			await this._executeAndWait('install.packages("pak")');
+			await this._execute('install.packages("pak")');
 			const nowHasPak = await this._detectPak();
 			return nowHasPak ? 'pak' : 'base';
 		} else {
@@ -313,7 +304,7 @@ export class RPackageManager {
 	 * @param code The R code to execute
 	 * @param token Optional cancellation token - if cancelled, interrupts the R session
 	 */
-	private async _executeAndWait(code: string, token?: vscode.CancellationToken): Promise<void> {
+	private async _execute(code: string, token?: vscode.CancellationToken): Promise<void> {
 		const id = randomUUID();
 
 		const promise = new Promise<void>((resolve, reject) => {
@@ -358,12 +349,64 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Execute R code silently without showing in the console.
+	 * Call an RPC method with cancellation support.
+	 * If the token is cancelled, interrupts the R session.
 	 */
-	private async _executeSilently(code: string): Promise<void> {
+	private async _callMethod<T>(
+		method: string,
+		token: vscode.CancellationToken | undefined,
+		...args: unknown[]
+	): Promise<T> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
+		const resultPromise = this._session.callMethod(method, ...args) as Promise<T>;
+
+		// If no token provided, just return the method result
+		if (!token) {
+			return resultPromise;
+		}
+
+		// Wrap `callMethod` promise with cancellation handling
+		return new Promise<T>((resolve, reject) => {
+			const cancelDisp = token.onCancellationRequested(async () => {
+				await this._session.interrupt();
+				reject(new vscode.CancellationError());
+			});
+
+			resultPromise
+				.then((result) => {
+					cancelDisp.dispose();
+					resolve(result);
+				})
+				.catch((err) => {
+					cancelDisp.dispose();
+					reject(err);
+				});
+		});
+	}
+
+	/**
+	 * Execute R code silently without showing in the console.
+	 * @param code The R code to execute
+	 * @param token Optional cancellation token - if cancelled, interrupts the R session
+	 */
+	private async _executeSilently(code: string, token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
 		const id = randomUUID();
 
 		const promise = new Promise<void>((resolve, reject) => {
+			// Register cancellation handler to interrupt R execution
+			const cancelDisp = token?.onCancellationRequested(() => {
+				this._session.interrupt();
+				reject(new vscode.CancellationError());
+				disp.dispose();
+			});
+
 			const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
 				if (msg.parent_id !== id) {
 					return;
@@ -374,6 +417,7 @@ export class RPackageManager {
 					if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
 						resolve();
 						disp.dispose();
+						cancelDisp?.dispose();
 					}
 				}
 
@@ -381,6 +425,7 @@ export class RPackageManager {
 					const errorMsg = msg as positron.LanguageRuntimeError;
 					reject(new Error(errorMsg.message));
 					disp.dispose();
+					cancelDisp?.dispose();
 				}
 			});
 		});

@@ -24,6 +24,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientStatus, RuntimeClientType } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../base/common/errors.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
@@ -127,32 +128,32 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 		private readonly _handle: number,
 	) { }
 
-	getPackages(): Promise<ILanguageRuntimePackage[]> {
-		return this._proxy.$getPackages(this._handle);
+	getPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$getPackages(this._handle, token ?? CancellationToken.None);
 	}
 
-	installPackages(packages: IPackageSpec[]): Promise<void> {
-		return this._proxy.$installPackages(this._handle, packages);
+	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
+		return this._proxy.$installPackages(this._handle, packages, token ?? CancellationToken.None);
 	}
 
-	uninstallPackages(packageNames: string[]): Promise<void> {
-		return this._proxy.$uninstallPackages(this._handle, packageNames);
+	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void> {
+		return this._proxy.$uninstallPackages(this._handle, packageNames, token ?? CancellationToken.None);
 	}
 
-	updatePackages(packages: IPackageSpec[]): Promise<void> {
-		return this._proxy.$updatePackages(this._handle, packages);
+	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
+		return this._proxy.$updatePackages(this._handle, packages, token ?? CancellationToken.None);
 	}
 
-	updateAllPackages(): Promise<void> {
-		return this._proxy.$updateAllPackages(this._handle);
+	updateAllPackages(token?: CancellationToken): Promise<void> {
+		return this._proxy.$updateAllPackages(this._handle, token ?? CancellationToken.None);
 	}
 
-	searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
-		return this._proxy.$searchPackages(this._handle, query);
+	searchPackages(query: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$searchPackages(this._handle, query, token ?? CancellationToken.None);
 	}
 
-	searchPackageVersions(name: string): Promise<string[]> {
-		return this._proxy.$searchPackageVersions(this._handle, name);
+	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]> {
+		return this._proxy.$searchPackageVersions(this._handle, name, token ?? CancellationToken.None);
 	}
 }
 

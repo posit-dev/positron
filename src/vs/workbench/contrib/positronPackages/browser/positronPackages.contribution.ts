@@ -103,8 +103,10 @@ class RefreshPackagesAction extends Action2 {
 			} catch (error) {
 				notifications.error(error);
 				throw error;
+			} finally {
+				cts.dispose(true);
 			}
-		}, () => cts.dispose(true));
+		}, () => cts.cancel());
 	}
 }
 
@@ -141,8 +143,6 @@ class InstallPackageAction extends Action2 {
 					throw new Error('No version specified.');
 				}
 
-				const installCts = new CancellationTokenSource();
-
 				await progress.withProgress({
 					title: nls.localize('positronPackages.installingPackages', 'Installing Packages...'),
 					location: ProgressLocation.Notification,
@@ -150,24 +150,13 @@ class InstallPackageAction extends Action2 {
 					delay: 500
 				}, async () => {
 					try {
-						await service.installPackages([{ name: pkg, version }], installCts.token);
+						await service.installPackages([{ name: pkg, version }], cts.token);
 					} catch (e) {
-						notifications.notify({
-							severity: Severity.Error,
-							actions: {
-								primary: [{
-									id: 'viewLogs',
-									label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									enabled: true,
-									class: undefined,
-									run: () => service.activeSession?.showOutput(),
-								}]
-							},
-							message: nls.localize('positronPackages.failedToInstallPackage', "Failed to install package: '{0}'", pkg),
-						});
+						notifications.error(e);
+					} finally {
+						cts.dispose(true);
 					}
-				}, () => installCts.dispose(true));
+				}, () => cts.dispose(true));
 			};
 
 			await installPackage(accessor, performSearch, performSearchVersions, performInstall);
@@ -175,7 +164,7 @@ class InstallPackageAction extends Action2 {
 			notifications.error(error);
 			throw error;
 		} finally {
-			cts.dispose();
+			cts.dispose(true);
 		}
 	}
 }
@@ -218,20 +207,7 @@ class UninstallPackageAction extends Action2 {
 					try {
 						await service.uninstallPackages([pkg], uninstallCts.token);
 					} catch (e) {
-						notifications.notify({
-							severity: Severity.Error,
-							actions: {
-								primary: [{
-									id: 'viewLogs',
-									label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									enabled: true,
-									class: undefined,
-									run: () => service.activeSession?.showOutput(),
-								}]
-							},
-							message: nls.localize('positronPackages.failedToUninstallPackage', "Failed to uninstall package: '{0}'", pkg),
-						});
+						notifications.error(e);
 					}
 				}, () => uninstallCts.dispose(true));
 			};
@@ -294,8 +270,6 @@ class UpdatePackageAction extends Action2 {
 			};
 
 			const performUpdate = async (pkg: string, version: string): Promise<void> => {
-				const updateCts = new CancellationTokenSource();
-
 				await progress.withProgress({
 					title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
 					location: ProgressLocation.Notification,
@@ -303,24 +277,11 @@ class UpdatePackageAction extends Action2 {
 					delay: 500
 				}, async () => {
 					try {
-						await service.updatePackages([{ name: pkg, version }], updateCts.token);
+						await service.updatePackages([{ name: pkg, version }], cts.token);
 					} catch (e) {
-						notifications.notify({
-							severity: Severity.Error,
-							actions: {
-								primary: [{
-									id: 'viewLogs',
-									label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									enabled: true,
-									class: undefined,
-									run: () => service.activeSession?.showOutput(),
-								}]
-							},
-							message: nls.localize('positronPackages.failedToUpdatePackage', "Failed to update package: '{0}'", pkg),
-						});
+						notifications.error(e);
 					}
-				}, () => updateCts.dispose(true));
+				}, () => cts.dispose(true));
 			};
 
 			const arg0 = args.at(0) as string | undefined;
@@ -329,7 +290,7 @@ class UpdatePackageAction extends Action2 {
 			notifications.error(error);
 			throw error;
 		} finally {
-			cts.dispose();
+			cts.dispose(true);
 		}
 	}
 }

@@ -734,39 +734,39 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return packageManager;
 	}
 
-	async $getPackages(handle: number): Promise<positron.LanguageRuntimePackage[]> {
+	async $getPackages(handle: number, token: CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'get packages from runtime');
-		return packageManager.getPackages();
+		return packageManager.getPackages(token);
 	}
 
-	async $installPackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
+	async $installPackages(handle: number, packages: positron.PackageSpec[], token: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'install packages');
-		return packageManager.installPackages(packages);
+		return packageManager.installPackages(packages, token);
 	}
 
-	async $uninstallPackages(handle: number, packageNames: string[]): Promise<void> {
+	async $uninstallPackages(handle: number, packageNames: string[], token: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'uninstall packages');
-		return packageManager.uninstallPackages(packageNames);
+		return packageManager.uninstallPackages(packageNames, token);
 	}
 
-	async $updatePackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
+	async $updatePackages(handle: number, packages: positron.PackageSpec[], token: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'update packages');
-		return packageManager.updatePackages(packages);
+		return packageManager.updatePackages(packages, token);
 	}
 
-	async $updateAllPackages(handle: number): Promise<void> {
+	async $updateAllPackages(handle: number, token: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'update all packages');
-		return packageManager.updateAllPackages();
+		return packageManager.updateAllPackages(token);
 	}
 
-	async $searchPackages(handle: number, query: string): Promise<positron.LanguageRuntimePackage[]> {
+	async $searchPackages(handle: number, query: string, token: CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'search packages');
-		return packageManager.searchPackages(query);
+		return packageManager.searchPackages(query, token);
 	}
 
-	async $searchPackageVersions(handle: number, name: string): Promise<string[]> {
+	async $searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'search package versions');
-		return packageManager.searchPackageVersions(name);
+		return packageManager.searchPackageVersions(name, token);
 	}
 
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {

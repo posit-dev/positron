@@ -1169,43 +1169,50 @@ declare module 'positron' {
 	export interface LanguageRuntimePackageManager {
 		/**
 		 * Get list of installed packages.
+		 * @param token Cancellation token
 		 */
-		getPackages(): Thenable<LanguageRuntimePackage[]>;
+		getPackages(token: vscode.CancellationToken): Thenable<LanguageRuntimePackage[]>;
 
 		/**
 		 * Install the list of packages.
 		 * @param packages Array of package install requests with name and optional version
+		 * @param token Cancellation token
 		 */
-		installPackages(packages: PackageSpec[]): Thenable<void>;
+		installPackages(packages: PackageSpec[], token: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Uninstall the list of packages.
 		 * @param packageNames Array of package names to uninstall
+		 * @param token Cancellation token
 		 */
-		uninstallPackages(packageNames: string[]): Thenable<void>;
+		uninstallPackages(packageNames: string[], token: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Update the list of packages.
 		 * @param packages Array of package install requests with name and optional version
+		 * @param token Cancellation token
 		 */
-		updatePackages(packages: PackageSpec[]): Thenable<void>;
+		updatePackages(packages: PackageSpec[], token: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Update all installed packages.
+		 * @param token Cancellation token
 		 */
-		updateAllPackages(): Thenable<void>;
+		updateAllPackages(token: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Search a repository for packages matching the query.
 		 * @param query Search query string
+		 * @param token Cancellation token
 		 */
-		searchPackages(query: string): Thenable<LanguageRuntimePackage[]>;
+		searchPackages(query: string, token: vscode.CancellationToken): Thenable<LanguageRuntimePackage[]>;
 
 		/**
 		 * Search a repository for available versions of a package.
 		 * @param name Package name
+		 * @param token Cancellation token
 		 */
-		searchPackageVersions(name: string): Thenable<string[]>;
+		searchPackageVersions(name: string, token: vscode.CancellationToken): Thenable<string[]>;
 	}
 
 	/**
