@@ -154,7 +154,7 @@ class ManageTrustedExtensionsForAccountActionImpl {
 		const _toQuickPickItem = this._toQuickPickItem.bind(this);
 		return [
 			...otherExtensions.sort(sortByLastUsed).map(_toQuickPickItem),
-			{ type: 'separator', label: localize('trustedExtensions', "Trusted by Microsoft") } satisfies IQuickPickSeparator,
+			{ type: 'separator', label: localize('trustedExtensions', "Trusted by Positron") } satisfies IQuickPickSeparator,
 			...trustedExtensions.sort(sortByLastUsed).map(_toQuickPickItem)
 		];
 	}

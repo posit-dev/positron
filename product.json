@@ -654,6 +654,10 @@
 		],
 		"posit-workbench": [
 			"positron.positron-assistant"
+		],
+		"anthropic-api": [
+			"positron.authentication",
+			"positron.positron-assistant"
 		]
 	}
 }
