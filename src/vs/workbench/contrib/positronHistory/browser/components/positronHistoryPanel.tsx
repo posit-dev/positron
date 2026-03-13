@@ -656,12 +656,15 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			return false;
 		}
 
+		const items = listItemsRef.current;
+		const anchor = anchorIndexRef.current;
+
 		// Calculate the item's position from accumulated row heights
 		let itemTop = 0;
 		for (let i = 0; i < index; i++) {
-			itemTop += getRowHeight(i);
+			itemTop += computeRowHeight(i, items, anchor);
 		}
-		const itemHeight = getRowHeight(index);
+		const itemHeight = computeRowHeight(index, items, anchor);
 		const itemBottom = itemTop + itemHeight;
 
 		const scrollTop = currentScrollOffsetRef.current;
@@ -670,6 +673,22 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 		// Check if the item is fully within the visible area (below the sticky header)
 		return itemTop >= scrollTop + headerOffset && itemBottom <= scrollTop + viewportHeight;
+	};
+
+	/**
+	 * Compute the height of a single row using explicit items/anchor values.
+	 * This avoids closing over React state so it works from stale closures.
+	 */
+	const computeRowHeight = (index: number, items: ListItem[], anchor: number): number => {
+		const item = items[index];
+		if (!item) {
+			return DEFAULT_ROW_HEIGHT;
+		}
+		if (item.type === 'separator') {
+			return SEPARATOR_HEIGHT;
+		}
+		const linesToShow = (index === anchor) ? item.lines : item.visibleLines;
+		return linesToShow * (props.fontInfo.lineHeight) + 9;
 	};
 
 	/**
@@ -685,12 +704,16 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			return;
 		}
 
+		// Read current values from refs to avoid stale closure issues
+		const items = listItemsRef.current;
+		const anchor = anchorIndexRef.current;
+
 		// Calculate the item's position from accumulated row heights
 		let itemTop = 0;
 		for (let i = 0; i < index; i++) {
-			itemTop += getRowHeight(i);
+			itemTop += computeRowHeight(i, items, anchor);
 		}
-		const itemHeight = getRowHeight(index);
+		const itemHeight = computeRowHeight(index, items, anchor);
 		const itemBottom = itemTop + itemHeight;
 
 		// Use the ref-tracked scroll offset (updated every onScroll) so this
