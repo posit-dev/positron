@@ -1120,6 +1120,25 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 				electron.app.setProxy({ proxyRules, proxyBypassRules, pacScript: '' });
 			}
 		}
+		// --- Start Positron ---
+		// Icon
+		if (!e || e.affectsConfiguration('development.iconColor')) {
+			const customColor = !this.environmentMainService.isBuilt ? this.configurationService.getValue<string>('development.iconColor') : undefined;
+			const iconPath = isLinux ? join(this.environmentMainService.appRoot, 'resources/linux/positron.png') :
+				isWindows ? join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png') :
+					isMacintosh ? join(this.environmentMainService.appRoot, 'resources/darwin/positron.png') : undefined;
+			if (customColor && iconPath) {
+				// Use has custom color set + we are running in dev mode
+				const coloredIcon = recolorDevIcon(iconPath, customColor);
+				this._win.setIcon(coloredIcon);
+				electron.app.dock?.setIcon(coloredIcon);
+			} else if (iconPath) {
+				// Use default icon
+				this._win.setIcon(iconPath);
+				electron.app.dock?.setIcon(iconPath);
+			}
+		}
+		// --- End Positron ---
 	}
 
 	private readonly swipeListenerDisposable = this._register(new MutableDisposable());
