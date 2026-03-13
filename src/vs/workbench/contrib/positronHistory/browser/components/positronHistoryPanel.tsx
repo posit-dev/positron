@@ -639,15 +639,24 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
-	 * Check if an item at the given index is fully visible in the viewport
+	 * Get the height of the sticky header if it is currently visible.
+	 * Measures from the DOM so the value is correct even inside stale closures.
+	 */
+	const getStickyHeaderHeight = (): number => {
+		const header = containerRef.current?.querySelector('.history-sticky-header') as HTMLElement | null;
+		return header ? header.offsetHeight : 0;
+	};
+
+	/**
+	 * Check if an item at the given index is fully visible in the viewport,
+	 * accounting for the sticky header that may overlay the top of the list.
 	 */
 	const isItemFullyVisible = (index: number): boolean => {
-		if (!listRef.current || !containerRef.current) {
+		if (!listRef.current) {
 			return false;
 		}
 
-		// Get the scroll offset from the list's internal state
-		// We need to calculate the item's position based on accumulated heights
+		// Calculate the item's position from accumulated row heights
 		let itemTop = 0;
 		for (let i = 0; i < index; i++) {
 			itemTop += getRowHeight(i);
@@ -655,17 +664,49 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		const itemHeight = getRowHeight(index);
 		const itemBottom = itemTop + itemHeight;
 
-		// Get the current scroll position and viewport height
-		const listElement = containerRef.current.querySelector('[class*="react-window"]') as HTMLElement;
-		if (!listElement) {
-			return false;
+		const scrollTop = currentScrollOffsetRef.current;
+		const viewportHeight = Math.max(lastValidHeightRef.current, 1) - 30;
+		const headerOffset = getStickyHeaderHeight();
+
+		// Check if the item is fully within the visible area (below the sticky header)
+		return itemTop >= scrollTop + headerOffset && itemBottom <= scrollTop + viewportHeight;
+	};
+
+	/**
+	 * Scroll an item into view, accounting for the sticky header overlay.
+	 * Unlike react-window's scrollToItem('smart'), this ensures items scrolled
+	 * upward are not hidden behind the sticky header.
+	 *
+	 * Uses refs instead of state so this works correctly from stale closures
+	 * (e.g. the handleKeyDown useCallback with empty deps).
+	 */
+	const scrollItemIntoView = (index: number) => {
+		if (!listRef.current) {
+			return;
 		}
 
-		const scrollTop = listElement.scrollTop;
-		const viewportHeight = height - 40; // Subtract toolbar height
+		// Calculate the item's position from accumulated row heights
+		let itemTop = 0;
+		for (let i = 0; i < index; i++) {
+			itemTop += getRowHeight(i);
+		}
+		const itemHeight = getRowHeight(index);
+		const itemBottom = itemTop + itemHeight;
 
-		// Check if the item is fully within the visible area
-		return itemTop >= scrollTop && itemBottom <= scrollTop + viewportHeight;
+		// Use the ref-tracked scroll offset (updated every onScroll) so this
+		// works even inside stale closures.
+		const scrollTop = currentScrollOffsetRef.current;
+		const viewportHeight = Math.max(lastValidHeightRef.current, 1) - 30;
+		const headerOffset = getStickyHeaderHeight();
+
+		if (itemTop < scrollTop + headerOffset) {
+			// Item is above the visible area (or hidden behind sticky header) - scroll up
+			listRef.current.scrollTo(Math.max(0, itemTop - headerOffset));
+		} else if (itemBottom > scrollTop + viewportHeight) {
+			// Item is below the visible area - scroll down
+			listRef.current.scrollTo(itemBottom - viewportHeight);
+		}
+		// Otherwise item is fully visible, no scroll needed
 	};
 
 	/**
@@ -736,8 +777,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 
 		// Only scroll if the item is not already fully visible
-		if (listRef.current && !isItemFullyVisible(index)) {
-			listRef.current.scrollToItem(index, 'smart');
+		if (!isItemFullyVisible(index)) {
+			scrollItemIntoView(index);
 		}
 	};
 
@@ -1161,10 +1202,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					updateSelectedIndices(new Set([newIndex]));
 					updateAnchorIndex(newIndex);
 				}
-				// Scroll to the newly selected item
-				if (listRef.current) {
-					listRef.current.scrollToItem(newIndex, 'smart');
-				}
+				// Scroll to the newly selected item, accounting for sticky header
+				scrollItemIntoView(newIndex);
 			}
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
