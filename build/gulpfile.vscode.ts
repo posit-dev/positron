@@ -178,6 +178,9 @@ const coreCI = task.define('core-ci', task.series(
 		gulp.task('minify-vscode') as task.Task,
 		gulp.task('minify-vscode-reh') as task.Task,
 		gulp.task('minify-vscode-reh-web') as task.Task,
+		// --- Start PWB ---
+		gulp.task('minify-vscode-reh-web-pwb') as task.Task,
+		// --- End PWB ---
 	)
 ));
 gulp.task(coreCI);
@@ -188,6 +191,9 @@ const coreCIPR = task.define('core-ci-pr', task.series(
 		gulp.task('minify-vscode') as task.Task,
 		gulp.task('minify-vscode-reh') as task.Task,
 		gulp.task('minify-vscode-reh-web') as task.Task,
+		// --- Start PWB ---
+		gulp.task('minify-vscode-reh-web-pwb') as task.Task,
+		// --- End PWB ---
 	)
 ));
 gulp.task(coreCIPR);
@@ -248,9 +254,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 		const platformSpecificBuiltInExtensionsExclusions = product.builtInExtensions.filter(ext => {
 			// --- Start PWB ---
-			// Don't bundle reh-web extensions here. We bundle them for the
+			// Don't bundle reh-web-pwb extensions here. We bundle them for the
 			// remote web gulp build targets (see gulpfile.reh.js)
-			if (ext.type === 'reh-web') {
+			if (ext.type === 'reh-web-pwb') {
 				return true;
 			}
 			// --- End PWB ---
