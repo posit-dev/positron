@@ -7,7 +7,7 @@
 import './CellOutputLeftActionMenu.css';
 
 // React.
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -37,9 +37,10 @@ interface CellOutputLeftActionMenuProps {
 export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps) {
 	const instance = useNotebookInstance();
 	const contextKeyService = useCellScopedContextKeyService();
-	const outputImageTargeted = contextKeyService
-		? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService)
-		: undefined;
+	const outputImageTargeted = useMemo(
+		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
+		[contextKeyService]
+	);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionLeft,
@@ -60,7 +61,10 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 		// Set the context key so "Copy Image" appears when the cell has image output
 		outputImageTargeted?.set(outputs.some(o => o.parsed.type === 'image'));
 		setIsMenuOpen(true);
-		showContextMenu(buttonRef.current, undefined, () => setIsMenuOpen(false));
+		showContextMenu(buttonRef.current, undefined, () => {
+			outputImageTargeted?.set(false);
+			setIsMenuOpen(false);
+		});
 	};
 
 	// Don't render if the cell has no outputs

@@ -7,7 +7,7 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React from 'react';
+import React, { useMemo } from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -47,9 +47,10 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 	const contextKeyService = useCellScopedContextKeyService();
-	const outputImageTargeted = contextKeyService
-		? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService)
-		: undefined;
+	const outputImageTargeted = useMemo(
+		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
+		[contextKeyService]
+	);
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
@@ -89,15 +90,17 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		// Set context key so the "Copy Image" menu item shows only when an image is targeted
 		outputImageTargeted?.set(!!imageDataUrl);
 
+		const onHide = () => outputImageTargeted?.set(false);
+
 		if (imageDataUrl) {
 			showContextMenu(
 				{ x: event.clientX, y: event.clientY },
 				undefined,
-				undefined,
+				onHide,
 				{ arg: { imageDataUrl }, shouldForwardArgs: true },
 			);
 		} else {
-			showContextMenu({ x: event.clientX, y: event.clientY });
+			showContextMenu({ x: event.clientX, y: event.clientY }, undefined, onHide);
 		}
 	};
 
