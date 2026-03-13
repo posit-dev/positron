@@ -51,10 +51,7 @@ export async function searchPyPI(
 /**
  * Search PyPI for available versions of a specific package.
  */
-export async function searchPyPIVersions(
-    name: string,
-    token: vscode.CancellationToken,
-): Promise<string[]> {
+export async function searchPyPIVersions(name: string, token: vscode.CancellationToken): Promise<string[]> {
     try {
         const response = await fetch(`https://pypi.org/simple/${name}/`, {
             headers: { Accept: 'application/vnd.pypi.simple.v1+json' },

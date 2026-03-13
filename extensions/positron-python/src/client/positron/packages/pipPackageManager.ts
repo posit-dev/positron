@@ -26,7 +26,7 @@ export class PipPackageManager implements IPackageManager {
         private readonly _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
         private readonly _session: PackageSession,
-    ) { }
+    ) {}
 
     async getPackages(token: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
         return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
@@ -167,7 +167,7 @@ export class PipPackageManager implements IPackageManager {
         if (!hasPip) {
             throw new Error(
                 'pip is not available in this Python environment. ' +
-                'Please install pip to use package management features.',
+                    'Please install pip to use package management features.',
             );
         }
     }
@@ -227,11 +227,7 @@ export class PipPackageManager implements IPackageManager {
      * Call a kernel method with cancellation support.
      * If the token is cancelled, interrupts the kernel (if supported).
      */
-    private async _callMethod<T>(
-        method: string,
-        token: vscode.CancellationToken,
-        ...args: unknown[]
-    ): Promise<T> {
+    private async _callMethod<T>(method: string, token: vscode.CancellationToken, ...args: unknown[]): Promise<T> {
         if (token.isCancellationRequested) {
             throw new vscode.CancellationError();
         }

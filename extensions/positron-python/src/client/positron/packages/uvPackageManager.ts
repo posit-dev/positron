@@ -308,11 +308,7 @@ export class UvPackageManager implements IPackageManager {
      * Call a kernel method with cancellation support.
      * If the token is cancelled, interrupts the kernel (if supported).
      */
-    private async _callMethod<T>(
-        method: string,
-        token: vscode.CancellationToken,
-        ...args: unknown[]
-    ): Promise<T> {
+    private async _callMethod<T>(method: string, token: vscode.CancellationToken, ...args: unknown[]): Promise<T> {
         if (token.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
