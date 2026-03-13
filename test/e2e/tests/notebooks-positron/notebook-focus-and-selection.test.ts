@@ -15,6 +15,11 @@ test.describe('Notebook Focus and Selection', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER]
 }, () => {
 
+	test.beforeAll(async function ({ hotKeys }) {
+		await hotKeys.minimizeBottomPanel();
+		await hotKeys.closeSecondarySidebar();
+	});
+
 	test('Arrow keys move cell selection up and down', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
