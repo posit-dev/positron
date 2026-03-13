@@ -38,24 +38,27 @@ class LicenseManager {
 	 */
 	async runCommand(command: string, args: string[] = []): Promise<string> {
 		try {
+			// Set LD_LIBRARY_PATH to include the directory containing the license-manager binary
+			// so it can find its shared libraries (librclient.so, librserver.so)
+			// Prepend to existing LD_LIBRARY_PATH to preserve any system libraries needed
 			const licenseManagerDir = path.dirname(this.licenseManagerPath);
 			const existingLdPath = process.env.LD_LIBRARY_PATH;
 			const ldLibraryPath = existingLdPath
 				? `${licenseManagerDir}:${existingLdPath}`
 				: licenseManagerDir;
-			const env = {
-				...process.env,
-				LD_LIBRARY_PATH: ldLibraryPath,
-			};
 
 			console.log(`[LicenseManager] Running: ${this.licenseManagerPath} ${command} ${args.join(' ')}`);
 			console.log(`[LicenseManager] LD_LIBRARY_PATH: ${ldLibraryPath}`);
 			console.log(`[LicenseManager] Existing LD_LIBRARY_PATH: ${existingLdPath || '(not set)'}`);
 
+			// eslint-disable-next-line local/code-no-unexternalized-strings
+			const quotedArgs = args.map(arg => `'${arg.replace(/'/g, "'\\''")}'`).join(' ');
+			const shellCommand = `LD_LIBRARY_PATH='${ldLibraryPath}' '${this.licenseManagerPath}' ${command} ${quotedArgs}`;
+
 			const { stdout } = await execFileAsync(
-				this.licenseManagerPath,
-				[command, ...args],
-				{ maxBuffer: 1024 * 1024, timeout: 10000, env }
+				'/bin/sh',
+				['-c', shellCommand],
+				{ maxBuffer: 1024 * 1024, timeout: 10000 }
 			);
 			return stdout;
 		} catch (error) {
@@ -125,7 +128,13 @@ export async function validateWithManager(
 	installPath: string,
 	licenseFilePath: string,
 ): Promise<ILicenseValidationResult> {
+	console.log(`[LicenseManager] validateWithManager called`);
+	console.log(`[LicenseManager] installPath: ${installPath}`);
+	console.log(`[LicenseManager] licenseFilePath: ${licenseFilePath}`);
+
 	const licenseManagerPath = findLicenseManagerPath(installPath);
+	console.log(`[LicenseManager] licenseManagerPath: ${licenseManagerPath}`);
+
 	const licenseManager = new LicenseManager(licenseManagerPath);
 
 	return await licenseManager.verifyLicenseFile(licenseFilePath);
