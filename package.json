@@ -79,6 +79,7 @@
     "minify-vscode": "npm run gulp minify-vscode",
     "minify-vscode-reh": "npm run gulp minify-vscode-reh",
     "minify-vscode-reh-web": "npm run gulp minify-vscode-reh-web",
+    "minify-vscode-reh-web-pwb": "npm run gulp minify-vscode-reh-web-pwb",
     "hygiene": "npm run gulp hygiene",
     "core-ci": "npm run gulp core-ci",
     "core-ci-pr": "npm run gulp core-ci-pr",
