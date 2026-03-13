@@ -33,6 +33,8 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 
 
@@ -44,6 +46,10 @@ interface CellOutputsSectionProps {
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const contextKeyService = useCellScopedContextKeyService();
+	const outputImageTargeted = contextKeyService
+		? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService)
+		: undefined;
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
@@ -73,17 +79,26 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		if (outputs.length === 0) {
 			return;
 		}
-		// If the user right-clicked on an image, store its data URL so the
-		// "Copy Image" action can copy that specific image instead of the first.
+
+		// Check if the click target is an <img> with a data: URL
 		const src = isHTMLElement(event.target) && event.target.tagName === 'IMG'
 			? (event.target as HTMLImageElement).src
 			: undefined;
-		if (src?.startsWith('data:')) {
-			cell.targetImageDataUrl = src;
+		const imageDataUrl = src?.startsWith('data:') ? src : undefined;
+
+		// Set context key so the "Copy Image" menu item shows only when an image is targeted
+		outputImageTargeted?.set(!!imageDataUrl);
+
+		if (imageDataUrl) {
+			showContextMenu(
+				{ x: event.clientX, y: event.clientY },
+				undefined,
+				undefined,
+				{ arg: { imageDataUrl }, shouldForwardArgs: true },
+			);
 		} else {
-			cell.targetImageDataUrl = undefined;
+			showContextMenu({ x: event.clientX, y: event.clientY });
 		}
-		showContextMenu({ x: event.clientX, y: event.clientY });
 	};
 
 	return (

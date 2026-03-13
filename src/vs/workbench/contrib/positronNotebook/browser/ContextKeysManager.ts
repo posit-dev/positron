@@ -56,6 +56,15 @@ export const POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS = new RawContextKey<boolean>('po
 export const POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT = new RawContextKey<boolean>('positronNotebookCellHasImageOutput', false);
 export const POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED = new RawContextKey<boolean>('positronNotebookCellOutputIsCollapsed', false);
 
+/**
+ * Interaction-driven context key set to true when the user right-clicks on an
+ * image in the output area, or opens the ellipsis menu for a cell with image
+ * output. Unlike POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT (which is stable cell
+ * state), this key tracks the current menu interaction and is NOT part of the
+ * cell context key set or bindCellContextKeys.
+ */
+export const POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED = new RawContextKey<boolean>('positronNotebookOutputImageTargeted', false);
+
 // All cell context keys in one place so we can easily operate on them all at once
 export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	isCode: POSITRON_NOTEBOOK_CELL_IS_CODE,

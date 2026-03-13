@@ -46,11 +46,15 @@ test.describe('Positron Notebooks: Copy Output Image', {
 		});
 
 		await test.step('Verify Copy Image option exists in ellipsis menu', async () => {
-			await contextMenu.triggerAndVerifyMenuItems({
-				menuTrigger: ellipsisButton,
-				menuTriggerButton: 'left',
-				menuItemStates: [{ label: 'Copy Image', visible: true }],
-			});
+			// Retry to handle timing: context keys may not be set on the first
+			// attempt due to the React render cycle.
+			await expect(async () => {
+				await contextMenu.triggerAndVerifyMenuItems({
+					menuTrigger: ellipsisButton,
+					menuTriggerButton: 'left',
+					menuItemStates: [{ label: 'Copy Image', visible: true }],
+				});
+			}).toPass({ timeout: 15000 });
 		});
 
 		await test.step('Click Copy Image and verify clipboard has image data', async () => {

@@ -19,6 +19,8 @@ import { Icon } from '../../../../../platform/positronActionBar/browser/componen
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 
 const cellOutputActions = localize('cellOutputActions', 'Cell Output Actions');
 
@@ -34,6 +36,10 @@ interface CellOutputLeftActionMenuProps {
  */
 export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps) {
 	const instance = useNotebookInstance();
+	const contextKeyService = useCellScopedContextKeyService();
+	const outputImageTargeted = contextKeyService
+		? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService)
+		: undefined;
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionLeft,
@@ -51,9 +57,8 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 			return;
 		}
 
-		// Clear any stale right-click target so the ellipsis menu always
-		// falls back to copying the first image output.
-		cell.targetImageDataUrl = undefined;
+		// Set the context key so "Copy Image" appears when the cell has image output
+		outputImageTargeted?.set(outputs.some(o => o.parsed.type === 'image'));
 		setIsMenuOpen(true);
 		showContextMenu(buttonRef.current, undefined, () => setIsMenuOpen(false));
 	};

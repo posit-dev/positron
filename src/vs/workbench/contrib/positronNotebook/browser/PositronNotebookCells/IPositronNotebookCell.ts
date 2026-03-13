@@ -284,15 +284,6 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	readonly lastRunEndTime: IObservable<number | undefined>;
 
 	/**
-	 * Data URL of the image that was last right-clicked in the output area.
-	 * Set before showing the context menu, cleared when the action runs or
-	 * the next context menu opens.
-	 * Used by the "Copy Image" action to copy the specific image the user
-	 * targeted rather than always the first image.
-	 */
-	targetImageDataUrl: string | undefined;
-
-	/**
 	 * Collapse the cell outputs
 	 */
 	collapseOutput(): void;

@@ -46,7 +46,7 @@ import { INotebookEditorOptions, IPYNB_VIEW_TYPE } from '../../notebook/browser/
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -1599,7 +1599,7 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellOutputActionGroup.Copy,
 				order: 1,
 				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT,
+					POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED,
 					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
 				)
 			},
@@ -1608,25 +1608,27 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<void> {
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const clipboardService = accessor.get(IClipboardService);
 		const logService = accessor.get(ILogService);
-		const state = notebook.selectionStateMachine.state.get();
-		const cell = getActiveCell(state);
-		if (!cell?.isCodeCell()) {
-			return;
-		}
 
-		// Use the right-clicked image if available, otherwise fall back to
-		// the first image output (e.g. when triggered from the ellipsis menu).
-		let dataUrl = cell.targetImageDataUrl;
-		cell.targetImageDataUrl = undefined;
+		// Look for a CopyImageMenuArg forwarded from the context menu
+		const menuArg = args.find(isCopyImageMenuArg);
+		let dataUrl = menuArg?.imageDataUrl;
+
+		// Fall back to the first image output (e.g. from ellipsis menu)
 		if (!dataUrl) {
+			const state = notebook.selectionStateMachine.state.get();
+			const cell = getActiveCell(state);
+			if (!cell?.isCodeCell()) {
+				return;
+			}
 			const imageOutput = cell.outputs.get().find(o => o.parsed.type === 'image');
 			if (imageOutput?.parsed.type === 'image') {
 				dataUrl = imageOutput.parsed.dataUrl;
 			}
 		}
+
 		if (!dataUrl) {
 			return;
 		}
@@ -1638,6 +1640,14 @@ registerAction2(class extends NotebookAction2 {
 		}
 	}
 });
+
+interface CopyImageMenuArg {
+	imageDataUrl: string;
+}
+
+function isCopyImageMenuArg(arg: unknown): arg is CopyImageMenuArg {
+	return typeof arg === 'object' && arg !== null && typeof (arg as CopyImageMenuArg).imageDataUrl === 'string';
+}
 
 //#endregion Cell Commands
 

@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
-import { POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT, bindCellContextKeys } from '../../browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, bindCellContextKeys } from '../../browser/ContextKeysManager.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
 
 function pngOutputItem() {
@@ -150,6 +150,42 @@ suite('Positron Notebook Cell Outputs', () => {
 				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT.key),
 				true,
 				'hasImageOutput context key should be true when cell has image output'
+			);
+		});
+
+		test('outputImageTargeted context key defaults to false and can be set', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]],
+				disposables
+			);
+
+			const cellElement = document.createElement('div');
+			const cellContextKeyService = notebook.scopedContextKeyService.createScoped(cellElement);
+			disposables.add(cellContextKeyService);
+
+			// Defaults to false
+			assert.strictEqual(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				undefined,
+				'outputImageTargeted should not be set by default'
+			);
+
+			// Can be bound and set to true (as the context menu handler does)
+			const outputImageTargeted = POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(cellContextKeyService);
+			outputImageTargeted.set(true);
+
+			assert.strictEqual(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				true,
+				'outputImageTargeted should be true after being set'
+			);
+
+			// Can be set back to false
+			outputImageTargeted.set(false);
+			assert.strictEqual(
+				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.key),
+				false,
+				'outputImageTargeted should be false after being cleared'
 			);
 		});
 	});
