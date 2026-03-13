@@ -1288,7 +1288,7 @@ export default tseslint.config(
 				},
 				{
 					'selector': 'JSXOpeningElement > JSXIdentifier[name="PositronButton"]',
-					'message': 'Use Button from positronComponents/button/button.tsx instead. It uses a native <button> element with hover/tooltip support, native disabled, and more event handlers.'
+					'message': 'Use Button from positronComponents/button/button.tsx instead, which better follows accessibility standards.'
 				},
 				// --- End Positron ---
 			],
