@@ -65,7 +65,7 @@ export class CondaPackageManager implements IPackageManager {
         _messageEmitter: MessageEmitter,
         private readonly _serviceContainer: IServiceContainer,
         private readonly _session: PackageSession,
-    ) {}
+    ) { }
 
     async getPackages(token: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
         return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
@@ -147,11 +147,6 @@ export class CondaPackageManager implements IPackageManager {
         try {
             // Use wildcard pattern for partial matching
             const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json'], token);
-
-            if (token.isCancellationRequested) {
-                throw new vscode.CancellationError();
-            }
-
             const json = parseCondaSearchResult(result);
 
             // Return unique package names with the latest version (sorted by timestamp)
@@ -183,11 +178,6 @@ export class CondaPackageManager implements IPackageManager {
 
         try {
             const result = await this._executeCondaWithOutput(['search', name, '--json'], token);
-
-            if (token.isCancellationRequested) {
-                throw new vscode.CancellationError();
-            }
-
             const json = parseCondaSearchResult(result);
 
             // Get all unique versions for this package
@@ -232,7 +222,7 @@ export class CondaPackageManager implements IPackageManager {
         if (!condaEnvInfo?.path) {
             throw new Error(
                 'Could not determine conda environment path. ' +
-                    'Ensure this Python interpreter is part of a conda environment.',
+                'Ensure this Python interpreter is part of a conda environment.',
             );
         }
 
