@@ -10,6 +10,7 @@ import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
 import './contrib/dataExplorer/positronNotebookDataExplorer.contribution.js';
 
+import { VSBuffer, encodeBase64 } from '../../../../base/common/buffer.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -1664,7 +1665,7 @@ function toBase64DataUrl(dataUrl: string): string {
 	}
 	const header = dataUrl.substring(0, commaIndex); // e.g. "data:image/svg+xml"
 	const payload = decodeURIComponent(dataUrl.substring(commaIndex + 1));
-	return `${header};base64,${btoa(payload)}`;
+	return `${header};base64,${encodeBase64(VSBuffer.fromString(payload))}`;
 }
 
 //#endregion Cell Commands
