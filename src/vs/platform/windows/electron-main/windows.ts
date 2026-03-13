@@ -184,10 +184,11 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 		options.icon = join(environmentMainService.appRoot, 'resources/win32/positron_150x150.png'); // only when running out of sources on Windows
 	}
 
-	// Use dev icon when running from source to distinguish from production builds
+	// Use dev icon when running from source to distinguish from production builds.
+	// On Windows, the taskbar icon is embedded in the .exe and cannot be recolored at runtime;
+	// a colored overlay is applied via setOverlayIcon() in CodeWindow instead.
 	const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('development.iconColor') : undefined;
-	if (customColor && typeof options.icon === 'string') {
-		// Use has custom color set + we are running in dev mode
+	if (customColor && typeof options.icon === 'string' && !isWindows) {
 		const coloredIcon = recolorDevIcon(options.icon, customColor);
 		options.icon = coloredIcon;
 	}
