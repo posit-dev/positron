@@ -197,7 +197,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         mode: positron.RuntimeCodeExecutionMode,
         errorBehavior: positron.RuntimeErrorBehavior,
         codeLocation?: positron.Utf8Location,
-        executionMetadata?: Record<string, any>
+        executionMetadata?: Record<string, any>,
     ): void {
         if (this._kernel) {
             if (this._isUninstallBundledPackageCommand(code, id)) {
