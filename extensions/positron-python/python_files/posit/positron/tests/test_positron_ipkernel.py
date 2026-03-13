@@ -641,3 +641,96 @@ class TestEditorSysPath:
 
         # sys.path should be unchanged
         assert sys.path == sys_path_before
+
+
+class TestInlineDataExplorerVariableResolution:
+    """Tests for variable name resolution in inline data explorer formatting."""
+
+    def test_resolves_top_level_variable(
+        self, shell: PositronShell, mock_dataexplorer_service: Mock, monkeypatch
+    ) -> None:
+        """When obj is bound to a top-level variable, use that name as the title."""
+        pd = pytest.importorskip("pandas")
+        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.NOTEBOOK)
+        mock_dataexplorer_service.register_table.return_value = "test-comm-id"
+
+        frame = pd.DataFrame({"a": [1, 2]})
+        shell.user_ns["my_df"] = frame
+
+        format_dict, _ = shell.display_formatter.format(frame)
+
+        # Check register_table was called with the variable name and path
+        mock_dataexplorer_service.register_table.assert_called_once()
+        args, kwargs = mock_dataexplorer_service.register_table.call_args
+        assert args[1] == "my_df"
+        assert kwargs["variable_path"] == [encode_access_key("my_df")]
+
+        # Check the MIME payload
+        import json
+
+        from positron.positron_ipkernel import POSITRON_DATA_EXPLORER_MIME
+
+        payload = json.loads(format_dict[POSITRON_DATA_EXPLORER_MIME])
+        assert payload["title"] == "my_df"
+        assert payload["variable_path"] == [encode_access_key("my_df")]
+
+    def test_falls_back_to_source_for_unbound_expression(
+        self, shell: PositronShell, mock_dataexplorer_service: Mock, monkeypatch
+    ) -> None:
+        """When obj is not in user_ns, fall back to the source library name."""
+        pd = pytest.importorskip("pandas")
+        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.NOTEBOOK)
+        mock_dataexplorer_service.register_table.return_value = "test-comm-id"
+
+        frame = pd.DataFrame({"a": [1, 2]})
+        # Do NOT add frame to shell.user_ns
+
+        format_dict, _ = shell.display_formatter.format(frame)
+
+        args, kwargs = mock_dataexplorer_service.register_table.call_args
+        assert args[1] == "pandas"
+        assert kwargs["variable_path"] is None
+
+        import json
+
+        from positron.positron_ipkernel import POSITRON_DATA_EXPLORER_MIME
+
+        payload = json.loads(format_dict[POSITRON_DATA_EXPLORER_MIME])
+        assert payload["title"] == "pandas"
+        assert "variable_path" not in payload
+
+    def test_skips_hidden_variables(
+        self, shell: PositronShell, mock_dataexplorer_service: Mock, monkeypatch
+    ) -> None:
+        """Hidden variables (like _) should be skipped during resolution."""
+        pd = pytest.importorskip("pandas")
+        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.NOTEBOOK)
+        mock_dataexplorer_service.register_table.return_value = "test-comm-id"
+
+        frame = pd.DataFrame({"a": [1, 2]})
+        shell.user_ns["_"] = frame
+        shell.user_ns_hidden["_"] = frame
+
+        _format_dict, _ = shell.display_formatter.format(frame)
+
+        args, kwargs = mock_dataexplorer_service.register_table.call_args
+        assert args[1] == "pandas"
+        assert kwargs["variable_path"] is None
+
+    def test_resolves_first_non_hidden_match(
+        self, shell: PositronShell, mock_dataexplorer_service: Mock, monkeypatch
+    ) -> None:
+        """When multiple variables point to the same object, use the first non-hidden one."""
+        pd = pytest.importorskip("pandas")
+        monkeypatch.setattr(shell.kernel, "session_mode", SessionMode.NOTEBOOK)
+        mock_dataexplorer_service.register_table.return_value = "test-comm-id"
+
+        frame = pd.DataFrame({"a": [1, 2]})
+        shell.user_ns["first_df"] = frame
+        shell.user_ns["second_df"] = frame
+
+        _format_dict, _ = shell.display_formatter.format(frame)
+
+        args, kwargs = mock_dataexplorer_service.register_table.call_args
+        assert args[1] == "first_df"
+        assert kwargs["variable_path"] == [encode_access_key("first_df")]
