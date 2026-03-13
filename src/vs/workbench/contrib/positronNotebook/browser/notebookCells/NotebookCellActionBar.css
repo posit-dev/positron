@@ -3,11 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Define common properties for the cell action bar */
-.positron-notebooks-cell-action-bar  {
-	--_positron-notebooks-cell-action-bar-button-gap: 0.25rem;
-}
-
 .positron-notebooks-cell-action-bar {
 	position: absolute;
 	top: calc(var(--vscode-positronNotebook-action-bar-inset) * -1);
@@ -19,7 +14,7 @@
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	background-color: var(--vscode-positronNotebook-action-bar-background);
 	display: flex;
-	gap: var(--_positron-notebooks-cell-action-bar-button-gap);
+	gap: var(--_positron-notebook-cell-action-bar-button-gap);
 
 	/* Base state: action bar hidden by default */
 	visibility: hidden;
@@ -27,53 +22,6 @@
 	/* Always show action bar when cell is active (selected) */
 	&.visible {
 		visibility: visible;
-	}
-
-	.action-button {
-		aspect-ratio: 1;
-		display: grid;
-		place-content: center;
-		padding: 3px;
-		/* The added outline here is distracting */
-		outline: revert;
-
-		/* Update the border radius so it fits cleanly with the inset on the containing box. The 1px
-		comes from the border of that box */
-		border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
-
-		.button-icon {
-			align-items: center;
-			justify-content: center;
-			display: flex;
-			width: 16px;
-			aspect-ratio: 1;
-		}
-
-		/* The debug codicon (the icon itself) is misaligned with run above / run below icons by 1 pixel */
-		&.codicon-debug-alt-small {
-			position: relative;
-			top: -1px;
-		}
-
-		&.disabled {
-			color: var(--vscode-positronActionBar-disabledForeground);
-		}
-	}
-
-	/* Ensure relative positioning for the separator pseudo-element we are adding below */
-	.action-button.separator-after {
-		position: relative;
-	}
-
-	/* Add separator pseudo-element after this button */
-	.action-button.separator-after::after {
-		content: '';
-		position: absolute;
-		right: calc((var(--_positron-notebooks-cell-action-bar-button-gap) * -1) / 2); /* Separator should be centered in between the gap */
-		top: 4px;
-		bottom: 4px;
-		width: 1px;
-		background-color: var(--vscode-positronNotebook-action-bar-border-color);
 	}
 }
 

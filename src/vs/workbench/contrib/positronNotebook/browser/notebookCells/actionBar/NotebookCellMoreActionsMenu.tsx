@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './CellActionButton.css';
+
 // React.
 import { useRef } from 'react';
 
@@ -11,7 +14,7 @@ import { showCustomContextMenu } from '../../../../../../workbench/browser/posit
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
-import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
@@ -76,11 +79,13 @@ export function NotebookCellMoreActionsMenu({
 			aria-expanded={isMenuOpen}
 			aria-haspopup='menu'
 			ariaLabel={ariaLabel}
+			// Match the cell action button's styles
+			className='cell-action-button'
 			hoverManager={hoverManager}
 			tooltip={ariaLabel}
 			onPressed={showMoreActionsMenu}
 		>
-			<Icon className='button-icon' icon={Codicon.ellipsis} />
+			<ThemeIcon icon={Codicon.ellipsis} />
 		</ActionButton>
 	);
 }
