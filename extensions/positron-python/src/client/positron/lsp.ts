@@ -182,14 +182,12 @@ export class PythonLsp implements vscode.Disposable {
                         }
                     }
                     // Console LSP: skip notebook console inputs
-                    if (document.uri.scheme === 'inmemory' &&
-                        NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                    if (document.uri.scheme === 'inmemory' && NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                         return undefined;
                     }
                 } else {
                     // Notebook LSP: skip regular (non-notebook) console inputs
-                    if (document.uri.scheme === 'inmemory' &&
-                        !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                    if (document.uri.scheme === 'inmemory' && !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                         return undefined;
                     }
                 }
@@ -216,13 +214,11 @@ export class PythonLsp implements vscode.Disposable {
                             return undefined;
                         }
                     }
-                    if (document.uri.scheme === 'inmemory' &&
-                        NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                    if (document.uri.scheme === 'inmemory' && NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                         return undefined;
                     }
                 } else {
-                    if (document.uri.scheme === 'inmemory' &&
-                        !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                    if (document.uri.scheme === 'inmemory' && !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                         return undefined;
                     }
                 }
