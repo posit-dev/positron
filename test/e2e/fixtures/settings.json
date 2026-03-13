@@ -15,5 +15,6 @@
 	"positron.assistant.provider.echo.enable": true,
 	"positron.assistant.provider.error.enable": true,
   "posit.workbench.showWorkbenchFlaskHint": false,
-	"editor.accessibilitySupport": "off"
+	"editor.accessibilitySupport": "off",
+	"githubIssues.issueCompletions.enabled": false
 }
