@@ -1839,6 +1839,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime.
 	 * @param executionId An optional ID that can be used to identify the execution.
+	 * @param executionMetadata Optional metadata to associate with the execution.
 	 */
 	executeCode(code: string,
 		attribution: IConsoleCodeAttribution,
