@@ -167,7 +167,11 @@ suite('shouldEnvExtHandleActivation', () => {
         getConfigurationStub.returns({
             inspect: () => ({ globalValue: undefined, workspaceValue: undefined }),
         });
-        assert.strictEqual(extapi.shouldEnvExtHandleActivation(), true);
+        // --- Start Positron ---
+        // We override this
+        // assert.strictEqual(extapi.shouldEnvExtHandleActivation(), true);
+        assert.strictEqual(extapi.shouldEnvExtHandleActivation(), false);
+        // --- End Positron ---
     });
 
     test('Returns false when envs extension is installed but globalValue is false', () => {
@@ -191,7 +195,11 @@ suite('shouldEnvExtHandleActivation', () => {
         getConfigurationStub.returns({
             inspect: () => ({ globalValue: true, workspaceValue: undefined }),
         });
-        assert.strictEqual(extapi.shouldEnvExtHandleActivation(), true);
+        // --- Start Positron ---
+        // We override this
+        // assert.strictEqual(extapi.shouldEnvExtHandleActivation(), true);
+        assert.strictEqual(extapi.shouldEnvExtHandleActivation(), false);
+        // --- End Positron ---
     });
 
     test('Returns false when a workspace folder has workspaceFolderValue set to false', () => {
