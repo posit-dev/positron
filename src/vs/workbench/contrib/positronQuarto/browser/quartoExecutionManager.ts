@@ -39,6 +39,7 @@ import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { getWindow } from '../../../../base/browser/dom.js';
 
 // Re-export for convenience
 export { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -328,13 +329,15 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		const documentModel = this._documentModelService.getModel(textModel);
 		const quartoCells = documentModel.cells;
 
-		// Compute the output area width from the active editor's layout.
+		// Compute the output area width and pixel ratio from the active editor's layout.
 		// This uses the same formula as QuartoOutputViewZone._getWidth().
 		let outputWidthPx: number | undefined;
+		let outputPixelRatio: number | undefined;
 		const editorControl = this._editorService.activeTextEditorControl;
 		if (isCodeEditor(editorControl)) {
 			const layoutInfo = editorControl.getLayoutInfo();
 			outputWidthPx = layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4;
+			outputPixelRatio = getWindow(editorControl.getContainerDomNode()).devicePixelRatio;
 		}
 
 		// For each range, find the containing cell and prepare execution info
@@ -401,11 +404,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			// Always include the output area width when available.
 			const cellMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
 			const externalMetadata = executionMetadata?.[rangeIdx];
-			const widthMetadata = outputWidthPx !== undefined
-				? { output_width_px: outputWidthPx }
-				: undefined;
-			const mergedMetadata = cellMetadata || externalMetadata || widthMetadata
-				? { ...widthMetadata, ...cellMetadata, ...externalMetadata }
+			const layoutMetadata: Record<string, unknown> = {};
+			if (outputWidthPx !== undefined) {
+				layoutMetadata.output_width_px = outputWidthPx;
+			}
+			if (outputPixelRatio !== undefined) {
+				layoutMetadata.output_pixel_ratio = outputPixelRatio;
+			}
+			const hasLayoutMetadata = Object.keys(layoutMetadata).length > 0;
+			const mergedMetadata = cellMetadata || externalMetadata || hasLayoutMetadata
+				? { ...layoutMetadata, ...cellMetadata, ...externalMetadata }
 				: undefined;
 
 			executions.push({
@@ -1686,14 +1694,15 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		await this._persistQueueState(documentUri);
 
 		// Delegate to the unified range execution with parsed options.
-		// Include the output area width when the active editor provides layout info.
+		// Include the output area width and pixel ratio when the active editor provides layout info.
 		const cellMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
 		let executionMetadata: Record<string, unknown> | undefined;
 		const editorControl = this._editorService.activeTextEditorControl;
 		if (isCodeEditor(editorControl)) {
 			const layoutInfo = editorControl.getLayoutInfo();
 			const outputWidthPx = layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4;
-			executionMetadata = { output_width_px: outputWidthPx, ...cellMetadata };
+			const outputPixelRatio = getWindow(editorControl.getContainerDomNode()).devicePixelRatio;
+			executionMetadata = { output_width_px: outputWidthPx, output_pixel_ratio: outputPixelRatio, ...cellMetadata };
 		} else {
 			executionMetadata = cellMetadata;
 		}

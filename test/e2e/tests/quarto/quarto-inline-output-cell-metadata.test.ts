@@ -45,7 +45,7 @@ test.describe('Quarto - Inline Output: Cell Metadata', {
 		expect(metadata['fig-height']).toBe(3);
 	});
 
-	test('Python - Inline output includes output_width_px in execution metadata', async function ({ python, app, openFile }) {
+	test('Python - Inline output includes output_width_px and output_pixel_ratio in execution metadata', async function ({ python, app, openFile }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open the cell metadata test fixture
@@ -66,5 +66,11 @@ test.describe('Quarto - Inline Output: Cell Metadata', {
 		expect(metadata['output_width_px']).toBeDefined();
 		expect(typeof metadata['output_width_px']).toBe('number');
 		expect(metadata['output_width_px']).toBeGreaterThan(100);
+
+		// output_pixel_ratio should be present and have a reasonable value (1.0 - 3.0)
+		expect(metadata['output_pixel_ratio']).toBeDefined();
+		expect(typeof metadata['output_pixel_ratio']).toBe('number');
+		expect(metadata['output_pixel_ratio']).toBeGreaterThanOrEqual(1.0);
+		expect(metadata['output_pixel_ratio']).toBeLessThanOrEqual(3.0);
 	});
 });
