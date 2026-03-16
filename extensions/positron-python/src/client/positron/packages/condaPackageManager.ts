@@ -5,11 +5,17 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { CancellationTokenSource } from 'vscode';
 import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
+
+/** Get a non-cancelling token to use when no token is provided */
+function getNonCancellingToken(): vscode.CancellationToken {
+    return new CancellationTokenSource().token;
+}
 
 /** Package info returned by `conda search --json` */
 interface CondaPackageInfo {
@@ -67,8 +73,9 @@ export class CondaPackageManager implements IPackageManager {
         private readonly _session: PackageSession,
     ) {}
 
-    async getPackages(token: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
+    async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
+        const cancellation = token ?? getNonCancellingToken();
+        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', cancellation);
     }
 
     /**
@@ -83,12 +90,13 @@ export class CondaPackageManager implements IPackageManager {
         }
     }
 
-    async installPackages(packages: positron.PackageSpec[], token: vscode.CancellationToken): Promise<void> {
+    async installPackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
         if (packages.length === 0) {
             return;
         }
 
-        if (token.isCancellationRequested) {
+        const cancellation = token ?? getNonCancellingToken();
+        if (cancellation.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -98,15 +106,16 @@ export class CondaPackageManager implements IPackageManager {
         const envPrefix = await this._getEnvironmentPrefix();
         const args = ['install', '--prefix', envPrefix, '-y', ...packageSpecs];
 
-        await this._executeCondaInTerminal(args, token);
+        await this._executeCondaInTerminal(args, cancellation);
     }
 
-    async uninstallPackages(packages: string[], token: vscode.CancellationToken): Promise<void> {
+    async uninstallPackages(packages: string[], token?: vscode.CancellationToken): Promise<void> {
         if (packages.length === 0) {
             return;
         }
 
-        if (token.isCancellationRequested) {
+        const cancellation = token ?? getNonCancellingToken();
+        if (cancellation.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -115,17 +124,18 @@ export class CondaPackageManager implements IPackageManager {
         const envPrefix = await this._getEnvironmentPrefix();
         const args = ['remove', '--prefix', envPrefix, '-y', ...packages];
 
-        await this._executeCondaInTerminal(args, token);
+        await this._executeCondaInTerminal(args, cancellation);
     }
 
-    async updatePackages(packages: positron.PackageSpec[], token: vscode.CancellationToken): Promise<void> {
+    async updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
         // Use installPackages() because conda update doesn't support version specs.
         // conda install will update (or downgrade) to the specified version.
         return this.installPackages(packages, token);
     }
 
-    async updateAllPackages(token: vscode.CancellationToken): Promise<void> {
-        if (token.isCancellationRequested) {
+    async updateAllPackages(token?: vscode.CancellationToken): Promise<void> {
+        const cancellation = token ?? getNonCancellingToken();
+        if (cancellation.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -134,11 +144,12 @@ export class CondaPackageManager implements IPackageManager {
         const envPrefix = await this._getEnvironmentPrefix();
         const args = ['update', '--prefix', envPrefix, '--all', '-y'];
 
-        await this._executeCondaInTerminal(args, token);
+        await this._executeCondaInTerminal(args, cancellation);
     }
 
-    async searchPackages(query: string, token: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        if (token.isCancellationRequested) {
+    async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
+        const cancellation = token ?? getNonCancellingToken();
+        if (cancellation.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -146,7 +157,7 @@ export class CondaPackageManager implements IPackageManager {
 
         try {
             // Use wildcard pattern for partial matching
-            const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json'], token);
+            const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json'], cancellation);
             const json = parseCondaSearchResult(result);
 
             // Return unique package names with the latest version (sorted by timestamp)
@@ -169,15 +180,16 @@ export class CondaPackageManager implements IPackageManager {
         }
     }
 
-    async searchPackageVersions(name: string, token: vscode.CancellationToken): Promise<string[]> {
-        if (token.isCancellationRequested) {
+    async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
+        const cancellation = token ?? getNonCancellingToken();
+        if (cancellation.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
         await this._ensureConda();
 
         try {
-            const result = await this._executeCondaWithOutput(['search', name, '--json'], token);
+            const result = await this._executeCondaWithOutput(['search', name, '--json'], cancellation);
             const json = parseCondaSearchResult(result);
 
             // Get all unique versions for this package
