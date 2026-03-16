@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { AsyncIterableProducer } from '../../../../base/common/async.js';
+import { getWindow } from '../../../../base/browser/dom.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -28,6 +29,7 @@ import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
+import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';
@@ -114,6 +116,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
+		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -311,6 +314,11 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		};
 		this._didExecuteCodeEmitter.fire(event);
 
+		// Compute execution metadata with output layout dimensions from the
+		// notebook editor widget, so that the kernel can size outputs
+		// appropriately (e.g. for plot rendering).
+		const executionMetadata = this._getExecutionMetadata(notebook.uri);
+
 		// Execute the code.
 		try {
 			session.execute(
@@ -318,6 +326,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				execution.id,
 				RuntimeCodeExecutionMode.Interactive,
 				errorBehavior,
+				undefined,
+				executionMetadata,
 			);
 		} catch (err) {
 			execution.error(err);
@@ -547,6 +557,29 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 		// Default behavior
 		return RuntimeErrorBehavior.Stop;
+	}
+
+	/**
+	 * Computes execution metadata containing the notebook output area dimensions.
+	 * Returns undefined if the notebook editor widget is not available.
+	 */
+	private _getExecutionMetadata(notebookUri: URI): Record<string, unknown> | undefined {
+		const borrowed = this._notebookEditorService.retrieveExistingWidgetFromURI(notebookUri);
+		const widget = borrowed?.value;
+		if (!widget) {
+			return undefined;
+		}
+
+		const layoutInfo = widget.getLayoutInfo();
+		const { cellRightMargin } = widget.notebookOptions.getLayoutConfiguration();
+		const leftMargin = widget.notebookOptions.getCellEditorContainerLeftMargin();
+		const outputWidthPx = layoutInfo.width - leftMargin - cellRightMargin;
+		const outputPixelRatio = getWindow(widget.getDomNode()).devicePixelRatio;
+
+		return {
+			output_width_px: outputWidthPx,
+			output_pixel_ratio: outputPixelRatio,
+		};
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableProducer<VariablesResult> {
