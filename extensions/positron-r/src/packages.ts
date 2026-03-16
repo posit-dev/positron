@@ -229,7 +229,7 @@ export class RPackageManager {
 	 */
 	private async _detectRenv(): Promise<boolean> {
 		try {
-			const result = await this._session.evaluate('!is.null(getOption("renv.project.path"))');
+			const result = await this._session.evaluate('!is.null(renv::project())');
 			return result.result === true;
 		} catch {
 			return false;
