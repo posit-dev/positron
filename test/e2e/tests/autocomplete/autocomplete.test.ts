@@ -226,7 +226,7 @@ async function triggerFirstAutocompleteInEditor({ app, session, expectedCount }:
 
 	await expect(async () => {
 		// Clear any previous attempt (Select All + Delete), no-op on empty file
-		await keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+A`);
+		await hotKeys.selectAll();
 		await keyboard.press('Delete');
 		// Dismiss any stale suggestion widget
 		await keyboard.press('Escape');
