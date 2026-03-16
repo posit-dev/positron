@@ -83,7 +83,6 @@ export function useCellContextKeys(
 			keys.canMoveDown.set(cell.index < cells.length - 1 && cells.length > 1);
 			const outputs = cell.isCodeCell() ? cell.outputs.read(reader) : [];
 			keys.hasOutputs.set(outputs.length > 0);
-			keys.hasImageOutput.set(outputs.some(o => o.parsed.type === 'image'));
 			keys.outputIsCollapsed.set(cell.isCodeCell() ? cell.outputIsCollapsed.read(reader) : false);
 		}));
 

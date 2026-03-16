@@ -53,14 +53,12 @@ export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN = new RawContextKey<boolean>('
 
 // Output-related context keys
 export const POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS = new RawContextKey<boolean>('positronNotebookCellHasOutputs', false);
-export const POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT = new RawContextKey<boolean>('positronNotebookCellHasImageOutput', false);
 export const POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED = new RawContextKey<boolean>('positronNotebookCellOutputIsCollapsed', false);
 
 /**
  * Interaction-driven context key set to true when the user right-clicks on an
  * image in the output area, or opens the ellipsis menu for a cell with image
- * output. Unlike POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT (which is stable cell
- * state), this key tracks the current menu interaction and is NOT part of the
+ * output. This key tracks the current menu interaction and is NOT part of the
  * cell context key set or bindCellContextKeys.
  */
 export const POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED = new RawContextKey<boolean>('positronNotebookOutputImageTargeted', false);
@@ -81,7 +79,6 @@ export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	canMoveUp: POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP,
 	canMoveDown: POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN,
 	hasOutputs: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-	hasImageOutput: POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT,
 	outputIsCollapsed: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED,
 } as const;
 
@@ -110,7 +107,6 @@ export function bindCellContextKeys(service: IScopedContextKeyService): IPositro
 		canMoveUp: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveUp.bindTo(service),
 		canMoveDown: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveDown.bindTo(service),
 		hasOutputs: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.hasOutputs.bindTo(service),
-		hasImageOutput: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.hasImageOutput.bindTo(service),
 		outputIsCollapsed: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputIsCollapsed.bindTo(service),
 	} satisfies IPositronNotebookCellContextKeys;
 }

@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
-import { POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, bindCellContextKeys } from '../../browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../../browser/ContextKeysManager.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
 
 function pngOutputItem() {
@@ -111,46 +111,6 @@ suite('Positron Notebook Cell Outputs', () => {
 			const outputs = cell.outputs.get();
 			assert.strictEqual(outputs.length, 1, 'cell should have one output after edit');
 			assert.strictEqual(outputs[0].parsed.type, 'image');
-		});
-
-		test('hasImageOutput context key is set for cells with image output', () => {
-			const cellWithMixedOutputs: TestCellInput = {
-				source: 'display()',
-				language: 'python',
-				mime: undefined,
-				cellKind: CellKind.Code,
-				outputs: [
-					{
-						outputId: 'output-text',
-						outputs: [textOutputItem('some text')],
-					},
-					{
-						outputId: 'output-image',
-						outputs: [pngOutputItem()],
-					},
-				],
-			};
-			const notebook = createTestPositronNotebookInstance([cellWithMixedOutputs], disposables);
-			const cell = notebook.cells.get()[0];
-
-			assert.ok(cell.isCodeCell());
-			const outputs = cell.outputs.get();
-			assert.strictEqual(outputs.length, 2);
-
-			// Bind context keys to a cell-scoped service (mirrors useCellContextKeys.ts)
-			const cellElement = document.createElement('div');
-			const cellContextKeyService = notebook.scopedContextKeyService.createScoped(cellElement);
-			disposables.add(cellContextKeyService);
-			const keys = bindCellContextKeys(cellContextKeyService);
-
-			// Update the context key using the same logic as useCellContextKeys.ts
-			keys.hasImageOutput.set(outputs.some(o => o.parsed.type === 'image'));
-
-			assert.strictEqual(
-				cellContextKeyService.getContextKeyValue(POSITRON_NOTEBOOK_CELL_HAS_IMAGE_OUTPUT.key),
-				true,
-				'hasImageOutput context key should be true when cell has image output'
-			);
 		});
 
 		test('outputImageTargeted context key defaults to false and can be set', () => {
