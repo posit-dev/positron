@@ -22,6 +22,7 @@ import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNoteb
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
+import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
@@ -31,6 +32,7 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { useScrollingIndicator } from './useScrollingIndicator.js';
 
 
 interface CellOutputsSectionProps {
@@ -41,6 +43,10 @@ interface CellOutputsSectionProps {
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const notebookOptions = useNotebookOptions();
+	const layout = notebookOptions.getLayoutConfiguration();
+	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
+	useScrollingIndicator(outputsInnerRef);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionLeft,
@@ -82,7 +88,12 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 				data-testid='cell-output'
 				onContextMenu={handleContextMenu}
 			>
-				<div className='positron-notebook-code-cell-outputs-inner'>
+				<div ref={outputsInnerRef} className={positronClassNames(
+					'positron-notebook-code-cell-outputs-inner',
+					'positron-notebook-scrollable',
+					'positron-notebook-scrollable-fade',
+					{ 'output-scrolling': layout.outputScrolling }
+				)}>
 					{isCollapsed
 						? <Button
 							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
