@@ -7,7 +7,7 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React from 'react';
+import React, { useMemo } from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -24,6 +24,7 @@ import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
 import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
+import { isHTMLElement } from '../../../../../base/browser/dom.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -32,6 +33,8 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 
 
@@ -43,6 +46,11 @@ interface CellOutputsSectionProps {
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const contextKeyService = useCellScopedContextKeyService();
+	const outputImageTargeted = useMemo(
+		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
+		[contextKeyService]
+	);
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
@@ -72,7 +80,28 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		if (outputs.length === 0) {
 			return;
 		}
-		showContextMenu({ x: event.clientX, y: event.clientY });
+
+		// Check if the click target is an <img> with a data: URL
+		const src = isHTMLElement(event.target) && event.target.tagName === 'IMG'
+			? (event.target as HTMLImageElement).src
+			: undefined;
+		const imageDataUrl = src?.startsWith('data:') ? src : undefined;
+
+		// Set context key so the "Copy Image" menu item shows only when an image is targeted
+		outputImageTargeted?.set(!!imageDataUrl);
+
+		const onHide = () => outputImageTargeted?.set(false);
+
+		if (imageDataUrl) {
+			showContextMenu(
+				{ x: event.clientX, y: event.clientY },
+				undefined,
+				onHide,
+				{ arg: { imageDataUrl }, shouldForwardArgs: true },
+			);
+		} else {
+			showContextMenu({ x: event.clientX, y: event.clientY }, undefined, onHide);
+		}
 	};
 
 	return (
