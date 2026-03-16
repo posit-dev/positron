@@ -93,16 +93,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?): Thenable<Record<string, unknown>> {
+			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?, executionMetadata?): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri);
+				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata);
 			},
 			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string): Thenable<positron.EvalResult> {
 				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId);
 			},
-			executeInlineCell(documentUri, ranges): Thenable<void> {
+			executeInlineCell(documentUri, ranges, executionMetadata?): Thenable<void> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges);
+				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges, executionMetadata);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,

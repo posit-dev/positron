@@ -50,6 +50,9 @@ export interface JupyterExecuteRequest {
 export interface JupyterPositronExecuteRequest {
 	/** Location of `code`. Character offsets are in UTF-8 bytes (not UTF-16 or code points). */
 	code_location?: JupyterPositronLocation;
+
+	/** Additional metadata to associate with this execution. */
+	executionMetadata?: Record<string, unknown>;
 }
 
 /**
