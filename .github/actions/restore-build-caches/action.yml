@@ -204,7 +204,7 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
-        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+        key: builtins-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
         restore-keys: |
           builtins-${{ runner.os }}-
 
