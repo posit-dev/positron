@@ -157,8 +157,8 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
-			// Print a reminder to run renv::snapshot() to update lockfile
-			code = `renv::remove(${pkgVector}); message("Note: Run renv::snapshot() to update your lockfile.")`;
+			// Remove packages and update lockfile
+			code = `renv::remove(${pkgVector}); renv::snapshot(prompt = FALSE)`;
 		} else {
 			const method = await this._getPakMethod();
 
