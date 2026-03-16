@@ -14,6 +14,7 @@
 #
 # Options:
 #   -v, --verbose                    Show full list of Positron proposals (default: count only)
+#   --pre-releases                   Also check date-based pre-release tags (default: releases only)
 #   --positron-version <version>     Check against a Positron release (e.g. 2026.03.0)
 #                                    Looks up the release tag on GitHub, retrieves the
 #                                    Code OSS version and proposals from that build.
@@ -26,6 +27,7 @@ REPO="microsoft/vscode-copilot-chat"
 PROPOSALS_TS="src/vs/platform/extensions/common/extensionsApiProposals.ts"
 POSITRON_REPO="posit-dev/positron"
 VERBOSE=false
+PRE_RELEASES=false
 POSITRON_VERSION=""
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -36,6 +38,7 @@ args=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		-v|--verbose) VERBOSE=true; shift ;;
+		--pre-releases) PRE_RELEASES=true; shift ;;
 		--positron-version)
 			[[ -n "${2:-}" ]] || die "--positron-version requires a version (e.g. 2026.03.0)"
 			POSITRON_VERSION="$2"; shift 2 ;;
@@ -327,7 +330,7 @@ check_series() {
 		fi
 	fi
 
-	if [[ -n "$prerelease_tags" ]]; then
+	if [[ -n "$prerelease_tags" && "$PRE_RELEASES" == true ]]; then
 		local count
 		count=$(echo "$prerelease_tags" | wc -l | tr -d ' ')
 		echo "Pre-releases ($count tags):"
@@ -335,6 +338,10 @@ check_series() {
 		if [[ -n "$_FOUND_OK" && -z "$_LATEST_PRERELEASE" ]]; then
 			_LATEST_PRERELEASE="$_FOUND_OK"
 		fi
+	elif [[ -n "$prerelease_tags" ]]; then
+		local count
+		count=$(echo "$prerelease_tags" | wc -l | tr -d ' ')
+		echo "Pre-releases ($count tags, skipped -- use --pre-releases to check)"
 	fi
 }
 
