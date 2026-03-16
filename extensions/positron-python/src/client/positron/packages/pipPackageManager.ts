@@ -6,17 +6,11 @@
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { CancellationTokenSource } from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
-
-/** Get a non-cancelling token to use when no token is provided */
-function getNonCancellingToken(): vscode.CancellationToken {
-    return new CancellationTokenSource().token;
-}
 
 /**
  * Pip Package Manager
@@ -35,8 +29,7 @@ export class PipPackageManager implements IPackageManager {
     ) {}
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', cancellation);
+        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
     }
 
     /**
@@ -52,8 +45,7 @@ export class PipPackageManager implements IPackageManager {
     }
 
     async installPackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -67,7 +59,7 @@ export class PipPackageManager implements IPackageManager {
         const flags = await this._getInstallFlags();
         const args = ['install', ...flags, ...packageSpecs];
 
-        await this._executePipInTerminal(args, cancellation);
+        await this._executePipInTerminal(args, token);
     }
 
     async uninstallPackages(packages: string[], token?: vscode.CancellationToken): Promise<void> {
@@ -75,8 +67,7 @@ export class PipPackageManager implements IPackageManager {
             return;
         }
 
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -84,7 +75,7 @@ export class PipPackageManager implements IPackageManager {
 
         const args = ['uninstall', '-y', ...packages];
 
-        await this._executePipInTerminal(args, cancellation);
+        await this._executePipInTerminal(args, token);
     }
 
     async updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
@@ -92,8 +83,7 @@ export class PipPackageManager implements IPackageManager {
             return;
         }
 
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -103,12 +93,11 @@ export class PipPackageManager implements IPackageManager {
         const flags = await this._getInstallFlags();
         const args = ['install', '--upgrade', ...flags, ...packageSpecs];
 
-        await this._executePipInTerminal(args, cancellation);
+        await this._executePipInTerminal(args, token);
     }
 
     async updateAllPackages(token?: vscode.CancellationToken): Promise<void> {
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -121,10 +110,10 @@ export class PipPackageManager implements IPackageManager {
         const outdatedResult = await pythonService.execModule(
             'pip',
             ['list', '--outdated', '--format=json', ...proxyFlags],
-            { token: cancellation },
+            { token },
         );
 
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -144,17 +133,15 @@ export class PipPackageManager implements IPackageManager {
         const flags = await this._getInstallFlags();
         const args = ['install', '--upgrade', ...flags, ...packageNames];
 
-        await this._executePipInTerminal(args, cancellation);
+        await this._executePipInTerminal(args, token);
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        return searchPyPI(query, cancellation);
+        return searchPyPI(query, token);
     }
 
     async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        return searchPyPIVersions(name, cancellation);
+        return searchPyPIVersions(name, token);
     }
 
     // =========================================================================
@@ -215,16 +202,16 @@ export class PipPackageManager implements IPackageManager {
     /**
      * Execute a pip command in the terminal (visible to user).
      * @param args The pip arguments to execute
-     * @param token Cancellation token
+     * @param token Optional cancellation token
      */
-    private async _executePipInTerminal(args: string[], token: vscode.CancellationToken): Promise<void> {
+    private async _executePipInTerminal(args: string[], token?: vscode.CancellationToken): Promise<void> {
         const terminalService = this._serviceContainer
             .get<ITerminalServiceFactory>(ITerminalServiceFactory)
             .getTerminalService({});
         // Ensure terminal is created and ready before sending command
         await terminalService.show();
 
-        const disposable = token.onCancellationRequested(async () => {
+        const disposable = token?.onCancellationRequested(async () => {
             // Send Ctrl+C to interrupt the running command
             await terminalService.sendText('\x03');
         });
@@ -232,7 +219,7 @@ export class PipPackageManager implements IPackageManager {
         try {
             await terminalService.sendCommand(this._pythonPath, ['-m', 'pip', ...args], token);
         } finally {
-            disposable.dispose();
+            disposable?.dispose();
         }
     }
 
@@ -240,12 +227,17 @@ export class PipPackageManager implements IPackageManager {
      * Call a kernel method with cancellation support.
      * If the token is cancelled, interrupts the kernel (if supported).
      */
-    private async _callMethod<T>(method: string, token: vscode.CancellationToken, ...args: unknown[]): Promise<T> {
-        if (token.isCancellationRequested) {
+    private async _callMethod<T>(method: string, token?: vscode.CancellationToken, ...args: unknown[]): Promise<T> {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
         const resultPromise = this._session.callMethod(method, ...args) as Promise<T>;
+
+        // If no token provided, just return the method result
+        if (!token) {
+            return resultPromise;
+        }
 
         // Wrap callMethod promise with cancellation handling
         return new Promise<T>((resolve, reject) => {

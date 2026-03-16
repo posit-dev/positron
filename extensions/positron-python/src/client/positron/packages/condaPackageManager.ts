@@ -5,17 +5,11 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { CancellationTokenSource } from 'vscode';
 import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
-
-/** Get a non-cancelling token to use when no token is provided */
-function getNonCancellingToken(): vscode.CancellationToken {
-    return new CancellationTokenSource().token;
-}
 
 /** Package info returned by `conda search --json` */
 interface CondaPackageInfo {
@@ -74,8 +68,7 @@ export class CondaPackageManager implements IPackageManager {
     ) {}
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', cancellation);
+        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
     }
 
     /**
@@ -95,8 +88,7 @@ export class CondaPackageManager implements IPackageManager {
             return;
         }
 
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -106,7 +98,7 @@ export class CondaPackageManager implements IPackageManager {
         const envPrefix = await this._getEnvironmentPrefix();
         const args = ['install', '--prefix', envPrefix, '-y', ...packageSpecs];
 
-        await this._executeCondaInTerminal(args, cancellation);
+        await this._executeCondaInTerminal(args, token);
     }
 
     async uninstallPackages(packages: string[], token?: vscode.CancellationToken): Promise<void> {
@@ -114,8 +106,7 @@ export class CondaPackageManager implements IPackageManager {
             return;
         }
 
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -124,7 +115,7 @@ export class CondaPackageManager implements IPackageManager {
         const envPrefix = await this._getEnvironmentPrefix();
         const args = ['remove', '--prefix', envPrefix, '-y', ...packages];
 
-        await this._executeCondaInTerminal(args, cancellation);
+        await this._executeCondaInTerminal(args, token);
     }
 
     async updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
@@ -134,8 +125,7 @@ export class CondaPackageManager implements IPackageManager {
     }
 
     async updateAllPackages(token?: vscode.CancellationToken): Promise<void> {
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -144,12 +134,11 @@ export class CondaPackageManager implements IPackageManager {
         const envPrefix = await this._getEnvironmentPrefix();
         const args = ['update', '--prefix', envPrefix, '--all', '-y'];
 
-        await this._executeCondaInTerminal(args, cancellation);
+        await this._executeCondaInTerminal(args, token);
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -157,7 +146,7 @@ export class CondaPackageManager implements IPackageManager {
 
         try {
             // Use wildcard pattern for partial matching
-            const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json'], cancellation);
+            const result = await this._executeCondaWithOutput(['search', `*${query}*`, '--json'], token);
             const json = parseCondaSearchResult(result);
 
             // Return unique package names with the latest version (sorted by timestamp)
@@ -181,15 +170,14 @@ export class CondaPackageManager implements IPackageManager {
     }
 
     async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
         await this._ensureConda();
 
         try {
-            const result = await this._executeCondaWithOutput(['search', name, '--json'], cancellation);
+            const result = await this._executeCondaWithOutput(['search', name, '--json'], token);
             const json = parseCondaSearchResult(result);
 
             // Get all unique versions for this package
@@ -263,9 +251,9 @@ export class CondaPackageManager implements IPackageManager {
     /**
      * Execute a conda command in the terminal (visible to user).
      * @param args The conda arguments to execute
-     * @param token Cancellation token
+     * @param token Optional cancellation token
      */
-    private async _executeCondaInTerminal(args: string[], token: vscode.CancellationToken): Promise<void> {
+    private async _executeCondaInTerminal(args: string[], token?: vscode.CancellationToken): Promise<void> {
         const condaFile = await this._getCondaFile();
         const terminalService = this._serviceContainer
             .get<ITerminalServiceFactory>(ITerminalServiceFactory)
@@ -273,7 +261,7 @@ export class CondaPackageManager implements IPackageManager {
         // Ensure terminal is created and ready before sending command
         await terminalService.show();
 
-        const disposable = token.onCancellationRequested(async () => {
+        const disposable = token?.onCancellationRequested(async () => {
             // Send Ctrl+C to interrupt the running command
             await terminalService.sendText('\x03');
         });
@@ -281,14 +269,14 @@ export class CondaPackageManager implements IPackageManager {
         try {
             await terminalService.sendCommand(condaFile, args, token);
         } finally {
-            disposable.dispose();
+            disposable?.dispose();
         }
     }
 
     /**
      * Execute a conda command and capture stdout.
      */
-    private async _executeCondaWithOutput(args: string[], token: vscode.CancellationToken): Promise<string> {
+    private async _executeCondaWithOutput(args: string[], token?: vscode.CancellationToken): Promise<string> {
         const condaFile = await this._getCondaFile();
         const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         const processService = await processServiceFactory.create();
@@ -301,12 +289,17 @@ export class CondaPackageManager implements IPackageManager {
      * Call a kernel method with cancellation support.
      * If the token is cancelled, interrupts the kernel (if supported).
      */
-    private async _callMethod<T>(method: string, token: vscode.CancellationToken, ...args: unknown[]): Promise<T> {
-        if (token.isCancellationRequested) {
+    private async _callMethod<T>(method: string, token?: vscode.CancellationToken, ...args: unknown[]): Promise<T> {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
         const resultPromise = this._session.callMethod(method, ...args) as Promise<T>;
+
+        // If no token provided, just return the method result
+        if (!token) {
+            return resultPromise;
+        }
 
         // Wrap callMethod promise with cancellation handling
         return new Promise<T>((resolve, reject) => {

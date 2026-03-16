@@ -296,50 +296,50 @@ export interface IPackageSpec {
 export interface ILanguageRuntimePackageManager {
 	/**
 	 * Get list of installed packages.
-	 * @param token Cancellation token
+	 * @param token Optional cancellation token
 	 */
-	getPackages(token: CancellationToken): Promise<ILanguageRuntimePackage[]>;
+	getPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
 	/**
 	 * Install the list of packages.
 	 * @param packages Array of package install requests with name and optional version
-	 * @param token Cancellation token
+	 * @param token Optional cancellation token
 	 */
-	installPackages(packages: IPackageSpec[], token: CancellationToken): Promise<void>;
+	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Uninstall the list of packages.
 	 * @param packageNames Array of package names to uninstall
-	 * @param token Cancellation token
+	 * @param token Optional cancellation token
 	 */
-	uninstallPackages(packageNames: string[], token: CancellationToken): Promise<void>;
+	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Update the list of packages.
 	 * @param packages Array of package install requests with name and optional version
-	 * @param token Cancellation token
+	 * @param token Optional cancellation token
 	 */
-	updatePackages(packages: IPackageSpec[], token: CancellationToken): Promise<void>;
+	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Update all installed packages.
-	 * @param token Cancellation token
+	 * @param token Optional cancellation token
 	 */
-	updateAllPackages(token: CancellationToken): Promise<void>;
+	updateAllPackages(token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Search a repository for packages matching the query.
 	 * @param query Search query string
-	 * @param token Cancellation token
+	 * @param token Optional cancellation token
 	 */
-	searchPackages(query: string, token: CancellationToken): Promise<ILanguageRuntimePackage[]>;
+	searchPackages(query: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
 	/**
 	 * Search a repository for available versions of a package.
 	 * @param name Package name
-	 * @param token Cancellation token
+	 * @param token Optional cancellation token
 	 */
-	searchPackageVersions(name: string, token: CancellationToken): Promise<string[]>;
+	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 }
 
 /**

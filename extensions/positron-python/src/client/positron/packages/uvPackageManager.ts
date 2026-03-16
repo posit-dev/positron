@@ -7,7 +7,6 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { CancellationTokenSource } from 'vscode';
 import { IWorkspaceService } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
 import { IProcessServiceFactory } from '../../common/process/types';
@@ -16,11 +15,6 @@ import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
-
-/** Get a non-cancelling token to use when no token is provided */
-function getNonCancellingToken(): vscode.CancellationToken {
-    return new CancellationTokenSource().token;
-}
 
 /**
  * uv Package Manager
@@ -39,8 +33,7 @@ export class UvPackageManager implements IPackageManager {
     ) {}
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', cancellation);
+        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
     }
 
     /**
@@ -59,8 +52,7 @@ export class UvPackageManager implements IPackageManager {
             return;
         }
 
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -72,11 +64,11 @@ export class UvPackageManager implements IPackageManager {
         if (useProjectWorkflow) {
             // Project workflow: uv add --active --python <path> <packages>
             const args = ['add', '--active', '--python', this._pythonPath, ...packageSpecs];
-            await this._executeUvInTerminal(args, cancellation);
+            await this._executeUvInTerminal(args, token);
         } else {
             // Environment workflow: uv pip install --python <path> <packages>
             const args = ['pip', 'install', '--python', this._pythonPath, ...packageSpecs];
-            await this._executeUvInTerminal(args, cancellation);
+            await this._executeUvInTerminal(args, token);
         }
     }
 
@@ -85,8 +77,7 @@ export class UvPackageManager implements IPackageManager {
             return;
         }
 
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -97,11 +88,11 @@ export class UvPackageManager implements IPackageManager {
         if (useProjectWorkflow) {
             // Project workflow: uv remove --active --python <path> <packages>
             const args = ['remove', '--active', '--python', this._pythonPath, ...packages];
-            await this._executeUvInTerminal(args, cancellation);
+            await this._executeUvInTerminal(args, token);
         } else {
             // Environment workflow: uv pip uninstall --python <path> <packages>
             const args = ['pip', 'uninstall', '--python', this._pythonPath, ...packages];
-            await this._executeUvInTerminal(args, cancellation);
+            await this._executeUvInTerminal(args, token);
         }
     }
 
@@ -110,8 +101,7 @@ export class UvPackageManager implements IPackageManager {
             return;
         }
 
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -123,17 +113,16 @@ export class UvPackageManager implements IPackageManager {
         if (useProjectWorkflow) {
             // Project workflow: uv add --upgrade --active --python <path> <packages>
             const args = ['add', '--upgrade', '--active', '--python', this._pythonPath, ...packageSpecs];
-            await this._executeUvInTerminal(args, cancellation);
+            await this._executeUvInTerminal(args, token);
         } else {
             // Environment workflow: uv pip install --upgrade --python <path> <packages>
             const args = ['pip', 'install', '--upgrade', '--python', this._pythonPath, ...packageSpecs];
-            await this._executeUvInTerminal(args, cancellation);
+            await this._executeUvInTerminal(args, token);
         }
     }
 
     async updateAllPackages(token?: vscode.CancellationToken): Promise<void> {
-        const cancellation = token ?? getNonCancellingToken();
-        if (cancellation.isCancellationRequested) {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
@@ -144,12 +133,12 @@ export class UvPackageManager implements IPackageManager {
         if (useProjectWorkflow) {
             // Project workflow: uv sync --upgrade --active --python <path>
             const args = ['sync', '--upgrade', '--active', '--python', this._pythonPath];
-            await this._executeUvInTerminal(args, cancellation);
+            await this._executeUvInTerminal(args, token);
         } else {
             // Environment workflow: get outdated packages and upgrade them
-            const outdatedPackages = await this._getOutdatedPackages(cancellation);
+            const outdatedPackages = await this._getOutdatedPackages(token);
 
-            if (cancellation.isCancellationRequested) {
+            if (token?.isCancellationRequested) {
                 throw new vscode.CancellationError();
             }
 
@@ -160,18 +149,16 @@ export class UvPackageManager implements IPackageManager {
 
             const packageNames = outdatedPackages.map((pkg) => pkg.name);
             const args = ['pip', 'install', '--upgrade', '--python', this._pythonPath, ...packageNames];
-            await this._executeUvInTerminal(args, cancellation);
+            await this._executeUvInTerminal(args, token);
         }
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        return searchPyPI(query, cancellation);
+        return searchPyPI(query, token);
     }
 
     async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
-        const cancellation = token ?? getNonCancellingToken();
-        return searchPyPIVersions(name, cancellation);
+        return searchPyPIVersions(name, token);
     }
 
     // =========================================================================
@@ -247,7 +234,7 @@ export class UvPackageManager implements IPackageManager {
     /**
      * Get list of outdated packages using uv pip list.
      */
-    private async _getOutdatedPackages(token: vscode.CancellationToken): Promise<Array<{ name: string }>> {
+    private async _getOutdatedPackages(token?: vscode.CancellationToken): Promise<Array<{ name: string }>> {
         const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         const processService = await processServiceFactory.create();
         const proxyEnv = this._getProxyEnv();
@@ -295,9 +282,9 @@ export class UvPackageManager implements IPackageManager {
     /**
      * Execute a uv command in the terminal (visible to user).
      * @param args The uv arguments to execute
-     * @param token Cancellation token
+     * @param token Optional cancellation token
      */
-    private async _executeUvInTerminal(args: string[], token: vscode.CancellationToken): Promise<void> {
+    private async _executeUvInTerminal(args: string[], token?: vscode.CancellationToken): Promise<void> {
         const proxyEnv = this._getProxyEnv();
         const terminalService = this._serviceContainer
             .get<ITerminalServiceFactory>(ITerminalServiceFactory)
@@ -305,7 +292,7 @@ export class UvPackageManager implements IPackageManager {
         // Ensure terminal is created and ready before sending command
         await terminalService.show();
 
-        const disposable = token.onCancellationRequested(async () => {
+        const disposable = token?.onCancellationRequested(async () => {
             // Send Ctrl+C to interrupt the running command
             await terminalService.sendText('\x03');
         });
@@ -313,7 +300,7 @@ export class UvPackageManager implements IPackageManager {
         try {
             await terminalService.sendCommand('uv', args, token);
         } finally {
-            disposable.dispose();
+            disposable?.dispose();
         }
     }
 
@@ -321,12 +308,17 @@ export class UvPackageManager implements IPackageManager {
      * Call a kernel method with cancellation support.
      * If the token is cancelled, interrupts the kernel (if supported).
      */
-    private async _callMethod<T>(method: string, token: vscode.CancellationToken, ...args: unknown[]): Promise<T> {
-        if (token.isCancellationRequested) {
+    private async _callMethod<T>(method: string, token?: vscode.CancellationToken, ...args: unknown[]): Promise<T> {
+        if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
         }
 
         const resultPromise = this._session.callMethod(method, ...args) as Promise<T>;
+
+        // If no token provided, just return the method result
+        if (!token) {
+            return resultPromise;
+        }
 
         // Wrap callMethod promise with cancellation handling
         return new Promise<T>((resolve, reject) => {

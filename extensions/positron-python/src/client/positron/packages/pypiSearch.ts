@@ -9,7 +9,10 @@ import * as vscode from 'vscode';
 /**
  * Create an AbortSignal from a CancellationToken for use with fetch.
  */
-function createAbortSignal(token: vscode.CancellationToken): AbortSignal {
+function createAbortSignal(token?: vscode.CancellationToken): AbortSignal | undefined {
+    if (!token) {
+        return undefined;
+    }
     const controller = new AbortController();
     token.onCancellationRequested(() => controller.abort());
     return controller.signal;
@@ -20,7 +23,7 @@ function createAbortSignal(token: vscode.CancellationToken): AbortSignal {
  */
 export async function searchPyPI(
     query: string,
-    token: vscode.CancellationToken,
+    token?: vscode.CancellationToken,
 ): Promise<positron.LanguageRuntimePackage[]> {
     try {
         const response = await fetch('https://pypi.org/simple/', {
@@ -51,7 +54,7 @@ export async function searchPyPI(
 /**
  * Search PyPI for available versions of a specific package.
  */
-export async function searchPyPIVersions(name: string, token: vscode.CancellationToken): Promise<string[]> {
+export async function searchPyPIVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
     try {
         const response = await fetch(`https://pypi.org/simple/${name}/`, {
             headers: { Accept: 'application/vnd.pypi.simple.v1+json' },

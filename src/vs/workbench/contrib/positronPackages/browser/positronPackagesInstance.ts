@@ -130,7 +130,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	async installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
 		const effectiveToken = token ?? CancellationToken.None;
-		console.log(`FOO: effectiveToken = ${effectiveToken === CancellationToken.None}`);
 
 		// Loading
 		this._onDidChangeInstallState.fire(true);
