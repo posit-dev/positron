@@ -89,5 +89,12 @@
 		.show-hidden-output-button:focus-visible {
 			outline-offset: 2px !important;
 		}
+
+		/* Scale plot images to fit the output viewport without exceeding
+		   their natural size or changing their aspect ratio. */
+		& > img {
+			max-width: 100%;
+			height: auto;
+		}
 	}
 }
