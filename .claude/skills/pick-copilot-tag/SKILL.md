@@ -18,7 +18,7 @@ Use this skill when:
 ## Prerequisites
 
 - GitHub CLI (`gh`) installed and authenticated
-- `python3` available
+- `jq` and `python3` available
 
 ## Workflow
 
@@ -61,6 +61,7 @@ The script outputs each tag as OK or BAD with specific mismatches. Report:
 - A recommendation
 
 Use `-v` / `--verbose` to show the full proposals list instead of just the count.
+Use `--pre-releases` to also check date-based pre-release tags (skipped by default).
 
 ## Example Output
 
@@ -81,9 +82,7 @@ BAD v0.37.9
 BAD v0.37.6
    chatHooks@6 (not in Positron)
 OK  v0.37.5
-Pre-releases (41 tags):
-OK  v0.37.2026020406
+Pre-releases (41 tags, skipped -- use --pre-releases to check)
 
 Latest compatible release: v0.37.5
-Latest compatible pre-release: v0.37.2026020406
 ```

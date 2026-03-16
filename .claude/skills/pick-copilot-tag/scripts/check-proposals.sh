@@ -19,7 +19,7 @@
 #                                    Looks up the release tag on GitHub, retrieves the
 #                                    Code OSS version and proposals from that build.
 #
-# Requires: gh, python3
+# Requires: gh, jq, python3
 
 set -euo pipefail
 
