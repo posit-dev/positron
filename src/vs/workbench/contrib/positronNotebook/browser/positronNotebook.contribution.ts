@@ -57,6 +57,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
@@ -1612,6 +1613,7 @@ registerAction2(class extends NotebookAction2 {
 	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const clipboardService = accessor.get(IClipboardService);
 		const logService = accessor.get(ILogService);
+		const notificationService = accessor.get(INotificationService);
 
 		// Look for a CopyImageMenuArg forwarded from the context menu
 		const menuArg = args.find(isCopyImageMenuArg);
@@ -1638,10 +1640,10 @@ registerAction2(class extends NotebookAction2 {
 			await clipboardService.writeImage(toBase64DataUrl(dataUrl));
 		} catch (err) {
 			logService.error('Failed to copy image to clipboard:', err);
+			notificationService.error(localize('copyImageFailed', "Failed to copy image to clipboard"));
 		}
 	}
 });
-
 
 //#endregion Cell Commands
 
