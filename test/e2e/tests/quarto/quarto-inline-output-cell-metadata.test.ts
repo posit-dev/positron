@@ -44,4 +44,27 @@ test.describe('Quarto - Inline Output: Cell Metadata', {
 		expect(metadata['fig-width']).toBe(4);
 		expect(metadata['fig-height']).toBe(3);
 	});
+
+	test('Python - Inline output includes output_width_px in execution metadata', async function ({ python, app, openFile }) {
+		const { editors, inlineQuarto } = app.workbench;
+
+		// Open the cell metadata test fixture
+		await openFile(join('workspaces', 'quarto_inline_output', 'cell_metadata.qmd'));
+		await editors.waitForActiveTab('cell_metadata.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+
+		// Run the cell containing #| fig-width: 4 and #| fig-height: 3
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 8, outputLine: 11 });
+
+		// Get the output text (JSON from %_positron_exec_metadata magic)
+		const outputText = await inlineQuarto.getOutputItemAt(0).textContent();
+		expect(outputText).toBeTruthy();
+
+		const metadata = JSON.parse(outputText!.trim());
+
+		// output_width_px should be present and have a reasonable nonzero value
+		expect(metadata['output_width_px']).toBeDefined();
+		expect(typeof metadata['output_width_px']).toBe('number');
+		expect(metadata['output_width_px']).toBeGreaterThan(100);
+	});
 });
