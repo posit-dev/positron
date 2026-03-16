@@ -9,6 +9,12 @@
 		var(--monaco-monospace-font)
 	);
 	font-size: var(--vscode-positronNotebook-text-output-font-size);
+	/* Don't wrap text by default */
+	white-space: pre;
+}
+
+.positron-notebook-text-output.word-wrap {
+	/* Wrap text when word-wrap is enabled */
 	white-space: pre-wrap;
 }
 
