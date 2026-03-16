@@ -205,8 +205,6 @@ runs:
       with:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
-        restore-keys: |
-          builtins-${{ runner.os }}-
 
     - name: Get Playwright version
       if: ${{ inputs.restore-playwright == 'true' }}
