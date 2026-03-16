@@ -78,7 +78,7 @@ resolve_positron_version() {
 	[[ -n "$pkg_content" ]] || die "Empty package.json content from $POSITRON_REPO at tag $tag"
 
 	_POSITRON_TAG="$tag"
-	_POSITRON_CODE_VERSION=$(echo "$pkg_content" | base64 -d | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])")
+	_POSITRON_CODE_VERSION=$(echo "$pkg_content" | base64 -d | jq -r '.version')
 	echo "Code OSS version: $_POSITRON_CODE_VERSION"
 }
 
@@ -157,11 +157,8 @@ discover_tag_series() {
 		[[ -n "$content" ]] || continue
 
 		local engine
-		engine=$(echo "$content" | base64 -d 2>/dev/null | python3 -c "
-import sys, json
-pkg = json.load(sys.stdin)
-print(pkg.get('engines', {}).get('vscode', 'unknown'))
-" 2>/dev/null) || continue
+		engine=$(echo "$content" | base64 -d 2>/dev/null \
+			| jq -r '.engines.vscode // "unknown"' 2>/dev/null) || continue
 
 		# Parse engine minor version from e.g. ^1.109.0
 		local engine_minor
@@ -236,16 +233,13 @@ check_tag_list() {
 
 		# Parse engine and proposals in one shot
 		local parsed
-		parsed=$(echo "$content" | base64 -d 2>/dev/null | python3 -c "
-import sys, json, re
-pkg = json.load(sys.stdin)
-engine = pkg.get('engines', {}).get('vscode', '')
-m = re.search(r'(\d+)\.(\d+)', engine)
-print(m.group(2) if m else '')
-print(engine)
-for p in sorted(p for p in pkg.get('enabledApiProposals', []) if '@' in p):
-    print(p)
-" 2>/dev/null) || continue
+		parsed=$(echo "$content" | base64 -d 2>/dev/null | jq -r '
+			(.engines.vscode // "") as $engine |
+			($engine | capture("(?<maj>[0-9]+)\\.(?<min>[0-9]+)") // null) as $m |
+			(if $m then $m.min else "" end),
+			$engine,
+			([(.enabledApiProposals // [])[] | select(contains("@"))] | sort | .[])
+		' 2>/dev/null) || continue
 
 		local tag_engine_minor tag_engine ext_proposals
 		tag_engine_minor=$(echo "$parsed" | sed -n '1p')
@@ -393,7 +387,7 @@ echo ""
 if [[ -n "$TAG_PREFIX" ]]; then
 	# Try to get Code OSS version for per-tag engine checking
 	if [[ -z "$_CODE_OSS_MINOR" && -f "package.json" ]]; then
-		local_version=$(python3 -c "import json; print(json.load(open('package.json'))['version'])" 2>/dev/null) || true
+		local_version=$(jq -r '.version' package.json 2>/dev/null) || true
 		_CODE_OSS_MINOR=$(echo "$local_version" | cut -d. -f2)
 	fi
 	# Explicit tag prefix -- check just that series
@@ -402,7 +396,7 @@ else
 	# Determine Code OSS version (if not already set by --positron-version)
 	if [[ -z "$_CODE_OSS_MINOR" ]]; then
 		if [[ -f "package.json" ]]; then
-			code_oss_version=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+			code_oss_version=$(jq -r '.version' package.json)
 		else
 			die "No tag prefix given and no package.json found. Run from the Positron repo root, pass --positron-version, or pass an explicit tag prefix."
 		fi
