@@ -157,8 +157,7 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
-			// Remove packages and update lockfile
-			code = `renv::remove(${pkgVector}); renv::snapshot(prompt = FALSE)`;
+			code = `renv::remove(${pkgVector})`;
 		} else {
 			const method = await this._getPakMethod();
 
@@ -179,6 +178,11 @@ export class RPackageManager {
 			await this._executeSilently(unloadCode);
 		} catch {
 			// Ignore errors from namespace unloading
+		}
+
+		// Update renv lockfile after removal
+		if (isRenv) {
+			await this._executeSilently('renv::snapshot(prompt = FALSE)');
 		}
 
 		this._session.invalidatePackageResourceCaches();
