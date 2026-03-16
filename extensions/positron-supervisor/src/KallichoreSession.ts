@@ -805,18 +805,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
 
-		if (codeLocation) {
+		// If a code location or execution metadata is provided, include it in the request
+		if (codeLocation || executionMetadata) {
 			request.positron = {
-				code_location: {
-					uri: codeLocation.uri.toString(),
-					range: codeLocation.range,
-				}
-			};
-		}
-
-		if (executionMetadata) {
-			request.positron = {
-				...request.positron,
+				...(codeLocation ? {
+					code_location: {
+						uri: codeLocation.uri.toString(),
+						range: codeLocation.range
+					}
+				} : {}),
 				...executionMetadata
 			};
 		}
