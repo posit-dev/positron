@@ -31,6 +31,7 @@ import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '..
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
@@ -118,6 +119,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		@ILogService private readonly _logService: ILogService,
 		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IProgressService private readonly _progressService: IProgressService,
@@ -564,22 +566,49 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 * Returns undefined if the notebook editor widget is not available.
 	 */
 	private _getExecutionMetadata(notebookUri: URI): Record<string, unknown> | undefined {
+		// Try the standard VS Code notebook editor widget first.
 		const borrowed = this._notebookEditorService.retrieveExistingWidgetFromURI(notebookUri);
 		const widget = borrowed?.value;
-		if (!widget) {
-			return undefined;
+		if (widget) {
+			const layoutInfo = widget.getLayoutInfo();
+			const { cellRightMargin } = widget.notebookOptions.getLayoutConfiguration();
+			const leftMargin = widget.notebookOptions.getCellEditorContainerLeftMargin();
+			const outputWidthPx = layoutInfo.width - leftMargin - cellRightMargin;
+			const outputPixelRatio = getWindow(widget.getDomNode()).devicePixelRatio;
+
+			return {
+				output_width_px: outputWidthPx,
+				output_pixel_ratio: outputPixelRatio,
+			};
 		}
 
-		const layoutInfo = widget.getLayoutInfo();
-		const { cellRightMargin } = widget.notebookOptions.getLayoutConfiguration();
-		const leftMargin = widget.notebookOptions.getCellEditorContainerLeftMargin();
-		const outputWidthPx = layoutInfo.width - leftMargin - cellRightMargin;
-		const outputPixelRatio = getWindow(widget.getDomNode()).devicePixelRatio;
+		// Fall back to Positron notebook instances.
+		const instances = this._positronNotebookService.listInstances(notebookUri);
+		const instance = instances[0];
+		if (instance?.connectedToEditor) {
+			const domNode = instance.getDomNode();
+			const cellsContainer = instance.cellsContainer;
 
-		return {
-			output_width_px: outputWidthPx,
-			output_pixel_ratio: outputPixelRatio,
-		};
+			// Compute the available output width from the cells container.
+			// The CSS layout chain is:
+			//   .positron-notebook-cells-container: padding-inline 1rem (16px each side)
+			//   .positron-notebook-cell: margin-left 12px
+			//   .positron-notebook-code-cell-outputs-inner: padding-inline 0.5rem (8px each side)
+			// clientWidth includes padding, so we subtract it to get the content area.
+			const cellsContainerPaddingInline = 32;
+			const cellMarginLeft = 12;
+			const outputInnerPadding = 16;
+			const baseWidth = cellsContainer?.clientWidth ?? domNode.clientWidth;
+			const outputWidthPx = baseWidth - cellsContainerPaddingInline - cellMarginLeft - outputInnerPadding;
+			const outputPixelRatio = getWindow(domNode).devicePixelRatio;
+
+			return {
+				output_width_px: outputWidthPx,
+				output_pixel_ratio: outputPixelRatio,
+			};
+		}
+
+		return undefined;
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableProducer<VariablesResult> {
