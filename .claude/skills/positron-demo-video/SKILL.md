@@ -80,19 +80,18 @@ Revise the script based on feedback. Keep presenting the updated script until th
 
 Once the script is approved:
 
-1. **Infrastructure check** -- verify the one-time setup is in place (see `references/infrastructure-setup.md`)
-2. **Write the demo test** -- translate the script into a Playwright test at `test/e2e/demos/<name>.demo.test.ts`
+1. **Write the demo test** -- translate the script into a Playwright test at `test/e2e/demos/<name>.demo.test.ts`
    - Use `setupDemoLayout()` to collapse panels and enable screencast mode
    - Include `...DEMO_SCREENCAST_SETTINGS` in the test's `settingsFile.append()`
    - Use `narrate()` / `showOverlay()` for captions
    - Use `pause()` between actions for pacing
    - See `references/demo-patterns.md` for code patterns
-3. **Run it:**
+2. **Run it:**
    ```bash
    DEMO_RECORD_VIDEO=1 npx playwright test test/e2e/demos/<name>.demo.test.ts \
      --project e2e-electron --reporter list --timeout 300000
    ```
-4. **Trim and convert** -- use a subagent to find the start trim point (where initialization ends) and end trim point (where cleanup begins), then:
+3. **Trim and convert** -- use a subagent to find the start trim point (where initialization ends) and end trim point (where cleanup begins), then:
    ```bash
    ffmpeg -ss <START_SECONDS> -t <DURATION> -i demo-videos/<hash>.webm \
      -c:v libx264 -crf 20 -preset slow -an demo-videos/<name>.mp4
@@ -140,34 +139,7 @@ If the user wants changes, go back to the appropriate phase:
 
 ## Technical Reference
 
-### File Naming
-```
-test/e2e/demos/<feature-name>.demo.test.ts
-```
-Files must end in `.test.ts` (Playwright config requires it).
-
-### Demo Utilities (`test/e2e/demos/demo-utils.ts`)
-
-| Function | Purpose |
-|----------|---------|
-| `setupDemoLayout(app, page)` | Collapse sidebars/panels, enable screencast mode |
-| `DEMO_SCREENCAST_SETTINGS` | Settings object to spread into `settingsFile.append()` |
-| `pause(page, ms)` | Wait between actions |
-| `narrate(page, text, holdMs)` | Show overlay + wait for viewer to read |
-| `showOverlay(page, text)` | Set overlay text (persists until changed) |
-| `humanType(page, locator, text)` | Type at 80ms/keystroke |
-| `humanClick(page, locator)` | Click with 250ms hold (visible in screencast mode) |
-| `humanHover(page, locator)` | Hover with pauses |
-| `zoomTo(page, locator, opts?)` | Smoothly zoom into an element (CSS transform, text stays sharp) |
-| `zoomReset(page, opts?)` | Smoothly zoom back to normal |
-
-### Pacing Guidelines
-
-- Between major steps: 1500ms
-- After clicks: 800ms
-- After typing: 1000ms
-- Start/end: 2000ms
-- Typing speed: 80ms per keystroke
+Demo test files live in `test/e2e/demos/`. See `demo-utils.ts` for available helper functions (overlay text, human-speed typing/clicking, zoom, pacing, etc.) and existing `.demo.test.ts` files for examples. See `references/demo-patterns.md` for common demo patterns.
 
 ### Video Output
 
@@ -175,8 +147,3 @@ Files must end in `.test.ts` (Playwright config requires it).
 - GitHub free: 10MB limit / paid: 100MB limit
 - First ~10-15s is initialization (always trimmed)
 - WebM works on GitHub; MP4 has better Safari compat
-
-## Reference Docs
-
-- `references/infrastructure-setup.md` - One-time setup for video recording support
-- `references/demo-patterns.md` - Common demo patterns and code examples
