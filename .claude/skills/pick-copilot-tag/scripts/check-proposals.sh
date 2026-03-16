@@ -5,13 +5,18 @@
 #   ./check-proposals.sh                              # auto-detect from repo
 #   ./check-proposals.sh <proposals-source>            # auto-discover tags
 #   ./check-proposals.sh <proposals-source> <tag-prefix>  # explicit tag series
+#   ./check-proposals.sh --positron-version 2026.03.0  # check against a release
+#   ./check-proposals.sh --positron-version 2026.03.0 v0.37  # release + explicit series
 #
 # With no arguments, reads package.json for the Code OSS version, extracts
 # proposals from the source tree, and discovers compatible tag series
 # automatically.
 #
 # Options:
-#   -v, --verbose   Show full list of Positron proposals (default: count only)
+#   -v, --verbose                    Show full list of Positron proposals (default: count only)
+#   --positron-version <version>     Check against a Positron release (e.g. 2026.03.0)
+#                                    Looks up the release tag on GitHub, retrieves the
+#                                    Code OSS version and proposals from that build.
 #
 # Requires: gh, python3
 
@@ -19,22 +24,78 @@ set -euo pipefail
 
 REPO="microsoft/vscode-copilot-chat"
 PROPOSALS_TS="src/vs/platform/extensions/common/extensionsApiProposals.ts"
+POSITRON_REPO="posit-dev/positron"
 VERBOSE=false
+POSITRON_VERSION=""
 
 die() { echo "error: $*" >&2; exit 1; }
 
 # --- Parse flags ---------------------------------------------------------------
 
 args=()
-for arg in "$@"; do
-	case "$arg" in
-		-v|--verbose) VERBOSE=true ;;
-		*) args+=("$arg") ;;
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		-v|--verbose) VERBOSE=true; shift ;;
+		--positron-version)
+			[[ -n "${2:-}" ]] || die "--positron-version requires a version (e.g. 2026.03.0)"
+			POSITRON_VERSION="$2"; shift 2 ;;
+		*) args+=("$1"); shift ;;
 	esac
 done
 set -- "${args[@]+${args[@]}}"
 
+# --- Resolve Positron release tag ---------------------------------------------
+# Given a Positron version (e.g. 2026.03.0 or 2026.03.0-212), find the
+# published release tag on GitHub and extract its Code OSS version.
+# Sets: _POSITRON_TAG, _POSITRON_CODE_VERSION
+
+resolve_positron_version() {
+	local version="$1"
+
+	# If the version already includes a build number, use it directly.
+	# Otherwise, find the latest published release matching the prefix.
+	local tag
+	if [[ "$version" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]+-[0-9]+$ ]]; then
+		tag="$version"
+	elif [[ "$version" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]+$ ]]; then
+		tag=$(gh api "repos/$POSITRON_REPO/releases" --paginate \
+			--jq ".[].tag_name | select(startswith(\"$version-\"))" \
+			| sort -t- -k2 -rn | head -1)
+		[[ -n "$tag" ]] || die "No published release found for Positron $version"
+	else
+		die "--positron-version must be YYYY.MM.PATCH or YYYY.MM.PATCH-BUILD (e.g. 2026.03.0), got: $version"
+	fi
+
+	echo "Positron release: $tag"
+
+	# Fetch Code OSS version from that tag's package.json
+	local pkg_content
+	pkg_content=$(gh api "repos/$POSITRON_REPO/contents/package.json?ref=$tag" \
+		--jq '.content' 2>/dev/null) || die "Could not fetch package.json from $POSITRON_REPO at tag $tag"
+	[[ -n "$pkg_content" ]] || die "Empty package.json content from $POSITRON_REPO at tag $tag"
+
+	_POSITRON_TAG="$tag"
+	_POSITRON_CODE_VERSION=$(echo "$pkg_content" | base64 -d | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])")
+	echo "Code OSS version: $_POSITRON_CODE_VERSION"
+}
+
 # --- Resolve Positron proposals ------------------------------------------------
+
+# Fetch proposals from a remote Positron tag on GitHub.
+resolve_proposals_from_tag() {
+	local tag="$1"
+	local content
+	content=$(gh api "repos/$POSITRON_REPO/contents/$PROPOSALS_TS?ref=$tag" \
+		--jq '.content' 2>/dev/null) || die "Could not fetch $PROPOSALS_TS from $POSITRON_REPO at tag $tag"
+	[[ -n "$content" ]] || die "Empty proposals file from $POSITRON_REPO at tag $tag"
+
+	echo "$content" | base64 -d | python3 -c "
+import re, sys
+content = sys.stdin.read()
+for m in re.finditer(r'(\w+)\s*:\s*\{[^}]*version\s*:\s*(\d+)', content):
+    print(f'{m.group(1)}@{m.group(2)}')
+" | sort -u
+}
 
 resolve_proposals() {
 	local source="$1"
@@ -75,8 +136,6 @@ discover_tag_series() {
 	local code_oss_version="$1"
 	local code_oss_minor
 	code_oss_minor=$(echo "$code_oss_version" | cut -d. -f2)
-
-	echo "Code OSS version: $code_oss_version"
 
 	# List all unique tag series (check last 5 minor versions)
 	local all_series
@@ -286,43 +345,63 @@ check_series() {
 #   _LATEST_OK         - highest compatible release tag (set by check_series)
 #   _LATEST_PRERELEASE - highest compatible pre-release tag (set by check_series)
 
-PROPOSALS_SOURCE="${1:-}"
-TAG_PREFIX="${2:-}"
 _CODE_OSS_MINOR=""
 _LATEST_OK=""
 _LATEST_PRERELEASE=""
 
-# Default proposals source to the TypeScript file in the repo
-if [[ -z "$PROPOSALS_SOURCE" ]]; then
-	[[ -f "$PROPOSALS_TS" ]] || die "No proposals source given and $PROPOSALS_TS not found. Run from the Positron repo root or pass an explicit path."
-	PROPOSALS_SOURCE="$PROPOSALS_TS"
+# When --positron-version is given, the only positional arg (if any) is a tag
+# prefix to select a specific series. Otherwise, positionals are
+# [proposals-source [tag-prefix]].
+if [[ -n "$POSITRON_VERSION" ]]; then
+	[[ $# -le 1 ]] || die "--positron-version accepts at most one positional argument (tag prefix), got $#"
+	PROPOSALS_SOURCE=""
+	TAG_PREFIX="${1:-}"
+	resolve_positron_version "$POSITRON_VERSION"
+	code_oss_version="$_POSITRON_CODE_VERSION"
+	_CODE_OSS_MINOR=$(echo "$code_oss_version" | cut -d. -f2)
+	positron_proposals=$(resolve_proposals_from_tag "$_POSITRON_TAG")
+	proposals_label="$POSITRON_REPO@$_POSITRON_TAG"
+else
+	PROPOSALS_SOURCE="${1:-}"
+	TAG_PREFIX="${2:-}"
+	# Default proposals source to the TypeScript file in the repo
+	if [[ -z "$PROPOSALS_SOURCE" ]]; then
+		[[ -f "$PROPOSALS_TS" ]] || die "No proposals source given and $PROPOSALS_TS not found. Run from the Positron repo root or pass an explicit path."
+		PROPOSALS_SOURCE="$PROPOSALS_TS"
+	fi
+	positron_proposals=$(resolve_proposals "$PROPOSALS_SOURCE")
+	proposals_label="$PROPOSALS_SOURCE"
 fi
 
-positron_proposals=$(resolve_proposals "$PROPOSALS_SOURCE")
 proposal_count=$(echo "$positron_proposals" | wc -l | tr -d ' ')
 
 if [[ "$VERBOSE" == true ]]; then
-	echo "Positron proposals ($proposal_count versioned, from $PROPOSALS_SOURCE):"
+	echo "Positron proposals ($proposal_count versioned, from $proposals_label):"
 	echo "$positron_proposals" | sed 's/^/  /'
 else
-	echo "Positron proposals: $proposal_count versioned (from $PROPOSALS_SOURCE)"
+	echo "Positron proposals: $proposal_count versioned (from $proposals_label)"
 fi
 echo ""
 
 if [[ -n "$TAG_PREFIX" ]]; then
 	# Try to get Code OSS version for per-tag engine checking
-	if [[ -f "package.json" ]]; then
+	if [[ -z "$_CODE_OSS_MINOR" && -f "package.json" ]]; then
 		local_version=$(python3 -c "import json; print(json.load(open('package.json'))['version'])" 2>/dev/null) || true
 		_CODE_OSS_MINOR=$(echo "$local_version" | cut -d. -f2)
 	fi
 	# Explicit tag prefix -- check just that series
 	check_series "$TAG_PREFIX" "$positron_proposals"
 else
-	# Auto-discover compatible series from package.json
-	[[ -f "package.json" ]] || die "No tag prefix given and no package.json found. Run from the Positron repo root or pass an explicit tag prefix."
-	code_oss_version=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
-	_CODE_OSS_MINOR=$(echo "$code_oss_version" | cut -d. -f2)
-
+	# Determine Code OSS version (if not already set by --positron-version)
+	if [[ -z "$_CODE_OSS_MINOR" ]]; then
+		if [[ -f "package.json" ]]; then
+			code_oss_version=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+		else
+			die "No tag prefix given and no package.json found. Run from the Positron repo root, pass --positron-version, or pass an explicit tag prefix."
+		fi
+		_CODE_OSS_MINOR=$(echo "$code_oss_version" | cut -d. -f2)
+		echo "Code OSS version: $code_oss_version"
+	fi
 	discover_tag_series "$code_oss_version"
 	[[ -n "$_CANDIDATES" ]] || die "No compatible tag series found for Code OSS $code_oss_version"
 
