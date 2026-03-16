@@ -373,7 +373,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 			// Get the code content and parse execution options
 			const code = textModel.getValueInRange(clampedRange);
-			const { options, optionLineCount } = parseCellExecutionOptions(code);
+			const { options, optionLineCount, metadata } = parseCellExecutionOptions(code);
 
 			// Calculate effective code range (excluding option lines at the start)
 			let effectiveCodeRange = clampedRange;
@@ -386,12 +386,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				);
 			}
 
+			// Merge cell-option metadata with any externally-provided metadata.
+			// Cell options are the base; external metadata (from the API) wins on conflict.
+			const cellMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
+			const externalMetadata = executionMetadata?.[rangeIdx];
+			const mergedMetadata = cellMetadata || externalMetadata
+				? { ...cellMetadata, ...externalMetadata }
+				: undefined;
+
 			executions.push({
 				cell: containingCell,
 				codeRange: clampedRange,
 				effectiveCodeRange,
 				options,
-				executionMetadata: executionMetadata?.[rangeIdx],
+				executionMetadata: mergedMetadata,
 			});
 		}
 
@@ -1646,7 +1654,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		// Parse execution options from cell code
 		const code = textModel.getValueInRange(codeRange);
-		const { options, optionLineCount } = parseCellExecutionOptions(code);
+		const { options, optionLineCount, metadata } = parseCellExecutionOptions(code);
 
 		// Calculate effective code range (excluding option lines at the start)
 		let effectiveCodeRange = codeRange;
@@ -1664,7 +1672,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		await this._persistQueueState(documentUri);
 
 		// Delegate to the unified range execution with parsed options
-		const hadError = await this._executeRange(documentUri, currentCell, effectiveCodeRange, options, token);
+		const executionMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
+		const hadError = await this._executeRange(documentUri, currentCell, effectiveCodeRange, options, token, executionMetadata);
 		return { hadError, options };
 	}
 

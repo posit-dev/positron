@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { parse as parseYaml, YamlObjectNode } from '../../../../base/common/yaml.js';
+import { parse as parseYaml, YamlNode, YamlObjectNode } from '../../../../base/common/yaml.js';
 
 /**
  * Execution options parsed from cell YAML comments.
@@ -55,7 +55,34 @@ export interface ParsedCellOptions {
 	options: QuartoCellExecutionOptions;
 	/** Number of option lines at the start of the code */
 	optionLineCount: number;
+	/** All non-execution cell options as a plain key-value record */
+	metadata: Record<string, unknown>;
 }
+
+/**
+ * Recursively convert a YAML AST node to a plain JavaScript value.
+ */
+function yamlNodeToValue(node: YamlNode): unknown {
+	switch (node.type) {
+		case 'string': return node.value;
+		case 'number': return node.value;
+		case 'boolean': return node.value;
+		case 'null': return null;
+		case 'array': return node.items.map(yamlNodeToValue);
+		case 'object': {
+			const result: Record<string, unknown> = {};
+			for (const prop of node.properties) {
+				result[prop.key.value] = yamlNodeToValue(prop.value);
+			}
+			return result;
+		}
+	}
+}
+
+/**
+ * Keys that are handled as execution options and should not appear in metadata.
+ */
+const EXECUTION_OPTION_KEYS = new Set(['eval', 'error']);
 
 /**
  * Parse execution options from cell code content.
@@ -93,6 +120,7 @@ export function parseCellExecutionOptions(code: string): ParsedCellOptions {
 
 	// Start with defaults
 	const options: QuartoCellExecutionOptions = { ...DEFAULT_CELL_EXECUTION_OPTIONS };
+	const metadata: Record<string, unknown> = {};
 
 	if (optionLines.length > 0) {
 		// Parse accumulated option lines as YAML
@@ -112,11 +140,16 @@ export function parseCellExecutionOptions(code: string): ParsedCellOptions {
 				if (key === 'error' && value.type === 'boolean') {
 					(options as { error: boolean }).error = value.value;
 				}
+
+				// Collect non-execution options as metadata
+				if (!EXECUTION_OPTION_KEYS.has(key)) {
+					metadata[key] = yamlNodeToValue(value);
+				}
 			}
 		}
 	}
 
-	return { options, optionLineCount };
+	return { options, optionLineCount, metadata };
 }
 
 /**
