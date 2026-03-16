@@ -23,7 +23,7 @@ test.describe('Postgres DB Connection', {
 
 		await app.workbench.connections.openConnectionPane();
 
-		await app.workbench.connections.initiateConnection('Python', 'PostgresSQL');
+		await app.workbench.connections.initiateConnection('Python', 'PostgreSQL');
 
 		await app.workbench.connections.fillConnectionsInputs({
 			'Database Name': dbName,
@@ -91,7 +91,7 @@ test.describe('Postgres DB Connection', {
 
 		await app.workbench.connections.openConnectionPane();
 
-		await app.workbench.connections.initiateConnection('R', 'PostgresSQL');
+		await app.workbench.connections.initiateConnection('R', 'PostgreSQL');
 
 		await app.workbench.connections.fillConnectionsInputs({
 			'Database Name': dbName,
