@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { defineConfig } from '@playwright/test';
+import { defineConfig, ReporterDescription } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import * as fs from 'fs';
 
@@ -35,14 +35,26 @@ const baseIgnore = [
 	'**/assistant-eval/**',
 ];
 
+let reporter: ReporterDescription[];
+if (process.env.CI) {
+	reporter = [
+		...githubSummaryReport,
+		...customReporter,
+		['json', { outputFile: jsonOut }],
+		['list'], ['html'], ['blob'],
+	];
+} else {
+	reporter = [['list']];
+	if (!process.env.CLAUDE_CODE) {
+		reporter.push(['html', { open: 'on-failure' }]);
+	}
+}
+
 export default defineConfig<CustomTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
-	shardingMode: 'duration-round-robin',
-	// @ts-expect-error lastRunFile added by playwright patch
-	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: process.env.ALLOW_PYREFLY === 'true'
 		? baseIgnore
 		: [...baseIgnore, '**/lsp/**'],
@@ -58,17 +70,7 @@ export default defineConfig<CustomTestOptions>({
 	expect: {
 		timeout: 15000,
 	},
-	reporter: process.env.CI
-		? [
-			...githubSummaryReport,
-			...customReporter,
-			['json', { outputFile: jsonOut }],
-			['list'], ['html'], ['blob'],
-		]
-		: [
-			['list'],
-			['html', { open: 'on-failure' }],
-		],
+	reporter,
 
 
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -117,6 +119,7 @@ export default defineConfig<CustomTestOptions>({
 				headless: false,
 				browserName: 'firefox'
 			},
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-windows',
@@ -133,7 +136,7 @@ export default defineConfig<CustomTestOptions>({
 				headless: false,
 				browserName: 'webkit'
 			},
-			grep: /@:web/
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-edge',
@@ -143,7 +146,7 @@ export default defineConfig<CustomTestOptions>({
 				browserName: 'chromium',
 				channel: 'msedge',
 			},
-			grep: /@:web/
+			grep: /@:cross-browser/
 		},
 		{
 			name: 'e2e-server',

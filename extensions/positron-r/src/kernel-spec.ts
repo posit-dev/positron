@@ -380,12 +380,25 @@ export async function createJupyterKernelSpec(
 		}
 	}
 
-	// If this R is from an r-versions entry with a script, source it before launching R
+	// If this R is from an r-versions entry, handle module loading and/or script sourcing
 	if (packagerMetadata && isRVersionsMetadata(packagerMetadata)) {
-		if (packagerMetadata.script) {
+		// Handle module startup command and/or script
+		// If both are specified, module loads first, then script is sourced
+		if (packagerMetadata.moduleStartupCommand && packagerMetadata.script) {
+			startup_command = `${packagerMetadata.moduleStartupCommand} && . ${packagerMetadata.script}`;
+			LOGGER.info(`Using r-versions module and script: ${startup_command}`);
+		} else if (packagerMetadata.moduleStartupCommand) {
+			startup_command = packagerMetadata.moduleStartupCommand;
+			LOGGER.info(`Using r-versions module startup command: ${startup_command}`);
+		} else if (packagerMetadata.script) {
 			// Use POSIX-compatible source syntax (.) for portability
 			startup_command = `. ${packagerMetadata.script}`;
 			LOGGER.info(`Using r-versions startup script: ${packagerMetadata.script}`);
+		}
+		// Set custom library paths via R_LIBS environment variable
+		if (packagerMetadata.library) {
+			env['R_LIBS'] = packagerMetadata.library;
+			LOGGER.info(`Using r-versions library paths: ${packagerMetadata.library}`);
 		}
 	}
 

@@ -1160,6 +1160,55 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Interface for package management functionality.
+	 *
+	 * Provides package management operations for a language runtime session.
+	 * Runtimes that support package management should implement this interface
+	 * and return it from getPackageManager().
+	 */
+	export interface LanguageRuntimePackageManager {
+		/**
+		 * Get list of installed packages.
+		 */
+		getPackages(): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Install the list of packages.
+		 * @param packages Array of package install requests with name and optional version
+		 */
+		installPackages(packages: PackageSpec[]): Thenable<void>;
+
+		/**
+		 * Uninstall the list of packages.
+		 * @param packageNames Array of package names to uninstall
+		 */
+		uninstallPackages(packageNames: string[]): Thenable<void>;
+
+		/**
+		 * Update the list of packages.
+		 * @param packages Array of package install requests with name and optional version
+		 */
+		updatePackages(packages: PackageSpec[]): Thenable<void>;
+
+		/**
+		 * Update all installed packages.
+		 */
+		updateAllPackages(): Thenable<void>;
+
+		/**
+		 * Search a repository for packages matching the query.
+		 * @param query Search query string
+		 */
+		searchPackages(query: string): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Search a repository for available versions of a package.
+		 * @param name Package name
+		 */
+		searchPackageVersions(name: string): Thenable<string[]>;
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1205,6 +1254,7 @@ declare module 'positron' {
 		 * @param mode The code execution mode
 		 * @param errorBehavior The code execution error behavior
 		 * @param codeLocation Optionally, the location of `code` in the source editor.
+		 * @param executionMetadata Optionally, a record of additional metadata to associate with this execution.
 		 * Note: The errorBehavior parameter is currently ignored by kernels
 		 */
 		execute(
@@ -1213,6 +1263,7 @@ declare module 'positron' {
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior,
 			codeLocation?: Utf8Location,
+			executionMetadata?: Record<string, any>,
 		): void;
 
 		/**
@@ -1370,41 +1421,11 @@ declare module 'positron' {
 		showProfile?(): Thenable<void>;
 
 		/**
-		 * Get list of installed packages.
+		 * Get the package manager for this session, if available.
+		 *
+		 * Returns undefined if the runtime does not support package management.
 		 */
-		getPackages?(): Thenable<LanguageRuntimePackage[]>;
-
-		/**
-		 * Install the list of packages.
-		 * @param packages Array of package install requests with name and optional version
-		 */
-		installPackages?(packages: PackageSpec[]): Thenable<void>;
-
-		/**
-		 * Update the list of packages.
-		 * @param packages Array of package install requests with name and optional version
-		 */
-		updatePackages?(packages: PackageSpec[]): Thenable<void>;
-
-		/**
-		 * Update all installed packages.
-		 */
-		updateAllPackages?(): Thenable<void>;
-
-		/**
-		 * Uninstall the list of packages.
-		 */
-		uninstallPackages?(packageNames: string[]): Thenable<void>;
-
-		/**
-		 * Search a repository for packages matching the query.
-		 */
-		searchPackages?(query: string): Thenable<LanguageRuntimePackage[]>;
-
-		/**
-		 * Search a repository for available versions of a package.
-		 */
-		searchPackageVersions?(name: string): Thenable<string[]>;
+		getPackageManager?(): LanguageRuntimePackageManager;
 	}
 
 
@@ -1802,6 +1823,21 @@ declare module 'positron' {
 		Tiff = 'tiff'
 	}
 
+	/***
+	 * Represents the result of evaluating a code fragment in the runtime.
+	 */
+	export interface EvalResult {
+		/**
+		 * The value resulting from the code evaluation.
+		 */
+		result: any;
+
+		/**
+		 * The output emitted during code evaluation, if any.
+		 */
+		output: string;
+	}
+
 	namespace languages {
 		/**
 		 * Register a statement range provider.
@@ -2056,6 +2092,11 @@ declare module 'positron' {
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
 		 *  will be started.
+		 * @param documentUri An optional URI of the document in which the code to execute is located.
+		 * @param executionMetadata An optional object containing additional
+		 *  metadata to pass to the language runtime. Will be included in the
+		 *  `positron` field of the `metadata` argument passed to the runtime's
+		 *  `execute` method.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -2067,7 +2108,28 @@ declare module 'positron' {
 			errorBehavior?: RuntimeErrorBehavior,
 			observer?: ExecutionObserver,
 			sessionId?: string,
-			documentUri?: vscode.Uri): Thenable<Record<string, any>>;
+			documentUri?: vscode.Uri,
+			executionMetadata?: Record<string, any>): Thenable<Record<string, any>>;
+
+		/**
+		 * Evaluates code silently in a language runtime, without displaying
+		 * output in the console or notifying the user.
+		 *
+		 * @param languageId The language ID of the code snippet
+		 * @param code The code snippet to evaluate
+		 * @param cancellationToken An optional cancellation token that can be
+		 *  used to cancel the evaluation.
+		 * @param sessionId An optional session ID to evaluate the code in. If
+		 *  not provided, an appropriate session will be chosen, and if no
+		 *  session for the desired language is running at all, a new session
+		 *  will be started.
+		 * @returns A Thenable that resolves with the result of the code
+		 *  evaluation.
+		 */
+		export function evaluateCode(languageId: string,
+			code: string,
+			cancellationToken?: vscode.CancellationToken,
+			sessionId?: string): Thenable<EvalResult>;
 
 		/**
 		 * Executes a set of cells in a source document. The results are
@@ -2075,9 +2137,13 @@ declare module 'positron' {
 		 *
 		 * @param documentUri The URI of the document
 		 * @param range The ranges of the cells to execute
+		 * @param executionMetadata An optional array of metadata objects to
+		 *  pass to the language runtime, one for each cell being executed.
 		 */
 		export function executeInlineCell(documentUri: vscode.Uri,
-			cellRanges: vscode.Range[]): Thenable<void>;
+			cellRanges: vscode.Range[],
+			executionMetadata?: Record<string, any>[]
+		): Thenable<void>;
 
 		/**
 		 * Register a language runtime manager with Positron.
@@ -2146,6 +2212,13 @@ declare module 'positron' {
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
 			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
+
+		/**
+		 * Interrupt a running session.
+		 *
+		 * @param sessionId The ID of the session to interrupt.
+		 */
+		export function interruptSession(sessionId: string): Thenable<void>;
 
 		/**
 		 * Restart a running session.
@@ -2740,6 +2813,12 @@ declare module 'positron' {
 			 * to fit without taking too much context.
 			 */
 			allCells?: NotebookCell[];
+
+			/**
+			 * The current state of the runtime session (e.g. 'idle', 'busy', 'restarting').
+			 * Undefined if no runtime session is associated with this notebook.
+			 */
+			runtimeState?: string;
 		}
 
 		/**
@@ -2931,5 +3010,12 @@ declare module 'positron' {
 		 * @param cellIndex The index of the cell to scroll to
 		 */
 		export function scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Thenable<void>;
+
+		/**
+		 * Clear cell outputs in a notebook.
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndices Optional array of cell indices to clear. If omitted, clears all cells.
+		 */
+		export function clearCellOutputs(notebookUri: string, cellIndices?: number[]): Thenable<void>;
 	}
 }

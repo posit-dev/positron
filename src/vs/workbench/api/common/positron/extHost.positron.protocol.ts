@@ -22,6 +22,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
+import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -47,8 +48,8 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
-	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI): Promise<string>;
-	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[]): Promise<void>;
+	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>): Promise<string>;
+	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
 	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]>;
@@ -60,7 +61,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
 	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void>;
-	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void>;
+	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, executionMetadata?: Record<string, unknown>): Promise<void>;
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
 	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
@@ -71,6 +72,8 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
 	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void;
+	$evaluateCode(languageId: string, sessionId: string | undefined, code: string, evaluationId: string): Promise<EvalResult>;
+	$cancelEvaluation(sessionId: string, evaluationId: string): void;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -83,7 +86,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$disposeLanguageRuntime(handle: number): Promise<void>;
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, executionId?: string): void;
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, executionId?: string, executionMetadata?: Record<string, unknown>): void;
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus>;
 	$createClient(handle: number, id: string, type: RuntimeClientType, params: unknown, metadata?: unknown): Promise<void>;
 	$listClients(handle: number, type?: RuntimeClientType): Promise<Record<string, string>>;
@@ -234,6 +237,7 @@ export interface MainThreadNotebookFeaturesShape extends IDisposable {
 	$moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void>;
 	$reorderCells(notebookUri: string, newOrder: number[]): Promise<void>;
 	$scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void>;
+	$clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void>;
 }
 
 /**

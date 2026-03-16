@@ -94,10 +94,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.46",
+			"version": "2026.4.19",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
-			"type": "reh-web",
-			"sha256": "a5d808dc2964b389e433d57bbd97ba6d88aac9389468ab1f73a0adf01331ec3f",
+			"type": "reh-web-pwb",
+			"sha256": "2a08a4be73c55170f57fc784f1a47aab1795e9503a973dddee8ee170f2bd58c2",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -215,7 +215,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.35.3",
+			"version": "1.36.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -653,6 +653,10 @@
 			"GitHub.copilot-chat"
 		],
 		"posit-workbench": [
+			"positron.positron-assistant"
+		],
+		"anthropic-api": [
+			"positron.authentication",
 			"positron.positron-assistant"
 		]
 	}

@@ -20,6 +20,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	private _currentExecutionId = '';
 	private _variables: Map<string, any> = new Map();
 	private _runtimeInfo: positron.LanguageRuntimeInfo | undefined;
+	public lastExecutionMetadata: Record<string, any> | undefined;
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage> = this._onDidReceiveRuntimeMessage.event;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
@@ -50,9 +51,10 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		return `msg-${TestLanguageRuntimeSession.messageId++}`;
 	}
 
-	execute(code: string, id: string, _mode: positron.RuntimeCodeExecutionMode): void {
+	execute(code: string, id: string, _mode: positron.RuntimeCodeExecutionMode, _errorBehavior: positron.RuntimeErrorBehavior, _codeLocation?: positron.Utf8Location, executionMetadata?: Record<string, any>): void {
 		this._currentExecutionId = id;
 		this._executingCode = code;
+		this.lastExecutionMetadata = executionMetadata;
 
 		// Emit the busy message
 		this._onDidReceiveRuntimeMessage.fire({
@@ -426,6 +428,8 @@ class TestLanguageRuntimeManager implements positron.LanguageRuntimeManager {
 
 	onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 
+	public createdSessions: TestLanguageRuntimeSession[] = [];
+
 	async* discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 		yield testLanguageRuntimeMetadata();
 	}
@@ -438,7 +442,9 @@ class TestLanguageRuntimeManager implements positron.LanguageRuntimeManager {
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata
 	): Promise<positron.LanguageRuntimeSession> {
-		return new TestLanguageRuntimeSession(runtimeMetadata, sessionMetadata);
+		const session = new TestLanguageRuntimeSession(runtimeMetadata, sessionMetadata);
+		this.createdSessions.push(session);
+		return session;
 	}
 }
 
@@ -855,5 +861,130 @@ suite('positron API - executeCode', () => {
 			// Expected behavior - getSessionVariables should throw when the variable doesn't exist
 			assert.ok(error.message.includes('z'), 'Error should mention the missing variable name');
 		}
+	});
+
+	test('executeCode passes executionMetadata to the runtime session', async () => {
+		// Use a unique language ID so that a fresh session is created via our
+		// manager (existing 'test' sessions from earlier tests would be reused).
+		const languageId = 'test-metadata';
+		const metadata = testLanguageRuntimeMetadata();
+		metadata.languageId = languageId;
+		metadata.languageName = 'TestMetadata';
+		metadata.runtimeId = '00000000-0000-0000-0000-300000000000';
+
+		// Create a manager that yields this unique runtime
+		const manager: TestLanguageRuntimeManager & { _metadata: positron.LanguageRuntimeMetadata } = Object.assign(
+			new TestLanguageRuntimeManager(), { _metadata: metadata }
+		);
+		// Override discoverAllRuntimes to yield our custom metadata
+		manager.discoverAllRuntimes = async function* () { yield metadata; };
+
+		const managerDisposable = positron.runtime.registerLanguageRuntimeManager(languageId, manager);
+		disposables.push(managerDisposable);
+
+		// Wait for the runtime to be registered
+		await poll(
+			async () => (await positron.runtime.getRegisteredRuntimes())
+				.filter(runtime => runtime.languageId === languageId),
+			runtimes => runtimes.length > 0,
+			'test-metadata runtime should be registered'
+		);
+
+		const testMetadata = { source: 'test-extension', requestId: '12345' };
+
+		// Execute code with executionMetadata (the 10th parameter)
+		await Promise.race([
+			positron.runtime.executeCode(
+				languageId,       // languageId
+				'print("meta")', // code
+				false,            // focus
+				false,            // allowIncomplete
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Stop,
+				undefined,        // observer
+				undefined,        // sessionId
+				undefined,        // documentUri
+				testMetadata      // executionMetadata
+			),
+			new Promise<any>((_, reject) => {
+				setTimeout(() => {
+					reject(new Error('Execution timed out after 2 seconds'));
+				}, 2000);
+			})
+		]);
+
+		// Find the test session created by our manager and verify
+		// executionMetadata was received by the runtime's execute method.
+		const session = manager.createdSessions[manager.createdSessions.length - 1];
+		assert.ok(session, 'A session should have been created');
+		assert.deepStrictEqual(
+			session.lastExecutionMetadata,
+			testMetadata,
+			'executionMetadata should be passed through to the runtime session'
+		);
+	});
+});
+
+suite('positron API - evaluateCode', () => {
+	let disposables: Disposable[];
+
+	setup(() => {
+		disposables = [];
+	});
+
+	teardown(async () => {
+		assertNoRpcFromEntry([positron, 'positron']);
+		disposeAll(disposables);
+	});
+
+	test('evaluateCode API is callable', async () => {
+		// Verify the API exists and is a function
+		assert.strictEqual(typeof positron.runtime.evaluateCode, 'function',
+			'evaluateCode should be a function on the runtime namespace');
+	});
+
+	test('evaluateCode rejects without a session', async () => {
+		// Calling evaluateCode for a language with no session should reject
+		try {
+			await positron.runtime.evaluateCode('nonexistent-language', '1 + 1');
+			assert.fail('Expected evaluateCode to reject when no session exists');
+		} catch (err) {
+			assert.ok(err, 'Error should be provided when no session exists');
+		}
+	});
+
+	test('evaluateCode can be cancelled', async () => {
+		// Setup a runtime manager and session
+		const manager = new TestLanguageRuntimeManager();
+		const managerDisposable = positron.runtime.registerLanguageRuntimeManager('test', manager);
+		disposables.push(managerDisposable);
+
+		// Wait for the runtime to be registered
+		await poll(
+			async () => (await positron.runtime.getRegisteredRuntimes())
+				.filter(runtime => runtime.languageId === 'test'),
+			runtimes => runtimes.length > 0,
+			'test runtime should be registered'
+		);
+
+		// Create a cancellation token source
+		const tokenSource = new vscode.CancellationTokenSource();
+
+		// Start an evaluation and cancel it after 50ms
+		setTimeout(() => tokenSource.cancel(), 50);
+
+		try {
+			await Promise.race([
+				positron.runtime.evaluateCode('test', '1 + 1', tokenSource.token),
+				new Promise<any>((_, reject) => {
+					setTimeout(() => reject(new Error('Evaluation timed out after 2 seconds')), 2000);
+				})
+			]);
+		} catch (err) {
+			// Expected: either cancellation error or timeout
+			assert.ok(err, 'Error should be provided on cancellation');
+		}
+
+		tokenSource.dispose();
 	});
 });

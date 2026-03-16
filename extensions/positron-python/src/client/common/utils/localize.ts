@@ -542,6 +542,23 @@ export namespace CreateEnv {
         export const providerDescription = l10n.t(
             'Use uv to find a Python version locally (or install it if needed) for the new environment',
         );
+        export const updatingUv = l10n.t('Updating uv...');
+        export const updateUv = l10n.t('Update uv');
+        export const proceedAnyway = l10n.t('Proceed Anyway');
+        export const prereleaseWarning = (version: string) =>
+            l10n.t(
+                'Your uv installation would use Python {0}, which is a pre-release version. Pre-release Python versions may cause compatibility issues. Run "uv self update" to get the latest stable Python versions.',
+                version,
+            );
+        export const errorUpdatingUv = l10n.t('Failed to update uv. See Output > Python Language Pack for more info.');
+        export const installingPython = (version: string) => l10n.t('Installing Python {0}...', version);
+        export const errorInstallingPython = (version: string) =>
+            l10n.t('Failed to install Python {0}. See Output > Python Language Pack for more info.', version);
+        export const noStableVersionAvailable = (version: string) =>
+            l10n.t(
+                'No stable Python version is available for {0}. Only pre-release versions were found. Please try a different Python version.',
+                version,
+            );
     }
     // --- End Positron ---
 

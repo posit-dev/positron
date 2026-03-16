@@ -69,6 +69,7 @@ const ValidSelectionStateTransitions: Record<SelectionState, SelectionState[]> =
 	],
 	[SelectionState.EditingSelection]: [
 		SelectionState.EditingSelection, // Can stay in editing (same cell)
+		SelectionState.MultiSelection,   // Modified click exits edit mode and grows the selection
 		SelectionState.SingleSelection,  // Exit editor
 		SelectionState.NoCells,          // Cell being edited removed
 	],
@@ -407,8 +408,15 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		if (state.type === SelectionState.EditingSelection) {
-			// Cannot add to selection while editing
-			this._logService.warn('SelectionMachine: Cannot add cell selection in EditingSelection state');
+			if (state.active === cell) {
+				return;
+			}
+
+			this._setState({
+				type: SelectionState.MultiSelection,
+				selected: verifyNonEmptyArray([state.active, cell]),
+				active: cell
+			});
 			return;
 		}
 

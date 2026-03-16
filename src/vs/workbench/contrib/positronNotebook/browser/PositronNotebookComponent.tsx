@@ -5,13 +5,14 @@
 
 // CSS.
 import './PositronNotebookComponent.css';
+import './positronNotebookScrollable.css';
 
 // React.
 import React from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { useNotebookInstance } from './NotebookInstanceProvider.js';
+import { useNotebookInstance, useNotebookOptions } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
@@ -31,11 +32,13 @@ import { useContextKeyValue } from './useContextKeyValue.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
+import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
+
 	const deletionSentinels = useObservedValue(notebookInstance.deletionSentinels);
 	const fontStyles = useFontStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
@@ -97,7 +100,7 @@ export function PositronNotebookComponent() {
 					role='presentation'
 				/>
 			)}
-			<div ref={containerRef} className='positron-notebook-cells-container'>
+			<div ref={containerRef} className='positron-notebook-cells-container positron-notebook-scrollable'>
 				<AddCellButtons index={0} />
 				{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
 				<GhostCell />
@@ -157,7 +160,13 @@ function renderCellsAndSentinels(
 		// Render the cell
 		elements.push(
 			<React.Fragment key={cell.handle}>
-				<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				<NotebookErrorBoundary
+					componentName={`Cell[${cell.handle}]`}
+					level='cell'
+					logService={services.logService}
+				>
+					<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				</NotebookErrorBoundary>
 				<AddCellButtons index={cellArrayIndex + 1} />
 			</React.Fragment>
 		);
@@ -186,15 +195,19 @@ function renderCellsAndSentinels(
  */
 function useFontStyles(): React.CSSProperties {
 	const services = usePositronReactServicesContext();
+	const notebookOptions = useNotebookOptions();
+	const layout = notebookOptions.getLayoutConfiguration();
 
 	const editorOptions = services.configurationService.getValue<IEditorOptions>('editor');
 	const targetWindow = DOM.getActiveWindow();
 	const fontInfo = FontMeasurements.readFontInfo(targetWindow, createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
 	const family = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
+	const outputMaxHeight = layout.outputLineHeight * layout.outputLineLimit;
 
 	return {
 		['--vscode-positronNotebook-text-output-font-family' as string]: family,
-		['--vscode-positronNotebook-text-output-font-size' as string]: `${fontInfo.fontSize}px`,
+		['--vscode-positronNotebook-text-output-font-size' as string]: `${layout.outputFontSize}px`,
+		['--vscode-positronNotebook-output-max-height' as string]: `${outputMaxHeight}px`,
 	};
 }
 

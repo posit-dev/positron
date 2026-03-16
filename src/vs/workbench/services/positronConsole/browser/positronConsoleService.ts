@@ -649,7 +649,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string): Promise<string> {
+		executionId?: string,
+		_documentUri?: URI,
+		executionMetadata?: Record<string, unknown>): Promise<string> {
 		// When code is executed in the console service, open the console view. This opens
 		// the relevant pane composite if needed.
 		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
@@ -758,7 +760,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 
 		// Enqueue the code in the Positron console instance.
-		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId);
+		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId, executionMetadata);
 		return Promise.resolve(positronConsoleInstance.sessionId);
 	}
 
@@ -970,11 +972,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			throw new Error(`Cannot reveal execution: no Positron console instance found for session ID ${sessionId}.`);
 		}
 
-		// Open the console view to ensure it's visible.
 		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
-		// Set this console instance as active.
-		this.setActivePositronConsoleInstance(consoleInstance);
+		// Activate the console instance if it isn't already active
+		if (consoleInstance !== this._activePositronConsoleInstance) {
+			this.setActivePositronConsoleInstance(consoleInstance);
+			this._runtimeSessionService.foregroundSession = consoleInstance.session;
+		}
 
 		// Ask the console instance to reveal the execution.
 		if (!consoleInstance.revealExecution(executionId)) {
@@ -1004,6 +1008,7 @@ interface IPendingCodeFragment {
 	executionId: string | undefined;
 	mode: RuntimeCodeExecutionMode;
 	errorBehavior: RuntimeErrorBehavior;
+	executionMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -1667,7 +1672,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string) {
+		executionId?: string,
+		executionMetadata?: Record<string, unknown>) {
 		// If a manually assigned execution ID is provided, add it to the set of
 		// external execution IDs.
 		if (executionId) {
@@ -1683,7 +1689,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				attribution,
 				executionId,
 				mode ?? RuntimeCodeExecutionMode.Interactive,
-				errorBehavior ?? RuntimeErrorBehavior.Continue
+				errorBehavior ?? RuntimeErrorBehavior.Continue,
+				executionMetadata
 			);
 			return;
 		}
@@ -1698,7 +1705,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				attribution,
 				executionId,
 				mode ?? RuntimeCodeExecutionMode.Interactive,
-				errorBehavior ?? RuntimeErrorBehavior.Continue
+				errorBehavior ?? RuntimeErrorBehavior.Continue,
+				executionMetadata
 			);
 			return;
 		}
@@ -1739,7 +1747,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				pendingCode += '\n' + code;
 				if (await shouldExecuteCode(pendingCode)) {
 					this.setPendingCode();
-					this.doExecuteCode(pendingCode, attribution, mode, errorBehavior, executionId);
+					this.doExecuteCode(pendingCode, attribution, mode, errorBehavior, executionId, executionMetadata);
 				} else {
 					// Update the pending code. More will be revealed.
 					this.setPendingCode(pendingCode, executionId);
@@ -1752,7 +1760,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Execute the code if it is complete, or set it as pending if it is not.
 		if (await shouldExecuteCode(code)) {
-			this.doExecuteCode(code, attribution, mode, errorBehavior, executionId);
+			this.doExecuteCode(code, attribution, mode, errorBehavior, executionId, executionMetadata);
 		} else {
 			this.setPendingCode(code, executionId);
 		}
@@ -1831,14 +1839,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime.
 	 * @param executionId An optional ID that can be used to identify the execution.
+	 * @param executionMetadata Optional metadata to associate with the execution.
 	 */
 	executeCode(code: string,
 		attribution: IConsoleCodeAttribution,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string) {
+		executionId?: string,
+		executionMetadata?: Record<string, unknown>) {
 		this.setPendingCode();
-		this.doExecuteCode(code, attribution, mode, errorBehavior, executionId);
+		this.doExecuteCode(code, attribution, mode, errorBehavior, executionId, executionMetadata);
 	}
 
 	/**
@@ -2710,14 +2720,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		attribution: IConsoleCodeAttribution,
 		executionId: string | undefined,
 		mode: RuntimeCodeExecutionMode,
-		errorBehavior: RuntimeErrorBehavior) {
+		errorBehavior: RuntimeErrorBehavior,
+		executionMetadata?: Record<string, unknown>) {
 		// Add to the pending code queue.
 		this._pendingCodeQueue.push({
 			code,
 			attribution,
 			executionId,
 			mode,
-			errorBehavior
+			errorBehavior,
+			executionMetadata
 		});
 
 		// Only create/update visual pending input for interactive mode.
@@ -3020,6 +3032,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			pendingItem.mode,
 			pendingItem.errorBehavior,
 			pendingItem.attribution,
+			pendingItem.executionMetadata,
 		);
 
 		// Create and fire the onDidExecuteCode event.
@@ -3065,7 +3078,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		attribution: IConsoleCodeAttribution,
 		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue,
-		executionId?: string
+		executionId?: string,
+		executionMetadata?: Record<string, unknown>
 	) {
 		// Use the supplied execution ID if known; otherwise, generate one
 		const id = executionId || this.generateExecutionId(code);
@@ -3123,6 +3137,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			mode,
 			errorBehavior,
 			attribution,
+			executionMetadata,
 		);
 
 		// Create and fire the onDidExecuteCode event.

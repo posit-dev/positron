@@ -18,13 +18,14 @@ import { PositronDataExplorerInstance } from './positronDataExplorerInstance.js'
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { IPositronDataExplorerService } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
-import { PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { DataExplorerBackendRequest, PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { URI } from '../../../../base/common/uri.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { DataExplorerPreviewEnabled } from './positronDataExplorerSummary.js';
+import { parseVariablePath } from '../common/utils.js';
 
 /**
  * Event data for when a data explorer client is opened.
@@ -34,6 +35,8 @@ interface DataExplorerClientOpenedEvent {
 	client: DataExplorerClientInstance;
 	/** Whether this is for inline display only (should not open full editor) */
 	inlineOnly: boolean;
+	/** The canonical variable path, if available from comm-open metadata */
+	variablePath?: string[];
 }
 
 /**
@@ -91,7 +94,11 @@ class DataExplorerRuntime extends Disposable {
 				}
 
 				// Create and register the DataExplorerClientInstance for the client instance.
-				const commInstance = new PositronDataExplorerComm(e.client);
+				const commInstance = new PositronDataExplorerComm(e.client, {
+					[DataExplorerBackendRequest.GetDataValues]: {
+						timeout: 10000, // 10 seconds instead of the default 5
+					},
+				});
 				const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
 				this._register(dataExplorerClientInstance);
 
@@ -103,11 +110,13 @@ class DataExplorerRuntime extends Disposable {
 
 				// Check if this is an inline-only data explorer (should not auto-open editor)
 				const inlineOnly = e.message.data?.inline_only === true;
+				const variablePath = parseVariablePath(e.message.data?.variable_path);
 
 				// Raise the onDidOpenDataExplorerClient event.
 				this._onDidOpenDataExplorerClientEmitter.fire({
 					client: dataExplorerClientInstance,
-					inlineOnly
+					inlineOnly,
+					variablePath
 				});
 			} catch (err) {
 				this._notificationService.error(`Can't open data explorer: ${err.message}`);
@@ -138,6 +147,12 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * The Positron data explorer variable-to-instance map.
 	 */
 	private _varIdToInstanceIdMap = new Map<string, string>();
+
+	/**
+	 * Canonical variable path to instance ID map.
+	 * Key format: `JSON.stringify([sessionId, variablePath])`.
+	 */
+	private _variablePathToInstanceIdMap = new Map<string, string>();
 
 	/**
 	 * A registry for events routed to a data explorer via vscode's command system
@@ -254,6 +269,22 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		this._varIdToInstanceIdMap.set(variableId, instanceId);
 	}
 
+	/**
+	 * Gets the Positron data explorer instance for the specified canonical variable path.
+	 *
+	 * @param sessionId The runtime session ID.
+	 * @param variablePath The encoded variable path.
+	 * @returns The Positron data explorer instance.
+	 */
+	getInstanceForVariablePath(sessionId: string, variablePath: string[]): IPositronDataExplorerInstance | undefined {
+		const key = this._variablePathKey(sessionId, variablePath);
+		const instanceId = this._variablePathToInstanceIdMap.get(key);
+		if (instanceId === undefined) {
+			return undefined;
+		}
+		return this._positronDataExplorerInstances.get(instanceId);
+	}
+
 	//#endregion Constructor & Dispose
 
 	//#region IPositronDataExplorerService Implementation
@@ -350,6 +381,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	//#region Private Methods
 
 	/**
+	 * Builds a canonical key from session ID and variable path.
+	 */
+	private _variablePathKey(sessionId: string, variablePath: string[]): string {
+		return JSON.stringify([sessionId, variablePath]);
+	}
+
+	/**
 	 * Attach a session to the Positron data explorer service.
 	 *
 	 * If the session is being reattached, we wait for it to become idle before
@@ -395,7 +433,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 				const existingInstance = this.getInstance(client.getClientId());
 				// If we don't have a Data Explorer client instance, create one and open the editor.
 				if (!existingInstance) {
-					const commInstance = new PositronDataExplorerComm(client);
+					const commInstance = new PositronDataExplorerComm(client, {
+						[DataExplorerBackendRequest.GetDataValues]: {
+							timeout: 10000, // 10 seconds instead of the default 5
+						},
+					});
 					const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
 					this.openEditor(session.runtimeMetadata.languageName, dataExplorerClientInstance);
 				}
@@ -423,6 +465,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 				} else {
 					// Normal behavior: register and open editor
 					this.openEditor(session.runtimeMetadata.languageName, event.client);
+				}
+
+				// Register the canonical variable path mapping if available.
+				// This enables deduplication across inline and Variables pane paths.
+				if (event.variablePath && event.variablePath.length > 0) {
+					const key = this._variablePathKey(session.sessionId, event.variablePath);
+					this._variablePathToInstanceIdMap.set(key, event.client.identifier);
 				}
 			})
 		);
@@ -497,6 +546,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			for (const [key, value] of this._varIdToInstanceIdMap.entries()) {
 				if (value === client.identifier) {
 					this._varIdToInstanceIdMap.delete(key);
+				}
+			}
+			for (const [key, value] of this._variablePathToInstanceIdMap.entries()) {
+				if (value === client.identifier) {
+					this._variablePathToInstanceIdMap.delete(key);
 				}
 			}
 		}));

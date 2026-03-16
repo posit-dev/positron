@@ -9,6 +9,7 @@ import './editorActionBarControl.css';
 // Other dependencies.
 import { IEditorGroupView } from './editor.js';
 import { EditorActionBar } from './editorActionBar.js';
+import { EditorGroupContext } from './editorGroupContext.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { EditorActionBarFactory } from './editorActionBarFactory.js';
@@ -83,7 +84,9 @@ export class EditorActionBarControl extends Disposable {
 		// Render the editor action bar component in the editor action bar container.
 		this._positronReactRenderer = this._register(new PositronReactRenderer(this._container));
 		this._positronReactRenderer.render(
-			<EditorActionBar editorActionBarFactory={editorActionBarFactory} />
+			<EditorGroupContext.Provider value={this._editorGroup}>
+				<EditorActionBar editorActionBarFactory={editorActionBarFactory} />
+			</EditorGroupContext.Provider>
 		);
 	}
 

@@ -23,6 +23,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import * as typeConvert from '../extHostTypeConverters.js';
 
@@ -240,8 +241,10 @@ export class ExtHostRuntimeSessionProxy
 	execute(code: string,
 		id: string,
 		mode: RuntimeCodeExecutionMode,
-		errorBehavior: RuntimeErrorBehavior) {
-		return this._proxy.$executeInSession(this.sessionId, code, id, mode, errorBehavior);
+		errorBehavior: RuntimeErrorBehavior,
+		_codeLocation?: positron.Utf8Location,
+		executionMetadata?: Record<string, unknown>) {
+		return this._proxy.$executeInSession(this.sessionId, code, id, mode, errorBehavior, executionMetadata);
 	}
 
 	/**
@@ -721,90 +724,51 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].forceQuit();
 	}
 
-	async $getPackages(handle: number): Promise<positron.LanguageRuntimePackage[]> {
+	private getPackageManagerOrThrow(handle: number, operation: string): positron.LanguageRuntimePackageManager {
 		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot get packages from runtime: session handle '${handle}' not found or no longer valid.`);
+			throw new Error(`Cannot ${operation}: session handle '${handle}' not found or no longer valid.`);
 		}
 		const session = this._runtimeSessions[handle];
-		if (!session.getPackages) {
-			throw new Error(`Cannot get packages from runtime: session handle '${handle}' does not implement package management.`);
+		const packageManager = session.getPackageManager?.();
+		if (!packageManager) {
+			throw new Error(`Cannot ${operation}: session handle '${handle}' does not implement package management.`);
 		}
+		return packageManager;
+	}
 
-		return session.getPackages();
+	async $getPackages(handle: number): Promise<positron.LanguageRuntimePackage[]> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'get packages from runtime');
+		return packageManager.getPackages();
 	}
 
 	async $installPackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot install package from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.installPackages) {
-			throw new Error(`Cannot install packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.installPackages(packages);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'install packages');
+		return packageManager.installPackages(packages);
 	}
 
 	async $uninstallPackages(handle: number, packageNames: string[]): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot uninstall package from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.uninstallPackages) {
-			throw new Error(`Cannot uninstall packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.uninstallPackages(packageNames);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'uninstall packages');
+		return packageManager.uninstallPackages(packageNames);
 	}
 
 	async $updatePackages(handle: number, packages: positron.PackageSpec[]): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot update packages from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-
-		const session = this._runtimeSessions[handle];
-		if (!session.updatePackages) {
-			throw new Error(`Cannot update packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-
-		return session.updatePackages(packages);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'update packages');
+		return packageManager.updatePackages(packages);
 	}
 
 	async $updateAllPackages(handle: number): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot update all packages from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.updateAllPackages) {
-			throw new Error(`Cannot update all packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.updateAllPackages();
+		const packageManager = this.getPackageManagerOrThrow(handle, 'update all packages');
+		return packageManager.updateAllPackages();
 	}
 
 	async $searchPackages(handle: number, query: string): Promise<positron.LanguageRuntimePackage[]> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot search packages from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.searchPackages) {
-			throw new Error(`Cannot search packages from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.searchPackages(query);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'search packages');
+		return packageManager.searchPackages(query);
 	}
 
 	async $searchPackageVersions(handle: number, name: string): Promise<string[]> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot search package versions from runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-		if (!session.searchPackageVersions) {
-			throw new Error(`Cannot search package versions from runtime: session handle '${handle}' does not implement package management.`);
-		}
-
-		return session.searchPackageVersions(name);
+		const packageManager = this.getPackageManagerOrThrow(handle, 'search package versions');
+		return packageManager.searchPackageVersions(name);
 	}
 
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {
@@ -887,7 +851,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimeSessions[handle].openResource!(resource));
 	}
 
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation): void {
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, _executionId?: string, executionMetadata?: Record<string, unknown>): void {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot execute code: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -901,7 +865,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			};
 		}
 
-		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived);
+		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived, executionMetadata);
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {
@@ -1374,7 +1338,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		errorBehavior?: RuntimeErrorBehavior,
 		observer?: IExecutionObserver,
 		sessionId?: string,
-		documentUri?: URI): Promise<Record<string, unknown>> {
+		documentUri?: URI,
+		executionMetadata?: Record<string, unknown>): Promise<Record<string, unknown>> {
 
 		// Create a UUID and an observer for this execution request
 		const executionId = generateUuid();
@@ -1388,7 +1353,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// more or less fixed since it's part of the public API, but the
 		// internal parameter order can be more logical.
 		this._proxy.$executeCode(
-			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri).then(
+			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri, executionMetadata).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;
@@ -1427,6 +1392,47 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Evaluate code silently and return a JSON-coerced result.
+	 *
+	 * @param languageId The language ID to evaluate in
+	 * @param code The code to evaluate
+	 * @param token An optional cancellation token
+	 * @param sessionId An optional session ID to target
+	 * @returns A promise that resolves with the evaluation result
+	 */
+	public evaluateCode(
+		languageId: string,
+		code: string,
+		token?: CancellationToken,
+		sessionId?: string
+	): Promise<EvalResult> {
+		const evaluationId = generateUuid();
+
+		const promise = this._proxy.$evaluateCode(languageId, sessionId, code, evaluationId);
+
+		// If a cancellation token is provided, register a listener to cancel
+		// the evaluation when the token fires
+		if (token) {
+			const listener = token.onCancellationRequested(() => {
+				// We need to know the session ID to cancel. If we don't have one
+				// yet, we can't cancel (the evaluation hasn't started).
+				// The main thread will figure out the session ID from the
+				// evaluation ID.
+				this._proxy.$cancelEvaluation(sessionId ?? '', evaluationId);
+				listener.dispose();
+			});
+
+			// Dispose the listener when the promise settles
+			promise.then(
+				() => listener.dispose(),
+				() => listener.dispose()
+			);
+		}
+
+		return promise;
+	}
+
+	/**
 	 * Executes set of inline cells in a source (e.g. Quarto) document.
 	 *
 	 * @param extensionId The id of the extension that requested execution
@@ -1435,13 +1441,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @returns A promise that resolves when the request has been sent
 	 */
-	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: any[]): Promise<void> {
+	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: any[], executionMetadata?: Record<string, unknown>[]): Promise<void> {
 		// Convert vscode.Range objects to serializable IRange format
 		// Filter out undefined/null ranges in case any are invalid
 		const convertedRanges = cellRanges
 			.filter(r => r != null)
 			.map(r => typeConvert.Range.from(r)!);
-		return this._proxy.$executeInlineCells(extensionId, documentUri, convertedRanges);
+		return this._proxy.$executeInlineCells(extensionId, documentUri, convertedRanges, executionMetadata);
 	}
 
 	/**

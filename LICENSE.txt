@@ -107,3 +107,17 @@ these terms.
 'use' means anything you do with the software requiring one of your licenses.
 
 'trademark' means trademarks, service marks, and similar rights.
+
+Positron Education License Rider
+
+Education Exception to the Elastic License 2.0 Hosting Restriction (the "Education Exception")
+
+Notwithstanding the hosted service restriction in Positron's Elastic 2.0 License above, you may provide the software to third parties as a hosted or managed service if, and only if, all of the following conditions are satisfied:
+
+(a) Educational purpose. The hosted service is operated solely for educational or instructional activities, including paid workshops, courses, and training programs (collectively, "educational programs"), provided that any fees charged for such educational programs are reasonable and customary and relate to the instruction itself and not to ongoing access to the software as a service.
+
+(b) Limited access. Access to the hosted service is restricted to enrolled students, course participants, or staff involved in the delivery or receipt of educational programming. Access cannot be provided to the general public.
+
+(c) No production use. The hosted service is used solely for learning, experimentation, and demonstration. The hosted service may not be used to support live commercial operations of any entity, or to process, store, or serve data in support of revenue-generating activities.
+
+This Education Exception does not permit sublicensing, redistribution, or any use not expressly described above. All other terms of the Elastic Licence 2.0 continue to apply.

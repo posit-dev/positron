@@ -17,10 +17,11 @@ import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progress
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
 
 // Load localized copy for control.
 const initalizing = localize('positron.console.initializing', "Waiting for extensions");
-const awaitingTrust = localize('positron.console.awaitingTrust', "Consoles cannot start until the workspace is trusted");
+const awaitingTrust = localize('positron.console.awaitingTrust', "Cannot start consoles in Restricted Mode. [Trust this folder](command:workbench.trust.manage) to enable consoles.");
 const newFolderTasks = localize('positron.console.newFolderTasks', "Setting up workspace");
 const reconnecting = localize('positron.console.reconnecting', "Reconnecting");
 const starting = localize('positron.console.starting', "Starting");
@@ -93,10 +94,17 @@ export const StartupStatus = () => {
 		};
 	}, [services.languageRuntimeService, services.runtimeStartupService]);
 
-	// Render.
+	// Whether we are awaiting workspace trust. In this state we show a
+	// static message and hide the progress bar.
+	const isAwaitingTrust = startupPhase === RuntimeStartupPhase.AwaitingTrust;
+
+	// Render. The progress bar div must always be in the DOM so that the
+	// ref is available when the useEffect creates the ProgressBar instance;
+	// it is hidden during the AwaitingTrust phase via display:none.
 	return (
 		<div className='startup-status'>
-			<div ref={progressRef} className='progress'></div>
+			<div ref={progressRef} className='progress'
+				style={isAwaitingTrust ? { display: 'none' } : undefined}></div>
 			{runtimeStartupEvent &&
 				<RuntimeStartupProgress evt={runtimeStartupEvent} />
 			}
@@ -106,8 +114,8 @@ export const StartupStatus = () => {
 			{startupPhase === RuntimeStartupPhase.Reconnecting && !runtimeStartupEvent &&
 				<div className='reconnecting'>{reconnecting}...</div>
 			}
-			{startupPhase === RuntimeStartupPhase.AwaitingTrust &&
-				<div className='awaiting'>{awaitingTrust}...</div>
+			{isAwaitingTrust &&
+				<div className='awaiting'><EmbeddedLink>{awaitingTrust}</EmbeddedLink></div>
 			}
 			{startupPhase === RuntimeStartupPhase.NewFolderTasks &&
 				<div className='new-folder-tasks'>{newFolderTasks}...</div>

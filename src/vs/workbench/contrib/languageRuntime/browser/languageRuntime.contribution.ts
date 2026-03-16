@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { registerLanguageRuntimeActions } from './languageRuntimeActions.js';
+import './languageRuntimeActions.css';
 
 // Register commands
 registerLanguageRuntimeActions();

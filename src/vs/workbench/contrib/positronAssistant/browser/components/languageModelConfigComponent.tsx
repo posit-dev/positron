@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,6 +9,7 @@ import { localize } from '../../../../../nls.js'
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js'
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js'
 import { AuthMethod, AuthStatus } from '../types.js'
+import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js'
 
 interface LanguageModelConfigComponentProps {
 	authMethod: AuthMethod,
@@ -18,6 +19,7 @@ interface LanguageModelConfigComponentProps {
 	onChange: (config: IPositronLanguageModelConfig) => void,
 	onSignIn: () => void,
 	onCancel: () => void,
+	closeDialog: () => void,
 }
 
 type IProvider = IPositronLanguageModelSource['provider'];
@@ -29,6 +31,11 @@ const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privac
 const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel', 'API Key');
 const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
+const copilotSignoutGuidanceLabel = localize(
+	'positron.languageModelConfig.copilotSignoutGuidance',
+	"To sign out of GitHub, use the [Accounts: Manage Accounts]({0}) command. Note that this will sign you out of GitHub for all extensions in Positron.",
+	'command:workbench.action.manageAccounts'
+);
 
 function getProviderTermsOfServiceText(provider: IProvider) {
 	if (provider.id === 'openai-compatible') {
@@ -153,29 +160,57 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 			}
 		</div>}
 		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} />
+		{source.provider.id === 'copilot-auth' && authStatus === AuthStatus.SIGNED_IN && <CopilotSignoutGuidance closeDialog={props.closeDialog} />}
 		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
 
-// Language config parts
-const BaseUrl = (props: { baseUrl?: string, signedIn?: boolean, onChange: (newBaseUrl: string) => void, provider: IProvider }) => {
+const DEPLOYMENT_URL_PATTERN = /\/openai\/deployments\//;
+
+const BaseUrl = (props: { baseUrl?: string; signedIn?: boolean; onChange: (newBaseUrl: string) => void; provider: IProvider }) => {
 	const baseUrlLabel = props.provider.id === 'openai-compatible' ? localize('positron.languageModelConfig.baseUrlOpenAICompatibleInputLabel', 'Base URL (must be OpenAI compatible)') : localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL');
+	const isDeploymentUrl = props.provider.id === 'ms-foundry' && props.baseUrl ? DEPLOYMENT_URL_PATTERN.test(props.baseUrl) : false;
+
+	// When signed in with a deployment URL, show the normalized v1 URL
+	let displayUrl = props.baseUrl;
+	if (isDeploymentUrl && props.baseUrl) {
+		const deploymentIndex = props.baseUrl.indexOf('/openai/deployments/');
+		displayUrl = props.baseUrl.substring(0, deploymentIndex) + '/openai/v1';
+	}
+
 	return (<>
 		<div className='language-model-authentication-container' id='base-url-input'>
 			{
 				props.signedIn ?
-					<p>{localize('positron.languageModelConfig.baseUrlSignedIn', "Base URL: {0}", props.baseUrl)}</p>
+					<p>{localize('positron.languageModelConfig.baseUrlSignedIn', "Base URL: {0}", displayUrl)}</p>
 					:
 					<LabeledTextInput
 						label={baseUrlLabel}
 						type='text'
 						value={props.baseUrl ?? ''}
-						onChange={e => { props.onChange(e.currentTarget.value) }} />
+						onChange={e => { props.onChange(e.currentTarget.value); }} />
 			}
 		</div>
-	</>)
-}
+		{isDeploymentUrl &&
+			<div className='language-model-url-info'>
+				<span className='codicon codicon-info' />
+				<span>
+					{props.signedIn
+						? localize(
+							'positron.languageModelConfig.deploymentUrlRewritten',
+							"Deployment URL rewritten to use the OpenAI v1 endpoint."
+						)
+						: localize(
+							'positron.languageModelConfig.deploymentUrlWillConvert',
+							"Deployment URL will be rewritten to use the OpenAI v1 endpoint."
+						)
+					}
+				</span>
+			</div>
+		}
+	</>);
+};
 
 const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void }) => {
 	return (<>
@@ -262,3 +297,11 @@ const AutoconfiguredModel = (props: { provider: string, displayName: string, det
 		return null;
 	}
 }
+
+const CopilotSignoutGuidance = (props: { closeDialog: () => void }) => {
+	return <EmbeddedLink
+		onLinkClick={(e) => props.closeDialog()}>
+		{copilotSignoutGuidanceLabel}
+	</EmbeddedLink>;
+}
+

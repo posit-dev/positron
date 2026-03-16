@@ -153,6 +153,37 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
+		test('Python - Verify open plot dropdown remembers selection', {
+			tag: [tags.WEB, tags.WIN, tags.PLOTS]
+		}, async function ({ app, page }) {
+			const plots = app.workbench.plots;
+
+			await test.step('Create a plot', async () => {
+				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
+				await plots.waitForCurrentPlot();
+				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+			});
+
+			await test.step('Select "Open in editor tab" from dropdown', async () => {
+				await plots.openPlotIn('editor');
+				await plots.waitForPlotInEditor();
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+			});
+
+			await test.step('Click main button and verify it opens in editor tab', async () => {
+				// Clicking the main (non-dropdown) part of the split button should
+				// repeat the last selected action ("Open in editor tab").
+				await plots.clickOpenInEditorButton();
+				await plots.waitForPlotInEditor();
+
+				// Verify there is exactly one editor group (not side-by-side),
+				// confirming the action was "editor tab" not "new window"
+				const editorGroups = page.locator('.editor-group-container');
+				await expect(editorGroups).toHaveCount(1);
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+			});
+		});
+
 		test('Python - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS] }, async function ({ app }) {
 			await verifyPlotInNewWindow(app, 'Python', pythonDynamicPlot);
 		});

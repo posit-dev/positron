@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -103,3 +103,51 @@ for (const config of languageConfigs) {
 		});
 	});
 }
+
+test.describe('Plot Session Select', { tag: [tags.PLOTS] }, () => {
+	const pyFileName = 'plot-session-select-test.py';
+	const pyFileContent = [
+		'import matplotlib.pyplot as plt',
+		'plt.plot([1, 2, 3, 4, 5])',
+		'plt.show()',
+		''
+	].join('\n');
+
+	test.afterEach(async function ({ app, hotKeys }) {
+		await hotKeys.closeAllEditors();
+		await hotKeys.clearPlots();
+		await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+	});
+
+	test.afterAll(async function ({ cleanup }) {
+		await cleanup.removeTestFiles([pyFileName]);
+	});
+
+	test('Clicking plot session button updates the interpreter picker', async function ({ app, sessions, openFile, hotKeys }) {
+		const { plots } = app.workbench;
+
+		// Start Python and generate a plot
+		const pySession = await sessions.start('python');
+		const filePath = path.join(app.workspacePathOrFolder, pyFileName);
+		fs.writeFileSync(filePath, pyFileContent);
+		await openFile(pyFileName);
+		for (let i = 0; i < countLines(pyFileContent); i++) {
+			await hotKeys.runLineOfCode();
+		}
+		await plots.waitForCurrentPlot();
+
+		// Start R, which switches the active session away from Python
+		const rSession = await sessions.start('r');
+		await sessions.expectSessionPickerToBe(rSession.name);
+
+		// Verify the plot's session name button is visible and contains
+		// the Python session name
+		await expect(plots.sessionNameButton).toBeVisible({ timeout: 15000 });
+
+		// Click the session name button on the plot to navigate to Python
+		await plots.clickSessionNameButton();
+
+		// Verify the interpreter picker updated to show the Python session
+		await sessions.expectSessionPickerToBe(pySession.name);
+	});
+});
