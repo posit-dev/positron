@@ -113,10 +113,6 @@ export class PipPackageManager implements IPackageManager {
             { token },
         );
 
-        if (token?.isCancellationRequested) {
-            throw new vscode.CancellationError();
-        }
-
         let outdatedPackages: Array<{ name: string }> = [];
         try {
             outdatedPackages = JSON.parse(outdatedResult.stdout);

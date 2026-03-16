@@ -138,10 +138,6 @@ export class UvPackageManager implements IPackageManager {
             // Environment workflow: get outdated packages and upgrade them
             const outdatedPackages = await this._getOutdatedPackages(token);
 
-            if (token?.isCancellationRequested) {
-                throw new vscode.CancellationError();
-            }
-
             if (outdatedPackages.length === 0) {
                 this._emitMessage('All packages are up to date.\n');
                 return;
