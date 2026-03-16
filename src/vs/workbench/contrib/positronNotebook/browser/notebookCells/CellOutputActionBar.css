@@ -17,13 +17,11 @@
 	border: 1px solid var(--vscode-widget-border);
 
 	/* Hidden by default, shown on output hover or keyboard focus */
-	opacity: 0;
-	pointer-events: none;
+	visibility: hidden;
 }
 
 /* Show on hover of the output area or when a button inside has focus */
 .positron-notebook-outputs-section:hover > .cell-output-action-bar,
 .cell-output-action-bar:focus-within {
-	opacity: 1;
-	pointer-events: auto;
+	visibility: visible;
 }
