@@ -32,6 +32,7 @@ export class UpdateChannel implements IServerChannel {
 			case 'disableProgressiveReleases': return this.service.disableProgressiveReleases();
 			case 'updateActiveLanguages': return Promise.resolve(this.service.updateActiveLanguages(arg));
 			case 'getReleaseNotes': return this.service.getReleaseNotes();
+			case 'resetTelemetryId': return Promise.resolve(this.service.resetTelemetryId());
 		}
 
 		throw new Error(`Call not found: ${command}`);
@@ -97,6 +98,13 @@ export class UpdateChannelClient implements IUpdateService {
 
 	getReleaseNotes(): Promise<string> {
 		return this.channel.call('getReleaseNotes');
+	}
+
+	resetTelemetryId(): string {
+		this.channel.call('resetTelemetryId');
+		// The actual ID is generated on the main process side
+		// This just triggers the reset; the return value isn't used by the caller
+		return '';
 	}
 	// --- End Positron ---
 }

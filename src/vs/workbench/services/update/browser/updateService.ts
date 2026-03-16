@@ -109,6 +109,10 @@ export class BrowserUpdateService extends Disposable implements IUpdateService {
 	getReleaseNotes(): Promise<string> {
 		return Promise.resolve('No release notes available');
 	}
+	resetTelemetryId(): string {
+		// no-op for browser - return empty string
+		return '';
+	}
 	// --- End Positron ---
 }
 
