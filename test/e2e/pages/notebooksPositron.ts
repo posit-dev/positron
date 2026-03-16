@@ -59,7 +59,7 @@ export class PositronNotebooks extends Notebooks {
 
 	// Cell outputs
 	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
-	private outputActionBar = (index: number) => this.cellOutput(index).locator('.cell-output-action-bar');
+	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
 	showHiddenOutputButton = (index: number) => this.cellOutput(index).getByRole('button', { name: 'Show hidden output' });
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
@@ -535,7 +535,6 @@ export class PositronNotebooks extends Notebooks {
 			await this.code.driver.page.waitForTimeout(100);
 		});
 	}
-
 
 	/**
 	 * Action: Click the "Ask assistant to fix" button on an error cell.
