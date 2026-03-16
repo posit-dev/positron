@@ -46,8 +46,8 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
-			const pkgNames = packages.map(p => p.name);
-			const pkgVector = this._formatRVector(pkgNames);
+			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+			const pkgVector = this._formatRVector(pkgSpecs);
 			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
 			// If we're installing pak, don't prompt to install pak
@@ -91,7 +91,8 @@ export class RPackageManager {
 		if (isRenv) {
 			const pkgNames = packages.map(p => p.name);
 			const pkgVector = this._formatRVector(pkgNames);
-			code = `renv::update(${pkgVector}, lock = TRUE, prompt = FALSE)`;
+			// Since we provide an explicit version for updates, we use install:
+			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
 			const method = await this._ensurePak();
 
