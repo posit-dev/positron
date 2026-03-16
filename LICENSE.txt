@@ -110,7 +110,7 @@ these terms.
 
 Positron Education License Rider
 
-Education Exception to the Elastic License 2.0 Hosting Restriction (the “Education Exception”)
+Education Exception to the Elastic License 2.0 Hosting Restriction (the "Education Exception")
 
 Notwithstanding the hosted service restriction in Positron’s Elastic 2.0 License above, you may provide the software to third parties as a hosted or managed service if, and only if, all of the following conditions are satisfied:
 
