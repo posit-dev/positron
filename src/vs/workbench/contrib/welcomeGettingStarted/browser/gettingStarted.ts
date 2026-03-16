@@ -374,8 +374,6 @@ export class GettingStartedPage extends EditorPane {
 		});
 	}
 
-	//--- End Positron ---
-
 	// remove when 'workbench.welcomePage.preferReducedMotion' deprecated
 	private shouldAnimate() {
 		if (this.configurationService.getValue(REDUCED_MOTION_KEY)) {

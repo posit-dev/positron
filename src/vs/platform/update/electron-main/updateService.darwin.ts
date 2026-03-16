@@ -61,6 +61,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 		lifecycleMainService.setRelaunchHandler(this);
 	}
+	// --- End Positron ---
 
 	handleRelaunch(options?: IRelaunchOptions): boolean {
 		if (options?.addArgs || options?.removeArgs) {

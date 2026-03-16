@@ -748,7 +748,6 @@ export class ChatStatusDashboard extends DomWidget {
 			checkbox.disable();
 			checkbox.checked = false;
 		}
-		// --- End Positron ---
 
 		return checkbox;
 	}
@@ -817,7 +816,6 @@ export class ChatStatusDashboard extends DomWidget {
 					checkbox.disable();
 					container.classList.add('disabled');
 				}
-				// --- End Positron ---
 			}
 		}));
 	}
