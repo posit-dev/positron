@@ -114,7 +114,7 @@ Education Exception to the Elastic License 2.0 Hosting Restriction (the "Educati
 
 Notwithstanding the hosted service restriction in Positron's Elastic 2.0 License above, you may provide the software to third parties as a hosted or managed service if, and only if, all of the following conditions are satisfied:
 
-(a) Educational purpose. The hosted service is operated solely for educational or instructional activities, including paid workshops, courses, and training programs (collectively, “educational programs”), provided that any fees charged for such educational programs are reasonable and customary and relate to the instruction itself and not to ongoing access to the software as a service.
+(a) Educational purpose. The hosted service is operated solely for educational or instructional activities, including paid workshops, courses, and training programs (collectively, "educational programs"), provided that any fees charged for such educational programs are reasonable and customary and relate to the instruction itself and not to ongoing access to the software as a service.
 
 (b) Limited access. Access to the hosted service is restricted to enrolled students, course participants, or staff involved in the delivery or receipt of educational programming. Access cannot be provided to the general public.
 
