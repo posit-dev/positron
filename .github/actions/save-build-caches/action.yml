@@ -137,7 +137,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
-        key: builtins-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
+        key: builtins-v2-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
 
     - name: Save Playwright browsers cache
       if: ${{ inputs.cache-playwright-hit == 'false' }}
