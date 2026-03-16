@@ -156,10 +156,17 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const editorInstaService = instance.scopedInstantiationService.createChild(serviceCollection);
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
+		const defaultOptions = editorOptions.getDefaultValue();
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
-			...editorOptions.getDefaultValue(),
+			...defaultOptions,
 			// Override padding for Positron notebooks to add breathing room between action bar and editor content
 			padding: { top: 16, bottom: 16 },
+			scrollbar: {
+				...defaultOptions.scrollbar,
+				// Smaller scrollbars since we embed many editor widgets
+				verticalScrollbarSize: 8,
+				horizontalScrollbarSize: 8
+			},
 			tabIndex: -1, // Remove editor from tab order - use Enter to focus
 			dimension: {
 				width: 0,

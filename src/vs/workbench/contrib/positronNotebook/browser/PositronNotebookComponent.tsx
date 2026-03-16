@@ -5,6 +5,7 @@
 
 // CSS.
 import './PositronNotebookComponent.css';
+import './positronNotebookScrollable.css';
 
 // React.
 import React from 'react';
@@ -99,7 +100,7 @@ export function PositronNotebookComponent() {
 					role='presentation'
 				/>
 			)}
-			<div ref={containerRef} className='positron-notebook-cells-container'>
+			<div ref={containerRef} className='positron-notebook-cells-container positron-notebook-scrollable'>
 				<AddCellButtons index={0} />
 				{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
 				<GhostCell />
