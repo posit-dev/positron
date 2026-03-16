@@ -207,9 +207,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await settings.remove(['console.showNotebookConsoleActions']);
 	});
 
-	test('ensure notebook session reattaches after window reload', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9695' }]
-	}, async function ({ app, hotKeys }) {
+	test('ensure notebook session reattaches after window reload', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
 
 		// create new notebook and select kernel
