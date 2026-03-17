@@ -47,7 +47,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			if (!document) {
 				return;
 			}
-			await this.queueRunApplication(document, options);
+			await this.queueRunApplication(options.name, (progress) => this.doRunApplication(document, options, progress));
 		} catch (error) {
 			this.showRunError(options.name, error);
 		}
@@ -59,7 +59,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			if (!document) {
 				return;
 			}
-			await this.queueRunApplicationInConsole(document, options);
+			await this.queueRunApplication(options.name, (progress) => this.doRunApplicationInConsole(document, options, progress));
 		} catch (error) {
 			this.showRunError(options.name, error);
 		}
@@ -97,15 +97,16 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		return undefined;
 	}
 
-	private queueRunApplication(document: vscode.TextDocument, options: RunAppOptions): Promise<void> {
+	private queueRunApplication(
+		name: string,
+		task: (progress: vscode.Progress<{ message?: string }>) => Promise<void>,
+	): Promise<void> {
 		return this._runApplicationSequencerByName.queue(
-			options.name,
-			() => Promise.resolve(vscode.window.withProgress({
+			name,
+			async () => vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
-				title: vscode.l10n.t('Running {0} application', options.name),
-			},
-				(progress) => this.doRunApplication(document, options, progress),
-			)),
+				title: vscode.l10n.t('Running {0} application', name),
+			}, task),
 		);
 	}
 
@@ -124,7 +125,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		// - enabled in the workspace, and
 		// - supported in the terminal.
 		const isShellIntegrationEnabledAndSupported = this.showShellIntegrationMessages(
-			() => this.queueRunApplication(document, options)
+			() => this.queueRunApplication(options.name, (progress) => this.doRunApplication(document, options, progress))
 		);
 
 		// Get existing terminals with the application's name.
@@ -244,17 +245,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 	}
 
-	private queueRunApplicationInConsole(document: vscode.TextDocument, options: RunConsoleAppOptions): Promise<void> {
-		return this._runApplicationSequencerByName.queue(
-			options.name,
-			() => Promise.resolve(vscode.window.withProgress({
-				location: vscode.ProgressLocation.Notification,
-				title: vscode.l10n.t('Running {0} application', options.name),
-			},
-				(progress) => this.doRunApplicationInConsole(document, options, progress),
-			)),
-		);
-	}
+
 
 	private async doRunApplicationInConsole(
 		document: vscode.TextDocument,
