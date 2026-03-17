@@ -173,13 +173,13 @@ class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 				'id': 'dbname',
 				'label': 'Database Name',
 				'type': 'string',
-				'value': 'localhost'
+				'value': 'northwind'
 			},
 			{
 				'id': 'host',
 				'label': 'Host',
 				'type': 'string',
-				'value': 'localhost'
+				'value': '8086k.local'
 			},
 			{
 				'id': 'port',
@@ -191,13 +191,13 @@ class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 				'id': 'user',
 				'label': 'User',
 				'type': 'string',
-				'value': 'postgres'
+				'value': 'northwind'
 			},
 			{
 				'id': 'password',
 				'label': 'Password',
 				'type': 'string',
-				'value': 'password'
+				'value': 'test-database'
 			},
 			{
 				'id': 'bigint',
