@@ -289,22 +289,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			progress.report({ message: vscode.l10n.t('Restarting application...') });
 
 			try {
-				// Track whether `Ready` is reached to detect cancellation.
-				// If the user declines to restart, no state changes occur and
-				// `restartSession` resolves silently.
-				let didRestart = false;
-				const stateDisposable = session.onDidChangeRuntimeState(state => {
-					if (state === positron.RuntimeState.Ready) {
-						didRestart = true;
-						stateDisposable.dispose();
-					}
-				});
-
-				await positron.runtime.restartSession(session.metadata.sessionId);
-
+				const didRestart = await positron.runtime.restartSession(session.metadata.sessionId);
 				if (!didRestart) {
 					log.debug('Session restart was cancelled');
-					stateDisposable.dispose();
 					return;
 				}
 

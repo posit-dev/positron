@@ -1753,7 +1753,7 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to restart a running language runtime
-	$restartSession(sessionId: string): Promise<void> {
+	$restartSession(sessionId: string): Promise<boolean> {
 		return this._runtimeSessionService.restartSession(
 			sessionId,
 			'Extension-requested runtime restart via Positron API');

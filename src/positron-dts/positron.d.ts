@@ -2223,9 +2223,15 @@ declare module 'positron' {
 		/**
 		 * Restart a running session.
 		 *
+		 * If the session is busy, the user is prompted whether to interrupt it
+		 * before restarting.
+		 *
 		 * @param sessionId The ID of the session to restart.
+		 * @returns `true` if the session was restarted, `false` if the
+		 *  restart was declined by the user or already in progress.
+		 *  Rejects if the session is not found or not in a restartable state.
 		 */
-		export function restartSession(sessionId: string): Thenable<void>;
+		export function restartSession(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Focus a running session.
