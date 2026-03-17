@@ -1291,41 +1291,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
-		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
-		const length = lastIndex - firstIndex + 1;
-		const newIdx = firstIndex - 1;
-
-		if (newIdx < 0) {
+		if (firstIndex <= 0) {
 			return;
 		}
 
-		const textModel = this.textModel;
-		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
-		const focusRange = { start: firstIndex, end: lastIndex + 1 };
-
-		textModel.applyEdits([{
-			// Move edits are important to maintaining cell identity
-			editType: CellEditType.Move,
-			index: firstIndex,
-			length: length,
-			newIdx: newIdx
-		}],
-			true, // synchronous
-			{
-				kind: SelectionStateType.Index,
-				focus: focusRange,
-				selections: [focusRange]
-			}, // before
-			() => ({
-				kind: SelectionStateType.Index,
-				focus: { start: newIdx, end: newIdx + length },
-				selections: [{ start: newIdx, end: newIdx + length }]
-			}), // after callback - selection follows moved cells
-			undefined,
-			computeUndoRedo
-		);
-
-		this._onDidChangeContent.fire();
+		this.moveCells(cellsToMove, firstIndex - 1);
 
 		// Reveal the active cell at its new position so the viewport follows the move
 		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
@@ -1344,42 +1314,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		const cells = this.cells.get();
-		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
+		const allCells = this.cells.get();
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
-		const length = lastIndex - firstIndex + 1;
-		const newIdx = firstIndex + 1; // insert immediately after the block we're crossing
-
-		if (lastIndex >= cells.length - 1) {
+		if (lastIndex >= allCells.length - 1) {
 			return;
 		}
 
-		const textModel = this.textModel;
-		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
-		const focusRange = { start: firstIndex, end: lastIndex + 1 };
-
-		textModel.applyEdits([{
-			editType: CellEditType.Move,
-			index: firstIndex,
-			length: length,
-			newIdx: newIdx
-		}],
-			true,
-			{
-				kind: SelectionStateType.Index,
-				focus: focusRange,
-				selections: [focusRange]
-			},
-			() => ({
-				kind: SelectionStateType.Index,
-				focus: { start: newIdx, end: newIdx + length },
-				selections: [{ start: newIdx, end: newIdx + length }]
-			}),
-			undefined,
-			computeUndoRedo
-		);
-
-		this._onDidChangeContent.fire();
+		this.moveCells(cellsToMove, lastIndex + 2);
 
 		// Reveal the active cell at its new position so the viewport follows the move
 		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
@@ -1395,10 +1336,97 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void {
 		this._assertTextModel();
 
-		// TODO: Implement based on VSCode's performCellDropEdits() algorithm
-		// Reference: cellDnd.ts:422-510
-		// Handle multiple selection ranges, adjust indices correctly
-		throw new Error('moveCells not yet implemented - to be completed in Step 3 (Drag & Drop)');
+		const allCells = this.cells.get();
+
+		// Validate inputs
+		if (cells.length === 0 || targetIndex < 0 || targetIndex > allCells.length) {
+			return;
+		}
+
+		// Get indices of cells to move (sorted, deduplicated)
+		const indicesSet = new Set(cells.map(cell => allCells.indexOf(cell)));
+		indicesSet.delete(-1);
+		const indices = [...indicesSet].sort((a, b) => a - b);
+		if (indices.length === 0) {
+			return;
+		}
+
+		const firstIndex = indices[0];
+		const lastIndex = indices[indices.length - 1];
+
+		// Check if cells are contiguous
+		const isContiguous = indices.every((idx, i) => i === 0 || idx === indices[i - 1] + 1);
+
+		if (isContiguous) {
+			// Check if move is necessary (no-op if already at target)
+			if (firstIndex === targetIndex) {
+				return;
+			}
+			const length = lastIndex - firstIndex + 1;
+			// Adjust target index if moving down (account for removal of cells above target)
+			const adjustedTarget = targetIndex > firstIndex ? targetIndex - length : targetIndex;
+			this._applyCellMoveEdit(firstIndex, length, adjustedTarget);
+			return;
+		}
+
+		// Non-contiguous selection: split into contiguous groups and move each
+		// group individually. Each group uses a single Move edit that preserves
+		// cell identity. Groups are processed in an order that avoids index
+		// corruption: "before" groups (below the target) move bottom-to-top,
+		// "after" groups (at/above the target) move top-to-bottom.
+		const groups: number[][] = [];
+		for (const idx of indices) {
+			const lastGroup = groups[groups.length - 1];
+			if (lastGroup && idx === lastGroup[lastGroup.length - 1] + 1) {
+				lastGroup.push(idx);
+			} else {
+				groups.push([idx]);
+			}
+		}
+
+		// Classify groups by their position relative to the target
+		const groupsBefore: number[][] = [];
+		const groupsAfter: number[][] = [];
+		for (const group of groups) {
+			if (group[group.length - 1] < targetIndex) {
+				groupsBefore.push(group);
+			} else {
+				groupsAfter.push(group);
+			}
+		}
+
+		// Move "before" groups down toward the target (process bottom-to-top
+		// so earlier moves don't shift the indices of groups above them)
+		let downTarget = targetIndex;
+		for (let i = groupsBefore.length - 1; i >= 0; i--) {
+			const group = groupsBefore[i];
+			const firstCell = allCells[group[0]];
+			const currentCells = this.cells.get();
+			const fromIdx = currentCells.indexOf(firstCell);
+			if (fromIdx === -1) { continue; }
+			const length = group.length;
+			const adjTarget = fromIdx < downTarget ? downTarget - length : downTarget;
+			if (fromIdx !== adjTarget) {
+				this._applyCellMoveEdit(fromIdx, length, adjTarget);
+			}
+			downTarget -= length;
+		}
+
+		// Move "after" groups up toward the target (process top-to-bottom
+		// so earlier moves don't shift the indices of groups below them)
+		let upTarget = targetIndex;
+		for (const group of groupsAfter) {
+			const firstCell = allCells[group[0]];
+			const currentCells = this.cells.get();
+			const fromIdx = currentCells.indexOf(firstCell);
+			if (fromIdx === -1) { continue; }
+			const length = group.length;
+			const adjTarget = fromIdx < upTarget ? upTarget - length : upTarget;
+			if (fromIdx !== adjTarget) {
+				this._applyCellMoveEdit(fromIdx, length, adjTarget);
+			}
+			upTarget += length;
+		}
 	}
 
 	/**
@@ -1685,6 +1713,40 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				selections: [{ start: cellIndex, end: cellIndex + 1 }]
 			},
 			() => endSelections,
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
+	}
+
+	/**
+	 * Shared helper for cell move operations (up, down, drag-and-drop).
+	 * Applies a Move edit to the text model with undo/redo support and fires the content change event.
+	 * Callers must call `_assertTextModel()` before invoking this method.
+	 */
+	private _applyCellMoveEdit(firstIndex: number, length: number, toIndex: number): void {
+		const textModel = this.textModel!;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+		const focusRange = { start: firstIndex, end: firstIndex + length };
+
+		textModel.applyEdits([{
+			editType: CellEditType.Move,
+			index: firstIndex,
+			length: length,
+			newIdx: toIndex
+		}],
+			true,
+			{
+				kind: SelectionStateType.Index,
+				focus: focusRange,
+				selections: [focusRange]
+			},
+			() => ({
+				kind: SelectionStateType.Index,
+				focus: { start: toIndex, end: toIndex + length },
+				selections: [{ start: toIndex, end: toIndex + length }]
+			}),
 			undefined,
 			computeUndoRedo
 		);
