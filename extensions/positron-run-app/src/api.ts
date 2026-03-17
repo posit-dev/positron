@@ -22,7 +22,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private readonly _runApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _runApplicationDisposableByName = new Map<string, vscode.Disposable>();
 	private readonly _appServers = new Map<string, { terminalPid: number | undefined; proxyUri: vscode.Uri }>();
-	private readonly _consoleSessionByName = new Map<string, positron.LanguageRuntimeSession>();
+	private readonly _consoleSessionByName = new Map<string, { session: positron.LanguageRuntimeSession; listener: vscode.Disposable }>();
 
 	constructor(
 		private readonly _globalState: vscode.Memento,
@@ -32,6 +32,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	public dispose() {
 		this._debugApplicationDisposableByName.forEach(disposable => disposable.dispose());
 		this._runApplicationDisposableByName.forEach(disposable => disposable.dispose());
+		this._consoleSessionByName.forEach(entry => entry.listener.dispose());
 	}
 
 	private isShellIntegrationSupported(): boolean {
@@ -283,7 +284,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		// Restart existing console session for this app if one is still alive.
 		// This cleanly exits any active debugger state and reuses the same
 		// console tab.
-		let session = this._consoleSessionByName.get(options.name);
+		let session = this._consoleSessionByName.get(options.name)?.session;
 
 		if (session) {
 			progress.report({ message: vscode.l10n.t('Restarting application...') });
@@ -297,7 +298,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 				// The `Exited` state during restart removes the map entry
 				// via the cleanup listener. Re-add it now that restart succeeded.
-				this._consoleSessionByName.set(options.name, session);
+				this.trackConsoleSession(options.name, session);
 			} catch (error) {
 				log.debug(`Could not restart session for ${options.name}, creating a new one: ${error}`);
 				session = undefined;
@@ -313,12 +314,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				options.name,
 			);
 
-			this._consoleSessionByName.set(options.name, session);
-			session.onDidChangeRuntimeState(state => {
-				if (state === positron.RuntimeState.Exited) {
-					this._consoleSessionByName.delete(options.name);
-				}
-			});
+			this.trackConsoleSession(options.name, session);
 		}
 
 		const sessionId = session.metadata.sessionId;
@@ -537,6 +533,18 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			throw new Error(vscode.l10n.t("No '{0}' interpreter found.", languageId));
 		}
 		return runtime;
+	}
+
+	private trackConsoleSession(name: string, session: positron.LanguageRuntimeSession): void {
+		this._consoleSessionByName.get(name)?.listener.dispose();
+
+		const listener = session.onDidChangeRuntimeState(state => {
+			if (state === positron.RuntimeState.Exited) {
+				this._consoleSessionByName.get(name)?.listener.dispose();
+				this._consoleSessionByName.delete(name);
+			}
+		});
+		this._consoleSessionByName.set(name, { session, listener });
 	}
 
 	private showRunError(appName: string, error: unknown): void {
