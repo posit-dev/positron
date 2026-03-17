@@ -7,7 +7,7 @@ import { ServerParsedArgs } from './serverEnvironmentService.js';
 import * as fs from 'fs';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
-import { validateWithManager } from './licenseManager.js';
+import { activateWithManager } from './licenseManager.js';
 import { FileAccess } from '../../base/common/network.js';
 
 /**
@@ -156,7 +156,7 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 		} else if (trimmedContents.startsWith('-----BEGIN RSTUDIO LICENSE-----')) {
 			// This is an RSA license file, let the license manager handle it.
 			const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
-			return await validateWithManager(installPath, licenseFile);
+			return await activateWithManager(installPath, licenseFile);
 		} else {
 			// Unknown license format
 			console.error('Unrecognized license file format. Expected JSON license key or RSA license file.');
