@@ -1183,7 +1183,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				break;
 			} catch (err) {
 				// Allow one retry for Axios (connectivity) errors on the first attempt
-				if (attempt == 0 && isAxiosError(err)) {
+				if (attempt === 0 && isAxiosError(err)) {
 					this.log(
 						`Failed to connect to adopted kernel; retrying: ${summarizeError(err)}`,
 						vscode.LogLevel.Warning);
@@ -1348,7 +1348,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					`Start failed: timed out connecting to session ${this.metadata.sessionId} after ${connectTimeout}ms`);
 				break;
 			} catch (err) {
-				if (attempt == 0 && isAxiosError(err)) {
+				if (attempt === 0 && isAxiosError(err)) {
 					this.log(
 						`Failed to connect to session; retrying: ${summarizeError(err)}`,
 						vscode.LogLevel.Warning
