@@ -9,7 +9,12 @@
 	/* Center the handle on the cell's 1px left border:
 	 * cell margin-left (12px) - handle width (16px)/2 + border (1px)/2 */
 	left: 4.5px;
-	top: 6px;
+	/* The top value was chosen so that the handle is as far down from the
+	corner as the cell action menu is to the right of it creating as much
+	symmetry as possible between the two. We could perfectly match them but that
+	would require either using javascript or changing the dom structure in a way
+	that feels unnatural so this is the current solution. */
+	top: 11px;
 	width: 16px;
 	height: 24px;
 	display: flex;
