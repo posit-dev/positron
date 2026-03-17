@@ -7,15 +7,23 @@
 
 export function raceTimeout<T>(promise: Promise<T>, timeout: number, onTimeout?: () => void): Promise<T | undefined> {
 	let promiseResolve: ((value: T | undefined) => void) | undefined = undefined;
+	let promiseReject: ((reason?: unknown) => void) | undefined = undefined;
 
 	const timer = setTimeout(() => {
-		promiseResolve?.(undefined);
-		onTimeout?.();
+		try {
+			onTimeout?.();
+			promiseResolve?.(undefined);
+		} catch (error) {
+			promiseReject?.(error);
+		}
 	}, timeout);
 
 	return Promise.race([
 		promise.finally(() => clearTimeout(timer)),
-		new Promise<T | undefined>(resolve => promiseResolve = resolve)
+		new Promise<T | undefined>((resolve, reject) => {
+			promiseResolve = resolve;
+			promiseReject = reject;
+		})
 	]);
 }
 

@@ -262,23 +262,23 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			return;
 		}
 
-		// Start a new console session for the application.
 		progress.report({ message: vscode.l10n.t('Starting console session...') });
+
 		const session = await positron.runtime.startLanguageRuntime(
 			runtime.runtimeId,
 			options.name,
 		);
 		const sessionId = session.metadata.sessionId;
-
-		// Focus the new session.
 		positron.runtime.focusSession(sessionId);
 
 		progress.report({ message: vscode.l10n.t('Starting application...') });
 
-		// Set up URL detection via ExecutionObserver.
+		// Set up URL detection via an observer for the output of our execute request
 		const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
+		const cancellation = new vscode.CancellationTokenSource();
 
 		const observer: positron.runtime.ExecutionObserver = {
+			token: cancellation.token,
 			onOutput: (data) => detector.processOutput(data),
 			onError: (data) => detector.processOutput(data),
 		};
@@ -298,20 +298,16 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			log.error(`Console execution error: ${error.message}`);
 		});
 
-		// Wait for the URL to be detected, or timeout.
 		const url = await raceTimeout(
 			detector.found,
 			TERMINAL_OUTPUT_TIMEOUT,
-			() => log.error('Timed out waiting for app URL in console output'),
+			() => {
+				cancellation.cancel();
+				throw new Error(vscode.l10n.t('Timed out waiting for {0} app URL in console output.', options.name));
+			},
 		);
 
-		if (!url) {
-			log.error('Cannot preview URL. App URL not found in console output.');
-			return;
-		}
-
-		// Preview the application.
-		await this.previewApp(url, {
+		await this.previewApp(url!, {
 			proxyInfo,
 			urlPath: options.urlPath,
 			previewSource: {
