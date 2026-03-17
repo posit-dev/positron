@@ -353,6 +353,42 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Drag a cell to a new position using drag-and-drop.
+	 * @param sourceCellIndex - The index of the cell to drag
+	 * @param targetCellIndex - The index of the cell to drag to
+	 * @param options - Optional drag behavior configuration
+	 */
+	async dragCellToCell(
+		sourceCellIndex: number,
+		targetCellIndex: number,
+		options?: { targetPosition?: { x: number; y: number } }
+	): Promise<void> {
+		await test.step(`Drag cell ${sourceCellIndex} to cell ${targetCellIndex}`, async () => {
+			const sourceCell = this.cell.nth(sourceCellIndex);
+			const targetCell = this.cell.nth(targetCellIndex);
+
+			// Try to find the drag handle first (feature-specific selector)
+			// If not found, fall back to the cell's left edge
+			let dragHandle = sourceCell.locator('.cell-drag-handle').first();
+			const dragHandleExists = await dragHandle.count() > 0;
+
+			if (!dragHandleExists) {
+				// Fallback: use the cell gutter area (left side of cell)
+				dragHandle = sourceCell.locator('.cell-gutter, .positron-notebook-code-cell-gutter').first();
+				const gutterExists = await dragHandle.count() > 0;
+
+				if (!gutterExists) {
+					// Ultimate fallback: use the cell itself
+					dragHandle = sourceCell;
+				}
+			}
+
+			await expect(dragHandle).toBeVisible();
+			await dragHandle.dragTo(targetCell, options);
+		});
+	}
+
+	/**
 	 * Action: Create a new code cell at the END of the notebook.
 	 */
 	private async addCodeCellToEnd(): Promise<void> {
