@@ -505,9 +505,6 @@ class PythonDriver implements positron.ConnectionsDriver {
 		if (!exec) {
 			throw new Error('Failed to execute code');
 		}
-		for (const [key, value] of Object.entries(exec)) {
-			console.log(`${key}: ${JSON.stringify(value)}`);
-		}
 		return;
 	}
 }
