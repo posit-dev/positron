@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { log } from './extension';
-import { DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
+import { DebugAppOptions, PositronRunApp, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
 import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
 import { DID_PREVIEW_URL_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, TERMINAL_OUTPUT_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
@@ -41,18 +41,33 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	public async runApplication(options: RunAppOptions): Promise<void> {
-		// If there's no active text editor, do nothing.
-		const document = vscode.window.activeTextEditor?.document;
+		const document = this.getDocumentForRun(options.name);
 		if (!document) {
 			return;
 		}
+		return this.queueRunApplication(document, options);
+	}
 
-		if (this._runApplicationSequencerByName.has(options.name)) {
-			vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', options.name));
+	public async runApplicationInConsole(options: RunConsoleAppOptions): Promise<void> {
+		const document = this.getDocumentForRun(options.name);
+		if (!document) {
 			return;
 		}
+		return this.queueRunApplicationInConsole(document, options);
+	}
 
-		return this.queueRunApplication(document, options);
+	private getDocumentForRun(appName: string): vscode.TextDocument | undefined {
+		const document = vscode.window.activeTextEditor?.document;
+		if (!document) {
+			return undefined;
+		}
+
+		if (this._runApplicationSequencerByName.has(appName)) {
+			vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', appName));
+			return undefined;
+		}
+
+		return document;
 	}
 
 	public getProxyServerUri(appUrl: string): vscode.Uri | undefined {
@@ -86,32 +101,13 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	private async doRunApplication(document: vscode.TextDocument, options: RunAppOptions, progress: vscode.Progress<{ message?: string }>): Promise<void> {
-		// Dispose existing disposables for the application, if any.
-		this._runApplicationDisposableByName.get(options.name)?.dispose();
-		this._runApplicationDisposableByName.delete(options.name);
-
 		progress.report({ message: vscode.l10n.t('Preparing the terminal...') });
 
-		// Save the active document if it's dirty.
-		if (document.isDirty) {
-			await document.save();
-		}
-
-		// Get the preferred runtime for the document's language.
-		const runtime = await this.getPreferredRuntime(document.languageId);
-		if (!runtime) {
+		const prepared = await this.prepareRunApplication(document, options);
+		if (!prepared) {
 			return;
 		}
-
-		// Set up the proxy server for the application if applicable.
-		let urlPrefix = undefined;
-		let proxyInfo: PositronProxyInfo | undefined;
-		if (shouldUsePositronProxy(options.name)) {
-			// Start the proxy server
-			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
-			log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
-			urlPrefix = proxyInfo.proxyPath;
-		}
+		const { runtime, urlPrefix, proxyInfo } = prepared;
 
 		// Get the terminal options for the application.
 		const terminalOptions = await options.getTerminalOptions(runtime, document, urlPrefix);
@@ -243,6 +239,129 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 	}
 
+	private queueRunApplicationInConsole(document: vscode.TextDocument, options: RunConsoleAppOptions): Promise<void> {
+		return this._runApplicationSequencerByName.queue(
+			options.name,
+			() => Promise.resolve(vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Running {0} application', options.name),
+			},
+				(progress) => this.doRunApplicationInConsole(document, options, progress),
+			)),
+		);
+	}
+
+	private async doRunApplicationInConsole(
+		document: vscode.TextDocument,
+		options: RunConsoleAppOptions,
+		progress: vscode.Progress<{ message?: string }>,
+	): Promise<void> {
+		progress.report({ message: vscode.l10n.t('Preparing the console...') });
+		const prepared = await this.prepareRunApplication(document, options);
+		if (!prepared) {
+			return;
+		}
+		const { runtime, urlPrefix, proxyInfo } = prepared;
+
+		// Get the console code for the application.
+		const consoleCode = await options.getConsoleCode(runtime, document, urlPrefix);
+		if (!consoleCode) {
+			return;
+		}
+
+		// Start a new console session for the application.
+		progress.report({ message: vscode.l10n.t('Starting console session...') });
+		const session = await positron.runtime.startLanguageRuntime(
+			runtime.runtimeId,
+			options.name,
+		);
+		const sessionId = session.metadata.sessionId;
+
+		// Focus the new session.
+		positron.runtime.focusSession(sessionId);
+
+		progress.report({ message: vscode.l10n.t('Starting application...') });
+
+		// Set up URL detection via ExecutionObserver.
+		const appReadyMessage = options.appReadyMessage?.trim();
+		let appReady = !appReadyMessage;
+		let appUrl: URL | undefined;
+		let urlResolve: (url: URL) => void;
+
+		const urlPromise = new Promise<URL>((resolve) => {
+			urlResolve = resolve;
+		});
+
+		const processOutput = (data: string) => {
+			const dataCleaned = removeAnsiEscapeCodes(data);
+
+			if (!appReady && appReadyMessage) {
+				appReady = dataCleaned.includes(appReadyMessage);
+				if (appReady) {
+					log.debug(`App is ready - found appReadyMessage: '${appReadyMessage}'`);
+					if (appUrl) {
+						urlResolve(appUrl);
+						return;
+					}
+				}
+			}
+
+			if (!appUrl) {
+				const match = extractAppUrlFromString(dataCleaned, options.appUrlStrings);
+				if (match) {
+					appUrl = new URL(match);
+					log.debug(`Found app URL in console output: ${appUrl.toString()}`);
+					if (appReady) {
+						urlResolve(appUrl);
+						return;
+					}
+				}
+			}
+		};
+
+		const observer: positron.runtime.ExecutionObserver = {
+			onOutput: processOutput,
+			onError: processOutput,
+		};
+
+		// Execute the code in the console session.
+		// Don't await: the Thenable resolves only when the app stops.
+		positron.runtime.executeCode(
+			document.languageId,
+			consoleCode.code,
+			true,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue,
+			observer,
+			sessionId,
+		).then(undefined, (error: Error) => {
+			log.error(`Console execution error: ${error.message}`);
+		});
+
+		// Wait for the URL to be detected, or timeout.
+		const url = await raceTimeout(
+			urlPromise,
+			TERMINAL_OUTPUT_TIMEOUT,
+			() => log.error('Timed out waiting for app URL in console output'),
+		);
+
+		if (!url) {
+			log.error('Cannot preview URL. App URL not found in console output.');
+			return;
+		}
+
+		// Preview the application.
+		await this.previewApp(url, {
+			proxyInfo,
+			urlPath: options.urlPath,
+			previewSource: {
+				type: positron.PreviewSourceType.Runtime,
+				id: sessionId,
+			},
+		});
+	}
+
 	public async debugApplication(options: DebugAppOptions): Promise<void> {
 		// If there's no active text editor, do nothing.
 		const document = vscode.window.activeTextEditor?.document;
@@ -367,6 +486,37 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 	}
 
+	private async prepareRunApplication(
+		document: vscode.TextDocument,
+		options: { name: string },
+	): Promise<{
+		runtime: positron.LanguageRuntimeMetadata;
+		urlPrefix: string | undefined;
+		proxyInfo: PositronProxyInfo | undefined;
+	} | undefined> {
+		this._runApplicationDisposableByName.get(options.name)?.dispose();
+		this._runApplicationDisposableByName.delete(options.name);
+
+		if (document.isDirty) {
+			await document.save();
+		}
+
+		const runtime = await this.getPreferredRuntime(document.languageId);
+		if (!runtime) {
+			return undefined;
+		}
+
+		let urlPrefix = undefined;
+		let proxyInfo: PositronProxyInfo | undefined;
+		if (shouldUsePositronProxy(options.name)) {
+			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
+			log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
+			urlPrefix = proxyInfo.proxyPath;
+		}
+
+		return { runtime, urlPrefix, proxyInfo };
+	}
+
 	/** Get the preferred runtime for a language; forwarding errors to the UI. */
 	private async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata | undefined> {
 		try {
@@ -467,6 +617,22 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			return false;
 		}
 
+		return this.previewApp(url, {
+			proxyInfo: options.proxyInfo,
+			urlPath: options.urlPath,
+			terminalPid: options.terminalPid,
+			previewSource: options.terminalPid !== undefined
+				? { type: positron.PreviewSourceType.Terminal, id: String(options.terminalPid) }
+				: undefined,
+		});
+	}
+
+	private async previewApp(url: URL, options: {
+		proxyInfo?: PositronProxyInfo;
+		urlPath?: string;
+		terminalPid?: number;
+		previewSource?: positron.PreviewSource;
+	}): Promise<boolean> {
 		// Example: http://localhost:8500
 		const localBaseUri = vscode.Uri.parse(url.toString());
 
@@ -502,12 +668,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			options.terminalPid,
 			previewUri,
 		);
+
 		// Preview the app in the Viewer.
-		if (options.terminalPid !== undefined) {
-			positron.window.previewUrl(previewUri, {
-				type: positron.PreviewSourceType.Terminal,
-				id: String(options.terminalPid)
-			});
+		if (options.previewSource) {
+			positron.window.previewUrl(previewUri, options.previewSource);
 		} else {
 			positron.window.previewUrl(previewUri);
 		}
