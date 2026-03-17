@@ -474,10 +474,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			//       returned here. Is that expected?
 			const existingSession = this.getConsoleSessionForRuntime(runtimeId, true);
 			if (existingSession) {
-				// If startup is not yet complete, don't set the session as
-				// foreground yet, as it interrupts the session selection that
-				// happens during startup
-				if (this._languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete) {
+				// If startup is not yet complete, don't override the foreground
+				// session, as it interrupts the session selection that happens
+				// during startup
+				if (this.foregroundSession &&
+					this._languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete) {
 					return;
 				}
 				// Otherwise, set it as the foreground session and return.
