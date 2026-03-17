@@ -22,6 +22,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private readonly _runApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _runApplicationDisposableByName = new Map<string, vscode.Disposable>();
 	private readonly _appServers = new Map<string, { terminalPid: number | undefined; proxyUri: vscode.Uri }>();
+	private readonly _consoleSessionByName = new Map<string, string>();
 
 	constructor(
 		private readonly _globalState: vscode.Memento,
@@ -262,40 +263,60 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			return;
 		}
 
-		progress.report({ message: vscode.l10n.t('Starting console session...') });
+		// Reuse existing console session if one is still alive for this app.
+		let sessionId = this._consoleSessionByName.get(options.name);
 
-		// When breakpoints are set, listen for DAP `configurationDone` before
-		// starting the runtime so we don't miss the event. This ensures
-		// breakpoints are installed in the backend before we execute the app
-		// code (Ark needs to know about breakpoints to inject them while
-		// sourcing app files, e.g. in Shiny). Only do this if user has set
-		// breakpoints because this synchronisation does slow down the app startup
-		// time quite a bit.
-		const hasBreakpoints = vscode.debug.breakpoints.length > 0;
-		let configurationDone: Promise<void> | undefined;
-		if (hasBreakpoints) {
-			configurationDone = new Promise<void>(resolve => {
-				const disposable = this._debugAdapterTrackerFactory.onDidCompleteConfiguration(() => {
-					disposable.dispose();
-					resolve();
+		if (sessionId) {
+			progress.report({ message: vscode.l10n.t('Restarting application...') });
+			try {
+				await positron.runtime.interruptSession(sessionId);
+			} catch (error) {
+				log.debug(`Could not interrupt session for ${options.name}, creating a new one: ${error}`);
+				sessionId = undefined;
+				this._consoleSessionByName.delete(options.name);
+			}
+		}
+
+		if (!sessionId) {
+			progress.report({ message: vscode.l10n.t('Starting console session...') });
+
+			// When breakpoints are set, listen for DAP `configurationDone`
+			// before starting the runtime so we don't miss the event. This
+			// ensures breakpoints are installed in the backend before we
+			// execute the app code (Ark needs to know about breakpoints to
+			// inject them while sourcing app files, e.g. in Shiny).
+			const hasBreakpoints = vscode.debug.breakpoints.length > 0;
+			let configurationDone: Promise<void> | undefined;
+			if (hasBreakpoints) {
+				configurationDone = new Promise<void>(resolve => {
+					const disposable = this._debugAdapterTrackerFactory.onDidCompleteConfiguration(() => {
+						disposable.dispose();
+						resolve();
+					});
 				});
-			});
-		}
+			}
 
-		const session = await positron.runtime.startLanguageRuntime(
-			runtime.runtimeId,
-			options.name,
-		);
-		const sessionId = session.metadata.sessionId;
-		positron.runtime.focusSession(sessionId);
-
-		if (configurationDone) {
-			await raceTimeout(
-				configurationDone,
-				DAP_CONFIGURATION_TIMEOUT,
-				() => log.warn('Timed out waiting for DAP configurationDone; proceeding without breakpoints'),
+			const session = await positron.runtime.startLanguageRuntime(
+				runtime.runtimeId,
+				options.name,
 			);
+			sessionId = session.metadata.sessionId;
+
+			this._consoleSessionByName.set(options.name, sessionId);
+			session.onDidEndSession(() => {
+				this._consoleSessionByName.delete(options.name);
+			});
+
+			if (configurationDone) {
+				await raceTimeout(
+					configurationDone,
+					DAP_CONFIGURATION_TIMEOUT,
+					() => log.warn('Timed out waiting for DAP configurationDone; proceeding without breakpoints'),
+				);
+			}
 		}
+
+		positron.runtime.focusSession(sessionId);
 
 		progress.report({ message: vscode.l10n.t('Starting application...') });
 
