@@ -329,16 +329,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		const documentModel = this._documentModelService.getModel(textModel);
 		const quartoCells = documentModel.cells;
 
-		// Compute the output area width and pixel ratio from the active editor's layout.
-		// This uses the same formula as QuartoOutputViewZone._getWidth().
-		let outputWidthPx: number | undefined;
-		let outputPixelRatio: number | undefined;
-		const editorControl = this._editorService.activeTextEditorControl;
-		if (isCodeEditor(editorControl)) {
-			const layoutInfo = editorControl.getLayoutInfo();
-			outputWidthPx = layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4;
-			outputPixelRatio = getWindow(editorControl.getContainerDomNode()).devicePixelRatio;
-		}
+		// Compute layout metadata from the active editor for output sizing.
+		const layoutMetadata = this._getEditorLayoutMetadata();
 
 		// For each range, find the containing cell and prepare execution info
 		interface InlineExecution {
@@ -399,21 +391,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				);
 			}
 
-			// Merge cell-option metadata with any externally-provided metadata.
-			// Cell options are the base; external metadata (from the API) wins on conflict.
-			// Always include the output area width when available.
+			// Merge metadata from layout, cell YAML options, and external sources.
+			// Cell YAML options take highest precedence, then external, then layout.
 			const cellMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
 			const externalMetadata = executionMetadata?.[rangeIdx];
-			const layoutMetadata: Record<string, unknown> = {};
-			if (outputWidthPx !== undefined) {
-				layoutMetadata.output_width_px = outputWidthPx;
-			}
-			if (outputPixelRatio !== undefined) {
-				layoutMetadata.output_pixel_ratio = outputPixelRatio;
-			}
-			const hasLayoutMetadata = Object.keys(layoutMetadata).length > 0;
-			const mergedMetadata = cellMetadata || externalMetadata || hasLayoutMetadata
-				? { ...layoutMetadata, ...cellMetadata, ...externalMetadata }
+			const mergedMetadata = cellMetadata || externalMetadata || layoutMetadata
+				? { ...layoutMetadata, ...externalMetadata, ...cellMetadata }
 				: undefined;
 
 			executions.push({
@@ -1694,18 +1677,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		await this._persistQueueState(documentUri);
 
 		// Delegate to the unified range execution with parsed options.
-		// Include the output area width and pixel ratio when the active editor provides layout info.
+		// Cell YAML options take highest precedence over layout metadata.
 		const cellMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
-		let executionMetadata: Record<string, unknown> | undefined;
-		const editorControl = this._editorService.activeTextEditorControl;
-		if (isCodeEditor(editorControl)) {
-			const layoutInfo = editorControl.getLayoutInfo();
-			const outputWidthPx = layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4;
-			const outputPixelRatio = getWindow(editorControl.getContainerDomNode()).devicePixelRatio;
-			executionMetadata = { output_width_px: outputWidthPx, output_pixel_ratio: outputPixelRatio, ...cellMetadata };
-		} else {
-			executionMetadata = cellMetadata;
-		}
+		const layoutMetadata = this._getEditorLayoutMetadata();
+		const executionMetadata = cellMetadata || layoutMetadata
+			? { ...layoutMetadata, ...cellMetadata }
+			: undefined;
 		const hadError = await this._executeRange(documentUri, currentCell, effectiveCodeRange, options, token, executionMetadata);
 		return { hadError, options };
 	}
@@ -2076,6 +2053,23 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		} catch (error) {
 			this._logService.warn(`[QuartoExecutionManager] Failed to persist queue state:`, error);
 		}
+	}
+
+	/**
+	 * Compute output layout metadata from the active text editor.
+	 * Returns dimensions used by the kernel to size outputs (e.g. plot
+	 * rendering). Uses the same formula as QuartoOutputViewZone._getWidth().
+	 */
+	private _getEditorLayoutMetadata(): Record<string, unknown> | undefined {
+		const editorControl = this._editorService.activeTextEditorControl;
+		if (isCodeEditor(editorControl)) {
+			const layoutInfo = editorControl.getLayoutInfo();
+			return {
+				output_width_px: layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4,
+				output_pixel_ratio: getWindow(editorControl.getContainerDomNode()).devicePixelRatio,
+			};
+		}
+		return undefined;
 	}
 
 	/**

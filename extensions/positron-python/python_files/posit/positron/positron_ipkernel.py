@@ -229,8 +229,7 @@ class PositronMagics(Magics):
         kernel = self.shell.kernel
         parent = kernel.get_parent("shell")
         content = parent.get("content", {})
-        positron_meta = dict(content.get("positron", {}))
-        positron_meta.pop("code_location", None)
+        positron_meta = content.get("positron", {})
         print(_json.dumps(positron_meta, sort_keys=True))
 
 
