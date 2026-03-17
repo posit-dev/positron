@@ -11,7 +11,7 @@ import { log } from './extension';
 import { DebugAppOptions, PositronRunApp, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
 import { AppUrlDetector } from './appUrlDetector';
 import { raceTimeout, SequencerByKey } from './utils';
-import { DID_PREVIEW_URL_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, TERMINAL_OUTPUT_TIMEOUT } from './constants.js';
+import { DAP_CONFIGURATION_TIMEOUT, DID_PREVIEW_URL_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, TERMINAL_OUTPUT_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
 import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
 
@@ -264,12 +264,38 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		progress.report({ message: vscode.l10n.t('Starting console session...') });
 
+		// When breakpoints are set, listen for DAP `configurationDone` before
+		// starting the runtime so we don't miss the event. This ensures
+		// breakpoints are installed in the backend before we execute the app
+		// code (Ark needs to know about breakpoints to inject them while
+		// sourcing app files, e.g. in Shiny). Only do this if user has set
+		// breakpoints because this synchronisation does slow down the app startup
+		// time quite a bit.
+		const hasBreakpoints = vscode.debug.breakpoints.length > 0;
+		let configurationDone: Promise<void> | undefined;
+		if (hasBreakpoints) {
+			configurationDone = new Promise<void>(resolve => {
+				const disposable = this._debugAdapterTrackerFactory.onDidCompleteConfiguration(() => {
+					disposable.dispose();
+					resolve();
+				});
+			});
+		}
+
 		const session = await positron.runtime.startLanguageRuntime(
 			runtime.runtimeId,
 			options.name,
 		);
 		const sessionId = session.metadata.sessionId;
 		positron.runtime.focusSession(sessionId);
+
+		if (configurationDone) {
+			await raceTimeout(
+				configurationDone,
+				DAP_CONFIGURATION_TIMEOUT,
+				() => log.warn('Timed out waiting for DAP configurationDone; proceeding without breakpoints'),
+			);
+		}
 
 		progress.report({ message: vscode.l10n.t('Starting application...') });
 

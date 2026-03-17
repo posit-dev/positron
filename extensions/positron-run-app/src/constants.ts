@@ -19,6 +19,8 @@ export const IS_RUNNING_ON_PWB = !!process.env.RS_SERVER_URL && IS_POSITRON_WEB;
 
 // Timeouts.
 export const TERMINAL_OUTPUT_TIMEOUT = 25_000;
+/** Time to wait for the debug adapter to finish its initial configuration (breakpoints etc.). */
+export const DAP_CONFIGURATION_TIMEOUT = 10_000;
 export const DID_PREVIEW_URL_TIMEOUT = TERMINAL_OUTPUT_TIMEOUT + 5_000;
 /** Time between creating a terminal and receiving its onDidChangeTerminalShellIntegration event. */
 export const SHELL_INTEGRATION_TIMEOUT = 5_000;
