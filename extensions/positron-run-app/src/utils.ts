@@ -34,7 +34,8 @@ export class SequencerByKey<TKey> {
 	queue<T>(key: TKey, promiseTask: ITask<Promise<T>>): Promise<T> {
 		const runningPromise = this.promiseMap.get(key) ?? Promise.resolve();
 		const newPromise = runningPromise
-			.catch(() => { })
+			// Swallow unhandled errors from the previous task so the current one still runs.
+			.catch((error) => { console.warn(`[positron-run-app] Previous queued task for key '${key}' failed:`, error); })
 			.then(promiseTask)
 			.finally(() => {
 				if (this.promiseMap.get(key) === newPromise) {
