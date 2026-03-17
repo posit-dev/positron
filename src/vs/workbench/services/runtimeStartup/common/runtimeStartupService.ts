@@ -19,6 +19,7 @@ export const IRuntimeStartupService =
 export interface IRuntimeAutoStartEvent {
 	runtime: ILanguageRuntimeMetadata;
 	newSession: boolean;
+	activate: boolean;
 }
 
 /**

@@ -1221,7 +1221,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Let the UI know we're about to try starting this session
 				this._onWillAutoStartRuntime.fire({
 					runtime: affiliation.metadata,
-					newSession: true
+					newSession: true,
+					activate: idx === 0
 				});
 			}
 
@@ -1385,7 +1386,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Let the UI know we're about to try reconnecting to this session
 		this._onWillAutoStartRuntime.fire({
 			runtime: sessions[0].runtimeMetadata,
-			newSession: false
+			newSession: false,
+			activate: true
 		});
 
 		// Activate any extensions needed for the sessions we want to reconnect
@@ -1743,7 +1745,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	) {
 		this._onWillAutoStartRuntime.fire({
 			runtime: metadata,
-			newSession: true
+			newSession: true,
+			activate
 		});
 		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
 	}
