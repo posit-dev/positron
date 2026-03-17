@@ -154,6 +154,7 @@ jobs:
         uses: ./.github/actions/install-r
         with:
           version: "4.5.2"
+          install_undetectable_interpreters: true
 
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile
