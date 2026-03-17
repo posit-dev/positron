@@ -68,8 +68,7 @@
 	border-color: var(--vscode-focusBorder);
 }
 
-.sortable-cell:has(.positron-notebook-cell:not(.selected):not(.editing):hover) > .cell-drag-handle,
-.cell-drag-handle:hover {
+.sortable-cell:has(.positron-notebook-cell:not(.selected):not(.editing)):hover > .cell-drag-handle {
 	border-color: var(--vscode-editorWidget-border);
 }
 
