@@ -341,38 +341,42 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			onError: (data) => detector.processOutput(data),
 		};
 
-		// Execute the code in the console session.
-		// Don't await: the Thenable resolves only when the app stops.
-		positron.runtime.executeCode(
-			document.languageId,
-			consoleCode.code,
-			true,
-			false,
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Continue,
-			observer,
-			sessionId,
-		).then(undefined, (error: Error) => {
-			log.error(`Console execution error: ${error.message}`);
-		});
+		try {
+			// Execute the code in the console session.
+			// Don't await: the Thenable resolves only when the app stops.
+			positron.runtime.executeCode(
+				document.languageId,
+				consoleCode.code,
+				true,
+				false,
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Continue,
+				observer,
+				sessionId,
+			).then(undefined, (error: Error) => {
+				log.error(`Console execution error: ${error.message}`);
+			});
 
-		const url = await raceTimeout(
-			detector.found,
-			TERMINAL_OUTPUT_TIMEOUT,
-			() => {
-				cancellation.cancel();
-				throw new Error(vscode.l10n.t('Timed out waiting for {0} app URL in console output.', options.name));
-			},
-		);
+			const url = await raceTimeout(
+				detector.found,
+				TERMINAL_OUTPUT_TIMEOUT,
+				() => {
+					cancellation.cancel();
+					throw new Error(vscode.l10n.t('Timed out waiting for {0} app URL in console output.', options.name));
+				},
+			);
 
-		await this.previewApp(url!, {
-			proxyInfo,
-			urlPath: options.urlPath,
-			previewSource: {
-				type: positron.PreviewSourceType.Runtime,
-				id: sessionId,
-			},
-		});
+			await this.previewApp(url!, {
+				proxyInfo,
+				urlPath: options.urlPath,
+				previewSource: {
+					type: positron.PreviewSourceType.Runtime,
+					id: sessionId,
+				},
+			});
+		} finally {
+			cancellation.dispose();
+		}
 	}
 
 	public async debugApplication(options: DebugAppOptions): Promise<void> {
