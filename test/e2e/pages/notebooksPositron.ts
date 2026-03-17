@@ -381,6 +381,13 @@ export class PositronNotebooks extends Notebooks {
 		await this.code.driver.page.mouse.down();
 		await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
 
+		// Wait for drag to actually activate: the body gets a
+		// 'dragging-notebook-cell' class and the dragged cell becomes
+		// semi-transparent ('sortable-cell-hidden').
+		const page = this.code.driver.page;
+		await expect(page.locator('body.dragging-notebook-cell')).toBeAttached({ timeout: 2000 });
+		await expect(this.sortableCellAtIndex(cellIndex)).toHaveClass(/sortable-cell-hidden/, { timeout: 2000 });
+
 		return { startX, startY };
 	}
 
@@ -392,12 +399,9 @@ export class PositronNotebooks extends Notebooks {
 	async dragCellToPosition(fromIndex: number, toIndex: number): Promise<void> {
 		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex}`, async () => {
 			const { startX } = await this._activateDrag(fromIndex);
+			const page = this.code.driver.page;
 
-			// Wait for the dragged cell to collapse and CSS transitions to settle.
-			// The dragged cell gets `height: 0` which shifts siblings.
-			await this.code.driver.page.waitForTimeout(200);
-
-			// Get the target cell's position after collapse settles
+			// Get the target cell's position
 			const targetCell = this.sortableCellAtIndex(toIndex);
 			const targetBox = await targetCell.boundingBox();
 			if (!targetBox) {
@@ -406,8 +410,8 @@ export class PositronNotebooks extends Notebooks {
 
 			// For downward drags, target just past the bottom of the target cell.
 			// For upward drags, target just above the top.
-			// dnd-kit uses closestCenter, so we need to be clearly past the
-			// center of the target cell.
+			// dnd-kit uses pointer position to determine which half of the
+			// cell the pointer is in, so we need to be clearly past center.
 			const targetY = toIndex > fromIndex
 				? targetBox.y + targetBox.height + 5
 				: targetBox.y - 5;
@@ -415,8 +419,15 @@ export class PositronNotebooks extends Notebooks {
 			// Keep X on the same column as the drag handle start position.
 			// Moving diagonally across the page can take the cursor outside
 			// the notebook area during long drags.
-			await this.code.driver.page.mouse.move(startX, targetY, { steps: 20 });
-			await this.code.driver.page.mouse.up();
+			await page.mouse.move(startX, targetY, { steps: 20 });
+
+			// Wait for the drop indicator to appear, confirming dnd-kit has
+			// processed the final pointer position and computed the drop target.
+			await expect(
+				page.locator('.drag-drop-indicator')
+			).toBeVisible({ timeout: 2000 });
+
+			await page.mouse.up();
 		});
 	}
 
@@ -446,9 +457,6 @@ export class PositronNotebooks extends Notebooks {
 			await expect(sourceCell).toBeVisible();
 
 			const { startX } = await this._activateDrag(fromIndex);
-
-			// Wait for the dragged cell to collapse and CSS transitions to settle
-			await this.code.driver.page.waitForTimeout(200);
 
 			// Get the notebook container for viewport bounds
 			const notebookContainer = this.positronNotebook;
@@ -518,8 +526,10 @@ export class PositronNotebooks extends Notebooks {
 				const finalCheck = await isTargetReachable();
 				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
 					await this.code.driver.page.mouse.move(startX, finalCheck.targetY, { steps: 10 });
-					// Wait one frame for dnd-kit to process the final position
-					await this.code.driver.page.evaluate(() => new Promise(requestAnimationFrame));
+					// Wait for the drop indicator to confirm dnd-kit processed the position
+					await expect(
+						this.code.driver.page.locator('.drag-drop-indicator')
+					).toBeVisible({ timeout: 2000 });
 					await this.code.driver.page.mouse.up();
 					return;
 				}
