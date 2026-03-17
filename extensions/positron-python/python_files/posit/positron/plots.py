@@ -25,7 +25,7 @@ from .plot_comm import (
     PlotUnit,
     RenderRequest,
 )
-from .positron_comm import CommMessage, PositronComm
+from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 
 if TYPE_CHECKING:
     from .session_mode import SessionMode
@@ -187,7 +187,19 @@ class Plot:
         pixel_ratio: float,
         format_: str,
     ) -> None:
-        rendered = self._render(size, pixel_ratio, format_)
+        try:
+            rendered = self._render(size, pixel_ratio, format_)
+        except Exception:
+            # Render may fail if the underlying figure has been destroyed (e.g., after plt.close()).
+            # The figure can still be rendered in many cases since matplotlib keeps the figure
+            # object alive, but edge cases may fail. Log and return an error to the frontend.
+            logger.warning("Failed to render plot (figure may have been destroyed)", exc_info=True)
+            self._comm.send_error(
+                JsonRpcErrorCode.INTERNAL_ERROR,
+                "Failed to render plot. The figure may have been closed.",
+            )
+            return
+
         data = base64.b64encode(rendered).decode()
 
         # Track render settings for future pre-renders
@@ -253,7 +265,12 @@ class PlotsService:
 
         self._plots: list[Plot] = []
 
-        # Track the most recent render settings for pre-rendering
+        # Track the most recent render settings for pre-rendering.
+        # Default to 640x480 at 1x pixel ratio until we receive actual render settings
+        # from the frontend. Note: The first pre-render may not match the actual display
+        # size, which can cause a visible resize flash when the frontend requests the
+        # correct size. This is expected behavior - we prioritize showing something
+        # immediately over waiting for the exact size.
         self._current_render_settings: PlotRenderSettings | None = PlotRenderSettings(
             size=PlotSize(width=640, height=480),
             pixel_ratio=1.0,

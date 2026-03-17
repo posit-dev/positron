@@ -391,6 +391,33 @@ def test_mpl_close(shell: PositronShell, plots_service: PlotsService) -> None:
     assert len(plots_service._plots) == 1  # noqa: SLF001
 
 
+def test_mpl_close_then_frontend_close(shell: PositronShell, plots_service: PlotsService) -> None:
+    """Test the full lifecycle when plt.close() is called before frontend closes the comm.
+
+    This tests the double-close path: plt.close() destroys the matplotlib figure,
+    then the frontend closes the comm which calls _on_close (calling plt.close again).
+    The second plt.close should handle the already-closed figure gracefully.
+    """
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Close the matplotlib figure first (destroys the figure internally)
+    shell.run_cell("plt.close()")
+
+    # Verify figure is destroyed from matplotlib's perspective
+    assert plt.get_fignums() == []
+
+    # The comm should still be open
+    assert not plot_comm._closed  # noqa: SLF001
+
+    # Now simulate the frontend closing the comm.
+    # This will trigger _on_close which calls plt.close(self.num) on an already-closed figure.
+    # This should not raise an error.
+    plot_comm.handle_close(comm_close_message())
+
+    # The comm should now be closed
+    _assert_plot_comm_closed(plot_comm)
+
+
 def _do_close(plot_comm: DummyComm) -> None:
     plot_comm.handle_close(comm_close_message())
 
