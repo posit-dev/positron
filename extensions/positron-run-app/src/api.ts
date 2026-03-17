@@ -9,10 +9,11 @@ import * as vscode from 'vscode';
 import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { log } from './extension';
 import { DebugAppOptions, PositronRunApp, RunAppOptions, RunConsoleAppOptions } from './positron-run-app';
-import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
+import { AppUrlDetector } from './appUrlDetector';
+import { raceTimeout, SequencerByKey } from './utils';
 import { DID_PREVIEW_URL_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, TERMINAL_OUTPUT_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
-import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage, extractAppUrlFromString } from './api-utils.js';
+import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
 
 
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
@@ -284,45 +285,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		progress.report({ message: vscode.l10n.t('Starting application...') });
 
 		// Set up URL detection via ExecutionObserver.
-		const appReadyMessage = options.appReadyMessage?.trim();
-		let appReady = !appReadyMessage;
-		let appUrl: URL | undefined;
-		let urlResolve: (url: URL) => void;
-
-		const urlPromise = new Promise<URL>((resolve) => {
-			urlResolve = resolve;
-		});
-
-		const processOutput = (data: string) => {
-			const dataCleaned = removeAnsiEscapeCodes(data);
-
-			if (!appReady && appReadyMessage) {
-				appReady = dataCleaned.includes(appReadyMessage);
-				if (appReady) {
-					log.debug(`App is ready - found appReadyMessage: '${appReadyMessage}'`);
-					if (appUrl) {
-						urlResolve(appUrl);
-						return;
-					}
-				}
-			}
-
-			if (!appUrl) {
-				const match = extractAppUrlFromString(dataCleaned, options.appUrlStrings);
-				if (match) {
-					appUrl = new URL(match);
-					log.debug(`Found app URL in console output: ${appUrl.toString()}`);
-					if (appReady) {
-						urlResolve(appUrl);
-						return;
-					}
-				}
-			}
-		};
+		const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
 
 		const observer: positron.runtime.ExecutionObserver = {
-			onOutput: processOutput,
-			onError: processOutput,
+			onOutput: (data) => detector.processOutput(data),
+			onError: (data) => detector.processOutput(data),
 		};
 
 		// Execute the code in the console session.
@@ -342,7 +309,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		// Wait for the URL to be detected, or timeout.
 		const url = await raceTimeout(
-			urlPromise,
+			detector.found,
 			TERMINAL_OUTPUT_TIMEOUT,
 			() => log.error('Timed out waiting for app URL in console output'),
 		);
@@ -557,55 +524,21 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private async previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, options: AppPreviewOptions) {
 		// Wait for the server URL to appear in the terminal output, or a timeout.
 		const stream = execution.read();
-		const appReadyMessage = options.appReadyMessage?.trim();
+		const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
+
+		// Feed the stream into the detector. The loop breaks once the URL is
+		// found, or ends when the terminal process exits.
+		(async () => {
+			for await (const data of stream) {
+				log.trace('Execution:', execution.commandLine.value, data);
+				if (detector.processOutput(data)) {
+					break;
+				}
+			}
+		})();
+
 		const url = await raceTimeout(
-			(async () => {
-				// If an appReadyMessage is not provided, we'll consider the app ready as soon as the URL is found.
-				let appReady = !appReadyMessage;
-				let appUrl = undefined;
-				for await (const data of stream) {
-					log.trace('Execution:', execution.commandLine.value, data);
-
-					// Ansi escape codes seem to mess up the regex match on Windows, so remove them first.
-					const dataCleaned = removeAnsiEscapeCodes(data);
-
-					// Check if the app is ready, if it's not already ready and an appReadyMessage is provided.
-					if (!appReady && appReadyMessage) {
-						appReady = dataCleaned.includes(appReadyMessage);
-						if (appReady) {
-							log.debug(`App is ready - found appReadyMessage: '${appReadyMessage}'`);
-							// If the app URL was already found, we're done!
-							if (appUrl) {
-								return appUrl;
-							}
-						}
-					}
-					// Check if the app url is found in the terminal output.
-					if (!appUrl) {
-						const match = extractAppUrlFromString(dataCleaned, options.appUrlStrings);
-						if (match) {
-							appUrl = new URL(match);
-							log.debug(`Found app URL in terminal output: ${appUrl.toString()}`);
-							// If the app is ready, we're done!
-							if (appReady) {
-								return appUrl;
-							}
-						}
-					}
-				}
-
-				// If we're here, we've reached the end of the stream without finding the app URL and/or
-				// the appReadyMessage.
-				if (!appReady) {
-					// It's possible that the app is ready, but the appReadyMessage was not found, for
-					// example, if the message has changed or was missed somehow. Log a warning.
-					log.warn(`Expected app ready message '${appReadyMessage}' not found in terminal`);
-				}
-				if (!appUrl) {
-					log.error('App URL not found in terminal output');
-				}
-				return appUrl;
-			})(),
+			detector.found,
 			TERMINAL_OUTPUT_TIMEOUT,
 			() => log.error('Timed out waiting for server output in terminal'),
 		);
