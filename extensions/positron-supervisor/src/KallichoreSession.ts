@@ -1170,7 +1170,35 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await kernel.connected.wait();
 
 		// Connect to the session's websocket
-		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to adopted session ${this.metadata.sessionId}`);
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const connectTimeout = config.get<number>('startupTimeout', 10) * 1000;
+		let retry = true;
+		const connectStartTime = Date.now();
+		do {
+			try {
+				await withTimeout(
+					this.connect(),
+					connectTimeout,
+					`Start failed: timed out connecting to adopted session ${this.metadata.sessionId} ` +
+					`after ${connectTimeout}ms`);
+			} catch (err) {
+				if (retry) {
+					this.log(
+						`Failed to connect to adopted kernel; retrying: ${summarizeError(err)}`,
+						vscode.LogLevel.Warning);
+					retry = false;
+					continue;
+				} else {
+					this.log(
+						`Failed to connect to adopted kernel: ${summarizeError(err)}`,
+						vscode.LogLevel.Error);
+					throw err;
+				}
+			} finally {
+				retry = false;
+			}
+		} while (retry);
+		this.log(`Connected to adopted kernel after ${Date.now() - connectStartTime}ms`, vscode.LogLevel.Info);
 
 		// Mark the session as ready
 		this.markReady('kernel adoption complete');
@@ -1254,7 +1282,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Wait for the session to be established before connecting. This
 		// ensures either that we've created the session (if it's new) or that
 		// we've restored it (if it's not new).
-		await withTimeout(this._established.wait(), 2000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be established`);
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const establishTimeout = config.get<number>('startupTimeout', 10) * 1000;
+		const establishStartTime = Date.now();
+		await withTimeout(
+			this._established.wait(),
+			establishTimeout,
+			`Start failed: timed out waiting for session ${this.metadata.sessionId} to be established ` +
+			`after ${establishTimeout}ms`);
+		this.log(`Session ${this.metadata.sessionId} established after ${Date.now() - establishStartTime}ms`, vscode.LogLevel.Info);
 
 		let runtimeInfo: positron.LanguageRuntimeInfo | undefined = this._runtimeInfo;
 
@@ -1295,7 +1331,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Before connecting, check if we should attach to the session on
 		// startup
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		if (attachOnStartup) {
 			try {
@@ -1306,7 +1341,35 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Connect to the session's websocket
-		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to session ${this.metadata.sessionId}`);
+		const connectTimeout = config.get<number>('startupTimeout', 10) * 1000;
+		const connectStartTime = Date.now();
+		retry = true;
+		do {
+			try {
+				await withTimeout(
+					this.connect(),
+					connectTimeout,
+					`Start failed: timed out connecting to session ${this.metadata.sessionId} after ${connectTimeout}ms`);
+			} catch (err) {
+				if (retry) {
+					this.log(
+						`Failed to connect to session; retrying: ${summarizeError(err)}`,
+						vscode.LogLevel.Warning
+					);
+					retry = false;
+					continue;
+				} else {
+					this.log(
+						`Failed to connect to session: ${summarizeError(err)}`,
+						vscode.LogLevel.Error
+					);
+					throw err;
+				}
+			} finally {
+				retry = false;
+			}
+		} while (retry);
+		this.log(`Connected to session after ${Date.now() - connectStartTime}ms`, vscode.LogLevel.Info);
 
 		if (this._new) {
 			// If it's a new session and we got runtime info from starting it,
