@@ -114,4 +114,4 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 			</Button>
 		</div>
 	</div>;
-}
+};
