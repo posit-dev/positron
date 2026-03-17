@@ -41,19 +41,27 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	public async runApplication(options: RunAppOptions): Promise<void> {
-		const document = this.getDocumentForRun(options.name);
-		if (!document) {
-			return;
+		try {
+			const document = this.getDocumentForRun(options.name);
+			if (!document) {
+				return;
+			}
+			await this.queueRunApplication(document, options);
+		} catch (error) {
+			this.showRunError(options.name, error);
 		}
-		return this.queueRunApplication(document, options);
 	}
 
 	public async runApplicationInConsole(options: RunConsoleAppOptions): Promise<void> {
-		const document = this.getDocumentForRun(options.name);
-		if (!document) {
-			return;
+		try {
+			const document = this.getDocumentForRun(options.name);
+			if (!document) {
+				return;
+			}
+			await this.queueRunApplicationInConsole(document, options);
+		} catch (error) {
+			this.showRunError(options.name, error);
 		}
-		return this.queueRunApplicationInConsole(document, options);
 	}
 
 	private getDocumentForRun(appName: string): vscode.TextDocument | undefined {
@@ -103,11 +111,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private async doRunApplication(document: vscode.TextDocument, options: RunAppOptions, progress: vscode.Progress<{ message?: string }>): Promise<void> {
 		progress.report({ message: vscode.l10n.t('Preparing the terminal...') });
 
-		const prepared = await this.prepareRunApplication(document, options);
-		if (!prepared) {
-			return;
-		}
-		const { runtime, urlPrefix, proxyInfo } = prepared;
+		const { runtime, urlPrefix, proxyInfo } = await this.prepareRunApplication(document, options);
 
 		// Get the terminal options for the application.
 		const terminalOptions = await options.getTerminalOptions(runtime, document, urlPrefix);
@@ -257,11 +261,8 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		progress: vscode.Progress<{ message?: string }>,
 	): Promise<void> {
 		progress.report({ message: vscode.l10n.t('Preparing the console...') });
-		const prepared = await this.prepareRunApplication(document, options);
-		if (!prepared) {
-			return;
-		}
-		const { runtime, urlPrefix, proxyInfo } = prepared;
+
+		const { runtime, urlPrefix, proxyInfo } = await this.prepareRunApplication(document, options);
 
 		// Get the console code for the application.
 		const consoleCode = await options.getConsoleCode(runtime, document, urlPrefix);
@@ -363,18 +364,22 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	public async debugApplication(options: DebugAppOptions): Promise<void> {
-		// If there's no active text editor, do nothing.
-		const document = vscode.window.activeTextEditor?.document;
-		if (!document) {
-			return;
-		}
+		try {
+			// If there's no active text editor, do nothing.
+			const document = vscode.window.activeTextEditor?.document;
+			if (!document) {
+				return;
+			}
 
-		if (this._debugApplicationSequencerByName.has(options.name)) {
-			vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', options.name));
-			return;
-		}
+			if (this._debugApplicationSequencerByName.has(options.name)) {
+				vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', options.name));
+				return;
+			}
 
-		return this.queueDebugApplication(document, options);
+			await this.queueDebugApplication(document, options);
+		} catch (error) {
+			this.showRunError(options.name, error);
+		}
 	}
 
 	private queueDebugApplication(document: vscode.TextDocument, options: DebugAppOptions): Promise<void> {
@@ -402,15 +407,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		// Get the preferred runtime for the document's language.
 		progress.report({ message: vscode.l10n.t('Getting interpreter information...') });
 		const runtime = await this.getPreferredRuntime(document.languageId);
-		if (!runtime) {
-			return;
-		}
 
 		// Set up the proxy server for the application if applicable.
-		let urlPrefix = undefined;
+		let urlPrefix: string | undefined;
 		let proxyInfo: PositronProxyInfo | undefined;
 		if (shouldUsePositronProxy(options.name)) {
-			// Start the proxy server
 			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
 			log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
 			urlPrefix = proxyInfo.proxyPath;
@@ -493,7 +494,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		runtime: positron.LanguageRuntimeMetadata;
 		urlPrefix: string | undefined;
 		proxyInfo: PositronProxyInfo | undefined;
-	} | undefined> {
+	}> {
 		this._runApplicationDisposableByName.get(options.name)?.dispose();
 		this._runApplicationDisposableByName.delete(options.name);
 
@@ -502,9 +503,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 
 		const runtime = await this.getPreferredRuntime(document.languageId);
-		if (!runtime) {
-			return undefined;
-		}
 
 		let urlPrefix = undefined;
 		let proxyInfo: PositronProxyInfo | undefined;
@@ -517,20 +515,20 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		return { runtime, urlPrefix, proxyInfo };
 	}
 
-	/** Get the preferred runtime for a language; forwarding errors to the UI. */
-	private async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata | undefined> {
-		try {
-			return await positron.runtime.getPreferredRuntime(languageId);
-		} catch (error) {
-			vscode.window.showErrorMessage(
-				vscode.l10n.t(
-					"Failed to get '{0}' interpreter information. Error: {1}",
-					languageId,
-					JSON.stringify(error)
-				),
-			);
+	private async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata> {
+		const runtime = await positron.runtime.getPreferredRuntime(languageId);
+		if (!runtime) {
+			throw new Error(vscode.l10n.t("No '{0}' interpreter found.", languageId));
 		}
-		return undefined;
+		return runtime;
+	}
+
+	private showRunError(appName: string, error: unknown): void {
+		if (error instanceof Error) {
+			vscode.window.showErrorMessage(error.message);
+		} else {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to start {0} application: {1}', appName, String(error)));
+		}
 	}
 
 	private showShellIntegrationMessages(rerunApplicationCallback: () => any): boolean {
