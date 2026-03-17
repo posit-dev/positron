@@ -22,7 +22,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private readonly _runApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _runApplicationDisposableByName = new Map<string, vscode.Disposable>();
 	private readonly _appServers = new Map<string, { terminalPid: number | undefined; proxyUri: vscode.Uri }>();
-	private readonly _consoleSessionByName = new Map<string, string>();
+	private readonly _consoleSessionByName = new Map<string, positron.LanguageRuntimeSession>();
 
 	constructor(
 		private readonly _globalState: vscode.Memento,
@@ -263,61 +263,89 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			return;
 		}
 
-		// Reuse existing console session if one is still alive for this app.
-		let sessionId = this._consoleSessionByName.get(options.name);
+		// When breakpoints are set, listen for DAP `configurationDone`
+		// before starting or restarting the runtime so we don't miss the
+		// event. This ensures breakpoints are installed in the backend
+		// before we execute the app code (Ark needs to know about
+		// breakpoints to inject them while sourcing app files, e.g. in
+		// Shiny). Both start and restart trigger a DAP reconnection.
+		const hasBreakpoints = vscode.debug.breakpoints.length > 0;
+		let configurationDone: Promise<void> | undefined;
+		if (hasBreakpoints) {
+			configurationDone = new Promise<void>(resolve => {
+				const disposable = this._debugAdapterTrackerFactory.onDidCompleteConfiguration(() => {
+					disposable.dispose();
+					resolve();
+				});
+			});
+		}
 
-		if (sessionId) {
+		// Restart existing console session for this app if one is still alive.
+		// This cleanly exits any active debugger state and reuses the same
+		// console tab.
+		let session = this._consoleSessionByName.get(options.name);
+
+		if (session) {
 			progress.report({ message: vscode.l10n.t('Restarting application...') });
+
 			try {
-				await positron.runtime.interruptSession(sessionId);
+				// Track whether `Ready` is reached to detect cancellation.
+				// If the user declines to restart, no state changes occur and
+				// `restartSession` resolves silently.
+				let didRestart = false;
+				const stateDisposable = session.onDidChangeRuntimeState(state => {
+					if (state === positron.RuntimeState.Ready) {
+						didRestart = true;
+						stateDisposable.dispose();
+					}
+				});
+
+				await positron.runtime.restartSession(session.metadata.sessionId);
+
+				if (!didRestart) {
+					log.debug('Session restart was cancelled');
+					stateDisposable.dispose();
+					return;
+				}
+
+				// The `Exited` state during restart removes the map entry
+				// via the cleanup listener. Re-add it now that restart succeeded.
+				this._consoleSessionByName.set(options.name, session);
 			} catch (error) {
-				log.debug(`Could not interrupt session for ${options.name}, creating a new one: ${error}`);
-				sessionId = undefined;
+				log.debug(`Could not restart session for ${options.name}, creating a new one: ${error}`);
+				session = undefined;
 				this._consoleSessionByName.delete(options.name);
 			}
 		}
 
-		if (!sessionId) {
+		if (!session) {
 			progress.report({ message: vscode.l10n.t('Starting console session...') });
 
-			// When breakpoints are set, listen for DAP `configurationDone`
-			// before starting the runtime so we don't miss the event. This
-			// ensures breakpoints are installed in the backend before we
-			// execute the app code (Ark needs to know about breakpoints to
-			// inject them while sourcing app files, e.g. in Shiny).
-			const hasBreakpoints = vscode.debug.breakpoints.length > 0;
-			let configurationDone: Promise<void> | undefined;
-			if (hasBreakpoints) {
-				configurationDone = new Promise<void>(resolve => {
-					const disposable = this._debugAdapterTrackerFactory.onDidCompleteConfiguration(() => {
-						disposable.dispose();
-						resolve();
-					});
-				});
-			}
-
-			const session = await positron.runtime.startLanguageRuntime(
+			session = await positron.runtime.startLanguageRuntime(
 				runtime.runtimeId,
 				options.name,
 			);
-			sessionId = session.metadata.sessionId;
 
-			this._consoleSessionByName.set(options.name, sessionId);
-			session.onDidEndSession(() => {
-				this._consoleSessionByName.delete(options.name);
+			this._consoleSessionByName.set(options.name, session);
+			session.onDidChangeRuntimeState(state => {
+				if (state === positron.RuntimeState.Exited) {
+					this._consoleSessionByName.delete(options.name);
+				}
 			});
+		}
 
-			if (configurationDone) {
-				await raceTimeout(
-					configurationDone,
-					DAP_CONFIGURATION_TIMEOUT,
-					() => log.warn('Timed out waiting for DAP configurationDone; proceeding without breakpoints'),
-				);
-			}
+		const sessionId = session.metadata.sessionId;
+
+		if (configurationDone) {
+			progress.report({ message: vscode.l10n.t('Waiting for debugger initialization...') });
+			await raceTimeout(
+				configurationDone,
+				DAP_CONFIGURATION_TIMEOUT,
+				() => log.warn('Timed out waiting for DAP configurationDone; proceeding without breakpoints'),
+			);
 		}
 
 		positron.runtime.focusSession(sessionId);
-
 		progress.report({ message: vscode.l10n.t('Starting application...') });
 
 		// Set up URL detection via an observer for the output of our execute request
