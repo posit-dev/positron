@@ -1172,32 +1172,29 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Connect to the session's websocket
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const connectTimeout = config.get<number>('startupTimeout', 10) * 1000;
-		let retry = true;
 		const connectStartTime = Date.now();
-		do {
+		for (let attempt = 0; attempt < 2; attempt++) {
 			try {
 				await withTimeout(
 					this.connect(),
 					connectTimeout,
 					`Start failed: timed out connecting to adopted session ${this.metadata.sessionId} ` +
 					`after ${connectTimeout}ms`);
+				break;
 			} catch (err) {
-				if (retry) {
+				// Allow one retry for Axios (connectivity) errors on the first attempt
+				if (attempt == 0 && isAxiosError(err)) {
 					this.log(
 						`Failed to connect to adopted kernel; retrying: ${summarizeError(err)}`,
 						vscode.LogLevel.Warning);
-					retry = false;
-					continue;
 				} else {
 					this.log(
 						`Failed to connect to adopted kernel: ${summarizeError(err)}`,
 						vscode.LogLevel.Error);
 					throw err;
 				}
-			} finally {
-				retry = false;
 			}
-		} while (retry);
+		}
 		this.log(`Connected to adopted kernel after ${Date.now() - connectStartTime}ms`, vscode.LogLevel.Info);
 
 		// Mark the session as ready
@@ -1343,21 +1340,19 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Connect to the session's websocket
 		const connectTimeout = config.get<number>('startupTimeout', 10) * 1000;
 		const connectStartTime = Date.now();
-		retry = true;
-		do {
+		for (let attempt = 0; attempt < 2; attempt++) {
 			try {
 				await withTimeout(
 					this.connect(),
 					connectTimeout,
 					`Start failed: timed out connecting to session ${this.metadata.sessionId} after ${connectTimeout}ms`);
+				break;
 			} catch (err) {
-				if (retry) {
+				if (attempt == 0 && isAxiosError(err)) {
 					this.log(
 						`Failed to connect to session; retrying: ${summarizeError(err)}`,
 						vscode.LogLevel.Warning
 					);
-					retry = false;
-					continue;
 				} else {
 					this.log(
 						`Failed to connect to session: ${summarizeError(err)}`,
@@ -1365,10 +1360,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					);
 					throw err;
 				}
-			} finally {
-				retry = false;
 			}
-		} while (retry);
+		}
 		this.log(`Connected to session after ${Date.now() - connectStartTime}ms`, vscode.LogLevel.Info);
 
 		if (this._new) {
