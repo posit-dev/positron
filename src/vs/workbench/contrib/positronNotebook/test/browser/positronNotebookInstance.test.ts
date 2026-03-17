@@ -6,6 +6,8 @@ import * as assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { CellSelectionStatus } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { CellSelectionType, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
 
 suite('PositronNotebookInstance', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -30,6 +32,31 @@ suite('PositronNotebookInstance', () => {
 			assert.ok(textModel, 'Notebook should have a text model');
 			assert.strictEqual(textModel.cells[0].getValue(), 'print("hello")', 'Unexpected content for text model cell 0');
 			assert.strictEqual(textModel.cells[1].getValue(), 'print("world")', 'Unexpected content for text model cell 1');
+		});
+	});
+
+	suite('selectionStateMachine', () => {
+		test('multi-selection clears editing state from the previously edited cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					['print("code")', 'python', CellKind.Code],
+					['# markdown', 'markdown', CellKind.Markup],
+				],
+				disposables,
+			);
+
+			const [codeCell, markdownCell] = notebook.cells.get();
+
+			notebook.selectionStateMachine.selectCell(codeCell, CellSelectionType.Edit);
+			notebook.selectionStateMachine.selectCell(markdownCell, CellSelectionType.Add);
+
+			const state = notebook.selectionStateMachine.state.get();
+			assert.strictEqual(state.type, SelectionState.MultiSelection);
+			assert.deepStrictEqual(getSelectedCells(state), [codeCell, markdownCell]);
+			assert.strictEqual(state.active, markdownCell);
+			assert.notStrictEqual(codeCell.selectionStatus.get(), CellSelectionStatus.Editing);
+			assert.strictEqual(codeCell.selectionStatus.get(), CellSelectionStatus.Selected);
+			assert.strictEqual(markdownCell.selectionStatus.get(), CellSelectionStatus.Selected);
 		});
 	});
 });

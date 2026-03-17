@@ -55,6 +55,8 @@ export interface LaunchOptions {
 	// --- Start Positron ---
 	readonly useExternalServer?: boolean;
 	readonly externalServerUrl?: string;
+	/** Video recording configuration for demo scripts */
+	readonly recordVideo?: { dir: string; size?: { width: number; height: number } };
 	// --- End Positron ---
 }
 

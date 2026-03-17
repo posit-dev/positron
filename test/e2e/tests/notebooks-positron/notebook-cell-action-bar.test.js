@@ -10,8 +10,11 @@ _test_setup_js_1.test.use({
     suiteId: __filename
 });
 _test_setup_js_1.test.describe('Positron Notebooks: Action Bar Behavior', {
-    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS]
+    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS, _test_setup_1.tags.CROSS_BROWSER]
 }, () => {
+    _test_setup_js_1.test.beforeAll(async function ({ hotKeys }) {
+        await hotKeys.minimizeBottomPanel();
+    });
     (0, _test_setup_js_1.test)('Cell deletion using action bar', async function ({ app }) {
         const { notebooksPositron } = app.workbench;
         await notebooksPositron.newNotebook({ codeCells: 6 });
@@ -111,6 +114,7 @@ _test_setup_js_1.test.describe('Positron Notebooks: Action Bar Behavior', {
         await notebooksPositron.selectCellAtIndex(2);
         await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: true });
         await hotKeys.selectAll();
+        // await expect(app.code.driver.page.locator('.view-overlays .selected-text')).toBeVisible();
         await hotKeys.paste();
         await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 0', '# Cell 0']);
     });

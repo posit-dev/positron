@@ -60,7 +60,6 @@ class PositronNotebooks extends notebooks_1.Notebooks {
     markdownCell = this.code.driver.currentPage.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
     cellStatusSyncIcon = this.code.driver.currentPage.locator('.cell-status-item-has-runnable .codicon-sync');
     detectingKernelsText = this.code.driver.currentPage.getByText(/detecting kernels/i);
-    // Editor action bar
     editorActionBar = this.code.driver.currentPage.locator('.editor-action-bar-container');
     kernel;
     addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
@@ -258,9 +257,15 @@ class PositronNotebooks extends notebooks_1.Notebooks {
      */
     async addCell(type) {
         const beforeCount = await this.getCellCount();
-        type === 'code'
-            ? await this.addCodeButton.click()
-            : await this.addMarkdownButton.click();
+        if (type === 'code') {
+            await this.addCodeButton.click();
+        }
+        else {
+            // WebKit has trouble clicking the Markdown button (tabindex="-1")
+            this.code.driver.browser === 'webkit'
+                ? await this.addMarkdownButton.dispatchEvent('click')
+                : await this.addMarkdownButton.click();
+        }
         await (0, test_1.expect)(this.cell).toHaveCount(beforeCount + 1, { timeout: DEFAULT_TIMEOUT });
     }
     /**

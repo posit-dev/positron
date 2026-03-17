@@ -39,10 +39,10 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.QuickInput = void 0;
 const test_1 = __importStar(require("@playwright/test"));
-const QUICK_INPUT_LIST = '.quick-input-widget .quick-input-list';
+const QUICK_INPUT_LIST = ".quick-input-widget .quick-input-list";
 class QuickInput {
     code;
-    static QUICK_INPUT = '.quick-input-widget';
+    static QUICK_INPUT = ".quick-input-widget";
     static QUICK_INPUT_INPUT = `${QuickInput.QUICK_INPUT} .quick-input-box input`;
     static QUICK_INPUT_RESULT = `${QuickInput.QUICK_INPUT} .quick-input-list .monaco-list-row`;
     // Note: this only grabs the label and not the description or detail
@@ -63,7 +63,7 @@ class QuickInput {
         await (0, test_1.expect)(this.quickInputTitleBar).toHaveText(text);
     }
     async expectQuickInputResultsToContain(titles) {
-        await test_1.default.step('Verify Quick Input results contain expected title', async () => {
+        await test_1.default.step("Verify Quick Input results contain expected title", async () => {
             for (let i = 0; i < titles.length; i++) {
                 await (0, test_1.expect)(this.quickInputResult.filter({ hasText: titles[i] })).toBeVisible();
             }
@@ -79,14 +79,13 @@ class QuickInput {
     }
     async waitForQuickInputElementText() {
         const quickInputResult = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_RESULT);
-        // Wait for at least one matching element with non-empty text
         await (0, test_1.expect)(async () => {
             const texts = await quickInputResult.allTextContents();
-            return texts.some(text => text.trim() !== '');
+            return texts.some((text) => text.trim() !== "");
         }).toPass();
         // Retrieve the text content of the first matching element
         const text = await quickInputResult.first().textContent();
-        return text?.trim() || '';
+        return text?.trim() || "";
     }
     async closeQuickInput() {
         await this.code.driver.currentPage.keyboard.press('Escape');
@@ -111,7 +110,10 @@ class QuickInput {
     }
     async selectQuickInputElementContaining(text, { timeout, force = true } = {}) {
         const firstMatch = this.code.driver.currentPage.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`).first();
-        const firstMatchResult = await firstMatch.locator('.quick-input-list-row').nth(0).textContent({ timeout }) || '';
+        const firstMatchResult = (await firstMatch
+            .locator(".quick-input-list-row")
+            .nth(0)
+            .textContent({ timeout })) || "";
         await firstMatch.click({ force, timeout });
         await this.code.driver.currentPage.mouse.move(0, 0);
         return firstMatchResult.trim();

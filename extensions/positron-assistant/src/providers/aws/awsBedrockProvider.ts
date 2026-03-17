@@ -55,8 +55,9 @@ export interface BedrockProviderVariables {
 export class AWSModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * Bedrock client for API calls to list models and inference profiles.
+	 * Using `declare` to avoid class field initialization overwriting the value set in initializeProvider().
 	 */
-	bedrockClient: BedrockClient;
+	declare bedrockClient: BedrockClient;
 
 	/**
 	 * Available inference profiles for the authenticated user.
@@ -68,8 +69,9 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	/**
 	 * The preferred inference profile region.
 	 * Derived from AWS_REGION or explicitly set via user setting.
+	 * Using `declare` to avoid class field initialization overwriting the value set in initializeProvider().
 	 */
-	private _inferenceProfileRegion!: string;
+	private declare _inferenceProfileRegion: string;
 
 	/**
 	 * The last error encountered during model resolution.
@@ -220,6 +222,15 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			`inference profile region: ${this._inferenceProfileRegion}`
 		);
 
+		// Initialize Bedrock SDK client for model listing FIRST
+		// This must happen before Vercel SDK initialization so that model listing
+		// works even if the Vercel SDK throws during initialization
+		this.bedrockClient = new BedrockClient({
+			...(profile && { profile }),
+			region,
+			credentials: credentials
+		});
+
 		// Initialize Vercel AI SDK providers for chat generation.
 		// Use the Anthropic-specific provider for Anthropic models (native API
 		// through InvokeModel for better feature compatibility) and the generic
@@ -238,13 +249,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			}
 			return bedrockProvider(id);
 		};
-
-		// Initialize Bedrock SDK client for model listing
-		this.bedrockClient = new BedrockClient({
-			...(profile && { profile }),
-			region,
-			credentials: credentials
-		});
 	}
 
 	override async provideLanguageModelChatResponse(

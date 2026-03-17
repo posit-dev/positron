@@ -39,7 +39,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Console = exports.ACTIVE_CONSOLE_INSTANCE = void 0;
 const test_1 = __importStar(require("@playwright/test"));
-const sessions_js_1 = require("./sessions.js");
+const sessions_1 = require("./sessions");
 const CONSOLE_INPUT = '.console-input';
 exports.ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
@@ -56,7 +56,6 @@ const ERROR = '.activity-error-message';
 class Console {
     code;
     quickinput;
-    quickaccess;
     hotKeys;
     contextMenu;
     restartButton;
@@ -71,10 +70,9 @@ class Console {
     get emptyConsole() {
         return this.code.driver.currentPage.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
     }
-    constructor(code, quickinput, quickaccess, hotKeys, contextMenu) {
+    constructor(code, quickinput, hotKeys, contextMenu) {
         this.code = code;
         this.quickinput = quickinput;
-        this.quickaccess = quickaccess;
         this.hotKeys = hotKeys;
         this.contextMenu = contextMenu;
         // Standard Console Button Locators
@@ -103,7 +101,7 @@ class Console {
                 menuItemLabel: 'Start Another...'
             });
             await this.quickinput.waitForQuickInputOpened();
-            await this.quickinput.type(sessions_js_1.availableRuntimes[runtime].name);
+            await this.quickinput.type(sessions_1.availableRuntimes[runtime].name);
             await this.code.driver.currentPage.keyboard.press('Enter');
             await this.quickinput.waitForQuickInputClosed();
         });
@@ -150,19 +148,19 @@ class Console {
             await (0, test_1.expect)(async () => {
                 // Kind of hacky, but activate console in case focus was previously lost
                 await this.focus();
-                await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+                await this.hotKeys.executeCodeInConsole();
+                await this.quickinput.waitForQuickInputOpened();
+                await this.quickinput.type(languageName);
+                await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
+                await this.code.driver.currentPage.keyboard.press('Enter');
+                await this.quickinput.waitForQuickInputOpened();
+                const unescapedCode = code
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '\\r');
+                await this.quickinput.type(unescapedCode);
+                await this.code.driver.currentPage.keyboard.press('Enter');
+                await this.quickinput.waitForQuickInputClosed();
             }).toPass();
-            await this.quickinput.waitForQuickInputOpened();
-            await this.quickinput.type(languageName);
-            await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
-            await this.code.driver.currentPage.keyboard.press('Enter');
-            await this.quickinput.waitForQuickInputOpened();
-            const unescapedCode = code
-                .replace(/\n/g, '\\n')
-                .replace(/\r/g, '\\r');
-            await this.quickinput.type(unescapedCode);
-            await this.code.driver.currentPage.keyboard.press('Enter');
-            await this.quickinput.waitForQuickInputClosed();
             if (waitForReady) {
                 await this.waitForReady(languageName === 'Python' ? '>>>' : '>', timeout);
             }

@@ -308,6 +308,32 @@ def test_register_table_with_variable_path(de_service: DataExplorerService):
     assert table_view.state.name == title
 
 
+def test_register_table_includes_variable_path_in_comm_open(de_service: DataExplorerService):
+    """When variable_path is provided, it should be included in the comm-open data."""
+    from positron.access_keys import encode_access_key
+
+    table = pd.DataFrame({"a": [1]})
+    var_path = [encode_access_key("my_df")]
+    comm_id = de_service.register_table(table, "my_df", variable_path=var_path)
+
+    table_view = de_service.table_views[comm_id]
+    comm = cast("DummyComm", table_view.comm.comm)
+    # The DummyComm records messages - first message is comm_open
+    open_msg = comm.messages[0]
+    assert open_msg["data"]["variable_path"] == var_path
+
+
+def test_register_table_omits_variable_path_when_none(de_service: DataExplorerService):
+    """When variable_path is None, it should not be in the comm-open data."""
+    table = pd.DataFrame({"a": [1]})
+    comm_id = de_service.register_table(table, "pandas", variable_path=None)
+
+    table_view = de_service.table_views[comm_id]
+    comm = cast("DummyComm", table_view.comm.comm)
+    open_msg = comm.messages[0]
+    assert "variable_path" not in open_msg["data"]
+
+
 def test_open_data_explorer(de_service: DataExplorerService):
     test_df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
     comm_id = guid()
@@ -337,6 +363,30 @@ def test_open_data_explorer(de_service: DataExplorerService):
 
     # New explorer should not be associated with a variable path
     assert new_comm_id not in de_service.comm_id_to_path
+
+
+def test_open_data_explorer_preserves_variable_path(de_service: DataExplorerService):
+    """When an inline explorer has a variable_path, opening a full explorer should preserve it."""
+    from positron.access_keys import encode_access_key
+
+    table = pd.DataFrame({"a": [1, 2, 3]})
+    var_path = [encode_access_key("my_df")]
+
+    inline_comm_id = de_service.register_table(
+        table, "my_df", variable_path=var_path, inline_only=True
+    )
+
+    # Send open_data_explorer via the RPC path (not the private method)
+    comm = cast("DummyComm", de_service.comms[inline_comm_id].comm)
+    comm.messages.clear()
+    request = json_rpc_request("open_data_explorer", comm_id=inline_comm_id)
+    comm.handle_msg(request)
+
+    assert len(de_service.table_views) == 2
+
+    new_comm_id = next(cid for cid in de_service.table_views if cid != inline_comm_id)
+    assert new_comm_id in de_service.comm_id_to_path
+    assert de_service.comm_id_to_path[new_comm_id] == tuple(var_path)
 
 
 def test_shutdown(de_service: DataExplorerService):

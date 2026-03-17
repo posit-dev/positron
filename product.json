@@ -94,10 +94,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.4.15",
+			"version": "2026.4.19",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "ac827b230620d6e05acce4eea9b1dcb684b54f2e6491576b102973aec91ef9a0",
+			"sha256": "2a08a4be73c55170f57fc784f1a47aab1795e9503a973dddee8ee170f2bd58c2",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -654,6 +654,10 @@
 			"GitHub.copilot-chat"
 		],
 		"posit-workbench": [
+			"positron.positron-assistant"
+		],
+		"anthropic-api": [
+			"positron.authentication",
 			"positron.positron-assistant"
 		]
 	}

@@ -44,8 +44,7 @@ test.describe('Autocomplete', {
 		await runCommand('Python: New Python File');
 
 		// Session 1 - trigger and verify editor autocomplete
-		await triggerAutocompleteInEditor({ app, session: pySession1, retrigger: false });
-		await editors.expectSuggestionListCount(1);
+		await triggerFirstAutocompleteInEditor({ app, session: pySession1, expectedCount: 1 });
 
 		// Session 2 - retrigger and verify editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: pySession2, retrigger: true });
@@ -116,8 +115,7 @@ test.describe('Autocomplete', {
 		await runCommand('R: New R File');
 
 		// Session 1 - trigger and verify editor autocomplete
-		await triggerAutocompleteInEditor({ app, session: rSession1, retrigger: false });
-		await editors.expectSuggestionListCount(4);
+		await triggerFirstAutocompleteInEditor({ app, session: rSession1, expectedCount: 4 });
 
 		// Session 2 - retrigger and verify editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: rSession2, retrigger: true });
@@ -204,4 +202,38 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 			{ delay: 250 }
 		);
 	}
+}
+
+/**
+ * Triggers autocomplete in a newly opened editor file, retrying if the
+ * didOpen/didChange race causes the language server to miss the typed text.
+ * Each attempt clears the editor and retypes the trigger text.
+ */
+async function triggerFirstAutocompleteInEditor({ app, session, expectedCount }: {
+	app: Application;
+	session: SessionMetaData;
+	expectedCount: number;
+}) {
+	const { sessions, hotKeys, editors } = app.workbench;
+	const keyboard = app.code.driver.currentPage.keyboard;
+	const triggerText = session.name.includes('Python') ? 'pd.DataF' : 'read_p';
+
+	// Select session and wait for editor focus once, before the retry loop
+	await sessions.select(session.id);
+	await hotKeys.firstTab();
+	const editorInput = app.code.driver.currentPage.locator('.editor-instance .monaco-editor .native-edit-context');
+	await expect(editorInput).toBeFocused();
+
+	await expect(async () => {
+		// Clear any previous attempt (Select All + Delete), no-op on empty file
+		await hotKeys.selectAll();
+		await keyboard.press('Delete');
+		// Dismiss any stale suggestion widget
+		await keyboard.press('Escape');
+		// Type the trigger text
+		await keyboard.type(triggerText, { delay: 250 });
+		// Check for suggestions with a reduced timeout so failed attempts
+		// don't burn the full 15s default
+		await expect(editors.suggestionList).toHaveCount(expectedCount, { timeout: 5_000 });
+	}).toPass({ timeout: 30_000 });
 }

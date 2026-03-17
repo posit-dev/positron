@@ -9,7 +9,8 @@ _test_setup_1.test.use({
     suiteId: __filename
 });
 _test_setup_1.test.describe('Variables: Memory Usage', {
-    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.VARIABLES, _test_setup_1.tags.SESSIONS]
+    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.VARIABLES, _test_setup_1.tags.SESSIONS, _test_setup_1.tags.SOFT_FAIL],
+    annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }]
 }, () => {
     _test_setup_1.test.beforeEach(async function ({ hotKeys }) {
         await hotKeys.closeSecondarySidebar();

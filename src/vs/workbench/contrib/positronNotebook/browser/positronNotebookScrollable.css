@@ -1,0 +1,84 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Webkit scrollbars for Positron notebooks using theme colours.
+ *
+ * TODO: The !important declarations below should not be necessary for scoped
+ * styles, but are needed to override the global unscoped ::-webkit-scrollbar
+ * rules in variablesInstance.css. Those global selectors should eventually
+ * be scoped to their own component.
+ */
+.positron-notebook-scrollable {
+	&::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	&::-webkit-scrollbar-track {
+		background: var(--vscode-scrollbar-background);
+	}
+
+	&::-webkit-scrollbar-thumb {
+		background-color: var(--vscode-scrollbarSlider-background) !important;
+	}
+
+	&::-webkit-scrollbar-thumb:hover {
+		background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+	}
+
+	&::-webkit-scrollbar-thumb:active {
+		background-color: var(--vscode-scrollbarSlider-activeBackground) !important;
+	}
+}
+
+/*
+ * Fade modifier for scrollable containers that should hide scrollbars by default
+ * and fade them in on hover or scroll.
+ *
+ * Chromium does not support CSS transitions on ::-webkit-scrollbar-* pseudo-elements.
+ * To work around this, we use a CSS Houdini registered custom property (@property)
+ * for the thumb color. Registering it with `syntax: "<color>"` tells the browser it
+ * can be interpolated, so we can transition the property value on a real element and
+ * the scrollbar thumb picks up the animated value via var().
+ *
+ * Fade timings (100ms in, 800ms out) match the VS Code custom scrollbar widget
+ * (src/vs/base/browser/ui/scrollbar/media/scrollbars.css).
+ */
+@property --_positron-notebook-scrollbar-thumb-bg {
+	syntax: "<color>";
+	/* Must be true so ::-webkit-scrollbar-thumb pseudo-elements can read the
+	 * value from their originating element. We reset on each element to prevent
+	 * ancestor :hover from leaking into nested scrollables. */
+	inherits: true;
+	initial-value: transparent;
+}
+
+.positron-notebook-scrollable-fade {
+	--_positron-notebook-scrollbar-thumb-bg: transparent; /* reset for nested scrollables */
+	transition: --_positron-notebook-scrollbar-thumb-bg 800ms linear; /* fade out */
+
+	/* On hover of the scroll container or while actively scrolling
+	 * (e.g. via keyboard). The .is-scrolling class is toggled by the
+	 * useScrollingIndicator hook. */
+	&:hover,
+	&.is-scrolling {
+		--_positron-notebook-scrollbar-thumb-bg: var(--vscode-scrollbarSlider-background);
+		transition: --_positron-notebook-scrollbar-thumb-bg 100ms linear; /* fade in */
+	}
+
+	&::-webkit-scrollbar-thumb {
+		/* Override the base scrollbar thumb color with the animated property. */
+		background-color: var(--_positron-notebook-scrollbar-thumb-bg) !important;
+	}
+
+	&::-webkit-scrollbar-thumb:hover {
+		background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+	}
+
+	&::-webkit-scrollbar-thumb:active {
+		background-color: var(--vscode-scrollbarSlider-activeBackground) !important;
+	}
+}

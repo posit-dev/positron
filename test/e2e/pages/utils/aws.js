@@ -37,6 +37,14 @@ const downloadFileFromS3 = async (options) => {
             const fileStream = (0, fs_1.createWriteStream)(options.localFilePath);
             const streamPipeline = (0, util_1.promisify)(stream_1.pipeline);
             await streamPipeline(response.Body, fileStream);
+            // Verify the file was written successfully
+            if (!(0, fs_1.existsSync)(options.localFilePath)) {
+                throw new Error(`File not found after download: ${options.localFilePath}`);
+            }
+            const stats = (0, fs_1.statSync)(options.localFilePath);
+            if (stats.size === 0) {
+                throw new Error(`Downloaded file is empty: ${options.localFilePath}`);
+            }
             return;
         }
         catch (error) {

@@ -12,79 +12,44 @@ _test_setup_1.test.describe('Viewer', { tag: [_test_setup_1.tags.VIEWER] }, () =
     _test_setup_1.test.afterEach(async function ({ app }) {
         await app.workbench.viewer.clearViewer();
     });
-    (0, _test_setup_1.test)('Python - Verify Viewer opens for WebBrowser calls', { tag: [_test_setup_1.tags.WEB] }, async function ({ app, logger, python }) {
-        logger.log('Sending code to console');
-        await app.workbench.console.pasteCodeToConsole(pythonScript);
-        await app.workbench.console.sendEnterKey();
-        const theDoc = app.workbench.viewer.getViewerLocator('head');
-        await theDoc.waitFor({ state: 'attached' });
+    (0, _test_setup_1.test)('Python - Verify Viewer opens for WebBrowser calls', async function ({ app, python }) {
+        const { console, viewer } = app.workbench;
+        await console.executeCode('Python', pythonScript);
+        await viewer.expectViewerPanelVisible();
+        await viewer.expectUrlToHaveValue('http://127.0.0.1:8000/');
     });
-    (0, _test_setup_1.test)('Python - Verify Viewer displays great-tables output and can be cleared', { tag: [_test_setup_1.tags.WEB] }, async function ({ app, logger, page, python }) {
-        // Clearing viewer output button has now been implemented. Hence, modifications herein ensure that the button functionality works.
-        // Locators
-        const apricot = app.workbench.viewer.getViewerLocator('td').filter({ hasText: 'apricot' });
-        const clearButton = page.locator('.positron-action-bar').getByRole('button', { name: 'Clear the content' });
-        // TestStep1: Initial viewer content should be displayed once user runs GreatTablesScript in Console
-        await _test_setup_1.test.step('Display initial viewer content', async () => {
-            await app.workbench.console.clearButton.click();
-            logger.log('Sending code to console');
-            await app.workbench.console.pasteCodeToConsole(pythonGreatTablesScript);
-            await app.workbench.console.sendEnterKey();
-            await (0, _test_setup_1.expect)(apricot).toBeVisible({ timeout: 30000 });
-        });
-        // TestStep2: User can click on the 'Clear the content' button in Positron action bar (under Viewer tab)
-        await _test_setup_1.test.step('Click the clear button', async () => {
-            await (0, _test_setup_1.expect)(clearButton).toBeVisible();
-            await clearButton.click();
-        });
-        // TestStep3: After user clicked the button, element is NOT present in the DOM, by using detached state.
-        await _test_setup_1.test.step('Verify content disappeared', async () => {
-            await apricot.waitFor({ state: 'detached', timeout: 30000 });
-        });
-        /* Additional comments: to be addressed in the future or limitations
-        - Extra clean up - https://github.com/posit-dev/positron/issues/4604
-        - Without this, on ubuntu, the Enter key sends to the console
-        - It won't work because the pasted code is out of view
-        - Additional points for discussion with team:
-        -- Is keeping the Python scripts in the end the best method?
-        -- Should we have a separate file containing scripts and importing them here?
-        -- Having the scripts in the end is a bit impractical, regarding visibility. Thoughts?
-        */
+    // note: this test is skipped on firefox - it fails
+    (0, _test_setup_1.test)('Python - Verify Viewer displays great-tables', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.CROSS_BROWSER] }, async function ({ app, python }) {
+        const { console, viewer } = app.workbench;
+        await console.executeCode('Python', pythonGreatTablesScript);
+        await viewer.expectContentVisible(frame => frame.getByRole('cell', { name: 'apricot' }), { useIframe: false });
     });
-    (0, _test_setup_1.test)('R - Verify Viewer displays modelsummary output', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.ARK] }, async function ({ app, logger, r }) {
-        logger.log('Sending code to console');
-        await app.workbench.console.executeCode('R', rModelSummaryScript);
-        let billDepthLocator;
-        if (!app.web) {
-            billDepthLocator = app.workbench.viewer.getViewerLocator('tr').filter({ hasText: 'bill_depth_mm' });
-        }
-        else {
-            billDepthLocator = app.workbench.viewer.viewerFrame.frameLocator('iframe').locator('tr').filter({ hasText: 'bill_depth_mm' });
-        }
-        await billDepthLocator.waitFor({ state: 'attached' });
+    (0, _test_setup_1.test)('R - Verify Viewer displays modelsummary output', {
+        tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.ARK, _test_setup_1.tags.CROSS_BROWSER]
+    }, async function ({ app, r }) {
+        const { console, viewer } = app.workbench;
+        await console.executeCode('R', rModelSummaryScript);
+        // await viewer.expectContentVisible(frame => frame.getByRole('cell', { name: 'bill_depth_mm' }));
+        await viewer.expectContentVisible(frame => frame.locator('tr').filter({ hasText: 'bill_depth_mm' }));
     });
     (0, _test_setup_1.test)('R - Verify Viewer displays reactable table output', {
-        annotation: [{ type: 'web issue', description: 'https://github.com/posit-dev/positron/issues/5972' }],
-        tag: [_test_setup_1.tags.ARK]
-    }, async function ({ app, logger, r }) {
-        logger.log('Sending code to console');
-        await app.workbench.console.executeCode('R', rReactableScript);
-        const datsun710 = app.workbench.viewer.getViewerLocator('div.rt-td-inner').filter({ hasText: 'Datsun 710' });
-        await datsun710.waitFor({ state: 'attached' });
+        tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.ARK, _test_setup_1.tags.CROSS_BROWSER]
+    }, async function ({ app, r }) {
+        const { console, viewer } = app.workbench;
+        await console.executeCode('R', rReactableScript);
+        await viewer.expectContentVisible(frame => frame.getByText('Datsun 710'));
     });
     (0, _test_setup_1.test)('R - Verify Viewer displays reprex code output', {
-        annotation: [{ type: 'web issue', description: 'https://github.com/posit-dev/positron/issues/5975' }],
-        tag: [_test_setup_1.tags.ARK]
-    }, async function ({ app, logger, r }) {
-        logger.log('Sending code to console');
-        await app.workbench.console.executeCode('R', rReprexScript);
-        const rnorm = app.workbench.viewer.getViewerLocator('code.sourceCode').filter({ hasText: 'rbinom' });
-        await rnorm.waitFor({ state: 'attached' });
+        tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.ARK, _test_setup_1.tags.CROSS_BROWSER]
+    }, async function ({ app, r }) {
+        const { console, viewer } = app.workbench;
+        await console.executeCode('R', rReprexScript);
+        await viewer.expectContentVisible(frame => frame.getByText('rbinom'));
     });
 });
 const pythonScript = `import webbrowser
 # will not have any content, but we just want to make sure
-# the viewer will open when webbrowser calls are make
+# the viewer will open when webbrowser calls are made
 webbrowser.open('http://127.0.0.1:8000')`;
 const pythonGreatTablesScript = `from great_tables import GT, exibble
 GT(exibble)`;

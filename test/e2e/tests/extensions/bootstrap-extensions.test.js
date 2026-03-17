@@ -47,7 +47,7 @@ const OPTIONAL_MISSING_EXTENSIONS = new Set([
     'meta.pyrefly',
 ]);
 _test_setup_1.test.describe('Bootstrap Extensions', {
-    tag: [_test_setup_1.tags.EXTENSIONS, _test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.WORKBENCH],
+    tag: [_test_setup_1.tags.EXTENSIONS, _test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.WORKBENCH, _test_setup_1.tags.CROSS_BROWSER],
 }, () => {
     _test_setup_1.test.beforeAll('Skip during main run', async function () {
         if (process.env.SKIP_BOOTSTRAP === 'true') {

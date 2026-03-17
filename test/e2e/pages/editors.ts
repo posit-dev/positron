@@ -46,9 +46,9 @@ export class Editors {
 	}
 
 	async waitForActiveTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> {
-		const { page } = this.code.driver;
+		const { currentPage } = this.code.driver;
 		const base = `.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"]`;
-		const active = page.locator(base);
+		const active = currentPage.locator(base);
 
 		// Ensure we’re looking at exactly one active tab
 		await expect(active).toHaveCount(1);
@@ -102,12 +102,12 @@ export class Editors {
 	}
 
 	async waitForTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> {
-		const { page } = this.code.driver;
+		const { currentPage } = this.code.driver;
 		const base = `.tabs-container div.tab${isDirty ? '.dirty' : ''}`;
 
 		if (fileName instanceof RegExp) {
 			// Find the *exact* data-resource-name of the first tab whose value matches the regex
-			const matchedName = await page.locator(`${base}[data-resource-name]`).evaluateAll(
+			const matchedName = await currentPage.locator(`${base}[data-resource-name]`).evaluateAll(
 				(els, pattern) => {
 					const rx = new RegExp(pattern.source, pattern.flags);
 					for (const el of els) {
@@ -124,13 +124,13 @@ export class Editors {
 			}
 
 			await expect(
-				page.locator(`${base}[data-resource-name="${matchedName}"]`)
+				currentPage.locator(`${base}[data-resource-name="${matchedName}"]`)
 			).toBeVisible();
 
 		} else {
 			// Original ends-with behavior for plain strings
 			await expect(
-				page.locator(`${base}[data-resource-name$="${fileName}"]`)
+				currentPage.locator(`${base}[data-resource-name$="${fileName}"]`)
 			).toBeVisible();
 		}
 	}

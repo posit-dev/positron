@@ -156,11 +156,12 @@ _test_setup_1.test.describe('Positron Assistant Chat Editing', { tag: [_test_set
         await app.workbench.console.waitForConsoleContents('foo <- 200');
         await app.workbench.variables.expectVariableToBe('foo', '200');
     });
-    (0, _test_setup_1.test)('Verify Manage Models is available', { tag: [_test_setup_1.tags.SOFT_FAIL] }, async function ({ app }) {
+    (0, _test_setup_1.test)('Verify Manage Models is available', { tag: [_test_setup_1.tags.SOFT_FAIL] }, async function ({ app, page }) {
         // sometimes the menu closes due to language model loading (?), so retry
         await (0, _test_setup_1.expect)(async () => {
             await app.workbench.assistant.pickModel();
             await app.workbench.assistant.expectManageModelsVisible();
+            await page.keyboard.press('Escape');
         }).toPass({ timeout: 30000 });
     });
 });

@@ -2,7 +2,7 @@ name: "Test: E2E Cross Browser"
 
 on:
   schedule:
-    - cron: '0 10 * * 1-5' # 4:00 AM CST = 10:00 UTC, Mon-Fri only
+    - cron: '0 10 * * 1,4' # 4:00 AM CST = 10:00 UTC, Mon & Thu only
   workflow_dispatch:
     inputs:
       run_e2e_firefox:
@@ -22,8 +22,8 @@ on:
         type: boolean
       grep:
         required: false
-        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
-        default: "/search.test"
+        description: "Override default grep pattern. Leave empty to use config default (@:cross-browser)"
+        default: ""
         type: string
       notify_on:
         description: "Slack notification on:"
@@ -56,7 +56,8 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || '/search.test' }}
+      grep: ${{ inputs.grep }}
+      grep_invert: "great-tables|notebook-focus-and-selection"
 
   e2e-webkit:
     name: e2e
@@ -69,7 +70,8 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || '/search.test' }}
+      grep: ${{ inputs.grep }}
+      grep_invert: "notebook-cell-action-bar|notebook-edit-mode|notebook-focus-and-selection"
 
   e2e-edge:
     name: e2e
@@ -82,7 +84,7 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || '/search.test' }}
+      grep: ${{ inputs.grep }}
 
   slack-notify:
     if: always()

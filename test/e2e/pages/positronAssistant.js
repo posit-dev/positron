@@ -39,6 +39,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Assistant = void 0;
 const test_1 = require("@playwright/test");
+const hotKeys_js_1 = require("./hotKeys.js");
 /**
  * Fills an input element's value using evaluate() instead of Playwright's
  * fill() to prevent the value from being recorded in Playwright trace files.
@@ -188,11 +189,13 @@ class Assistant {
     quickaccess;
     toasts;
     modals;
+    hotKeys;
     constructor(code, quickaccess, toasts, modals) {
         this.code = code;
         this.quickaccess = quickaccess;
         this.toasts = toasts;
         this.modals = modals;
+        this.hotKeys = new hotKeys_js_1.HotKeys(code);
     }
     async verifyChatButtonVisible() {
         await (0, test_1.expect)(this.code.driver.currentPage.locator(CHAT_BUTTON)).toBeVisible();
@@ -219,7 +222,7 @@ class Assistant {
         await this.code.driver.currentPage.keyboard.press(`${modifier}+Alt+Period`);
     }
     async runConfigureProviders() {
-        await this.quickaccess.runCommand('positron-assistant.configureProviders');
+        await this.hotKeys.configureProviders();
     }
     async clickConfigureProvidersLink() {
         await this.code.driver.currentPage.locator(CONFIGURE_PROVIDERS_LINK).click();
@@ -319,8 +322,8 @@ class Assistant {
             return;
         }
         await test_1.test.step(`Sign in to ${provider} model provider`, async () => {
-            // Open the model configuration dialog via command (more reliable than clicking UI)
-            await this.quickaccess.runCommand('positron-assistant.configureProviders');
+            // Open the model configuration dialog via hotkey (more reliable than command palette UI)
+            await this.hotKeys.configureProviders();
             // Select the provider
             await this.selectModelProvider(provider);
             // Check if already signed in (Sign Out button visible)

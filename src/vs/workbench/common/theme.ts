@@ -11,9 +11,9 @@ import { ColorScheme } from '../../platform/theme/common/theme.js';
 
 // --- Start Positron ---
 import { // eslint-disable-line no-duplicate-imports
+	buttonBorder,
 	foreground,
 	disabledForeground,
-	// secondaryBackground,
 	buttonBackground,
 	buttonForeground,
 	buttonSecondaryBackground,
@@ -1392,8 +1392,8 @@ export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_FOREGROUND_SELECTED = registerCo
 
 // Positron modal dialog project type border color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER = registerColor('positronModalDialog.projectTypeBorder', {
-	dark: buttonSecondaryBackground,
-	light: darken(editorBackground, 0.05),
+	dark: buttonBorder,
+	light: buttonSecondaryBackground,
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
 }, localize('positronModalDialog.projectTypeBorder', "Positron modal dialog project type border color."));

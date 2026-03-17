@@ -54,6 +54,7 @@ function onExtensionCompilationEnd(): void {
 // });
 const compilations = [
 	// --- Start Positron ---
+	'extensions/authentication/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/positron-assistant/tsconfig.json',
 	'extensions/positron-catalog-explorer/tsconfig.json',

@@ -9,7 +9,7 @@ _test_setup_1.test.use({
     suiteId: __filename
 });
 _test_setup_1.test.describe('Search', {
-    tag: [_test_setup_1.tags.SEARCH, _test_setup_1.tags.WEB, _test_setup_1.tags.WIN]
+    tag: [_test_setup_1.tags.SEARCH, _test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.CROSS_BROWSER]
 }, () => {
     _test_setup_1.test.afterEach(async function ({ app }) {
         await app.workbench.search.clearSearchResults();

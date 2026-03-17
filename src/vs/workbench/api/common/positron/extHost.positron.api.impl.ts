@@ -93,16 +93,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?): Thenable<Record<string, unknown>> {
+			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?, executionMetadata?): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri);
+				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata);
 			},
 			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string): Thenable<positron.EvalResult> {
 				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId);
 			},
-			executeInlineCell(documentUri, ranges): Thenable<void> {
+			executeInlineCell(documentUri, ranges, executionMetadata?): Thenable<void> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges);
+				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges, executionMetadata);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,
@@ -144,6 +144,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					sessionName,
 					sessionMode,
 					notebookUri);
+			},
+			interruptSession(sessionId: string): Thenable<void> {
+				return extHostLanguageRuntime.interruptSession(sessionId);
 			},
 			restartSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.restartSession(sessionId);
@@ -440,7 +443,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					kernelLanguage: context.kernelLanguage,
 					cellCount: context.cellCount,
 					selectedCells: context.selectedCells,
-					allCells: context.allCells
+					allCells: context.allCells,
+					runtimeState: context.runtimeState
 				};
 			},
 
@@ -510,6 +514,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 			async scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
 				return extHostNotebookFeatures.scrollToCellIfNeeded(notebookUri, cellIndex);
+			},
+
+			async clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void> {
+				return extHostNotebookFeatures.clearCellOutputs(notebookUri, cellIndices);
 			}
 		};
 

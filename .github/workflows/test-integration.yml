@@ -145,15 +145,15 @@ jobs:
             ~/.cache/R
             /usr/local/lib/R/site-library
             /opt/R
-          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+          key: ${{ runner.os }}-r-4.5.2-${{ steps.download-r-desc.outputs.description-hash }}
           restore-keys: |
-            ${{ runner.os }}-r-4.4.0-
+            ${{ runner.os }}-r-4.5.2-
 
       - name: Setup R
         if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/install-r
         with:
-          version: "4.4.0"
+          version: "4.5.2"
 
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile

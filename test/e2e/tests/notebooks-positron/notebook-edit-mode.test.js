@@ -10,8 +10,11 @@ _test_setup_js_1.test.use({
     suiteId: __filename
 });
 _test_setup_js_1.test.describe('Notebook Edit Mode', {
-    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS]
+    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS, _test_setup_1.tags.CROSS_BROWSER]
 }, () => {
+    _test_setup_js_1.test.beforeAll(async function ({ hotKeys }) {
+        await hotKeys.minimizeBottomPanel();
+    });
     (0, _test_setup_js_1.test)('Clicking/dbl clicking into cell focuses editor and enters into edit mode', async function ({ app }) {
         const { notebooksPositron } = app.workbench;
         const keyboard = app.code.driver.currentPage.keyboard;

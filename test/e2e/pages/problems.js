@@ -77,7 +77,7 @@ class Problems {
     }
     /**
      * Verify: Expect the number of problems, errors, and warnings to be as specified
-     * @param problemCount - The expected problem count shown in the Problems tab badge
+     * @param badgeCount - The expected problem count shown in the Problems tab badge (total)
      * @param errorCount - The expected error count shown in the Problems view
      * @param warningCount - The expected warning count shown in the Problems view
      */

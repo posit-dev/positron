@@ -21,19 +21,21 @@ _test_setup_1.test.describe('Quarto - R', { tag: [_test_setup_1.tags.WEB, _test_
     });
     (0, _test_setup_1.test)('Verify Quarto can render html', { tag: [_test_setup_1.tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
         await renderQuartoDocument(app, 'html');
-        await verifyDocumentExists(app, 'html', testInfo.project.name === 'e2e-workbench', runDockerCommand);
+        await expectFileToExist(app, testInfo, runDockerCommand, 'html');
     });
     (0, _test_setup_1.test)('Verify Quarto can render docx ', { tag: [_test_setup_1.tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
         await renderQuartoDocument(app, 'docx');
-        await verifyDocumentExists(app, 'docx', testInfo.project.name === 'e2e-workbench', runDockerCommand);
+        await expectFileToExist(app, testInfo, runDockerCommand, 'docx');
     });
     (0, _test_setup_1.test)('Verify Quarto can render pdf (LaTeX)', async function ({ app, runDockerCommand }, testInfo) {
-        await renderQuartoDocument(app, 'pdf');
-        await verifyDocumentExists(app, 'pdf', testInfo.project.name === 'e2e-workbench', runDockerCommand);
+        await (0, _test_setup_1.expect)(async () => {
+            await renderQuartoDocument(app, 'pdf');
+            await expectFileToExist(app, testInfo, runDockerCommand, 'pdf');
+        }).toPass({ timeout: 60000 });
     });
     (0, _test_setup_1.test)('Verify Quarto can render pdf (typst)', { tag: [_test_setup_1.tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
         await renderQuartoDocument(app, 'typst');
-        await verifyDocumentExists(app, 'pdf', testInfo.project.name === 'e2e-workbench', runDockerCommand);
+        await expectFileToExist(app, testInfo, runDockerCommand, 'pdf');
     });
     (0, _test_setup_1.test)('Verify Quarto can generate preview', async function ({ app }) {
         await app.code.driver.currentPage.getByRole('button', { name: 'Preview' }).click();
@@ -58,13 +60,14 @@ const renderQuartoDocument = async (app, fileExtension) => {
         await app.workbench.quickInput.selectQuickInputElementContaining(fileExtension);
     });
 };
-const verifyDocumentExists = async (app, fileExtension, isWorkbench, runDockerCommand) => {
+const expectFileToExist = async (app, testInfo, runDockerCommand, fileExtension) => {
+    const dockerCommand = testInfo.project.name === 'e2e-workbench' ? runDockerCommand : undefined;
     await (0, _test_setup_1.expect)(async () => {
-        (0, _test_setup_1.expect)(await fileExists(app, `quarto_basic.${fileExtension}`, isWorkbench, runDockerCommand)).toBe(true);
-    }).toPass({ timeout: 30000 });
+        (0, _test_setup_1.expect)(await fileExists(app, `quarto_basic.${fileExtension}`, dockerCommand)).toBe(true);
+    }).toPass({ timeout: 20000 });
 };
-const fileExists = async (app, file, isWorkbench, runDockerCommand) => {
-    if (isWorkbench && runDockerCommand) {
+const fileExists = async (app, file, runDockerCommand) => {
+    if (runDockerCommand) {
         // Check inside the container at the known workbench workspace path
         const containerPath = `/home/user1/qa-example-content/workspaces/quarto_basic/${file}`;
         try {

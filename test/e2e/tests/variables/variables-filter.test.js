@@ -8,53 +8,31 @@ const _test_setup_1 = require("../_test.setup");
 _test_setup_1.test.use({
     suiteId: __filename
 });
-_test_setup_1.test.describe('Variables - Filters', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.VARIABLES] }, () => {
+_test_setup_1.test.describe('Variables - Filters', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.VARIABLES, _test_setup_1.tags.CROSS_BROWSER] }, () => {
     _test_setup_1.test.afterEach(async function ({ app }) {
         await app.workbench.layouts.enterLayout('stacked');
     });
     (0, _test_setup_1.test)('Setting filter text is reflected in the variables pane', async function ({ app, sessions }) {
+        const { layouts, console, variables } = app.workbench;
+        await layouts.enterLayout('fullSizedAuxBar');
+        // Start R and set some variables in R and verify they are present
         await sessions.start('r');
-        await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-        await app.workbench.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
-        const variables = app.workbench.variables;
-        await (0, _test_setup_1.expect)(async () => {
-            const vars = await variables.getFlatVariables();
-            (0, _test_setup_1.expect)(vars.has('hello')).toBe(true);
-            (0, _test_setup_1.expect)(vars.has('foo')).toBe(true);
-        }).toPass({ timeout: 20000 });
+        await console.executeCode('R', 'hello <- 1; foo <- 2');
+        await variables.expectVariableToBe('hello', '1');
+        await variables.expectVariableToBe('foo', '2');
+        // Set a filter and verify that only the filtered variable is present
         await variables.setFilterText('hello');
-        await app.code.wait(1000); // a little time for the filter to be applied
-        await (0, _test_setup_1.expect)(async () => {
-            try {
-                const vars = await variables.getFlatVariables();
-                (0, _test_setup_1.expect)(vars.has('hello')).toBe(true);
-                (0, _test_setup_1.expect)(vars.has('foo')).toBe(false);
-            }
-            catch (e) {
-                await app.code.wait(1000); // a little time for the filter to be applied
-                throw e;
-            }
-        }).toPass({ timeout: 40000 });
+        await variables.expectVariableToBe('hello', '1');
+        await variables.expectVariableToNotExist('foo');
+        // Start Python and verify that the filter is cleared and all variables are present
         await sessions.start('python');
-        await app.workbench.console.pasteCodeToConsole('hello = 1; foo = 2', true);
-        await (0, _test_setup_1.expect)(async () => {
-            const vars = await variables.getFlatVariables();
-            (0, _test_setup_1.expect)(vars.has('hello')).toBe(true);
-            (0, _test_setup_1.expect)(vars.has('foo')).toBe(true);
-        }).toPass({ timeout: 20000 });
+        await console.executeCode('Python', 'hello = 1; foo = 2');
+        await variables.expectVariableToBe('hello', '1');
+        await variables.expectVariableToBe('foo', '2');
+        // Set a filter and verify that only the filtered variable is present
         await variables.setFilterText('foo');
-        await app.code.wait(1000); // a little time for the filter to be applied
-        await (0, _test_setup_1.expect)(async () => {
-            try {
-                const vars = await variables.getFlatVariables();
-                (0, _test_setup_1.expect)(vars.has('hello')).toBe(false);
-                (0, _test_setup_1.expect)(vars.has('foo')).toBe(true);
-            }
-            catch (e) {
-                await app.code.wait(1000); // a little time for the filter to be applied
-                throw e;
-            }
-        }).toPass({ timeout: 40000 });
+        await variables.expectVariableToBe('foo', '2');
+        await variables.expectVariableToNotExist('hello');
     });
 });
 //# sourceMappingURL=variables-filter.test.js.map

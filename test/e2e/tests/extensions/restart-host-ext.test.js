@@ -8,7 +8,10 @@ const _test_setup_1 = require("../_test.setup");
 _test_setup_1.test.use({
     suiteId: __filename
 });
-_test_setup_1.test.describe('Restart Host Extension', { tag: [_test_setup_1.tags.EXTENSIONS, _test_setup_1.tags.WIN] }, () => {
+_test_setup_1.test.describe('Restart Host Extension', {
+    tag: [_test_setup_1.tags.EXTENSIONS, _test_setup_1.tags.WIN, _test_setup_1.tags.SOFT_FAIL],
+    annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
+}, () => {
     _test_setup_1.test.afterEach(async ({ app }) => {
         await app.workbench.sessions.deleteAll();
     });
@@ -21,7 +24,7 @@ _test_setup_1.test.describe('Restart Host Extension', { tag: [_test_setup_1.tags
         await app.workbench.console.pasteCodeToConsole('x<-1; y<-x+100; y', true);
         await app.workbench.console.waitForConsoleContents('101');
     });
-    (0, _test_setup_1.test)('Verify Restart Extension Host command works - Python', { tag: [_test_setup_1.tags.SOFT_FAIL] }, async function ({ app, python }) {
+    (0, _test_setup_1.test)('Verify Restart Extension Host command works - Python', async function ({ app, python }) {
         await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
         await app.workbench.console.waitForConsoleContents('Extensions restarting...');
         await app.workbench.console.waitForReady('>>>');

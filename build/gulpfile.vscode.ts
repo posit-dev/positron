@@ -519,11 +519,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		let all = es.merge(...mergeStreams);
 
 		/// --- Start Positron ---
-		// The Quarto binaries are not available for Windows ARM builds, but are
-		// for all other platforms/architectures
-		if (!(platform === 'win32' && arch === 'arm64')) {
-			all = es.merge(all, getQuartoBinaries());
-		}
+		// Bundle Quarto binaries for all platforms. Windows ARM uses the x64
+		// Quarto binaries which run under emulation.
+		all = es.merge(all, getQuartoBinaries());
 		// --- End Positron ---
 
 		if (platform === 'win32') {

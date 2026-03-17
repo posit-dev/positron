@@ -735,6 +735,7 @@
 		"--vscode-positronNotebook-foreground",
 		"--vscode-positronNotebook-img-placeholder-background",
 		"--vscode-positronNotebook-output-background",
+		"--vscode-positronNotebook-output-max-height",
 		"--vscode-positronNotebook-text-output-font-family",
 		"--vscode-positronNotebook-text-output-font-size",
 		"--vscode-positronPackages-background",

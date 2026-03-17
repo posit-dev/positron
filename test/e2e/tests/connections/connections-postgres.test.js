@@ -18,7 +18,7 @@ _test_setup_1.test.describe('Postgres DB Connection', {
 }, () => {
     (0, _test_setup_1.test)('Python - Can establish a Postgres connection to a docker container', async function ({ app, hotKeys, python }) {
         await app.workbench.connections.openConnectionPane();
-        await app.workbench.connections.initiateConnection('Python', 'PostgresSQL');
+        await app.workbench.connections.initiateConnection('Python', 'PostgreSQL');
         await app.workbench.connections.fillConnectionsInputs({
             'Database Name': dbName,
             'Host': 'postgres',
@@ -68,7 +68,7 @@ _test_setup_1.test.describe('Postgres DB Connection', {
         tag: [_test_setup_1.tags.ARK]
     }, async function ({ app, hotKeys, r }) {
         await app.workbench.connections.openConnectionPane();
-        await app.workbench.connections.initiateConnection('R', 'PostgresSQL');
+        await app.workbench.connections.initiateConnection('R', 'PostgreSQL');
         await app.workbench.connections.fillConnectionsInputs({
             'Database Name': dbName,
             'Host': 'postgres',

@@ -10,14 +10,14 @@ _test_setup_1.test.use({
     suiteId: __filename
 });
 _test_setup_1.test.describe('Data Explorer - Python Pandas', {
-    tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.CRITICAL, _test_setup_1.tags.DATA_EXPLORER, _test_setup_1.tags.WORKBENCH]
+    tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.CRITICAL, _test_setup_1.tags.DATA_EXPLORER, _test_setup_1.tags.WORKBENCH]
 }, () => {
     _test_setup_1.test.afterEach(async function ({ app, hotKeys }) {
         await app.workbench.dataExplorer.filters.clearAll();
         await hotKeys.closeAllEditors();
         await hotKeys.showSecondarySidebar();
     });
-    (0, _test_setup_1.test)('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, executeCode, hotKeys, python }) {
+    (0, _test_setup_1.test)('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', { tag: _test_setup_1.tags.WIN }, async function ({ app, executeCode, hotKeys, python }) {
         const { dataExplorer, variables, editors, clipboard } = app.workbench;
         // execute code to create a DataFrame
         await executeCode('Python', df);
@@ -41,7 +41,7 @@ _test_setup_1.test.describe('Data Explorer - Python Pandas', {
         // verify null percentage hover dialog
         await dataExplorer.summaryPanel.verifyNullPercentHoverDialog();
     });
-    (0, _test_setup_1.test)('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python }) {
+    (0, _test_setup_1.test)('Python Pandas - Verify data explorer functionality with empty fields', { tag: _test_setup_1.tags.WIN }, async function ({ app, python }) {
         const { dataExplorer, console, variables, editors } = app.workbench;
         // execute code to create a DataFrame with empty fields
         await console.executeCode('Python', emptyFieldsScript);
@@ -102,7 +102,7 @@ _test_setup_1.test.describe('Data Explorer - Python Pandas', {
         await dataExplorer.grid.verifyTableDataLength(12);
         await dataExplorer.grid.verifyTableDataRowValue(0, { 'Year': '2025' });
     });
-    (0, _test_setup_1.test)('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
+    (0, _test_setup_1.test)('Python Pandas - Verify opening Data Explorer for the second time brings focus back', { tag: _test_setup_1.tags.WIN }, async function ({ app, python }) {
         const { variables, console, editors } = app.workbench;
         // execute code to create a DataFrame
         await console.executeCode('Python', mtcarsDf);
@@ -115,7 +115,7 @@ _test_setup_1.test.describe('Data Explorer - Python Pandas', {
         await variables.doubleClickVariableRow('Data_Frame');
         await editors.verifyTab('Data: Data_Frame', { isVisible: true });
     });
-    (0, _test_setup_1.test)('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, hotKeys, python }) {
+    (0, _test_setup_1.test)('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', { tag: _test_setup_1.tags.WIN }, async function ({ app, hotKeys, python }) {
         const { dataExplorer, console, variables, editors, modals } = app.workbench;
         // execute code to create a DataFrame with blank spaces
         await console.executeCode('Python', blankSpacesScript);

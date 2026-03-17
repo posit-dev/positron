@@ -13,6 +13,32 @@ class Clipboard {
         this.code = code;
         this.hotKeys = hotKeys;
     }
+    /**
+     * Detects if we need to use synthetic paste events.
+     * - Electron: No (clipboard works fine)
+     * - Chromium (Chrome): No (grantPermissions works)
+     * - Firefox: No (keyboard shortcuts work)
+     * - Edge, WebKit: Yes (clipboard API restrictions)
+     */
+    needsSyntheticPaste() {
+        const browser = this.code.driver.browser;
+        const nativeClipboardWorks = this.code.electronApp
+            || browser?.includes('chrome')
+            || browser === 'firefox';
+        return !nativeClipboardWorks;
+    }
+    /**
+     * Safely grants clipboard permissions. Chromium-only - Firefox/WebKit
+     * don't support programmatic clipboard permission grants.
+     */
+    async tryGrantClipboardPermission(permission) {
+        try {
+            await this.code.driver.browserContext.grantPermissions([permission]);
+        }
+        catch {
+            // Non-Chromium browser - clipboard permissions not supported via API
+        }
+    }
     async copy(timeoutMs = 5000) {
         const seed = '__SEED__';
         // Seed the clipboard
@@ -45,12 +71,40 @@ class Clipboard {
         })
             .not.toBe(seed);
     }
-    async paste() {
-        await this.hotKeys.paste();
+    /**
+     * Pastes content using keyboard shortcut, or synthetic paste event for WebKit.
+     *
+     * @param text Optional text to paste. If provided and running on WebKit, uses synthetic
+     *             paste event to bypass clipboard API restrictions. If not provided or on
+     *             other browsers, uses keyboard shortcut (Cmd+V / Ctrl+V).
+     */
+    async paste(text) {
+        if (this.needsSyntheticPaste() && text !== undefined) {
+            await this.pasteText(text);
+        }
+        else {
+            await this.hotKeys.paste();
+        }
+    }
+    /**
+     * Pastes text by dispatching a synthetic paste event with the text embedded in clipboardData.
+     * This bypasses navigator.clipboard.readText() which is blocked by WebKit without a real user gesture.
+     */
+    async pasteText(text) {
+        await this.code.driver.page.evaluate((textToPaste) => {
+            const clipboardData = new DataTransfer();
+            clipboardData.setData('text/plain', textToPaste);
+            const pasteEvent = new ClipboardEvent('paste', {
+                bubbles: true,
+                cancelable: true,
+                clipboardData
+            });
+            document.activeElement?.dispatchEvent(pasteEvent);
+        }, text);
     }
     async getClipboardText() {
-        // Grant permissions to read from clipboard
-        await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
+        // Grant permissions to read from clipboard (Chromium-only)
+        await this.tryGrantClipboardPermission('clipboard-read');
         const clipboardText = await this.code.driver.currentPage.evaluate(async () => {
             try {
                 return await navigator.clipboard.readText();
@@ -79,8 +133,8 @@ class Clipboard {
         }, { message: 'clipboard text to be...' }).toPass({ timeout });
     }
     async setClipboardText(text) {
-        // Grant permissions to write to clipboard
-        await this.code.driver.browserContext.grantPermissions(['clipboard-write']);
+        // Grant permissions to write to clipboard (Chromium-only)
+        await this.tryGrantClipboardPermission('clipboard-write');
         // Use page context to set clipboard text
         await this.code.driver.currentPage.evaluate(async (textToCopy) => {
             try {
@@ -92,8 +146,8 @@ class Clipboard {
         }, text);
     }
     async getClipboardImage() {
-        // Grant permissions to read from clipboard
-        await this.code.driver.browserContext.grantPermissions(['clipboard-read']);
+        // Grant permissions to read from clipboard (Chromium-only)
+        await this.tryGrantClipboardPermission('clipboard-read');
         const clipboardImageBuffer = await this.code.driver.currentPage.evaluate(async () => {
             const clipboardItems = await navigator.clipboard.read();
             for (const item of clipboardItems) {
@@ -108,8 +162,8 @@ class Clipboard {
         return clipboardImageBuffer ? Buffer.from(clipboardImageBuffer) : null;
     }
     async clearClipboard() {
-        // Grant permissions to modify the clipboard
-        await this.code.driver.browserContext.grantPermissions(['clipboard-write']);
+        // Grant permissions to modify the clipboard (Chromium-only)
+        await this.tryGrantClipboardPermission('clipboard-write');
         // Use the page context to overwrite the clipboard
         await this.code.driver.currentPage.evaluate(async () => {
             await navigator.clipboard.writeText(''); // Clear clipboard by writing an empty string

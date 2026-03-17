@@ -309,7 +309,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * - `error: true` (default) - Stop execution queue on error.
 	 * - `error: false` - Continue execution queue even on error.
 	 */
-	async executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken): Promise<void> {
+	async executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken, executionMetadata?: Record<string, unknown>[]): Promise<void> {
 		if (codeRanges.length === 0) {
 			return;
 		}
@@ -333,10 +333,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			codeRange: Range;
 			effectiveCodeRange: Range;
 			options: QuartoCellExecutionOptions;
+			executionMetadata?: Record<string, unknown>;
 		}
 		const executions: InlineExecution[] = [];
 
-		for (const range of codeRanges) {
+		for (let rangeIdx = 0; rangeIdx < codeRanges.length; rangeIdx++) {
+			const range = codeRanges[rangeIdx];
 			// Find the cell containing this range
 			let containingCell: QuartoCodeCell | undefined;
 			for (const quartoCell of quartoCells) {
@@ -389,6 +391,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				codeRange: clampedRange,
 				effectiveCodeRange,
 				options,
+				executionMetadata: executionMetadata?.[rangeIdx],
 			});
 		}
 
@@ -471,7 +474,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						execution.cell,
 						execution.effectiveCodeRange,
 						execution.options,
-						token
+						token,
+						execution.executionMetadata
 					);
 
 					// If error occurred and error option is true (stop on error),
@@ -536,7 +540,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		cell: QuartoCodeCell,
 		codeRange: Range,
 		options: QuartoCellExecutionOptions = DEFAULT_CELL_EXECUTION_OPTIONS,
-		token?: CancellationToken
+		token?: CancellationToken,
+		executionMetadata?: Record<string, unknown>
 	): Promise<boolean> {
 		const cellLanguage = cell.language.toLowerCase();
 
@@ -598,7 +603,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					code,
 					executionId,
 					RuntimeCodeExecutionMode.Interactive,
-					errorBehavior
+					errorBehavior,
+					undefined,
+					executionMetadata
 				);
 
 				// Fire the event signaling code execution.

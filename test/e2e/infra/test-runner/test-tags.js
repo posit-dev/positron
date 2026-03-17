@@ -16,6 +16,10 @@ exports.TestTags = void 0;
  * By default PRs will only run e2e tests against Linux / Electron.
  * Add `@:win` tag to enable the tests to run on windows. Add the `@:web` tag to enable a web run.
  *
+ * Cross-browser tag:
+ * Add `@:cross-browser` to tests that run in multiple browsers (Chrome, Firefox, WebKit, Edge).
+ * This signals that changes to these tests should consider cross-browser compatibility.
+ *
 */
 var TestTags;
 (function (TestTags) {
@@ -68,6 +72,7 @@ var TestTags;
     // performance tags
     TestTags["PERFORMANCE"] = "@:performance";
     // platform  tags
+    TestTags["CROSS_BROWSER"] = "@:cross-browser";
     TestTags["RHEL_ELECTRON"] = "@:rhel-electron";
     TestTags["RHEL_WEB"] = "@:rhel-web";
     TestTags["SUSE_ELECTRON"] = "@:suse-electron";

@@ -91,6 +91,11 @@ import { ShowCurrentReleaseNotesActionId } from '../../update/common/update.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { fromNow } from '../../../../base/common/date.js';
+// --- Start Positron ---
+import { IProductService } from '../../../../platform/product/common/productService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { getLatestPositronCompatibleVersion } from './positronCompatibleVersion.js';
+// --- End Positron ---
 
 class NavBar extends Disposable {
 
@@ -170,6 +175,10 @@ interface IExtensionEditorTemplate {
 	extension: IExtension;
 	gallery: IGalleryExtension | null;
 	manifest: IExtensionManifest | null;
+	// --- Start Positron ---
+	positronCompatibilityPending: boolean;
+	positronCompatibleGallery: IGalleryExtension | null;
+	// --- End Positron ---
 }
 
 const enum WebviewIndex {
@@ -253,6 +262,10 @@ export class ExtensionEditor extends EditorPane {
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IHoverService private readonly hoverService: IHoverService,
+		// --- Start Positron ---
+		@IProductService private readonly productService: IProductService,
+		@ILogService private readonly logService: ILogService,
+		// --- End Positron ---
 	) {
 		super(ExtensionEditor.ID, group, telemetryService, themeService, storageService);
 		this.extensionReadme = null;
@@ -328,11 +341,16 @@ export class ExtensionEditor extends EditorPane {
 
 		const description = append(details, $('.description'));
 
+		// --- Start Positron ---
+		const updateAction = this.instantiationService.createInstance(UpdateAction, true);
+		// --- End Positron ---
 		const installAction = this.instantiationService.createInstance(InstallDropdownAction);
 		const actions = [
 			this.instantiationService.createInstance(ExtensionRuntimeStateAction),
 			this.instantiationService.createInstance(ExtensionStatusLabelAction),
-			this.instantiationService.createInstance(UpdateAction, true),
+			// --- Start Positron ---
+			updateAction,
+			// --- End Positron ---
 			this.instantiationService.createInstance(SetColorThemeAction),
 			this.instantiationService.createInstance(SetFileIconThemeAction),
 			this.instantiationService.createInstance(SetProductIconThemeAction),
@@ -429,6 +447,11 @@ export class ExtensionEditor extends EditorPane {
 		const content = append(body, $('.content'));
 		content.id = generateUuid(); // An id is needed for the webview parent flow to
 
+		// --- Start Positron ---
+		// Backing store for the positronCompatibleGallery getter/setter on the template.
+		let positronCompatibleGalleryValue: IGalleryExtension | null = null;
+		// --- End Positron ---
+
 		this.template = {
 			builtin,
 			content,
@@ -457,7 +480,20 @@ export class ExtensionEditor extends EditorPane {
 			},
 			set manifest(manifest: IExtensionManifest | null) {
 				installAction.manifest = manifest;
-			}
+			},
+			// --- Start Positron ---
+			set positronCompatibilityPending(pending: boolean) {
+				updateAction.positronCompatibilityPending = pending;
+			},
+			get positronCompatibleGallery(): IGalleryExtension | null {
+				return positronCompatibleGalleryValue;
+			},
+			set positronCompatibleGallery(gallery: IGalleryExtension | null) {
+				positronCompatibleGalleryValue = gallery;
+				updateAction.positronCompatibleGallery = gallery;
+				installAction.positronCompatibleGallery = gallery;
+			},
+			// --- End Positron ---
 		};
 	}
 
@@ -543,6 +579,11 @@ export class ExtensionEditor extends EditorPane {
 		this.extensionChangelog = new Cache(() => gallery ? this.extensionGalleryService.getChangelog(gallery, token) : extension.getChangelog(token));
 		this.extensionManifest = new Cache(() => gallery ? this.extensionGalleryService.getManifest(gallery, token) : extension.getManifest(token));
 
+		// --- Start Positron ---
+		// Set positronCompatibilityPending to true to hide the Update button until the engines.positron compatibility check completes,
+		// so we don't briefly show an incompatible version.
+		template.positronCompatibilityPending = true;
+		// --- End Positron ---
 		template.extension = extension;
 		template.gallery = gallery;
 		template.manifest = null;
@@ -559,10 +600,59 @@ export class ExtensionEditor extends EditorPane {
 			this.transientDisposables.add(onClick(template.name, () => this.openerService.open(URI.parse(extension.url!))));
 		}
 
-		const manifest = await this.extensionManifest.get().promise;
+		// --- Start Positron ---
+		// Allow manifest to be updated below.
+		let manifest = await this.extensionManifest.get().promise;
+		// --- End Positron ---
 		if (token.isCancellationRequested) {
 			return;
 		}
+
+		// --- Start Positron ---
+		// Check engines.positron compatibility. If the current gallery version
+		// is incompatible, find the latest compatible version and swap out the
+		// manifest and gallery references used by the editor.
+		const galleryToCheck = gallery ?? extension.gallery;
+		if (manifest && galleryToCheck) {
+			// Fetch all versions and find the latest one whose engines.positron
+			// is satisfied by the running Positron version.
+			const compatibleGallery = await getLatestPositronCompatibleVersion(
+				galleryToCheck,
+				this.extensionGalleryService,
+				this.productService,
+				this.logService,
+				token,
+			);
+
+			// Check for cancellation again before proceeding, since fetching all versions and checking compatibility could take some time.
+			if (token.isCancellationRequested) {
+				return;
+			}
+
+			// If we found a compatible version that is different from the currently shown version, update the editor to show the compatible
+			// version instead.
+			if (compatibleGallery && compatibleGallery.version !== galleryToCheck.version) {
+				// Re-fetch resources for the compatible version.
+				manifest = await this.extensionGalleryService.getManifest(compatibleGallery, token);
+
+				// Check for cancellation again before proceeding, since fetching the manifest could take some time.
+				if (token.isCancellationRequested) {
+					return;
+				}
+
+				// Update the caches to fetch the readme, changelog, and manifest for the compatible version from the
+				// gallery instead of the currently shown version (which may be incompatible).
+				this.extensionReadme = new Cache(() => this.extensionGalleryService.getReadme(compatibleGallery, token));
+				this.extensionChangelog = new Cache(() => this.extensionGalleryService.getChangelog(compatibleGallery, token));
+				this.extensionManifest = new Cache(() => this.extensionGalleryService.getManifest(compatibleGallery, token));
+				template.gallery = compatibleGallery;
+				template.positronCompatibleGallery = compatibleGallery;
+			}
+		}
+
+		// Allow the Update button to render now that we know the correct version.
+		template.positronCompatibilityPending = false;
+		// --- End Positron ---
 
 		if (manifest) {
 			template.manifest = manifest;
@@ -679,7 +769,10 @@ export class ExtensionEditor extends EditorPane {
 		this.contentDisposables.add(toDisposable(arrays.insert(this.layoutParticipants, { layout })));
 
 		// Render additional details synchronously to avoid flicker
-		this.renderAdditionalDetails(additionalDetailsContainer, extension);
+		// --- Start Positron ---
+		// Pass the template so the Marketplace version reflects the Positron-compatible version.
+		this.renderAdditionalDetails(additionalDetailsContainer, extension, template);
+		// --- End Positron ---
 
 		switch (id) {
 			case ExtensionEditorTab.Readme: return this.openDetails(extension, contentContainer, token);
@@ -917,7 +1010,7 @@ export class ExtensionEditor extends EditorPane {
 		return { focus: () => extensionPackContent.focus() };
 	}
 
-	private renderAdditionalDetails(container: HTMLElement, extension: IExtension): void {
+	private renderAdditionalDetails(container: HTMLElement, extension: IExtension, template: IExtensionEditorTemplate): void {
 		const content = $('div', { class: 'additional-details-content', tabindex: '0' });
 		const scrollableContent = new DomScrollableElement(content, {});
 		const layout = () => scrollableContent.scanDomNode();
@@ -925,7 +1018,15 @@ export class ExtensionEditor extends EditorPane {
 		this.contentDisposables.add(toDisposable(removeLayoutParticipant));
 		this.contentDisposables.add(scrollableContent);
 
-		this.contentDisposables.add(this.instantiationService.createInstance(AdditionalDetailsWidget, content, extension));
+		// --- Start Positron ---
+		const additionalDetailsWidget = this.instantiationService.createInstance(AdditionalDetailsWidget, content, extension);
+		// --- End Positron ---
+		// Pass the compatible gallery version so the Marketplace panel shows
+		// the correct version instead of the unfiltered latest.
+		additionalDetailsWidget.positronCompatibleGallery = template.positronCompatibleGallery;
+		// --- Start Positron ---
+		this.contentDisposables.add(additionalDetailsWidget);
+		// --- End Positron ---
 
 		append(container, scrollableContent.getDomNode());
 		scrollableContent.scanDomNode();
@@ -1055,6 +1156,20 @@ class AdditionalDetailsWidget extends Disposable {
 
 	private readonly disposables = this._register(new DisposableStore());
 
+	// --- Start Positron ---
+	// When set, the Marketplace version display uses this gallery object
+	// instead of extension.gallery.
+	private _positronCompatibleGallery: IGalleryExtension | null = null;
+	private _lastExtension: IExtension | null = null;
+	set positronCompatibleGallery(gallery: IGalleryExtension | null) {
+		this._positronCompatibleGallery = gallery;
+		// Re-render to update the Marketplace version display.
+		if (this._lastExtension) {
+			this.render(this._lastExtension);
+		}
+	}
+	// --- End Positron ---
+
 	constructor(
 		private readonly container: HTMLElement,
 		extension: IExtension,
@@ -1077,6 +1192,9 @@ class AdditionalDetailsWidget extends Disposable {
 	}
 
 	private render(extension: IExtension): void {
+		// --- Start Positron ---
+		this._lastExtension = extension;
+		// --- End Positron ---
 		this.container.innerText = '';
 		this.disposables.clear();
 
@@ -1249,6 +1367,10 @@ class AdditionalDetailsWidget extends Disposable {
 		const moreInfo = append(moreInfoContainer, $('.more-info'));
 		if (gallery) {
 			if (!extension.local) {
+				// --- Start Positron ---
+				// Show the compatible version if available, otherwise the gallery version.
+				const displayVersion = this._positronCompatibleGallery?.version ?? gallery.version;
+				// --- End Positron ---
 				append(moreInfo,
 					$('.more-info-entry', undefined,
 						$('div.more-info-entry-name', undefined, localize('id', "Identifier")),
@@ -1257,7 +1379,10 @@ class AdditionalDetailsWidget extends Disposable {
 				append(moreInfo,
 					$('.more-info-entry', undefined,
 						$('div.more-info-entry-name', undefined, localize('Version', "Version")),
-						$('code', undefined, gallery.version)
+						// --- Start Positron ---
+						// $('code', undefined, gallery.version)
+						$('code', undefined, displayVersion)
+						// --- End Positron ---
 					)
 				);
 			}

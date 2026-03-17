@@ -115,7 +115,7 @@ class Workbench {
         this.connections = new connections_1.Connections(code, this.quickaccess);
         this.newFolderFlow = new newFolderFlow_1.NewFolderFlow(code, this.quickaccess);
         this.output = new output_1.Output(code, this.quickaccess, this.quickInput);
-        this.console = new console_1.Console(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
+        this.console = new console_1.Console(code, this.quickInput, this.hotKeys, this.contextMenu);
         this.modals = new dialog_modals_1.Modals(code, this.toasts, this.console);
         this.clipboard = new clipboard_1.Clipboard(code, this.hotKeys);
         this.sessions = new sessions_1.Sessions(code, this.quickaccess, this.quickInput, this.console, this.contextMenu, this.modals);

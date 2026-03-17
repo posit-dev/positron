@@ -183,8 +183,7 @@ _test_setup_1.test.describe('R Breakpoints', {
         await app.workbench.console.clearButton.click();
     });
     (0, _test_setup_1.test)('R - Verify breakpoint set and hit via gutter click', {
-        tag: [_test_setup_1.tags.WEB],
-        annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+        tag: [_test_setup_1.tags.WEB]
     }, async ({ app, page, openFile, hotKeys }) => {
         const { debug, console } = app.workbench;
         await openFile('workspaces/r-debugging/breakpoint_test.r');
@@ -211,9 +210,7 @@ _test_setup_1.test.describe('R Breakpoints', {
         await page.keyboard.press('Enter');
         await console.waitForReady('>');
     });
-    (0, _test_setup_1.test)('R - Verify breakpoints in dirty (unsaved) documents', {
-        annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
-    }, async ({ app, page, openFile, hotKeys }) => {
+    (0, _test_setup_1.test)('R - Verify breakpoints in dirty (unsaved) documents', async ({ app, page, openFile, hotKeys }) => {
         const { debug, console } = app.workbench;
         await openFile('workspaces/r-debugging/breakpoint_test.r');
         await debug.setUnverifiedBreakpointOnLine(3);
@@ -222,15 +219,19 @@ _test_setup_1.test.describe('R Breakpoints', {
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
         await debug.expectBreakpointVerified(0, 30000);
         // Edit file to make it dirty
+        await page.keyboard.press('Escape'); // Clear any selection first
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
         await page.keyboard.press('Enter');
         await page.keyboard.type('# test comment');
+        await hotKeys.minimizeBottomPanel();
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Home' : 'Control+Home');
         // Breakpoint should become unverified after edit
         await debug.expectBreakpointUnverified(0);
         // Re-execute WITHOUT saving - breakpoint should re-verify
         await hotKeys.selectAll();
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
         await debug.expectBreakpointVerified(0, 30000);
+        await hotKeys.restoreBottomPanel();
         // Verify breakpoint still works
         await console.pasteCodeToConsole('multiply_values(5, 3)', true);
         await debug.expectBrowserModeFrame(1);
@@ -242,8 +243,7 @@ _test_setup_1.test.describe('R Breakpoints', {
         await hotKeys.undo();
     });
     (0, _test_setup_1.test)('R - Verify session switching preserves breakpoint state', {
-        tag: [_test_setup_1.tags.WEB],
-        annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+        tag: [_test_setup_1.tags.WEB]
     }, async ({ app, page, openFile, hotKeys, sessions }) => {
         const { debug, console } = app.workbench;
         // Set up and verify breakpoint in Session 1 before switching.
@@ -313,8 +313,7 @@ _test_setup_1.test.describe('R Breakpoints', {
         await page.keyboard.press('Escape');
     });
     (0, _test_setup_1.test)('R - Verify DAP disconnect/reconnect preserves breakpoints', {
-        tag: [_test_setup_1.tags.WEB],
-        annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+        tag: [_test_setup_1.tags.WEB]
     }, async ({ app, page, openFile, hotKeys }) => {
         const { debug, console } = app.workbench;
         await openFile('workspaces/r-debugging/breakpoint_test.r');
@@ -336,9 +335,7 @@ _test_setup_1.test.describe('R Breakpoints', {
         await page.keyboard.press('Enter');
         await console.waitForReady('>');
     });
-    (0, _test_setup_1.test)('R - Verify editing file while at breakpoint invalidates breakpoints', {
-        annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
-    }, async ({ app, page, openFile, hotKeys }) => {
+    (0, _test_setup_1.test)('R - Verify editing file while at breakpoint invalidates breakpoints', async ({ app, page, openFile, hotKeys }) => {
         const { debug, console } = app.workbench;
         await openFile('workspaces/r-debugging/breakpoint_test.r');
         await debug.setUnverifiedBreakpointOnLine(3);
@@ -351,6 +348,7 @@ _test_setup_1.test.describe('R Breakpoints', {
         await hotKeys.minimizeBottomPanel();
         // Edit file while at breakpoint
         await app.workbench.editors.selectTab('breakpoint_test.r');
+        await page.keyboard.press('Escape'); // Clear any selection first
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
         await page.keyboard.press('Enter');
         await page.keyboard.type('# edit while debugging');

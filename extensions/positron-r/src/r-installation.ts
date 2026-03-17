@@ -129,6 +129,10 @@ export interface RVersionsMetadata {
 	readonly repo?: string;
 	/** Colon-separated list of R library directories */
 	readonly library?: string;
+	/** Environment module to load */
+	readonly module?: string;
+	/** Pre-computed startup command for module loading */
+	readonly moduleStartupCommand?: string;
 }
 
 /**

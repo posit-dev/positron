@@ -14,8 +14,12 @@ _test_setup_js_1.test.use({
     suiteId: __filename
 });
 _test_setup_js_1.test.describe('Notebook Focus and Selection', {
-    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS]
+    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS, _test_setup_1.tags.CROSS_BROWSER]
 }, () => {
+    _test_setup_js_1.test.beforeAll(async function ({ hotKeys }) {
+        await hotKeys.minimizeBottomPanel();
+        await hotKeys.closeSecondarySidebar();
+    });
     (0, _test_setup_js_1.test)('Arrow keys move cell selection up and down', async function ({ app }) {
         const { notebooksPositron } = app.workbench;
         const keyboard = app.code.driver.currentPage.keyboard;
@@ -145,6 +149,114 @@ _test_setup_js_1.test.describe('Notebook Focus and Selection', {
         // Ensure new markdown cell is editable
         await keyboard.type('# Heading 1');
         await notebooksPositron.expectCellContentAtIndexToBe(3, '# Heading 1');
+    });
+    // --- Selection state transition tests ---
+    // These tests cover all click-based transitions between selection states:
+    //   SingleSelection, EditingSelection, MultiSelection
+    // From EditingSelection: plain click another cell's editor enters edit mode there
+    (0, _test_setup_js_1.test)('From edit mode: click another cell editor switches edit target', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        await notebooksPositron.newNotebook({ codeCells: 3 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: true });
+        await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+        // Use editorWidgetAtIndex for non-focused editors (editorAtIndex targets
+        // .native-edit-context which is only visible when the editor has focus)
+        await notebooksPositron.editorWidgetAtIndex(2).click();
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false, inEditMode: false });
+        await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, inEditMode: true, isActive: true });
+    });
+    // From EditingSelection: plain click another cell's non-editor area selects without editing
+    (0, _test_setup_js_1.test)('From edit mode: click another cell non-editor area exits edit and selects', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        await notebooksPositron.newNotebook({ codeCells: 1, markdownCells: 2 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: true });
+        await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+        // Click on markdown cell (rendered content, not an editor)
+        await notebooksPositron.cell.nth(2).click();
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false });
+        await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, inEditMode: false, isActive: true });
+    });
+    // From EditingSelection: shift-click on the SAME cell is a no-op (preserves edit mode)
+    (0, _test_setup_js_1.test)('From edit mode: shift-click same cell editor preserves edit mode', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        await notebooksPositron.newNotebook({ codeCells: 3 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: true });
+        await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+        await notebooksPositron.editorWidgetAtIndex(0).click({ modifiers: ['Shift'] });
+        // Should remain in edit mode on the same cell -- not multi-select
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true, inEditMode: true, isActive: true });
+    });
+    // From EditingSelection: shift-click creates multi-selection without editing
+    (0, _test_setup_js_1.test)('From edit mode: shift-click editor creates multi-selection', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        await notebooksPositron.newNotebook({ codeCells: 3 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: true });
+        await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+        await notebooksPositron.editorWidgetAtIndex(1).click({ modifiers: ['Shift'] });
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true, inEditMode: false });
+        await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: true, inEditMode: false, isActive: true });
+    });
+    // From MultiSelection: plain click on editor collapses to edit mode
+    (0, _test_setup_js_1.test)('From multi-selection: click editor collapses to edit mode', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        const keyboard = app.code.driver.page.keyboard;
+        await notebooksPositron.newNotebook({ codeCells: 3 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+        await keyboard.press('Shift+ArrowDown');
+        await keyboard.press('Shift+ArrowDown');
+        await notebooksPositron.expectCellsToBeSelected([0, 1, 2]);
+        await notebooksPositron.editorWidgetAtIndex(1).click();
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false });
+        await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: true, inEditMode: true, isActive: true });
+        await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: false });
+    });
+    // From MultiSelection: plain click on non-editor area collapses to single-select
+    (0, _test_setup_js_1.test)('From multi-selection: click non-editor area collapses to single-select', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        const keyboard = app.code.driver.page.keyboard;
+        await notebooksPositron.newNotebook({ codeCells: 1, markdownCells: 2 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+        await keyboard.press('Shift+ArrowDown');
+        await keyboard.press('Shift+ArrowDown');
+        await notebooksPositron.expectCellsToBeSelected([0, 1, 2]);
+        // Click on markdown cell (rendered content, not an editor)
+        await notebooksPositron.cell.nth(2).click();
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false });
+        await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: false });
+        await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, inEditMode: false, isActive: true });
+    });
+    // From MultiSelection: shift-click adds to selection
+    (0, _test_setup_js_1.test)('From multi-selection: shift-click adds cell to selection', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        const keyboard = app.code.driver.page.keyboard;
+        await notebooksPositron.newNotebook({ codeCells: 4 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+        await keyboard.press('Shift+ArrowDown');
+        await notebooksPositron.expectCellsToBeSelected([0, 1]);
+        await notebooksPositron.editorWidgetAtIndex(3).click({ modifiers: ['Shift'] });
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true });
+        await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: true });
+        await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: false });
+        await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: true, inEditMode: false, isActive: true });
+    });
+    // From SingleSelection: click another cell's editor enters edit mode
+    (0, _test_setup_js_1.test)('From single-select: click another cell editor enters edit mode', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        await notebooksPositron.newNotebook({ codeCells: 3 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+        await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
+        await notebooksPositron.editorWidgetAtIndex(2).click();
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false });
+        await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, inEditMode: true, isActive: true });
+    });
+    // From SingleSelection: shift-click creates multi-selection
+    (0, _test_setup_js_1.test)('From single-select: shift-click creates multi-selection', async function ({ app }) {
+        const { notebooksPositron } = app.workbench;
+        await notebooksPositron.newNotebook({ codeCells: 3 });
+        await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+        await notebooksPositron.editorWidgetAtIndex(2).click({ modifiers: ['Shift'] });
+        await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true, inEditMode: false });
+        await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, inEditMode: false, isActive: true });
     });
     (0, _test_setup_js_1.test)('Multi-select and deselect retains anchor/active cell', async function ({ app }) {
         const { notebooksPositron } = app.workbench;

@@ -116,7 +116,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 			const screenshotPath = join(logsPath, 'app-start-failure.png');
 			try {
-				const page = app.code?.driver?.page;
+				const page = app.code?.driver?.currentPage;
 				if (page) {
 					appFixtureScreenshot = await page.screenshot({ path: screenshotPath });
 				}

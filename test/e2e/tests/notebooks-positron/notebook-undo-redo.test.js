@@ -10,7 +10,7 @@ _test_setup_js_1.test.use({
     suiteId: __filename
 });
 _test_setup_js_1.test.describe('Positron Notebooks: Cell Undo-Redo Behavior', {
-    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS]
+    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS, _test_setup_1.tags.CROSS_BROWSER]
 }, () => {
     (0, _test_setup_js_1.test)('Should correctly undo and redo cell actions', async function ({ app }) {
         const { notebooksPositron } = app.workbench;

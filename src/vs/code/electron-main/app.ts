@@ -143,6 +143,7 @@ import { EphemeralStateService } from '../../platform/ephemeralState/common/ephe
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
 import { PositronMemoryUsageMainService } from '../../platform/positronMemoryUsage/electron-main/positronMemoryUsageMainService.js';
 import { POSITRON_MEMORY_INFO_CHANNEL_NAME, PositronMemoryInfoChannel } from '../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
+import { recolorDevIcon } from '../../platform/windows/electron-main/devIconColorizer.js';
 // --- End Positron ---
 
 /**
@@ -586,6 +587,17 @@ export class CodeApplication extends Disposable {
 		} catch (error) {
 			this.logService.error(error);
 		}
+
+		// --- Start Positron ---
+		// Set dev icon on macOS when running from source to distinguish from production builds
+		if (isMacintosh && !this.environmentMainService.isBuilt && app.dock) {
+			const devIconPath = join(this.environmentMainService.appRoot, 'resources/darwin/positron.png');
+			const customColor = this.configurationService.getValue<string>('development.iconColor');
+			if (customColor) {
+				app.dock.setIcon(recolorDevIcon(devIconPath, customColor));
+			}
+		}
+		// --- End Positron ---
 
 		// Main process server (electron IPC based)
 		const mainProcessElectronServer = new ElectronIPCServer();

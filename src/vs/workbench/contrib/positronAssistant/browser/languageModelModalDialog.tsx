@@ -201,7 +201,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	/** Derive the auth status from the selected provider or progress state */
 	const getAuthStatus = () => {
-		if (selectedProvider.signedIn) {
+		if (isSignedIn()) {
 			return AuthStatus.SIGNED_IN;
 		}
 		if (showProgress) {
@@ -309,7 +309,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				};
 				await props.onAction(
 					completionConfig,
-					selectedProvider.signedIn ? 'delete' : 'save');
+					isSignedIn() ? 'delete' : 'save');
 			}
 		} catch (e) {
 			setErrorMessage(e instanceof Error ? e.message : String(e));

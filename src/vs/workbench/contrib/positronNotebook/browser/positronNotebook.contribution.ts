@@ -8,7 +8,9 @@ import './contrib/find/positronNotebookFind.contribution.js';
 import './contrib/assistant/positronNotebookAssistant.contribution.js';
 import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
+import './contrib/dataExplorer/positronNotebookDataExplorer.contribution.js';
 
+import { isCopyImageMenuArg, toBase64DataUrl } from './copyImageUtils.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -45,14 +47,17 @@ import { INotebookEditorOptions, IPYNB_VIEW_TYPE } from '../../notebook/browser/
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
@@ -1580,6 +1585,62 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell?.isCodeCell()) {
 			notebook.clearCellOutput(cell);
+		}
+	}
+});
+
+// Copy output image to clipboard
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.copyOutputImage',
+			title: localize2('positronNotebook.cell.copyOutputImage', "Copy Image"),
+			icon: ThemeIcon.fromId('copy'),
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionLeft,
+				group: PositronNotebookCellOutputActionGroup.Copy,
+				order: 1,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+				)
+			},
+			// Keybinding deferred to #12434 (output-focused state for
+			// context-dependent Cmd+C)
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+		const clipboardService = accessor.get(IClipboardService);
+		const logService = accessor.get(ILogService);
+		const notificationService = accessor.get(INotificationService);
+
+		// Look for a CopyImageMenuArg forwarded from the context menu
+		const menuArg = args.find(isCopyImageMenuArg);
+		let dataUrl = menuArg?.imageDataUrl;
+
+		// Fall back to the first image output (e.g. from ellipsis menu)
+		if (!dataUrl) {
+			const state = notebook.selectionStateMachine.state.get();
+			const cell = getActiveCell(state);
+			if (!cell?.isCodeCell()) {
+				return;
+			}
+			const imageOutput = cell.outputs.get().find(o => o.parsed.type === 'image');
+			if (imageOutput?.parsed.type === 'image') {
+				dataUrl = imageOutput.parsed.dataUrl;
+			}
+		}
+
+		if (!dataUrl) {
+			return;
+		}
+
+		try {
+			await clipboardService.writeImage(toBase64DataUrl(dataUrl));
+		} catch (err) {
+			logService.error('Failed to copy image to clipboard:', err);
+			notificationService.error(localize('copyImageFailed', "Failed to copy image to clipboard"));
 		}
 	}
 });

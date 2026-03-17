@@ -46,6 +46,7 @@ class InlineDataExplorer {
     container;
     // Header elements
     header;
+    title;
     shape;
     openButton;
     // Content area
@@ -56,11 +57,11 @@ class InlineDataExplorer {
     errorState;
     // Data grid elements
     columnHeaders;
-    cells;
     constructor(page) {
         this.page = page;
         this.container = this.page.locator('.inline-data-explorer-container');
         this.header = this.container.locator('.inline-data-explorer-header');
+        this.title = this.container.locator('.inline-data-explorer-title');
         this.shape = this.container.locator('.inline-data-explorer-shape');
         this.openButton = this.container.locator('.inline-data-explorer-open-button');
         this.content = this.container.locator('.inline-data-explorer-content');
@@ -68,7 +69,6 @@ class InlineDataExplorer {
         this.disconnectedState = this.container.locator('.inline-data-explorer-disconnected');
         this.errorState = this.container.locator('.inline-data-explorer-error');
         this.columnHeaders = this.container.locator('.data-grid-column-header');
-        this.cells = this.container.locator('.data-grid-row-cell');
     }
     // --- Actions ---
     async openFullDataExplorer() {
@@ -107,11 +107,10 @@ class InlineDataExplorer {
     }
     async expectShapeToContain(rows, columns) {
         await test_1.default.step(`Verify shape contains: ${rows} rows${columns ? `, ${columns} columns` : ''}`, async () => {
-            await (0, test_1.expect)(this.shape).toContainText(String(rows));
-            await (0, test_1.expect)(this.shape).toContainText('rows');
+            // Use word-boundary regex to avoid partial matches (e.g., "5" matching "50")
+            await (0, test_1.expect)(this.shape).toHaveText(new RegExp(`\\b${rows}\\b.*rows`));
             if (columns !== undefined) {
-                await (0, test_1.expect)(this.shape).toContainText(String(columns));
-                await (0, test_1.expect)(this.shape).toContainText('columns');
+                await (0, test_1.expect)(this.shape).toHaveText(new RegExp(`\\b${columns}\\b.*columns`));
             }
         });
     }
@@ -121,19 +120,30 @@ class InlineDataExplorer {
             await (0, test_1.expect)(headerTitle.first()).toBeVisible();
         });
     }
-    async expectCellToBeVisible(text) {
-        await test_1.default.step(`Verify cell with text "${text}" is visible`, async () => {
-            await (0, test_1.expect)(this.container.getByText(text)).toBeVisible();
-        });
-    }
     async expectOpenButtonToBeVisible() {
         await test_1.default.step('Verify Open button is visible', async () => {
             await (0, test_1.expect)(this.openButton).toBeVisible();
         });
     }
+    async expectTitleToBe(expectedTitle, timeout = DEFAULT_TIMEOUT) {
+        await test_1.default.step(`Verify inline data explorer title is "${expectedTitle}"`, async () => {
+            await (0, test_1.expect)(this.title).toHaveText(expectedTitle, { timeout });
+        });
+    }
     async expectNoError() {
         await test_1.default.step('Verify no error state', async () => {
             await (0, test_1.expect)(this.errorState).not.toBeVisible();
+        });
+    }
+    async expectCellValue(columnName, rowIndex, expectedValue, timeout = DEFAULT_TIMEOUT) {
+        await test_1.default.step(`Verify cell [${columnName}, row ${rowIndex}] = "${expectedValue}"`, async () => {
+            await (0, test_1.expect)(async () => {
+                const headers = await this.columnHeaders.locator('.title').allInnerTexts();
+                const columnIndex = headers.indexOf(columnName);
+                (0, test_1.expect)(columnIndex).toBeGreaterThanOrEqual(0);
+                const cell = this.container.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex}`);
+                await (0, test_1.expect)(cell).toContainText(String(expectedValue));
+            }).toPass({ timeout });
         });
     }
     async expectColumnToBeSorted(columnName, expectedFirstValues, timeout = DEFAULT_TIMEOUT) {

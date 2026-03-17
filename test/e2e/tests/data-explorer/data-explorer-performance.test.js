@@ -37,6 +37,7 @@ const testCases = [
         varType: 'r.tibble',
         preFilterSummary: /5,051,640/,
         postFilterSummary: /Showing 15 rows/,
+        tags: [_test_setup_1.tags.ARK]
     }
 ];
 _test_setup_1.test.use({
@@ -50,7 +51,7 @@ _test_setup_1.test.describe('Data Explorer: Performance', { tag: [] }, () => {
         await hotKeys.closeAllEditors();
     });
     testCases.forEach(testCase => {
-        (0, _test_setup_1.test)(`${testCase.varType} - Record data load, basic filtering and sorting [${testCase.preFilterSummary.source} rows]`, { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.DATA_EXPLORER, _test_setup_1.tags.PERFORMANCE] }, async function ({ app, openFile, runCommand, metric, sessions }) {
+        (0, _test_setup_1.test)(`${testCase.varType} - Record data load, basic filtering and sorting [${testCase.preFilterSummary.source} rows]`, { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.DATA_EXPLORER, _test_setup_1.tags.PERFORMANCE, ...(testCase.tags || [])] }, async function ({ app, openFile, runCommand, metric, sessions }) {
             const { dataExplorer, variables, editors } = app.workbench;
             await sessions.start(testCase.env === 'Python' ? 'python' : 'r');
             await openFile('workspaces/' + testCase.data);

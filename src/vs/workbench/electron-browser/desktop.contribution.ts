@@ -314,6 +314,16 @@ import product from '../../platform/product/common/product.js';
 				'description': localize('window.clickThroughInactive', "If enabled, clicking on an inactive window will both activate the window and trigger the element under the mouse if it is clickable. If disabled, clicking anywhere on an inactive window will activate it only and a second click is required on the element."),
 				'included': isMacintosh
 			},
+			// --- Start Positron ---
+			'development.iconColor': {
+				'type': 'string',
+				'default': '',
+				'scope': ConfigurationScope.APPLICATION,
+				'pattern': '^(#[0-9a-fA-F]{6})?$',
+				'included': !product.commit,
+				'markdownDescription': localize('development.iconColor', "Custom hex color for the Positron development icon background (e.g., `#FF5733`). Leave empty to use the default green. Only applies when running from source.")
+			},
+			// --- End Positron ---
 			'window.border': {
 				'type': 'string',
 				'default': 'default',

@@ -56,6 +56,22 @@ export interface EnvironmentModulesApi {
 	): Promise<ModuleResolvedInterpreter | undefined>;
 
 	/**
+	 * Resolve an interpreter by directly specifying modules to load.
+	 *
+	 * Unlike resolveInterpreter(), this does not look up environment configuration
+	 * from settings. Use this when the module names come from an external source
+	 * (e.g., r-versions file) rather than from user settings.
+	 *
+	 * @param modules Array of module names to load
+	 * @param options Options specifying how to find and parse the interpreter
+	 * @returns Resolved interpreter info, or undefined if resolution failed
+	 */
+	resolveInterpreterFromModules(
+		modules: string[],
+		options: Omit<ResolveInterpreterOptions, 'environmentName'> & { environmentName?: string }
+	): Promise<ModuleResolvedInterpreter | undefined>;
+
+	/**
 	 * Build the startup command string for loading modules.
 	 *
 	 * @param modules Array of module names to load

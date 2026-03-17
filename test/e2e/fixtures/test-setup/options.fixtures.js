@@ -82,6 +82,14 @@ function OptionsFixture() {
             snapshots,
             quality: 0 /* Quality.Dev */,
             version,
+            // --- Start Positron ---
+            ...(process.env.DEMO_RECORD_VIDEO ? {
+                recordVideo: {
+                    dir: (0, path_1.resolve)(constants_1.ROOT_PATH, 'demo-videos'),
+                    size: { width: 1920, height: 1080 },
+                },
+            } : {}),
+            // --- End Positron ---
             useExternalServer: project.useExternalServer,
             externalServerUrl: project.externalServerUrl
         };

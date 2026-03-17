@@ -1170,8 +1170,15 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this._currentLanguageModel.set(model, undefined);
 
 		// --- Start Positron ---
-		// 1.109.0: currentProvider and getLanguageModelProviders were removed upstream.
-		// Provider switching is now implicit through model selection.
+		// Update the current provider when the model vendor changes, so that
+		// the chatCurrentProvider context key stays in sync and picker
+		// visibility is re-evaluated (e.g. session target picker is only
+		// shown for the copilot provider).
+		const newVendor = model.metadata.vendor;
+		if (this.languageModelsService.currentProvider?.id !== newVendor) {
+			const knownProvider = this.languageModelsService.getLanguageModelProviders().find(p => p.id === newVendor);
+			this.languageModelsService.currentProvider = knownProvider ?? { id: newVendor, displayName: newVendor };
+		}
 		// --- End Positron ---
 
 		if (this.cachedWidth) {

@@ -8,7 +8,7 @@ const _test_setup_1 = require("../_test.setup");
 _test_setup_1.test.use({
     suiteId: __filename
 });
-_test_setup_1.test.describe('Layouts', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.LAYOUTS, _test_setup_1.tags.WIN, _test_setup_1.tags.WORKBENCH] }, () => {
+_test_setup_1.test.describe('Layouts', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.LAYOUTS, _test_setup_1.tags.WIN, _test_setup_1.tags.WORKBENCH, _test_setup_1.tags.CROSS_BROWSER] }, () => {
     _test_setup_1.test.describe('Stacked Layout', () => {
         (0, _test_setup_1.test)('Verify Stacked Layout displays Console, Terminal, and Auxiliary Sections in correct order', async function ({ app }) {
             const layouts = app.workbench.layouts;

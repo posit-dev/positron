@@ -9,6 +9,7 @@ import { NotebookCellOutputTextModel } from '../../notebook/common/model/noteboo
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
 import { ParsedDataExplorerOutput, ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 
 /**
  * MIME type for Positron inline data explorer
@@ -142,6 +143,7 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 	if (isDataExplorerMimeType(mime)) {
 		try {
 			const payload = JSON.parse(message);
+			const variablePath = parseVariablePath(payload.variable_path);
 			return {
 				type: 'dataExplorer',
 				commId: payload.comm_id,
@@ -149,6 +151,7 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 				title: payload.title,
 				version: payload.version,
 				source: payload.source,
+				variablePath,
 			} satisfies ParsedDataExplorerOutput;
 		} catch {
 			// Fall through to unknown if parsing fails

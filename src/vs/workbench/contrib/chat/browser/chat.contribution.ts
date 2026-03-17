@@ -174,7 +174,7 @@ import { PlanAgentDefaultModel } from './planAgentDefaultModel.js';
 import { PositronBuiltinToolsContribution } from './tools/tools.js';
 import { ChatRuntimeSessionContextContribution } from './widget/input/editor/chatRuntimeSessionContext.js';
 // eslint-disable-next-line no-duplicate-imports
-import { INSTRUCTIONS_POSITRON_SOURCE_FOLDER, PROMPT_POSITRON_SOURCE_FOLDER, LEGACY_MODE_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
+import { INSTRUCTIONS_POSITRON_SOURCE_FOLDER, PROMPT_POSITRON_SOURCE_FOLDER, LEGACY_MODE_POSITRON_SOURCE_FOLDER, AGENTS_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
 // --- End Positron ---
 
 const toolReferenceNameEnumValues: string[] = [];
@@ -943,6 +943,11 @@ configurationRegistry.registerConfiguration({
 				[AGENTS_SOURCE_FOLDER]: true,
 				[CLAUDE_AGENTS_SOURCE_FOLDER]: true,
 				[COPILOT_USER_AGENTS_SOURCE_FOLDER]: true,
+				// --- Start Positron ---
+				// Adds .vscode/positron/agents as a default location for agents
+				// Now togglable in settings UI
+				[AGENTS_POSITRON_SOURCE_FOLDER]: true
+				// --- End Positron ---
 			},
 			additionalProperties: { type: 'boolean' },
 			propertyNames: {

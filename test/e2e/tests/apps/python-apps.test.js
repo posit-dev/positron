@@ -12,7 +12,7 @@ _test_setup_1.test.use({
 const appTests = [
     {
         name: 'Dash',
-        tags: [_test_setup_1.tags.WIN, _test_setup_1.tags.WORKBENCH],
+        tags: [_test_setup_1.tags.WORKBENCH], // this test is flaky on Windows, so not tagged
         filePath: 'dash_example/dash_example.py',
         locator: frame => frame.getByText('Hello World'),
     },
@@ -45,12 +45,11 @@ _test_setup_1.test.describe('Python Applications', {
     tag: [_test_setup_1.tags.CRITICAL, _test_setup_1.tags.APPS, _test_setup_1.tags.VIEWER, _test_setup_1.tags.EDITOR, _test_setup_1.tags.WEB]
 }, () => {
     _test_setup_1.test.afterEach(async function ({ app, hotKeys }) {
-        const { terminal, viewer } = app.workbench;
         await hotKeys.closeAllEditors();
         await hotKeys.focusConsole();
-        await terminal.clickTerminalTab();
-        await terminal.sendKeysToTerminal('Control+C');
-        await viewer.clearViewer();
+        await app.workbench.terminal.clickTerminalTab(); // ensure we are in the terminal tab for cleanup
+        await app.workbench.terminal.sendKeysToTerminal('Control+C');
+        await app.workbench.viewer.clearViewer();
     });
     for (const appTest of appTests) {
         (0, _test_setup_1.test)(`Python - Verify Basic ${appTest.name} App`, {

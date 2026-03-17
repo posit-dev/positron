@@ -67,6 +67,7 @@ class Viewer {
         const clearRegex = /Clear the/;
         if (await this.fullApp.getByLabel(clearRegex).isVisible()) {
             await this.fullApp.getByLabel(clearRegex).click();
+            await this.expectContentNotVisible(() => this.fullApp.getByLabel(clearRegex), 10000);
         }
     }
     async openViewerToEditor() {
@@ -77,21 +78,33 @@ class Viewer {
             await (0, test_1.expect)(this.code.driver.currentPage.locator(VIEWER_PANEL)).toBeVisible({ timeout });
         });
     }
+    async expectUrlToHaveValue(expectedUrl, timeout = 10000) {
+        await test_1.default.step(`Expect viewer URL to have value: ${expectedUrl}`, async () => {
+            await (0, test_1.expect)(this.code.driver.page.getByRole('textbox', { name: 'The current URL' })).toHaveValue(expectedUrl, { timeout });
+        });
+    }
     /**
      * Wait for content to be visible in the viewer frame, with retry on failure.
      *
      * Dev servers (Flask, Dash, etc.) may report "running" before actually accepting
      * connections, causing ERR_CONNECTION_RESET. If content isn't visible, the onRetry
      * callback is called to allow restarting the server before the next attempt.
+     *
+     * @param useIframe - Set to false for Positron output (great-tables, modelsummary) that renders directly.
+     *                    Defaults to true for web apps (Flask, Dash) that render in an iframe.
      */
     async expectContentVisible(getLocator, options) {
-        const { timeout = 60000, onRetry } = options ?? {};
+        const { timeout = 60000, onRetry, useIframe = undefined } = options ?? {};
         await test_1.default.step('Expect content visible in viewer frame', async () => {
             await (0, test_1.expect)(async () => {
                 // Get the frame and locator for the content
-                const frame = !this.code.electronApp
-                    ? this.viewerFrame.frameLocator('iframe')
-                    : this.getViewerFrame();
+                const frame = useIframe === undefined
+                    ? !this.code.electronApp
+                        ? this.viewerFrame.frameLocator('iframe')
+                        : this.getViewerFrame()
+                    : useIframe
+                        ? this.viewerFrame.frameLocator('iframe')
+                        : this.getViewerFrame();
                 const locator = getLocator(frame);
                 // Check if content is visible
                 let isVisible = false;
@@ -107,6 +120,15 @@ class Viewer {
                 }
                 // Expect the content to be visible
                 await (0, test_1.expect)(locator).toBeVisible({ timeout: 5000 });
+            }).toPass({ timeout });
+        });
+    }
+    async expectContentNotVisible(getLocator, timeout = 10000) {
+        await test_1.default.step('Expect content not visible in viewer frame', async () => {
+            await (0, test_1.expect)(async () => {
+                const frame = this.getViewerFrame();
+                const locator = getLocator(frame);
+                await (0, test_1.expect)(locator).not.toBeVisible({ timeout: 5000 });
             }).toPass({ timeout });
         });
     }

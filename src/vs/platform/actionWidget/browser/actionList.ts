@@ -168,11 +168,11 @@ class SeparatorRenderer<T> implements IListRenderer<IActionListItem<T>, ISeparat
 		// --- Start Positron ---
 		// The upstream separator does not have an icon
 		const icon = document.createElement('div');
-		icon.className = 'icon';
+		icon.className = 'separator-icon';
 		container.append(icon);
 
 		const text = document.createElement('span');
-		text.className = 'separator-label';
+		text.className = 'separator-text';
 		container.append(text);
 
 		return { container, icon, text };
@@ -192,12 +192,12 @@ class SeparatorRenderer<T> implements IListRenderer<IActionListItem<T>, ISeparat
 		const iconId = ThemeIcon.isThemeIcon(element.group.icon) ? element.group.icon.id : '';
 		if (iconId.startsWith('data:image/svg+xml')) {
 			// Render SVG as background image
-			templateData.icon.className = 'icon provider-icon';
+			templateData.icon.className = 'separator-icon provider-icon';
 			templateData.icon.style.backgroundImage = `url('${iconId}')`;
 			templateData.icon.style.color = '';
 		} else {
 			// Regular codicon
-			templateData.icon.className = 'icon ' + ThemeIcon.asClassName(element.group.icon);
+			templateData.icon.className = 'separator-icon ' + ThemeIcon.asClassName(element.group.icon);
 			templateData.icon.style.backgroundImage = '';
 			templateData.icon.style.color = element.group.icon.color
 				? asCssVariable(element.group.icon.color.id)
@@ -431,9 +431,9 @@ export class ActionList<T> extends Disposable {
 	private readonly _actionLineHeight: number;
 	private readonly _headerLineHeight = 24;
 	// --- Start Positron ---
+	private readonly _separatorLineHeight = 8;
 	// Use a taller separator to accommodate provider logos
-	// private readonly _separatorLineHeight = 8;
-	private readonly _separatorLineHeight = 32;
+	private readonly _iconSeparatorLineHeight = 32;
 	// --- End Positron ---
 
 	private _allMenuItems: IActionListItem<T>[];
@@ -498,7 +498,11 @@ export class ActionList<T> extends Disposable {
 					case ActionListItemKind.Header:
 						return this._headerLineHeight;
 					case ActionListItemKind.Separator:
-						return this._separatorLineHeight;
+						// --- Start Positron ---
+						// Choose the separator height based on whether it has an icon
+						// return this._separatorLineHeight;
+						return isTallSeparator(element) ? this._iconSeparatorLineHeight : this._separatorLineHeight;
+					// --- End Positron ---
 					default:
 						return this._actionLineHeight;
 				}
@@ -799,7 +803,11 @@ export class ActionList<T> extends Disposable {
 					listHeight += this._headerLineHeight;
 					break;
 				case ActionListItemKind.Separator:
-					listHeight += this._separatorLineHeight;
+					// --- Start Positron ---
+					// Choose the separator height based on whether it has an icon
+					// listHeight += this._separatorLineHeight;
+					listHeight += isTallSeparator(element) ? this._iconSeparatorLineHeight : this._separatorLineHeight;
+					// --- End Positron ---
 					break;
 				default:
 					listHeight += this._actionLineHeight;
@@ -911,6 +919,7 @@ export class ActionList<T> extends Disposable {
 		}
 		return Math.max(...itemWidths, effectiveMinWidth);
 	}
+
 
 	layout(minWidth: number): number {
 		this._hasLaidOut = true;
@@ -1191,3 +1200,10 @@ export class ActionList<T> extends Disposable {
 function stripNewlines(str: string): string {
 	return str.replace(/\r\n|\r|\n/g, ' ');
 }
+
+// --- Start Positron ---
+// Helper to determine if a separator is "tall" (has icon or title)
+function isTallSeparator<T>(element: IActionListItem<T>): boolean {
+	return !!element.group?.icon || !!element.group?.title?.length || !!element.label?.length;
+}
+// --- End Positron ---

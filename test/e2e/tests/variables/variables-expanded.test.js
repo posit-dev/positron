@@ -8,7 +8,7 @@ const _test_setup_1 = require("../_test.setup");
 _test_setup_1.test.use({
     suiteId: __filename
 });
-_test_setup_1.test.describe('Variables - Expanded View', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.VARIABLES] }, () => {
+_test_setup_1.test.describe('Variables - Expanded View', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.VARIABLES, _test_setup_1.tags.CROSS_BROWSER] }, () => {
     _test_setup_1.test.afterEach(async function ({ app }) {
         await app.workbench.layouts.enterLayout('stacked');
     });
@@ -25,9 +25,7 @@ _test_setup_1.test.describe('Variables - Expanded View', { tag: [_test_setup_1.t
     (0, _test_setup_1.test)('R - Verify getting large dataframe children should not cause problems', {
         tag: [_test_setup_1.tags.ARK]
     }, async function ({ app, r }) {
-        const { variables, toasts, console, layouts } = app.workbench;
-        // workaround for https://github.com/posit-dev/positron/issues/5718
-        await toasts.closeAll();
+        const { variables, console, layouts } = app.workbench;
         await console.executeCode('R', 'df2 <- data.frame(b=rep(1:1000000))');
         await layouts.enterLayout('fullSizedAuxBar');
         await variables.expandVariable('df2');

@@ -158,6 +158,32 @@ _test_setup_1.test.describe('Plots', { tag: [_test_setup_1.tags.PLOTS, _test_set
             await (0, _test_setup_1.expect)(plots.previousPlotButton).not.toBeDisabled();
             await (0, _test_setup_1.expect)(plots.plotSizeButton).not.toBeDisabled();
         });
+        (0, _test_setup_1.test)('Python - Verify open plot dropdown remembers selection', {
+            tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.PLOTS]
+        }, async function ({ app, page }) {
+            const plots = app.workbench.plots;
+            await _test_setup_1.test.step('Create a plot', async () => {
+                await app.workbench.console.executeCode('Python', plots_constants_js_1.pythonDynamicPlot);
+                await plots.waitForCurrentPlot();
+                await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+            });
+            await _test_setup_1.test.step('Select "Open in editor tab" from dropdown', async () => {
+                await plots.openPlotIn('editor');
+                await plots.waitForPlotInEditor();
+                await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+            });
+            await _test_setup_1.test.step('Click main button and verify it opens in editor tab', async () => {
+                // Clicking the main (non-dropdown) part of the split button should
+                // repeat the last selected action ("Open in editor tab").
+                await plots.clickOpenInEditorButton();
+                await plots.waitForPlotInEditor();
+                // Verify there is exactly one editor group (not side-by-side),
+                // confirming the action was "editor tab" not "new window"
+                const editorGroups = page.locator('.editor-group-container');
+                await (0, _test_setup_1.expect)(editorGroups).toHaveCount(1);
+                await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+            });
+        });
         (0, _test_setup_1.test)('Python - Verify opening plot in new window', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.PLOTS] }, async function ({ app }) {
             await verifyPlotInNewWindow(app, 'Python', plots_constants_js_1.pythonDynamicPlot);
         });

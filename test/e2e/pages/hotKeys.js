@@ -102,6 +102,18 @@ class HotKeys {
     async save() {
         await this.pressHotKeys('Cmd+S', 'Save');
     }
+    // ---------------------------
+    // --- Command Palette ---
+    // ---------------------------
+    /**
+     * Opens the command palette using a custom keybinding.
+     * We use Cmd+J E instead of the default Ctrl+Shift+P because
+     * Ctrl+Shift+P opens private browsing in Firefox, blocking
+     * cross-browser e2e tests.
+     */
+    async openCommandPalette() {
+        await this.pressHotKeys('Cmd+J E', 'Open Command Palette');
+    }
     // -------------------------
     // --- Find & Navigation ---
     // -------------------------
@@ -240,6 +252,12 @@ class HotKeys {
     }
     async showDataExplorerSummaryPanelRight() {
         await this.pressHotKeys('Cmd+J M', 'Show the DE Summary Panel on Right');
+    }
+    // -----------------------
+    // ---  Assistant Actions ---
+    // -----------------------
+    configureProviders() {
+        return this.pressHotKeys('Cmd+L B', 'Configure Language Model Providers');
     }
     // -----------------------
     // ---  Debug Actions  ---

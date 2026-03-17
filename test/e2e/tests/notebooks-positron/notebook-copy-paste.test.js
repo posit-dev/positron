@@ -10,8 +10,11 @@ _test_setup_js_1.test.use({
     suiteId: __filename
 });
 _test_setup_js_1.test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
-    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS]
+    tag: [_test_setup_1.tags.WIN, _test_setup_1.tags.WEB, _test_setup_1.tags.POSITRON_NOTEBOOKS, _test_setup_1.tags.CROSS_BROWSER]
 }, () => {
+    _test_setup_js_1.test.beforeAll(async function ({ hotKeys }) {
+        await hotKeys.minimizeBottomPanel();
+    });
     (0, _test_setup_js_1.test)('Single: Copy and paste cell content in various scenarios', async function ({ app }) {
         const { notebooksPositron } = app.workbench;
         await notebooksPositron.newNotebook({ codeCells: 5 });
@@ -83,7 +86,7 @@ _test_setup_js_1.test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
             await notebooksPositron.expectCellContentAtIndexToBe(1, cellToMoveContent);
         });
     });
-    (0, _test_setup_js_1.test)('Multiselect: Cut from top and paste at bottom', async function ({ app, hotKeys }) {
+    (0, _test_setup_js_1.test)('Multiselect: Cut from top and paste at bottom', async function ({ app }) {
         const { notebooksPositron } = app.workbench;
         const keyboard = app.code.driver.currentPage.keyboard;
         // Create notebook with 5 cells

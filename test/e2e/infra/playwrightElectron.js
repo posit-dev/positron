@@ -76,6 +76,9 @@ async function launchElectron(configuration, options) {
         executablePath: configuration.electronPath,
         args: configuration.args,
         env: configuration.env,
+        // --- Start Positron ---
+        ...(options.recordVideo ? { recordVideo: options.recordVideo } : {}),
+        // --- End Positron ---
         timeout: 0
     }), 'playwright-electron#launch', logger);
     let window = electron.windows()[0];
