@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-add-cell-buttons {
+	position: relative;
 	display: flex;
 	justify-content: center;
 	opacity: 0;
@@ -15,4 +16,28 @@
 .positron-add-cell-buttons:hover,
 .positron-add-cell-buttons:focus-within {
 	opacity: 1;
+}
+
+/* --- Drop indicator (rendered inside AddCellButtons during drag) --- */
+
+/* Make the container visible so the indicator shows, but keep buttons hidden */
+.positron-add-cell-buttons.drop-target {
+	opacity: 1 !important;
+}
+
+.positron-add-cell-buttons.drop-target .positron-iconed-button {
+	opacity: 0;
+}
+
+.positron-add-cell-buttons .drag-drop-indicator {
+	position: absolute;
+	left: 12px;
+	right: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	height: 3px;
+	border-radius: 2px;
+	background-color: var(--vscode-focusBorder, #007acc);
+	z-index: 10;
+	pointer-events: none;
 }
