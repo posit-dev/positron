@@ -442,6 +442,43 @@ export function buildModelPickerItems(
 		});
 	}
 
+	// --- Start Positron ---
+	// Add footer actions for Positron
+	items.push({ kind: ActionListItemKind.Separator });
+	items.push({
+		item: {
+			id: 'manageModels',
+			enabled: true,
+			checked: false,
+			class: undefined,
+			tooltip: localize('chat.manageModels.tooltip', "Manage Language Models"),
+			label: localize('chat.manageModels', "Manage Models..."),
+			run: () => { commandService.executeCommand(MANAGE_CHAT_COMMAND_ID); }
+		},
+		kind: ActionListItemKind.Action,
+		label: localize('chat.manageModels', "Manage Models..."),
+		group: { title: '', icon: Codicon.blank },
+		hideIcon: false,
+		showAlways: true,
+	});
+	items.push({
+		item: {
+			id: 'configureProviders',
+			enabled: true,
+			checked: false,
+			class: undefined,
+			tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
+			label: localize('chat.configureProviders', "Configure Model Providers..."),
+			run: () => { commandService.executeCommand('positron-assistant.configureProviders'); }
+		},
+		kind: ActionListItemKind.Action,
+		label: localize('chat.configureProviders', "Configure Model Providers..."),
+		group: { title: '', icon: Codicon.blank },
+		hideIcon: false,
+		showAlways: true,
+	});
+	// --- End Positron ---
+
 	return items;
 }
 
