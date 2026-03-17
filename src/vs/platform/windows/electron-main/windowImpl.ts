@@ -1122,7 +1122,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		}
 		// --- Start Positron ---
 		// Icon
-		if (!e || e.affectsConfiguration('development.iconColor')) {
+		if (e && e.affectsConfiguration('development.iconColor')) {
 			const customColor = !this.environmentMainService.isBuilt ? this.configurationService.getValue<string>('development.iconColor') : undefined;
 			const iconPath = isLinux ? join(this.environmentMainService.appRoot, 'resources/linux/positron.png') :
 				isWindows ? join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png') :
