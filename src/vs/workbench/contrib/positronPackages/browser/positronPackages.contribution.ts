@@ -21,7 +21,6 @@ import { IPositronPackagesService } from './interfaces/positronPackagesService.j
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { ILanguageRuntimePackage } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
@@ -159,7 +158,7 @@ class InstallPackageAction extends Action2 {
 				}, () => cts.dispose(true));
 			};
 
-			await installPackage(accessor, performSearch, performSearchVersions, performInstall);
+			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
 		} catch (error) {
 			notifications.error(error);
 			throw error;
@@ -181,14 +180,14 @@ class UninstallPackageAction extends Action2 {
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
-		const commands = accessor.get<ICommandService>(ICommandService);
 		const dialogService = accessor.get<IDialogService>(IDialogService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
+		const cts = new CancellationTokenSource();
 
 		try {
 			const performSearch = async () => {
-				const packages = await commands.executeCommand(PACKAGES_REFRESH_COMMAND_ID) as ILanguageRuntimePackage[];
+				const packages = await service.refreshPackages(cts.token);
 				return packages
 					.map((x) => ({
 						name: x.displayName
@@ -196,8 +195,6 @@ class UninstallPackageAction extends Action2 {
 			};
 
 			const performUninstall = async (pkg: string): Promise<void> => {
-				const uninstallCts = new CancellationTokenSource();
-
 				await progress.withProgress({
 					title: nls.localize('positronPackages.uninstallingPackages', 'Uninstalling Packages...'),
 					location: ProgressLocation.Notification,
@@ -205,11 +202,11 @@ class UninstallPackageAction extends Action2 {
 					delay: 500
 				}, async () => {
 					try {
-						await service.uninstallPackages([pkg], uninstallCts.token);
+						await service.uninstallPackages([pkg], cts.token);
 					} catch (e) {
 						notifications.error(e);
 					}
-				}, () => uninstallCts.dispose(true));
+				}, () => cts.dispose(true));
 			};
 
 			const argPackage = args.at(0) as string | undefined;
@@ -221,7 +218,7 @@ class UninstallPackageAction extends Action2 {
 					await performUninstall(argPackage);
 				}
 			} else {
-				await uninstallPackage(accessor, performSearch, performUninstall);
+				await uninstallPackage(accessor, performSearch, performUninstall, cts);
 			}
 		} catch (error) {
 			notifications.error(error);
@@ -249,7 +246,6 @@ class UpdatePackageAction extends Action2 {
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
-		const commands = accessor.get<ICommandService>(ICommandService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
 
@@ -258,7 +254,7 @@ class UpdatePackageAction extends Action2 {
 
 		try {
 			const performSearch = async () => {
-				const packages = await commands.executeCommand(PACKAGES_REFRESH_COMMAND_ID) as ILanguageRuntimePackage[];
+				const packages = await service.refreshPackages(cts.token);
 				return packages
 					.map((x) => ({
 						name: x.displayName
@@ -266,7 +262,7 @@ class UpdatePackageAction extends Action2 {
 			};
 
 			const performSearchVersions = async (pkg: string) => {
-				return await service.searchPackageVersions(pkg, cts.token);
+				return service.searchPackageVersions(pkg, cts.token);
 			};
 
 			const performUpdate = async (pkg: string, version: string): Promise<void> => {
@@ -285,7 +281,7 @@ class UpdatePackageAction extends Action2 {
 			};
 
 			const arg0 = args.at(0) as string | undefined;
-			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, arg0);
+			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, arg0, cts);
 		} catch (error) {
 			notifications.error(error);
 			throw error;

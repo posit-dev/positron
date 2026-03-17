@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -25,8 +26,8 @@ export const updatePackage = async (
 	performGetPackages: (q: string) => Promise<PackageSearchResult[]>,
 	performLookup: (q: string) => Promise<string[]>,
 	performUpdate: (pkg: string, version: string) => Promise<void>,
-	packageToInstall?: string
-
+	packageToInstall?: string,
+	cts?: CancellationTokenSource,
 ) => {
 	const title = localize('positronPackages.updatePackageTitle', 'Update Package');
 
@@ -49,9 +50,9 @@ export const updatePackage = async (
 
 		if (packageToInstall) {
 			state.selectedPackage = packageToInstall;
-			await MultiStepInput.run(accessor, (input) => pickVersion(input, state));
+			await MultiStepInput.run(accessor, (input) => pickVersion(input, state), cts);
 		} else {
-			await MultiStepInput.run(accessor, (input) => showLoading(input, state));
+			await MultiStepInput.run(accessor, (input) => showLoading(input, state), cts);
 		}
 
 		return state as State;
@@ -113,7 +114,8 @@ export const updatePackage = async (
 export const uninstallPackage = async (
 	accessor: ServicesAccessor,
 	performGetPackages: (q: string) => Promise<PackageSearchResult[]>,
-	performUninstall: (pkg: string, version?: string) => Promise<void>
+	performUninstall: (pkg: string, version?: string) => Promise<void>,
+	cts?: CancellationTokenSource,
 ) => {
 	const title = localize('positronPackages.uninstallPackageTitle', 'Uninstall Package');
 
@@ -127,7 +129,7 @@ export const uninstallPackage = async (
 			packages: [],
 			selectedPackage: undefined,
 		};
-		await MultiStepInput.run(accessor, (input) => showLoading(input, state));
+		await MultiStepInput.run(accessor, (input) => showLoading(input, state), cts);
 		return state as State;
 	}
 
@@ -170,6 +172,7 @@ export const installPackage = async (
 	performSearch: (q: string) => Promise<PackageSearchResult[]>,
 	performLookup: (q: string) => Promise<string[]>,
 	performInstall: (pkg: string, version?: string) => Promise<void>,
+	cts?: CancellationTokenSource,
 ) => {
 	const title = localize('positronPackages.installPackageTitle', 'Install Package');
 
@@ -189,7 +192,7 @@ export const installPackage = async (
 			selectedPackage: undefined,
 			selectedVersion: undefined,
 		};
-		await MultiStepInput.run(accessor, (input) => searchPackage(input, state));
+		await MultiStepInput.run(accessor, (input) => searchPackage(input, state), cts);
 		return state as State;
 	}
 
@@ -296,15 +299,13 @@ interface InputBoxParameters {
 
 class MultiStepInput {
 	quickPickService: IQuickInputService;
-	static async run(accessor: ServicesAccessor, start: InputStep) {
+	static async run(accessor: ServicesAccessor, start: InputStep, cts?: CancellationTokenSource) {
 		const quickPickService = accessor.get(IQuickInputService);
-		const input = new MultiStepInput(quickPickService);
+		const input = new MultiStepInput(quickPickService, cts);
 		return input.stepThrough(start);
 	}
 
-
-
-	constructor(quickPickService: IQuickInputService) {
+	constructor(quickPickService: IQuickInputService, private readonly cts?: CancellationTokenSource) {
 		this.quickPickService = quickPickService;
 	}
 
@@ -327,7 +328,8 @@ class MultiStepInput {
 					step = this.steps.pop();
 				} else if (err === InputFlowAction.resume) {
 					step = this.steps.pop();
-				} else if (err === InputFlowAction.cancel) {
+				} else if (err === InputFlowAction.cancel || err.cause === InputFlowAction.cancel || err.message === InputFlowAction.cancel || err.message === 'canceled') {
+					this.cts?.cancel();
 					step = undefined;
 				} else {
 					throw err;
@@ -376,7 +378,10 @@ class MultiStepInput {
 							}
 						}),
 						input.onDidChangeSelection((items) => resolve(items[0])),
-						input.onDidHide(() => reject(InputFlowAction.cancel)),
+						input.onDidHide(() => {
+							this.cts?.cancel();
+							reject(InputFlowAction.cancel);
+						}),
 					);
 					if (this.current) {
 						this.current.dispose();
