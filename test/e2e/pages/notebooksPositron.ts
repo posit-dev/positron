@@ -409,7 +409,7 @@ export class PositronNotebooks extends Notebooks {
 				// (which shifts cell positions mid-move).
 				const targetCell = this.sortableCellAtIndex(toIndex);
 				await page.evaluate(
-					(el) => el.scrollIntoView({ block: 'center' }),
+					(el) => el!.scrollIntoView({ block: 'center' }),
 					await targetCell.elementHandle()
 				);
 
