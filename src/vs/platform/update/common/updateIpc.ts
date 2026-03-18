@@ -100,11 +100,8 @@ export class UpdateChannelClient implements IUpdateService {
 		return this.channel.call('getReleaseNotes');
 	}
 
-	resetTelemetryId(): string {
+	resetTelemetryId(): void {
 		this.channel.call('resetTelemetryId');
-		// The actual ID is generated on the main process side
-		// This just triggers the reset; the return value isn't used by the caller
-		return '';
 	}
 	// --- End Positron ---
 }

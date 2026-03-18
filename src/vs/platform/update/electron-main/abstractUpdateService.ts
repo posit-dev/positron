@@ -402,10 +402,9 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		return id;
 	}
 
-	resetTelemetryId(): string {
+	resetTelemetryId(): void {
 		const newId = crypto.randomUUID();
 		this.stateService.setItem(AbstractUpdateService.TELEMETRY_ID_KEY, newId);
-		return newId;
 	}
 	// --- End Positron ---
 }
