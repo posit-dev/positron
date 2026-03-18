@@ -18,25 +18,29 @@ import {
 } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { IQuartoKernelManager } from '../../positronQuarto/browser/quartoKernelManager.js';
 import { isNotebookEditorInput } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
+import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
- * Contribution that coordinates foreground session changes between different editors.
+ * Contribution that coordinates foreground session changes from various UI interactions.
  *
- * This contribution handles the following scenarios:
+ * This contribution tries to centralizes the foreground session switching logic by
+ * listening to events from various UI components and determining which session should
+ * be the foreground session.
  *
- * Editor Focus Changes:
+ * Events handled:
+ *
+ * Editor Focus Changes (onDidActiveEditorChange):
  * - Notebook editor focused -> notebook session becomes foreground (if session exists)
  * - Quarto file focused (with inline output enabled) -> Quarto session becomes foreground
  * - Regular file focused -> console session for that language becomes foreground
  *
- * Notebook Session Lifecycle:
+ * Notebook Session Lifecycle (onDidStartRuntime, onDidChangeRuntimeState):
  * - Notebook session starts -> becomes foreground if its notebook is the active editor
  * - Notebook session becomes ready (e.g., after restart) -> becomes foreground if its notebook is the active editor
  *
- * Console session foreground changes are handled directly by:
- * - consoleTabList.tsx: Sets foreground when user clicks a tab
- * - positronConsoleView.tsx: Sets foreground when console pane gains focus
- * - runtimeSession.ts: Sets foreground when console session starts or becomes ready
+ * Console Session Selection (onDidChangeActivePositronConsoleInstance):
+ * - Console tab clicked -> that console session becomes foreground
+ * - Console pane focused -> active console session becomes foreground
  *
  * The foreground session is used by:
  * - Variables pane (shows variables for foreground session)
@@ -51,6 +55,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
@@ -76,6 +81,31 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				}
 			}
 		}));
+
+		// Listen for console instance selection (e.g., clicking a console tab or focusing the console pane)
+		this._register(this._positronConsoleService.onDidChangeActivePositronConsoleInstance((instance) => {
+			this._handleConsoleInstanceSelected(instance);
+		}));
+	}
+
+	/**
+	 * Handle console instance selection (e.g., clicking a console tab or focusing the console pane).
+	 * Sets the console session as the foreground session.
+	 */
+	private _handleConsoleInstanceSelected(instance: IPositronConsoleInstance | undefined): void {
+		if (!instance) {
+			return;
+		}
+
+		const session = instance.attachedRuntimeSession;
+		if (session) {
+			this._logService.trace(`[ForegroundSessionContribution] Console instance selected, setting foreground session: ${session.sessionId}`);
+			this._runtimeSessionService.foregroundSession = session;
+		} else {
+			// Console instance has no attached session yet - this can happen for provisional
+			// instances while waiting for a session to connect
+			this._logService.trace(`[ForegroundSessionContribution] Console instance selected but no session attached: ${instance.sessionId}`);
+		}
 	}
 
 	/**

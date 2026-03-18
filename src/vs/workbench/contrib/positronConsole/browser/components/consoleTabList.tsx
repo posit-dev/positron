@@ -602,24 +602,13 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	 * This is called when a user clicks on a console tab or uses the keyboard to
 	 * navigate between tabs.
 	 *
+	 * This fires onDidChangeActivePositronConsoleInstance, which the ForegroundSessionContribution
+	 * listens to and uses to set the foreground session.
+	 *
 	 * @param sessionId The Id of the session that should be active
 	 */
-	const handleChangeForegroundSession = async (sessionId: string): Promise<void> => {
-		// Find the session
-		const session = services.runtimeSessionService.getSession(sessionId);
-
-		if (session) {
-			// Set the session as the foreground session
-			services.runtimeSessionService.foregroundSession = session;
-		} else {
-			// It is possible for a console instance to exist without a
-			// session; this typically happens when we create a provisional
-			// instance while waiting for a session to be connected, but the
-			// session never connects. In this case we can't set the session as
-			// the foreground session, but we can still set the console
-			// instance as the active console instance.
-			services.positronConsoleService.setActivePositronConsoleSession(sessionId);
-		}
+	const handleChangeActiveConsoleInstance = async (sessionId: string): Promise<void> => {
+		services.positronConsoleService.setActivePositronConsoleSession(sessionId);
 	};
 
 	// Set the selected tab to the active console instance.
@@ -662,7 +651,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		if (newIndex !== activeIndex && newIndex >= 0 && newIndex < consoleInstances.length) {
 			// Get the console instance for the new index
 			const consoleInstance = consoleInstances[newIndex];
-			handleChangeForegroundSession(consoleInstance.sessionId).then(() => {
+			handleChangeActiveConsoleInstance(consoleInstance.sessionId).then(() => {
 				// Focus the tab after it becomes active
 				if (tabListRef.current) {
 					const tabElements = tabListRef.current.children;
@@ -690,7 +679,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					key={positronConsoleInstance.sessionId}
 					positronConsoleInstance={positronConsoleInstance}
 					width={props.width}
-					onChangeSession={() => handleChangeForegroundSession(positronConsoleInstance.sessionId)}
+					onChangeSession={() => handleChangeActiveConsoleInstance(positronConsoleInstance.sessionId)}
 				/>
 			)}
 		</div>
