@@ -349,7 +349,9 @@ class TestEditorContext:
     """Tests for editor context change handling."""
 
     def test_editor_context_changed_acknowledged(
-        self, ui_service: UiService, ui_comm: DummyComm
+        self,
+        ui_service: UiService,  # noqa: ARG002
+        ui_comm: DummyComm,
     ) -> None:
         """Test that editor_context_changed RPC is acknowledged."""
         msg = json_rpc_request(
