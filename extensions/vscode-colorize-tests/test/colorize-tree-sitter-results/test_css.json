@@ -74,7 +74,7 @@
 		"t": "keyword.control.at-rule.css",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #CE92A4",
+			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -93,14 +93,10 @@
 		"c": "mystyle.css",
 		"t": "string.quoted.double.css",
 		"r": {
-			"dark_plus": "string: #CE9178",
-			"light_plus": "string: #A31515",
-			"dark_vs": "string: #CE9178",
-			"light_vs": "string: #A31515",
 			"hc_black": "string: #CE9178",
-			"dark_modern": "string: #CE9178",
-			"hc_light": "string: #0F4A85",
-			"light_modern": "string: #A31515"
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string: #A31515",
+			"hc_light": "string: #0F4A85"
 		}
 	},
 	{
@@ -128,7 +124,7 @@
 		"t": "keyword.control.at-rule.css",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #CE92A4",
+			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -167,14 +163,10 @@
 		"c": "mystyle.css",
 		"t": "string.quoted.double.css",
 		"r": {
-			"dark_plus": "string: #CE9178",
-			"light_plus": "string: #A31515",
-			"dark_vs": "string: #CE9178",
-			"light_vs": "string: #A31515",
 			"hc_black": "string: #CE9178",
-			"dark_modern": "string: #CE9178",
-			"hc_light": "string: #0F4A85",
-			"light_modern": "string: #A31515"
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string: #A31515",
+			"hc_light": "string: #0F4A85"
 		}
 	},
 	{
@@ -212,7 +204,7 @@
 		"t": "keyword.control.at-rule.css",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #CE92A4",
+			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -251,14 +243,10 @@
 		"c": "bluish.css",
 		"t": "string.quoted.double.css",
 		"r": {
-			"dark_plus": "string: #CE9178",
-			"light_plus": "string: #A31515",
-			"dark_vs": "string: #CE9178",
-			"light_vs": "string: #A31515",
 			"hc_black": "string: #CE9178",
-			"dark_modern": "string: #CE9178",
-			"hc_light": "string: #0F4A85",
-			"light_modern": "string: #A31515"
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string: #A31515",
+			"hc_light": "string: #0F4A85"
 		}
 	},
 	{
@@ -2406,7 +2394,7 @@
 		"t": "keyword.control.at-rule.css",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #CE92A4",
+			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2465,14 +2453,10 @@
 		"c": "<angle>",
 		"t": "string.quoted.single.css",
 		"r": {
-			"dark_plus": "string: #CE9178",
-			"light_plus": "string: #A31515",
-			"dark_vs": "string: #CE9178",
-			"light_vs": "string: #A31515",
 			"hc_black": "string: #CE9178",
-			"dark_modern": "string: #CE9178",
-			"hc_light": "string: #0F4A85",
-			"light_modern": "string: #A31515"
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string: #A31515",
+			"hc_light": "string: #0F4A85"
 		}
 	},
 	{
@@ -5279,14 +5263,10 @@
 		"c": "#B3AE94",
 		"t": "string.quoted.single.css",
 		"r": {
-			"dark_plus": "string: #CE9178",
-			"light_plus": "string: #A31515",
-			"dark_vs": "string: #CE9178",
-			"light_vs": "string: #A31515",
 			"hc_black": "string: #CE9178",
-			"dark_modern": "string: #CE9178",
-			"hc_light": "string: #0F4A85",
-			"light_modern": "string: #A31515"
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string: #A31515",
+			"hc_light": "string: #0F4A85"
 		}
 	},
 	{
@@ -6083,14 +6063,10 @@
 		"c": "codicon-",
 		"t": "meta.selector.css string.quoted.single.css",
 		"r": {
-			"dark_plus": "string: #CE9178",
-			"light_plus": "string: #A31515",
-			"dark_vs": "string: #CE9178",
-			"light_vs": "string: #A31515",
 			"hc_black": "string: #CE9178",
-			"dark_modern": "string: #CE9178",
-			"hc_light": "string: #0F4A85",
-			"light_modern": "string: #A31515"
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string: #A31515",
+			"hc_light": "string: #0F4A85"
 		}
 	},
 	{

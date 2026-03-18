@@ -153,7 +153,8 @@ suite('PositModelProvider', () => {
 				request_id: 'test-request-id'
 			});
 
-			// Access the private _anthropicClient and mock it
+			// Force native SDK path and mock the client
+			(model as any)._useNativeSdk = true;
 			(model as any)._anthropicClient = {
 				messages: {
 					stream: sinon.stub().returns(mockStream)
@@ -192,7 +193,8 @@ suite('PositModelProvider', () => {
 				request_id: 'test-request-id'
 			});
 
-			// Access the private _anthropicClient and mock it
+			// Force native SDK path and mock the client
+			(model as any)._useNativeSdk = true;
 			(model as any)._anthropicClient = {
 				messages: {
 					stream: sinon.stub().returns(mockStream)
@@ -237,7 +239,8 @@ suite('PositModelProvider', () => {
 				request_id: 'test-request-id'
 			});
 
-			// Access the private _anthropicClient and mock it
+			// Force native SDK path and mock the client
+			(model as any)._useNativeSdk = true;
 			(model as any)._anthropicClient = {
 				messages: {
 					stream: sinon.stub().returns(mockStream)

@@ -1294,9 +1294,9 @@
 		"t": "text.html.markdown meta.paragraph.markdown markup.italic.markdown punctuation.definition.italic.markdown",
 		"r": {
 			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
+			"positron_dark": "markup.italic: #C586C0",
+			"positron_light": "markup.italic: #800080",
+			"hc_light": "markup.italic: #800080"
 		}
 	},
 	{
@@ -1304,9 +1304,9 @@
 		"t": "text.html.markdown meta.paragraph.markdown markup.italic.markdown",
 		"r": {
 			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
+			"positron_dark": "markup.italic: #C586C0",
+			"positron_light": "markup.italic: #800080",
+			"hc_light": "markup.italic: #800080"
 		}
 	},
 	{
@@ -1314,9 +1314,9 @@
 		"t": "text.html.markdown meta.paragraph.markdown markup.italic.markdown punctuation.definition.italic.markdown",
 		"r": {
 			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
+			"positron_dark": "markup.italic: #C586C0",
+			"positron_light": "markup.italic: #800080",
+			"hc_light": "markup.italic: #800080"
 		}
 	},
 	{
