@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 /**
- * Represents options returned from ${@link RunAppOptions.getTerminalOptions}.
+ * Options returned from ${@link RunAppOptions.getTerminalOptions}.
  */
 export interface RunAppTerminalOptions {
 	/**
@@ -23,7 +23,7 @@ export interface RunAppTerminalOptions {
 }
 
 /**
- * Represents the code returned from ${@link RunConsoleAppOptions.getConsoleCode}.
+ * Code returned from ${@link RunConsoleAppOptions.getConsoleCode}.
  */
 export interface RunAppConsoleCode {
 	/**
@@ -66,7 +66,7 @@ interface RunAppOptionsBase {
 }
 
 /**
- * Represents options for the ${@link PositronRunApp.runApplication} function.
+ * Options for the ${@link PositronRunApp.runApplication} function.
  */
 export interface RunAppOptions extends RunAppOptionsBase {
 	/**
@@ -85,7 +85,7 @@ export interface RunAppOptions extends RunAppOptionsBase {
 }
 
 /**
- * Represents options for the ${@link PositronRunApp.runApplicationInConsole} function.
+ * Options for the ${@link PositronRunApp.runApplicationInConsole} function.
  */
 export interface RunConsoleAppOptions extends RunAppOptionsBase {
 	/**
@@ -104,7 +104,7 @@ export interface RunConsoleAppOptions extends RunAppOptionsBase {
 }
 
 /**
- * Represents options for the ${@link PositronRunApp.debugApplication} function.
+ * Options for the ${@link PositronRunApp.debugApplication} function.
  */
 export interface DebugAppOptions {
 	/**

@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 /**
- * Represents options returned from ${@link RunAppOptions.getTerminalOptions}.
+ * Options returned from ${@link RunAppOptions.getTerminalOptions}.
  */
 export interface RunAppTerminalOptions {
     /**
@@ -23,9 +23,9 @@ export interface RunAppTerminalOptions {
 }
 
 /**
- * Options returned from ${@link RunConsoleAppOptions.getConsoleCode}.
+ * Code returned from ${@link RunConsoleAppOptions.getConsoleCode}.
  */
-export interface RunAppConsoleOptions {
+export interface RunAppConsoleCode {
     /**
      * The code to execute in the console session.
      */
@@ -89,7 +89,7 @@ export interface RunAppOptions extends RunAppOptionsBase {
  */
 export interface RunConsoleAppOptions extends RunAppOptionsBase {
     /**
-     * A function called to get the code to execute in the console session.
+     * A function that will be called to get the code to execute in the console session.
      *
      * @param runtime The language runtime metadata for the document's language.
      * @param document The document to run.
@@ -100,11 +100,11 @@ export interface RunConsoleAppOptions extends RunAppOptionsBase {
         runtime: positron.LanguageRuntimeMetadata,
         document: vscode.TextDocument,
         urlPrefix?: string,
-    ) => RunAppConsoleOptions | undefined | Promise<RunAppConsoleOptions | undefined>;
+    ) => RunAppConsoleCode | undefined | Promise<RunAppConsoleCode | undefined>;
 }
 
 /**
- * Represents options for the ${@link PositronRunApp.debugApplication} function.
+ * Options for the ${@link PositronRunApp.debugApplication} function.
  */
 export interface DebugAppOptions {
     /**
