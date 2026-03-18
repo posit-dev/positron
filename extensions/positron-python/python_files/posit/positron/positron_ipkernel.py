@@ -16,7 +16,8 @@ import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import psutil
 import traitlets
@@ -516,16 +517,10 @@ class PositronShell(ZMQInteractiveShell):
             if editor_uri.scheme != "file":
                 return None
 
-            editor_path = unquote(editor_uri.path)
-
-            # On Windows, file URIs like file:///C:/path result in /C:/path after parsing
-            if (
-                len(editor_path) >= 3
-                and editor_path[0] == "/"
-                and editor_path[1].isalpha()
-                and editor_path[2] == ":"
-            ):
-                editor_path = editor_path[1:]
+            url_path = (
+                f"//{editor_uri.netloc}{editor_uri.path}" if editor_uri.netloc else editor_uri.path
+            )
+            editor_path = url2pathname(url_path)
 
             editor_dir = str(Path(editor_path).parent)
             working_dir = str(self.kernel.ui_service.working_directory or Path.cwd())
