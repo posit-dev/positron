@@ -21,11 +21,13 @@ import { isNotebookEditorInput } from '../../runtimeNotebookKernel/common/active
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
- * Contribution that coordinates foreground session changes from various UI interactions.
- *
+ * Contribution that coordinates foreground session changes from various UI gestures.
  * This contribution tries to centralizes the foreground session switching logic by
  * listening to events from various UI components and determining which session should
  * be the foreground session.
+ *
+ * For runtime startup, the logic to set the foreground session is handled elsewhere.
+ * This contribution is focused on user-driven context changes (for now).
  *
  * Events handled:
  *
@@ -90,7 +92,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 
 	/**
 	 * Handle console instance selection (e.g., clicking a console tab or focusing the console pane).
-	 * Sets the console session as the foreground session.
+	 * Sets the console instance's attached runtime session as the foreground session.
 	 */
 	private _handleConsoleInstanceSelected(instance: IPositronConsoleInstance | undefined): void {
 		if (!instance) {
@@ -165,15 +167,16 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			return;
 		}
 
-		// Let's check if the active editor is another type of editor
+		//If the active editor is another type of editor (e.g. data viewer, plot viewer, etc.) - nothing to do
 		const activeCodeEditor = this._codeEditorService.getActiveCodeEditor();
 		if (!activeCodeEditor) {
-			return; // The active editor isn't a code editor so there's nothing to do
+			return;
 		}
 
+		// If the active editor doesn't have a model, we can't determine language or path info - nothing to do
 		const model = activeCodeEditor.getModel();
 		if (!model) {
-			return; // No model, so we can't determine language or path info - nothing to do
+			return;
 		}
 
 		const uri = model.uri;
