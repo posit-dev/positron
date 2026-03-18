@@ -358,6 +358,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					completionConfig,
 					action === 'delete' ? 'delete' : 'save');
 			}
+
 		} catch (e) {
 			setErrorMessage(e instanceof Error ? e.message : String(e));
 		} finally {

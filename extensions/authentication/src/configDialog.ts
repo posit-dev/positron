@@ -88,32 +88,41 @@ export async function showConfigurationDialog(
 		enrichedSources,
 		async (config, action) => {
 			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
+			const hasAuthProvider = apiKeyProviders.has(config.provider);
 			switch (action) {
 				case 'save': {
-					if (apiKeyProviders.has(config.provider)) {
+					if (hasAuthProvider) {
 						const accountId = await handleSave(config);
 						addResult({ action, config, accountId });
 					} else {
-						addResult({ action, config });
+						await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
 					}
 					break;
 				}
 				case 'delete':
-					if (apiKeyProviders.has(config.provider)) {
+					if (hasAuthProvider) {
 						await handleDelete(config);
+						addResult({ action, config });
+					} else {
+						await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
 					}
-					addResult({ action, config });
 					break;
 				case 'oauth-signin':
-					// Phase 5: handle OAuth sign-in
-					addResult({ action, config });
+					if (hasAuthProvider) {
+						addResult({ action, config });
+					} else {
+						await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
+					}
 					break;
 				case 'oauth-signout':
-					// Phase 5: handle OAuth sign-out
-					addResult({ action, config });
+					if (hasAuthProvider) {
+						addResult({ action, config });
+					} else {
+						await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
+					}
 					break;
 				case 'cancel':
-					// Phase 5: cancel pending OAuth operations
+					await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
 					break;
 				default:
 					throw new Error(

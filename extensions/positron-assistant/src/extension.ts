@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
+import { applyConfigAction, deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
 import { registerSupportedProviders, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
@@ -42,6 +42,14 @@ function registerConfigureProvidersCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.configureProviders', async (providerId?: string) => {
 			await showConfigurationDialog(context, providerId);
+		}),
+		vscode.commands.registerCommand('positron-assistant.applyConfigAction', async (
+			config: positron.ai.LanguageModelConfig,
+			action: string,
+			sources: positron.ai.LanguageModelSource[],
+			accountId?: string,
+		) => {
+			await applyConfigAction(context, sources, config, action, accountId);
 		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
 			logStoredModels(context);
