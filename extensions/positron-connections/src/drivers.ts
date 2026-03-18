@@ -79,7 +79,7 @@ class RDriver implements positron.ConnectionsDriver {
 	constructor(readonly packages: string[]) { }
 
 	async connect(code: string) {
-		const exec = await positron.runtime.executeCode(
+		await positron.runtime.executeCode(
 			'r',
 			code,
 			true,
@@ -488,7 +488,7 @@ class PythonDriver implements positron.ConnectionsDriver {
 	};
 
 	async connect(code: string) {
-		const exec = await positron.runtime.executeCode(
+		await positron.runtime.executeCode(
 			'python',
 			code,
 			true,
