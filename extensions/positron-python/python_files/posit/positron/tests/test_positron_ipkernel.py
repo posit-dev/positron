@@ -10,10 +10,9 @@ from pathlib import Path
 from typing import Any, Tuple, cast
 from unittest.mock import Mock
 
-import IPython
 import pytest
 from ipykernel.compiler import get_tmp_directory
-from IPython.core import ultratb
+from IPython.core import release, ultratb
 from IPython.utils.syspathcontext import prepended_to_syspath
 
 from positron.access_keys import encode_access_key
@@ -28,6 +27,8 @@ try:
     import lightning
 except ImportError:
     lightning = None
+
+_IPYTHON_AT_LEAST_9 = cast("Tuple[int, int]", release.version_info[:2]) >= (9, 0)
 
 # The idea for these tests is to mock out communications with Positron
 # via our various comms, and only test IPython interactions. For
@@ -219,7 +220,7 @@ def traceback_result(
 
 
 @pytest.mark.xfail(
-    cast("Tuple[int, int]", (IPython.version_info[:2])) >= (9, 0),
+    _IPYTHON_AT_LEAST_9,
     reason="IPython >= 9.0.0 does not support the old traceback format",
 )
 def test_console_traceback(shell: PositronShell, traceback_result) -> None:
@@ -267,7 +268,7 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
 
 
 @pytest.mark.xfail(
-    cast("Tuple[int, int]", (IPython.version_info[:2])) < (9, 0),
+    not _IPYTHON_AT_LEAST_9,
     reason="IPython < 9.0.0 does not support the new traceback format",
 )
 def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
