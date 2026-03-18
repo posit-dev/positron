@@ -369,13 +369,10 @@ export class PositronNotebooks extends Notebooks {
 	private async _activateDrag(cellIndex: number): Promise<{ startX: number; startY: number }> {
 		const dragHandle = this.dragHandleAtIndex(cellIndex);
 
-		// Hover near the left edge of the cell to trigger handle visibility
+		// Hover near the left edge of the cell to trigger handle visibility.
+		// Uses locator.hover() for auto-wait and auto-scroll guarantees
 		// (avoids coupling to the internal .cell-drag-zone CSS class).
-		const cellBox = await this.sortableCellAtIndex(cellIndex).boundingBox();
-		if (!cellBox) {
-			throw new Error('Could not get bounding box for sortable cell');
-		}
-		await this.code.driver.page.mouse.move(cellBox.x + 8, cellBox.y + cellBox.height / 2);
+		await this.sortableCellAtIndex(cellIndex).hover({ position: { x: 8, y: 20 } });
 		await expect(dragHandle).toBeVisible({ timeout: 2000 });
 
 		const handleBox = await dragHandle.boundingBox();
@@ -573,13 +570,10 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async hoverCell(cellIndex: number): Promise<void> {
 		await test.step(`Hover over cell at index ${cellIndex}`, async () => {
-			// Hover near the left edge of the cell to trigger handle visibility
+			// Hover near the left edge of the cell to trigger handle visibility.
+			// Uses locator.hover() for auto-wait and auto-scroll guarantees
 			// (avoids coupling to the internal .cell-drag-zone CSS class).
-			const cellBox = await this.sortableCellAtIndex(cellIndex).boundingBox();
-			if (!cellBox) {
-				throw new Error('Could not get bounding box for sortable cell');
-			}
-			await this.code.driver.page.mouse.move(cellBox.x + 8, cellBox.y + cellBox.height / 2);
+			await this.sortableCellAtIndex(cellIndex).hover({ position: { x: 8, y: 20 } });
 		});
 	}
 
