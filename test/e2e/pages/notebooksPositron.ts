@@ -14,6 +14,12 @@ import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, Session
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
+
+/**
+ * Minimum pointer distance (px) before a drag activates.
+ * Must match DRAG_ACTIVATION_DISTANCE_PX in SortableCellList.tsx.
+ */
+const DRAG_ACTIVATION_DISTANCE_PX = 10;
 const MARKDOWN_ARIA_LABEL = 'Markdown cell - Press Enter to edit';
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
@@ -48,7 +54,6 @@ export class PositronNotebooks extends Notebooks {
 	// Drag handle is a sibling of the cell inside .sortable-cell parent
 	sortableCellAtIndex = (index: number) => this.code.driver.page.locator('.sortable-cell').nth(index);
 	dragHandleAtIndex = (index: number) => this.sortableCellAtIndex(index).getByRole('button', { name: /Drag to reorder cell/i });
-	dragZoneAtIndex = (index: number) => this.sortableCellAtIndex(index).locator('.cell-drag-zone');
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
@@ -364,8 +369,13 @@ export class PositronNotebooks extends Notebooks {
 	private async _activateDrag(cellIndex: number): Promise<{ startX: number; startY: number }> {
 		const dragHandle = this.dragHandleAtIndex(cellIndex);
 
-		// Hover the left-edge drag zone to reveal the handle via CSS :hover
-		await this.dragZoneAtIndex(cellIndex).hover();
+		// Hover near the left edge of the cell to trigger handle visibility
+		// (avoids coupling to the internal .cell-drag-zone CSS class).
+		const cellBox = await this.sortableCellAtIndex(cellIndex).boundingBox();
+		if (!cellBox) {
+			throw new Error('Could not get bounding box for sortable cell');
+		}
+		await this.code.driver.page.mouse.move(cellBox.x + 8, cellBox.y + cellBox.height / 2);
 		await expect(dragHandle).toBeVisible({ timeout: 2000 });
 
 		const handleBox = await dragHandle.boundingBox();
@@ -376,17 +386,16 @@ export class PositronNotebooks extends Notebooks {
 		const startX = handleBox.x + handleBox.width / 2;
 		const startY = handleBox.y + handleBox.height / 2;
 
-		// Start drag and move past activation threshold (10px in SortableCellList.tsx)
+		// Start drag and move past activation threshold
+		// (DRAG_ACTIVATION_DISTANCE_PX in SortableCellList.tsx)
 		await this.code.driver.page.mouse.move(startX, startY);
 		await this.code.driver.page.mouse.down();
-		await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
+		await this.code.driver.page.mouse.move(startX, startY + DRAG_ACTIVATION_DISTANCE_PX + 5, { steps: 3 });
 
-		// Wait for drag to actually activate: the body gets a
-		// 'dragging-notebook-cell' class and the dragged cell becomes
-		// semi-transparent ('sortable-cell-hidden').
+		// Wait for the cursor-following drag overlay to appear, which is the
+		// user-visible signal that a drag is fully active.
 		const page = this.code.driver.page;
-		await expect(page.locator('body.dragging-notebook-cell')).toBeAttached({ timeout: 2000 });
-		await expect(this.sortableCellAtIndex(cellIndex)).toHaveClass(/sortable-cell-hidden/, { timeout: 2000 });
+		await expect(page.locator('.cursor-following-overlay')).toBeVisible({ timeout: 2000 });
 
 		return { startX, startY };
 	}
@@ -422,9 +431,10 @@ export class PositronNotebooks extends Notebooks {
 					throw new Error('Could not get bounding box for target cell during drag');
 				}
 
-				// Target INSIDE the cell at 75% (bottom quarter) or 25% (top
-				// quarter) so the pointer is unambiguously in the correct half
-				// for dnd-kit's collision detection.
+				// Target 75%/25% inside the cell because dnd-kit's collision
+				// detection uses the vertical midpoint to decide above vs. below
+				// placement. See: SortableCellList.tsx collisionDetection
+				// callback (midY calculation).
 				const targetY = toIndex > fromIndex
 					? targetBox.y + targetBox.height * 0.75
 					: targetBox.y + targetBox.height * 0.25;
@@ -435,7 +445,7 @@ export class PositronNotebooks extends Notebooks {
 				// processed the pointer position. This method is only used for
 				// real (non-no-op) moves, so the indicator will always appear.
 				await expect(
-					page.locator('.drag-drop-indicator')
+					page.getByTestId('drop-indicator')
 				).toBeVisible({ timeout: 2000 });
 			} finally {
 				await page.mouse.up();
@@ -501,6 +511,10 @@ export class PositronNotebooks extends Notebooks {
 				const containerBottom = containerBox.y + containerBox.height * 0.9;
 
 				if (targetCenter >= containerTop && targetCenter <= containerBottom) {
+					// Target 75%/25% inside the cell because dnd-kit's collision
+					// detection uses the vertical midpoint to decide above vs.
+					// below placement. See: SortableCellList.tsx collisionDetection
+					// callback (midY calculation).
 					const dropY = scrollingDown
 						? targetBox.y + targetBox.height * 0.75
 						: targetBox.y + targetBox.height * 0.25;
@@ -512,7 +526,7 @@ export class PositronNotebooks extends Notebooks {
 
 			// This method is only used for real (non-no-op) moves, so
 			// the drop indicator will always appear.
-			const dropIndicator = this.code.driver.page.locator('.drag-drop-indicator');
+			const dropIndicator = this.code.driver.page.getByTestId('drop-indicator');
 
 			try {
 				// First check if target is already visible (no scrolling needed)
@@ -559,8 +573,13 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async hoverCell(cellIndex: number): Promise<void> {
 		await test.step(`Hover over cell at index ${cellIndex}`, async () => {
-			// Hover the left-edge drag zone to trigger drag handle visibility
-			await this.dragZoneAtIndex(cellIndex).hover();
+			// Hover near the left edge of the cell to trigger handle visibility
+			// (avoids coupling to the internal .cell-drag-zone CSS class).
+			const cellBox = await this.sortableCellAtIndex(cellIndex).boundingBox();
+			if (!cellBox) {
+				throw new Error('Could not get bounding box for sortable cell');
+			}
+			await this.code.driver.page.mouse.move(cellBox.x + 8, cellBox.y + cellBox.height / 2);
 		});
 	}
 
@@ -1172,7 +1191,7 @@ export class PositronNotebooks extends Notebooks {
 			const dragHandle = this.dragHandleAtIndex(cellIndex);
 
 			// Note: Drag handle uses opacity for show/hide (see SortableCell.css)
-			// opacity: 0 when hidden, 1 on hover (via CSS :hover on .cell-drag-zone)
+			// opacity: 0 when hidden, 1 on hover (via CSS :hover on parent element)
 			await expect(async () => {
 				const opacity = await dragHandle.evaluate(el =>
 					parseFloat(window.getComputedStyle(el).opacity)
