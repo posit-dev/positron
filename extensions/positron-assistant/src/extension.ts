@@ -436,6 +436,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 		}
 	}));
 
+
 	// Track opened files for completion context
 	registerHistoryTracking(context);
 

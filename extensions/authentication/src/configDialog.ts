@@ -125,6 +125,7 @@ export async function showConfigurationDialog(
 					} else {
 						await applyConfig();
 					}
+
 					break;
 				case 'oauth-signin':
 					if (hasAuthProvider) {

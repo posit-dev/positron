@@ -178,6 +178,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		return () => disposable.dispose();
 	}, [props.renderer.services, providers]);
 
+
 	// Keep selectedProvider in sync with providerSources
 	useEffect(() => {
 		const updatedSource = providerSources.find(source => source.provider.id === selectedProvider.provider.id);
