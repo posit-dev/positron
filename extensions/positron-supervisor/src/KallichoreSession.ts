@@ -1171,14 +1171,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Connect to the session's websocket
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		const connectTimeout = config.get<number>('startupTimeout', 10) * 1000;
+		const connectTimeout = config.get<number>('startupTimeout', 15) * 1000;
 		const connectStartTime = Date.now();
 		for (let attempt = 0; attempt < 2; attempt++) {
 			try {
 				await withTimeout(
 					this.connect(),
 					connectTimeout,
-					`Start failed: timed out connecting to adopted session ${this.metadata.sessionId} ` +
+					`Timed out connecting to adopted session ${this.metadata.sessionId} ` +
 					`after ${connectTimeout}ms`);
 				break;
 			} catch (err) {
@@ -1280,13 +1280,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// ensures either that we've created the session (if it's new) or that
 		// we've restored it (if it's not new).
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		const establishTimeout = config.get<number>('startupTimeout', 10) * 1000;
+		const timeout = config.get<number>('startupTimeout', 15) * 1000;
 		const establishStartTime = Date.now();
 		await withTimeout(
 			this._established.wait(),
-			establishTimeout,
+			timeout,
 			`Start failed: timed out waiting for session ${this.metadata.sessionId} to be established ` +
-			`after ${establishTimeout}ms`);
+			`after ${timeout}ms`);
 		this.log(`Session ${this.metadata.sessionId} established after ${Date.now() - establishStartTime}ms`, vscode.LogLevel.Info);
 
 		let runtimeInfo: positron.LanguageRuntimeInfo | undefined = this._runtimeInfo;
@@ -1338,14 +1338,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Connect to the session's websocket
-		const connectTimeout = config.get<number>('startupTimeout', 10) * 1000;
 		const connectStartTime = Date.now();
 		for (let attempt = 0; attempt < 2; attempt++) {
 			try {
 				await withTimeout(
 					this.connect(),
-					connectTimeout,
-					`Start failed: timed out connecting to session ${this.metadata.sessionId} after ${connectTimeout}ms`);
+					timeout,
+					`Start failed: timed out connecting to session ${this.metadata.sessionId} after ${timeout}ms`);
 				break;
 			} catch (err) {
 				if (attempt === 0 && isAxiosError(err)) {
