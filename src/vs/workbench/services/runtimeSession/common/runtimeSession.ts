@@ -103,6 +103,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// last active per language.
 	private readonly _lastActiveConsoleSessionByLanguageId = new Map<string, ILanguageRuntimeSession>();
 
+	// The last active console session, regardless of language.
+	private _lastActiveConsoleSession: ILanguageRuntimeSession | undefined;
+
 	// A map of the currently active notebook sessions. This is keyed by the notebook URI
 	// owning the session.
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<INotebookLanguageRuntimeSession>();
@@ -377,6 +380,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 		// Otherwise, return the last active session for the languageId if there is one
 		return this._lastActiveConsoleSessionByLanguageId.get(languageId);
+	}
+
+	/**
+	 * Gets the last active console session, regardless of language.
+	 *
+	 * @returns The last active console session, or undefined if no console session has been active.
+	 */
+	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined {
+		// Return the foreground session if it's a console session
+		if (this._foregroundSession?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			return this._foregroundSession;
+		}
+		// Otherwise, return the global last active console session
+		return this._lastActiveConsoleSession;
 	}
 
 	/**
@@ -812,6 +829,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (session && session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			// Update the map of active console sessions per language
 			this._lastActiveConsoleSessionByLanguageId.set(session.runtimeMetadata.languageId, session);
+			// Update the global last active console session
+			this._lastActiveConsoleSession = session;
 		}
 
 		// Fire the onDidChangeForegroundSession event.

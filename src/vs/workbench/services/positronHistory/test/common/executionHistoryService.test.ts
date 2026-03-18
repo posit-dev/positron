@@ -159,6 +159,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
+	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined {
+		throw new Error('Method not implemented.');
+	}
+
 	getNotebookSessionForNotebookUri(_notebookUri: any): INotebookLanguageRuntimeSession | undefined {
 		throw new Error('Method not implemented.');
 	}

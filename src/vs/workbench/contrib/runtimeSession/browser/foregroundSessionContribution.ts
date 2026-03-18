@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { isEqual } from '../../../../base/common/resources.js';
+import { basename, isEqual } from '../../../../base/common/resources.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
@@ -137,7 +137,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 	 * When the active editor changes, we determine the correct foreground session:
 	 * - Notebook editors: Set the notebook's session as foreground
 	 * - Quarto files (with inline output): Set the Quarto session as foreground
-	 * - Regular files: Restore the console session for the file's language
+	 * - Regular files: Restore the last active console session (regardless of language)
 	 *
 	 * TODO:
 	 * - Plots: cause the session the plot was generated from to become the foreground session
@@ -153,13 +153,14 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		// Check if the active editor is a notebook first (Legacy Notebook Editor or Positron Notebook Editor).
 		if (isNotebookEditorInput(activeEditor)) {
 			// For notebooks, get the session from the notebook URI
+			const notebookName = activeEditor.resource ? basename(activeEditor.resource) : 'unknown';
 			const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(activeEditor.resource);
 			if (session) {
-				this._logService.trace(`[ForegroundSessionContribution] Notebook focused, setting foreground session: ${session.sessionId}`);
+				this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}), setting foreground session: ${session.sessionId}`);
 				this._runtimeSessionService.foregroundSession = session;
 			} else {
 				// Notebook has no session yet - don't change foreground
-				this._logService.trace(`[ForegroundSessionContribution] Notebook focused but has no session yet`);
+				this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}) but has no session yet`);
 			}
 			return;
 		}
@@ -180,26 +181,27 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 
 		// Let's check if this is a Quarto file with inline output enabled.
 		// If so, we want to set the foreground session to the Quarto session for that file (if it exists).
+		const fileName = basename(uri);
 		if (isQuartoDocument(uri.path, languageId) && usingQuartoInlineOutput(this._configurationService)) {
 			const session = this._quartoKernelManager.getSessionForDocument(uri);
 			if (session) {
-				this._logService.trace(`[ForegroundSessionContribution] Quarto file focused, setting foreground session: ${session.sessionId}`);
+				this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}), setting foreground session: ${session.sessionId}`);
 				this._runtimeSessionService.foregroundSession = session;
 			} else {
 				// Quarto has no session yet - don't change foreground
-				this._logService.trace(`[ForegroundSessionContribution] Quarto file focused but has no session yet`);
+				this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}) but has no session yet`);
 			}
 			return;
 		}
 
 		// If we've reached this point, it means the file is a regular language file,
-		// so we want to set the foreground session to a console session for that file's language (if it exists).
-		const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
+		// so we want to set the foreground session to the last active console session.
+		const consoleSession = this._runtimeSessionService.getLastActiveConsoleSession();
 		if (consoleSession) {
-			this._logService.trace(`[ForegroundSessionContribution] Regular file focused (${languageId}), restoring console session: ${consoleSession.sessionId}`);
+			this._logService.trace(`[ForegroundSessionContribution] File focused (${fileName}), restoring console session: ${consoleSession.sessionId}`);
 			this._runtimeSessionService.foregroundSession = consoleSession;
 		} else {
-			this._logService.trace(`[ForegroundSessionContribution] Regular file focused (${languageId}) but no console session found`);
+			this._logService.trace(`[ForegroundSessionContribution] File focused (${fileName}) but no console session found`);
 		}
 	}
 }

@@ -478,6 +478,11 @@ export interface IRuntimeSessionService {
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined;
 
 	/**
+	 * Gets the last active console session, regardless of language.
+	 */
+	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined;
+
+	/**
 	 * Gets a specific notebook session by notebook URI. Currently, only one
 	 * notebook session can exist per notebook URI.
 	 */
