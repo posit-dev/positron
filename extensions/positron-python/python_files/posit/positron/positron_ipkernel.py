@@ -474,14 +474,14 @@ class PositronShell(ZMQInteractiveShell):
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user's environment.
         """
+        # Clean up the temporarily added editor directory from sys.path
+        self._remove_editor_dir_from_sys_path()
+
         # If an empty cell was executed, do nothing.
         info = cast("ExecutionInfo", result.info)
         raw_cell = cast("str", info.raw_cell)
         if not raw_cell or raw_cell.isspace():
             return
-
-        # Remove the temporarily added editor directory from sys.path
-        self._remove_editor_dir_from_sys_path()
 
         # TODO: Split these to separate callbacks?
         # Check for changes to the working directory
