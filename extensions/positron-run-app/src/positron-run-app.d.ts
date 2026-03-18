@@ -55,6 +55,14 @@ interface RunAppOptionsBase {
 	 * An optional array of app URI formats to parse the URI from the output.
 	 */
 	appUrlStrings?: string[];
+
+	/**
+	 * The debug adapter type (e.g. `'ark'`) used by the runtime. When set
+	 * and breakpoints are present, the runner waits for that adapter's
+	 * `configurationDone` before executing app code. Leave unset for
+	 * runtimes without DAP support to avoid a waiting overhead on every run.
+	 */
+	debugAdapterType?: string;
 }
 
 /**

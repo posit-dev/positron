@@ -267,21 +267,34 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		const cleanup: vscode.Disposable[] = [];
 		try {
 
-			// When breakpoints are set, listen for DAP `configurationDone`
-			// before starting or restarting the runtime so we don't miss the
-			// event. This ensures breakpoints are installed in the backend
-			// before we execute the app code (Ark needs to know about
-			// breakpoints to inject them while sourcing app files, e.g. in
-			// Shiny). Both start and restart trigger a DAP reconnection.
-			// I noticed that Ark seems to be ready before the configuration listener
-			// fires, so we probably could optimise startup time when breakpoints are
-			// set, but likely not in a trivial way.
-			const hasBreakpoints = vscode.debug.breakpoints.length > 0;
+			// When breakpoints are set and app runner requests debugger
+			// synchronization, listen for DAP `configurationDone` before starting or
+			// restarting the runtime so we don't miss the event. This ensures
+			// breakpoints are installed in the backend before we execute the app code
+			// (Ark needs to know about breakpoints to inject them while sourcing app
+			// files, e.g. in Shiny). Both start and restart trigger a DAP
+			// reconnection.
+			//
+			// Known issues:
+			// - I noticed that Ark seems to be ready before the configuration listener
+			//   fires, so we probably could optimise startup time when breakpoints are
+			//   set, but likely not in a trivial way.
+			// - The synchronization structure is not great. We're waiting for any
+			//   debug adapter whose session type matches the one we're tracking.
+			//   There could be races when user switches session after starting a
+			//   Shiny app. We'd ideally be more targeted regarding which DAP we're
+			//   waiting on.
+			const shouldSyncDebugger =
+				options.debugAdapterType &&
+				vscode.debug.breakpoints.length > 0;
 			let configurationDone: Promise<void> | undefined;
 
-			if (hasBreakpoints) {
+			if (shouldSyncDebugger) {
 				configurationDone = new Promise<void>(resolve => {
-					const listener = this._debugAdapterTrackerFactory.onDidCompleteConfiguration(() => {
+					const listener = this._debugAdapterTrackerFactory.onDidCompleteConfiguration((session) => {
+						if (session.type !== options.debugAdapterType) {
+							return;
+						}
 						listener.dispose();
 						resolve();
 					});
