@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { basename, isEqual } from '../../../../base/common/resources.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -19,6 +19,10 @@ import {
 import { IQuartoKernelManager } from '../../positronQuarto/browser/quartoKernelManager.js';
 import { isNotebookEditorInput } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
+import { INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
+import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 
 /**
  * Contribution that coordinates foreground session changes from various UI gestures.
@@ -53,11 +57,19 @@ import { IPositronConsoleInstance, IPositronConsoleService } from '../../../serv
 class ForegroundSessionContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.foregroundSessionContribution';
 
+	/** Tracks disposables for each Positron notebook instance's focus listener */
+	private readonly _positronNotebookDisposables = new Map<string, DisposableStore>();
+
+	/** Tracks disposables for each legacy notebook editor's focus listener */
+	private readonly _legacyNotebookDisposables = new Map<string, DisposableStore>();
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
+		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
@@ -66,6 +78,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 
 		// Listen for active editor changes
 		this._register(this._editorService.onDidActiveEditorChange(() => {
+			this._logService.trace(`[ForegroundSessionContribution] onDidActiveEditorChange fired`);
 			this._handleActiveEditorChange();
 		}));
 
@@ -88,6 +101,172 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		this._register(this._positronConsoleService.onDidChangeActivePositronConsoleInstance((instance) => {
 			this._handleConsoleInstanceSelected(instance);
 		}));
+
+		// --- Start Positron Noteboook Editor Focus Handling ---
+
+		// Listen for Positron notebook instance additions to track their focus events
+		this._register(this._positronNotebookService.onDidAddNotebookInstance((instance) => {
+			this._logService.trace(`[ForegroundSessionContribution] onDidAddNotebookInstance fired: ${instance.getId()}`);
+			this._registerPositronNotebookFocusListener(instance);
+		}));
+
+		// Clean up when Positron notebook instances are removed
+		this._register(this._positronNotebookService.onDidRemoveNotebookInstance((instance) => {
+			this._unregisterPositronNotebookFocusListener(instance);
+		}));
+
+		// Register focus listeners for any existing Positron notebook instances that were open before this contribution was initialized
+		const existingInstances = this._positronNotebookService.listInstances();
+		this._logService.trace(`[ForegroundSessionContribution] Initializing with ${existingInstances.length} existing Positron notebook instances`);
+		for (const instance of existingInstances) {
+			this._registerPositronNotebookFocusListener(instance);
+		}
+
+		// --- End Positron Noteboook Editor Focus Handling ---
+
+		// --- Start Legacy Noteboook Editor Focus Handling ---
+
+		// Listen for legacy notebook editor additions to track their focus events
+		this._register(this._notebookEditorService.onDidAddNotebookEditor((editor) => {
+			this._logService.trace(`[ForegroundSessionContribution] onDidAddNotebookEditor fired: ${editor.getId()}`);
+			this._registerLegacyNotebookFocusListener(editor);
+		}));
+
+		// Clean up when legacy notebook editors are removed
+		this._register(this._notebookEditorService.onDidRemoveNotebookEditor((editor) => {
+			this._unregisterLegacyNotebookFocusListener(editor);
+		}));
+
+		// Register focus listeners for any existing legacy notebook editors that were open before this contribution was initialized
+		const existingEditors = this._notebookEditorService.listNotebookEditors();
+		this._logService.trace(`[ForegroundSessionContribution] Initializing with ${existingEditors.length} existing legacy notebook editors`);
+		for (const editor of existingEditors) {
+			this._registerLegacyNotebookFocusListener(editor);
+		}
+
+		// --- End Legacy Noteboook Editor Focus Handling ---
+
+		// After setting up all the listeners, we should check the active editor and set the correct foreground session on startup.
+		// This is important for the case where the active editor is a notebook, so that the notebook session is set as foreground on startup.
+		// Without this, the foreground session would only be set after the user focuses a different editor and then comes back to the notebook.
+		this._handleActiveEditorChange();
+	}
+
+	override dispose(): void {
+		// Clean up all Positron notebook instance disposables
+		for (const disposables of this._positronNotebookDisposables.values()) {
+			disposables.dispose();
+		}
+		this._positronNotebookDisposables.clear();
+
+		// Clean up all legacy notebook editor disposables
+		for (const disposables of this._legacyNotebookDisposables.values()) {
+			disposables.dispose();
+		}
+		this._legacyNotebookDisposables.clear();
+
+		super.dispose();
+	}
+
+	/**
+	 * Register a focus listener for a Positron notebook instance.
+	 * When the notebook instance gains focus, we check if it should become the foreground session.
+	 */
+	private _registerPositronNotebookFocusListener(instance: IPositronNotebookInstance): void {
+		const instanceId = instance.getId();
+		if (this._positronNotebookDisposables.has(instanceId)) {
+			this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance ${instanceId} already registered`);
+			return;
+		}
+
+		this._logService.trace(`[ForegroundSessionContribution] Registering focus listener for Positron notebook instance: ${instanceId}`);
+		const disposables = new DisposableStore();
+		disposables.add(instance.onDidFocusWidget(() => {
+			this._logService.trace(`[ForegroundSessionContribution] onDidFocusWidget fired for Positron notebook instance: ${instanceId}`);
+			this._handlePositronNotebookFocus(instance);
+		}));
+		this._positronNotebookDisposables.set(instanceId, disposables);
+	}
+
+	/**
+	 * Unregister the focus listener for a Positron notebook instance.
+	 */
+	private _unregisterPositronNotebookFocusListener(instance: IPositronNotebookInstance): void {
+		const instanceId = instance.getId();
+		const disposables = this._positronNotebookDisposables.get(instanceId);
+		if (disposables) {
+			disposables.dispose();
+			this._positronNotebookDisposables.delete(instanceId);
+		}
+	}
+
+	/**
+	 * Handle Positron notebook instance focus.
+	 * Sets the notebook's session as the foreground session if it exists.
+	 */
+	private _handlePositronNotebookFocus(instance: IPositronNotebookInstance): void {
+		const notebookUri = instance.uri;
+		const notebookName = basename(notebookUri);
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (session) {
+			this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}), setting foreground session: ${session.sessionId}`);
+			this._runtimeSessionService.foregroundSession = session;
+		} else {
+			this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}) but no session found for URI`);
+		}
+	}
+
+	/**
+	 * Register a focus listener for a legacy notebook editor.
+	 * When the notebook editor gains focus, we check if it should become the foreground session.
+	 */
+	private _registerLegacyNotebookFocusListener(editor: INotebookEditor): void {
+		const editorId = editor.getId();
+		if (this._legacyNotebookDisposables.has(editorId)) {
+			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor ${editorId} already registered`);
+			return; // Already registered
+		}
+
+		this._logService.trace(`[ForegroundSessionContribution] Registering focus listener for legacy notebook editor: ${editorId}`);
+		const disposables = new DisposableStore();
+		disposables.add(editor.onDidFocusWidget(() => {
+			this._logService.trace(`[ForegroundSessionContribution] onDidFocusWidget fired for legacy notebook editor: ${editorId}`);
+			this._handleLegacyNotebookFocus(editor);
+		}));
+		this._legacyNotebookDisposables.set(editorId, disposables);
+	}
+
+	/**
+	 * Unregister the focus listener for a legacy notebook editor.
+	 */
+	private _unregisterLegacyNotebookFocusListener(editor: INotebookEditor): void {
+		const editorId = editor.getId();
+		const disposables = this._legacyNotebookDisposables.get(editorId);
+		if (disposables) {
+			disposables.dispose();
+			this._legacyNotebookDisposables.delete(editorId);
+		}
+	}
+
+	/**
+	 * Handle legacy notebook editor focus.
+	 * Sets the notebook's session as the foreground session if it exists.
+	 */
+	private _handleLegacyNotebookFocus(editor: INotebookEditor): void {
+		const notebookUri = editor.textModel?.uri;
+		if (!notebookUri) {
+			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focus handler: no URI available`);
+			return;
+		}
+
+		const notebookName = basename(notebookUri);
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (session) {
+			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}), setting foreground session: ${session.sessionId}`);
+			this._runtimeSessionService.foregroundSession = session;
+		} else {
+			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}) but no session found for URI`);
+		}
 	}
 
 	/**
