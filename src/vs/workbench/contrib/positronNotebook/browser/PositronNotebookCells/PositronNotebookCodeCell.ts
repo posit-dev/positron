@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from '../../../../../base/common/event.js';
 import { ISettableObservable, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
@@ -45,7 +46,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			cellModel.collapseState?.outputCollapsed ?? false
 		);
 
-		this._outputs = observableFromEvent(this, this.model.onDidChangeOutputs, () => {
+		this._outputs = observableFromEvent(this, Event.any(this.model.onDidChangeOutputs, this.model.onDidChangeOutputItems), () => {
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
 		});
