@@ -37,14 +37,13 @@ async function enrichWithCredentialState(
 	sources: positron.ai.LanguageModelSource[]
 ): Promise<positron.ai.LanguageModelSource[]> {
 	return Promise.all(sources.map(async (source) => {
-		if (!apiKeyProviders.has(source.provider.id)) {
+		const provider = apiKeyProviders.get(source.provider.id);
+		if (!provider) {
 			return source;
 		}
 		try {
-			const session = await vscode.authentication.getSession(
-				source.provider.id, [], { silent: true }
-			);
-			if (session) {
+			const sessions = await provider.getSessions();
+			if (sessions.length > 0) {
 				return { ...source, signedIn: true };
 			}
 		} catch (err) {
@@ -76,6 +75,15 @@ export async function showConfigurationDialog(
 
 	const results: ConfigDialogResult[] = [];
 
+	const addResult = (result: ConfigDialogResult) => {
+		const idx = results.findIndex(r => r.config.provider === result.config.provider);
+		if (idx !== -1) {
+			results[idx] = result;
+		} else {
+			results.push(result);
+		}
+	};
+
 	await positron.ai.showLanguageModelConfig(
 		enrichedSources,
 		async (config, action) => {
@@ -84,9 +92,9 @@ export async function showConfigurationDialog(
 				case 'save': {
 					if (apiKeyProviders.has(config.provider)) {
 						const accountId = await handleSave(config);
-						results.push({ action, config, accountId });
+						addResult({ action, config, accountId });
 					} else {
-						results.push({ action, config });
+						addResult({ action, config });
 					}
 					break;
 				}
@@ -94,15 +102,15 @@ export async function showConfigurationDialog(
 					if (apiKeyProviders.has(config.provider)) {
 						await handleDelete(config);
 					}
-					results.push({ action, config });
+					addResult({ action, config });
 					break;
 				case 'oauth-signin':
 					// Phase 5: handle OAuth sign-in
-					results.push({ action, config });
+					addResult({ action, config });
 					break;
 				case 'oauth-signout':
 					// Phase 5: handle OAuth sign-out
-					results.push({ action, config });
+					addResult({ action, config });
 					break;
 				case 'cancel':
 					// Phase 5: cancel pending OAuth operations

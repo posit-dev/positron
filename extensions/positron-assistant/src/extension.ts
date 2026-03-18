@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
+import { deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
 import { registerSupportedProviders, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
@@ -32,6 +32,7 @@ import { getModelProviders } from './providers/index.js';
 import { registerPositAuthProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_METADATA } from './providerMetadata.js';
 import { ModelConfig } from './configTypes.js';
+import { isAuthExtProvider } from './authExtRouting.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -368,6 +369,30 @@ function registerAssistant(context: vscode.ExtensionContext) {
 		.catch((e) => {
 			log.error(`[Foundry] Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
+
+	// Keep Positron Assistant model state in sync when users sign out via Accounts menu.
+	context.subscriptions.push(vscode.authentication.onDidChangeSessions(async (e) => {
+		const providerId = e.provider.id;
+		if (!isAuthExtProvider(providerId)) {
+			return;
+		}
+
+		try {
+			const accounts = await vscode.authentication.getAccounts(providerId);
+			if (accounts.length === 0) {
+				await deleteConfigurationByProvider(context, providerId);
+			} else {
+				// Only re-register if Assistant already has stored configs for this provider.
+				// This keeps Accounts-menu sign-in from creating new model configs implicitly.
+				const hasStoredConfig = getStoredModels(context).some(model => model.provider === providerId);
+				if (hasStoredConfig) {
+					await registerModelsForProvider(context, providerId);
+				}
+			}
+		} catch (error) {
+			log.warn(`[Auth Session Sync] Failed to sync provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}));
 
 	// Track opened files for completion context
 	registerHistoryTracking(context);

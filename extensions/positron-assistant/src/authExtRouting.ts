@@ -48,6 +48,15 @@ export async function getApiKey(
 			providerLogger.logAuthentication('success', 'via Authentication extension');
 			return session.accessToken;
 		}
+
+		// Fallback for account mapping mismatches: use any available provider session.
+		const fallbackSession = await vscode.authentication.getSession(
+			providerId, [], { silent: true }
+		);
+		if (fallbackSession?.accessToken) {
+			providerLogger.logAuthentication('success', 'via Authentication extension fallback session');
+			return fallbackSession.accessToken;
+		}
 	} catch (err) {
 		providerLogger.warn(`Failed to read auth session for ${accountId}`, err);
 	}

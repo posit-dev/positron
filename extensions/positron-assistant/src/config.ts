@@ -298,16 +298,19 @@ async function saveModel(
 	}
 }
 
-async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {
+export async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
-	const targetConfig = existingConfigs.find(config => config.provider === providerId);
-	if (targetConfig === undefined) {
+	const targetConfigs = existingConfigs.filter(config => config.provider === providerId);
+	if (targetConfigs.length === 0) {
 		// Provider may be autoconfigured and not in persistent state
 		// Remove from autoconfigured models list if present
 		removeAutoconfiguredModel(providerId);
 		return;
 	}
-	await deleteConfiguration(context, targetConfig.id);
+
+	for (const config of targetConfigs) {
+		await deleteConfiguration(context, config.id);
+	}
 }
 
 async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
