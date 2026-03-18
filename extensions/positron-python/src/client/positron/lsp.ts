@@ -21,6 +21,9 @@ import { PythonStatementRangeProvider } from './statementRange';
 // Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
 const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
 
+// Selector for Quarto virtual documents.
+const VDOC_SELECTOR = { language: 'python', pattern: '**/.vdoc.*.{py,PY}' };
+
 // Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
 const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 
@@ -122,7 +125,7 @@ export class PythonLsp implements vscode.Disposable {
                   // embedded code blocks (e.g. completions, hover).
                   // They may be in the document's directory or in a
                   // system temp directory, so use a global pattern.
-                  { language: 'python', pattern: '**/.vdoc.*.py' },
+                  VDOC_SELECTOR,
                   // Match notebook console inputs. These use the
                   // inmemory scheme with a notebook-repl path prefix
                   // to distinguish them from regular console inputs.
@@ -384,9 +387,7 @@ export class PythonLsp implements vscode.Disposable {
         //   script files to avoid competing with the console session's
         //   provider for files that aren't synced to the notebook LSP.
         const { notebookUri } = this._metadata;
-        const selector: vscode.DocumentSelector = notebookUri
-            ? [{ language: 'python', pattern: '**/.vdoc.*.{py,PY}' }]
-            : 'python';
+        const selector: vscode.DocumentSelector = notebookUri ? [VDOC_SELECTOR] : 'python';
 
         const rangeDisposable = positron.languages.registerStatementRangeProvider(
             selector,

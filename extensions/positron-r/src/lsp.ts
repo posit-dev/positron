@@ -27,6 +27,9 @@ import { VirtualDocumentProvider } from './virtual-documents';
 // Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
 const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
 
+// Selector for Quarto virtual documents.
+const VDOC_SELECTOR = { language: 'r', pattern: '**/.vdoc.*.{r,R}' };
+
 // Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
 const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 
@@ -142,7 +145,7 @@ export class ArkLsp implements vscode.Disposable {
 					// embedded code blocks (e.g. completions, hover).
 					// They may be in the document's directory or in a
 					// system temp directory, so use a global pattern.
-					{ language: 'r', pattern: '**/.vdoc.*.{r,R}' },
+					VDOC_SELECTOR,
 					// Match notebook console inputs. These use the
 					// inmemory scheme with a notebook-repl path prefix
 					// to distinguish them from regular console inputs.
@@ -374,7 +377,7 @@ export class ArkLsp implements vscode.Disposable {
 		//   files to avoid competing with the console session's provider
 		//   for files that aren't synced to the notebook LSP.
 		const selector: vscode.DocumentSelector = this._metadata.notebookUri
-			? [{ language: 'r', pattern: '**/.vdoc.*.{r,R}' }]
+			? [VDOC_SELECTOR]
 			: 'r';
 
 		const rangeDisposable = positron.languages.registerStatementRangeProvider(selector,
