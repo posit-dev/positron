@@ -21,6 +21,12 @@ import { PythonStatementRangeProvider } from './statementRange';
 // Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
 const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
 
+// Selector for Quarto virtual documents.
+const VDOC_SELECTOR = { language: 'python', pattern: '**/.vdoc.*.{py,PY}' };
+
+// Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
+const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
+
 /**
  * Global output channel for Python LSP sessions
  *
@@ -107,11 +113,24 @@ export class PythonLsp implements vscode.Disposable {
 
         const { notebookUri, workingDirectory } = this._metadata;
 
-        // If this client belongs to a notebook, set the document selector to only include that notebook.
+        // If this client belongs to a notebook, set the document selector to only include that notebook,
+        // Quarto virtual documents (vdocs), and notebook console inputs (inmemory scheme).
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
         this._clientOptions.documentSelector = notebookUri
-            ? [{ language: 'python', pattern: notebookUri.fsPath }]
+            ? [
+                  { language: 'python', pattern: notebookUri.fsPath },
+                  // Match Quarto virtual documents (vdocs). Vdocs are
+                  // temporary .py files created for LSP features in
+                  // embedded code blocks (e.g. completions, hover).
+                  // They may be in the document's directory or in a
+                  // system temp directory, so use a global pattern.
+                  VDOC_SELECTOR,
+                  // Match notebook console inputs. These use the
+                  // inmemory scheme with a notebook-repl path prefix
+                  // to distinguish them from regular console inputs.
+                  { language: 'python', scheme: 'inmemory' },
+              ]
             : [
                   { language: 'python', scheme: 'untitled' },
                   { language: 'python', scheme: 'inmemory' }, // Console
@@ -138,6 +157,31 @@ export class PythonLsp implements vscode.Disposable {
         // Override default output channel with our persistant one that is reused across sessions.
         this._clientOptions.outputChannel = this._outputChannel;
 
+        // Filter so each LSP only handles its own documents.
+        // The console LSP skips vdocs and notebook console inputs;
+        // the notebook LSP skips regular console inputs.
+        const shouldSkipDocument = (document: vscode.TextDocument): boolean => {
+            if (!notebookUri) {
+                // Console LSP: skip vdoc files (notebook LSP handles them)
+                if (document.uri.scheme === 'file') {
+                    const baseName = path.basename(document.uri.fsPath);
+                    if (VDOC_PATTERN.test(baseName)) {
+                        return true;
+                    }
+                }
+                // Console LSP: skip notebook console inputs
+                if (document.uri.scheme === 'inmemory' && NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                    return true;
+                }
+            } else {
+                // Notebook LSP: skip regular (non-notebook) console inputs
+                if (document.uri.scheme === 'inmemory' && !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         // Add middleware to filter diagnostics for Quarto virtual documents:
         // https://github.com/quarto-dev/quarto/issues/855
         // Also set the priorities for completion items and hovers based on Positron LSP server extensions.
@@ -154,6 +198,9 @@ export class PythonLsp implements vscode.Disposable {
             },
             // Apply per-completion-item priority set by the Positron LSP server.
             provideCompletionItem(document, position, context, token, next) {
+                if (shouldSkipDocument(document)) {
+                    return undefined;
+                }
                 return Promise.resolve(next(document, position, context, token)).then((res) => {
                     if (res) {
                         const items = Array.isArray(res) ? res : (res as vscode.CompletionList).items;
@@ -169,6 +216,9 @@ export class PythonLsp implements vscode.Disposable {
             },
             // Apply hover priority set by the Positron LSP server.
             provideHover(document, position, token, next) {
+                if (shouldSkipDocument(document)) {
+                    return undefined;
+                }
                 return Promise.resolve(next(document, position, token)).then((result) => {
                     if (result) {
                         const data = (result as any).data;
@@ -327,16 +377,26 @@ export class PythonLsp implements vscode.Disposable {
      * @param client The language client instance
      */
     private registerPositronLspExtensions(client: LanguageClient) {
-        // Register a statement range provider to detect Python statements
+        // Register the statement range and help topic providers with a
+        // selector appropriate for the session type:
+        // - Console sessions: register for 'python' to cover all Python documents
+        // - Notebook sessions: register for 'python' but only matching vdoc
+        //   files (Quarto virtual documents). The Quarto extension's
+        //   statement range provider for 'quarto' language delegates to
+        //   'python' providers via vdocs. We must not match regular .py
+        //   script files to avoid competing with the console session's
+        //   provider for files that aren't synced to the notebook LSP.
+        const { notebookUri } = this._metadata;
+        const selector: vscode.DocumentSelector = notebookUri ? [VDOC_SELECTOR] : 'python';
+
         const rangeDisposable = positron.languages.registerStatementRangeProvider(
-            'python',
+            selector,
             new PythonStatementRangeProvider(this.serviceContainer),
         );
         this.activationDisposables.push(rangeDisposable);
 
-        // Register a help topic provider to provide help topics for Python
         const helpDisposable = positron.languages.registerHelpTopicProvider(
-            'python',
+            selector,
             new PythonHelpTopicProvider(client),
         );
         this.activationDisposables.push(helpDisposable);
