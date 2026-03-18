@@ -181,6 +181,13 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 				RuntimeExitReason.Shutdown,
 				`Notebook closed`,
 			);
+
+			// Delete the notebook session record from the runtime session service
+			// now that the notebook is being closed. This is done here instead of
+			// when the session exits because notebook sessions need to be  tracked
+			// even after they exit to support showing the session info in the
+			// interpreter picker while the notebook editor is still open.
+			this._runtimeSessionService.deleteNotebookSession(notebook.uri);
 		}));
 
 		// Register kernel source action providers. This is how we customize the

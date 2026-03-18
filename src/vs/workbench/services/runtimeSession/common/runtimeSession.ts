@@ -410,6 +410,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Deletes the notebook session record from the notebook sessions map.
+	 *
+	 * @param notebookUri The notebook's URI.
+	 */
+	deleteNotebookSession(notebookUri: URI): void {
+		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
+		if (session) {
+			this._logService.info(`Deleting notebook session record for ${notebookUri.toString()} (session ${session.metadata.sessionId})`);
+			this._notebookSessionsByNotebookUri.delete(notebookUri);
+		}
+	}
+
+	/**
 	 * List all active runtime sessions.
 	 *
 	 * @returns The active sessions.
@@ -1262,7 +1275,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		if (this._activeSessionsBySessionId.delete(sessionId)) {
 			// Clean up if necessary (should already by done once the runtime is exited).
-			this.updateSessionMapsAfterExit(session);
+			this.removeConsoleSessionFromRuntimeMap(session);
+
+			// For notebook sessions, also delete the session from the notebook map.
+			// Notebook sessions are kept in the map after exit (to support showing
+			// exited session info), so we need to explicitly delete them here.
+			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
+				session.metadata.notebookUri) {
+				this.deleteNotebookSession(session.metadata.notebookUri);
+			}
 
 			// Dispose of the session.
 			session.dispose();
@@ -1873,7 +1894,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					break;
 
 				case RuntimeState.Exited:
-					this.updateSessionMapsAfterExit(session);
+					this.removeConsoleSessionFromRuntimeMap(session);
 					break;
 			}
 
@@ -1894,7 +1915,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}));
 
 		activeSession.register(session.onDidEndSession(async exit => {
-			this.updateSessionMapsAfterExit(session);
+			this.removeConsoleSessionFromRuntimeMap(session);
 
 			// Note that we need to do the following on the next tick since we
 			// need to ensure all the event handlers for the state change we are
@@ -2075,12 +2096,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Updates the session maps for active consoles/notebooks after a
-	 * session exits.
+	 * Removes the console session from the `_consoleSessionsByRuntimeId` map.
 	 *
-	 * @param session The session to update.
+	 * @param session The session to remove.
 	 */
-	private updateSessionMapsAfterExit(session: ILanguageRuntimeSession) {
+	private removeConsoleSessionFromRuntimeMap(session: ILanguageRuntimeSession) {
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			const runtimeConsoleSessions = this._consoleSessionsByRuntimeId.
 				get(session.runtimeMetadata.runtimeId) || [];
@@ -2093,14 +2113,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			} else {
 				// Remove the key entirely from the map since there are no sessions for the runtime
 				this._consoleSessionsByRuntimeId.delete(session.runtimeMetadata.runtimeId);
-			}
-		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			if (session.metadata.notebookUri) {
-				this._logService.info(`Notebook session for ${session.metadata.notebookUri} exited.`);
-				this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
-			} else {
-				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
-					`does not have a notebook URI.`);
 			}
 		}
 	}
