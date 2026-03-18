@@ -1708,7 +1708,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._onWillStartRuntimeEmitter.fire(evt);
 
 		// Attach event handlers to the newly provisioned session.
-		this.attachToSession(session, manager, createConsole, activate);
+		this.attachToSession(session, manager, startMode, createConsole, activate);
 
 		try {
 			// Attempt to start, or reconnect to, the session.
@@ -1783,12 +1783,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param session The session to attach.
 	 * @param manager The session's manager.
+	 * @param startMode The mode in which the session is starting.
 	 * @param hasConsole Whether the session has a console.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 */
 	private attachToSession(
 		session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager,
+		startMode: RuntimeStartMode,
 		hasConsole: boolean,
 		activate: boolean): void {
 		// Clean up any previous active session info for this session.
@@ -1803,6 +1805,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			manager,
 			hasConsole,
 		);
+		activeSession.startMode = startMode;
 		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
 		this._register(activeSession);
 		this._register(activeSession.onDidReceiveRuntimeEvent(evt => {
@@ -1855,8 +1858,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				case RuntimeState.Starting:
 					// If the runtime is restarting (i.e. starting from the exited state),
-					// fire the onWillStartRuntime event.
+					// fire the onWillStartRuntime event and update the start mode so the
+					// next UI comm open conveys the correct session context.
 					if (activeSession.state === RuntimeState.Exited) {
+						activeSession.startMode = RuntimeStartMode.Restarting;
 						this._onWillStartRuntimeEmitter.fire({
 							session,
 							startMode: RuntimeStartMode.Restarting,
