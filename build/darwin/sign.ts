@@ -97,7 +97,10 @@ async function main(buildDir?: string): Promise<void> {
 	// universal will get its copy from the x64 build.
 	if (arch !== 'universal') {
 		await spawn('plutil', [
+			// --- Start Positron ---
+			// update ID after re-signing to avoid notarization error
 			'-replace',
+			// --- End Positron ---
 			'NSAppleEventsUsageDescription',
 			'-string',
 			'An application in Visual Studio Code wants to use AppleScript.',
