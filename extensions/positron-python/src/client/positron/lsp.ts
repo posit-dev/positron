@@ -154,6 +154,31 @@ export class PythonLsp implements vscode.Disposable {
         // Override default output channel with our persistant one that is reused across sessions.
         this._clientOptions.outputChannel = this._outputChannel;
 
+        // Filter so each LSP only handles its own documents.
+        // The console LSP skips vdocs and notebook console inputs;
+        // the notebook LSP skips regular console inputs.
+        const shouldSkipDocument = (document: vscode.TextDocument): boolean => {
+            if (!notebookUri) {
+                // Console LSP: skip vdoc files (notebook LSP handles them)
+                if (document.uri.scheme === 'file') {
+                    const baseName = path.basename(document.uri.fsPath);
+                    if (VDOC_PATTERN.test(baseName)) {
+                        return true;
+                    }
+                }
+                // Console LSP: skip notebook console inputs
+                if (document.uri.scheme === 'inmemory' && NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                    return true;
+                }
+            } else {
+                // Notebook LSP: skip regular (non-notebook) console inputs
+                if (document.uri.scheme === 'inmemory' && !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         // Add middleware to filter diagnostics for Quarto virtual documents:
         // https://github.com/quarto-dev/quarto/issues/855
         // Also set the priorities for completion items and hovers based on Positron LSP server extensions.
@@ -169,27 +194,9 @@ export class PythonLsp implements vscode.Disposable {
                 return next(uri, diagnostics);
             },
             // Apply per-completion-item priority set by the Positron LSP server.
-            // Filter completions so each LSP only handles its own documents.
-            // The console LSP skips vdocs and notebook console inputs;
-            // the notebook LSP skips regular console inputs.
             provideCompletionItem(document, position, context, token, next) {
-                if (!notebookUri) {
-                    // Console LSP: skip vdoc files (notebook LSP handles them)
-                    if (document.uri.scheme === 'file') {
-                        const baseName = path.basename(document.uri.fsPath);
-                        if (VDOC_PATTERN.test(baseName)) {
-                            return undefined;
-                        }
-                    }
-                    // Console LSP: skip notebook console inputs
-                    if (document.uri.scheme === 'inmemory' && NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
-                        return undefined;
-                    }
-                } else {
-                    // Notebook LSP: skip regular (non-notebook) console inputs
-                    if (document.uri.scheme === 'inmemory' && !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
-                        return undefined;
-                    }
+                if (shouldSkipDocument(document)) {
+                    return undefined;
                 }
                 return Promise.resolve(next(document, position, context, token)).then((res) => {
                     if (res) {
@@ -205,22 +212,9 @@ export class PythonLsp implements vscode.Disposable {
                 });
             },
             // Apply hover priority set by the Positron LSP server.
-            // Same session filtering as for completions above.
             provideHover(document, position, token, next) {
-                if (!notebookUri) {
-                    if (document.uri.scheme === 'file') {
-                        const baseName = path.basename(document.uri.fsPath);
-                        if (VDOC_PATTERN.test(baseName)) {
-                            return undefined;
-                        }
-                    }
-                    if (document.uri.scheme === 'inmemory' && NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
-                        return undefined;
-                    }
-                } else {
-                    if (document.uri.scheme === 'inmemory' && !NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
-                        return undefined;
-                    }
+                if (shouldSkipDocument(document)) {
+                    return undefined;
                 }
                 return Promise.resolve(next(document, position, token)).then((result) => {
                     if (result) {
