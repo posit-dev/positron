@@ -401,33 +401,40 @@ export class PositronNotebooks extends Notebooks {
 			const { startX } = await this._activateDrag(fromIndex);
 			const page = this.code.driver.page;
 
-			// Get the target cell's position
-			const targetCell = this.sortableCellAtIndex(toIndex);
-			const targetBox = await targetCell.boundingBox();
-			if (!targetBox) {
-				throw new Error('Could not get bounding box for target cell during drag');
+			try {
+				// Scroll the target cell into view programmatically AFTER
+				// the drag activates. _activateDrag hovers the source cell
+				// which may scroll the container; we need the target visible
+				// so the mouse move doesn't trigger dnd-kit's auto-scroll
+				// (which shifts cell positions mid-move).
+				const targetCell = this.sortableCellAtIndex(toIndex);
+				await page.evaluate(
+					(el) => el.scrollIntoView({ block: 'center' }),
+					await targetCell.elementHandle()
+				);
+
+				const targetBox = await targetCell.boundingBox();
+				if (!targetBox) {
+					throw new Error('Could not get bounding box for target cell during drag');
+				}
+
+				// Target INSIDE the cell at 75% (bottom quarter) or 25% (top
+				// quarter) so the pointer is unambiguously in the correct half
+				// for dnd-kit's collision detection.
+				const targetY = toIndex > fromIndex
+					? targetBox.y + targetBox.height * 0.75
+					: targetBox.y + targetBox.height * 0.25;
+
+				await page.mouse.move(startX, targetY, { steps: 10 });
+
+				// Wait for the drop indicator to appear, confirming dnd-kit has
+				// processed the final pointer position and computed the drop target.
+				await expect(
+					page.locator('.drag-drop-indicator')
+				).toBeVisible({ timeout: 2000 });
+			} finally {
+				await page.mouse.up();
 			}
-
-			// For downward drags, target just past the bottom of the target cell.
-			// For upward drags, target just above the top.
-			// dnd-kit uses pointer position to determine which half of the
-			// cell the pointer is in, so we need to be clearly past center.
-			const targetY = toIndex > fromIndex
-				? targetBox.y + targetBox.height + 5
-				: targetBox.y - 5;
-
-			// Keep X on the same column as the drag handle start position.
-			// Moving diagonally across the page can take the cursor outside
-			// the notebook area during long drags.
-			await page.mouse.move(startX, targetY, { steps: 20 });
-
-			// Wait for the drop indicator to appear, confirming dnd-kit has
-			// processed the final pointer position and computed the drop target.
-			await expect(
-				page.locator('.drag-drop-indicator')
-			).toBeVisible({ timeout: 2000 });
-
-			await page.mouse.up();
 		});
 	}
 
@@ -498,19 +505,21 @@ export class PositronNotebooks extends Notebooks {
 				return { reachable: false };
 			};
 
-			// First check if target is already visible (no scrolling needed)
-			const initialCheck = await isTargetReachable();
-			if (initialCheck.reachable && initialCheck.targetY !== undefined) {
-				await this.code.driver.page.mouse.move(startX, initialCheck.targetY, { steps: 10 });
-				await this.code.driver.page.mouse.up();
-				return;
-			}
-
-			// Move to edge and wait for auto-scroll to bring target into view
-			// Use polling with timeout instead of fixed iteration count
-			await this.code.driver.page.mouse.move(startX, edgeY, { steps: 5 });
+			const dropIndicator = this.code.driver.page.locator('.drag-drop-indicator');
 
 			try {
+				// First check if target is already visible (no scrolling needed)
+				const initialCheck = await isTargetReachable();
+				if (initialCheck.reachable && initialCheck.targetY !== undefined) {
+					await this.code.driver.page.mouse.move(startX, initialCheck.targetY, { steps: 10 });
+					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
+					return;
+				}
+
+				// Move to edge and wait for auto-scroll to bring target into view
+				// Use polling with timeout instead of fixed iteration count
+				await this.code.driver.page.mouse.move(startX, edgeY, { steps: 5 });
+
 				await expect(async () => {
 					// Keep cursor at edge to maintain auto-scroll
 					await this.code.driver.page.mouse.move(startX, edgeY, { steps: 2 });
@@ -526,20 +535,14 @@ export class PositronNotebooks extends Notebooks {
 				const finalCheck = await isTargetReachable();
 				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
 					await this.code.driver.page.mouse.move(startX, finalCheck.targetY, { steps: 10 });
-					// Wait for the drop indicator to confirm dnd-kit processed the position
-					await expect(
-						this.code.driver.page.locator('.drag-drop-indicator')
-					).toBeVisible({ timeout: 2000 });
-					await this.code.driver.page.mouse.up();
+					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
 					return;
 				}
-			} catch {
-				// Auto-scroll didn't bring target into view - clean up and fail
-				await this.code.driver.page.mouse.up();
-				throw new Error(`Could not reach target cell at index ${toIndex} via auto-scroll`);
-			}
 
-			await this.code.driver.page.mouse.up();
+				throw new Error(`Could not reach target cell at index ${toIndex} via auto-scroll`);
+			} finally {
+				await this.code.driver.page.mouse.up();
+			}
 		});
 	}
 
