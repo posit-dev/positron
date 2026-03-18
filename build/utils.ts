@@ -28,4 +28,4 @@ export const positronBuildNumber =
  * Note: This is written to product.json as 'quality' to leverage existing
  * VS Code URL substitution infrastructure (${quality} in URL templates).
  */
-export const releaseChannel = process.env.VSCODE_QUALITY ?? 'dailies';
+export const releaseChannel = process.env.POSITRON_RELEASE_CHANNEL ?? 'dailies';
