@@ -1285,7 +1285,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await withTimeout(
 			this._established.wait(),
 			timeout,
-			`Start failed: timed out waiting for session ${this.metadata.sessionId} to be established ` +
+			`Timed out waiting for session ${this.metadata.sessionId} to be established ` +
 			`after ${timeout}ms`);
 		this.log(`Session ${this.metadata.sessionId} established after ${Date.now() - establishStartTime}ms`, vscode.LogLevel.Info);
 
@@ -1344,7 +1344,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				await withTimeout(
 					this.connect(),
 					timeout,
-					`Start failed: timed out connecting to session ${this.metadata.sessionId} after ${timeout}ms`);
+					`Timed out connecting to session ${this.metadata.sessionId} after ${timeout}ms`);
 				break;
 			} catch (err) {
 				if (attempt === 0 && isAxiosError(err)) {
