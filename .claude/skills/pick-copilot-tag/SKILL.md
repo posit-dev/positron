@@ -35,7 +35,7 @@ from the source tree, discover compatible tag series, and check them all:
 For checking against a built Positron app instead of the source tree:
 
 ```bash
-.claude/skills/pick-copilot-tag/scripts/check-proposals.sh /Applications/Positron.app
+.claude/skills/pick-copilot-tag/scripts/check-proposals.sh --app /Applications/Positron.app
 ```
 
 To check against a specific Positron release (fetches both proposals and the
@@ -48,10 +48,10 @@ Code OSS version from the release tag on GitHub):
 To check a specific tag series (skips auto-discovery):
 
 ```bash
-.claude/skills/pick-copilot-tag/scripts/check-proposals.sh <proposals-source> <tag-prefix>
-# or with --positron-version:
-.claude/skills/pick-copilot-tag/scripts/check-proposals.sh --positron-version 2026.03.0 v0.37
+.claude/skills/pick-copilot-tag/scripts/check-proposals.sh --tag-series v0.37
 ```
+
+Flags can be combined, e.g. `--positron-version 2026.03.0 --tag-series v0.37`.
 
 ### Step 2: Report Results
 

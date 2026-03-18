@@ -2,22 +2,23 @@
 # Check upstream release tags for API proposal compatibility with a Positron build.
 #
 # Usage:
-#   ./check-proposals.sh                              # auto-detect from repo
-#   ./check-proposals.sh <proposals-source>            # auto-discover tags
-#   ./check-proposals.sh <proposals-source> <tag-prefix>  # explicit tag series
-#   ./check-proposals.sh --positron-version 2026.03.0  # check against a release
-#   ./check-proposals.sh --positron-version 2026.03.0 v0.37  # release + explicit series
+#   ./check-proposals.sh                                        # auto-detect from repo
+#   ./check-proposals.sh --app /Applications/Positron.app       # check a built app
+#   ./check-proposals.sh --positron-version 2026.03.0           # check a release
+#   ./check-proposals.sh --tag-series v0.37                     # check one tag series
 #
 # With no arguments, reads package.json for the Code OSS version, extracts
 # proposals from the source tree, and discovers compatible tag series
 # automatically.
 #
 # Options:
-#   -v, --verbose                    Show full list of Positron proposals (default: count only)
-#   --pre-releases                   Also check date-based pre-release tags (default: releases only)
+#   --app <path>                     Check against a built Positron app bundle
+#   --tag-series <prefix>            Check only this tag series (e.g. v0.37)
 #   --positron-version <version>     Check against a Positron release (e.g. 2026.03.0)
 #                                    Looks up the release tag on GitHub, retrieves the
 #                                    Code OSS version and proposals from that build.
+#   --pre-releases                   Also check date-based pre-release tags (default: releases only)
+#   -v, --verbose                    Show full list of Positron proposals (default: count only)
 #
 # Requires: gh, jq, python3
 
@@ -29,12 +30,13 @@ POSITRON_REPO="posit-dev/positron"
 VERBOSE=false
 PRE_RELEASES=false
 POSITRON_VERSION=""
+APP_PATH=""
+TAG_PREFIX=""
 
 die() { echo "error: $*" >&2; exit 1; }
 
 # --- Parse flags ---------------------------------------------------------------
 
-args=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		-v|--verbose) VERBOSE=true; shift ;;
@@ -42,10 +44,16 @@ while [[ $# -gt 0 ]]; do
 		--positron-version)
 			[[ -n "${2:-}" ]] || die "--positron-version requires a version (e.g. 2026.03.0)"
 			POSITRON_VERSION="$2"; shift 2 ;;
-		*) args+=("$1"); shift ;;
+		--app)
+			[[ -n "${2:-}" ]] || die "--app requires a path to a Positron app bundle"
+			APP_PATH="$2"; shift 2 ;;
+		--tag-series)
+			[[ -n "${2:-}" ]] || die "--tag-series requires a prefix (e.g. v0.37)"
+			TAG_PREFIX="$2"; shift 2 ;;
+		-*) die "Unknown option: $1" ;;
+		*) die "Unexpected argument: $1. Use --app, --tag-series, or --positron-version." ;;
 	esac
 done
-set -- "${args[@]+${args[@]}}"
 
 # --- Resolve Positron release tag ---------------------------------------------
 # Given a Positron version (e.g. 2026.03.0 or 2026.03.0-212), find the
@@ -100,37 +108,32 @@ for m in re.finditer(r'(\w+)\s*:\s*\{[^}]*version\s*:\s*(\d+)', content):
 " | sort -u
 }
 
-resolve_proposals() {
-	local source="$1"
-
-	if [[ -d "$source" || "$source" == *.app ]]; then
-		# It's a Positron app bundle -- extract from sharedProcessMain.js
-		local js
-		js=$(find "$source" -name 'sharedProcessMain.js' -print -quit 2>/dev/null)
-		[[ -n "$js" ]] || die "Could not find sharedProcessMain.js inside $source"
-		# Extract name@version from the proposals map structure. The JS may
-		# be minified (name:{proposal:"...",version:N}) or pretty-printed
-		# with newlines and indentation, so allow optional whitespace.
-		python3 -c "
+resolve_proposals_from_app() {
+	local app_path="$1"
+	[[ -d "$app_path" || "$app_path" == *.app ]] || die "Not an app bundle or directory: $app_path"
+	local js
+	js=$(find "$app_path" -name 'sharedProcessMain.js' -print -quit 2>/dev/null)
+	[[ -n "$js" ]] || die "Could not find sharedProcessMain.js inside $app_path"
+	# Extract name@version from the proposals map structure. The JS may
+	# be minified (name:{proposal:"...",version:N}) or pretty-printed
+	# with newlines and indentation, so allow optional whitespace.
+	python3 -c "
 import re, sys
 content = open(sys.argv[1]).read()
 for m in re.finditer(r'(\w+):\s*\{\s*proposal:\s*\"[^\"]+\"\s*,\s*version:\s*(\d+)\s*\}', content):
     print(f'{m.group(1)}@{m.group(2)}')
 " "$js" | sort -u
-	elif [[ -f "$source" && "$source" == *.ts ]]; then
-		# TypeScript source file (extensionsApiProposals.ts)
-		python3 -c "
+}
+
+resolve_proposals_from_source() {
+	local ts_file="$1"
+	[[ -f "$ts_file" ]] || die "Proposals file not found: $ts_file"
+	python3 -c "
 import re, sys
 content = open(sys.argv[1]).read()
 for m in re.finditer(r'(\w+)\s*:\s*\{[^}]*version\s*:\s*(\d+)', content):
     print(f'{m.group(1)}@{m.group(2)}')
-" "$source" | sort -u
-	elif [[ -f "$source" ]]; then
-		# Plain text file (one proposal@version per line)
-		grep -vE '^\s*(#|$)' "$source" | sort -u
-	else
-		die "Not a file or directory: $source"
-	fi
+" "$ts_file" | sort -u
 }
 
 # --- Discover compatible tag series from Code OSS version ---------------------
@@ -350,28 +353,25 @@ _CODE_OSS_MINOR=""
 _LATEST_OK=""
 _LATEST_PRERELEASE=""
 
-# When --positron-version is given, the only positional arg (if any) is a tag
-# prefix to select a specific series. Otherwise, positionals are
-# [proposals-source [tag-prefix]].
+# Validate flag combinations
+if [[ -n "$POSITRON_VERSION" && -n "$APP_PATH" ]]; then
+	die "Use --positron-version to check a remote release, or --app to check a local build, but not both"
+fi
+
+# Resolve proposals from the chosen source
 if [[ -n "$POSITRON_VERSION" ]]; then
-	[[ $# -le 1 ]] || die "--positron-version accepts at most one positional argument (tag prefix), got $#"
-	PROPOSALS_SOURCE=""
-	TAG_PREFIX="${1:-}"
 	resolve_positron_version "$POSITRON_VERSION"
 	code_oss_version="$_POSITRON_CODE_VERSION"
 	_CODE_OSS_MINOR=$(echo "$code_oss_version" | cut -d. -f2)
 	positron_proposals=$(resolve_proposals_from_tag "$_POSITRON_TAG")
 	proposals_label="$POSITRON_REPO@$_POSITRON_TAG"
+elif [[ -n "$APP_PATH" ]]; then
+	positron_proposals=$(resolve_proposals_from_app "$APP_PATH")
+	proposals_label="$APP_PATH"
 else
-	PROPOSALS_SOURCE="${1:-}"
-	TAG_PREFIX="${2:-}"
-	# Default proposals source to the TypeScript file in the repo
-	if [[ -z "$PROPOSALS_SOURCE" ]]; then
-		[[ -f "$PROPOSALS_TS" ]] || die "No proposals source given and $PROPOSALS_TS not found. Run from the Positron repo root or pass an explicit path."
-		PROPOSALS_SOURCE="$PROPOSALS_TS"
-	fi
-	positron_proposals=$(resolve_proposals "$PROPOSALS_SOURCE")
-	proposals_label="$PROPOSALS_SOURCE"
+	[[ -f "$PROPOSALS_TS" ]] || die "$PROPOSALS_TS not found. Run from the Positron repo root, or use --app or --positron-version."
+	positron_proposals=$(resolve_proposals_from_source "$PROPOSALS_TS")
+	proposals_label="$PROPOSALS_TS"
 fi
 
 proposal_count=$(echo "$positron_proposals" | wc -l | tr -d ' ')
@@ -398,7 +398,7 @@ else
 		if [[ -f "package.json" ]]; then
 			code_oss_version=$(jq -r '.version' package.json)
 		else
-			die "No tag prefix given and no package.json found. Run from the Positron repo root, pass --positron-version, or pass an explicit tag prefix."
+			die "No package.json found. Run from the Positron repo root, use --positron-version, or use --tag-series."
 		fi
 		_CODE_OSS_MINOR=$(echo "$code_oss_version" | cut -d. -f2)
 		echo "Code OSS version: $code_oss_version"
