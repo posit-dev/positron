@@ -298,6 +298,7 @@ function registerDeferredFoundryAutoconfigure(context: vscode.ExtensionContext) 
 				name: foundryProvider.source.provider.displayName,
 				model: foundryProvider.source.defaults.model,
 				apiKey: '',
+				baseUrl: result.configuration?.baseUrl,
 				toolCalls: foundryProvider.source.defaults.toolCalls,
 				completions: foundryProvider.source.defaults.completions,
 				autoconfigure: {

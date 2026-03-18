@@ -792,6 +792,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior,
 		codeLocation?: positron.Utf8Location,
+		executionMetadata?: Record<string, unknown>
 	): void {
 
 		// Translate the parameters into a Jupyter execute request
@@ -804,12 +805,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
 
-		if (codeLocation) {
+		// If a code location or execution metadata is provided, include it in the request
+		if (codeLocation || executionMetadata) {
 			request.positron = {
-				code_location: {
-					uri: codeLocation.uri.toString(),
-					range: codeLocation.range,
-				}
+				...(codeLocation ? {
+					code_location: {
+						uri: codeLocation.uri.toString(),
+						range: codeLocation.range
+					}
+				} : {}),
+				...executionMetadata
 			};
 		}
 

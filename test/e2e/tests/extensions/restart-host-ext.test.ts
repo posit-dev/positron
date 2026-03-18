@@ -9,7 +9,10 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS, tags.WIN] }, () => {
+test.describe('Restart Host Extension', {
+	tag: [tags.EXTENSIONS, tags.WIN, tags.SOFT_FAIL],
+	annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
+}, () => {
 
 	test.afterEach(async ({ app }) => {
 		await app.workbench.sessions.deleteAll();
@@ -25,7 +28,7 @@ test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS, tags.WIN] }, ()
 		await app.workbench.console.waitForConsoleContents('101');
 	});
 
-	test('Verify Restart Extension Host command works - Python', { tag: [tags.SOFT_FAIL] }, async function ({ app, python }) {
+	test('Verify Restart Extension Host command works - Python', async function ({ app, python }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
 		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
 		await app.workbench.console.waitForReady('>>>');

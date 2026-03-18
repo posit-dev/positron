@@ -11,7 +11,7 @@ For comprehensive e2e test guidance, use the `positron-e2e-tests` skill which pr
 
 ```bash
 # Run specific test
-npx playwright test <test>.test.ts --project e2e-electron --reporter list
+npx playwright test <test>.test.ts --project e2e-electron
 
 # Run all tests in a category
 npx playwright test test/e2e/tests/<category>/

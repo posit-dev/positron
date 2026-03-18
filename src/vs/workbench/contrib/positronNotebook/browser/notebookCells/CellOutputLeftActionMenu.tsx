@@ -7,7 +7,7 @@
 import './CellOutputLeftActionMenu.css';
 
 // React.
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -19,6 +19,8 @@ import { Icon } from '../../../../../platform/positronActionBar/browser/componen
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 
 const cellOutputActions = localize('cellOutputActions', 'Cell Output Actions');
 
@@ -34,6 +36,11 @@ interface CellOutputLeftActionMenuProps {
  */
 export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps) {
 	const instance = useNotebookInstance();
+	const contextKeyService = useCellScopedContextKeyService();
+	const outputImageTargeted = useMemo(
+		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
+		[contextKeyService]
+	);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionLeft,
@@ -51,8 +58,17 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 			return;
 		}
 
+		// Show the static "Copy Image" action only when there is exactly one
+		// image output. For multiple images, users can right-click individual
+		// images to copy them.
+		const imageOutputs = outputs.filter(o => o.parsed.type === 'image');
+		outputImageTargeted?.set(imageOutputs.length === 1);
+
 		setIsMenuOpen(true);
-		showContextMenu(buttonRef.current, undefined, () => setIsMenuOpen(false));
+		showContextMenu(buttonRef.current, undefined, () => {
+			outputImageTargeted?.set(false);
+			setIsMenuOpen(false);
+		});
 	};
 
 	// Don't render if the cell has no outputs

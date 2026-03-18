@@ -167,7 +167,7 @@ class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 	driverId: string = 'postgres';
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'r',
-		name: 'PostgresSQL',
+		name: 'PostgreSQL',
 		inputs: [
 			{
 				'id': 'dbname',
@@ -562,7 +562,7 @@ class PythonPostgreSQLDriver extends PythonDriver implements positron.Connection
 	driverId: string = 'py-postgres';
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'python',
-		name: 'PostgresSQL',
+		name: 'PostgreSQL',
 		inputs: [
 			{
 				'id': 'dbname',

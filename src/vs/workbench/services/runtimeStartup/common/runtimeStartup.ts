@@ -916,6 +916,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// Ignore if there's already a foreground session, regardless of
+		// language; at this point either we've autostarted a different runtime
+		// or the user has manually started a runtime, and we don't want to
+		// interfere by starting another one.
+		if (this._runtimeSessionService.foregroundSession) {
+			return;
+		}
+
 		// Get the runtime metadata that is affiliated with this workspace, if any.
 		const affiliatedRuntimeMetadataStr = this._storageService.get(
 			this.storageKeyForRuntime(metadata), this.affiliationStorageScope());
@@ -953,7 +961,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					metadata.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // Console session
-					`Affiliated runtime for workspace`,
+					`Affiliated runtime for workspace registered`,
 					RuntimeStartMode.Starting,
 					true);
 			} catch (e) {
@@ -1221,7 +1229,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Let the UI know we're about to try starting this session
 				this._onWillAutoStartRuntime.fire({
 					runtime: affiliation.metadata,
-					newSession: true
+					newSession: true,
+					activate: idx === 0
 				});
 			}
 
@@ -1385,7 +1394,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Let the UI know we're about to try reconnecting to this session
 		this._onWillAutoStartRuntime.fire({
 			runtime: sessions[0].runtimeMetadata,
-			newSession: false
+			newSession: false,
+			activate: true
 		});
 
 		// Activate any extensions needed for the sessions we want to reconnect
@@ -1743,7 +1753,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	) {
 		this._onWillAutoStartRuntime.fire({
 			runtime: metadata,
-			newSession: true
+			newSession: true,
+			activate
 		});
 		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
 	}

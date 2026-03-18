@@ -1832,7 +1832,19 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 		// Perform the execution
 		try {
-			const result = await positron.runtime.executeCode(languageId, codeToExecute, focus, true, mode, errorBehavior);
+			const result = await positron.runtime.executeCode(
+				languageId,
+				codeToExecute,
+				focus,
+				true,
+				mode,
+				errorBehavior,
+				undefined, // execution observer
+				undefined, // session id
+				undefined, // document uri,
+				{
+					"arose-from": "zed-simulation"
+				});
 			if (result) {
 				this.simulateOutputMessage(parentId, JSON.stringify(result, undefined, 2));
 			} else {

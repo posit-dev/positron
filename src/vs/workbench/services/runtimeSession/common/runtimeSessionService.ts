@@ -189,6 +189,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
+		executionMetadata?: Record<string, unknown>,
 	): void;
 
 	/** Test a code fragment for completeness */
@@ -675,12 +676,14 @@ export interface IRuntimeSessionService {
 	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
 	 *
 	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 * If the handler returns an `IDisposable`, it is disposed before the handler is called again
+	 * with a new client (e.g. after restart).
 	 *
 	 * @param sessionId The ID of the session to observe.
-	 * @param handler Called with started UI clients.
+	 * @param handler Called with started UI clients. May return an `IDisposable` for per-client cleanup.
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
-	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => IDisposable | void): IDisposable;
 
 	/**
 	 * When true, suppresses implicit runtime auto-start triggered by
