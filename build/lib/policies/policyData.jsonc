@@ -204,7 +204,7 @@
             "minimumVersion": "1.67",
             "localization": {
                 "description": {
-                    "key": "updateMode",
+                    "key": "updateModePolicy",
                     "value": "Configure whether you receive automatic updates. Requires a restart after change. The updates are fetched from a Microsoft online service."
                 },
                 "enumDescriptions": [

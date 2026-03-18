@@ -38,6 +38,7 @@ import { INodeProcess } from '../../../base/common/platform.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { mkdirSync } from 'fs';
+import { IStateService } from '../../state/node/state.js';
 // --- End Positron ---
 
 interface IAvailableUpdate {
@@ -85,11 +86,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		// --- Start Positron ---
 		// this was already added in the abstract class and the scope was modified to match
 		@INativeHostMainService nativeHostMainService: INativeHostMainService,
+		@IStateService stateService: IStateService,
 		// --- End Positron ---
-		@IProductService productService: IProductService,
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
+		@IProductService productService: IProductService,
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, meteredConnectionService, productService, nativeHostMainService, true);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, meteredConnectionService, productService, nativeHostMainService, stateService, true);
 
 		lifecycleMainService.setRelaunchHandler(this);
 	}

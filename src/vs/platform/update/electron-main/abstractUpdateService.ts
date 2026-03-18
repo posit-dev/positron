@@ -24,12 +24,15 @@ export interface IUpdateURLOptions {
 }
 
 //--- Start Positron ---
+import * as crypto from 'crypto';
 // eslint-disable-next-line no-duplicate-imports
 import { asJson, asText } from '../../request/common/request.js';
 // eslint-disable-next-line no-duplicate-imports
 import { IUpdate } from '../common/update.js';
 import { hasUpdate } from '../common/positronVersion.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
+import { IStateService } from '../../state/node/state.js';
+import { buildUpdateUrl } from '../common/positronUpdateUtils.js';
 
 // This was modfied from the original createUpdateURL as our update URL structure is much simpler
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
@@ -84,6 +87,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	private _activeLanguages: string[];
 	// enable the service to download and apply updates automatically
 	protected enableAutoUpdate = false;
+	private static readonly TELEMETRY_ID_KEY = 'telemetry.anonymousId';
 	// --- End Positron ---
 
 	private _state: State = State.Uninitialized;
@@ -120,6 +124,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		// --- Start Positron ---
 		@IProductService protected readonly productService: IProductService,
 		@INativeHostMainService protected readonly nativeHostMainService: INativeHostMainService,
+		@IStateService protected readonly stateService: IStateService,
 		// --- End Positron ---
 		protected readonly supportsUpdateOverwrite: boolean,
 	) {
@@ -244,7 +249,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	// --- Start Positron ---
 	async checkForUpdates(explicit: boolean): Promise<void> {
 		const includeLanguages = this.configurationService.getValue<boolean>('update.primaryLanguageReporting');
+		const includeAnonymousId = this.configurationService.getValue<boolean>('update.anonymousUsageReporting');
+
 		this.logService.debug('update#checkForUpdates, includeLanguages =', includeLanguages);
+		this.logService.debug('update#checkForUpdates, includeAnonymousUsage =', includeAnonymousId);
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
 		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));
@@ -253,10 +261,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 
 		this.setState(State.CheckingForUpdates(explicit));
-		let releaseMetadataUrl = this.url;
-		if (includeLanguages && this._activeLanguages.length > 0) {
-			releaseMetadataUrl = `${releaseMetadataUrl}?${this._activeLanguages.map(lang => `${lang}=1`).join('&')}`;
-		}
+
+		// Build URL with optional parameters
+		const anonymousId = includeAnonymousId ? this.getOrCreateTelemetryId() : undefined;
+		const releaseMetadataUrl = buildUpdateUrl(this.url!, this._activeLanguages, includeLanguages, anonymousId);
 
 		this.logService.debug('update#checkForUpdates, url =', releaseMetadataUrl);
 
@@ -496,6 +504,20 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	}
 	updateActiveLanguages(languages: string[]): void {
 		this._activeLanguages = languages;
+	}
+
+	private getOrCreateTelemetryId(): string {
+		let id = this.stateService.getItem<string>(AbstractUpdateService.TELEMETRY_ID_KEY);
+		if (!id) {
+			id = crypto.randomUUID();
+			this.stateService.setItem(AbstractUpdateService.TELEMETRY_ID_KEY, id);
+		}
+		return id;
+	}
+
+	resetTelemetryId(): void {
+		const newId = crypto.randomUUID();
+		this.stateService.setItem(AbstractUpdateService.TELEMETRY_ID_KEY, newId);
 	}
 	// --- End Positron ---
 }

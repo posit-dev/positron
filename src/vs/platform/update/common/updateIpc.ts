@@ -33,6 +33,7 @@ export class UpdateChannel implements IServerChannel {
 			// --- Start Positron ---
 			case 'updateActiveLanguages': return Promise.resolve(this.service.updateActiveLanguages(arg));
 			case 'getReleaseNotes': return this.service.getReleaseNotes();
+			case 'resetTelemetryId': return Promise.resolve(this.service.resetTelemetryId());
 			// --- End Positron ---
 		}
 
@@ -99,6 +100,10 @@ export class UpdateChannelClient implements IUpdateService {
 
 	getReleaseNotes(): Promise<string> {
 		return this.channel.call('getReleaseNotes');
+	}
+
+	resetTelemetryId(): void {
+		this.channel.call('resetTelemetryId');
 	}
 	// --- End Positron ---
 }

@@ -26,6 +26,7 @@ import { INodeProcess } from '../../../base/common/platform.js';
 
 // --- Start Positron ---
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
+import { IStateService } from '../../state/node/state.js';
 import { arch } from 'os';
 // --- End Positron ---
 
@@ -55,9 +56,11 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		@ILogService logService: ILogService,
 		@IProductService productService: IProductService,
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
-		@INativeHostMainService nativeHostMainService: INativeHostMainService
+		@INativeHostMainService nativeHostMainService: INativeHostMainService,
+		@IStateService stateService: IStateService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, meteredConnectionService, productService, nativeHostMainService, true);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, meteredConnectionService, productService, nativeHostMainService, stateService, true);
+		// --- End Positron ---
 
 		lifecycleMainService.setRelaunchHandler(this);
 	}

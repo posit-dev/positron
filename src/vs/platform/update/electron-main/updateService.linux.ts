@@ -14,6 +14,7 @@ import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
 import { AvailableForDownload, IUpdate, State, UpdateType } from '../common/update.js';
 import { AbstractUpdateService, createUpdateURL } from './abstractUpdateService.js';
+import { IStateService } from '../../state/node/state.js';
 
 export class LinuxUpdateService extends AbstractUpdateService {
 
@@ -28,8 +29,9 @@ export class LinuxUpdateService extends AbstractUpdateService {
 		@INativeHostMainService nativeHostMainService: INativeHostMainService,
 		@IProductService productService: IProductService,
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
+		@IStateService stateService: IStateService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, meteredConnectionService, productService, nativeHostMainService, false);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, meteredConnectionService, productService, nativeHostMainService, stateService, false);
 	}
 
 	protected buildUpdateFeedUrl(channel: string): string {

@@ -29,6 +29,7 @@ function createMockUpdateService(state: State): IUpdateService {
 		setInternalOrg: async () => { },
 		updateActiveLanguages: () => { },
 		getReleaseNotes: async () => '',
+		resetTelemetryId: async () => { },
 	};
 	return service;
 }

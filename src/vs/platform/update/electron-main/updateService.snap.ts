@@ -152,6 +152,9 @@ abstract class AbstractUpdateService implements IUpdateService {
 	getReleaseNotes(): Promise<string> {
 		return Promise.resolve('No release notes available');
 	}
+	resetTelemetryId(): void {
+		// no-op for snap
+	}
 	// --- End Positron ---
 }
 

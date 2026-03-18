@@ -77,7 +77,7 @@
 	}
 }
 
-/* Show action bar when cell is hovered */
-.positron-notebook-cell:hover .positron-notebooks-cell-action-bar {
+/* Show action bar when cell is hovered (includes drag handle hover) */
+.sortable-cell:hover > .positron-notebook-cell .positron-notebooks-cell-action-bar {
 	visibility: visible;
 }

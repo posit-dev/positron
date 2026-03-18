@@ -1420,6 +1420,7 @@
     "yaml": "^2.8.1"
   },
   "extensionDependencies": [
-    "positron.positron-supervisor"
+    "positron.positron-supervisor",
+    "positron.positron-environment"
   ]
 }
