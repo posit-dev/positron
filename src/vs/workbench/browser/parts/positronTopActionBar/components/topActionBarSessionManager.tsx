@@ -10,6 +10,8 @@ import './topActionBarSessionManager.css';
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
+import { basename } from '../../../../../base/common/path.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ActionBarCommandButton } from '../../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
@@ -22,6 +24,40 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 const startSession = localize('positron.console.startSession', "Start Session");
 
 /**
+ * Gets the session mode icon for the given session.
+ * @param session The session to get the icon for.
+ * @returns The Codicon for the session mode.
+ */
+const getSessionModeIcon = (session: ILanguageRuntimeSession | undefined) => {
+	if (!session) {
+		return Codicon.arrowSwap;
+	}
+	if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+		return Codicon.notebook;
+	}
+	return Codicon.positronNewConsole;
+};
+
+/**
+ * Gets the label text for the given session.
+ * For notebook sessions, includes the notebook filename.
+ * For console sessions, just shows the session name.
+ * @param session The session to get the label for.
+ * @returns The label text.
+ */
+const getSessionLabel = (session: ILanguageRuntimeSession | undefined): string => {
+	if (!session) {
+		return startSession;
+	}
+	const sessionName = session.dynState.sessionName;
+	if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook && session.metadata.notebookUri) {
+		const notebookName = basename(session.metadata.notebookUri.path);
+		return `${notebookName} - ${sessionName}`;
+	}
+	return sessionName;
+};
+
+/**
  * This component allows users to manage the foreground session.
  * - displays the current foreground session (console or notebook)
  * - allows users to switch between console sessions
@@ -31,11 +67,11 @@ export const TopActionBarSessionManager = () => {
 	const services = usePositronReactServicesContext();
 
 	const [activeSession, setActiveSession] = useState<ILanguageRuntimeSession>();
-	const [labelText, setLabelText] = useState<string>(activeSession?.dynState?.sessionName ?? startSession);
+	const [labelText, setLabelText] = useState<string>(getSessionLabel(activeSession));
+	const [sessionIcon, setSessionIcon] = useState(getSessionModeIcon(activeSession));
 
-	// Check if there are any active console sessions to determine
-	// if the active session picker or the create session picker
-	// should be shown.
+	// Check if there are any active console sessions to determine if the
+	// active session picker or the create session picker should be shown.
 	const hasActiveConsoleSessions = services.runtimeSessionService.activeSessions.find(
 		session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
 	const command = hasActiveConsoleSessions
@@ -48,16 +84,12 @@ export const TopActionBarSessionManager = () => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidChangeForegroundSession event handler to listen for changes
-		// to the foreground session and update the label and active session accordingly.
+		// to the foreground session and update the label, icon, and active session accordingly.
 		disposableStore.add(
 			services.runtimeSessionService.onDidChangeForegroundSession(session => {
-				if (session) {
-					setActiveSession(session);
-					setLabelText(session.dynState.sessionName);
-				} else {
-					setActiveSession(undefined);
-					setLabelText(startSession);
-				}
+				setActiveSession(session);
+				setLabelText(getSessionLabel(session));
+				setSessionIcon(getSessionModeIcon(session));
 			})
 		);
 
@@ -66,7 +98,7 @@ export const TopActionBarSessionManager = () => {
 		disposableStore.add(
 			services.runtimeSessionService.onDidUpdateSessionName(session => {
 				if (session.sessionId === services.runtimeSessionService.foregroundSession?.sessionId) {
-					setLabelText(session.dynState.sessionName);
+					setLabelText(getSessionLabel(session));
 				}
 			})
 		);
@@ -81,14 +113,8 @@ export const TopActionBarSessionManager = () => {
 			border={true}
 			commandId={command}
 			height={24}
+			icon={sessionIcon}
 			label={labelText}
-			{
-			...(
-				activeSession
-					? { iconImageSrc: `data:image/svg+xml;base64,${activeSession?.runtimeMetadata.base64EncodedIconSvg}` }
-					: { iconId: 'arrow-swap' }
-			)
-			}
 		/>
 	);
 };
