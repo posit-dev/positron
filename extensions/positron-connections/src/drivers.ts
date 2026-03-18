@@ -87,10 +87,6 @@ class RDriver implements positron.ConnectionsDriver {
 			positron.RuntimeCodeExecutionMode.Interactive,
 			positron.RuntimeErrorBehavior.Continue
 		);
-		if (!exec) {
-			throw new Error('Failed to execute code');
-		}
-		return;
 	}
 
 	async checkDependencies() {
@@ -215,25 +211,24 @@ class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 	};
 
 	generateCode(inputs: positron.ConnectionsInput[]) {
-		const dbname = inputs.find(input => input.id === 'dbname')?.value;
-		const host = inputs.find(input => input.id === 'host')?.value;
-		const port = inputs.find(input => input.id === 'port')?.value;
-		const user = inputs.find(input => input.id === 'user')?.value;
-		const password = inputs.find(input => input.id === 'password')?.value;
-		const bigint = inputs.find(input => input.id === 'bigint')?.value;
+		const dbname = inputs.find(input => input.id === 'dbname')?.value ?? '';
+		const host = inputs.find(input => input.id === 'host')?.value ?? '';
+		const port = inputs.find(input => input.id === 'port')?.value ?? '';
+		const user = inputs.find(input => input.id === 'user')?.value ?? '';
+		const password = inputs.find(input => input.id === 'password')?.value ?? '';
+		const bigint = inputs.find(input => input.id === 'bigint')?.value ?? '';
 
-		return `library(DBI)
-con <- dbConnect(
-	RPostgres::Postgres(),
-	dbname = '${dbname ?? ''}',
-	host = '${host ?? ''}',
-	port = ${port ?? ''},
-	user = '${user ?? ''}',
-	password = '${password ?? ''}',
-	bigint = '${bigint ?? ''}'
-)
-connections::connection_view(con)
-`;
+		return `library(connections)
+library(RPostgres)
+conn <- connection_open(
+	Postgres(),
+	dbname = ${JSON.stringify(dbname)},
+	host = ${JSON.stringify(host)},
+	port = ${port},
+	user = ${JSON.stringify(user)},
+	password = ${JSON.stringify(password)},
+	bigint = ${JSON.stringify(bigint)}
+)`;
 	}
 }
 
@@ -277,14 +272,13 @@ class RSQLiteDriver extends RDriver implements positron.ConnectionsDriver {
 		const dbname = inputs.find(input => input.id === 'dbname')?.value ?? '';
 		const bigint = inputs.find(input => input.id === 'bigint')?.value ?? '';
 
-		return `library(DBI)
-con <- dbConnect(
-	RSQLite::SQLite(),
+		return `library(connections)
+library(RSQLite)
+conn <- connection_open(
+	SQLite(),
 	dbname = ${JSON.stringify(dbname)},
 	bigint = ${JSON.stringify(bigint)}
-)
-connections::connection_view(con)
-`;
+)`;
 	}
 }
 
@@ -502,10 +496,6 @@ class PythonDriver implements positron.ConnectionsDriver {
 			positron.RuntimeCodeExecutionMode.Interactive,
 			positron.RuntimeErrorBehavior.Continue
 		);
-		if (!exec) {
-			throw new Error('Failed to execute code');
-		}
-		return;
 	}
 }
 
