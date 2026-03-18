@@ -972,10 +972,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param source The source of the request to restart the runtime.
 	 */
 	async restartSession(sessionId: string, source: string, interrupt: boolean = true): Promise<boolean> {
-		const session = this.getSession(sessionId);
-		if (!session) {
+		const activeSession = this._activeSessionsBySessionId.get(sessionId);
+		if (!activeSession) {
 			throw new Error(`No session with ID '${sessionId}' was found.`);
 		}
+
+		const session = activeSession.session;
 		this._logService.info(
 			`Restarting session '` +
 			`${formatLanguageRuntimeSession(session)}' (Source: ${source})`);
@@ -1014,12 +1016,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				true
 			);
 			return true;
-		} else if (state === RuntimeState.Starting ||
-			state === RuntimeState.Restarting) {
-			// The runtime is already starting or restarting. We could show an
-			// error, but this is probably just the result of a user mashing the
-			// restart when we already have one in flight.
-			return false;
+		} else if (
+			state === RuntimeState.Starting ||
+			state === RuntimeState.Restarting
+		) {
+			// Already in progress. Wait for the existing start/restart to
+			// finish so callers can rely on the session being ready when
+			// this resolves.
+			await awaitStateChange(activeSession, [RuntimeState.Ready], 10);
+			return true;
 		} else {
 			// The runtime is not in a state where it can be restarted.
 			throw new Error(`The ${session.runtimeMetadata.languageName} session is '${state}' ` +

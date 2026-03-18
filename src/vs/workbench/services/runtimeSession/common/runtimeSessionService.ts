@@ -594,9 +594,10 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
-	 * @returns Whether the session was restarted. `false` if the user
-	 *  declined or the session was already restarting.
-	 *  Rejects if the session is not found or not in a restartable state.
+	 * @returns `true` if the session was restarted (or a restart already
+	 *  in progress completed), `false` if the restart was declined by
+	 *  the user. Rejects if the session is not found or not in a
+	 *  restartable state.
 	 */
 	restartSession(sessionId: string, source: string, interrupt?: boolean): Promise<boolean>;
 

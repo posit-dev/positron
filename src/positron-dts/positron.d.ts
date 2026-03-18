@@ -2227,9 +2227,9 @@ declare module 'positron' {
 		 * before restarting.
 		 *
 		 * @param sessionId The ID of the session to restart.
-		 * @returns `true` if the session was restarted, `false` if the
-		 *  restart was declined by the user or already in progress.
-		 *  Rejects if the session is not found or not in a restartable state.
+		 * @returns `true` if the session was restarted (or a restart already in
+		 *   progress completed), `false` if the restart was declined by the user.
+		 *   Rejects if the session is not found or not in a restartable state.
 		 */
 		export function restartSession(sessionId: string): Thenable<boolean>;
 
