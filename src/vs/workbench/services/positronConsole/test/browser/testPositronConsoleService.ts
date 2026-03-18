@@ -604,6 +604,13 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	}
 
 	/**
+	 * Gets the session regardless of attachment state.
+	 */
+	get session(): ILanguageRuntimeSession | undefined {
+		return this._attachedRuntimeSession;
+	}
+
+	/**
 	 * Reveals and highlights the console input associated with the given execution ID.
 	 * @param executionId The execution ID of the input to reveal.
 	 * @returns `true` if the execution was found and revealed, `false` otherwise.

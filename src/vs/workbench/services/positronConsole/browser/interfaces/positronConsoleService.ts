@@ -504,6 +504,14 @@ export interface IPositronConsoleInstance {
 	attachedRuntimeSession: ILanguageRuntimeSession | undefined;
 
 	/**
+	 * Gets the session associated with this console instance, regardless of whether
+	 * the runtime is currently attached. Unlike `attachedRuntimeSession`, this
+	 * returns the session even after it has exited, allowing the UI to display
+	 * information about exited sessions.
+	 */
+	readonly session: ILanguageRuntimeSession | undefined;
+
+	/**
 	 * Reveals and highlights the console input associated with the given execution ID.
 	 * This will scroll to the input and briefly highlight it.
 	 *

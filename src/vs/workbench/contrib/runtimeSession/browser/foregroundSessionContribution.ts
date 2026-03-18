@@ -271,21 +271,23 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 
 	/**
 	 * Handle console instance selection (e.g., clicking a console tab or focusing the console pane).
-	 * Sets the console instance's attached runtime session as the foreground session.
+	 * Sets the console instance's session as the foreground session.
 	 */
 	private _handleConsoleInstanceSelected(instance: IPositronConsoleInstance | undefined): void {
 		if (!instance) {
 			return;
 		}
 
-		const session = instance.attachedRuntimeSession;
+		// Use `session` instead of `attachedRuntimeSession` to get the session even if it is "exited".
+		// This allows the foreground session to stay in sync with the console instance when a user clicks on a console tab.
+		const session = instance.session;
 		if (session) {
 			this._logService.trace(`[ForegroundSessionContribution] Console instance selected, setting foreground session: ${session.sessionId}`);
 			this._runtimeSessionService.foregroundSession = session;
 		} else {
-			// Console instance has no attached session yet - this can happen for provisional
+			// Console instance has no session yet - this can happen for provisional
 			// instances while waiting for a session to connect
-			this._logService.trace(`[ForegroundSessionContribution] Console instance selected but no session attached: ${instance.sessionId}`);
+			this._logService.trace(`[ForegroundSessionContribution] Console instance selected but no session: ${instance.sessionId}`);
 		}
 	}
 
