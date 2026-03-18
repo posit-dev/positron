@@ -224,7 +224,7 @@ conn <- connection_open(
 	Postgres(),
 	dbname = ${JSON.stringify(dbname)},
 	host = ${JSON.stringify(host)},
-	port = ${port},
+	port = ${JSON.stringify(port)},
 	user = ${JSON.stringify(user)},
 	password = ${JSON.stringify(password)},
 	bigint = ${JSON.stringify(bigint)}
