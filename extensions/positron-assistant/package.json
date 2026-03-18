@@ -406,6 +406,7 @@
             "type": "object",
             "default": {},
             "markdownDescription": "%configuration.providerVariables.bedrock.description%",
+            "markdownDeprecationMessage": "This setting has been moved to the Authentication extension. Use `#authentication.aws.credentials#` instead.",
             "properties": {
               "AWS_PROFILE": {
                 "type": "string",
@@ -421,7 +422,8 @@
           "positron.assistant.bedrock.inferenceProfileRegion": {
             "type": "string",
             "default": null,
-            "markdownDescription": "%configuration.bedrock.inferenceProfileRegion.description%"
+            "markdownDescription": "%configuration.bedrock.inferenceProfileRegion.description%",
+            "markdownDeprecationMessage": "This setting has been moved to the Authentication extension. Use `#authentication.aws.inferenceProfileRegion#` instead."
           },
           "positron.assistant.providerVariables.snowflake": {
             "type": "object",
@@ -1420,6 +1422,7 @@
     "yaml": "^2.8.1"
   },
   "extensionDependencies": [
-    "positron.positron-supervisor"
+    "positron.positron-supervisor",
+    "positron.authentication"
   ]
 }

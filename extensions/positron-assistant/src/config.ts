@@ -298,7 +298,7 @@ async function saveModel(
 	}
 }
 
-async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {
+export async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const targetConfig = existingConfigs.find(config => config.provider === providerId);
 	if (targetConfig === undefined) {

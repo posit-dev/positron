@@ -8,7 +8,6 @@ import * as positron from 'positron';
 import * as ai from 'ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createBedrockAnthropic, BedrockAnthropicProvider } from '@ai-sdk/amazon-bedrock/anthropic';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AttributedAwsCredentialIdentity, AwsCredentialIdentityProvider, AwsSdkCredentialsFeatures } from '@aws-sdk/types';
 import {
 	BedrockClient,
@@ -20,24 +19,15 @@ import {
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { getStoredModels, expandConfigToSource } from '../../config';
 import { ModelConfig } from '../../configTypes.js';
-import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
+import { DEFAULT_MAX_TOKEN_INPUT, IS_RUNNING_ON_PWB } from '../../constants';
 import { AssistantError } from '../../errors';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
-import { autoconfigureWithManagedCredentials, hasManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
 import { ErrorTemplates, getCredentialTypeDescription } from './errorFormatting';
 import { registerModelWithAPI } from '../../modelRegistration';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 import { ErrorContext } from '../base/errorContext.js';
-
-/**
- * Environment variables for AWS Bedrock configuration.
- */
-export interface BedrockProviderVariables {
-	AWS_REGION?: string;
-	AWS_PROFILE?: string;
-}
 
 /**
  * AWS Bedrock model provider implementation.
@@ -134,16 +124,11 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: PROVIDER_METADATA.amazonBedrock,
-		supportedOptions: ['toolCalls', 'autoconfigure'],
+		supportedOptions: ['toolCalls'],
 		defaults: {
 			name: 'Claude 4 Sonnet Bedrock',
 			model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 			toolCalls: true,
-			autoconfigure: {
-				type: positron.ai.LanguageModelAutoconfigureType.Custom,
-				message: 'Automatically configured using AWS credentials',
-				signedIn: false
-			},
 		},
 	};
 
@@ -171,29 +156,50 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	/**
 	 * Initializes the AWS Bedrock provider with credentials and region settings.
 	 */
-	protected override initializeProvider() {
-		// Get environment settings from VS Code configuration
-		const environmentSettings = vscode.workspace
-			.getConfiguration('positron.assistant.providerVariables')
-			.get<BedrockProviderVariables>('bedrock', {});
-
-		this.logger.debug(
-			`positron.assistant.providerVariables.bedrock settings: ${JSON.stringify(environmentSettings)}`
+	/**
+	 * Gets AWS credentials from the auth extension session.
+	 */
+	private async getBedrockSession(): Promise<{
+		accessKeyId: string;
+		secretAccessKey: string;
+		sessionToken?: string;
+	}> {
+		const session = await vscode.authentication.getSession(
+			'aws', [], { silent: true }
 		);
+		if (!session) {
+			throw new Error('No AWS credentials available');
+		}
+		return JSON.parse(session.accessToken);
+	}
 
-		// Merge environment variables with configuration settings
-		const { AWS_REGION, AWS_PROFILE }: BedrockProviderVariables = {
-			...process.env as BedrockProviderVariables,
-			...environmentSettings
+	protected override initializeProvider() {
+		// Create a credential provider that fetches fresh credentials
+		// from the auth extension on each SDK request.
+		const credentials: AwsCredentialIdentityProvider = async () => {
+			const creds = await this.getBedrockSession();
+			return {
+				accessKeyId: creds.accessKeyId,
+				secretAccessKey: creds.secretAccessKey,
+				sessionToken: creds.sessionToken,
+			};
 		};
 
-		const region = AWS_REGION ?? 'us-east-1';
-		// Only use profile if explicitly configured; omit for OIDC/environment credentials
-		const profile = AWS_PROFILE;
-		const credentials = fromNodeProviderChain(profile ? { profile } : {});
+		// Get region/profile from the auth session for SDK client init.
+		// These are resolved synchronously by the auth provider from
+		// settings/env, so we read them via the same settings here.
+		const providerVars = vscode.workspace
+			.getConfiguration('authentication.aws')
+			.get<{ AWS_PROFILE?: string; AWS_REGION?: string }>(
+				'credentials', {}
+			);
+		const region = providerVars.AWS_REGION
+			?? process.env.AWS_REGION ?? 'us-east-1';
+		const profile = providerVars.AWS_PROFILE
+			?? process.env.AWS_PROFILE;
 
 		const inferenceProfileRegion = vscode.workspace
-			.getConfiguration('positron.assistant.bedrock')
+			.getConfiguration('authentication.aws')
 			.get<string>('inferenceProfileRegion');
 
 		if (inferenceProfileRegion) {
@@ -213,7 +219,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		});
 
 		// Cache managed credential state once to avoid repeated checks per error
-		this._isManagedCredential = hasManagedCredentials(AWS_MANAGED_CREDENTIALS);
+		this._isManagedCredential = IS_RUNNING_ON_PWB;
 
 		this.logger.info(
 			`Using AWS region: ${region}, profile: ${profile ?? '(not set, using default)'}, ` +
@@ -763,17 +769,4 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		}
 	}
 
-	/**
-	 * Autoconfigures the AWS Bedrock provider using managed credentials.
-	 * This method checks for managed credentials on Posit Workbench.
-	 *
-	 * @returns A promise that resolves to the autoconfigure result.
-	 */
-	static override async autoconfigure() {
-		return await autoconfigureWithManagedCredentials(
-			AWS_MANAGED_CREDENTIALS,
-			AWSModelProvider.source.provider.id,
-			AWSModelProvider.source.provider.displayName
-		);
-	}
 }

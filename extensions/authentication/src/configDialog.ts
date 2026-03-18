@@ -8,6 +8,29 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { ApiKeyAuthenticationProvider } from './apiKeyProvider';
 import { log } from './log';
+import {
+	hasManagedCredentials, AWS_MANAGED_CREDENTIALS,
+	FOUNDRY_MANAGED_CREDENTIALS, ManagedCredentialConfig,
+} from './managedCredentials';
+
+/**
+ * Maps model provider IDs to auth provider IDs when they differ.
+ * Sources arrive from positron-assistant with model provider IDs;
+ * the auth extension registers providers under auth provider IDs.
+ */
+const MODEL_TO_AUTH_ID: Record<string, string> = {
+	'amazon-bedrock': 'aws',
+};
+
+/** Resolve a source/config provider ID to the auth provider ID. */
+function resolveAuthId(providerId: string): string {
+	return MODEL_TO_AUTH_ID[providerId] ?? providerId;
+}
+
+const MANAGED_CREDENTIAL_MAP: Record<string, ManagedCredentialConfig> = {
+	'aws': AWS_MANAGED_CREDENTIALS,
+	'ms-foundry': FOUNDRY_MANAGED_CREDENTIALS,
+};
 
 export interface ConfigDialogResult {
 	action: string;
@@ -15,36 +38,65 @@ export interface ConfigDialogResult {
 	accountId?: string;
 }
 
-export const apiKeyProviders = new Map<string, ApiKeyAuthenticationProvider>();
+/**
+ * Registry of auth providers keyed by auth provider ID.
+ */
+const authProviders = new Map<string, vscode.AuthenticationProvider>();
 
 /**
- * Register an API key provider so the config dialog can store/remove
- * credentials through it.
+ * Register an auth provider so the config dialog can check credential
+ * state, sign in, and sign out.
  */
-export function registerApiKeyProvider(
-	providerId: string,
-	provider: ApiKeyAuthenticationProvider
+export function registerAuthProvider(
+	authProviderId: string,
+	provider: vscode.AuthenticationProvider
 ): void {
-	apiKeyProviders.set(providerId, provider);
+	authProviders.set(authProviderId, provider);
 }
 
 /**
- * Enrich sources with credential state from registered authentication providers.
- * For each source whose provider.id matches a registered auth provider, check
- * whether a session exists and set signedIn accordingly.
+ * Get the API key provider for a given auth provider ID, if it is one.
+ * Used by the migrateApiKey command which needs the typed provider.
  */
+export function getApiKeyProvider(
+	authProviderId: string
+): ApiKeyAuthenticationProvider | undefined {
+	const provider = authProviders.get(authProviderId);
+	if (provider instanceof ApiKeyAuthenticationProvider) {
+		return provider;
+	}
+	return undefined;
+}
+
 async function enrichWithCredentialState(
 	sources: positron.ai.LanguageModelSource[]
 ): Promise<positron.ai.LanguageModelSource[]> {
 	return Promise.all(sources.map(async (source) => {
-		if (!apiKeyProviders.has(source.provider.id)) {
+		const authId = resolveAuthId(source.provider.id);
+		const provider = authProviders.get(authId);
+		if (!provider || source.signedIn) {
 			return source;
 		}
 		try {
 			const session = await vscode.authentication.getSession(
-				source.provider.id, [], { silent: true }
+				authId, [], { silent: true }
 			);
 			if (session) {
+				const managedConfig = MANAGED_CREDENTIAL_MAP[authId];
+				if (managedConfig && hasManagedCredentials(managedConfig)) {
+					return {
+						...source,
+						signedIn: true,
+						defaults: {
+							...source.defaults,
+							autoconfigure: {
+								type: positron.ai.LanguageModelAutoconfigureType.Custom,
+								message: managedConfig.displayName,
+								signedIn: true,
+							}
+						},
+					};
+				}
 				return { ...source, signedIn: true };
 			}
 		} catch (err) {
@@ -60,10 +112,9 @@ async function enrichWithCredentialState(
  * sources with credential state from this extension's auth providers, then
  * delegates to the core modal.
  *
- * For providers with a registered auth provider, credential storage and
- * removal are handled directly within this callback. For all other
- * providers the action is recorded and returned so the caller can handle
- * model lifecycle.
+ * Sources arrive with model provider IDs (e.g. 'amazon-bedrock').
+ * The auth extension maps these to auth provider IDs internally via
+ * `resolveAuthId` for provider lookups and session checks.
  *
  * Called via `vscode.commands.executeCommand('authentication.configureProviders', sources, options)`.
  */
@@ -80,20 +131,31 @@ export async function showConfigurationDialog(
 		enrichedSources,
 		async (config, action) => {
 			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
+			const authId = resolveAuthId(config.provider);
+			const provider = authProviders.get(authId);
 			switch (action) {
 				case 'save': {
-					if (apiKeyProviders.has(config.provider)) {
-						const accountId = await handleSave(config);
+					if (provider instanceof ApiKeyAuthenticationProvider && config.apiKey?.trim()) {
+						const accountId = await handleApiKeySave(config, provider);
+						// Persist baseUrl to auth extension settings
+						if (config.provider === 'ms-foundry' && config.baseUrl?.trim()) {
+							await vscode.workspace
+								.getConfiguration('authentication.foundry')
+								.update('baseUrl', config.baseUrl.trim(), vscode.ConfigurationTarget.Global);
+						}
 						results.push({ action, config, accountId });
+					} else if (provider && !(provider instanceof ApiKeyAuthenticationProvider)) {
+						// Non-API-key providers (e.g. AWS) resolve
+						// credentials via createSession without prompts.
+						await handleSignIn(config, provider);
+						results.push({ action, config });
 					} else {
 						results.push({ action, config });
 					}
 					break;
 				}
 				case 'delete':
-					if (apiKeyProviders.has(config.provider)) {
-						await handleDelete(config);
-					}
+					await handleDelete(config, provider);
 					results.push({ action, config });
 					break;
 				case 'oauth-signin':
@@ -119,38 +181,44 @@ export async function showConfigurationDialog(
 	return results;
 }
 
-/**
- * Store the API key credential. Returns the generated account ID so the
- * caller can use it for model registration.
- */
-async function handleSave(
-	config: positron.ai.LanguageModelConfig
+async function handleApiKeySave(
+	config: positron.ai.LanguageModelConfig,
+	provider: ApiKeyAuthenticationProvider
 ): Promise<string> {
-	const provider = apiKeyProviders.get(config.provider);
-	if (!provider) {
-		throw new Error(
-			vscode.l10n.t('No auth provider registered for {0}', config.provider)
-		);
-	}
 	const apiKey = config.apiKey?.trim();
 	if (!apiKey) {
 		throw new Error(vscode.l10n.t('API key is required'));
 	}
+
+	// Remove existing sessions so we don't accumulate stale credentials.
+	const existing = await provider.getSessions();
+	for (const session of existing) {
+		await provider.removeSession(session.id);
+	}
+
 	const accountId = randomUUID();
 	log.info(`Saving credential for provider "${config.provider}", name "${config.name}" (${accountId})`);
 	await provider.storeKey(accountId, config.name, apiKey);
 	return accountId;
 }
 
-async function handleDelete(
-	config: positron.ai.LanguageModelConfig
+async function handleSignIn(
+	config: positron.ai.LanguageModelConfig,
+	provider: vscode.AuthenticationProvider
 ): Promise<void> {
-	const provider = apiKeyProviders.get(config.provider);
+	log.info(`Re-resolving credentials for provider "${config.provider}"`);
+	await provider.createSession([], {});
+}
+
+async function handleDelete(
+	config: positron.ai.LanguageModelConfig,
+	provider: vscode.AuthenticationProvider | undefined
+): Promise<void> {
 	if (!provider) {
 		log.warn(`handleDelete: no auth provider for "${config.provider}"`);
 		return;
 	}
-	const sessions = await provider.getSessions();
+	const sessions = await provider.getSessions([], {});
 	log.info(`Deleting ${sessions.length} session(s) for provider "${config.provider}"`);
 	for (const session of sessions) {
 		await provider.removeSession(session.id);
