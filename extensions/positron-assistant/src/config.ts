@@ -286,7 +286,17 @@ async function saveModel(
 			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
 		);
 	} catch (error) {
-		if (!options?.skipSecretStorage) {
+		if (options?.skipSecretStorage && isAuthExtProvider(newConfig.provider)) {
+			// Clean up the auth extension session that was eagerly stored
+			// during the config dialog's handleSave callback
+			try {
+				await vscode.commands.executeCommand(
+					'authentication.removeSession', newConfig.provider, id
+				);
+			} catch {
+				// Ignore cleanup errors
+			}
+		} else if (!options?.skipSecretStorage) {
 			await context.secrets.delete(`apiKey-${id}`);
 		}
 		await context.globalState.update(

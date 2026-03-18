@@ -39,6 +39,17 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				await provider.storeKey(accountId, label, key);
 			}
+		),
+		vscode.commands.registerCommand(
+			'authentication.removeSession',
+			async (providerId: string, accountId: string) => {
+				const provider = apiKeyProviders.get(providerId);
+				if (!provider) {
+					log.warn(`removeSession: no auth provider for "${providerId}"`);
+					return;
+				}
+				await provider.removeSession(accountId);
+			}
 		)
 	);
 }
