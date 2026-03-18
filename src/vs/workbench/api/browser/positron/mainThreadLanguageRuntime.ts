@@ -1867,29 +1867,6 @@ export class MainThreadLanguageRuntime
 		// Revive the URI from the serialized form, if provided.
 		const revivedUri = documentUri ? URI.revive(documentUri) : undefined;
 
-		// If a document URI is provided, notify the backend that code is being executed from a file.
-		// This allows the backend to temporarily add the file's directory to sys.path.
-		if (revivedUri) {
-			// Determine which session(s) to notify:
-			// - If a specific sessionId is provided, only notify that session
-			// - Otherwise, only notify sessions matching the languageId
-			const activeSessions = this._runtimeSessionService.getActiveSessions();
-			for (const activeSession of activeSessions) {
-				const shouldNotify = sessionId
-					? activeSession.session.sessionId === sessionId
-					: activeSession.session.runtimeMetadata.languageId === languageId;
-
-				if (shouldNotify && activeSession.uiClient) {
-					try {
-						await activeSession.uiClient.editorContextChanged(revivedUri.toString(), true);
-					} catch (err) {
-						// Log but don't fail the execution if notification fails
-						console.warn(`Failed to send editor context changed: ${err}`);
-					}
-				}
-			}
-		}
-
 		// Attribute this code to the extension that requested it. If a document
 		// URI is provided, use Script attribution so that the code location is
 		// forwarded to the kernel (e.g. for plot file attribution).

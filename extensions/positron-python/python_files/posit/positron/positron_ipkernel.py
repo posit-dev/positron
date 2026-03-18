@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import enum
 import json
 import logging
@@ -17,6 +16,7 @@ import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
+from urllib.parse import unquote, urlparse
 
 import psutil
 import traitlets
@@ -496,28 +496,39 @@ class PositronShell(ZMQInteractiveShell):
 
     def _add_editor_dir_to_sys_path(self) -> str | None:
         """
-        Add the directory of the last active editor to sys.path.
+        Add the directory of the executed file to sys.path.
 
-        Only adds the path if it differs from the working directory and code is being
-        executed from a file. This only adds the path when is_execution_source is True,
-        which indicates that code is being executed from a script file (not typed in
-        the console).
+        Uses `code_location` from the execute request's positron metadata to
+        determine the source file. Only adds the path if it differs from the
+        working directory and isn't already in sys.path.
 
         Returns the path that was added, or None if no path was added.
         """
         try:
-            ui_service = self.kernel.ui_service
-
-            # Only add to sys.path when executing code from a file
-            if not ui_service.is_execution_source:
+            parent: dict[str, Any] = self.kernel.get_parent("shell")
+            content = parent.get("content", {})
+            metadata = content.get("positron", {})
+            code_location = metadata.get("code_location")
+            if not code_location:
                 return None
 
-            editor_path = ui_service.get_editor_file_path()
-            if editor_path is None:
+            editor_uri = urlparse(code_location.get("uri", ""))
+            if editor_uri.scheme != "file":
                 return None
 
-            editor_dir = str(editor_path.parent)
-            working_dir = str(ui_service.working_directory or Path.cwd())
+            editor_path = unquote(editor_uri.path)
+
+            # On Windows, file URIs like file:///C:/path result in /C:/path after parsing
+            if (
+                len(editor_path) >= 3
+                and editor_path[0] == "/"
+                and editor_path[1].isalpha()
+                and editor_path[2] == ":"
+            ):
+                editor_path = editor_path[1:]
+
+            editor_dir = str(Path(editor_path).parent)
+            working_dir = str(self.kernel.ui_service.working_directory or Path.cwd())
 
             # If editor directory differs from working directory, add to sys.path
             if editor_dir != working_dir and editor_dir not in sys.path:
@@ -539,10 +550,6 @@ class PositronShell(ZMQInteractiveShell):
                 pass  # Already removed
             finally:
                 self._editor_path_added = None
-
-        # Clear the execution source flag
-        with contextlib.suppress(Exception):
-            self.kernel.ui_service.clear_execution_source()
 
     async def _stop(self):
         # Initiate the kernel shutdown sequence.
