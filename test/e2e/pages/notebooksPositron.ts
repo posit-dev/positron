@@ -408,9 +408,13 @@ export class PositronNotebooks extends Notebooks {
 				// so the mouse move doesn't trigger dnd-kit's auto-scroll
 				// (which shifts cell positions mid-move).
 				const targetCell = this.sortableCellAtIndex(toIndex);
+				const handle = await targetCell.elementHandle();
+				if (!handle) {
+					throw new Error('Could not get element handle for target cell');
+				}
 				await page.evaluate(
-					(el) => el!.scrollIntoView({ block: 'center' }),
-					await targetCell.elementHandle()
+					(el) => el.scrollIntoView({ block: 'center' }),
+					handle
 				);
 
 				const targetBox = await targetCell.boundingBox();
@@ -427,10 +431,12 @@ export class PositronNotebooks extends Notebooks {
 
 				await page.mouse.move(startX, targetY, { steps: 10 });
 
-				// Wait for the drop indicator to appear, confirming dnd-kit has
-				// processed the final pointer position and computed the drop target.
+				// Wait for dnd-kit to process the pointer position. The drop
+				// indicator appears for real moves; for no-op positions (cell
+				// dropped back where it started) the noop highlight appears
+				// instead. Accept either signal.
 				await expect(
-					page.locator('.drag-drop-indicator')
+					page.locator('.drag-drop-indicator, .sortable-cell-noop')
 				).toBeVisible({ timeout: 2000 });
 			} finally {
 				await page.mouse.up();
@@ -505,14 +511,14 @@ export class PositronNotebooks extends Notebooks {
 				return { reachable: false };
 			};
 
-			const dropIndicator = this.code.driver.page.locator('.drag-drop-indicator');
+			const dropSignal = this.code.driver.page.locator('.drag-drop-indicator, .sortable-cell-noop');
 
 			try {
 				// First check if target is already visible (no scrolling needed)
 				const initialCheck = await isTargetReachable();
 				if (initialCheck.reachable && initialCheck.targetY !== undefined) {
 					await this.code.driver.page.mouse.move(startX, initialCheck.targetY, { steps: 10 });
-					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
+					await expect(dropSignal).toBeVisible({ timeout: 2000 });
 					return;
 				}
 
@@ -535,7 +541,7 @@ export class PositronNotebooks extends Notebooks {
 				const finalCheck = await isTargetReachable();
 				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
 					await this.code.driver.page.mouse.move(startX, finalCheck.targetY, { steps: 10 });
-					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
+					await expect(dropSignal).toBeVisible({ timeout: 2000 });
 					return;
 				}
 
