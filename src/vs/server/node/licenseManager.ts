@@ -42,6 +42,9 @@ function validateLicenseStatus(result: LicenseCommandResult): void {
 	}
 }
 
+/**
+ * Wrapper for executing license-manager binary commands.
+ */
 class LicenseManager {
 	constructor(private readonly licenseManagerPath: string) { }
 
