@@ -370,14 +370,12 @@ export class ArkLsp implements vscode.Disposable {
 		// Register the statement range and help topic providers with a
 		// selector appropriate for the session type:
 		// - Console sessions: register for 'r' to cover all R documents
-		// - Notebook sessions: register for 'r' but only matching vdoc
-		//   files (Quarto virtual documents). The Quarto extension's
-		//   statement range provider for 'quarto' language delegates to
-		//   'r' providers via vdocs. We must not match regular .r script
-		//   files to avoid competing with the console session's provider
-		//   for files that aren't synced to the notebook LSP.
+		// - Notebook sessions: register for vdoc files (Quarto virtual
+		//   documents) and notebook cells. We must not match regular .r
+		//   script files to avoid competing with the console session's
+		//   provider for files that aren't synced to the notebook LSP.
 		const selector: vscode.DocumentSelector = this._metadata.notebookUri
-			? [VDOC_SELECTOR]
+			? [VDOC_SELECTOR, { language: 'r', scheme: 'vscode-notebook-cell' }]
 			: 'r';
 
 		const rangeDisposable = positron.languages.registerStatementRangeProvider(selector,

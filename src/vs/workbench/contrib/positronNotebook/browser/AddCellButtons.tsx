@@ -26,7 +26,7 @@ export function AddCellButtons({ index }: { index: number }) {
 		'positron-add-cell-buttons',
 		{ 'drop-target': showIndicator },
 	)}>
-		{showIndicator && <div className='drag-drop-indicator' />}
+		{showIndicator && <div className='drag-drop-indicator' data-testid='drop-indicator' />}
 		<AddCodeCellButton bordered index={index} notebookInstance={notebookInstance} />
 		<AddMarkdownCellButton bordered index={index} notebookInstance={notebookInstance} />
 	</div>;

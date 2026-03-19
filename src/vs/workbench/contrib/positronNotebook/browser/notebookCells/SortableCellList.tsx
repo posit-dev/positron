@@ -29,6 +29,9 @@ import {
 import * as DOM from '../../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
+/** Minimum pointer distance (px) before a drag activates. Exported so e2e tests can reference the same value. */
+export const DRAG_ACTIVATION_DISTANCE_PX = 10;
+
 interface SortableCellListProps {
 	cells: IPositronNotebookCell[];
 	onReorder: (cells: IPositronNotebookCell[], targetIndex: number) => void;
@@ -81,11 +84,11 @@ export function SortableCellList({
 	const [isDropNoOp, setIsDropNoOp] = React.useState(false);
 	const isDropNoOpRef = React.useRef(false);
 
-	// Require 10px movement before drag starts (prevents accidental drags)
+	// Require movement before drag starts (prevents accidental drags)
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
 			activationConstraint: {
-				distance: 10,
+				distance: DRAG_ACTIVATION_DISTANCE_PX,
 			},
 		}),
 		useSensor(KeyboardSensor, {

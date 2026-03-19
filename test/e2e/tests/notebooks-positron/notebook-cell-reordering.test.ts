@@ -171,7 +171,7 @@ test.describe('Notebook Cell Reordering', {
 		await notebooksPositron.expectDragHandleVisibility(0, true);
 	});
 
-	test.skip('Drag-and-drop: swap 1st and 2nd cell', async function ({ app }) {
+	test('Drag-and-drop: swap 1st and 2nd cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Setup: Create notebook with 3 cells
@@ -349,7 +349,7 @@ test.describe('Notebook Cell Reordering', {
 		await notebooksPositron.expectCellCountToBe(5);
 	});
 
-	test.skip('Multi-drag: single cell drag ignores multi-selection when dragging unselected cell', async function ({ app }) {
+	test('Multi-drag: single cell drag ignores multi-selection when dragging unselected cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
