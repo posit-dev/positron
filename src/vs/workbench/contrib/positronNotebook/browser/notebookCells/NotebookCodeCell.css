@@ -14,6 +14,13 @@
 	.positron-notebook-outputs-section {
 		position: relative;
 
+		/* Show scrollbar when hovering anywhere in the output section (including the
+		 * action bar), not just the scrollable container itself. */
+		&:hover .positron-notebook-scrollable-fade {
+			--_positron-notebook-scrollbar-thumb-bg: var(--vscode-scrollbarSlider-background);
+			transition: --_positron-notebook-scrollbar-thumb-bg 100ms linear;
+		}
+
 		&.no-outputs {
 			/* Dont show empty outputs at all */
 			display: none;

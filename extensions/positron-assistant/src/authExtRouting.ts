@@ -48,6 +48,22 @@ export async function getApiKey(
 			providerLogger.logAuthentication('success', 'via Authentication extension');
 			return session.accessToken;
 		}
+
+		const fallbackAccounts = await vscode.authentication.getAccounts(providerId);
+		for (const fallbackAccount of fallbackAccounts) {
+			const fallbackSession = await vscode.authentication.getSession(
+				providerId,
+				[],
+				{ silent: true, account: { id: fallbackAccount.id, label: '' } }
+			);
+			if (fallbackSession?.accessToken) {
+				providerLogger.logAuthentication('success', 'via Authentication extension fallback account session');
+				return fallbackSession.accessToken;
+			}
+		}
+		if (fallbackAccounts.length === 0) {
+			providerLogger.warn(`Requested auth account no longer exists: ${accountId}`);
+		}
 	} catch (err) {
 		providerLogger.warn(`Failed to read auth session for ${accountId}`, err);
 	}

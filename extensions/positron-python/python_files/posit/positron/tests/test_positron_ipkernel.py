@@ -8,12 +8,11 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Tuple, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-import IPython
 import pytest
 from ipykernel.compiler import get_tmp_directory
-from IPython.core import ultratb
+from IPython.core import release, ultratb
 from IPython.utils.syspathcontext import prepended_to_syspath
 
 from positron.access_keys import encode_access_key
@@ -28,6 +27,8 @@ try:
     import lightning
 except ImportError:
     lightning = None
+
+_IPYTHON_AT_LEAST_9 = cast("Tuple[int, int]", release.version_info[:2]) >= (9, 0)
 
 # The idea for these tests is to mock out communications with Positron
 # via our various comms, and only test IPython interactions. For
@@ -219,7 +220,7 @@ def traceback_result(
 
 
 @pytest.mark.xfail(
-    cast("Tuple[int, int]", (IPython.version_info[:2])) >= (9, 0),
+    _IPYTHON_AT_LEAST_9,
     reason="IPython >= 9.0.0 does not support the old traceback format",
 )
 def test_console_traceback(shell: PositronShell, traceback_result) -> None:
@@ -267,7 +268,7 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
 
 
 @pytest.mark.xfail(
-    cast("Tuple[int, int]", (IPython.version_info[:2])) < (9, 0),
+    not _IPYTHON_AT_LEAST_9,
     reason="IPython < 9.0.0 does not support the new traceback format",
 )
 def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
@@ -455,10 +456,9 @@ class TestEditorSysPath:
         test_file = editor_dir / "test_module.py"
         test_file.write_text("x = 42")
 
-        # Set the editor context to the test file with is_execution_source=True
+        # Set up the parent message with code_location pointing to the test file
         editor_uri = test_file.as_uri()
-        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
-        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
+        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Ensure we're in a different directory
         original_cwd = Path.cwd()
@@ -469,7 +469,8 @@ class TestEditorSysPath:
             sys.path.remove(str(editor_dir))
 
         # Add the path (simulates pre_run_cell)
-        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+        with patch.object(shell.kernel, "get_parent", return_value=parent):
+            added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Check that editor_dir was added to sys.path
         assert added_path == str(editor_dir)
@@ -492,17 +493,17 @@ class TestEditorSysPath:
         cwd = Path.cwd()
         test_file = cwd / "test_file_in_cwd.py"
 
-        # Set the editor context to a file in cwd with is_execution_source=True
+        # Set up the parent message with code_location pointing to a file in cwd
         editor_uri = test_file.as_uri()
-        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
-        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
+        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Count how many times cwd appears in sys.path before
         cwd_str = str(cwd)
         count_before = sys.path.count(cwd_str)
 
         # Try to add the path
-        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+        with patch.object(shell.kernel, "get_parent", return_value=parent):
+            added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything since it's the cwd
         assert added_path is None
@@ -511,17 +512,18 @@ class TestEditorSysPath:
         count_after = sys.path.count(cwd_str)
         assert count_after == count_before
 
-    def test_no_editor_context(self, shell: PositronShell) -> None:
-        """Test that nothing happens when no editor context is set."""
+    def test_no_code_location(self, shell: PositronShell) -> None:
+        """Test that nothing happens when no code_location is in the execute request."""
         import sys
 
-        # Ensure no editor context
-        shell.kernel.ui_service._last_active_editor_uri = ""  # noqa: SLF001
+        # Parent message without positron metadata (e.g. console input)
+        parent = {"content": {}}
 
         sys_path_before = sys.path.copy()
 
         # Try to add the path
-        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+        with patch.object(shell.kernel, "get_parent", return_value=parent):
+            added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything
         assert added_path is None
@@ -533,14 +535,14 @@ class TestEditorSysPath:
         """Test that non-file URIs are ignored."""
         import sys
 
-        # Set a non-file URI with is_execution_source=True
-        shell.kernel.ui_service._last_active_editor_uri = "untitled:Untitled-1"  # noqa: SLF001
-        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
+        # code_location with a non-file URI
+        parent = {"content": {"positron": {"code_location": {"uri": "untitled:Untitled-1"}}}}
 
         sys_path_before = sys.path.copy()
 
         # Try to add the path
-        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+        with patch.object(shell.kernel, "get_parent", return_value=parent):
+            added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything
         assert added_path is None
@@ -575,10 +577,9 @@ class TestEditorSysPath:
         test_module = editor_dir / "my_test_module.py"
         test_module.write_text("TEST_VALUE = 'hello from module'")
 
-        # Set the editor context to the test module with is_execution_source=True
+        # Set up the parent message with code_location pointing to the test module
         editor_uri = test_module.as_uri()
-        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
-        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
+        parent = {"content": {"positron": {"code_location": {"uri": editor_uri}}}}
 
         # Remove editor_dir from sys.path if present
         while str(editor_dir) in sys.path:
@@ -588,8 +589,9 @@ class TestEditorSysPath:
         assert str(editor_dir) not in sys.path
 
         # Run a cell that imports the module - this should work because
-        # _handle_pre_run_cell adds the editor directory
-        result = shell.run_cell("import my_test_module; value = my_test_module.TEST_VALUE")
+        # _handle_pre_run_cell adds the editor directory via code_location
+        with patch.object(shell.kernel, "get_parent", return_value=parent):
+            result = shell.run_cell("import my_test_module; value = my_test_module.TEST_VALUE")
         result.raise_error()
 
         # Check that the import worked
@@ -605,10 +607,10 @@ class TestEditorSysPath:
         if "my_test_module" in sys.modules:
             del sys.modules["my_test_module"]
 
-    def test_does_not_add_path_when_not_execution_source(
+    def test_does_not_add_path_without_code_location(
         self, shell: PositronShell, tmp_path: Path
     ) -> None:
-        """Test that sys.path is NOT modified when is_execution_source is False."""
+        """Test that sys.path is NOT modified when there is no code_location."""
         import sys
 
         # Create a test file in a different directory
@@ -617,11 +619,8 @@ class TestEditorSysPath:
         test_file = editor_dir / "test_module.py"
         test_file.write_text("x = 42")
 
-        # Set the editor context with is_execution_source=False
-        # (simulates just switching editor focus, not executing from file)
-        editor_uri = test_file.as_uri()
-        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
-        shell.kernel.ui_service._is_execution_source = False  # noqa: SLF001
+        # Parent message without code_location (e.g. code typed in console)
+        parent = {"content": {}}
 
         # Ensure we're in a different directory
         original_cwd = Path.cwd()
@@ -634,9 +633,10 @@ class TestEditorSysPath:
         sys_path_before = sys.path.copy()
 
         # Try to add the path
-        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+        with patch.object(shell.kernel, "get_parent", return_value=parent):
+            added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
-        # Should not have added anything since is_execution_source is False
+        # Should not have added anything since there is no code_location
         assert added_path is None
 
         # sys.path should be unchanged

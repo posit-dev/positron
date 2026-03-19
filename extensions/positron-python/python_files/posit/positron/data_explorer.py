@@ -2143,8 +2143,8 @@ def _polars_summarize_object(
 
 
 def _polars_summarize_boolean(col: pl.Series, _):
-    null_count = col.is_null().sum()
-    true_count = col.sum()
+    null_count = int(col.is_null().sum())
+    true_count = int(col.sum())
     false_count = len(col) - true_count - null_count
     return _box_boolean_stats(true_count, false_count)
 

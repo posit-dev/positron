@@ -100,7 +100,7 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	 * @param newSession Whether this is a new session.
 	 */
 	public fireWillAutoStartRuntime(runtime: ILanguageRuntimeMetadata, newSession: boolean): void {
-		this._onWillAutoStartRuntimeEmitter.fire({ runtime, newSession });
+		this._onWillAutoStartRuntimeEmitter.fire({ runtime, newSession, activate: true });
 	}
 
 	/**
