@@ -348,7 +348,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			return;
 		}
 
-		//If the active editor is another type of editor (e.g. data viewer, plot viewer, etc.) - nothing to do
+		// If the active editor is another type of editor (e.g. data viewer, plot viewer, etc.) - nothing to do
 		const activeCodeEditor = this._codeEditorService.getActiveCodeEditor();
 		if (!activeCodeEditor) {
 			return;
