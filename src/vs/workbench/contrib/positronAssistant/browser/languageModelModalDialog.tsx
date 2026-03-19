@@ -127,7 +127,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	// Each provider source contains the info needed to populate the modal UI with provider details, such as
 	// the provider ID, auth methods and whether the user is signed in or not with the provider.
 	const [providerSources, setProviderSources] = useState<IPositronLanguageModelSource[]>(providers);
-	const trackedProviderIdsRef = useRef<string[]>(providers.map(source => source.provider.id));
 
 	// Update the provider sources when the service emits a change to the language model config.
 	// This occurs when a user signs in or out of a provider.
@@ -160,7 +159,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		const authService = props.renderer.services.get(IAuthenticationService);
 		const disposable = syncAuthSessions(
 			authService,
-			trackedProviderIdsRef.current,
+			providers.map(source => source.provider.id),
 			(providerId, signedIn) => {
 				setProviderSources(prevSources => {
 					const index = prevSources.findIndex(source => source.provider.id === providerId);
@@ -177,7 +176,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			}
 		);
 		return () => disposable.dispose();
-	}, [props.renderer.services]);
+	}, [props.renderer.services, providers]);
 
 	// Keep selectedProvider in sync with providerSources
 	useEffect(() => {
