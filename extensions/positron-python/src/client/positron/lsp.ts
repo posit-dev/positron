@@ -380,14 +380,14 @@ export class PythonLsp implements vscode.Disposable {
         // Register the statement range and help topic providers with a
         // selector appropriate for the session type:
         // - Console sessions: register for 'python' to cover all Python documents
-        // - Notebook sessions: register for 'python' but only matching vdoc
-        //   files (Quarto virtual documents). The Quarto extension's
-        //   statement range provider for 'quarto' language delegates to
-        //   'python' providers via vdocs. We must not match regular .py
+        // - Notebook sessions: register for vdoc files (Quarto virtual
+        //   documents) and notebook cells. We must not match regular .py
         //   script files to avoid competing with the console session's
         //   provider for files that aren't synced to the notebook LSP.
         const { notebookUri } = this._metadata;
-        const selector: vscode.DocumentSelector = notebookUri ? [VDOC_SELECTOR] : 'python';
+        const selector: vscode.DocumentSelector = notebookUri
+            ? [VDOC_SELECTOR, { language: 'python', scheme: 'vscode-notebook-cell' }]
+            : 'python';
 
         const rangeDisposable = positron.languages.registerStatementRangeProvider(
             selector,
