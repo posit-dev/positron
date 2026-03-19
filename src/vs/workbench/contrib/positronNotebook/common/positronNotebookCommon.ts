@@ -31,4 +31,5 @@ export enum PositronNotebookCellActionBarLeftGroup {
 export enum PositronNotebookCellOutputActionGroup {
 	Copy = '0_copy',
 	Visibility = '1_visibility',
+	Destructive = '2_destructive',
 }

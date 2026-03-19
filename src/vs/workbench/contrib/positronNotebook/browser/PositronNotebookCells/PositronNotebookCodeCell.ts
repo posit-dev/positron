@@ -51,6 +51,13 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			return this.parseCellOutputs();
 		});
 
+		// Reset collapse state when outputs are cleared so new outputs aren't born collapsed
+		this._register(this.model.onDidChangeOutputs(() => {
+			if (this.model.outputs.length === 0) {
+				this._outputIsCollapsed.set(false, undefined);
+			}
+		}));
+
 		// Execution timing observables
 		this.lastExecutionDuration = this._internalMetadata.map(({ runStartTime, runEndTime }) => {
 			/** @description lastExecutionDuration */
