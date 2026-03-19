@@ -10,7 +10,7 @@ import './actionBarMenuButton.css';
 import { PropsWithChildren, useEffect, useRef } from 'react';
 
 // Other dependencies.
-import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { disposeIfDisposable } from '../../../../base/common/lifecycle.js';
 import { ActionBarButton } from './actionBarButton.js';
 import { Icon } from '../../../action/common/action.js';
 import { IAction } from '../../../../base/common/actions.js';
@@ -21,23 +21,6 @@ import { MouseTrigger } from '../../../../base/browser/ui/positronComponents/but
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
-/**
- * Disposes all disposable actions in an array of actions.
- */
-const disposeDisposableActions = (actions: readonly IAction[]) => {
-	/**
-	 * Type guard to check if an action is disposable.
-	 */
-	const isDisposable = (action: IAction): action is IAction & IDisposable =>
-		'dispose' in action && typeof action.dispose === 'function';
-
-	// Dispose all actions that are disposable.
-	for (const action of actions) {
-		if (isDisposable(action)) {
-			action.dispose();
-		}
-	}
-};
 
 /**
  * ActionBarMenuButtonProps interface.
@@ -131,7 +114,7 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 				positronActionBarContext.setMenuShowing(false);
 
 				// Dispose all disposable actions.
-				disposeDisposableActions(actions);
+				disposeIfDisposable(actions);
 			},
 			anchorAlignment: props.align && props.align === 'right' ? AnchorAlignment.RIGHT : AnchorAlignment.LEFT,
 			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
@@ -157,7 +140,7 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 					await defaultAction?.run();
 
 					// Dispose all disposable actions.
-					disposeDisposableActions(actions);
+					disposeIfDisposable(actions);
 				}
 			}}
 		/>
