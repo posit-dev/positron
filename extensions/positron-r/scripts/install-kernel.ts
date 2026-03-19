@@ -338,6 +338,9 @@ async function downloadFromGitHubRepository(
 			throw new Error(`Invalid Ark repository: Cargo.toml not found at the repository root`);
 		}
 
+		console.log('Updating Rust toolchain...');
+		await executeCommand('rustup update stable');
+
 		console.log('Building Ark from source...');
 
 		const buildOutput = await executeCommand('cargo build --release', undefined, tempDir);
