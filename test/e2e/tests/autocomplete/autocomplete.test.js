@@ -164,12 +164,12 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }) 
  */
 async function triggerFirstAutocompleteInEditor({ app, session, expectedCount }) {
     const { sessions, hotKeys, editors } = app.workbench;
-    const keyboard = app.code.driver.page.keyboard;
+    const keyboard = app.code.driver.currentPage.keyboard;
     const triggerText = session.name.includes('Python') ? 'pd.DataF' : 'read_p';
     // Select session and wait for editor focus once, before the retry loop
     await sessions.select(session.id);
     await hotKeys.firstTab();
-    const editorInput = app.code.driver.page.locator('.editor-instance .monaco-editor .native-edit-context');
+    const editorInput = app.code.driver.currentPage.locator('.editor-instance .monaco-editor .native-edit-context');
     await (0, test_1.expect)(editorInput).toBeFocused();
     await (0, test_1.expect)(async () => {
         // Clear any previous attempt (Select All + Delete), no-op on empty file

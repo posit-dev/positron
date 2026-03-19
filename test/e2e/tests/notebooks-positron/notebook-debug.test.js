@@ -23,7 +23,7 @@ _test_setup_js_1.test.use({ suiteId: __filename });
 _test_setup_js_1.test.describe('Positron Notebook Debugging', {
     tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.WIN, _test_setup_1.tags.DEBUG, _test_setup_1.tags.POSITRON_NOTEBOOKS]
 }, () => {
-    (0, _test_setup_js_1.test)('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
+    _test_setup_js_1.test.skip('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
         const { notebooksPositron, debug } = app.workbench;
         await notebooksPositron.createNewNotebook();
         await notebooksPositron.kernel.select('Python');

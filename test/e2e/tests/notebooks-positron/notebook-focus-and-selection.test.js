@@ -199,7 +199,7 @@ _test_setup_js_1.test.describe('Notebook Focus and Selection', {
     // From MultiSelection: plain click on editor collapses to edit mode
     (0, _test_setup_js_1.test)('From multi-selection: click editor collapses to edit mode', async function ({ app }) {
         const { notebooksPositron } = app.workbench;
-        const keyboard = app.code.driver.page.keyboard;
+        const keyboard = app.code.driver.currentPage.keyboard;
         await notebooksPositron.newNotebook({ codeCells: 3 });
         await notebooksPositron.selectCellAtIndex(0, { editMode: false });
         await keyboard.press('Shift+ArrowDown');
@@ -213,7 +213,7 @@ _test_setup_js_1.test.describe('Notebook Focus and Selection', {
     // From MultiSelection: plain click on non-editor area collapses to single-select
     (0, _test_setup_js_1.test)('From multi-selection: click non-editor area collapses to single-select', async function ({ app }) {
         const { notebooksPositron } = app.workbench;
-        const keyboard = app.code.driver.page.keyboard;
+        const keyboard = app.code.driver.currentPage.keyboard;
         await notebooksPositron.newNotebook({ codeCells: 1, markdownCells: 2 });
         await notebooksPositron.selectCellAtIndex(0, { editMode: false });
         await keyboard.press('Shift+ArrowDown');
@@ -228,7 +228,7 @@ _test_setup_js_1.test.describe('Notebook Focus and Selection', {
     // From MultiSelection: shift-click adds to selection
     (0, _test_setup_js_1.test)('From multi-selection: shift-click adds cell to selection', async function ({ app }) {
         const { notebooksPositron } = app.workbench;
-        const keyboard = app.code.driver.page.keyboard;
+        const keyboard = app.code.driver.currentPage.keyboard;
         await notebooksPositron.newNotebook({ codeCells: 4 });
         await notebooksPositron.selectCellAtIndex(0, { editMode: false });
         await keyboard.press('Shift+ArrowDown');

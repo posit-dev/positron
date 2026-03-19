@@ -72,8 +72,7 @@ _test_setup_js_1.test.describe('Positron Notebooks: Inline Data Explorer', {
         });
     });
     (0, _test_setup_js_1.test)('Python - Verify open full Data Explorer and return to inline view', async function ({ app, hotKeys }) {
-        const { notebooksPositron, inlineDataExplorer, dataExplorer } = app.workbench;
-        const page = app.code.driver.currentPage;
+        const { notebooksPositron, inlineDataExplorer, dataExplorer, editors } = app.workbench;
         await _test_setup_js_1.test.step('Execute cell that returns a DataFrame', async () => {
             await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
         });
@@ -137,7 +136,7 @@ _test_setup_js_1.test.describe('Positron Notebooks: Inline Data Explorer', {
     });
     (0, _test_setup_js_1.test)('Python - Verify Variables pane reuses existing data explorer tab', async function ({ app }) {
         const { notebooksPositron, inlineDataExplorer, dataExplorer, editors, variables } = app.workbench;
-        const page = app.code.driver.page;
+        const page = app.code.driver.currentPage;
         await _test_setup_js_1.test.step('Execute cell and open full Data Explorer from inline view', async () => {
             await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
             await inlineDataExplorer.expectToBeVisible();
@@ -155,7 +154,7 @@ _test_setup_js_1.test.describe('Positron Notebooks: Inline Data Explorer', {
     });
     (0, _test_setup_js_1.test)('Python - Verify inline Open button reuses existing data explorer tab', async function ({ app }) {
         const { notebooksPositron, inlineDataExplorer, dataExplorer, editors } = app.workbench;
-        const page = app.code.driver.page;
+        const page = app.code.driver.currentPage;
         await _test_setup_js_1.test.step('Execute cell and open full Data Explorer from inline view', async () => {
             await notebooksPositron.addCodeToCell(0, createDataFrameCode, { run: true, waitForSpinner: true });
             await inlineDataExplorer.expectToBeVisible();

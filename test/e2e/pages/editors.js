@@ -70,9 +70,9 @@ class Editors {
         return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
     async waitForActiveTab(fileName, isDirty = false) {
-        const { page } = this.code.driver;
+        const { currentPage } = this.code.driver;
         const base = `.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"]`;
-        const active = page.locator(base);
+        const active = currentPage.locator(base);
         // Ensure we’re looking at exactly one active tab
         await (0, test_1.expect)(active).toHaveCount(1);
         await (0, test_1.expect)(active).toBeVisible();
@@ -111,11 +111,11 @@ class Editors {
         }).toPass();
     }
     async waitForTab(fileName, isDirty = false) {
-        const { page } = this.code.driver;
+        const { currentPage } = this.code.driver;
         const base = `.tabs-container div.tab${isDirty ? '.dirty' : ''}`;
         if (fileName instanceof RegExp) {
             // Find the *exact* data-resource-name of the first tab whose value matches the regex
-            const matchedName = await page.locator(`${base}[data-resource-name]`).evaluateAll((els, pattern) => {
+            const matchedName = await currentPage.locator(`${base}[data-resource-name]`).evaluateAll((els, pattern) => {
                 const rx = new RegExp(pattern.source, pattern.flags);
                 for (const el of els) {
                     const v = el.getAttribute('data-resource-name') || '';
@@ -128,11 +128,11 @@ class Editors {
             if (!matchedName) {
                 throw new Error(`No tab found with data-resource-name matching ${fileName}`);
             }
-            await (0, test_1.expect)(page.locator(`${base}[data-resource-name="${matchedName}"]`)).toBeVisible();
+            await (0, test_1.expect)(currentPage.locator(`${base}[data-resource-name="${matchedName}"]`)).toBeVisible();
         }
         else {
             // Original ends-with behavior for plain strings
-            await (0, test_1.expect)(page.locator(`${base}[data-resource-name$="${fileName}"]`)).toBeVisible();
+            await (0, test_1.expect)(currentPage.locator(`${base}[data-resource-name$="${fileName}"]`)).toBeVisible();
         }
     }
     async waitForSCMTab(fileName) {

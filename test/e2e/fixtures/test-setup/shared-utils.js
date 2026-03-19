@@ -1,6 +1,6 @@
 "use strict";
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -63,7 +63,7 @@ async function captureScreenshotOnError(app, logsPath, error) {
     console.error('Error occurred in fixture:', error);
     const screenshotPath = path_1.default.join(logsPath, 'fixture-failure.png');
     try {
-        const page = app.code?.driver?.page;
+        const page = app.code?.driver?.currentPage;
         if (page) {
             const screenshot = await page.screenshot({ path: screenshotPath });
             setFixtureScreenshot(screenshot);

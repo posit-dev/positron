@@ -128,9 +128,10 @@ class PlaywrightDriver {
     }
     /**
      * Get the accessibility snapshot of the current window.
+     * Returns an ARIA snapshot string representation of the page's accessibility tree.
      */
     async getAccessibilitySnapshot() {
-        return await this.page.accessibility.snapshot();
+        return await this.page.locator('body').ariaSnapshot();
     }
     /**
      * Click on an element using CSS selector with options.

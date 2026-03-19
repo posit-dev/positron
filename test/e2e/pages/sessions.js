@@ -69,22 +69,22 @@ class Sessions {
     get page() { return this.code.driver.currentPage; }
     // Session management and UI elements
     get quickPick() { return new SessionQuickPick(this.code, this); }
-    sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
-    sessionTabs = this.page.getByTestId(/console-tab/);
-    currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
-    sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
-    renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
-    deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
+    get sessions() { return this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/); }
+    get sessionTabs() { return this.page.getByTestId(/console-tab/); }
+    get currentSessionTab() { return this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') }); }
+    get sessionPicker() { return this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first(); }
+    get renameMenuItem() { return this.page.getByRole('menuitem', { name: 'Rename...' }); }
+    get deleteMenuItem() { return this.page.getByRole('menuitem', { name: 'Delete' }); }
     // Session status indicators
     activeStatus = (session) => session.locator(exports.ACTIVE_STATUS_ICON);
     idleStatus = (session) => session.locator(exports.IDLE_STATUS_ICON);
     disconnectedStatus = (session) => session.locator(exports.DISCONNECTED_STATUS_ICON);
-    activeStatusIcon = this.page.locator(exports.ACTIVE_STATUS_ICON);
+    get activeStatusIcon() { return this.page.locator(exports.ACTIVE_STATUS_ICON); }
     // Session Metadata
-    metadataButton = this.page.getByRole('button', { name: 'Console information' });
-    metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info').first();
+    get metadataButton() { return this.page.getByRole('button', { name: 'Console information' }); }
+    get metadataDialog() { return this.page.getByRole('dialog').locator('.console-instance-info').first(); }
     consoleInstance = (sessionId) => this.page.getByTestId(`console-${sessionId}`);
-    outputChannel = this.page.getByRole('combobox');
+    get outputChannel() { return this.page.getByRole('combobox'); }
     constructor(code, quickaccess, quickinput, console, contextMenu, modals) {
         this.code = code;
         this.quickaccess = quickaccess;

@@ -140,7 +140,10 @@ class QuickAccess {
                     await this.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+O' : 'Control+Shift+O');
                     break;
                 case QuickAccessKind.Commands:
-                    await this.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+P' : 'Control+Shift+P');
+                    // Use custom keybinding (Cmd+J E) instead of default Ctrl+Shift+P
+                    // because Ctrl+Shift+P opens private browsing in Firefox, blocking cross-browser e2e tests.
+                    await this.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+J' : 'Control+J');
+                    await this.code.driver.currentPage.keyboard.press('E');
                     break;
                 default:
                     throw new Error(`Unsupported QuickAccessKind: ${kind}`);

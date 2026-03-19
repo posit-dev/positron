@@ -90,6 +90,7 @@ class Plots {
         this.copyPlotButton = this.code.driver.currentPage.locator(COPY_PLOT_BUTTON);
         this.zoomPlotButton = this.code.driver.currentPage.locator(ZOOM_PLOT_BUTTON);
         this.currentPlot = this.code.driver.currentPage.locator(CURRENT_PLOT);
+        this.sessionNameButton = this.code.driver.currentPage.locator(SESSION_NAME_BUTTON);
         this.originFileButton = this.code.driver.currentPage.locator(ORIGIN_FILE_BUTTON);
         this.savePlotModal = this.code.driver.currentPage.locator('.positron-modal-dialog-box').filter({ hasText: 'Save Plot' });
         this.overwriteModal = this.code.driver.currentPage.locator('.positron-modal-dialog-box').filter({ hasText: 'The file already exists' });
@@ -252,7 +253,7 @@ class Plots {
     }
     async clickOpenInEditorButton() {
         await test_1.default.step('Click the main Open in Editor button', async () => {
-            const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_BUTTON);
+            const openInEditorButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_BUTTON);
             await openInEditorButton.click();
         });
     }
@@ -263,7 +264,7 @@ class Plots {
             'editor tab to the side': 'Open in editor tab to the Side'
         };
         await test_1.default.step(`Verify dropdown checked option is: ${expectedOption}`, async () => {
-            const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);
+            const openInEditorButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);
             await this.contextMenu.triggerAndVerifyMenuItems({
                 menuTrigger: openInEditorButton,
                 menuItemStates: Object.entries(menuItemLabels).map(([key, label]) => ({

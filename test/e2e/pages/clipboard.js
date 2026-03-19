@@ -91,7 +91,7 @@ class Clipboard {
      * This bypasses navigator.clipboard.readText() which is blocked by WebKit without a real user gesture.
      */
     async pasteText(text) {
-        await this.code.driver.page.evaluate((textToPaste) => {
+        await this.code.driver.currentPage.evaluate((textToPaste) => {
             const clipboardData = new DataTransfer();
             clipboardData.setData('text/plain', textToPaste);
             const pasteEvent = new ClipboardEvent('paste', {

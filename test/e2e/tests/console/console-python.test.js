@@ -21,6 +21,9 @@ _test_setup_1.test.describe('Console Pane: Alternate Python', { tag: [_test_setu
     });
 });
 _test_setup_1.test.describe('Console Pane: Python', { tag: [_test_setup_1.tags.WEB, _test_setup_1.tags.CONSOLE, _test_setup_1.tags.WIN] }, () => {
+    (0, _test_setup_1.test)('Python - do not allow extra console output on start', async function ({ app, python }) {
+        await app.workbench.console.waitForConsoleContents(process.env.POSITRON_PY_VER_SEL, { expectedCount: 2, timeout: 20000 });
+    });
     (0, _test_setup_1.test)('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
         await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
         await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");');

@@ -1,6 +1,6 @@
 "use strict";
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 var __importDefault = (this && this.__importDefault) || function (mod) {
@@ -33,25 +33,25 @@ _test_setup_js_1.test.describe('Diagnostics', {
         await runCommand('Python: New File');
         await editor.type('import termcolor\n\ntermcolor.COLORS.copy()\n');
         // Allow time for pyrefly to analyze the newly typed code
-        await app.code.driver.page.waitForTimeout(2000);
+        await app.code.driver.currentPage.waitForTimeout(2000);
         // Python Session 1 - verify no problems
         await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
         await problems.expectSquigglyCountToBe('warning', 0);
         // Python Session 1 - restart session and verify no problems
         await sessions.restart(pySession.id);
-        await app.code.driver.page.waitForTimeout(2000);
+        await app.code.driver.currentPage.waitForTimeout(2000);
         await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
         await problems.expectSquigglyCountToBe('warning', 0);
         // Start Python Session 2 (same runtime) - verify no problems
         const pySession2 = await sessions.start('python', { reuse: false });
         await sessions.select(pySession2.id);
-        await app.code.driver.page.waitForTimeout(2000);
+        await app.code.driver.currentPage.waitForTimeout(2000);
         await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
         await problems.expectSquigglyCountToBe('warning', 0);
         // Python Alt Session - verify warning since pkg not installed
         await sessions.start('pythonAlt');
         // Allow extra time for pyrefly to re-analyze with new session and detect missing package
-        await app.code.driver.page.waitForTimeout(3000);
+        await app.code.driver.currentPage.waitForTimeout(3000);
         await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
         await problems.expectWarningText('Cannot find module `termcolor`');
         // does pyrefly use squiggly correctly?
@@ -132,7 +132,7 @@ _test_setup_js_1.test.describe('Diagnostics', {
         await runCommand('workbench.action.files.saveAs', { keepOpen: true });
         await quickInput.waitForQuickInputOpened();
         await quickInput.type(path_1.default.join(app.workspacePathOrFolder, 'smoke.qmd'));
-        await app.code.driver.page.keyboard.press('Enter');
+        await app.code.driver.currentPage.keyboard.press('Enter');
         await quickInput.waitForQuickInputClosed();
         await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
         await hotKeys.selectAll();

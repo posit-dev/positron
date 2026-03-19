@@ -36,24 +36,24 @@ export class Sessions {
 
 	// Session management and UI elements
 	private get quickPick(): SessionQuickPick { return new SessionQuickPick(this.code, this); }
-	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
-	sessionTabs = this.page.getByTestId(/console-tab/);
-	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
-	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
-	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
-	deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
+	get sessions() { return this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/); }
+	get sessionTabs() { return this.page.getByTestId(/console-tab/); }
+	get currentSessionTab() { return this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') }); }
+	get sessionPicker() { return this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first(); }
+	private get renameMenuItem() { return this.page.getByRole('menuitem', { name: 'Rename...' }); }
+	get deleteMenuItem() { return this.page.getByRole('menuitem', { name: 'Delete' }); }
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
 	private idleStatus = (session: Locator) => session.locator(IDLE_STATUS_ICON);
 	private disconnectedStatus = (session: Locator) => session.locator(DISCONNECTED_STATUS_ICON);
-	private activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
+	private get activeStatusIcon() { return this.page.locator(ACTIVE_STATUS_ICON); }
 
 	// Session Metadata
-	private metadataButton = this.page.getByRole('button', { name: 'Console information' });
-	private metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info').first();
+	private get metadataButton() { return this.page.getByRole('button', { name: 'Console information' }); }
+	private get metadataDialog() { return this.page.getByRole('dialog').locator('.console-instance-info').first(); }
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
-	private outputChannel = this.page.getByRole('combobox');
+	private get outputChannel() { return this.page.getByRole('combobox'); }
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu, private modals: Modals) { }
 

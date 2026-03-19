@@ -80,7 +80,7 @@ class Viewer {
     }
     async expectUrlToHaveValue(expectedUrl, timeout = 10000) {
         await test_1.default.step(`Expect viewer URL to have value: ${expectedUrl}`, async () => {
-            await (0, test_1.expect)(this.code.driver.page.getByRole('textbox', { name: 'The current URL' })).toHaveValue(expectedUrl, { timeout });
+            await (0, test_1.expect)(this.code.driver.currentPage.getByRole('textbox', { name: 'The current URL' })).toHaveValue(expectedUrl, { timeout });
         });
     }
     /**

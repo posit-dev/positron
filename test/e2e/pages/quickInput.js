@@ -56,7 +56,8 @@ class QuickInput {
         this.code = code;
         this.quickInputList = this.code.driver.currentPage.locator(QUICK_INPUT_LIST);
         this.quickInput = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT);
-        this.quickInputTitleBar = this.code.driver.currentPage.locator(`.quick-input-title`);
+        this.quickInputTitleBar =
+            this.code.driver.currentPage.locator(`.quick-input-title`);
         this.quickInputResult = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_RESULT);
     }
     async expectTitleBarToHaveText(text) {
@@ -69,16 +70,21 @@ class QuickInput {
             }
         });
     }
-    async waitForQuickInputOpened({ timeout = 3000 } = {}) {
+    async waitForQuickInputOpened({ timeout = 3000, } = {}) {
         await (0, test_1.expect)(this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT)).toBeVisible({ timeout });
     }
     async type(value) {
-        await this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT).selectText();
-        await this.code.driver.currentPage.keyboard.press('Backspace');
-        await this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT).fill(value);
+        await this.code.driver.currentPage
+            .locator(QuickInput.QUICK_INPUT_INPUT)
+            .selectText();
+        await this.code.driver.currentPage.keyboard.press("Backspace");
+        await this.code.driver.currentPage
+            .locator(QuickInput.QUICK_INPUT_INPUT)
+            .fill(value);
     }
     async waitForQuickInputElementText() {
         const quickInputResult = this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_RESULT);
+        // Wait for at least one matching element with non-empty text
         await (0, test_1.expect)(async () => {
             const texts = await quickInputResult.allTextContents();
             return texts.some((text) => text.trim() !== "");
@@ -88,7 +94,7 @@ class QuickInput {
         return text?.trim() || "";
     }
     async closeQuickInput() {
-        await this.code.driver.currentPage.keyboard.press('Escape');
+        await this.code.driver.currentPage.keyboard.press("Escape");
         await this.waitForQuickInputClosed();
     }
     async waitForQuickInputElements(accept) {
@@ -99,17 +105,22 @@ class QuickInput {
         }).toPass();
     }
     async waitForQuickInputClosed() {
-        await (0, test_1.expect)(this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT)).not.toBeVisible();
+        await (0, test_1.expect)(this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT)).not.toBeVisible({ timeout: 5000 });
     }
     async selectQuickInputElement(index, keepOpen) {
         await this.waitForQuickInputOpened();
-        await this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_RESULT).nth(index).click();
+        await this.code.driver.currentPage
+            .locator(QuickInput.QUICK_INPUT_RESULT)
+            .nth(index)
+            .click();
         if (!keepOpen) {
             await this.waitForQuickInputClosed();
         }
     }
     async selectQuickInputElementContaining(text, { timeout, force = true } = {}) {
-        const firstMatch = this.code.driver.currentPage.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`).first();
+        const firstMatch = this.code.driver.currentPage
+            .locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`)
+            .first();
         const firstMatchResult = (await firstMatch
             .locator(".quick-input-list-row")
             .nth(0)
@@ -119,7 +130,9 @@ class QuickInput {
         return firstMatchResult.trim();
     }
     async clickOkButton() {
-        await this.code.driver.currentPage.locator(QuickInput.QUICKINPUT_OK_BUTTON).click();
+        await this.code.driver.currentPage
+            .locator(QuickInput.QUICKINPUT_OK_BUTTON)
+            .click();
     }
 }
 exports.QuickInput = QuickInput;
