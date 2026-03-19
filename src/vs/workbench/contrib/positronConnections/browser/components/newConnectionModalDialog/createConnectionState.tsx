@@ -10,8 +10,8 @@ import './createConnectionState.css';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { localize } from '../../../../../../nls.js';
+import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from '../simpleCodeEditor.js';
 import Severity from '../../../../../../base/common/severity.js';
 import { IDriver, Input } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
@@ -152,39 +152,39 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		</div>
 
 		<div className='create-connection-buttons'>
-			<PositronButton
+			<Button
 				className='button action-bar-button'
 				onPressed={onCopy}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.copy', 'Copy'))()}
-			</PositronButton>
-			<PositronButton
+			</Button>
+			<Button
 				className='button action-bar-button'
 				onPressed={onCancel}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.cancel', 'Cancel'))()}
-			</PositronButton>
+			</Button>
 		</div>
 
 		<div className='create-connection-footer'>
-			<PositronButton
+			<Button
 				className='button action-bar-button'
 				onPressed={onBack}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.back', 'Back'))()}
-			</PositronButton>
-			<PositronButton
+			</Button>
+			<Button
 				className={`button action-bar-button`}
 				disabled={!codeState || !!codeState.errorMessage}
 				onPressed={onConnectHandler}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}
-			</PositronButton>
+			</Button>
 		</div>
 	</div>;
 };
 
-const Form = (props: PropsWithChildren<{ inputs: Input[], onInputsChange: (inputs: Input[]) => void }>) => {
+const Form = (props: PropsWithChildren<{ inputs: Input[]; onInputsChange: (inputs: Input[]) => void }>) => {
 	const { inputs, onInputsChange } = props;
 
 	// On web, there's a global window event handler that captures the wheel event and prevents it
@@ -208,7 +208,7 @@ const Form = (props: PropsWithChildren<{ inputs: Input[], onInputsChange: (input
 			})
 		}
 	</form>;
-}
+};
 
 interface FormElementProps {
 	input: Input;
