@@ -37,6 +37,18 @@ import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 import { RuntimeNotebookCellExecution } from './runtimeNotebookCellExecution.js';
 
+/**
+ * Metadata about the editor layout that may be relevant for execution, such as
+ * output sizing.
+ */
+export interface EditorLayoutMetadata {
+	/** The width of the output area in pixels */
+	output_width_px: number;
+
+	/** The pixel ratio of the output area (monitor-dependent) */
+	output_pixel_ratio: number;
+}
+
 /** A notebook kernel for Positron's language runtimes. */
 export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 	/**
@@ -329,7 +341,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				RuntimeCodeExecutionMode.Interactive,
 				errorBehavior,
 				undefined,
-				executionMetadata,
+				{ ...executionMetadata },
 			);
 		} catch (err) {
 			execution.error(err);
@@ -565,7 +577,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 * Computes execution metadata containing the notebook output area dimensions.
 	 * Returns undefined if the notebook editor widget is not available.
 	 */
-	private _getExecutionMetadata(notebookUri: URI): Record<string, unknown> | undefined {
+	private _getExecutionMetadata(notebookUri: URI): EditorLayoutMetadata | undefined {
 		// Try the standard VS Code notebook editor widget first.
 		const borrowed = this._notebookEditorService.retrieveExistingWidgetFromURI(notebookUri);
 		const widget = borrowed?.value;

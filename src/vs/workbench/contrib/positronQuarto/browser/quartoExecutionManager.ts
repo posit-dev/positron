@@ -40,6 +40,7 @@ import { TerminalCapability, ICommandDetectionCapability } from '../../../../pla
 import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { getWindow } from '../../../../base/browser/dom.js';
+import { EditorLayoutMetadata } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 
 // Re-export for convenience
 export { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -2060,7 +2061,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * Returns dimensions used by the kernel to size outputs (e.g. plot
 	 * rendering). Uses the same formula as QuartoOutputViewZone._getWidth().
 	 */
-	private _getEditorLayoutMetadata(): Record<string, unknown> | undefined {
+	private _getEditorLayoutMetadata(): EditorLayoutMetadata | undefined {
 		const editorControl = this._editorService.activeTextEditorControl;
 		if (isCodeEditor(editorControl)) {
 			const layoutInfo = editorControl.getLayoutInfo();
