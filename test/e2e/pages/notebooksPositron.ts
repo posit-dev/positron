@@ -94,6 +94,15 @@ export class PositronNotebooks extends Notebooks {
 		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
 	}
 
+	/**
+	 * Returns a scoped version of the notebook for use with side-by-side notebooks.
+	 * All locators and actions will be scoped to the provided container.
+	 * @param container - A locator for the editor group container (e.g., `editors.editorGroup(0)`)
+	 */
+	scopedTo(container: Locator): ScopedNotebook {
+		return new ScopedNotebook(container, this.contextMenu);
+	}
+
 	// #region GETTERS
 
 	/**
@@ -1412,26 +1421,32 @@ export class PositronNotebooks extends Notebooks {
 }
 
 // -----------------
-//     Kernel
+//    KernelBase
 // -----------------
-export class Kernel {
+
+/**
+ * Base class for kernel functionality shared between Kernel and ScopedKernel.
+ * Contains common locators and methods for kernel actions.
+ */
+class KernelBase {
 	statusBadge: Locator;
-	private activeStatus: Locator;
-	private idleStatus: Locator;
-	private disconnectedStatus: Locator;
+	protected activeStatus: Locator;
+	protected idleStatus: Locator;
+	protected disconnectedStatus: Locator;
 
-	constructor(private code: Code, private notebooks: PositronNotebooks, private contextMenu: ContextMenu, private hotKeys: HotKeys, private quickinput: QuickInput) {
-		this.statusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' });
-		this.activeStatus = this.notebooks.editorActionBar.locator(ACTIVE_STATUS_ICON);
-		this.idleStatus = this.notebooks.editorActionBar.locator(IDLE_STATUS_ICON);
-		this.disconnectedStatus = this.notebooks.editorActionBar.locator(DISCONNECTED_STATUS_ICON);
+	constructor(
+		statusBadge: Locator,
+		editorActionBar: Locator,
+		protected contextMenu: ContextMenu
+	) {
+		this.statusBadge = statusBadge;
+		this.activeStatus = editorActionBar.locator(ACTIVE_STATUS_ICON);
+		this.idleStatus = editorActionBar.locator(IDLE_STATUS_ICON);
+		this.disconnectedStatus = editorActionBar.locator(DISCONNECTED_STATUS_ICON);
 	}
-
-	// #region ACTIONS
 
 	/**
 	 * Action: Restart the notebook kernel and optionally wait for it to be ready.
-	 * @param param0 - { waitForRestart?: boolean } - Whether to wait for the kernel to be idle after restart (default: true).
 	 */
 	async restart({ waitForRestart = true }: { waitForRestart?: boolean } = {}): Promise<void> {
 		await test.step('Restart kernel', async () => {
@@ -1458,6 +1473,60 @@ export class Kernel {
 			await this.expectStatusToBe('disconnected', 15000);
 		});
 	}
+
+	/**
+	 * Verify: Kernel status is as expected.
+	 */
+	async expectStatusToBe(expectedStatus: SessionState, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect kernel status to be: ${expectedStatus}`, async () => {
+			const statusMap: Record<Exclude<SessionState, 'exited'>, Locator> = {
+				active: this.activeStatus,
+				idle: this.idleStatus,
+				disconnected: this.disconnectedStatus
+			};
+
+			const locator = statusMap[expectedStatus];
+			if (!locator) {
+				throw new Error(`Unknown expected status: ${expectedStatus}`);
+			}
+			await expect(locator).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Verify: Kernel badge contains expected text.
+	 */
+	async expectBadgeToContain(text: string, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect kernel badge to contain: ${text}`, async () => {
+			await expect(this.statusBadge).toContainText(text, { timeout });
+		});
+	}
+}
+
+// -----------------
+//     Kernel
+// -----------------
+
+/**
+ * Full kernel functionality for single-notebook scenarios.
+ * Extends KernelBase with additional page-level methods like select().
+ */
+export class Kernel extends KernelBase {
+	constructor(
+		private code: Code,
+		private notebooks: PositronNotebooks,
+		contextMenu: ContextMenu,
+		private hotKeys: HotKeys,
+		private quickinput: QuickInput
+	) {
+		super(
+			code.driver.page.getByRole('button', { name: 'Kernel Actions' }),
+			notebooks.editorActionBar,
+			contextMenu
+		);
+	}
+
+	// #region ACTIONS
 
 	/**
 	 * Action: Open the notebook session scratchpad in console.
@@ -1568,28 +1637,92 @@ export class Kernel {
 		});
 	}
 
-	/**
-	 * Verify: Kernel status is as expected.
-	 * @param expectedStatus - the kernel status (idle | active | disconnected)
-	 * @param timeout - the timeout for the expectation
-	 */
-	async expectStatusToBe(expectedStatus: SessionState, timeout = DEFAULT_TIMEOUT): Promise<void> {
-		await test.step(`Expect kernel status to be: ${expectedStatus}`, async () => {
-			const statusMap: Record<Exclude<SessionState, 'exited'>, Locator> = {
-				active: this.activeStatus,
-				idle: this.idleStatus,
-				disconnected: this.disconnectedStatus
-			};
-
-			// Use the mapped locator for the expected status
-			const locator = statusMap[expectedStatus];
-			if (!locator) {
-				throw new Error(`Unknown expected status: ${expectedStatus}`);
-			}
-			await expect(locator).toBeVisible({ timeout });
-		});
-	}
-
 	// #endregion
 
+	/**
+	 * Returns a scoped version of the Kernel for use with side-by-side notebooks.
+	 * All locators and actions will be scoped to the provided container.
+	 * @param container - A locator for the editor group container (e.g., `.editor-group-container`)
+	 */
+	scopedTo(container: Locator): ScopedKernel {
+		const editorActionBar = container.locator('.editor-action-bar-container');
+		const statusBadge = container.getByRole('button', { name: 'Kernel Actions' });
+		return new ScopedKernel(statusBadge, editorActionBar, this.contextMenu);
+	}
+}
+
+// -----------------
+//   ScopedKernel
+// -----------------
+
+/**
+ * A scoped version of Kernel for testing side-by-side notebooks.
+ * Extends KernelBase - shares restart(), shutdown(), expectStatusToBe(), expectBadgeToContain().
+ *
+ * NOTE: For kernel selection, use the page-level `notebooksPositron.kernel.select()` while
+ * only one notebook is visible (before splitting side-by-side).
+ */
+export class ScopedKernel extends KernelBase {
+	constructor(
+		statusBadge: Locator,
+		editorActionBar: Locator,
+		contextMenu: ContextMenu
+	) {
+		super(statusBadge, editorActionBar, contextMenu);
+	}
+}
+
+// -----------------
+//  ScopedNotebook
+// -----------------
+
+/**
+ * A scoped version of PositronNotebooks for testing side-by-side notebooks.
+ * Exposes locators scoped to the provided container (editor group).
+ */
+export class ScopedNotebook {
+	/** All cells in this notebook */
+	cells: Locator;
+	/** The editor action bar for this notebook */
+	editorActionBar: Locator;
+	/** Scoped kernel helper for this notebook */
+	kernel: ScopedKernel;
+
+	// Editor action bar buttons
+	runAllButton: Locator;
+	addCodeButton: Locator;
+	addMarkdownButton: Locator;
+	clearOutputsButton: Locator;
+
+	constructor(
+		container: Locator,
+		contextMenu: ContextMenu
+	) {
+		this.cells = container.locator('[data-testid="notebook-cell"]');
+		this.editorActionBar = container.locator('.editor-action-bar-container');
+
+		const statusBadge = container.getByRole('button', { name: 'Kernel Actions' });
+		this.kernel = new ScopedKernel(statusBadge, this.editorActionBar, contextMenu);
+
+		// Action bar buttons
+		this.runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All' });
+		this.addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
+		this.addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
+		this.clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear Outputs' });
+	}
+
+	/** Get a specific cell by index */
+	cell(index: number): Locator {
+		return this.cells.nth(index);
+	}
+
+	/** Get cell output for a specific cell */
+	cellOutput(index: number): Locator {
+		return this.cell(index).getByTestId('cell-output');
+	}
+
+	/** Get the "Run Cell" button for a specific cell */
+	runCellButton(index: number): Locator {
+		return this.cell(index).getByRole('button', { name: 'Run Cell', exact: true });
+	}
 }
