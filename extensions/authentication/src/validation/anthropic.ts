@@ -9,6 +9,13 @@ const ANTHROPIC_MODELS_ENDPOINT = 'https://api.anthropic.com/v1/models';
 const ANTHROPIC_API_VERSION = '2023-06-01';
 const KEY_VALIDATION_TIMEOUT_MS = 5000;
 
+class ApiKeyValidationError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'ApiKeyValidationError';
+	}
+}
+
 export async function validateAnthropicApiKey(apiKey: string): Promise<void> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
@@ -27,21 +34,21 @@ export async function validateAnthropicApiKey(apiKey: string): Promise<void> {
 		}
 
 		if (response.status === 401 || response.status === 403) {
-			throw new Error(vscode.l10n.t('Invalid Anthropic API key'));
+			throw new ApiKeyValidationError(vscode.l10n.t('Invalid Anthropic API key'));
 		}
 
-		throw new Error(vscode.l10n.t(
+		throw new ApiKeyValidationError(vscode.l10n.t(
 			'Unable to validate Anthropic API key (HTTP {0})',
 			String(response.status)
 		));
 	} catch (err) {
 		if (err instanceof Error && err.name === 'AbortError') {
-			throw new Error(vscode.l10n.t('Could not validate Anthropic API key within {0} seconds', String(KEY_VALIDATION_TIMEOUT_MS / 1000)));
+			throw new ApiKeyValidationError(vscode.l10n.t('Could not validate Anthropic API key within {0} seconds', String(KEY_VALIDATION_TIMEOUT_MS / 1000)));
 		}
-		if (err instanceof Error && err.message.includes('Anthropic API key')) {
+		if (err instanceof ApiKeyValidationError) {
 			throw err;
 		}
-		throw new Error(vscode.l10n.t('Could not validate Anthropic API key. Check your network connection and try again.'));
+		throw new ApiKeyValidationError(vscode.l10n.t('Could not validate Anthropic API key. Check your network connection and try again.'));
 	} finally {
 		clearTimeout(timeout);
 	}
