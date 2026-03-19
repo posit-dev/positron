@@ -37,17 +37,9 @@ import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 import { RuntimeNotebookCellExecution } from './runtimeNotebookCellExecution.js';
 
-/**
- * Metadata about the editor layout that may be relevant for execution, such as
- * output sizing.
- */
-export interface EditorLayoutMetadata {
-	/** The width of the output area in pixels */
-	output_width_px: number;
-
-	/** The pixel ratio of the output area (monitor-dependent) */
-	output_pixel_ratio: number;
-}
+import { EditorLayoutMetadata } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
+// Re-export for consumers that import from this module.
+export { EditorLayoutMetadata };
 
 /** A notebook kernel for Positron's language runtimes. */
 export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
@@ -597,66 +589,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		// Fall back to Positron notebook instances.
 		const instances = this._positronNotebookService.listInstances(notebookUri);
 		const instance = instances[0];
-		if (instance?.connectedToEditor) {
-			const domNode = instance.getDomNode();
-			const win = getWindow(domNode);
-			const outputPixelRatio = win.devicePixelRatio;
-
-			// Best case: measure an existing outputs-inner element directly.
-			const outputsInner = domNode.querySelector<HTMLElement>(
-				'.positron-notebook-code-cell-outputs-inner'
-			);
-			if (outputsInner && outputsInner.clientWidth > 0) {
-				const style = win.getComputedStyle(outputsInner);
-				const paddingLeft = parseFloat(style.paddingLeft) || 0;
-				const paddingRight = parseFloat(style.paddingRight) || 0;
-				return {
-					output_width_px: outputsInner.clientWidth - paddingLeft - paddingRight,
-					output_pixel_ratio: outputPixelRatio,
-				};
-			}
-
-			// Fallback: compute from the cells container and intermediate
-			// elements by reading their computed CSS offsets.
-			const cellsContainer = instance.cellsContainer;
-			const container = cellsContainer ?? domNode;
-			if (container.clientWidth > 0) {
-				const containerStyle = win.getComputedStyle(container);
-				const containerPadding = (parseFloat(containerStyle.paddingLeft) || 0)
-					+ (parseFloat(containerStyle.paddingRight) || 0);
-
-				// Read the cell margin from an existing cell element, or
-				// from the container's first .positron-notebook-cell child.
-				const cell = container.querySelector<HTMLElement>('.positron-notebook-cell');
-				const cellMarginLeft = cell
-					? parseFloat(win.getComputedStyle(cell).marginLeft) || 0
-					: 0;
-
-				// The outputs-inner padding is defined but may not have a
-				// rendered element yet (first execution). Read from CSS if
-				// an element exists; otherwise approximate from the
-				// .positron-notebook-code-cell-outputs-inner rule (0.5rem
-				// inline = 8px each side at default font size).
-				const innerEl = container.querySelector<HTMLElement>(
-					'.positron-notebook-code-cell-outputs-inner'
-				);
-				const outputPadding = innerEl
-					? (parseFloat(win.getComputedStyle(innerEl).paddingLeft) || 0)
-					+ (parseFloat(win.getComputedStyle(innerEl).paddingRight) || 0)
-					: 16;
-
-				const outputWidthPx = container.clientWidth
-					- containerPadding - cellMarginLeft - outputPadding;
-				if (outputWidthPx > 0) {
-					return {
-						output_width_px: outputWidthPx,
-						output_pixel_ratio: outputPixelRatio,
-					};
-				}
-			}
-		}
-
-		return undefined;
+		return instance?.getOutputLayoutInfo();
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableProducer<VariablesResult> {
