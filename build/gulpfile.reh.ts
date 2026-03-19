@@ -151,6 +151,7 @@ const serverWithWebResources = [
 const pwbServerWithWebResourceIncludes = [
 	...pwbWebResourceIncludes,
 	'out-build/vs/code/browser/workbench/*.html',
+	'out-build/esm-package-dependencies/**',
 	...vscodeWebResourceIncludes
 ];
 
