@@ -1757,13 +1757,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Append the new session to the list of existing sessions if it hasn't been added
 				this.addSessionToConsoleSessionMap(session);
 			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				if (isNotebookLanguageRuntimeSession(session)) {
-					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
-					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
-				} else {
-					this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
-						`does not have a notebook URI.`);
-				}
+				// For notebook sessions, we add the session to the notebook session map in
+				// attachToSession() instead of here so we can find sessions that are starting
+				// but not yet ready.
+				this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
 			}
 
 			// Fire the onDidStartRuntime event.
@@ -1838,6 +1835,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			hasConsole,
 		);
 		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
+		// If the active session is a notebook session, also add it to the notebook
+		// session map at this time so we can find it by notebook URI. This allows us
+		// to show sessions that have yet to start for notebooks in the UI, such as
+		// the interpreter picker
+		if (isNotebookLanguageRuntimeSession(session)) {
+			this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
+		}
+
 		this._register(activeSession);
 		this._register(activeSession.onDidReceiveRuntimeEvent(evt => {
 			this._onDidReceiveRuntimeEventEmitter.fire(evt);
