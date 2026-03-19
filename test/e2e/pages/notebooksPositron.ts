@@ -74,10 +74,6 @@ export class PositronNotebooks extends Notebooks {
 	private searchDecoration = this.code.driver.page.locator('.findMatchInline');
 
 	// Ghost Cell
-	private static readonly GHOST_CELL_GENERATION_TIMEOUT = 5000;
-	private static readonly GHOST_CELL_RENDER_TIMEOUT = 30000;
-	private static readonly GHOST_CELL_REQUEST_TIMEOUT = 10000;
-
 	private ghostCellHeader = this.code.driver.page.locator('.ghost-cell-header');
 	private ghostCellGenerating = this.code.driver.page.locator('text=Generating suggestion...');
 	private ghostCellExplanationText = this.code.driver.page.locator('.ghost-cell-explanation-text');
@@ -1173,7 +1169,7 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectGhostCellGenerationVisible(): Promise<void> {
 		await test.step('Verify "Generating suggestion..." is visible', async () => {
-			await expect(this.ghostCellGenerating).toBeVisible({ timeout: PositronNotebooks.GHOST_CELL_GENERATION_TIMEOUT });
+			await expect(this.ghostCellGenerating).toBeVisible({ timeout: 5000 });
 		});
 	}
 
@@ -1183,7 +1179,7 @@ export class PositronNotebooks extends Notebooks {
 	async expectGhostCellVisible(): Promise<void> {
 		await test.step('Verify ghost cell is visible with all components', async () => {
 			// Wait for header first (indicates ghost cell is rendering)
-			await expect(this.ghostCellHeader).toBeVisible({ timeout: PositronNotebooks.GHOST_CELL_RENDER_TIMEOUT });
+			await expect(this.ghostCellHeader).toBeVisible();
 
 			// Then check all other components in parallel
 			await Promise.all([
@@ -1224,7 +1220,7 @@ export class PositronNotebooks extends Notebooks {
 	async expectGhostCellAwaitingRequest(): Promise<void> {
 		await test.step('Verify "AI suggestion available on request" is visible', async () => {
 			// Wait for the container first
-			await expect(this.ghostCellAwaitingRequest).toBeVisible({ timeout: PositronNotebooks.GHOST_CELL_REQUEST_TIMEOUT });
+			await expect(this.ghostCellAwaitingRequest).toBeVisible();
 
 			// Then check all other elements in parallel
 			await Promise.all([
