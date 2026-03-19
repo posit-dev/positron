@@ -374,11 +374,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *  no console session with the given language identifier exists.
 	 */
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined {
-		// Return the foreground session if the languageId matches
-		if (this._foregroundSession?.runtimeMetadata.languageId === languageId && this._foregroundSession.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+		// Return the foreground session if the languageId matches and it is a
+		// Console session. Notebook sessions should not be returned here even
+		// if they are the foreground session, because they have restricted LSP
+		// document selectors that don't cover script files.
+		if (this._foregroundSession?.runtimeMetadata.languageId === languageId &&
+			this._foregroundSession.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			return this.foregroundSession;
 		}
-		// Otherwise, return the last active session for the languageId if there is one
+		// Otherwise, return the last active console session for the languageId if there is one
 		return this._lastActiveConsoleSessionByLanguageId.get(languageId);
 	}
 
@@ -840,7 +844,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._foregroundSession = session;
 
 		if (session && session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-			// Update the map of active console sessions per language
+			// Update the map of active console sessions per language.
+			// Only track Console sessions here; notebook sessions should not
+			// replace the last active console session, as that would cause
+			// getConsoleSessionForLanguage() to return the wrong session.
 			this._lastActiveConsoleSessionByLanguageId.set(session.runtimeMetadata.languageId, session);
 			// Update the global last active console session
 			this._lastActiveConsoleSession = session;

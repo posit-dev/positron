@@ -27,6 +27,12 @@ import { VirtualDocumentProvider } from './virtual-documents';
 // Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
 const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
 
+// Selector for Quarto virtual documents.
+const VDOC_SELECTOR = { language: 'r', pattern: '**/.vdoc.*.{r,R}' };
+
+// Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
+const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
+
 /**
  * Global output channel for R LSP sessions
  *
@@ -127,11 +133,24 @@ export class ArkLsp implements vscode.Disposable {
 		const { notebookUri } = this._metadata;
 
 		const clientOptions: LanguageClientOptions = {
-			// If this client belongs to a notebook, set the document selector to only include that notebook.
+			// If this client belongs to a notebook, set the document selector to only include that notebook,
+			// Quarto virtual documents (vdocs), and notebook console inputs (inmemory scheme).
 			// Otherwise, this is the main client for this language, so set the document selector to include
 			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
 			documentSelector: notebookUri ?
-				[{ language: 'r', pattern: notebookUri.fsPath }] :
+				[
+					{ language: 'r', pattern: notebookUri.fsPath },
+					// Match Quarto virtual documents (vdocs). Vdocs are
+					// temporary .r files created for LSP features in
+					// embedded code blocks (e.g. completions, hover).
+					// They may be in the document's directory or in a
+					// system temp directory, so use a global pattern.
+					VDOC_SELECTOR,
+					// Match notebook console inputs. These use the
+					// inmemory scheme with a notebook-repl path prefix
+					// to distinguish them from regular console inputs.
+					{ language: 'r', scheme: 'inmemory' },
+				] :
 				R_DOCUMENT_SELECTORS,
 			synchronize: notebookUri ?
 				undefined :
@@ -158,6 +177,33 @@ export class ArkLsp implements vscode.Disposable {
 						}
 					}
 					return next(uri, diagnostics);
+				},
+				// Filter completions so each LSP only handles its own
+				// documents. The console LSP skips vdocs and notebook
+				// console inputs; the notebook LSP skips regular console
+				// inputs.
+				provideCompletionItem(document, position, context, token, next) {
+					if (!notebookUri) {
+						// Console LSP: skip vdoc files (notebook LSP handles them)
+						if (document.uri.scheme === 'file') {
+							const baseName = path.basename(document.uri.fsPath);
+							if (VDOC_PATTERN.test(baseName)) {
+								return undefined;
+							}
+						}
+						// Console LSP: skip notebook console inputs
+						if (document.uri.scheme === 'inmemory' &&
+							NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+							return undefined;
+						}
+					} else {
+						// Notebook LSP: skip regular (non-notebook) console inputs
+						if (document.uri.scheme === 'inmemory' &&
+							!NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
+							return undefined;
+						}
+					}
+					return next(document, position, context, token);
 				},
 			}
 		};
@@ -321,13 +367,24 @@ export class ArkLsp implements vscode.Disposable {
 			new VirtualDocumentProvider(client));
 		this.activationDisposables.push(vdocDisposable);
 
-		// Register a statement range provider to detect R statements
-		const rangeDisposable = positron.languages.registerStatementRangeProvider('r',
+		// Register the statement range and help topic providers with a
+		// selector appropriate for the session type:
+		// - Console sessions: register for 'r' to cover all R documents
+		// - Notebook sessions: register for 'r' but only matching vdoc
+		//   files (Quarto virtual documents). The Quarto extension's
+		//   statement range provider for 'quarto' language delegates to
+		//   'r' providers via vdocs. We must not match regular .r script
+		//   files to avoid competing with the console session's provider
+		//   for files that aren't synced to the notebook LSP.
+		const selector: vscode.DocumentSelector = this._metadata.notebookUri
+			? [VDOC_SELECTOR]
+			: 'r';
+
+		const rangeDisposable = positron.languages.registerStatementRangeProvider(selector,
 			new RStatementRangeProvider(client));
 		this.activationDisposables.push(rangeDisposable);
 
-		// Register a help topic provider to provide help topics for R
-		const helpDisposable = positron.languages.registerHelpTopicProvider('r',
+		const helpDisposable = positron.languages.registerHelpTopicProvider(selector,
 			new RHelpTopicProvider(client));
 		this.activationDisposables.push(helpDisposable);
 	}
