@@ -17,12 +17,13 @@ import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEn
 
 
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
+	private static readonly CONSOLE_SESSIONS_KEY = 'consoleSessionsByName';
+
 	private readonly _debugApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _debugApplicationDisposableByName = new Map<string, vscode.Disposable>();
 	private readonly _runApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _runApplicationDisposableByName = new Map<string, vscode.Disposable>();
 	private readonly _appServers = new Map<string, { terminalPid: number | undefined; proxyUri: vscode.Uri }>();
-	private readonly _consoleSessionByName = new Map<string, { session: positron.LanguageRuntimeSession; listener: vscode.Disposable }>();
 
 	constructor(
 		private readonly _globalState: vscode.Memento,
@@ -32,7 +33,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	public dispose() {
 		this._debugApplicationDisposableByName.forEach(disposable => disposable.dispose());
 		this._runApplicationDisposableByName.forEach(disposable => disposable.dispose());
-		this._consoleSessionByName.forEach(entry => entry.listener.dispose());
 	}
 
 	private isShellIntegrationSupported(): boolean {
@@ -302,41 +302,38 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				});
 			}
 
-			// Restart existing console session for this app if one is still alive.
-			// This cleanly exits any active debugger state and reuses the same
-			// console tab.
-			let session = this._consoleSessionByName.get(options.name)?.session;
+			// Look up a previously used console session for this app and
+			// check if it's still alive. If so, restart it; otherwise
+			// create a fresh one.
+			let sessionId = await this.findConsoleSession(options.name);
 
-			if (session) {
+			if (sessionId) {
 				progress.report({ message: vscode.l10n.t('Restarting application...') });
 
 				try {
-					const didRestart = await positron.runtime.restartSession(session.metadata.sessionId);
+					const didRestart = await positron.runtime.restartSession(sessionId);
 					if (!didRestart) {
 						log.debug('Session restart was cancelled');
 						return;
 					}
-
-					// The `Exited` state during restart removes the map entry
-					// via the cleanup listener. Re-add it now that restart succeeded.
-					this.trackConsoleSession(options.name, session);
 				} catch (error) {
 					log.debug(`Could not restart session for ${options.name}, creating a new one: ${error}`);
-					session = undefined;
-					this._consoleSessionByName.delete(options.name);
+					sessionId = undefined;
 				}
 			}
 
-			if (!session) {
+			if (!sessionId) {
 				progress.report({ message: vscode.l10n.t('Starting console session...') });
 
-				session = await positron.runtime.startLanguageRuntime(
+				const session = await positron.runtime.startLanguageRuntime(
 					runtime.runtimeId,
 					options.name,
 				);
 
-				this.trackConsoleSession(options.name, session);
+				sessionId = session.metadata.sessionId;
 			}
+
+			this.saveConsoleSession(options.name, sessionId);
 
 			if (configurationDone) {
 				progress.report({ message: vscode.l10n.t('Waiting for debugger initialization...') });
@@ -346,7 +343,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 					() => log.warn('Timed out waiting for DAP configurationDone; proceeding without breakpoints'),
 				);
 			}
-			const sessionId = session.metadata.sessionId;
 
 			positron.runtime.focusSession(sessionId);
 			progress.report({ message: vscode.l10n.t('Starting application...') });
@@ -559,16 +555,35 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		return runtime;
 	}
 
-	private trackConsoleSession(name: string, session: positron.LanguageRuntimeSession): void {
-		this._consoleSessionByName.get(name)?.listener.dispose();
+	// This persists known sessions so we restart apps in the right console
+	// session after an extension host restart or a window reload
+	private saveConsoleSession(name: string, sessionId: string): Thenable<void> {
+		const persisted = this._globalState.get<Record<string, string>>(
+			PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, {}
+		);
+		persisted[name] = sessionId;
+		return this._globalState.update(PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, persisted);
+	}
 
-		const listener = session.onDidChangeRuntimeState(state => {
-			if (state === positron.RuntimeState.Exited) {
-				this._consoleSessionByName.get(name)?.listener.dispose();
-				this._consoleSessionByName.delete(name);
+	private async findConsoleSession(name: string): Promise<string | undefined> {
+		const persisted = this._globalState.get<Record<string, string>>(
+			PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, {}
+		);
+
+		// Prune all stale sessions so the persisted map doesn't grow over time
+		let pruned = false;
+		for (const [key, id] of Object.entries(persisted)) {
+			const session = await positron.runtime.getSession(id);
+			if (!session) {
+				delete persisted[key];
+				pruned = true;
 			}
-		});
-		this._consoleSessionByName.set(name, { session, listener });
+		}
+		if (pruned) {
+			await this._globalState.update(PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, persisted);
+		}
+
+		return persisted[name];
 	}
 
 	private showRunError(appName: string, error: unknown): void {
