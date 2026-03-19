@@ -8,12 +8,11 @@
  *
  * Verifies that when two notebooks are open side-by-side:
  * 1. Kernel selection and status are independent per notebook
- * 2. The "Run All" button executes cells in its own notebook, not the focused one
+ * 2. Action buttons (Run Cell, Run All, Add Code) target their own notebook, not the focused one
  */
 
 import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
-import { IDLE_STATUS_ICON } from '../../pages/sessions.js';
 
 test.use({
 	suiteId: __filename
@@ -23,107 +22,121 @@ test.describe('Notebook Side-by-Side Isolation', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test('Kernel status is independent per notebook when side-by-side',
-		async function ({ app, page }) {
-			const { notebooksPositron } = app.workbench;
+	test.beforeAll(async function ({ hotKeys }) {
+		await hotKeys.closePrimarySidebar();
+		await hotKeys.closeSecondarySidebar();
+		await hotKeys.minimizeBottomPanel();
+	});
+
+	test('Kernel selection and actions are independent per notebook',
+		async function ({ app, runCommand }) {
+			const { notebooksPositron, editors } = app.workbench;
 			const pythonVersion = process.env.POSITRON_PY_VER_SEL!;
 
-			// Create first notebook and select Python kernel while it is the only visible notebook.
-			// POM locators are page-scoped, so they work correctly with a single notebook.
-			await test.step('Create notebook 1 and select Python kernel', async () => {
-				await notebooksPositron.newNotebook();
-				await notebooksPositron.kernel.select('Python');
-			});
+			// Create first notebook and select Python kernel (only nb1 visible)
+			await notebooksPositron.newNotebook();
+			await notebooksPositron.kernel.select('Python');
 
-			// Create second notebook (opens as a new tab, hiding notebook 1).
-			// Do NOT select a kernel for this notebook.
-			await test.step('Create notebook 2 (no kernel)', async () => {
-				await notebooksPositron.newNotebook();
-			});
+			// Create second notebook (opens as tab, only nb2 visible now)
+			await notebooksPositron.newNotebook();
 
-			// Move notebook 2 to a side editor group so both are visible.
-			// After this, notebook 2 (right) is focused, notebook 1 (left) is unfocused.
-			await test.step('Split notebooks side-by-side', async () => {
-				await app.workbench.quickaccess.runCommand('workbench.action.moveEditorToNextGroup');
-			});
+			// Verify nb2 has no kernel - proves kernel state doesn't inherit from nb1
+			await notebooksPositron.kernel.expectBadgeToContain('No Kernel Selected');
+			await notebooksPositron.kernel.expectStatusToBe('disconnected');
 
-			// Use scoped locators to verify each editor group independently.
-			// Page-level POM locators would match elements in both groups, so we scope
-			// to each .editor-group-container to test per-notebook behavior.
-			const editorGroups = page.locator('.part.editor .editor-group-container');
-			await expect(editorGroups).toHaveCount(2, { timeout: 5000 });
+			// Select Python kernel for nb2 (while only nb2 visible)
+			await notebooksPositron.kernel.select('Python');
 
-			// Left group = notebook 1 (Python kernel selected)
-			// Right group = notebook 2 (no kernel selected)
-			const leftGroup = editorGroups.nth(0);
-			const rightGroup = editorGroups.nth(1);
+			// Split notebooks side-by-side
+			await runCommand('workbench.action.moveEditorToNextGroup');
+			await editors.expectEditorGroupCount(2);
 
-			await test.step('Verify left notebook (nb1) shows Python kernel', async () => {
-				const leftKernelBadge = leftGroup.getByRole('button', { name: 'Kernel Actions' });
-				await expect(leftKernelBadge).toContainText(pythonVersion, { timeout: 15000 });
-				await expect(leftGroup.locator('.editor-action-bar-container').locator(IDLE_STATUS_ICON)).toBeVisible({ timeout: 15000 });
-			});
+			// Get scoped notebook helpers for each editor group
+			const leftNotebook = notebooksPositron.scopedTo(editors.editorGroup(0));
+			const rightNotebook = notebooksPositron.scopedTo(editors.editorGroup(1));
 
-			await test.step('Verify right notebook (nb2) does NOT show Python kernel', async () => {
-				const rightKernelBadge = rightGroup.getByRole('button', { name: 'Kernel Actions' });
-				await expect(rightKernelBadge).not.toContainText(pythonVersion, { timeout: 5000 });
-			});
+			// Verify both notebooks have Python kernel and are idle
+			await leftNotebook.kernel.expectBadgeToContain(pythonVersion);
+			await leftNotebook.kernel.expectStatusToBe('idle');
+			await rightNotebook.kernel.expectBadgeToContain(pythonVersion);
+			await rightNotebook.kernel.expectStatusToBe('idle');
+
+			// --- Test: Kernel actions are independent ---
+
+			// Shut down left notebook kernel and verify it does not affect right notebook
+			await leftNotebook.kernel.shutdown();
+			await leftNotebook.kernel.expectStatusToBe('disconnected');
+			await rightNotebook.kernel.expectStatusToBe('idle');
+
+			// Restart right notebook kernel and verify it does not affect left notebook
+			await rightNotebook.kernel.restart();
+			await leftNotebook.kernel.expectStatusToBe('disconnected');
+			await rightNotebook.kernel.expectStatusToBe('idle');
 		});
 
-	test('Run All button executes cells in its own notebook, not the focused one',
-		async function ({ app, page }) {
-			const { notebooksPositron } = app.workbench;
+	test('Notebook action buttons target their own notebook, not the focused one',
+		async function ({ app, runCommand }) {
+			const { notebooksPositron, editors } = app.workbench;
 
-			// Set up notebook 1 with Python code while it is the only visible notebook.
-			await test.step('Create notebook 1 with Python code', async () => {
-				await notebooksPositron.newNotebook();
-				await notebooksPositron.kernel.select('Python');
-				await notebooksPositron.addCodeToCell(0, 'print("from_nb1")');
-			});
+			// Set up notebook 1 with Python code
+			await notebooksPositron.newNotebook();
+			await notebooksPositron.kernel.select('Python');
+			await notebooksPositron.addCodeToCell(0, 'print("left_nb")');
 
-			// Set up notebook 2 with different Python code (opens as tab, nb1 hidden).
-			await test.step('Create notebook 2 with Python code', async () => {
-				await notebooksPositron.newNotebook();
-				await notebooksPositron.kernel.select('Python');
-				await notebooksPositron.addCodeToCell(0, 'print("from_nb2")');
-			});
+			// Set up notebook 2 with different Python code
+			await notebooksPositron.newNotebook();
+			await notebooksPositron.kernel.select('Python');
+			await notebooksPositron.addCodeToCell(0, 'print("right_nb")');
 
-			// Move notebook 2 to a side editor group.
-			// After: nb1 (left, unfocused), nb2 (right, focused).
-			await test.step('Split notebooks side-by-side', async () => {
-				await app.workbench.quickaccess.runCommand('workbench.action.moveEditorToNextGroup');
-			});
+			// Split side-by-side
+			await runCommand('workbench.action.moveEditorToNextGroup');
+			await editors.expectEditorGroupCount(2);
 
-			const editorGroups = page.locator('.part.editor .editor-group-container');
-			await expect(editorGroups).toHaveCount(2, { timeout: 5000 });
-			const leftGroup = editorGroups.nth(0);
-			const rightGroup = editorGroups.nth(1);
+			// Get scoped notebook helpers for each editor group
+			const leftNotebook = notebooksPositron.scopedTo(editors.editorGroup(0));
+			const rightNotebook = notebooksPositron.scopedTo(editors.editorGroup(1));
 
-			// Focus the LEFT notebook (nb1) by clicking on its cell.
-			// This makes nb1 the "active" editor while nb2 is visible but unfocused.
-			await test.step('Focus left notebook (nb1)', async () => {
-				await leftGroup.locator('[data-testid="notebook-cell"]').first().click();
-			});
+			// --- Test 1: Run Cell button (cell action bar) ---
 
-			// Click "Run All" in the RIGHT notebook's (nb2) editor action bar.
-			await test.step('Click Run All in right notebook action bar', async () => {
-				const rightRunAll = rightGroup.locator('.editor-action-bar-container')
-					.getByRole('button', { name: 'Run All' });
-				await rightRunAll.click();
-			});
+			// Focus the RIGHT notebook by clicking its cell
+			await rightNotebook.cell(0).click();
 
-			// Verify RIGHT notebook (nb2) cells have the expected output.
-			// If Run All targeted the correct notebook, nb2's cell should show "from_nb2".
-			await test.step('Verify right notebook (nb2) has output from its own code', async () => {
-				const rightCellOutput = rightGroup.locator('[data-testid="cell-output"]');
-				await expect(rightCellOutput).toContainText('from_nb2', { timeout: 30000 });
-			});
+			// Verify clicking "Run Cell" in the LEFT notebook runs the cell in the LEFT notebook, not the focused RIGHT notebook
+			await leftNotebook.runCellButton(0).click();
+			await expect(leftNotebook.cellOutput(0)).toContainText('left_nb', { timeout: 30000 });
+			await expect(rightNotebook.cellOutput(0)).not.toBeVisible({ timeout: 5000 });
 
-			// Verify LEFT notebook (nb1) was NOT executed.
-			// If Run All incorrectly targeted the focused editor, nb1 would have output.
-			await test.step('Verify left notebook (nb1) was NOT executed', async () => {
-				const leftCellOutput = leftGroup.locator('[data-testid="cell-output"]');
-				await expect(leftCellOutput).not.toBeVisible({ timeout: 5000 });
-			});
+			// --- Test 2: Run All button (editor action bar) ---
+
+			// Clear left notebook output from Test 1
+			await leftNotebook.clearOutputsButton.click();
+			await expect(leftNotebook.cellOutput(0)).not.toBeVisible({ timeout: 5000 });
+
+			// Focus the LEFT notebook
+			await leftNotebook.cell(0).click();
+
+			// Verify clicking "Run All" in the RIGHT notebook runs the cell in the RIGHT notebook, not the focused LEFT notebook
+			await rightNotebook.runAllButton.click();
+			await expect(rightNotebook.cellOutput(0)).toContainText('right_nb', { timeout: 30000 });
+			await expect(leftNotebook.cellOutput(0)).not.toBeVisible({ timeout: 5000 });
+
+			// --- Test 3: Add Code button (editor action bar) ---
+
+			// Get current cell counts
+			const leftCountBefore = await leftNotebook.cells.count();
+			const rightCountBefore = await rightNotebook.cells.count();
+
+			// Focus the LEFT notebook
+			await leftNotebook.cell(0).click();
+
+			// Click "+Code" button in the RIGHT notebook's action bar
+			await rightNotebook.addCodeButton.click();
+
+			// Verify RIGHT notebook got a new cell
+			await expect(rightNotebook.cells).toHaveCount(rightCountBefore + 1, { timeout: 5000 });
+
+			// Verify LEFT notebook cell count unchanged
+			await expect(leftNotebook.cells).toHaveCount(leftCountBefore, { timeout: 5000 });
 		});
+
 });

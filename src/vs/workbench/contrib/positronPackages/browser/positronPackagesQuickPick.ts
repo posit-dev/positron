@@ -7,6 +7,7 @@ import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IInputBox, IQuickInput, IQuickInputButton, IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import * as semver from '../../../../base/common/semver/semver.js';
 
 interface VersionSearchResult {
 	name: string;
@@ -18,6 +19,24 @@ interface PackageSearchResult {
 	description?: string;
 	// detail appears on the second line
 	detail?: string;
+}
+
+/**
+ * Sort version strings in descending order (newest first).
+ * Uses semver comparison when possible, falls back to string comparison.
+ */
+function sortVersionsDescending(versions: string[]): string[] {
+	return [...versions].sort((a, b) => {
+		const aSemver = semver.valid(a, true) ? a : semver.coerce(a);
+		const bSemver = semver.valid(b, true) ? b : semver.coerce(b);
+
+		if (aSemver && bSemver) {
+			return semver.rcompare(aSemver, bSemver, true);
+		}
+
+		// Fall back to simple string comparison
+		return a < b ? 1 : a > b ? -1 : 0;
+	});
 }
 
 export const updatePackage = async (
@@ -89,7 +108,8 @@ export const updatePackage = async (
 
 	async function pickVersion(input: MultiStepInput, state: State) {
 		const versions = await performLookup(state.selectedPackage ?? '');
-		state.versions = versions.map((v) => ({ name: v }));
+		const sortedVersions = sortVersionsDescending(versions);
+		state.versions = sortedVersions.map((v) => ({ name: v }));
 
 		const selection = await input.showQuickPick({
 			title,
@@ -195,7 +215,8 @@ export const installPackage = async (
 
 	async function pickVersion(input: MultiStepInput, state: State) {
 		const versions = await performLookup(state.selectedPackage ?? '');
-		state.versions = versions.map((v) => ({ name: v }));
+		const sortedVersions = sortVersionsDescending(versions);
+		state.versions = sortedVersions.map((v) => ({ name: v }));
 
 		const selection = await input.showQuickPick({
 			title,
