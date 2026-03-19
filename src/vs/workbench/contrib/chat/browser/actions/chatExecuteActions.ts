@@ -575,6 +575,10 @@ export class OpenSessionTargetPickerAction extends Action2 {
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
 						IsSessionsWindowContext.negate(),
+						// --- Start Positron ---
+						// Only show session target picker when the current provider is Copilot Chat
+						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
+						// --- End Positron ---
 						ChatContextKeys.chatSessionIsEmpty),
 					group: 'navigation',
 				},
@@ -627,6 +631,10 @@ export class OpenDelegationPickerAction extends Action2 {
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
 						ChatContextKeys.chatSessionIsEmpty.negate(),
+						// --- Start Positron ---
+						// Only show delegation picker when the current provider is Copilot Chat
+						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
+						// --- End Positron ---
 						IsSessionsWindowContext.negate()),
 					group: 'navigation',
 				},
