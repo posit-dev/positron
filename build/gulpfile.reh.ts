@@ -35,7 +35,7 @@ import { fetchUrls, fetchGithub } from './lib/fetch.ts';
 import jsonEditor from 'gulp-json-editor';
 
 // --- Start Positron ---
-import { positronBuildNumber } from './utils.ts';
+import { positronBuildNumber, releaseChannel } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
@@ -420,7 +420,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		let productJsonContents = '';
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
 			// --- Start Positron ---
-			.pipe(jsonEditor({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber }))
+			.pipe(jsonEditor({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber, quality: releaseChannel }))
 			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();
