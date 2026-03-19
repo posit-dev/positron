@@ -24,7 +24,7 @@ export class RPackageManager {
 	 * Get list of installed packages from all libpaths.
 	 */
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-		const method = await this._getPakMethod();
+		const method = await this._getPackageMethod();
 		const result = await this._session.callMethod('pkg_list', method) as positron.LanguageRuntimePackage[] ?? [];
 		// Result is not sorted, sort packages alphabetically by name (case-insensitive)
 		result.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
@@ -89,9 +89,9 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
-			const pkgNames = packages.map(p => p.name);
-			const pkgVector = this._formatRVector(pkgNames);
-			// Since we provide an explicit version for updates, we use install:
+			// renv::install supports "pkg@version" syntax
+			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+			const pkgVector = this._formatRVector(pkgSpecs);
 			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
 			const method = await this._ensurePak();
@@ -246,6 +246,16 @@ export class RPackageManager {
 	private async _getPakMethod(): Promise<string> {
 		const hasPak = await this._detectPak();
 		return hasPak ? 'pak' : 'base';
+	}
+
+	/**
+	 * Get the method string for package listing (renv > pak > base).
+	 */
+	private async _getPackageMethod(): Promise<string> {
+		if (await this._detectRenv()) {
+			return 'renv';
+		}
+		return this._getPakMethod();
 	}
 
 	/**
