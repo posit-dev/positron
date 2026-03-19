@@ -102,13 +102,19 @@ export async function showConfigurationDialog(
 		async (config, action) => {
 			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
 			const hasAuthProvider = apiKeyProviders.has(config.provider);
+			// applyConfig is a fallback while we transition providers to the Auth extension.
+			// It should eventually be removed so that the Auth extension is the single source of truth
+			// for all provider config actions.
+			const applyConfig = async () => {
+				await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
+			};
 			switch (action) {
 				case 'save': {
 					if (hasAuthProvider) {
 						const accountId = await handleSave(config);
 						addResult({ action, config, accountId });
 					} else {
-						await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
+						await applyConfig();
 					}
 					break;
 				}
@@ -117,25 +123,25 @@ export async function showConfigurationDialog(
 						await handleDelete(config);
 						addResult({ action, config });
 					} else {
-						await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
+						await applyConfig();
 					}
 					break;
 				case 'oauth-signin':
 					if (hasAuthProvider) {
 						addResult({ action, config });
 					} else {
-						await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
+						await applyConfig();
 					}
 					break;
 				case 'oauth-signout':
 					if (hasAuthProvider) {
 						addResult({ action, config });
 					} else {
-						await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
+						await applyConfig();
 					}
 					break;
 				case 'cancel':
-					await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
+					await applyConfig();
 					break;
 				default:
 					throw new Error(
