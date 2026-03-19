@@ -38,7 +38,7 @@ export async function validateAnthropicApiKey(apiKey: string): Promise<void> {
 		if (err instanceof Error && err.name === 'AbortError') {
 			throw new Error(vscode.l10n.t('Could not validate Anthropic API key within {0} seconds', String(KEY_VALIDATION_TIMEOUT_MS / 1000)));
 		}
-		if (err instanceof Error && err.message.includes('Invalid Anthropic API key')) {
+		if (err instanceof Error && err.message.includes('Anthropic API key')) {
 			throw err;
 		}
 		throw new Error(vscode.l10n.t('Could not validate Anthropic API key. Check your network connection and try again.'));
