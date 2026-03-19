@@ -100,7 +100,7 @@ test.describe('Postgres DB Connection', {
 			'Password': password,
 		});
 
-		await expect(app.code.driver.page.locator(viewLine, { hasText: 'connections::connection_view(con)' })).toBeVisible();
+		await expect(app.code.driver.page.locator(viewLine, { hasText: 'connections::connection_view(conn)' })).toBeVisible();
 		await expect(app.code.driver.page.locator(viewLine, { hasText: dbName })).toBeVisible();
 		await expect(app.code.driver.page.locator(`${viewLine}:has-text("user = \\\'${user}\\\'")`)).toBeVisible();
 		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password = \\\'${password}\\\'")`)).toBeVisible();
