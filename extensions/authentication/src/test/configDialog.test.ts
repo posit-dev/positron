@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { apiKeyProviders, registerApiKeyProvider, showConfigurationDialog } from '../configDialog';
 import { ApiKeyAuthenticationProvider } from '../apiKeyProvider';
+import { validateAnthropicApiKey } from '../validation';
 
 suite('configDialog', () => {
 	let originalShowLanguageModelConfig: typeof positron.ai.showLanguageModelConfig;
@@ -41,7 +42,9 @@ suite('configDialog', () => {
 			},
 		} as unknown as vscode.ExtensionContext;
 		provider = new ApiKeyAuthenticationProvider('anthropic-api', 'Anthropic', mockContext);
-		registerApiKeyProvider('anthropic-api', provider);
+		registerApiKeyProvider('anthropic-api', provider, {
+			validateApiKey: async (apiKey) => validateAnthropicApiKey(apiKey),
+		});
 	});
 
 	teardown(() => {

@@ -15,12 +15,14 @@ export interface ConfigDialogResult {
 	accountId?: string;
 }
 
-export const apiKeyProviders = new Map<string, ApiKeyAuthenticationProvider>();
+export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
 
-const ANTHROPIC_PROVIDER_ID = 'anthropic-api';
-const ANTHROPIC_MODELS_ENDPOINT = 'https://api.anthropic.com/v1/models';
-const ANTHROPIC_API_VERSION = '2023-06-01';
-const KEY_VALIDATION_TIMEOUT_MS = 5000;
+export interface RegisterApiKeyProviderOptions {
+	validateApiKey?: ApiKeyValidator;
+}
+
+export const apiKeyProviders = new Map<string, ApiKeyAuthenticationProvider>();
+const apiKeyValidators = new Map<string, ApiKeyValidator>();
 
 /**
  * Register an API key provider so the config dialog can store/remove
@@ -28,9 +30,15 @@ const KEY_VALIDATION_TIMEOUT_MS = 5000;
  */
 export function registerApiKeyProvider(
 	providerId: string,
-	provider: ApiKeyAuthenticationProvider
+	provider: ApiKeyAuthenticationProvider,
+	options?: RegisterApiKeyProviderOptions
 ): void {
 	apiKeyProviders.set(providerId, provider);
+	if (options?.validateApiKey) {
+		apiKeyValidators.set(providerId, options.validateApiKey);
+	} else {
+		apiKeyValidators.delete(providerId);
+	}
 }
 
 /**
@@ -158,51 +166,14 @@ async function handleSave(
 	if (!apiKey) {
 		throw new Error(vscode.l10n.t('API key is required'));
 	}
-	if (config.provider === ANTHROPIC_PROVIDER_ID) {
-		await validateAnthropicApiKey(apiKey);
+	const validateApiKey = apiKeyValidators.get(config.provider);
+	if (validateApiKey) {
+		await validateApiKey(apiKey, config);
 	}
 	const accountId = randomUUID();
 	log.info(`Saving credential for provider "${config.provider}", name "${config.name}" (${accountId})`);
 	await provider.storeKey(accountId, config.name, apiKey);
 	return accountId;
-}
-
-async function validateAnthropicApiKey(apiKey: string): Promise<void> {
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
-	try {
-		const response = await fetch(ANTHROPIC_MODELS_ENDPOINT, {
-			method: 'GET',
-			headers: {
-				'x-api-key': apiKey,
-				'anthropic-version': ANTHROPIC_API_VERSION,
-			},
-			signal: controller.signal,
-		});
-
-		if (response.ok) {
-			return;
-		}
-
-		if (response.status === 401 || response.status === 403) {
-			throw new Error(vscode.l10n.t('Invalid Anthropic API key'));
-		}
-
-		throw new Error(vscode.l10n.t(
-			'Unable to validate Anthropic API key (HTTP {0})',
-			String(response.status)
-		));
-	} catch (err) {
-		if (err instanceof Error && err.name === 'AbortError') {
-			throw new Error(vscode.l10n.t('Could not validate Anthropic API key within {0} seconds', String(KEY_VALIDATION_TIMEOUT_MS / 1000)));
-		}
-		if (err instanceof Error && err.message.includes('Invalid Anthropic API key')) {
-			throw err;
-		}
-		throw new Error(vscode.l10n.t('Could not validate Anthropic API key. Check your network connection and try again.'));
-	} finally {
-		clearTimeout(timeout);
-	}
 }
 
 async function handleDelete(
