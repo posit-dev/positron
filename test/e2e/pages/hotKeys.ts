@@ -73,6 +73,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+F', 'Search in notebook');
 	}
 
+	public async triggerGhostCell() {
+		await this.pressHotKeys('Cmd+Shift+G', 'Trigger ghost cell suggestion');
+	}
+
 	// --------------------
 	// --- File Actions ---
 	// --------------------
