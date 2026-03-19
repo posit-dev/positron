@@ -148,7 +148,7 @@ test.describe('Postgres DB Connection', {
 
 			await app.code.driver.page.getByRole('button', { name: 'Disconnect' }).click();
 
-			await app.code.driver.page.locator('.col-name', { hasText: 'PqConnection' }).click();
+			await app.code.driver.page.locator('.col-name', { hasText: dbName }).click();
 
 			await app.code.driver.page.getByRole('button', { name: 'Delete Connection' }).click();
 
