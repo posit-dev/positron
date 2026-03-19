@@ -17,10 +17,10 @@ export interface MessageEmitter {
  * Interface for a session that supports RPC method calls.
  */
 export interface PackageSession {
+    /** Session metadata containing the session ID */
+    metadata: { sessionId: string };
     /** Call an RPC method on the session */
     callMethod(method: string, ...args: unknown[]): Thenable<unknown>;
-    /** Interrupt the session. Optional - not all sessions support this. */
-    interrupt?(): Thenable<void>;
 }
 
 /**

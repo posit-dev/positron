@@ -309,8 +309,8 @@ export class RPackageManager {
 
 		const promise = new Promise<void>((resolve, reject) => {
 			// Register cancellation handler to interrupt R execution
-			const cancelDisp = token?.onCancellationRequested(() => {
-				this._session.interrupt();
+			const cancelDisp = token?.onCancellationRequested(async () => {
+				await positron.runtime.interruptSession(this._session.metadata.sessionId);
 				reject(new vscode.CancellationError());
 				disp.dispose();
 			});
@@ -371,7 +371,7 @@ export class RPackageManager {
 		// Wrap `callMethod` promise with cancellation handling
 		return new Promise<T>((resolve, reject) => {
 			const cancelDisp = token.onCancellationRequested(async () => {
-				await this._session.interrupt();
+				await positron.runtime.interruptSession(this._session.metadata.sessionId);
 				reject(new vscode.CancellationError());
 			});
 
@@ -401,8 +401,8 @@ export class RPackageManager {
 
 		const promise = new Promise<void>((resolve, reject) => {
 			// Register cancellation handler to interrupt R execution
-			const cancelDisp = token?.onCancellationRequested(() => {
-				this._session.interrupt();
+			const cancelDisp = token?.onCancellationRequested(async () => {
+				await positron.runtime.interruptSession(this._session.metadata.sessionId);
 				reject(new vscode.CancellationError());
 				disp.dispose();
 			});

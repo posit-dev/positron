@@ -73,6 +73,7 @@ suite('UvPackageManager Tests', () => {
 
         // Create session mock
         session = {
+            metadata: { sessionId: 'test-session-id' },
             callMethod: sinon.stub().resolves([]),
         };
 

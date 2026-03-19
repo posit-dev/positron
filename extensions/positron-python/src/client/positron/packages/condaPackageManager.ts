@@ -304,10 +304,8 @@ export class CondaPackageManager implements IPackageManager {
         // Wrap callMethod promise with cancellation handling
         return new Promise<T>((resolve, reject) => {
             const cancelDisp = token.onCancellationRequested(async () => {
-                // Interrupt kernel if supported
-                if (this._session.interrupt) {
-                    await this._session.interrupt();
-                }
+                // Interrupt the session via the runtime service
+                await positron.runtime.interruptSession(this._session.metadata.sessionId);
                 reject(new vscode.CancellationError());
             });
 
