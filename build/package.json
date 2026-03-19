@@ -52,7 +52,6 @@
     "gulp-gunzip": "^1.1.0",
     "gulp-merge-json": "^2.1.1",
     "gulp-sort": "^2.0.0",
-    "gulp-untar": "^0.0.8",
     "gulp-unzip": "^1.1.0",
     "jsonc-parser": "^2.3.0",
     "jws": "^4.0.1",
