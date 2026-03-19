@@ -49,22 +49,20 @@ export async function getApiKey(
 			return session.accessToken;
 		}
 
-		// If requested account no longer exists, do not attempt fallback to
-		// another account's session token.
-		const accounts = await vscode.authentication.getAccounts(providerId);
-		const hasRequestedAccount = accounts.some(account => account.id === accountId);
-		if (!hasRequestedAccount) {
-			providerLogger.warn(`Requested auth account no longer exists: ${accountId}`);
-		} else if (accounts.length === 1) {
+		const fallbackAccounts = await vscode.authentication.getAccounts(providerId);
+		for (const fallbackAccount of fallbackAccounts) {
 			const fallbackSession = await vscode.authentication.getSession(
 				providerId,
 				[],
-				{ silent: true, account: { id: accounts[0].id, label: '' } }
+				{ silent: true, account: { id: fallbackAccount.id, label: '' } }
 			);
 			if (fallbackSession?.accessToken) {
-				providerLogger.logAuthentication('success', 'via Authentication extension single-account fallback session');
+				providerLogger.logAuthentication('success', 'via Authentication extension fallback account session');
 				return fallbackSession.accessToken;
 			}
+		}
+		if (fallbackAccounts.length === 0) {
+			providerLogger.warn(`Requested auth account no longer exists: ${accountId}`);
 		}
 	} catch (err) {
 		providerLogger.warn(`Failed to read auth session for ${accountId}`, err);
