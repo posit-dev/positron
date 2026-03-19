@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { applyConfigAction, deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
+import { applyConfigAction, deleteConfiguration, deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
 import { registerSupportedProviders, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
@@ -387,15 +387,25 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 		try {
 			const accounts = await vscode.authentication.getAccounts(providerId);
-			if (accounts.length === 0) {
-				await deleteConfigurationByProvider(context, providerId);
-			} else {
-				// Only re-register if Assistant already has stored configs for this provider.
-				// This keeps Accounts-menu sign-in from creating new model configs implicitly.
-				const hasStoredConfig = getStoredModels(context).some(model => model.provider === providerId);
-				if (hasStoredConfig) {
-					await registerModelsForProvider(context, providerId);
+			const accountIds = new Set(accounts.map(account => account.id));
+			const providerModels = getStoredModels(context).filter(model => model.provider === providerId);
+
+			for (const model of providerModels) {
+				if (!accountIds.has(model.id)) {
+					await deleteConfiguration(context, model.id);
 				}
+			}
+
+			if (accountIds.size === 0) {
+				await deleteConfigurationByProvider(context, providerId);
+				return;
+			}
+
+			// Only re-register if Assistant still has stored configs for this provider.
+			// This keeps Accounts-menu sign-in from creating new model configs implicitly.
+			const hasStoredConfig = getStoredModels(context).some(model => model.provider === providerId);
+			if (hasStoredConfig) {
+				await registerModelsForProvider(context, providerId);
 			}
 		} catch (error) {
 			log.warn(`[Auth Session Sync] Failed to sync provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);

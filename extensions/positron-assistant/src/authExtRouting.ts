@@ -49,10 +49,13 @@ export async function getApiKey(
 			return session.accessToken;
 		}
 
-		// Fallback for account mapping mismatches: only use fallback when there
-		// is exactly one account for the provider to avoid cross-account token use.
+		// If requested account no longer exists, do not attempt fallback to
+		// another account's session token.
 		const accounts = await vscode.authentication.getAccounts(providerId);
-		if (accounts.length === 1) {
+		const hasRequestedAccount = accounts.some(account => account.id === accountId);
+		if (!hasRequestedAccount) {
+			providerLogger.warn(`Requested auth account no longer exists: ${accountId}`);
+		} else if (accounts.length === 1) {
 			const fallbackSession = await vscode.authentication.getSession(
 				providerId,
 				[],
