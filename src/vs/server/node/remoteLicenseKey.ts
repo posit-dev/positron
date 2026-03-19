@@ -135,7 +135,8 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 }
 
 /**
- * Validates a license file.
+ * Validates a license file. For RSA license files, this activates (installs)
+ * the license into the system before validation.
  *
  * @param connectionToken The connection token.
  * @param licenseFile The path to the license file.
