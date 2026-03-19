@@ -408,7 +408,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		let packageJsonContents = '';
 		// --- Start Positron ---
 		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
-		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
+		const packageJsonBase = isWebType(type) ? 'remote/reh-web' : 'remote';
 		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
 			// --- End Positron ---
 			.pipe(jsonEditor({ name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' }))
@@ -435,7 +435,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
 		// --- Start Positron ---
-		const productionDependencies = getProductionDependencies(type === 'reh-web' ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
+		const productionDependencies = getProductionDependencies(isWebType(type) ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
 		const deps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
 			// --- End Positron ---
