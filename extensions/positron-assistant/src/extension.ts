@@ -352,6 +352,28 @@ function registerDeferredFoundryAutoconfigure(context: vscode.ExtensionContext) 
 	log.debug('[Foundry] Listening for Workbench auth sessions for deferred autoconfigure');
 }
 
+async function reconcileAuthProviderModels(
+	context: vscode.ExtensionContext,
+	providerId: string,
+): Promise<boolean> {
+	const accounts = await vscode.authentication.getAccounts(providerId);
+	const accountIds = new Set(accounts.map(account => account.id));
+	const providerModels = getStoredModels(context).filter(model => model.provider === providerId);
+
+	for (const model of providerModels) {
+		if (!accountIds.has(model.id)) {
+			await deleteConfiguration(context, model.id);
+		}
+	}
+
+	if (accountIds.size === 0) {
+		await deleteConfigurationByProvider(context, providerId);
+		return false;
+	}
+
+	return getStoredModels(context).some(model => model.provider === providerId);
+}
+
 function registerAssistant(context: vscode.ExtensionContext) {
 	// Register Posit AI authentication provider
 	registerPositAuthProvider(context);
@@ -364,6 +386,23 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize provider configuration system (registration, migration, validation)
 	initializeProviderConfiguration(context)
+		.then(async () => {
+			// Reconcile stale auth-backed configs before model registration so
+			// startup doesn't attempt to register with missing session IDs.
+			const authProviderIds = new Set(
+				getStoredModels(context)
+					.map(model => model.provider)
+					.filter(providerId => isAuthExtProvider(providerId))
+			);
+
+			for (const providerId of authProviderIds) {
+				try {
+					await reconcileAuthProviderModels(context, providerId);
+				} catch (error) {
+					log.warn(`[Auth Startup Reconcile] Failed for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			}
+		})
 		.then(() => {
 			// After initialization, register models
 			return registerModels(context);
@@ -386,24 +425,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 		}
 
 		try {
-			const accounts = await vscode.authentication.getAccounts(providerId);
-			const accountIds = new Set(accounts.map(account => account.id));
-			const providerModels = getStoredModels(context).filter(model => model.provider === providerId);
-
-			for (const model of providerModels) {
-				if (!accountIds.has(model.id)) {
-					await deleteConfiguration(context, model.id);
-				}
-			}
-
-			if (accountIds.size === 0) {
-				await deleteConfigurationByProvider(context, providerId);
-				return;
-			}
-
+			const hasStoredConfig = await reconcileAuthProviderModels(context, providerId);
 			// Only re-register if Assistant still has stored configs for this provider.
 			// This keeps Accounts-menu sign-in from creating new model configs implicitly.
-			const hasStoredConfig = getStoredModels(context).some(model => model.provider === providerId);
 			if (hasStoredConfig) {
 				await registerModelsForProvider(context, providerId);
 			}
