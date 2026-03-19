@@ -65,6 +65,7 @@ import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/com
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 
 export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
@@ -1517,15 +1518,24 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.collapseOutput',
 			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
-			menu: {
-				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Visibility,
-				order: 1,
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
-				)
-			}
+			icon: Codicon.chevronDown,
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionBar,
+					group: PositronNotebookCellOutputActionGroup.Visibility,
+					order: 1,
+					when: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+				},
+				{
+					id: MenuId.PositronNotebookCellOutputActionLeft,
+					group: PositronNotebookCellOutputActionGroup.Visibility,
+					order: 1,
+					when: ContextKeyExpr.and(
+						POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+					)
+				},
+			]
 		});
 	}
 
@@ -1544,15 +1554,24 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.expandOutput',
 			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
-			menu: {
-				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Visibility,
-				order: 2,
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
-				)
-			}
+			icon: Codicon.chevronRight,
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionBar,
+					group: PositronNotebookCellOutputActionGroup.Visibility,
+					order: 2,
+					when: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
+				},
+				{
+					id: MenuId.PositronNotebookCellOutputActionLeft,
+					group: PositronNotebookCellOutputActionGroup.Visibility,
+					order: 2,
+					when: ContextKeyExpr.and(
+						POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
+					)
+				},
+			]
 		});
 	}
 
@@ -1571,12 +1590,20 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.clearOutput',
 			title: localize2('positronNotebook.cell.clearOutput', "Clear Output"),
-			menu: {
-				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Visibility,
-				order: 3,
-				when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
-			}
+			icon: Codicon.clearAll,
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionBar,
+					group: PositronNotebookCellOutputActionGroup.Destructive,
+					order: 1,
+				},
+				{
+					id: MenuId.PositronNotebookCellOutputActionLeft,
+					group: PositronNotebookCellOutputActionGroup.Destructive,
+					order: 1,
+					when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
+				},
+			]
 		});
 	}
 

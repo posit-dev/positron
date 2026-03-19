@@ -18,6 +18,7 @@ const MARKDOWN_ARIA_LABEL = 'Markdown cell - Press Enter to edit';
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
 type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
+type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Output';
 
 /**
  * Notebooks functionality exclusive to Positron notebooks.
@@ -43,7 +44,7 @@ export class PositronNotebooks extends Notebooks {
 	private addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
 	private addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 
-	// Cell action buttons, menus, tooltips, output, etc
+	// Cell action buttons, menus, tooltips, etc
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /More Cell Actions/i });
 	// Drag handle is a sibling of the cell inside .sortable-cell parent
 	sortableCellAtIndex = (index: number) => this.code.driver.page.locator('.sortable-cell').nth(index);
@@ -51,9 +52,7 @@ export class PositronNotebooks extends Notebooks {
 	dragZoneAtIndex = (index: number) => this.sortableCellAtIndex(index).locator('.cell-drag-zone');
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
-	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
-	private executionStatusBadgeWrapperAtIndex = (index: number) => this.cell.nth(index).locator('.execution-status-badge-wrapper');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellFooterAtIndex = (index: number) => this.cell.nth(index).locator('.positron-notebook-code-cell-footer');
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/Cell is executing/i);
@@ -61,6 +60,11 @@ export class PositronNotebooks extends Notebooks {
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
+
+	// Cell outputs
+	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
+	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
+	showHiddenOutputButton = (index: number) => this.cellOutput(index).getByRole('button', { name: 'Show hidden output' });
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
@@ -545,6 +549,18 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Select an output action from the Output Action Bar for a cell.
+	 * @param cellIndex - The index of the cell to act on
+	 * @param button - The button to click on the Output Action Bar
+	 */
+	async triggerCellOutputAction(cellIndex: number, button: OutputActionBarButtons): Promise<void> {
+		await test.step(`Click "${button}" for cell ${cellIndex}`, async () => {
+			await this.cellOutput(cellIndex).hover();
+			await this.outputActionBar(cellIndex).getByRole('button', { name: button }).click();
+		});
+	}
+
+	/**
 	 * Action: Create a new code cell at the END of the notebook.
 	 */
 	private async addCodeCellToEnd(): Promise<void> {
@@ -579,14 +595,6 @@ export class PositronNotebooks extends Notebooks {
 			});
 			await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
 		});
-	}
-
-	/**
-	 * Action: Hover over the execution status badge for a cell to trigger the execution info tooltip.
-	 * @param cellIndex - The index of the cell whose execution badge to hover.
-	 */
-	async hoverExecutionBadge(cellIndex: number): Promise<void> {
-		await this.executionStatusBadgeWrapperAtIndex(cellIndex).hover();
 	}
 
 	/**
