@@ -158,6 +158,23 @@ print("hello")`;
 			assert.strictEqual(result.options.error, true);
 			assert.strictEqual(result.optionLineCount, 2);
 		});
+
+		test('handles CRLF line endings (Windows)', () => {
+			const code = '#| fig-width: 4\r\n#| fig-height: 3\r\nprint("hello")';
+			const result = parseCellExecutionOptions(code);
+
+			assert.strictEqual(result.optionLineCount, 2);
+			assert.deepStrictEqual(result.metadata, { 'fig-width': 4, 'fig-height': 3 });
+		});
+
+		test('handles CR-only line endings', () => {
+			const code = '#| eval: false\r#| fig-width: 10\rprint("hello")';
+			const result = parseCellExecutionOptions(code);
+
+			assert.strictEqual(result.options.eval, false);
+			assert.strictEqual(result.optionLineCount, 2);
+			assert.deepStrictEqual(result.metadata, { 'fig-width': 10 });
+		});
 	});
 
 	suite('extractExecutableCode', () => {
@@ -201,6 +218,13 @@ x = 1`);
 			const result = extractExecutableCode(code);
 
 			assert.strictEqual(result, '');
+		});
+
+		test('removes option lines with CRLF line endings', () => {
+			const code = '#| eval: false\r\n#| fig-width: 4\r\nprint("hello")';
+			const result = extractExecutableCode(code);
+
+			assert.strictEqual(result, 'print("hello")');
 		});
 
 		test('preserves internal #| comments (not at start)', () => {

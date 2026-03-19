@@ -102,7 +102,7 @@ const EXECUTION_OPTION_KEYS = new Set(['eval', 'error']);
  * @returns Parsed options and the number of option lines at the start
  */
 export function parseCellExecutionOptions(code: string): ParsedCellOptions {
-	const lines = code.split('\n');
+	const lines = code.replace(/\r\n?/g, '\n').split('\n');
 	const optionLines: string[] = [];
 	let optionLineCount = 0;
 
@@ -160,7 +160,7 @@ export function parseCellExecutionOptions(code: string): ParsedCellOptions {
  */
 export function extractExecutableCode(code: string): string {
 	const { optionLineCount } = parseCellExecutionOptions(code);
-	const lines = code.split('\n');
+	const lines = code.replace(/\r\n?/g, '\n').split('\n');
 	return lines.slice(optionLineCount).join('\n');
 }
 
