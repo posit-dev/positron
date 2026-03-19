@@ -106,12 +106,15 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 
 		// Listen for Positron notebook instance additions to track their focus events
 		this._register(this._positronNotebookService.onDidAddNotebookInstance((instance) => {
-			this._logService.trace(`[ForegroundSessionContribution] onDidAddNotebookInstance fired: ${instance.getId()}`);
+			const notebookName = basename(instance.uri);
+			this._logService.trace(`[ForegroundSessionContribution] (${notebookName}) onDidAddNotebookInstance fired: ${instance.getId()}`);
 			this._registerPositronNotebookFocusListener(instance);
 		}));
 
 		// Clean up when Positron notebook instances are removed
 		this._register(this._positronNotebookService.onDidRemoveNotebookInstance((instance) => {
+			const notebookName = basename(instance.uri);
+			this._logService.trace(`[ForegroundSessionContribution] (${notebookName}) onDidRemoveNotebookInstance fired: ${instance.getId()}`);
 			this._unregisterPositronNotebookFocusListener(instance);
 		}));
 
@@ -134,6 +137,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 
 		// Clean up when legacy notebook editors are removed
 		this._register(this._notebookEditorService.onDidRemoveNotebookEditor((editor) => {
+			this._logService.trace(`[ForegroundSessionContribution] onDidRemoveNotebookEditor fired: ${editor.getId()}`);
 			this._unregisterLegacyNotebookFocusListener(editor);
 		}));
 
@@ -174,15 +178,16 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 	 */
 	private _registerPositronNotebookFocusListener(instance: IPositronNotebookInstance): void {
 		const instanceId = instance.getId();
+		const notebookName = basename(instance.uri);
 		if (this._positronNotebookDisposables.has(instanceId)) {
-			this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance ${instanceId} already registered`);
+			this._logService.trace(`[ForegroundSessionContribution] Positron notebook (${notebookName}) instance already registered: ${instanceId}`);
 			return;
 		}
 
-		this._logService.trace(`[ForegroundSessionContribution] Registering focus listener for Positron notebook instance: ${instanceId}`);
+		this._logService.trace(`[ForegroundSessionContribution] Registering focus listener for Positron notebook (${notebookName}) instance: ${instanceId}`);
 		const disposables = new DisposableStore();
 		disposables.add(instance.onDidFocusWidget(() => {
-			this._logService.trace(`[ForegroundSessionContribution] onDidFocusWidget fired for Positron notebook instance: ${instanceId}`);
+			this._logService.trace(`[ForegroundSessionContribution] onDidFocusWidget fired for Positron notebook (${notebookName}) instance: ${instanceId}`);
 			this._handlePositronNotebookFocus(instance);
 		}));
 		this._positronNotebookDisposables.set(instanceId, disposables);
@@ -224,7 +229,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		const editorId = editor.getId();
 		if (this._legacyNotebookDisposables.has(editorId)) {
 			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor ${editorId} already registered`);
-			return; // Already registered
+			return;
 		}
 
 		this._logService.trace(`[ForegroundSessionContribution] Registering focus listener for legacy notebook editor: ${editorId}`);
@@ -282,12 +287,12 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		// This allows the foreground session to stay in sync with the console instance when a user clicks on a console tab.
 		const session = instance.session;
 		if (session) {
-			this._logService.trace(`[ForegroundSessionContribution] Console instance selected, setting foreground session: ${session.sessionId}`);
+			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, setting foreground session: ${session.sessionId}`);
 			this._runtimeSessionService.foregroundSession = session;
 		} else {
 			// Console instance has no session yet - this can happen for provisional
 			// instances while waiting for a session to connect
-			this._logService.trace(`[ForegroundSessionContribution] Console instance selected but no session: ${instance.sessionId}`);
+			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected but no session: ${instance.sessionId}`);
 		}
 	}
 
@@ -307,9 +312,10 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		}
 
 		// Check if the notebook is the active editor
+		const notebookName = basename(notebookUri);
 		const activeEditor = this._editorService.activeEditor;
 		if (isNotebookEditorInput(activeEditor) && isEqual(activeEditor.resource, notebookUri)) {
-			this._logService.trace(`[ForegroundSessionContribution] Notebook session started/ready, setting foreground session: ${session.sessionId}`);
+			this._logService.trace(`[ForegroundSessionContribution] Notebook session started/ready for (${notebookName}), setting foreground session: ${session.sessionId}`);
 			this._runtimeSessionService.foregroundSession = session;
 		}
 	}
