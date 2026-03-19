@@ -100,18 +100,18 @@ test.describe('Postgres DB Connection', {
 			'Password': password,
 		});
 
-		await expect(app.code.driver.page.locator(viewLine, { hasText: 'connections::connection_view(conn)' })).toBeVisible();
+		await expect(app.code.driver.page.locator(viewLine, { hasText: 'con <- connection_open' })).toBeVisible();
 		await expect(app.code.driver.page.locator(viewLine, { hasText: dbName })).toBeVisible();
-		await expect(app.code.driver.page.locator(`${viewLine}:has-text("user = \\\'${user}\\\'")`)).toBeVisible();
-		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password = \\\'${password}\\\'")`)).toBeVisible();
+		await expect(app.code.driver.page.locator(`${viewLine}:has-text("user = \\"${user}\\"")`)).toBeVisible();
+		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password = \\"${password}\\"")`)).toBeVisible();
 
 		await app.workbench.connections.connect();
 
 		await test.step('Open periodic table connection', async () => {
 
-			await app.workbench.connections.viewConnection('PqConnection');
+			await app.workbench.connections.viewConnection(dbName);
 
-			await app.workbench.connections.expandConnectionDetails('PqConnection');
+			await app.workbench.connections.expandConnectionDetails(dbName);
 
 			await app.workbench.connections.expandConnectionDetails('public');
 
