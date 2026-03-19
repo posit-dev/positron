@@ -430,8 +430,10 @@ async function main() {
 	console.log(`package.json version: ${packageJsonVersion} `);
 	console.log(`Downloaded ark version: ${localArkVersion ? localArkVersion : 'Not found'} `);
 
-	// Skip installation if versions match
-	if (packageJsonVersion === localArkVersion) {
+	// Skip installation if versions match. Repo references (org/repo@branch)
+	// always re-download because the branch tip may have new commits even though
+	// the ref string is unchanged.
+	if (packageJsonVersion === localArkVersion && !isGitHubRepoReference(packageJsonVersion)) {
 		console.log('Versions match. No action required.');
 		return;
 	}
