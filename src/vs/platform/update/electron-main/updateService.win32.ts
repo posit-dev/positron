@@ -31,6 +31,7 @@ import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../com
 import { mkdirSync } from 'fs';
 // --- End Positron ---
 import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } from './abstractUpdateService.js';
+import { IStateService } from '../../state/node/state.js';
 
 async function pollUntil(fn: () => boolean, millis = 1000): Promise<void> {
 	while (!fn()) {
@@ -76,9 +77,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		@ILogService logService: ILogService,
 		@IFileService private readonly fileService: IFileService,
 		@IProductService productService: IProductService,
-		@INativeHostMainService nativeHostMainService: INativeHostMainService
+		@INativeHostMainService nativeHostMainService: INativeHostMainService,
+		@IStateService stateService: IStateService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService, stateService);
 
 		lifecycleMainService.setRelaunchHandler(this);
 	}

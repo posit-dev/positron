@@ -1254,6 +1254,7 @@ declare module 'positron' {
 		 * @param mode The code execution mode
 		 * @param errorBehavior The code execution error behavior
 		 * @param codeLocation Optionally, the location of `code` in the source editor.
+		 * @param executionMetadata Optionally, a record of additional metadata to associate with this execution.
 		 * Note: The errorBehavior parameter is currently ignored by kernels
 		 */
 		execute(
@@ -1262,6 +1263,7 @@ declare module 'positron' {
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior,
 			codeLocation?: Utf8Location,
+			executionMetadata?: Record<string, any>,
 		): void;
 
 		/**
@@ -2090,6 +2092,11 @@ declare module 'positron' {
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
 		 *  will be started.
+		 * @param documentUri An optional URI of the document in which the code to execute is located.
+		 * @param executionMetadata An optional object containing additional
+		 *  metadata to pass to the language runtime. Will be included in the
+		 *  `positron` field of the `metadata` argument passed to the runtime's
+		 *  `execute` method.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -2101,7 +2108,8 @@ declare module 'positron' {
 			errorBehavior?: RuntimeErrorBehavior,
 			observer?: ExecutionObserver,
 			sessionId?: string,
-			documentUri?: vscode.Uri): Thenable<Record<string, any>>;
+			documentUri?: vscode.Uri,
+			executionMetadata?: Record<string, any>): Thenable<Record<string, any>>;
 
 		/**
 		 * Evaluates code silently in a language runtime, without displaying
@@ -2129,9 +2137,13 @@ declare module 'positron' {
 		 *
 		 * @param documentUri The URI of the document
 		 * @param range The ranges of the cells to execute
+		 * @param executionMetadata An optional array of metadata objects to
+		 *  pass to the language runtime, one for each cell being executed.
 		 */
 		export function executeInlineCell(documentUri: vscode.Uri,
-			cellRanges: vscode.Range[]): Thenable<void>;
+			cellRanges: vscode.Range[],
+			executionMetadata?: Record<string, any>[]
+		): Thenable<void>;
 
 		/**
 		 * Register a language runtime manager with Positron.

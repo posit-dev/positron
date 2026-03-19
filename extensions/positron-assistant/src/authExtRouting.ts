@@ -22,50 +22,10 @@ export interface ConfigDialogResult {
 /** Providers whose credentials are managed by the authentication extension. */
 const AUTH_EXT_PROVIDERS = new Set<string>([
 	'anthropic-api',
-	'ms-foundry',
-	'amazon-bedrock',
 ]);
-
-/**
- * Maps model provider IDs to auth provider IDs when they differ.
- * Most providers use the same ID for both; AWS is the exception
- * because the auth provider is generic ('aws') while the model
- * provider is service-specific ('amazon-bedrock').
- */
-const AUTH_PROVIDER_ID_MAP: Record<string, string> = {
-	'amazon-bedrock': 'aws',
-};
-
-/** Reverse of AUTH_PROVIDER_ID_MAP: auth provider ID -> model provider ID. */
-const MODEL_PROVIDER_ID_MAP: Record<string, string> = Object.fromEntries(
-	Object.entries(AUTH_PROVIDER_ID_MAP).map(([k, v]) => [v, k])
-);
 
 export function isAuthExtProvider(providerId: string): boolean {
 	return AUTH_EXT_PROVIDERS.has(providerId);
-}
-
-/**
- * Returns the model provider ID for an auth provider ID, or undefined
- * if the auth provider is not managed by the authentication extension.
- */
-export function resolveModelProviderId(
-	authProviderId: string
-): string | undefined {
-	// Check reverse map first (e.g. 'aws' -> 'amazon-bedrock')
-	const mapped = MODEL_PROVIDER_ID_MAP[authProviderId];
-	if (mapped) {
-		return mapped;
-	}
-	// For providers where auth ID == model ID (e.g. 'anthropic-api')
-	if (AUTH_EXT_PROVIDERS.has(authProviderId)) {
-		return authProviderId;
-	}
-	return undefined;
-}
-
-function resolveAuthProviderId(modelProviderId: string): string {
-	return AUTH_PROVIDER_ID_MAP[modelProviderId] ?? modelProviderId;
 }
 
 /**
@@ -80,14 +40,29 @@ export async function getApiKey(
 	secrets: vscode.SecretStorage
 ): Promise<string | undefined> {
 	const providerLogger = new ModelProviderLogger(label);
-	const authProviderId = resolveAuthProviderId(providerId);
 	try {
 		const session = await vscode.authentication.getSession(
-			authProviderId, [], { silent: true, account: { id: accountId, label: '' } }
+			providerId, [], { silent: true, account: { id: accountId, label: '' } }
 		);
 		if (session?.accessToken) {
 			providerLogger.logAuthentication('success', 'via Authentication extension');
 			return session.accessToken;
+		}
+
+		const fallbackAccounts = await vscode.authentication.getAccounts(providerId);
+		for (const fallbackAccount of fallbackAccounts) {
+			const fallbackSession = await vscode.authentication.getSession(
+				providerId,
+				[],
+				{ silent: true, account: { id: fallbackAccount.id, label: '' } }
+			);
+			if (fallbackSession?.accessToken) {
+				providerLogger.logAuthentication('success', 'via Authentication extension fallback account session');
+				return fallbackSession.accessToken;
+			}
+		}
+		if (fallbackAccounts.length === 0) {
+			providerLogger.warn(`Requested auth account no longer exists: ${accountId}`);
 		}
 	} catch (err) {
 		providerLogger.warn(`Failed to read auth session for ${accountId}`, err);
@@ -122,9 +97,7 @@ export async function resolveApiKey(
 
 /**
  * Delegate the config dialog to the authentication extension.
- * Sources keep their original model provider IDs so the UI can
- * match icons and events. The auth extension handles the
- * model-to-auth ID mapping internally for provider lookups.
+ * Returns the actions taken so the caller can handle model lifecycle.
  */
 export async function delegateConfigDialog(
 	sources: positron.ai.LanguageModelSource[],

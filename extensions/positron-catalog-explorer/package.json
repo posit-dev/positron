@@ -16,6 +16,9 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "extensionDependencies": [
+    "positron.positron-environment"
+  ],
   "contributes": {
     "configuration": {
       "title": "Catalog Explorer",

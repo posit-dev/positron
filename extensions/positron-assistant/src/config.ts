@@ -175,32 +175,43 @@ export async function showConfigurationDialog(
 	// action results so we can handle model lifecycle here.
 	const results = await delegateConfigDialog(sources, { preselectedProviderId });
 	for (const result of results) {
-		switch (result.action) {
-			case 'save':
-				if (isAuthExtProvider(result.config.provider) && result.accountId) {
-					await saveModel(result.config, sources, context, {
-						id: result.accountId, skipSecretStorage: true
-					});
-				} else {
-					await saveModel(result.config, sources, context);
-				}
-				break;
-			case 'delete':
-				await deleteConfigurationByProvider(context, result.config.provider);
-				break;
-			case 'oauth-signin':
-				await oauthSignin(result.config, sources, context);
-				break;
-			case 'oauth-signout':
-				await oauthSignout(result.config, sources, context);
-				break;
-			case 'cancel':
-				// User cancelled the dialog, clean up any pending operations
-				PositModelProvider.cancelCurrentSignIn();
-				break;
-			default:
-				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', result.action));
-		}
+		await applyConfigAction(context, sources, result.config, result.action, result.accountId);
+	}
+}
+
+export async function applyConfigAction(
+	context: vscode.ExtensionContext,
+	sources: positron.ai.LanguageModelSource[],
+	config: positron.ai.LanguageModelConfig,
+	action: string,
+	accountId?: string,
+) {
+	switch (action) {
+		case 'save':
+			if (isAuthExtProvider(config.provider) && accountId) {
+				await saveModel(config, sources, context, {
+					id: accountId,
+					skipSecretStorage: true,
+				});
+			} else {
+				await saveModel(config, sources, context);
+			}
+			break;
+		case 'delete':
+			await deleteConfigurationByProvider(context, config.provider);
+			break;
+		case 'oauth-signin':
+			await oauthSignin(config, sources, context);
+			break;
+		case 'oauth-signout':
+			await oauthSignout(config, sources, context);
+			break;
+		case 'cancel':
+			// User cancelled the dialog, clean up any pending operations.
+			PositModelProvider.cancelCurrentSignIn();
+			break;
+		default:
+			throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
 	}
 }
 
@@ -300,14 +311,17 @@ async function saveModel(
 
 export async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
-	const targetConfig = existingConfigs.find(config => config.provider === providerId);
-	if (targetConfig === undefined) {
+	const targetConfigs = existingConfigs.filter(config => config.provider === providerId);
+	if (targetConfigs.length === 0) {
 		// Provider may be autoconfigured and not in persistent state
 		// Remove from autoconfigured models list if present
 		removeAutoconfiguredModel(providerId);
 		return;
 	}
-	await deleteConfiguration(context, targetConfig.id);
+
+	for (const config of targetConfigs) {
+		await deleteConfiguration(context, config.id);
+	}
 }
 
 async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {

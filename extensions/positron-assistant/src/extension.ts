@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
+import { applyConfigAction, deleteConfiguration, deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
 import { registerSupportedProviders, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
@@ -30,7 +30,8 @@ import { performSettingsMigrations } from './providerMigration.js';
 import { disposeModels, registerModels, registerModelsForProvider } from './modelRegistration';
 import { registerPositAuthProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_METADATA } from './providerMetadata.js';
-import { resolveModelProviderId } from './authExtRouting.js';
+import { ModelConfig } from './configTypes.js';
+import { isAuthExtProvider } from './authExtRouting.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -40,6 +41,14 @@ function registerConfigureProvidersCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.configureProviders', async (providerId?: string) => {
 			await showConfigurationDialog(context, providerId);
+		}),
+		vscode.commands.registerCommand('positron-assistant.applyConfigAction', async (
+			config: positron.ai.LanguageModelConfig,
+			action: string,
+			sources: positron.ai.LanguageModelSource[],
+			accountId?: string,
+		) => {
+			await applyConfigAction(context, sources, config, action, accountId);
 		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
 			logStoredModels(context);
@@ -243,39 +252,26 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
 	await validateProvidersEnabled();
 }
 
-/**
- * Listens for auth session changes from the authentication extension
- * and updates model state accordingly. When sessions change, checks
- * the current state to determine whether to register or deregister
- * models for the affected provider.
- */
-function registerAuthSessionListener(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
-		vscode.authentication.onDidChangeSessions(async (e) => {
-			const modelProviderId = resolveModelProviderId(e.provider.id);
-			if (!modelProviderId) {
-				return;
-			}
+async function reconcileAuthProviderModels(
+	context: vscode.ExtensionContext,
+	providerId: string,
+): Promise<boolean> {
+	const accounts = await vscode.authentication.getAccounts(providerId);
+	const accountIds = new Set(accounts.map(account => account.id));
+	const providerModels = getStoredModels(context).filter(model => model.provider === providerId);
 
-			let session: vscode.AuthenticationSession | undefined;
-			try {
-				session = await vscode.authentication.getSession(
-					e.provider.id, [], { silent: true }
-				);
-			} catch (err) {
-				log.warn(`Failed to check session for ${e.provider.id}: ${err instanceof Error ? err.message : String(err)}`);
-				return;
-			}
+	for (const model of providerModels) {
+		if (!accountIds.has(model.id)) {
+			await deleteConfiguration(context, model.id);
+		}
+	}
 
-			if (session) {
-				log.info(`Auth session available for ${e.provider.id}, re-registering ${modelProviderId}`);
-				await registerModelsForProvider(context, modelProviderId, e.provider.id);
-			} else {
-				log.info(`Auth session removed for ${e.provider.id}, deregistering ${modelProviderId}`);
-				await deleteConfigurationByProvider(context, modelProviderId);
-			}
-		})
-	);
+	if (accountIds.size === 0) {
+		await deleteConfigurationByProvider(context, providerId);
+		return false;
+	}
+
+	return getStoredModels(context).some(model => model.provider === providerId);
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
@@ -290,6 +286,23 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize provider configuration system (registration, migration, validation)
 	initializeProviderConfiguration(context)
+		.then(async () => {
+			// Reconcile stale auth-backed configs before model registration so
+			// startup doesn't attempt to register with missing session IDs.
+			const authProviderIds = new Set(
+				getStoredModels(context)
+					.map(model => model.provider)
+					.filter(providerId => isAuthExtProvider(providerId))
+			);
+
+			for (const providerId of authProviderIds) {
+				try {
+					await reconcileAuthProviderModels(context, providerId);
+				} catch (error) {
+					log.warn(`[Auth Startup Reconcile] Failed for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			}
+		})
 		.then(() => {
 			// After initialization, register models
 			return registerModels(context);
@@ -298,8 +311,25 @@ function registerAssistant(context: vscode.ExtensionContext) {
 			log.error(`Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
 
-	// Listen for auth session changes (sign-in/sign-out) from the auth extension
-	registerAuthSessionListener(context);
+	// Keep Positron Assistant model state in sync when users sign out via Accounts menu.
+	context.subscriptions.push(vscode.authentication.onDidChangeSessions(async (e) => {
+		const providerId = e.provider.id;
+		if (!isAuthExtProvider(providerId)) {
+			return;
+		}
+
+		try {
+			const hasStoredConfig = await reconcileAuthProviderModels(context, providerId);
+			// Only re-register if Assistant still has stored configs for this provider.
+			// This keeps Accounts-menu sign-in from creating new model configs implicitly.
+			if (hasStoredConfig) {
+				await registerModelsForProvider(context, providerId);
+			}
+		} catch (error) {
+			log.warn(`[Auth Session Sync] Failed to sync provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}));
+
 
 	// Track opened files for completion context
 	registerHistoryTracking(context);

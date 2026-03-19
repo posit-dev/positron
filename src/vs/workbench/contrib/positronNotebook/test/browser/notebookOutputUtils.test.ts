@@ -18,20 +18,51 @@ function makeOutputItem(mime: string, text: string) {
 suite('Notebook Output Utils', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('parseOutputData: parses image/svg+xml into an image with a data URL', () => {
-		const svg = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>';
-		const result = parseOutputData(makeOutputItem('image/svg+xml', svg));
+	suite('parseOutputData', () => {
+		test('parses image/svg+xml into an image with a data URL', () => {
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>';
+			const result = parseOutputData(makeOutputItem('image/svg+xml', svg));
 
-		assert.strictEqual(result.type, 'image');
-		const { dataUrl } = result as { type: 'image'; dataUrl: string };
-		assert.ok(
-			dataUrl.startsWith('data:image/svg+xml,'),
-			'data URL should use the svg+xml MIME type'
-		);
-		assert.ok(
-			dataUrl.includes(encodeURIComponent(svg)),
-			'data URL should contain the URI-encoded SVG markup'
-		);
+			assert.strictEqual(result.type, 'image');
+			const { dataUrl } = result as { type: 'image'; dataUrl: string };
+			assert.ok(
+				dataUrl.startsWith('data:image/svg+xml,'),
+				'data URL should use the svg+xml MIME type'
+			);
+			assert.ok(
+				dataUrl.includes(encodeURIComponent(svg)),
+				'data URL should contain the URI-encoded SVG markup'
+			);
+		});
+
+		test('parses image/png into an image with a base64 data URL', () => {
+			const pngData = 'iVBORw0KGgo='; // stub PNG header
+			const result = parseOutputData(makeOutputItem('image/png', pngData));
+
+			assert.strictEqual(result.type, 'image');
+			const { dataUrl } = result as { type: 'image'; dataUrl: string };
+			assert.ok(
+				dataUrl.startsWith('data:image/png;base64,'),
+				'data URL should use base64 encoding for PNG'
+			);
+			// The stub bytes are base64-encoded by parseOutputData, so verify
+			// the full data URL matches the expected encoding of the input bytes.
+			assert.strictEqual(
+				dataUrl,
+				'data:image/png;base64,aVZCT1J3MEtHZ289',
+				'data URL payload should be the base64 encoding of the input buffer bytes'
+			);
+		});
+
+		test('parses text/plain as text output', () => {
+			const result = parseOutputData(makeOutputItem('text/plain', 'hello'));
+			assert.strictEqual(result.type, 'text');
+		});
+
+		test('parses stdout as stdout output', () => {
+			const result = parseOutputData(makeOutputItem('application/vnd.code.notebook.stdout', 'hello'));
+			assert.strictEqual(result.type, 'stdout');
+		});
 	});
 
 	test('pickPreferredOutputItem: prefers image/svg+xml over text/plain', () => {
