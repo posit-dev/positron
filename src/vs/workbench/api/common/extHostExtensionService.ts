@@ -535,6 +535,9 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 			return Object.freeze<vscode.ExtensionContext>({
 				globalState,
 				workspaceState,
+				// --- Start Positron ---
+				ephemeralState: windowMemento,
+				// --- End Positron ---
 				secrets,
 				subscriptions: [],
 				get languageModelAccessInformation() { return languageModelAccessInformation; },

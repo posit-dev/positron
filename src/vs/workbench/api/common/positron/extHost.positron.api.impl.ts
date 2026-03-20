@@ -531,9 +531,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		return {
 			version: initData.positronVersion,
 			buildNumber: initData.positronBuildNumber,
-			get ephemeralMemento() {
-				return extHostWindowStorage.getOrCreateMemento(extension.identifier.value);
-			},
 			runtime,
 			window,
 			languages,
