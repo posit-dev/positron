@@ -72,6 +72,29 @@ export function activate(context: vscode.ExtensionContext) {
 			refreshTestExplorer(context);
 		}
 	});
+
+	// Listen for Package Manager repository changes and update running R sessions
+	vscode.workspace.onDidChangeConfiguration(async event => {
+		if (event.affectsConfiguration('positron.r.packageManagerRepository')) {
+			const config = vscode.workspace.getConfiguration('positron.r');
+			const ppmRepo = config.get<string>('packageManagerRepository');
+			if (ppmRepo) {
+				try {
+					const code = `local({ .ps.set_ppm_repo(${JSON.stringify(ppmRepo)}) })`;
+					await positron.runtime.executeCode(
+						'r',
+						code,
+						false,
+						false,
+						positron.RuntimeCodeExecutionMode.Silent,
+					);
+					LOGGER.info(`Updated running R session with PPM repo: ${ppmRepo}`);
+				} catch (error) {
+					LOGGER.debug(`Failed to update running R session with PPM repo: ${error}`);
+				}
+			}
+		}
+	});
 }
 
 export async function supervisorApi(): Promise<PositronSupervisorApi> {

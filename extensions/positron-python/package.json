@@ -628,6 +628,11 @@
                         "interpreterSettings"
                     ]
                 },
+                "positron.python.packageManagerRepository": {
+                    "scope": "window",
+                    "type": "string",
+                    "description": "The Posit Package Manager Python index URL for pip/uv package installation."
+                },
                 "python.interpreters.include": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.include.markdownDescription%",

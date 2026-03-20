@@ -101,6 +101,33 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
         // Register Python file paste and drop provider.
         registerPythonFilePasteAndDropProvider(disposables);
 
+        // Listen for Package Manager repository changes and update running Python sessions
+        disposables.push(
+            vscode.workspace.onDidChangeConfiguration(async (event) => {
+                if (event.affectsConfiguration('positron.python.packageManagerRepository')) {
+                    const config = vscode.workspace.getConfiguration('positron.python');
+                    const ppmRepo = config.get<string>('packageManagerRepository');
+                    if (ppmRepo) {
+                        const ppmToken = process.env.PPM_AUTH_TOKEN;
+                        let indexUrl = ppmRepo;
+                        if (ppmToken) {
+                            const url = new URL(ppmRepo);
+                            url.username = '__token__';
+                            url.password = ppmToken;
+                            indexUrl = url.toString();
+                        }
+                        // Set env vars for new terminals
+                        const env = (vscode.workspace as any).environmentVariableCollection;
+                        if (env) {
+                            env.replace('PIP_INDEX_URL', indexUrl);
+                            env.replace('UV_INDEX_URL', indexUrl);
+                        }
+                        traceInfo(`Updated Python index URL from PPM setting: ${ppmRepo}`);
+                    }
+                }
+            }),
+        );
+
         traceInfo('activatePositron: done!');
     } catch (ex) {
         traceError('activatePositron() failed.', ex);

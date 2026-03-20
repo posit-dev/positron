@@ -192,6 +192,23 @@ export class PipPackageManager implements IPackageManager {
      */
     private async _getInstallFlags(): Promise<string[]> {
         const flags: string[] = [...this._getProxyFlags()];
+
+        // Check for Posit Package Manager index URL
+        const ppmUrl = vscode.workspace
+            .getConfiguration('positron.python')
+            .get<string>('packageManagerRepository');
+        const ppmToken = process.env.PPM_AUTH_TOKEN;
+
+        if (ppmUrl && ppmToken) {
+            // Construct authenticated URL: https://__token__:JWT@host/path
+            const url = new URL(ppmUrl);
+            url.username = '__token__';
+            url.password = ppmToken;
+            flags.push('--index-url', url.toString());
+        } else if (ppmUrl) {
+            flags.push('--index-url', ppmUrl);
+        }
+
         return flags;
     }
 

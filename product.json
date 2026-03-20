@@ -242,6 +242,18 @@
 			"publisherDisplayName": "Posit Software, PBC"
 		},
 		{
+			"name": "posit.package-manager",
+			"version": "0.0.1",
+			"repo": "https://github.com/posit-dev/package-manager-extension",
+			"metadata": {
+				"id": "280dade8-8ff1-42f0-9ce4-c544fed05d26",
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Posit Package Manager",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
+		},
+		{
 			"name": "quarto.quarto",
 			"version": "1.130.0",
 			"sha256sum": "8494b30a7895b2f6f52ef500bb71f64d897f6f6d3ec028ad0082ce11ed239b1e",
