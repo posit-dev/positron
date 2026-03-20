@@ -405,6 +405,38 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 						}
 					}));
 				});
+			} else {
+				// No session to restore, but still need to wait for runtime registration
+				// before selecting it. This handles the case where a notebook session was
+				// shutdown previously and is starting again before runtimes are registered.
+				// Without this wait, selectRuntime would fail because getRegisteredRuntime
+				// returns undefined.
+				const runtime = this._languageRuntimeService.getRegisteredRuntime(this.runtime.runtimeId);
+				if (!runtime) {
+					this._logService.debug(
+						`[RuntimeNotebookKernel] Waiting for runtime ${this.runtime.runtimeId} to be registered ` +
+						`for notebook ${notebookUri.fsPath}`
+					);
+					await new Promise<void>(resolve => {
+						const disposables = new DisposableStore();
+
+						// Resolve when the runtime is registered
+						disposables.add(this._languageRuntimeService.onDidRegisterRuntime(registered => {
+							if (registered.runtimeId === this.runtime.runtimeId) {
+								disposables.dispose();
+								resolve();
+							}
+						}));
+
+						// Also resolve if startup completes (runtime might already be registered)
+						disposables.add(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(newPhase => {
+							if (newPhase === RuntimeStartupPhase.Complete) {
+								disposables.dispose();
+								resolve();
+							}
+						}));
+					});
+				}
 			}
 		}
 
