@@ -222,6 +222,17 @@ class PositronMagics(Magics):
         except TypeError as e:
             raise UsageError(f"cannot show object of type '{get_qualname(info.obj)}'") from e
 
+    @line_magic
+    def _positron_exec_metadata(self, line: str) -> None:  # noqa: ARG002
+        """Print the positron execution metadata from the current execute_request as JSON."""
+        import json as _json
+
+        kernel = self.shell.kernel
+        parent = kernel.get_parent("shell")
+        content: dict = cast("dict", parent.get("content", {}))
+        positron_meta: dict = cast("dict", content.get("positron", {}))
+        print(_json.dumps(positron_meta, sort_keys=True))
+
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
 
