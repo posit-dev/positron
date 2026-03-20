@@ -26,7 +26,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private readonly _appServers = new Map<string, { terminalPid: number | undefined; proxyUri: vscode.Uri }>();
 
 	constructor(
-		// Window-scoped, ephemeral storage (positron.window.windowStorage).
+		// Per-workspace ephemeral storage (positron.ephemeralMemento).
 		// Survives extension host restarts and window reloads but not process exits.
 		private readonly _state: vscode.Memento,
 		private readonly _debugAdapterTrackerFactory: DebugAdapterTrackerFactory,

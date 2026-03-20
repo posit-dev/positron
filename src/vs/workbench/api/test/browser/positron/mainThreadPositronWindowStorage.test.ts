@@ -10,7 +10,7 @@ import { EphemeralStateService } from '../../../../../platform/ephemeralState/co
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { MainThreadPositronWindowStorage } from '../../../browser/positron/mainThreadPositronWindowStorage.js';
-import { mainWindow } from '../../../../../base/browser/window.js';
+
 
 const TEST_WORKSPACE_ID = 'test-workspace-id';
 
@@ -61,14 +61,13 @@ suite('MainThreadPositronWindowStorage', function () {
 		assert.strictEqual(after, undefined);
 	});
 
-	test('storage keys are scoped by workspaceId and windowId', async function () {
+	test('storage keys are scoped by workspaceId', async function () {
 		await storage.$setWindowValue('ext.a', 'test-value');
 
 		const result = await storage.$initializeWindowStorage('ext.a');
 		assert.strictEqual(result, 'test-value');
 
-		const windowId = mainWindow.vscodeWindowId;
-		const expectedKey = `windowStorage.${TEST_WORKSPACE_ID}.${windowId}.ext.a`;
+		const expectedKey = `windowStorage.${TEST_WORKSPACE_ID}.ext.a`;
 		const directValue = await ephemeralStateService.getItem<string>(expectedKey);
 		assert.strictEqual(directValue, 'test-value');
 	});

@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mainWindow } from '../../../../base/browser/window.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { MainPositronContext, MainThreadPositronWindowStorageShape } from '../../common/positron/extHost.positron.protocol.js';
@@ -12,7 +11,6 @@ import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensi
 @extHostNamedCustomer(MainPositronContext.MainThreadPositronWindowStorage)
 export class MainThreadPositronWindowStorage implements MainThreadPositronWindowStorageShape {
 
-	private readonly _windowId = mainWindow.vscodeWindowId;
 	private readonly _workspaceId: string;
 
 	constructor(
@@ -26,25 +24,22 @@ export class MainThreadPositronWindowStorage implements MainThreadPositronWindow
 	/**
 	 * Build the ephemeral-state key for a given extension.
 	 *
-	 * Scoped by workspace ID and window ID so that each window by
-	 * workspace pair gets its own isolated namespace. The workspace ID
-	 * is necessary because on Positron Server ephemeral storage is
-	 * shared among workspaces. Without it, switching workspaces in the
-	 * same browser tab would leak state across them.
+	 * Scoped by workspace ID so that each workspace gets its own isolated
+	 * namespace. This is necessary because on Positron Server ephemeral
+	 * storage is shared among workspaces. Without it, switching workspaces
+	 * in the same browser tab would leak state across them.
 	 *
-	 * Both dimensions follow the same lifecycle pattern used by console
-	 * sessions (see `RuntimeStartupService.getEphemeralWorkspaceSessionsKey`):
+	 * Follows the same lifecycle pattern used by console sessions
+	 * (see `RuntimeStartupService.getEphemeralWorkspaceSessionsKey`):
 	 * storage lives in `EphemeralStateService`, an in-memory store that
 	 * is discarded when the process exits. On desktop Positron this is
 	 * equivalent to the window closing. On Positron Server the process
 	 * outlives individual browser tabs, so entries for a closed tab are
-	 * orphaned until the server shuts down or restarts, which matches the
-	 * existing console-session behaviour. Explicit cleanup can be added later if
-	 * the leaked memory becomes a concern.
-	 *
+	 * orphaned until the server shuts down or restarts, which matches
+	 * the existing console-session behaviour.
 	 */
 	private _storageKey(extensionId: string): string {
-		return `windowStorage.${this._workspaceId}.${this._windowId}.${extensionId}`;
+		return `windowStorage.${this._workspaceId}.${extensionId}`;
 	}
 
 	async $initializeWindowStorage(extensionId: string): Promise<string | undefined> {
