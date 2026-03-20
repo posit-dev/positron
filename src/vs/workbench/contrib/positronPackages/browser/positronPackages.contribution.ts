@@ -125,10 +125,8 @@ function showRestartSessionNotification(
 		enabled: true,
 		class: undefined,
 		run: async () => {
-			await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
-			// Small delay to let the UI settle before focusing
-			await new Promise(resolve => setTimeout(resolve, 100));
 			await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
+			await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
 		}
 	};
 
@@ -167,10 +165,8 @@ function showRestartSessionNotificationForUpdateAll(
 		enabled: true,
 		class: undefined,
 		run: async () => {
+			await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
 			await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
-			// Small delay to let the UI settle before focusing
-			await new Promise(resolve => setTimeout(resolve, 100));
-			commandService.executeCommand('workbench.action.positronConsole.focusConsole');
 		}
 	};
 
