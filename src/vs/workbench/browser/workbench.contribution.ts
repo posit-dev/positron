@@ -7,7 +7,6 @@ import { isStandalone } from '../../base/browser/browser.js';
 import { isLinux, isMacintosh, isNative, isWeb, isWindows } from '../../base/common/platform.js';
 import { localize } from '../../nls.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../platform/configuration/common/configurationRegistry.js';
-import product from '../../platform/product/common/product.js';
 import { Registry } from '../../platform/registry/common/platform.js';
 import { ConfigurationKeyValuePairs, ConfigurationMigrationWorkbenchContribution, DynamicWindowConfiguration, DynamicWorkbenchSecurityConfiguration, Extensions, IConfigurationMigrationRegistry, problemsConfigurationNodeBase, windowConfigurationNodeBase, workbenchConfigurationNodeBase } from '../common/configuration.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../common/contributions.js';
@@ -367,7 +366,10 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 					localize('useModal.all', "All editors open in a centered modal overlay."),
 				],
 				'description': localize('useModal', "Controls whether editors open in a modal overlay."),
-				'default': product.quality !== 'stable' ? 'some' : 'off', // TODO@bpasero figure out the default
+				// --- Start Positron ---
+				// upstream depended on product.quality for the default but Positron doesn't set it
+				'default': 'off',
+				// --- End Positron ---
 				tags: ['experimental'],
 				experiment: {
 					mode: 'auto'

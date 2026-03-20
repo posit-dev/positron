@@ -116,24 +116,34 @@ suite('buildModelPickerItems', () => {
 		const modelA = createModel('gpt-4o', 'GPT-4o');
 		const items = callBuild([modelA, auto]);
 		const actions = getActionItems(items);
-		assert.strictEqual(actions[0].label, 'Auto');
+		// --- Start Positron ---
+		// In Positron, Auto is not promoted to first position - it appears grouped with other models by provider
+		assert.ok(actions[0].label === 'Other Models');
+		assert.ok(actions[1].label === 'Auto');
+		// --- End Positron ---
 	});
 
 	test('empty models list produces auto and manage models entries', () => {
 		const items = callBuild([]);
 		const actions = getActionItems(items);
-		assert.strictEqual(actions.length, 2);
-		assert.strictEqual(actions[0].label, 'Auto');
-		assert.strictEqual(actions[1].item?.id, 'manageModels');
+		// --- Start Positron ---
+		// Positron adds additional footer items and Auto is not promoted to first position
+		assert.ok(actions[0].label === 'Auto');
+		// --- End Positron ---
 	});
 
 	test('only auto model produces auto and manage models with separator', () => {
 		const items = callBuild([createAutoModel()]);
 		const actions = getActionItems(items);
-		assert.strictEqual(actions.length, 2);
-		assert.strictEqual(actions[0].label, 'Auto');
-		assert.strictEqual(actions[1].item?.id, 'manageModels');
-		assert.strictEqual(getSeparatorCount(items), 1);
+		// --- Start Positron ---
+		// In Positron: Other Models toggle, Auto, then footer items
+		assert.strictEqual(actions[0].label, 'Other Models');
+		assert.strictEqual(actions[0].isSectionToggle, true);
+		assert.strictEqual(actions[1].label, 'Auto');
+		assert.strictEqual(actions[2].item?.id, 'manageModels');
+		assert.strictEqual(actions[3].item?.id, 'configureProviders');
+		assert.ok(getSeparatorCount(items) >= 2);
+		// --- End Positron ---
 	});
 
 	test('selected model appears in promoted section', () => {
@@ -144,10 +154,16 @@ suite('buildModelPickerItems', () => {
 			selectedModelId: modelA.identifier,
 		});
 		const actions = getActionItems(items);
-		// Auto first, then selected model in promoted section, then remaining in other
-		assert.strictEqual(actions[0].label, 'Auto');
-		assert.strictEqual(actions[1].label, 'GPT-4o');
-		assert.ok(actions[1].item?.checked);
+		// --- Start Positron ---
+		// In Positron: selected model in promoted, then Other Models toggle, then remaining models
+		assert.strictEqual(actions[0].label, 'GPT-4o');
+		assert.ok(actions[0].item?.checked);
+		assert.strictEqual(actions[1].label, 'Other Models');
+		assert.strictEqual(actions[1].isSectionToggle, true);
+		// Auto and Claude in Other Models section (sorted alphabetically)
+		assert.strictEqual(actions[2].label, 'Auto');
+		assert.strictEqual(actions[3].label, 'Claude');
+		// --- End Positron ---
 	});
 
 	test('selected model with failing minVSCodeVersion shows as unavailable with reason update', () => {
@@ -177,9 +193,16 @@ suite('buildModelPickerItems', () => {
 			recentModelIds: [modelB.identifier],
 		});
 		const actions = getActionItems(items);
-		// Auto, then Claude (recent) in promoted, then others
-		assert.strictEqual(actions[0].label, 'Auto');
-		assert.strictEqual(actions[1].label, 'Claude');
+		// --- Start Positron ---
+		// In Positron: Claude (recent) in promoted, then Other Models with remaining models
+		assert.strictEqual(actions[0].label, 'Claude');
+		assert.strictEqual(actions[1].label, 'Other Models');
+		assert.strictEqual(actions[1].isSectionToggle, true);
+		// Remaining models in Other Models section (sorted alphabetically)
+		assert.strictEqual(actions[2].label, 'Auto');
+		assert.strictEqual(actions[3].label, 'Gemini');
+		assert.strictEqual(actions[4].label, 'GPT-4o');
+		// --- End Positron ---
 	});
 
 	test('recently used model not in models list but in controlModels shows as unavailable (upgrade for free user)', () => {
@@ -236,9 +259,15 @@ suite('buildModelPickerItems', () => {
 			},
 		});
 		const actions = getActionItems(items);
-		assert.strictEqual(actions[0].label, 'Auto');
-		// GPT-4o should be in promoted due to featured
-		assert.strictEqual(actions[1].label, 'GPT-4o');
+		// --- Start Positron ---
+		// In Positron: GPT-4o (featured) in promoted, then Other Models with remaining models
+		assert.strictEqual(actions[0].label, 'GPT-4o');
+		assert.strictEqual(actions[1].label, 'Other Models');
+		assert.strictEqual(actions[1].isSectionToggle, true);
+		// Auto and Claude in Other Models section (sorted alphabetically)
+		assert.strictEqual(actions[2].label, 'Auto');
+		assert.strictEqual(actions[3].label, 'Claude');
+		// --- End Positron ---
 	});
 
 	test('featured model not in models list shows as unavailable for free users (upgrade)', () => {
@@ -292,14 +321,20 @@ suite('buildModelPickerItems', () => {
 				'gpt-4o': { label: 'GPT-4o', featured: false, exists: true },
 			},
 		});
-		// With no selected, no recent, and no featured, both models should be in Other
+		// With no selected, no recent, and no featured, all models should be in Other
 		const seps = items.filter(i => i.kind === ActionListItemKind.Separator);
-		// One separator before Other Models section, one before Manage Models
-		assert.strictEqual(seps.length, 2);
+		// --- Start Positron ---
+		// Positron adds provider separators
+		assert.ok(seps.length >= 2);
 		const actions = getActionItems(items);
-		assert.strictEqual(actions[0].label, 'Auto');
-		// Next should be "Other Models" toggle
-		assert.strictEqual(actions[1].isSectionToggle, true);
+		// All models in Other Models section
+		assert.strictEqual(actions[0].label, 'Other Models');
+		assert.strictEqual(actions[0].isSectionToggle, true);
+		// Models sorted alphabetically
+		assert.strictEqual(actions[1].label, 'Auto');
+		assert.strictEqual(actions[2].label, 'Claude');
+		assert.strictEqual(actions[3].label, 'GPT-4o');
+		// --- End Positron ---
 	});
 
 	test('available promoted models are sorted alphabetically', () => {
@@ -311,10 +346,15 @@ suite('buildModelPickerItems', () => {
 			recentModelIds: [modelA.identifier, modelB.identifier, modelC.identifier],
 		});
 		const actions = getActionItems(items);
-		// Skip Auto, promoted models should be sorted: Claude, Gemini, GPT-4o
-		assert.strictEqual(actions[1].label, 'Claude');
-		assert.strictEqual(actions[2].label, 'Gemini');
-		assert.strictEqual(actions[3].label, 'GPT-4o');
+		// --- Start Positron ---
+		// In Positron: promoted models sorted alphabetically, then Other Models with Auto
+		assert.strictEqual(actions[0].label, 'Claude');
+		assert.strictEqual(actions[1].label, 'Gemini');
+		assert.strictEqual(actions[2].label, 'GPT-4o');
+		assert.strictEqual(actions[3].label, 'Other Models');
+		assert.strictEqual(actions[3].isSectionToggle, true);
+		assert.strictEqual(actions[4].label, 'Auto');
+		// --- End Positron ---
 	});
 
 	test('unavailable promoted models appear after available ones', () => {
@@ -328,12 +368,16 @@ suite('buildModelPickerItems', () => {
 			entitlement: ChatEntitlement.Free,
 		});
 		const actions = getActionItems(items);
-		// Auto, then GPT-4o (available), then Missing Model (unavailable)
-		assert.strictEqual(actions[0].label, 'Auto');
-		assert.strictEqual(actions[1].label, 'GPT-4o');
-		assert.ok(!actions[1].disabled);
-		assert.strictEqual(actions[2].label, 'Missing Model');
-		assert.strictEqual(actions[2].disabled, true);
+		// --- Start Positron ---
+		// In Positron: available promoted first, then unavailable, then Other Models
+		assert.strictEqual(actions[0].label, 'GPT-4o');
+		assert.ok(!actions[0].disabled);
+		assert.strictEqual(actions[1].label, 'Missing Model');
+		assert.strictEqual(actions[1].disabled, true);
+		assert.strictEqual(actions[2].label, 'Other Models');
+		assert.strictEqual(actions[2].isSectionToggle, true);
+		assert.strictEqual(actions[3].label, 'Auto');
+		// --- End Positron ---
 	});
 
 	test('models not in promoted section appear in Other Models section', () => {
@@ -342,10 +386,15 @@ suite('buildModelPickerItems', () => {
 		const modelB = createModel('claude', 'Claude');
 		const items = callBuild([auto, modelA, modelB]);
 		const actions = getActionItems(items);
-		// Auto, then "Other Models" toggle, then models, then "Manage Models..."
-		assert.strictEqual(actions[0].label, 'Auto');
-		assert.strictEqual(actions[1].isSectionToggle, true);
-		assert.ok(actions[1].label!.includes('Other Models'));
+		// --- Start Positron ---
+		// In Positron: all models in Other Models section (no promoted items)
+		assert.strictEqual(actions[0].label, 'Other Models');
+		assert.strictEqual(actions[0].isSectionToggle, true);
+		// Models sorted alphabetically
+		assert.strictEqual(actions[1].label, 'Auto');
+		assert.strictEqual(actions[2].label, 'Claude');
+		assert.strictEqual(actions[3].label, 'GPT-4o');
+		// --- End Positron ---
 	});
 
 	test('Other Models section includes section toggle', () => {
@@ -392,9 +441,16 @@ suite('buildModelPickerItems', () => {
 			currentVSCodeVersion: '1.90.0',
 		});
 		const actions = getActionItems(items);
-		const otherModelLabels = actions.slice(2).map(a => a.label!).filter(l => !l.includes('Manage Models'));
-		assert.deepStrictEqual(otherModelLabels, ['Zeta', 'Alpha']);
-		assert.strictEqual(actions.find(a => a.label === 'Alpha')?.disabled, true);
+		// --- Start Positron ---
+		// In Positron: Other Models toggle, then available models, then unavailable models
+		assert.strictEqual(actions[0].label, 'Other Models');
+		assert.strictEqual(actions[0].isSectionToggle, true);
+		// Available models first (Auto, Zeta), then unavailable (Alpha)
+		assert.strictEqual(actions[1].label, 'Auto');
+		assert.strictEqual(actions[2].label, 'Zeta');
+		assert.strictEqual(actions[3].label, 'Alpha');
+		assert.strictEqual(actions[3].disabled, true);
+		// --- End Positron ---
 	});
 
 	test('no duplicate models across sections', () => {
@@ -410,7 +466,10 @@ suite('buildModelPickerItems', () => {
 				'claude': { label: 'Claude', featured: true, exists: true },
 			},
 		});
-		const labels = getActionLabels(items).filter(l => l !== 'Other Models' && !l.includes('Manage Models'));
+		// --- Start Positron ---
+		// Filter out footer items (Manage Models, Configure Model Providers)
+		const labels = getActionLabels(items).filter(l => l !== 'Other Models' && !l.includes('Manage Models') && !l.includes('Configure'));
+		// --- End Positron ---
 		const uniqueLabels = new Set(labels);
 		assert.strictEqual(labels.length, uniqueLabels.size, `Duplicate labels found: ${labels.join(', ')}`);
 	});
@@ -426,7 +485,7 @@ suite('buildModelPickerItems', () => {
 			},
 		});
 		const autoItems = getActionItems(items).filter(a => a.label === 'Auto');
-		// Auto should appear exactly once (the first item)
+		// Auto should appear exactly once
 		assert.strictEqual(autoItems.length, 1);
 	});
 
@@ -438,8 +497,15 @@ suite('buildModelPickerItems', () => {
 			controlModels: {},
 		});
 		const actions = getActionItems(items);
-		assert.ok(actions.length >= 3); // Auto + 2 models (in other) + toggle + manage
-		assert.strictEqual(actions[0].label, 'Auto');
+		// --- Start Positron ---
+		// In Positron: all models in Other Models section
+		assert.strictEqual(actions[0].label, 'Other Models');
+		assert.strictEqual(actions[0].isSectionToggle, true);
+		// Models sorted alphabetically
+		assert.strictEqual(actions[1].label, 'Auto');
+		assert.strictEqual(actions[2].label, 'Claude');
+		assert.strictEqual(actions[3].label, 'GPT-4o');
+		// --- End Positron ---
 	});
 
 	test('Other Models sorted by vendor then name', () => {
@@ -449,10 +515,16 @@ suite('buildModelPickerItems', () => {
 		const modelC = createModel('beta', 'Beta', 'copilot');
 		const items = callBuild([auto, modelA, modelB, modelC]);
 		const actions = getActionItems(items);
-		// Skip Auto and "Other Models" toggle
-		const otherModelLabels = actions.slice(2).map(a => a.label!).filter(l => !l.includes('Manage Models'));
-		// copilot models first (sorted by name), then other-vendor
-		assert.deepStrictEqual(otherModelLabels, ['Beta', 'Zebra', 'Alpha']);
+		// --- Start Positron ---
+		// In Positron: Other Models toggle, then models sorted by vendor then name
+		assert.strictEqual(actions[0].label, 'Other Models');
+		assert.strictEqual(actions[0].isSectionToggle, true);
+		// copilot models first (Auto, Beta, Zebra sorted by name), then other-vendor (Alpha)
+		assert.strictEqual(actions[1].label, 'Auto');
+		assert.strictEqual(actions[2].label, 'Beta');
+		assert.strictEqual(actions[3].label, 'Zebra');
+		assert.strictEqual(actions[4].label, 'Alpha');
+		// --- End Positron ---
 	});
 
 	test('onSelect callback is wired into action items', () => {
@@ -502,7 +574,14 @@ suite('buildModelPickerItems', () => {
 			selectedModelId: auto.identifier,
 		});
 		const actions = getActionItems(items);
-		assert.ok(actions[0].item?.checked);
+		// --- Start Positron ---
+		// In Positron: Auto is not promoted even when selected - it stays in Other Models but is checked
+		assert.strictEqual(actions[0].label, 'Other Models');
+		assert.strictEqual(actions[0].isSectionToggle, true);
+		assert.strictEqual(actions[1].label, 'Auto');
+		assert.ok(actions[1].item?.checked);
+		assert.strictEqual(actions[2].label, 'GPT-4o');
+		// --- End Positron ---
 	});
 
 	test('recently used model resolved by metadata id', () => {
@@ -514,9 +593,15 @@ suite('buildModelPickerItems', () => {
 			recentModelIds: ['claude'],
 		});
 		const actions = getActionItems(items);
-		// Claude should be in promoted section (right after Auto)
-		assert.strictEqual(actions[0].label, 'Auto');
-		assert.strictEqual(actions[1].label, 'Claude');
+		// --- Start Positron ---
+		// In Positron: Claude (recent) in promoted, then Other Models with remaining
+		assert.strictEqual(actions[0].label, 'Claude');
+		assert.strictEqual(actions[1].label, 'Other Models');
+		assert.strictEqual(actions[1].isSectionToggle, true);
+		// Auto and GPT-4o in Other Models (sorted alphabetically)
+		assert.strictEqual(actions[2].label, 'Auto');
+		assert.strictEqual(actions[3].label, 'GPT-4o');
+		// --- End Positron ---
 	});
 
 	test('multiple featured and recent models all promoted correctly', () => {
@@ -532,12 +617,17 @@ suite('buildModelPickerItems', () => {
 			},
 		});
 		const actions = getActionItems(items);
-		assert.strictEqual(actions[0].label, 'Auto');
-		// Promoted: Alpha (featured) and Gamma (recent) sorted alphabetically
-		assert.strictEqual(actions[1].label, 'Alpha');
-		assert.strictEqual(actions[2].label, 'Gamma');
-		// Then Other Models toggle
-		assert.ok(actions[3].isSectionToggle);
+		// --- Start Positron ---
+		// In Positron: promoted models (Alpha featured, Gamma recent) sorted alphabetically, then Other Models
+		assert.strictEqual(actions[0].label, 'Alpha');
+		assert.strictEqual(actions[1].label, 'Gamma');
+		assert.strictEqual(actions[2].label, 'Other Models');
+		assert.strictEqual(actions[2].isSectionToggle, true);
+		// Remaining models in Other Models (Auto, Beta, Delta sorted alphabetically)
+		assert.strictEqual(actions[3].label, 'Auto');
+		assert.strictEqual(actions[4].label, 'Beta');
+		assert.strictEqual(actions[5].label, 'Delta');
+		// --- End Positron ---
 	});
 
 	test('admin unavailable model shows manage settings link in description', () => {

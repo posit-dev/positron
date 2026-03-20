@@ -216,10 +216,13 @@ export function buildModelPickerItems(
 		// --- Start Positron ---
 		// --- 1. Auto ---
 		const autoModel = models.find(m => m.metadata.id === 'auto' && m.metadata.vendor === 'copilot');
-		// if (autoModel) {
-		// 	markPlaced(autoModel.identifier, autoModel.metadata.id);
-		// 	items.push(createModelItem(createModelAction(autoModel, selectedModelId, onSelect), autoModel));
-		// }
+		// Auto model is not promoted to the first position in Positron - it appears with other models grouped by provider
+		/*
+		if (autoModel) {
+			markPlaced(autoModel.identifier, autoModel.metadata.id);
+			items.push(createModelItem(createModelAction(autoModel, selectedModelId, onSelect), autoModel));
+		}
+		*/
 
 		// --- 2. Promoted section (selected + recently used + featured) ---
 		// Add vendor field to PromotedItem for grouping with provider separators
@@ -415,6 +418,10 @@ export function buildModelPickerItems(
 	}
 
 	if (
+		// --- Start Positron ---
+		// In Positron, we want to show "Manage Models" to all users regardless of entitlement
+		chatEntitlementService.entitlement === ChatEntitlement.Unknown ||
+		// --- End Positron ---
 		chatEntitlementService.entitlement === ChatEntitlement.Free ||
 		chatEntitlementService.entitlement === ChatEntitlement.Pro ||
 		chatEntitlementService.entitlement === ChatEntitlement.ProPlus ||
@@ -422,7 +429,8 @@ export function buildModelPickerItems(
 		chatEntitlementService.entitlement === ChatEntitlement.Enterprise ||
 		chatEntitlementService.isInternal
 	) {
-		items.push({ kind: ActionListItemKind.Separator, section: otherModels.length ? ModelPickerSection.Other : undefined });
+		// Modified from upstream to always show separator
+		items.push({ kind: ActionListItemKind.Separator });
 		items.push({
 			item: {
 				id: 'manageModels',
@@ -437,30 +445,14 @@ export function buildModelPickerItems(
 			label: localize('chat.manageModels', "Manage Models..."),
 			group: { title: '', icon: Codicon.blank },
 			hideIcon: false,
-			section: otherModels.length ? ModelPickerSection.Other : undefined,
+			// In Positron, "Manage Models" is not placed in the Other collapsible section - it is always visible in the footer
+			// section: otherModels.length ? ModelPickerSection.Other : undefined,
 			showAlways: true,
 		});
 	}
 
 	// --- Start Positron ---
 	// Add footer actions for Positron
-	items.push({ kind: ActionListItemKind.Separator });
-	items.push({
-		item: {
-			id: 'manageModels',
-			enabled: true,
-			checked: false,
-			class: undefined,
-			tooltip: localize('chat.manageModels.tooltip', "Manage Language Models"),
-			label: localize('chat.manageModels', "Manage Models..."),
-			run: () => { commandService.executeCommand(MANAGE_CHAT_COMMAND_ID); }
-		},
-		kind: ActionListItemKind.Action,
-		label: localize('chat.manageModels', "Manage Models..."),
-		group: { title: '', icon: Codicon.blank },
-		hideIcon: false,
-		showAlways: true,
-	});
 	items.push({
 		item: {
 			id: 'configureProviders',
