@@ -15,12 +15,9 @@ import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLine
 import { ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
-
-export type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 
 type TruncationResult =
 	{ content: string } & (
@@ -33,14 +30,14 @@ type TruncationResult =
 	);
 
 
-function truncateToNumberOfLines(content: string, { outputScrolling, outputLineLimit: maxLines }: LongOutputOptions): TruncationResult {
+function truncateToNumberOfLines(content: string, effectiveScrolling: boolean, maxLines: number): TruncationResult {
 	// Trim newline from end of content if it exists.
 	const splitByLine = content.trimEnd().split('\n');
 	const numLines = splitByLine.length;
 
 	// When scrolling is enabled or content is short, return as-is.
 	// The parent container handles scroll constraints via CSS.
-	if (outputScrolling || numLines <= maxLines) {
+	if (effectiveScrolling || numLines <= maxLines) {
 		return { content, mode: 'normal' };
 	}
 
@@ -52,12 +49,22 @@ function truncateToNumberOfLines(content: string, { outputScrolling, outputLineL
 	};
 }
 
+export interface CellTextOutputProps extends ParsedTextOutput {
+	effectiveScrolling: boolean;
+	onShowFullOutput: () => void;
+}
 
-export function CellTextOutput({ content, type }: ParsedTextOutput) {
+
+export function CellTextOutput({
+	content,
+	type,
+	effectiveScrolling,
+	onShowFullOutput
+}: CellTextOutputProps) {
 
 	const services = usePositronReactServicesContext();
 	const layoutConfig = useNotebookOptions().getLayoutConfiguration();
-	const truncation = truncateToNumberOfLines(content, layoutConfig);
+	const truncation = truncateToNumberOfLines(content, effectiveScrolling, layoutConfig.outputLineLimit);
 	const outputWordWrap = layoutConfig.outputWordWrap;
 
 	return <>

@@ -24,7 +24,7 @@ import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputCollapseButton } from './CellOutputCollapseButton.js';
 import { useNotebookInstance, useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
-import { isHTMLElement } from '../../../../../base/browser/dom.js';
+import { getWindow, isHTMLElement } from '../../../../../base/browser/dom.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
@@ -32,7 +32,7 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS } from '../ContextKeysManager.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
@@ -49,15 +49,58 @@ interface CellOutputsSectionProps {
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const perCellTruncated = useObservedValue(cell.outputIsTruncated);
+	const notebookOptions = useNotebookOptions();
+	const layout = notebookOptions.getLayoutConfiguration();
+	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
+	useScrollingIndicator(outputsInnerRef);
 	const contextKeyService = useCellScopedContextKeyService();
 	const outputImageTargeted = useMemo(
 		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
 		[contextKeyService]
 	);
-	const notebookOptions = useNotebookOptions();
-	const layout = notebookOptions.getLayoutConfiguration();
-	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
-	useScrollingIndicator(outputsInnerRef);
+
+	// Effective scrolling: per-cell truncation override takes precedence over global setting.
+	// When truncated, scrolling is disabled. When not truncated, scrolling is enabled.
+	const effectiveScrolling = perCellTruncated !== undefined
+		? !perCellTruncated
+		: layout.outputScrolling;
+
+	// Detect when output content would overflow the max-height constraint.
+	// We compare against the CSS variable rather than scrollHeight > clientHeight
+	// because when scrolling is disabled there's no max-height and no overflow.
+	React.useEffect(() => {
+		const el = outputsInnerRef.current;
+		if (!el || !contextKeyService) {
+			return;
+		}
+
+		const outputOverflowsKey = POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS.bindTo(contextKeyService);
+
+		const updateOverflow = () => {
+			const maxHeightStr = getWindow(el).getComputedStyle(el).getPropertyValue('--vscode-positronNotebook-output-max-height');
+			const maxHeight = parseFloat(maxHeightStr);
+			if (maxHeight > 0) {
+				outputOverflowsKey.set(el.scrollHeight > maxHeight);
+			} else {
+				outputOverflowsKey.set(el.scrollHeight > el.clientHeight);
+			}
+		};
+
+		const observer = new ResizeObserver(updateOverflow);
+		observer.observe(el);
+		// Also observe children for content changes
+		for (const child of el.children) {
+			observer.observe(child);
+		}
+		updateOverflow();
+
+		return () => {
+			observer.disconnect();
+			outputOverflowsKey.reset();
+		};
+	}, [contextKeyService, outputs, isCollapsed, effectiveScrolling]);
+
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionContext,
@@ -126,7 +169,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					'positron-notebook-code-cell-outputs-inner',
 					'positron-notebook-scrollable',
 					'positron-notebook-scrollable-fade',
-					{ 'output-scrolling': layout.outputScrolling }
+					{ 'output-scrolling': effectiveScrolling }
 				)}>
 					{isCollapsed
 						? <CollapsedOutputLabel onExpand={handleShowHiddenOutput} />
@@ -137,7 +180,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 								level='output'
 								logService={services.logService}
 							>
-								<CellOutput {...output} />
+								<CellOutput {...output} effectiveScrolling={effectiveScrolling} onShowFullOutput={() => cell.showFullOutput()} />
 							</NotebookErrorBoundary>
 						))
 					}
@@ -176,15 +219,20 @@ export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: {
 	return prevProps.cell === nextProps.cell;
 });
 
-const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
+interface CellOutputProps extends NotebookCellOutputs {
+	effectiveScrolling: boolean;
+	onShowFullOutput: () => void;
+}
+
+const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 	if (output.preloadMessageResult) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed, outputs } = output;
+	const { parsed, outputs, effectiveScrolling, onShowFullOutput } = output;
 
 	if (isParsedTextOutput(parsed)) {
-		return <CellTextOutput {...parsed} />;
+		return <CellTextOutput {...parsed} effectiveScrolling={effectiveScrolling} onShowFullOutput={onShowFullOutput} />;
 	}
 
 	switch (parsed.type) {
@@ -208,7 +256,8 @@ const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
 }, (prevProps, nextProps) => {
 	// Reference equality on parsed is correct - new execution creates new parsed objects
 	return prevProps.outputId === nextProps.outputId &&
-		prevProps.parsed === nextProps.parsed;
+		prevProps.parsed === nextProps.parsed &&
+		prevProps.effectiveScrolling === nextProps.effectiveScrolling;
 });
 
 const CollapsedOutputLabel = ({ onExpand }: { onExpand: () => void }) => {
@@ -223,4 +272,3 @@ const CollapsedOutputLabel = ({ onExpand }: { onExpand: () => void }) => {
 		{outputCollapsedLabel}
 	</Button>;
 };
-
