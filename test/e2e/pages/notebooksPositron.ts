@@ -24,7 +24,7 @@ const MARKDOWN_ARIA_LABEL = 'Markdown cell - Press Enter to edit';
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
 type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
-type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Output';
+type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Output' | 'Show Full Output' | 'Truncate Output' | 'Copy Image';
 
 /**
  * Notebooks functionality exclusive to Positron notebooks.
@@ -70,6 +70,7 @@ export class PositronNotebooks extends Notebooks {
 	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
 	showHiddenOutputButton = (index: number) => this.cellOutput(index).getByRole('button', { name: 'Show hidden output' });
+	outputCollapseToggle = (index: number) => this.cell.nth(index).locator('.cell-output-collapse-button-container').getByRole('button');
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
