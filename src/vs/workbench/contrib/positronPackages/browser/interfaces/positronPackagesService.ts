@@ -23,6 +23,8 @@ export interface IPositronPackagesService {
 
 	readonly activeSession: ILanguageRuntimeSession | undefined;
 
+	readonly activePackagesInstance: IPositronPackagesInstance | undefined;
+
 	/**
 	 * The onDidRefreshPackagesInstance event.
 	 */
