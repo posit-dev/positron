@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -37,8 +37,8 @@ test.describe('Editor Action Bar: R Markdown Workspace', {
 	});
 
 	test('R Markdown Document - Verify `preview`, `split editor`, `open in new window` behavior', async function ({ app, openFolder, openFile, hotKeys }) {
-		await openFolder(path.join('qa-example-content/workspaces/basic-rmd-file'));
-		await openFile('basicRmd.rmd');
+		await openFolder(path.join('qa-example-content', 'workspaces', 'basic-rmd-file'));
+		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 		await verifyPreviewRendersHtml('Getting startedAnchor');
 		await verifySplitEditor('basicRmd.rmd');
 		await verifyOpenInNewWindow(app, 'This post examines the features');

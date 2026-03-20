@@ -30,7 +30,7 @@ export function FileOperationsFixture(app: Application) {
 				await app.workbench.hotKeys.openFolder();
 				await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
 
-				const folderNames = folderPath.split('/');
+				const folderNames = folderPath.split(/[/\\]/);
 
 				for (const folderName of folderNames) {
 					const quickInputOption = app.workbench.quickInput.quickInputResult.getByText(folderName);
