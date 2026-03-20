@@ -355,6 +355,17 @@ async function main() {
 			});
 			continue;
 		}
+
+		// extensions contains native modules (@parcel/watcher) that need sequential installation
+		// to avoid node-gyp race conditions during parallel builds
+		if (dir === 'extensions') {
+			nativeTasks.push(() => {
+				const env = { ...process.env };
+				clearInheritedNpmrcConfig(dir, env);
+				return npmInstallAsync(dir, { env });
+			});
+			continue;
+		}
 		// --- End Positron ---
 
 		const taskDir = dir;
