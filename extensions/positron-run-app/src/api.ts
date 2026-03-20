@@ -26,7 +26,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private readonly _appServers = new Map<string, { terminalPid: number | undefined; proxyUri: vscode.Uri }>();
 
 	constructor(
-		private readonly _globalState: vscode.Memento,
+		private readonly _state: vscode.Memento,
 		private readonly _debugAdapterTrackerFactory: DebugAdapterTrackerFactory,
 	) { }
 
@@ -36,11 +36,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	private isShellIntegrationSupported(): boolean {
-		return this._globalState.get('shellIntegrationSupported', true);
+		return this._state.get('shellIntegrationSupported', true);
 	}
 
 	public setShellIntegrationSupported(supported: boolean): Thenable<void> {
-		return this._globalState.update('shellIntegrationSupported', supported);
+		return this._state.update('shellIntegrationSupported', supported);
 	}
 
 	public async runApplication(options: RunAppOptions): Promise<void> {
@@ -558,15 +558,15 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	// This persists known sessions so we restart apps in the right console
 	// session after an extension host restart or a window reload
 	private saveConsoleSession(name: string, sessionId: string): Thenable<void> {
-		const persisted = this._globalState.get<Record<string, string>>(
+		const persisted = this._state.get<Record<string, string>>(
 			PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, {}
 		);
 		persisted[name] = sessionId;
-		return this._globalState.update(PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, persisted);
+		return this._state.update(PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, persisted);
 	}
 
 	private async findConsoleSession(name: string): Promise<string | undefined> {
-		const persisted = this._globalState.get<Record<string, string>>(
+		const persisted = this._state.get<Record<string, string>>(
 			PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, {}
 		);
 
@@ -580,7 +580,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			}
 		}
 		if (pruned) {
-			await this._globalState.update(PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, persisted);
+			await this._state.update(PositronRunAppApiImpl.CONSOLE_SESSIONS_KEY, persisted);
 		}
 
 		return persisted[name];
