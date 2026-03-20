@@ -107,13 +107,6 @@ if (process.platform === 'win32') {
 }
 // --- End Positron ---
 
-// --- Start Positron ---
-// Add the open-remote-wsl extension on Windows
-if (process.platform === 'win32') {
-	dirs.push('extensions/open-remote-wsl');
-}
-// --- End Positron ---
-
 if (existsSync(`${import.meta.dirname}/../../.build/distro/npm`)) {
 	dirs.push('.build/distro/npm');
 	dirs.push('.build/distro/npm/remote');
