@@ -66,4 +66,44 @@ test.describe('Positron Notebooks: Cell Output', {
 			await expect(notebooksPositron.cellOutput(0)).toBeEmpty();
 		});
 	});
+
+	test('Toggle long output truncation', async function ({ app }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+
+		await test.step('Setup: Open a notebook and generate long output', async () => {
+			await notebooks.createNewNotebook();
+			await notebooksPositron.expectCellCountToBe(1);
+			await notebooksPositron.kernel.select('Python');
+
+			// Generate output that exceeds the default 30-line limit
+			await notebooksPositron.addCodeToCell(0, 'for i in range(50): print(f"line {i}")', { run: true });
+			await notebooksPositron.expectOutputAtIndex(0, ['line 0']);
+		});
+
+		await test.step('Long output is truncated with a truncation message', async () => {
+			await expect(notebooksPositron.outputTruncationMessage(0)).toBeVisible();
+			await expect(notebooksPositron.outputTruncationMessage(0)).toContainText('lines truncated');
+		});
+
+		await test.step('Show Full Output via action bar removes truncation', async () => {
+			await notebooksPositron.triggerCellOutputAction(0, 'Show Full Output');
+			await expect(notebooksPositron.outputTruncationMessage(0)).toBeHidden();
+			// A middle line (hidden during truncation) should now be visible
+			await notebooksPositron.expectOutputAtIndex(0, ['line 25']);
+		});
+
+		await test.step('Truncate Output via action bar restores truncation', async () => {
+			await notebooksPositron.triggerCellOutputAction(0, 'Truncate Output');
+			await expect(notebooksPositron.outputTruncationMessage(0)).toBeVisible();
+		});
+
+		await test.step('Re-running the cell resets truncation state', async () => {
+			// Currently showing full output (no truncation message).
+			// Re-run the cell - this should reset the per-cell override
+			// back to the global default (truncated).
+			await notebooksPositron.runCodeAtIndex(0);
+
+			await expect(notebooksPositron.outputTruncationMessage(0)).toBeVisible();
+		});
+	});
 });

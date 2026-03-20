@@ -55,6 +55,8 @@ export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN = new RawContextKey<boolean>('
 export const POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS = new RawContextKey<boolean>('positronNotebookCellHasOutputs', false);
 export const POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT = new RawContextKey<number>('positronNotebookCellImageOutputCount', 0);
 export const POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED = new RawContextKey<boolean>('positronNotebookCellOutputIsCollapsed', false);
+export const POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS = new RawContextKey<boolean>('positronNotebookCellOutputOverflows', false);
+export const POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING = new RawContextKey<boolean>('positronNotebookCellOutputScrolling', false);
 
 /**
  * Interaction-driven context key set to true when the user right-clicks on an
@@ -82,6 +84,8 @@ export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	hasOutputs: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
 	imageOutputCount: POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT,
 	outputIsCollapsed: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED,
+	outputOverflows: POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
+	outputScrolling: POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING,
 } as const;
 
 // Interface for the cell context keys
@@ -111,6 +115,8 @@ export function bindCellContextKeys(service: IScopedContextKeyService): IPositro
 		hasOutputs: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.hasOutputs.bindTo(service),
 		imageOutputCount: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.imageOutputCount.bindTo(service),
 		outputIsCollapsed: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputIsCollapsed.bindTo(service),
+		outputOverflows: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputOverflows.bindTo(service),
+		outputScrolling: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputScrolling.bindTo(service),
 	} satisfies IPositronNotebookCellContextKeys;
 }
 

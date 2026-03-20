@@ -4,12 +4,110 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind, NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 
 suite('PositronNotebookCell', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+
+	suite('Output truncation state', () => {
+		test('outputIsTruncated defaults to undefined', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]], disposables
+			);
+			const cell = notebook.cells.get()[0];
+			assert.ok(cell.isCodeCell());
+			assert.strictEqual(cell.outputIsTruncated.get(), undefined);
+		});
+
+		test('truncateOutput sets outputIsTruncated to true', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]], disposables
+			);
+			const cell = notebook.cells.get()[0];
+			assert.ok(cell.isCodeCell());
+			cell.truncateOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), true);
+		});
+
+		test('showFullOutput sets outputIsTruncated to false', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]], disposables
+			);
+			const cell = notebook.cells.get()[0];
+			assert.ok(cell.isCodeCell());
+			cell.showFullOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), false);
+		});
+
+		test('truncateOutput after showFullOutput toggles back to true', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]], disposables
+			);
+			const cell = notebook.cells.get()[0];
+			assert.ok(cell.isCodeCell());
+			cell.showFullOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), false);
+			cell.truncateOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), true);
+		});
+
+		test('collapse and expand does not affect truncation state', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]], disposables
+			);
+			const cell = notebook.cells.get()[0];
+			assert.ok(cell.isCodeCell());
+
+			// Verify with truncation = false (showing full output)
+			cell.showFullOutput();
+			cell.collapseOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), false, 'showing full: unchanged after collapse');
+			cell.expandOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), false, 'showing full: unchanged after expand');
+
+			// Verify with truncation = true (truncated)
+			cell.truncateOutput();
+			cell.collapseOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), true, 'truncated: unchanged after collapse');
+			cell.expandOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), true, 'truncated: unchanged after expand');
+		});
+
+		test('new output resets truncation state to undefined', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]], disposables
+			);
+			const cell = notebook.cells.get()[0];
+			assert.ok(cell.isCodeCell());
+			const textModel = notebook.textModel;
+			assert.ok(textModel);
+
+			const applyNewOutput = () => textModel.applyEdits([{
+				editType: CellEditType.Output,
+				index: 0,
+				outputs: [{
+					outputId: `output-${Math.random()}`,
+					outputs: [{ mime: 'application/vnd.code.notebook.stdout', data: VSBuffer.fromString('new output') }],
+				}],
+				append: false,
+			}], true, undefined, () => undefined, undefined, false);
+
+			// Reset from showing full output (false -> undefined)
+			cell.showFullOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), false, 'precondition: showFullOutput sets false');
+			applyNewOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), undefined, 'should reset from false');
+
+			// Reset from truncated (true -> undefined)
+			cell.truncateOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), true, 'precondition: truncateOutput sets true');
+			applyNewOutput();
+			assert.strictEqual(cell.outputIsTruncated.get(), undefined, 'should reset from true');
+		});
+	});
 
 	/** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 	suite('Test Harness', () => {

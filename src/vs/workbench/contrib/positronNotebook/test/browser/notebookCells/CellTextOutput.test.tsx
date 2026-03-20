@@ -87,6 +87,7 @@ suite('CellTextOutput', () => {
 	function renderCellTextOutput(
 		props: ParsedTextOutput,
 		options?: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>,
+		onShowFullOutput: () => void = () => { },
 	) {
 		if (options !== undefined) {
 			layoutConfig = { ...layoutConfig, ...options };
@@ -105,7 +106,11 @@ suite('CellTextOutput', () => {
 		const container = render(
 			<PositronReactServicesContext.Provider value={services}>
 				<NotebookInstanceProvider instance={instance}>
-					<CellTextOutput {...props} />
+					<CellTextOutput
+						{...props}
+						effectiveScrolling={layoutConfig.outputScrolling ?? false}
+						onShowFullOutput={onShowFullOutput}
+					/>
 				</NotebookInstanceProvider>
 			</PositronReactServicesContext.Provider>
 		);

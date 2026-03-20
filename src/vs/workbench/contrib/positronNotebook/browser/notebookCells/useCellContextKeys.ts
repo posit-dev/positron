@@ -52,6 +52,12 @@ export function useCellContextKeys(
 		const keys = bindCellContextKeys(scopedContextKeyService);
 
 		// Keep context keys in sync with cell state
+		const updateOutputScrollingKey = () => {
+			const perCellTruncated = cell.isCodeCell() ? cell.outputIsTruncated.get() : undefined;
+			const globalScrolling = notebookInstance.notebookOptions.getLayoutConfiguration().outputScrolling;
+			keys.outputScrolling.set(perCellTruncated !== undefined ? !perCellTruncated : globalScrolling);
+		};
+
 		disposables.add(autorun(reader => {
 			if (!keys) {
 				return;
@@ -86,6 +92,17 @@ export function useCellContextKeys(
 			keys.hasOutputs.set(outputs.length > 0);
 			keys.imageOutputCount.set(outputs.filter(o => o.parsed.type === 'image').length);
 			keys.outputIsCollapsed.set(outputIsCollapsed);
+			// Read the per-cell observable so autorun re-fires when it changes
+			if (cell.isCodeCell()) { cell.outputIsTruncated.read(reader); }
+			updateOutputScrollingKey();
+		}));
+
+		// Also update outputScrolling when the global notebook option changes,
+		// since getLayoutConfiguration() is not an observable tracked by autorun.
+		disposables.add(notebookInstance.notebookOptions.onDidChangeOptions(e => {
+			if (e.outputScrolling) {
+				updateOutputScrollingKey();
+			}
 		}));
 
 		// Set the state to let other components know that the context keys are ready
