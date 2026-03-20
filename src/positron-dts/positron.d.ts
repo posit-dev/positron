@@ -1986,6 +1986,27 @@ declare module 'positron' {
 		 * plot widget.
 		 */
 		export function getPlotsRenderSettings(): Thenable<PlotRenderSettings>;
+
+		/**
+		 * Per-window, per-workspace extension storage. Data survives extension
+		 * host restarts and window reloads, but does not persist beyond the
+		 * lifetime of the application process.
+		 *
+		 * Use this for state tied to runtime sessions or other per-window
+		 * resources that should not leak across windows.
+		 */
+		export const windowStorage: WindowMemento;
+
+		/**
+		 * A {@link vscode.Memento} with an additional `clear()` method that
+		 * removes all keys at once.
+		 */
+		export interface WindowMemento extends vscode.Memento {
+			/**
+			 * Remove all stored keys for this extension's window storage.
+			 */
+			clear(): Thenable<void>;
+		}
 	}
 
 	namespace runtime {

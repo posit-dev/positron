@@ -40,6 +40,8 @@ import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
+import { ExtHostPositronWindowStorage } from './extHostPositronWindowStorage.js';
+import { IExtHostStorage } from '../extHostStorage.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -88,6 +90,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
+	const storage = accessor.get(IExtHostStorage);
+	const extHostWindowStorage = new ExtHostPositronWindowStorage(rpcProtocol, accessor.get(ILogService));
+	storage.setPositronWindowStorage(extHostWindowStorage);
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -228,7 +233,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getPlotsRenderSettings(): Thenable<positron.PlotRenderSettings> {
 				return extHostPlotsService.getPlotsRenderSettings();
-			}
+			},
+			get windowStorage() {
+				return extHostWindowStorage.getOrCreateMemento(extension.identifier.value);
+			},
 		};
 
 		const languages: typeof positron.languages = {

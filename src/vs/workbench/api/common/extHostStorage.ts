@@ -10,6 +10,10 @@ import { createDecorator } from '../../../platform/instantiation/common/instanti
 import { IExtensionIdWithVersion } from '../../../platform/extensionManagement/common/extensionStorage.js';
 import { ILogService } from '../../../platform/log/common/log.js';
 
+// --- Start Positron ---
+import type { ExtHostPositronWindowStorage } from './positron/extHostPositronWindowStorage.js';
+// --- End Positron ---
+
 export interface IStorageChangeEvent {
 	shared: boolean;
 	key: string;
@@ -24,6 +28,23 @@ export class ExtHostStorage implements ExtHostStorageShape {
 
 	private readonly _onDidChangeStorage = new Emitter<IStorageChangeEvent>();
 	readonly onDidChangeStorage = this._onDidChangeStorage.event;
+
+	// --- Start Positron ---
+	// Set via `setPositronWindowStorage()` during extension host bootstrap,
+	// before any extension activates. Always initialised by call time.
+	private _positronWindowStorage: ExtHostPositronWindowStorage | undefined;
+
+	setPositronWindowStorage(windowStorage: ExtHostPositronWindowStorage): void {
+		this._positronWindowStorage = windowStorage;
+	}
+
+	get positronWindowStorage(): ExtHostPositronWindowStorage {
+		if (!this._positronWindowStorage) {
+			throw new Error('positronWindowStorage not initialized');
+		}
+		return this._positronWindowStorage;
+	}
+	// --- End Positron ---
 
 	constructor(
 		mainContext: IExtHostRpcService,
