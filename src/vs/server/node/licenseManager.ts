@@ -66,20 +66,23 @@ class LicenseManager {
 				console.warn(`license-manager stderr: ${stderr}`);
 			}
 
-			return JSON.parse(stdout);
+			const parsed = JSON.parse(stdout);
+			if (!Object.values(LicError).includes(parsed?.result)) {
+				throw new Error(`Invalid license-manager response: ${stdout}`);
+			}
+			return parsed;
 		} catch (error) {
 			const execError = error as { stdout?: string; message?: string };
 			if (execError.stdout) {
 				try {
-					return JSON.parse(execError.stdout);
-				} catch {
-					// fall through
-				}
+					const parsed = JSON.parse(execError.stdout);
+					if (Object.values(LicError).includes(parsed?.result)) {
+						return parsed;
+					}
+				} catch { /* fall through */ }
+				throw new Error(`Invalid license-manager response: ${execError.stdout}`);
 			}
-			return {
-				result: LicError.FAIL,
-				message: execError.message || 'Unknown error'
-			};
+			throw new Error(execError.message || 'Unknown error');
 		}
 	}
 
@@ -108,9 +111,7 @@ class LicenseManager {
 
 		validateLicenseStatus(result);
 
-		const daysLeft = result['days-left'];
-		const daysLeftMsg = daysLeft !== undefined ? `, Days left: ${daysLeft}` : '';
-		console.log(`Successfully activated Positron license (Status: ${result.status}${daysLeftMsg})`);
+		console.log(`Successfully activated Positron license: ${JSON.stringify(result)}`);
 
 		return {
 			valid: true,
