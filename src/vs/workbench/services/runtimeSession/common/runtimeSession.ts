@@ -503,9 +503,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		} else {
 			// Check if there is a console session for this runtime already
-			// TODO: This returns uninitialized sessions.
-			//       If session.start() errors while starting, the session stays in active sessions and gets
-			//       returned here. Is that expected?
 			const existingSession = this.getConsoleSessionForRuntime(runtimeId, true);
 			if (existingSession) {
 				// If startup is not yet complete, don't override the foreground
@@ -1767,6 +1764,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._onDidStartRuntimeEmitter.fire(session);
 
 			// Make the newly-started runtime the foreground runtime if it's a console session.
+			// We do not handle notebook sessions here because they have their own rules for
+			// determining when they should be the foreground session which is done in  the
+			// foregroundSessionContribution.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				// Make this the foreground session if there isn't one already,
 				// or if the caller requested to activate it.
@@ -1839,8 +1839,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// session map at this time so we can find it by notebook URI. This allows us
 		// to show sessions that have yet to start for notebooks in the UI, such as
 		// the interpreter picker
-		if (isNotebookLanguageRuntimeSession(session)) {
-			this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
+		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			if (isNotebookLanguageRuntimeSession(session)) {
+				this._logService.info(`Notebook session for ${session.metadata.notebookUri} added to notebook map: ${session.metadata.sessionId}`);
+				this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
+			} else {
+				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
+					`does not have a notebook URI.`);
+			}
 		}
 
 		this._register(activeSession);

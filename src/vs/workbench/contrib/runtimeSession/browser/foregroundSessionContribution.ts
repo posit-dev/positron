@@ -299,6 +299,9 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 	/**
 	 * Handle notebook session started or became ready.
 	 * Sets the notebook session as foreground if its notebook is the active editor.
+	 * We only want to make the notebook session tied to the active editor the foreground
+	 * session so that editor focus does not get stolen by other notebook files that may be
+	 * open.
 	 */
 	private _handleNotebookSessionStartedOrReady(session: ILanguageRuntimeSession): void {
 		// Only handle notebook sessions - console sessions are handled elsewhere
@@ -327,9 +330,6 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 	 * - Notebook editors: Set the notebook's session as foreground
 	 * - Quarto files (with inline output): Set the Quarto session as foreground
 	 * - Regular files: Restore the last active console session (regardless of language)
-	 *
-	 * TODO:
-	 * - Plots: cause the session the plot was generated from to become the foreground session
 	 */
 	private _handleActiveEditorChange(): void {
 		const activeEditor = this._editorService.activeEditor;
