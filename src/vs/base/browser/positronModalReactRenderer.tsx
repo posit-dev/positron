@@ -116,16 +116,16 @@ export class PositronModalReactRenderer extends Disposable {
 		super();
 
 		// If the container is not provided, use the active container.
-		if (!_options.container) {
+		if (_options.container === undefined) {
 			_options.container = PositronReactServices.services.workbenchLayoutService.activeContainer;
 		}
 
 		// Get the active element.
 		let activeElement: Element | null = null;
-		if (_options.parent) {
+		if (_options.parent !== undefined) {
 			activeElement = DOM.getWindow(_options.parent).document.activeElement;
 		}
-		if (!activeElement) {
+		if (activeElement === null) {
 			activeElement = DOM.getActiveWindow().document.activeElement;
 		}
 
@@ -148,9 +148,9 @@ export class PositronModalReactRenderer extends Disposable {
 		this._lastFocusedElement?.focus({ preventScroll: true });
 
 		// If this renderer was rendered, dispose it.
-		if (this._overlay && this._root) {
+		if (this._overlay !== undefined && this._root !== undefined) {
 			// If there is a parent, remove its aria-expanded property.
-			if (this._options.parent) {
+			if (this._options.parent !== undefined) {
 				this._options.parent.removeAttribute('aria-expanded');
 			}
 
@@ -168,7 +168,7 @@ export class PositronModalReactRenderer extends Disposable {
 		}
 
 		// Call the onDisposed callback.
-		if (this._options.onDisposed) {
+		if (this._options.onDisposed !== undefined) {
 			this._options.onDisposed();
 		}
 	}
@@ -220,9 +220,9 @@ export class PositronModalReactRenderer extends Disposable {
 	 */
 	public render(reactElement: ReactElement) {
 		// Prevent rendering more than once.
-		if (!this._overlay && !this._root) {
+		if (this._overlay === undefined && this._root === undefined) {
 			// If there is a parent, set its aria-expanded property to true.
-			if (this._options.parent) {
+			if (this._options.parent !== undefined) {
 				this._options.parent.setAttribute('aria-expanded', 'true');
 			}
 
@@ -258,14 +258,14 @@ export class PositronModalReactRenderer extends Disposable {
 	 */
 	private static bindEventListeners() {
 		// Unbind the most recently bound event listeners.
-		if (PositronModalReactRenderer._unbindCallback) {
+		if (PositronModalReactRenderer._unbindCallback !== undefined) {
 			PositronModalReactRenderer._unbindCallback();
 			PositronModalReactRenderer._unbindCallback = undefined;
 		}
 
 		// Get the renderer to bind event listeners for. If there isn't one, return.
 		const renderer = [...PositronModalReactRenderer._renderersStack].pop();
-		if (!renderer) {
+		if (renderer === undefined) {
 			return;
 		}
 
@@ -289,7 +289,7 @@ export class PositronModalReactRenderer extends Disposable {
 
 			// If a keybinding to a command was found, stop it from being processed if it is not one
 			// of the allowable commands.
-			if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId) {
+			if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId !== null) {
 				if (ALLOWABLE_COMMANDS.indexOf(resolutionResult.commandId) === -1) {
 					DOM.EventHelper.stop(event, true);
 				}
@@ -318,14 +318,14 @@ export class PositronModalReactRenderer extends Disposable {
 		};
 
 		// Add global keydown, mousedown, and resize event listeners.
-		window.addEventListener(KEYDOWN, keydownHandler, renderer._options.disableCaptures ? false : true);
+		window.addEventListener(KEYDOWN, keydownHandler, renderer._options.disableCaptures === true ? false : true);
 		window.addEventListener(MOUSEDOWN, mousedownHandler, true);
 		window.addEventListener(RESIZE, resizeHandler, false);
 
 		// Return the cleanup function that removes our event listeners.
 		PositronModalReactRenderer._unbindCallback = () => {
 			// Remove keydown, mousedown, and resize event listeners.
-			window.removeEventListener(KEYDOWN, keydownHandler, renderer._options.disableCaptures ? false : true);
+			window.removeEventListener(KEYDOWN, keydownHandler, renderer._options.disableCaptures === true ? false : true);
 			window.removeEventListener(MOUSEDOWN, mousedownHandler, true);
 			window.removeEventListener(RESIZE, resizeHandler, false);
 		};
