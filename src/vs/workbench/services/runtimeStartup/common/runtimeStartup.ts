@@ -1241,7 +1241,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			activate: true
 		});
 		await this.activateExtensionsForLanguages([primary.metadata.languageId]);
-		this.startAffiliatedRuntime(primary, true);
+		await this.startAffiliatedRuntime(primary, true);
 
 		// Start the remaining affiliated runtimes in the background; they
 		// do not need to block the startup sequence.
@@ -1289,8 +1289,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async activateExtension(extensionId: ExtensionIdentifier, languageId: string): Promise<void> {
 		const key = extensionId.value;
+		// Add to the set immediately (before the await) to prevent
+		// concurrent calls from emitting duplicate perf marks.
 		const firstActivation = !this._activatedExtensions.has(key);
 		if (firstActivation) {
+			this._activatedExtensions.add(key);
 			perf.mark(`code/positron/runtimeStartup/extensionPreActivate/${key}`);
 			this._logService.debug(`[Runtime startup] Activating extension ${key} for language ID ${languageId}`);
 		}
@@ -1302,10 +1305,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					startup: false
 				});
 			if (firstActivation) {
-				this._activatedExtensions.add(key);
 				perf.mark(`code/positron/runtimeStartup/extensionPostActivate/${key}`);
 			}
 		} catch (e) {
+			if (firstActivation) {
+				this._activatedExtensions.delete(key);
+			}
 			this._logService.debug(
 				`[Runtime startup] Error activating extension ${key}: ${e}`);
 		}
@@ -1333,10 +1338,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param affiliatedRuntimeMetadata The metadata for the affiliated runtime.
 	 * @param activate Whether to activate/focus the new session
 	 */
-	private startAffiliatedRuntime(
+	private async startAffiliatedRuntime(
 		affiliatedRuntime: IAffiliatedRuntimeMetadata,
 		activate: boolean
-	): void {
+	): Promise<void> {
 
 		// No-op if no affiliated runtime metadata.
 		if (!affiliatedRuntime.metadata) {
@@ -1357,7 +1362,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		affiliatedRuntime.lastStarted = Date.now();
 		this.saveAffiliatedRuntime(affiliatedRuntime);
 
-		this.autoStartRuntime(affiliatedRuntimeMetadata,
+		await this.autoStartRuntime(affiliatedRuntimeMetadata,
 			`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,
 			activate);
 	}
@@ -1767,7 +1772,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			newSession: true,
 			activate
 		});
-		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
+		await this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
 	}
 
 	// Storage key prefix for architecture mismatch dismissal
