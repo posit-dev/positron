@@ -209,11 +209,11 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	const MenuItem = (options: CustomContextMenuItemOptions) => {
 		// Get the shortcut, if there is a command ID.
 		let shortcut = '';
-		if (options.commandId) {
+		if (!!options.commandId) {
 			const keybinding = services.keybindingService.lookupKeybinding(options.commandId);
-			if (keybinding) {
+			if (!!keybinding) {
 				let label = keybinding.getLabel();
-				if (label) {
+				if (!!label) {
 					if (isMacintosh) {
 						label = label.replace('⇧', '⇧ ');
 						label = label.replace('⌥', '⌥ ');
@@ -318,7 +318,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		 */
 		const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
 			// Do nothing if the submenu item is disabled.
-			if (options.disabled) {
+			if (!!options.disabled) {
 				return;
 			}
 
