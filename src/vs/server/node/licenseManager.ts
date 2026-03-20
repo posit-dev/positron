@@ -38,7 +38,7 @@ function validateLicenseStatus(result: LicenseCommandResult): void {
 		throw new Error('License has expired. Please renew your license.');
 	}
 	if (status !== 'activated' && status !== 'evaluation') {
-		throw new Error(`Invalid license status: ${status}`);
+		throw new Error(`Invalid license result: ${JSON.stringify(result)}`);
 	}
 }
 
