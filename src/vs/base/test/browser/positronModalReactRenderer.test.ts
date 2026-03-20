@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import * as sinon from 'sinon';
 import { PositronModalReactRenderer } from '../../browser/positronModalReactRenderer.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../common/utils.js';
 
@@ -208,6 +209,10 @@ suite('PositronModalReactRenderer', () => {
 			const container = createMockContainer();
 			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
 
+			// Stub console.error to prevent actual console output in tests
+			const consoleErrorStub = sinon.stub(console, 'error');
+			disposables.add({ dispose: () => consoleErrorStub.restore() });
+
 			renderer.render(createMockReactElement());
 			const firstChild = container.firstChild;
 
@@ -217,6 +222,10 @@ suite('PositronModalReactRenderer', () => {
 			// Should still be the same child
 			assert.strictEqual(container.firstChild, firstChild);
 			assert.strictEqual(container.children.length, 1);
+
+			// Should have logged an error
+			assert.strictEqual(consoleErrorStub.callCount, 1);
+			assert.ok(consoleErrorStub.calledWith('[PositronModalReactRenderer] Attempted to render a React element when one has already been rendered'));
 
 			renderer.dispose();
 		});

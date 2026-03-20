@@ -303,34 +303,38 @@ export class PositronModalReactRenderer extends Disposable {
 	 * @param reactElement The ReactElement to render.
 	 */
 	public render(reactElement: ReactElement) {
-		// Prevent rendering more than once.
-		if (this._overlay === undefined && this._root === undefined) {
-			// If there is a parent, set its aria-expanded property to true.
-			if (this._options.parent !== undefined) {
-				this._options.parent.setAttribute('aria-expanded', 'true');
-			}
-
-			// Create the overlay element in the container and the root element in the overlay
-			// element.
-			this._overlay = this._options.container!.appendChild(
-				DOM.$('.positron-modal-overlay', { tabIndex: 0 })
-			);
-			this._root = createRoot(this._overlay);
-
-			// Render the ReactElement that was supplied.
-			this._root.render(
-				<PositronReactServicesProvider>
-					{reactElement}
-				</PositronReactServicesProvider>
-			);
-
-			// Drive focus into the overlay element.
-			this._overlay.focus();
-
-			// Push this renderer onto the renderers stack and bind event listeners.
-			PositronModalReactRenderer._renderersStack.push(this);
-			PositronModalReactRenderer.bindEventListeners();
+		// Return if this renderer has already been rendered.
+		if (this._root !== undefined) {
+			// This should never happen, but log if it does.
+			console.error('[PositronModalReactRenderer] Attempted to render a React element when one has already been rendered');
+			return;
 		}
+
+		// If there is a parent, set its aria-expanded property to true.
+		if (this._options.parent !== undefined) {
+			this._options.parent.setAttribute('aria-expanded', 'true');
+		}
+
+		// Create the overlay element in the container and the root element in the overlay
+		// element.
+		this._overlay = this._options.container!.appendChild(
+			DOM.$('.positron-modal-overlay', { tabIndex: 0 })
+		);
+		this._root = createRoot(this._overlay);
+
+		// Render the ReactElement that was supplied.
+		this._root.render(
+			<PositronReactServicesProvider>
+				{reactElement}
+			</PositronReactServicesProvider>
+		);
+
+		// Drive focus into the overlay element.
+		this._overlay.focus();
+
+		// Push this renderer onto the renderers stack and bind event listeners.
+		PositronModalReactRenderer._renderersStack.push(this);
+		PositronModalReactRenderer.bindEventListeners();
 	}
 
 	//#endregion Public Methods
@@ -396,8 +400,8 @@ export class PositronModalReactRenderer extends Disposable {
 		 * @param e A UIEvent.
 		 */
 		const resizeHandler = (e: UIEvent) => {
-			PositronModalReactRenderer._renderersStack.forEach(renderer => {
-				renderer._onResizeEmitter.fire(e);
+			PositronModalReactRenderer._renderersStack.forEach((positronModalReactRenderer: PositronModalReactRenderer) => {
+				positronModalReactRenderer._onResizeEmitter.fire(e);
 			});
 		};
 
