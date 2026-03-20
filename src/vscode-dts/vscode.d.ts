@@ -8434,6 +8434,27 @@ declare module 'vscode' {
 		 */
 		readonly workspaceState: Memento;
 
+		// --- Start Positron ---
+		/**
+		 * Per-workspace ephemeral extension storage. Data survives extension
+		 * host restarts and window reloads, but does not persist beyond the
+		 * lifetime of the application process.
+		 *
+		 * Unlike {@link ExtensionContext.workspaceState workspaceState},
+		 * this storage is in-memory and per-process, so multiple windows
+		 * opening the same workspace cannot corrupt each other's state.
+		 *
+		 * Use this for state tied to runtime sessions or other per-workspace
+		 * resources that should not outlive the application process.
+		 */
+		readonly ephemeralState: Memento & {
+			/**
+			 * Remove all stored keys for this extension's ephemeral storage.
+			 */
+			clear(): Thenable<void>;
+		};
+		// --- End Positron ---
+
 		/**
 		 * A memento object that stores state independent
 		 * of the current opened {@link workspace.workspaceFolders workspace}.
