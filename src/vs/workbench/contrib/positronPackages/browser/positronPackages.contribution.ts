@@ -21,7 +21,7 @@ import { IPositronPackagesService } from './interfaces/positronPackagesService.j
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { ILanguageRuntimePackage } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 
@@ -323,20 +323,8 @@ class UpdateAllPackagesAction extends Action2 {
 			try {
 				await service.updateAllPackages(cts.token);
 			} catch (e) {
-				notifications.notify({
-					severity: Severity.Error,
-					actions: {
-						primary: [{
-							id: 'viewLogs',
-							label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-							tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-							enabled: true,
-							class: undefined,
-							run: () => service.activeSession?.showOutput(),
-						}]
-					},
-					message: nls.localize('positronPackages.failedToUpdateAllPackages', "Failed to update all packages"),
-				});
+				notifications.error(e);
+				throw e;
 			}
 		}, () => cts.dispose(true));
 	}
