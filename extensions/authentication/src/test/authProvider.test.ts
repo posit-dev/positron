@@ -118,3 +118,129 @@ suite('AuthProvider', () => {
 		);
 	});
 });
+
+suite('AuthProvider (credential chain)', () => {
+	let chainProvider: AuthProvider;
+	let resolveResult: string;
+	let resolveShouldFail: boolean;
+
+	function createMockContext(): vscode.ExtensionContext {
+		const secrets = new Map<string, string>();
+		const globalState = new Map<string, unknown>();
+		return {
+			secrets: {
+				get: (key: string) => Promise.resolve(secrets.get(key)),
+				store: (key: string, value: string) => {
+					secrets.set(key, value);
+					return Promise.resolve();
+				},
+				delete: (key: string) => {
+					secrets.delete(key);
+					return Promise.resolve();
+				},
+			},
+			globalState: {
+				get: <T>(key: string) => globalState.get(key) as T | undefined,
+				update: (key: string, value: unknown) => {
+					globalState.set(key, value);
+					return Promise.resolve();
+				},
+			},
+		} as unknown as vscode.ExtensionContext;
+	}
+
+	setup(() => {
+		resolveResult = JSON.stringify({ accessKeyId: 'AKIA', secretAccessKey: 'secret' });
+		resolveShouldFail = false;
+
+		chainProvider = new AuthProvider(
+			'test-chain', 'Test Chain', createMockContext(),
+			undefined,
+			{
+				resolve: async () => {
+					if (resolveShouldFail) {
+						throw new Error('chain failed');
+					}
+					return resolveResult;
+				},
+			}
+		);
+	});
+
+	teardown(() => {
+		chainProvider.dispose();
+	});
+
+	test('resolveChainCredentials returns session and fires added event', async () => {
+		const eventPromise = new Promise<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>(
+			resolve => {
+				const disposable = chainProvider.onDidChangeSessions(e => {
+					disposable.dispose();
+					resolve(e);
+				});
+			}
+		);
+
+		const session = await chainProvider.resolveChainCredentials();
+		const event = await eventPromise;
+
+		assert.ok(session);
+		assert.strictEqual(session.id, 'test-chain');
+		assert.strictEqual(session.accessToken, resolveResult);
+		assert.strictEqual(session.account.id, 'test-chain');
+		assert.strictEqual(event.added!.length, 1);
+	});
+
+	test('removeSession clears chain session and fires removed event', async () => {
+		await chainProvider.resolveChainCredentials();
+
+		const eventPromise = new Promise<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>(
+			resolve => {
+				const disposable = chainProvider.onDidChangeSessions(e => {
+					disposable.dispose();
+					resolve(e);
+				});
+			}
+		);
+
+		await chainProvider.removeSession('test-chain');
+		const event = await eventPromise;
+
+		assert.strictEqual(event.removed!.length, 1);
+		assert.strictEqual(event.removed![0].id, 'test-chain');
+
+		const sessions = await chainProvider.getSessions();
+		assert.strictEqual(sessions.length, 0);
+	});
+
+	test('createSession resolves from chain instead of prompting', async () => {
+		const session = await chainProvider.createSession([], {});
+
+		assert.strictEqual(session.id, 'test-chain');
+		assert.strictEqual(session.accessToken, resolveResult);
+	});
+
+	test('resolveChainCredentials invalidates cached session on failure', async () => {
+		await chainProvider.resolveChainCredentials();
+		let sessions = await chainProvider.getSessions();
+		assert.strictEqual(sessions.length, 1);
+
+		resolveShouldFail = true;
+
+		const eventPromise = new Promise<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>(
+			resolve => {
+				const disposable = chainProvider.onDidChangeSessions(e => {
+					disposable.dispose();
+					resolve(e);
+				});
+			}
+		);
+
+		await chainProvider.resolveChainCredentials();
+		const event = await eventPromise;
+
+		assert.strictEqual(event.removed!.length, 1);
+		sessions = await chainProvider.getSessions();
+		assert.strictEqual(sessions.length, 0);
+	});
+});

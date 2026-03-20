@@ -124,4 +124,45 @@ suite('configDialog', () => {
 		);
 		assert.strictEqual(stored, false);
 	});
+
+	test('save without apiKey calls createSession for chain provider', async () => {
+		const chainProvider = new AuthProvider(
+			'test-chain', 'Test Chain',
+			{
+				secrets: {
+					get: () => Promise.resolve(undefined),
+					store: () => Promise.resolve(),
+					delete: () => Promise.resolve(),
+				},
+				globalState: {
+					get: () => undefined,
+					update: () => Promise.resolve(),
+				},
+			} as unknown as vscode.ExtensionContext,
+			undefined,
+			{
+				resolve: async () => JSON.stringify({ accessKeyId: 'AKIA', secretAccessKey: 'secret' }),
+			}
+		);
+		registerAuthProvider('test-chain', chainProvider);
+
+		const source = {
+			type: positron.PositronLanguageModelType.Chat,
+			provider: { id: 'test-chain', displayName: 'Test Chain', settingName: 'test-chain' },
+			signedIn: false,
+			defaults: { name: 'Test Chain', model: 'test-model' },
+			supportedOptions: [],
+		} as unknown as positron.ai.LanguageModelSource;
+
+		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
+			await onAction({ provider: 'test-chain', type: positron.PositronLanguageModelType.Chat, name: 'Test Chain', model: 'test-model' }, 'save');
+		};
+
+		const results = await showConfigurationDialog([source]);
+
+		assert.strictEqual(results.length, 1);
+		assert.strictEqual(results[0].action, 'save');
+		assert.strictEqual(results[0].accountId, 'test-chain');
+		chainProvider.dispose();
+	});
 });

@@ -95,7 +95,7 @@ async function registerAwsProvider(
 	);
 
 	const provider = new AuthProvider(
-		'amazon-bedrock', 'Amazon Bedrock', context,
+		'amazon-bedrock', 'AWS', context,
 		undefined,
 		{
 			resolve: async () => {
@@ -111,7 +111,7 @@ async function registerAwsProvider(
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'amazon-bedrock', 'Amazon Bedrock', provider,
+			'amazon-bedrock', 'AWS', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider

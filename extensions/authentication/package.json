@@ -33,7 +33,7 @@
 			},
 			{
 				"id": "amazon-bedrock",
-				"label": "Amazon Bedrock"
+				"label": "AWS"
 			}
 		],
 		"configuration": {
