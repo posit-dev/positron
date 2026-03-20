@@ -311,7 +311,11 @@ function registerAssistant(context: vscode.ExtensionContext) {
 			log.error(`Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
 
-	// Keep Positron Assistant model state in sync when users sign out via Accounts menu.
+	// Keep Positron Assistant model state in sync when auth sessions change.
+	// Session-backed providers (AWS, Foundry) may not have stored configs,
+	// so always re-register with the authProviderId to trigger the
+	// session-based fallback in registerModelsForProvider.
+	const SESSION_PROVIDERS = new Set(['amazon-bedrock', 'ms-foundry']);
 	context.subscriptions.push(vscode.authentication.onDidChangeSessions(async (e) => {
 		const providerId = e.provider.id;
 		if (!isAuthExtProvider(providerId)) {
@@ -320,10 +324,11 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 		try {
 			const hasStoredConfig = await reconcileAuthProviderModels(context, providerId);
-			// Only re-register if Assistant still has stored configs for this provider.
-			// This keeps Accounts-menu sign-in from creating new model configs implicitly.
-			if (hasStoredConfig) {
-				await registerModelsForProvider(context, providerId);
+			if (hasStoredConfig || SESSION_PROVIDERS.has(providerId)) {
+				await registerModelsForProvider(
+					context, providerId,
+					SESSION_PROVIDERS.has(providerId) ? providerId : undefined
+				);
 			}
 		} catch (error) {
 			log.warn(`[Auth Session Sync] Failed to sync provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
