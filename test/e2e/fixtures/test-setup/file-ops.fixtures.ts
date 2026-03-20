@@ -63,6 +63,9 @@ export function FileOperationsFixture(app: Application) {
 				}
 
 				await app.workbench.quickInput.clickOkButton();
+
+				// Wait for the workspace to finish loading
+				await playwright.expect(app.code.driver.page.locator('.explorer-folders-view')).toBeVisible({ timeout: 60000 });
 			});
 		}
 	};
