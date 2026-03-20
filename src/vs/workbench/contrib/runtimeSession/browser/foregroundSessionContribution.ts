@@ -26,7 +26,7 @@ import { INotebookEditorService } from '../../notebook/browser/services/notebook
 
 /**
  * Contribution that coordinates foreground session changes from various UI gestures.
- * This contribution tries to centralizes the foreground session switching logic by
+ * This contribution tries to centralize the foreground session switching logic by
  * listening to events from various UI components and determining which session should
  * be the foreground session.
  *
@@ -102,7 +102,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			this._handleConsoleInstanceSelected(instance);
 		}));
 
-		// --- Start Positron Noteboook Editor Focus Handling ---
+		// --- Start Positron Notebook Editor Focus Handling ---
 
 		// Listen for Positron notebook instance additions to track their focus events
 		this._register(this._positronNotebookService.onDidAddNotebookInstance((instance) => {
@@ -125,9 +125,9 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			this._registerPositronNotebookFocusListener(instance);
 		}
 
-		// --- End Positron Noteboook Editor Focus Handling ---
+		// --- End Positron Notebook Editor Focus Handling ---
 
-		// --- Start Legacy Noteboook Editor Focus Handling ---
+		// --- Start Legacy Notebook Editor Focus Handling ---
 
 		// Listen for legacy notebook editor additions to track their focus events
 		this._register(this._notebookEditorService.onDidAddNotebookEditor((editor) => {
@@ -148,7 +148,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			this._registerLegacyNotebookFocusListener(editor);
 		}
 
-		// --- End Legacy Noteboook Editor Focus Handling ---
+		// --- End Legacy Notebook Editor Focus Handling ---
 
 		// After setting up all the listeners, we should check the active editor and set the correct foreground session on startup.
 		// This is important for the case where the active editor is a notebook, so that the notebook session is set as foreground on startup.
