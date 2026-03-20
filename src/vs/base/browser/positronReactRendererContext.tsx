@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createContext, useContext } from 'react';
+import React, { createContext, useContext } from 'react';
 
 // Other dependencies.
 import { PositronReactServices } from './positronReactServices.js';
@@ -12,6 +12,18 @@ import { PositronReactServices } from './positronReactServices.js';
  * PositronReactServicesContext.
  */
 export const PositronReactServicesContext = createContext<PositronReactServices>(undefined!);
+
+/**
+ * PositronReactServicesProvider component.
+ * Provides the Positron React services context to children.
+ */
+export const PositronReactServicesProvider = ({ children }: { children: React.ReactNode }) => {
+	return (
+		<PositronReactServicesContext.Provider value={PositronReactServices.services}>
+			{children}
+		</PositronReactServicesContext.Provider>
+	);
+};
 
 /**
  * usePositronReactServicesContext hook.

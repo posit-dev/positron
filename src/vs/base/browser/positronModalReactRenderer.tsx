@@ -16,7 +16,7 @@ import { Emitter } from '../common/event.js';
 import { Disposable } from '../common/lifecycle.js';
 import { StandardKeyboardEvent } from './keyboardEvent.js';
 import { PositronReactServices } from './positronReactServices.js';
-import { PositronReactServicesContext } from './positronReactRendererContext.js';
+import { PositronReactServicesProvider } from './positronReactRendererContext.js';
 import { ResultKind } from '../../platform/keybinding/common/keybindingResolver.js';
 
 /**
@@ -235,9 +235,9 @@ export class PositronModalReactRenderer extends Disposable {
 
 			// Render the ReactElement that was supplied.
 			this._root.render(
-				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
+				<PositronReactServicesProvider>
 					{reactElement}
-				</PositronReactServicesContext.Provider>
+				</PositronReactServicesProvider>
 			);
 
 			// Drive focus into the overlay element.
