@@ -1291,6 +1291,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const key = extensionId.value;
 		const firstActivation = !this._activatedExtensions.has(key);
 		if (firstActivation) {
+			perf.mark(`code/positron/runtimeStartup/extensionPreActivate/${key}`);
 			this._logService.debug(`[Runtime startup] Activating extension ${key} for language ID ${languageId}`);
 		}
 		try {
@@ -1302,7 +1303,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				});
 			if (firstActivation) {
 				this._activatedExtensions.add(key);
-				perf.mark(`code/positron/runtimeStartup/extensionActivated/${key}`);
+				perf.mark(`code/positron/runtimeStartup/extensionPostActivate/${key}`);
 			}
 		} catch (e) {
 			this._logService.debug(
