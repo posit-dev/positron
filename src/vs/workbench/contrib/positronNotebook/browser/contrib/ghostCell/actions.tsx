@@ -13,6 +13,7 @@ import { PositronModalReactRenderer } from '../../../../../../base/browser/posit
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
 import { GhostCellController } from './controller.js';
 import { REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID, SHOW_GHOST_CELL_INFO_COMMAND_ID } from './config.js';
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
@@ -59,6 +60,7 @@ registerGhostCellAction({
 	title: localize2('positronNotebook.enableGhostCellSuggestionsForNotebook', 'Enable Ghost Cell Suggestions for This Notebook'),
 	f1: true,
 	category: localize2('positronNotebook.category', 'Positron Notebook'),
+	precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 	run: (controller) => controller.enableGhostCellSuggestionsForNotebook(),
 });
 
@@ -68,7 +70,7 @@ registerGhostCellAction({
 	title: localize2('positronNotebook.showGhostCellInfo', 'About Ghost Cell Suggestions'),
 	f1: true,
 	category: localize2('positronNotebook.category', 'Positron Notebook'),
-	precondition: ContextKeyExpr.equals('activeEditor', 'workbench.editor.positronNotebook'),
+	precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 	run: (controller) => {
 		const state = controller.ghostCellState.get();
 		const modelName = state.status === 'ready' ? state.modelName : undefined;
