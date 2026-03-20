@@ -286,7 +286,7 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		// Use `session` instead of `attachedRuntimeSession` to get the session even if it is "exited".
 		// This allows the foreground session to stay in sync with the console instance when a user clicks on a console tab.
 		const session = instance.session;
-		if (session) {
+		if (session && this._runtimeSessionService.foregroundSession?.sessionId !== session.sessionId) {
 			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, setting foreground session: ${session.sessionId}`);
 			this._runtimeSessionService.foregroundSession = session;
 		} else {

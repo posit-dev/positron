@@ -974,11 +974,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
-		// Activate the console instance if it isn't already active
-		if (consoleInstance !== this._activePositronConsoleInstance) {
-			this.setActivePositronConsoleInstance(consoleInstance);
-			this._runtimeSessionService.foregroundSession = consoleInstance.session;
-		}
+		// Activate the console instance. This fires onDidChangeActivePositronConsoleInstance,
+		// which ForegroundSessionContribution listens to and uses to set the foreground session.
+		this.setActivePositronConsoleInstance(consoleInstance);
 
 		// Ask the console instance to reveal the execution.
 		if (!consoleInstance.revealExecution(executionId)) {
@@ -991,11 +989,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param positronConsoleInstance
 	 */
 	private setActivePositronConsoleInstance(positronConsoleInstance?: IPositronConsoleInstance) {
-		// Guard: don't fire event if the instance hasn't changed
-		if (this._activePositronConsoleInstance === positronConsoleInstance) {
-			return;
-		}
-
 		// Set the active instance and fire the onDidChangeActivePositronConsoleInstance event.
 		this._activePositronConsoleInstance = positronConsoleInstance;
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
