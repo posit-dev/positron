@@ -194,10 +194,10 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 		validateApiKey: validateFoundryApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
-				const normalized = normalizeToV1Url(config.baseUrl);
+				config.baseUrl = normalizeToV1Url(config.baseUrl);
 				await vscode.workspace
 					.getConfiguration('authentication.foundry')
-					.update('baseUrl', normalized, vscode.ConfigurationTarget.Global);
+					.update('baseUrl', config.baseUrl, vscode.ConfigurationTarget.Global);
 			}
 		},
 	});
@@ -209,9 +209,10 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 			.getConfiguration('positWorkbench.foundry')
 			.get<string>('endpoint', '');
 		if (endpoint) {
+			const normalized = normalizeToV1Url(endpoint);
 			vscode.workspace
 				.getConfiguration('authentication.foundry')
-				.update('baseUrl', endpoint, vscode.ConfigurationTarget.Global)
+				.update('baseUrl', normalized, vscode.ConfigurationTarget.Global)
 				.then(undefined, err => log.error(`Failed to sync Foundry endpoint: ${err}`));
 		}
 	}
