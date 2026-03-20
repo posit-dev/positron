@@ -46,6 +46,21 @@
 
 	.positron-notebook-cell-outputs {
 		overflow: hidden;
+		position: relative;
+	}
+
+	/* Resize handle at the bottom of scrollable output */
+	.cell-output-resize-handle {
+		height: 4px;
+		cursor: ns-resize;
+		position: relative;
+		background: transparent;
+		transition: background-color 150ms;
+	}
+
+	.cell-output-resize-handle:hover,
+	.cell-output-resize-handle:active {
+		background-color: var(--vscode-sash-hoverBorder);
 	}
 
 	.positron-notebook-code-cell-outputs-inner {
@@ -55,6 +70,11 @@
 
 		&.output-scrolling {
 			max-height: var(--vscode-positronNotebook-output-max-height);
+			overflow-y: auto;
+		}
+
+		/* When user has manually resized, the inline style controls height */
+		&.height-override {
 			overflow-y: auto;
 		}
 		overflow-x: auto;

@@ -37,6 +37,7 @@ import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { useOutputResize } from './useOutputResize.js';
 
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
 const outputCollapsedLabel = localize('positron.notebook.outputCollapsed', 'Output collapsed');
@@ -54,6 +55,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
 	useScrollingIndicator(outputsInnerRef);
+	const { handleRef: resizeHandleRef, heightOverride, clearHeightOverride } = useOutputResize(outputsInnerRef);
 	const contextKeyService = useCellScopedContextKeyService();
 	const outputImageTargeted = useMemo(
 		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
@@ -65,6 +67,15 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const effectiveScrolling = perCellTruncated !== undefined
 		? !perCellTruncated
 		: layout.outputScrolling;
+
+	// Reset height override when outputs change (new execution) or scrolling mode toggles
+	const prevOutputsRef = React.useRef(outputs);
+	const prevScrollingRef = React.useRef(effectiveScrolling);
+	if (prevOutputsRef.current !== outputs || prevScrollingRef.current !== effectiveScrolling) {
+		prevOutputsRef.current = outputs;
+		prevScrollingRef.current = effectiveScrolling;
+		clearHeightOverride();
+	}
 
 	// Detect when output content would overflow the max-height constraint.
 	// We compare against the CSS variable rather than scrollHeight > clientHeight
@@ -169,8 +180,11 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					'positron-notebook-code-cell-outputs-inner',
 					'positron-notebook-scrollable',
 					'positron-notebook-scrollable-fade',
-					{ 'output-scrolling': effectiveScrolling }
-				)}>
+					{ 'output-scrolling': effectiveScrolling },
+					{ 'height-override': heightOverride !== undefined }
+				)}
+				style={heightOverride !== undefined ? { maxHeight: heightOverride, height: heightOverride } : undefined}
+				>
 					{isCollapsed
 						? <CollapsedOutputLabel onExpand={handleShowHiddenOutput} />
 						: outputs?.map((output) => (
@@ -185,6 +199,13 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 						))
 					}
 				</div>
+				{effectiveScrolling && !isCollapsed && outputs.length > 0 &&
+					<div
+						ref={resizeHandleRef}
+						className='cell-output-resize-handle'
+						onDoubleClick={clearHeightOverride}
+					/>
+				}
 			</section>
 		</div>
 	);
