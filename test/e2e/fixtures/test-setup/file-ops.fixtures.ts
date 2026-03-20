@@ -64,7 +64,9 @@ export function FileOperationsFixture(app: Application) {
 
 				await app.workbench.quickInput.clickOkButton();
 
-				// Wait for the workspace to finish loading
+				// Wait for the workspace to reload. The explorer disappears
+				// during the transition, then reappears with the new workspace.
+				await playwright.expect(app.code.driver.page.locator('.explorer-folders-view')).not.toBeVisible({ timeout: 60000 });
 				await playwright.expect(app.code.driver.page.locator('.explorer-folders-view')).toBeVisible({ timeout: 60000 });
 			});
 		}
