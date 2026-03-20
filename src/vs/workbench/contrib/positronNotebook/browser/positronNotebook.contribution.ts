@@ -1519,15 +1519,17 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.collapseOutput',
 			title: localize2('positronNotebook.cell.collapseOutput', "Collapse Output"),
 			icon: Codicon.chevronDown,
-			menu: {
-				id: MenuId.PositronNotebookCellOutputActionContext,
-				group: PositronNotebookCellOutputActionGroup.Visibility,
-				order: 1,
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
-				)
-			}
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionContext,
+					group: PositronNotebookCellOutputActionGroup.Visibility,
+					order: 1,
+					when: ContextKeyExpr.and(
+						POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+					)
+				},
+			]
 		});
 	}
 
@@ -1547,15 +1549,17 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.expandOutput',
 			title: localize2('positronNotebook.cell.expandOutput', "Expand Output"),
 			icon: Codicon.chevronRight,
-			menu: {
-				id: MenuId.PositronNotebookCellOutputActionContext,
-				group: PositronNotebookCellOutputActionGroup.Visibility,
-				order: 2,
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
-				)
-			}
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionContext,
+					group: PositronNotebookCellOutputActionGroup.Visibility,
+					order: 2,
+					when: ContextKeyExpr.and(
+						POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
+					)
+				},
+			]
 		});
 	}
 

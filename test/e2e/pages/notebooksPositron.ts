@@ -69,7 +69,7 @@ export class PositronNotebooks extends Notebooks {
 	// Cell outputs
 	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
-	showHiddenOutputButton = (index: number) => this.cellOutput(index).getByRole('button', { name: 'Show hidden output' });
+	outputCollapsedLabel = (index: number) => this.cellOutput(index).getByText('Output collapsed');
 	outputCollapseToggle = (index: number) => this.cell.nth(index).locator('.cell-output-collapse-button-container').getByRole('button');
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
