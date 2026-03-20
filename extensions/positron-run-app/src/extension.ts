@@ -16,7 +16,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Positr
 	context.subscriptions.push(log);
 
 	const debugSessionTerminalWatcher = registerDebugAdapterTrackerFactory(context.subscriptions);
-	const positronRunApp = new PositronRunAppApiImpl(positron.window.windowStorage, debugSessionTerminalWatcher);
+	const positronRunApp = new PositronRunAppApiImpl(positron.ephemeralMemento, debugSessionTerminalWatcher);
 
 	context.subscriptions.push(
 		vscode.window.registerTerminalLinkProvider(new AppLauncherTerminalLinkProvider(positronRunApp))

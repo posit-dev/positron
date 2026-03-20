@@ -234,9 +234,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getPlotsRenderSettings(): Thenable<positron.PlotRenderSettings> {
 				return extHostPlotsService.getPlotsRenderSettings();
 			},
-			get windowStorage() {
-				return extHostWindowStorage.getOrCreateMemento(extension.identifier.value);
-			},
 		};
 
 		const languages: typeof positron.languages = {
@@ -534,6 +531,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		return {
 			version: initData.positronVersion,
 			buildNumber: initData.positronBuildNumber,
+			get ephemeralMemento() {
+				return extHostWindowStorage.getOrCreateMemento(extension.identifier.value);
+			},
 			runtime,
 			window,
 			languages,
