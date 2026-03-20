@@ -53,7 +53,10 @@ export class ExtHostPositronWindowStorage {
 	getOrCreateMemento(extensionId: string): WindowExtensionMemento {
 		let memento = this._mementos.get(extensionId);
 		if (!memento) {
-			memento = new WindowExtensionMemento(extensionId, this);
+			// Evict from cache on dispose so that re-activation gets a fresh instance
+			memento = new WindowExtensionMemento(extensionId, this, () => {
+				this._mementos.delete(extensionId);
+			});
 			this._mementos.set(extensionId, memento);
 		}
 		return memento;
@@ -86,6 +89,7 @@ export class WindowExtensionMemento implements vscode.Memento, IDisposable {
 	constructor(
 		private readonly _id: string,
 		private readonly _storage: ExtHostPositronWindowStorage,
+		private readonly _onDispose: () => void,
 	) {
 		this._init = this._storage.initializeWindowStorage(this._id, Object.create(null)).then(value => {
 			this._value = value ?? Object.create(null);
@@ -165,6 +169,8 @@ export class WindowExtensionMemento implements vscode.Memento, IDisposable {
 	}
 
 	dispose(): void {
+		this._onDispose();
+		this._scheduler.flush();
 		this._scheduler.dispose();
 	}
 }

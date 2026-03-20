@@ -209,4 +209,46 @@ suite('WindowExtensionMemento', function () {
 		// The ensureNoDisposablesAreLeakedInTestSuite check will catch leaks if we forget dispose.
 		memento.dispose();
 	});
+
+	test('dispose then getOrCreateMemento returns fresh working instance', async function () {
+		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const memento1 = storage.getOrCreateMemento('test.ext');
+		disposables.add(memento1);
+		await memento1.whenReady;
+
+		await memento1.update('key', 'before-dispose');
+		memento1.dispose();
+
+		const memento2 = storage.getOrCreateMemento('test.ext');
+		disposables.add(memento2);
+		assert.notStrictEqual(memento1, memento2);
+		await memento2.whenReady;
+
+		// Fresh instance should see persisted state and accept new writes
+		assert.strictEqual(memento2.get('key'), 'before-dispose');
+		await memento2.update('key', 'after-dispose');
+		assert.strictEqual(memento2.get('key'), 'after-dispose');
+	});
+
+	test('initializeWindowStorage rejects non-object stored values', async function () {
+		const errors: string[] = [];
+		const logService = new class extends NullLogService {
+			override error(message: string | Error): void {
+				errors.push(typeof message === 'string' ? message : message.message);
+			}
+		};
+
+		for (const bad of ['42', '"hello"', 'true', '[1,2]', 'null']) {
+			errors.length = 0;
+			shape.setRaw('test.ext', bad);
+
+			const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), logService);
+			const memento = storage.getOrCreateMemento('test.ext');
+			disposables.add(memento);
+			await memento.whenReady;
+
+			assert.deepStrictEqual(memento.keys(), [], `keys should be empty for stored value: ${bad}`);
+			assert.ok(errors.length > 0, `expected an error to be logged for stored value: ${bad}`);
+		}
+	});
 });
