@@ -67,6 +67,8 @@ export function useCellContextKeys(
 			const selectionStatus = cell.selectionStatus.read(reader);
 			const isActiveCell = cell.isActive.read(reader);
 			const cells = notebookInstance.cells.read(reader);
+			const outputs = cell.isCodeCell() ? cell.outputs.read(reader) : [];
+			const outputIsCollapsed = cell.isCodeCell() ? cell.outputIsCollapsed.read(reader) : false;
 
 			keys.isCode.set(cell.isCodeCell());
 			keys.isMarkdown.set(cell.isMarkdownCell());
@@ -81,9 +83,9 @@ export function useCellContextKeys(
 			keys.isActive.set(isActiveCell);
 			keys.canMoveUp.set(cell.index > 0 && cells.length > 1);
 			keys.canMoveDown.set(cell.index < cells.length - 1 && cells.length > 1);
-			const outputs = cell.isCodeCell() ? cell.outputs.read(reader) : [];
 			keys.hasOutputs.set(outputs.length > 0);
-			keys.outputIsCollapsed.set(cell.isCodeCell() ? cell.outputIsCollapsed.read(reader) : false);
+			keys.imageOutputCount.set(outputs.filter(o => o.parsed.type === 'image').length);
+			keys.outputIsCollapsed.set(outputIsCollapsed);
 		}));
 
 		// Set the state to let other components know that the context keys are ready

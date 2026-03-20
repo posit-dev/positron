@@ -21,13 +21,12 @@ import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
-import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
-import { useNotebookOptions } from '../NotebookInstanceProvider.js';
+import { CellOutputCollapseButton } from './CellOutputCollapseButton.js';
+import { useNotebookInstance, useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { isHTMLElement } from '../../../../../base/browser/dom.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
-import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
@@ -37,7 +36,10 @@ import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.j
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
+const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
+const outputCollapsedLabel = localize('positron.notebook.outputCollapsed', 'Output collapsed');
 
 interface CellOutputsSectionProps {
 	cell: PositronNotebookCodeCell;
@@ -58,8 +60,9 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	useScrollingIndicator(outputsInnerRef);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
-		menuId: MenuId.PositronNotebookCellOutputActionLeft,
+		menuId: MenuId.PositronNotebookCellOutputActionContext,
 	});
+	const hasOutputs = outputs.length > 0;
 	const isSingleDataExplorer = outputs?.length === 1 &&
 		outputs[0].parsed.type === 'dataExplorer';
 
@@ -78,7 +81,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 	const handleContextMenu = (event: React.MouseEvent) => {
 		// Only show context menu if there are outputs
-		if (outputs.length === 0) {
+		if (!hasOutputs) {
 			return;
 		}
 
@@ -108,10 +111,10 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	return (
 		<div className={positronClassNames(
 			'positron-notebook-outputs-section',
-			{ 'no-outputs': outputs.length === 0 },
+			{ 'no-outputs': !hasOutputs },
 			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
 		)}>
-			<CellOutputLeftActionMenu cell={cell} />
+			{hasOutputs ? <CellOutputCollapseButton cell={cell} /> : null}
 			<CellOutputActionBar cell={cell} scrollTargetRef={outputsInnerRef} />
 			<section
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
@@ -126,13 +129,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					{ 'output-scrolling': layout.outputScrolling }
 				)}>
 					{isCollapsed
-						? <Button
-							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
-							className='show-hidden-output-button'
-							onPressed={handleShowHiddenOutput}
-						>
-							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
-						</Button>
+						? <CollapsedOutputLabel onExpand={handleShowHiddenOutput} />
 						: outputs?.map((output) => (
 							<NotebookErrorBoundary
 								key={output.outputId}
@@ -213,4 +210,17 @@ const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
 	return prevProps.outputId === nextProps.outputId &&
 		prevProps.parsed === nextProps.parsed;
 });
+
+const CollapsedOutputLabel = ({ onExpand }: { onExpand: () => void }) => {
+	const instance = useNotebookInstance();
+	return <Button
+		ariaLabel={expandOutputTooltip}
+		className='collapsed-output-label'
+		hoverManager={instance.hoverManager}
+		tooltip={expandOutputTooltip}
+		onPressed={onExpand}
+	>
+		{outputCollapsedLabel}
+	</Button>;
+};
 

@@ -8,8 +8,11 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
+import { flushSync } from 'react-dom';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../../base/test/browser/react.js';
+import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
+import { timeout } from '../../../../../../base/common/async.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellActionButton } from '../../../browser/notebookCells/actionBar/CellActionButton.js';
@@ -17,6 +20,7 @@ import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IP
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { CellSelectionType } from '../../../browser/selectionMachine.js';
+import { PositronNotebookActionId } from '../../../common/positronNotebookCommon.js';
 
 function mockAction(overrides?: Partial<{
 	id: string;
@@ -42,24 +46,54 @@ function mockAction(overrides?: Partial<{
 	} as unknown as MenuItemAction;
 }
 
+/* DOM queries and actions for a rendered CellActionButton. */
+class CellActionButtonFixture {
+	constructor(private readonly button: HTMLButtonElement) { }
+
+	get ariaLabel() { return this.button.getAttribute('aria-label'); }
+	get hasSeparator() { return this.button.classList.contains('separator-after'); }
+
+	get iconClass() {
+		return this.button.querySelector<HTMLElement>('.codicon')
+			?.className.split(' ').find(c => c.startsWith('codicon-') && c !== 'codicon');
+	}
+
+	click() { this.button.click(); }
+
+	async clickAndFlush() {
+		this.button.click();
+		// Let the async handler (action.run()) resolve so setState fires.
+		await timeout(0);
+		// Flush React state update to the DOM.
+		flushSync(() => { });
+	}
+}
+
 suite('CellActionButton', () => {
 	const { render } = setupReactRenderer();
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	let selectCellStub: sinon.SinonStub;
+	let instance: IPositronNotebookInstance;
+	let cell: IPositronNotebookCell;
+
+	setup(() => {
+		selectCellStub = sinon.stub();
+		instance = {
+			hoverManager: undefined,
+			selectionStateMachine: { selectCell: selectCellStub },
+		} as unknown as IPositronNotebookInstance;
+		cell = { id: 'cell-1' } as unknown as IPositronNotebookCell;
+	});
+
+	teardown(() => {
+		sinon.restore();
+	});
 
 	function renderButton(
 		action: MenuItemAction | SubmenuItemAction,
 		options?: { showSeparator?: boolean },
 	) {
-		selectCellStub = sinon.stub();
-		const instance = {
-			hoverManager: undefined,
-			selectionStateMachine: { selectCell: selectCellStub },
-		} as unknown as IPositronNotebookInstance;
-
-		const cell = { id: 'cell-1' } as unknown as IPositronNotebookCell;
-
 		const container = render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellActionButton
@@ -69,42 +103,33 @@ suite('CellActionButton', () => {
 				/>
 			</NotebookInstanceProvider>
 		);
-		return container.querySelector<HTMLButtonElement>('button.action-button')!;
+		const button = container.querySelector<HTMLButtonElement>('button.action-button')!;
+		return new CellActionButtonFixture(button);
 	}
 
-	teardown(() => {
-		sinon.restore();
-	});
-
 	test('renders with aria-label from action', () => {
-		const button = renderButton(mockAction({ label: 'Collapse Output' }));
+		const action = mockAction({ label: 'Collapse Output' });
+		const fixture = renderButton(action);
 
-		assert.ok(button);
-		assert.strictEqual(button.getAttribute('aria-label'), 'Collapse Output');
-	});
-
-	test('applies cell-action-button class', () => {
-		const button = renderButton(mockAction());
-
-		assert.ok(button.classList.contains('cell-action-button'));
+		assert.strictEqual(fixture.ariaLabel, action.label);
 	});
 
 	test('applies separator-after class when showSeparator is true', () => {
-		const button = renderButton(mockAction(), { showSeparator: true });
+		const fixture = renderButton(mockAction(), { showSeparator: true });
 
-		assert.ok(button.classList.contains('separator-after'));
+		assert.ok(fixture.hasSeparator);
 	});
 
 	test('does not apply separator-after class when showSeparator is false', () => {
-		const button = renderButton(mockAction(), { showSeparator: false });
+		const fixture = renderButton(mockAction(), { showSeparator: false });
 
-		assert.ok(!button.classList.contains('separator-after'));
+		assert.ok(!fixture.hasSeparator);
 	});
 
 	test('selects cell before running action', () => {
-		const button = renderButton(mockAction());
+		const fixture = renderButton(mockAction());
 
-		button.click();
+		fixture.click();
 
 		assert.ok(selectCellStub.calledOnce, 'Expected selectCell to be called');
 		assert.strictEqual(selectCellStub.firstCall.args[1], CellSelectionType.Normal);
@@ -112,9 +137,9 @@ suite('CellActionButton', () => {
 
 	test('runs the action when clicked', async () => {
 		const runStub = sinon.stub().resolves();
-		const button = renderButton(mockAction({ run: runStub }));
+		const fixture = renderButton(mockAction({ run: runStub }));
 
-		button.click();
+		fixture.click();
 
 		await new Promise(resolve => setTimeout(resolve, 0));
 		assert.ok(runStub.calledOnce, 'Expected action.run to be called');
@@ -122,26 +147,70 @@ suite('CellActionButton', () => {
 
 	test('does not throw when action.run rejects', async () => {
 		const logStub = sinon.stub(console, 'log');
-		const button = renderButton(mockAction({
+		const fixture = renderButton(mockAction({
 			run: () => Promise.reject(new Error('action failed')),
 		}));
 
-		button.click();
+		fixture.click();
 		await new Promise(resolve => setTimeout(resolve, 0));
 		logStub.restore();
 	});
 
 	test('renders icon when action has one', () => {
-		const button = renderButton(mockAction({ iconId: 'chevron-down' }));
+		const fixture = renderButton(mockAction({ iconId: 'chevron-down' }));
 
-		const icon = button.querySelector<HTMLElement>('.codicon');
-		assert.ok(icon, 'Expected icon element');
+		assert.strictEqual(fixture.iconClass, 'codicon-chevron-down');
 	});
 
 	test('renders DevErrorIcon when action has no icon', () => {
-		const button = renderButton(mockAction({ iconId: undefined }));
+		const fixture = renderButton(mockAction({ iconId: undefined }));
 
-		const errorIcon = button.querySelector<HTMLElement>('.codicon-blank');
-		assert.ok(errorIcon, 'Expected DevErrorIcon (codicon-blank) for missing action icon');
+		assert.strictEqual(fixture.iconClass, 'codicon-blank', 'Missing developer error icon');
+	});
+
+	suite('success feedback', () => {
+		function renderSuccessButton(run?: () => Promise<void>) {
+			return renderButton(mockAction({
+				id: PositronNotebookActionId.CopyOutputImage,
+				iconId: 'copy',
+				run: run ?? (() => Promise.resolve()),
+			}));
+		}
+
+		test('momentarily shows feedback after successful action', () => runWithFakedTimers({}, async () => {
+			const fixture = renderSuccessButton();
+
+			await fixture.clickAndFlush();
+
+			assert.strictEqual(fixture.iconClass, 'codicon-check');
+
+			// Advance past the 1500ms success feedback duration.
+			await timeout(1500);
+			flushSync(() => { });
+
+			assert.strictEqual(fixture.iconClass, 'codicon-copy', 'Original icon should be restored');
+		}));
+
+		test('does not show check icon for non-opted-in actions', () => runWithFakedTimers({}, async () => {
+			const fixture = renderButton(mockAction({
+				id: 'some-other-action',
+				iconId: 'copy',
+				run: () => Promise.resolve(),
+			}));
+
+			await fixture.clickAndFlush();
+
+			assert.strictEqual(fixture.iconClass, 'codicon-copy');
+		}));
+
+		test('does not show check icon when action rejects', () => runWithFakedTimers({}, async () => {
+			const logStub = sinon.stub(console, 'log');
+			const fixture = renderSuccessButton(() => Promise.reject(new Error('fail')));
+
+			await fixture.clickAndFlush();
+
+			assert.strictEqual(fixture.iconClass, 'codicon-copy');
+			logStub.restore();
+		}));
 	});
 });
