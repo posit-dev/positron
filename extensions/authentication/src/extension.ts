@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AuthProvider } from './authProvider';
 import { getAuthProvider, registerAuthProvider, showConfigurationDialog } from './configDialog';
-import { validateAnthropicApiKey } from './validation';
+import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { log } from './log';
 
@@ -190,7 +190,17 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 		),
 		provider
 	);
-	registerAuthProvider('ms-foundry', provider);
+	registerAuthProvider('ms-foundry', provider, {
+		validateApiKey: validateFoundryApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				const normalized = normalizeToV1Url(config.baseUrl);
+				await vscode.workspace
+					.getConfiguration('authentication.foundry')
+					.update('baseUrl', normalized, vscode.ConfigurationTarget.Global);
+			}
+		},
+	});
 	log.info('Registered auth provider: ms-foundry');
 
 	// Sync Workbench endpoint to auth extension setting

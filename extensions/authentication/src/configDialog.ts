@@ -17,12 +17,16 @@ export interface ConfigDialogResult {
 
 export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
 
+export type OnSaveCallback = (config: positron.ai.LanguageModelConfig) => Promise<void>;
+
 export interface RegisterAuthProviderOptions {
 	validateApiKey?: ApiKeyValidator;
+	onSave?: OnSaveCallback;
 }
 
 export const authProviders = new Map<string, AuthProvider>();
 const apiKeyValidators = new Map<string, ApiKeyValidator>();
+const onSaveCallbacks = new Map<string, OnSaveCallback>();
 
 /**
  * Register an auth provider so the config dialog can store/remove
@@ -38,6 +42,11 @@ export function registerAuthProvider(
 		apiKeyValidators.set(providerId, options.validateApiKey);
 	} else {
 		apiKeyValidators.delete(providerId);
+	}
+	if (options?.onSave) {
+		onSaveCallbacks.set(providerId, options.onSave);
+	} else {
+		onSaveCallbacks.delete(providerId);
 	}
 }
 
@@ -192,6 +201,11 @@ async function handleApiKeySave(
 	const validateApiKey = apiKeyValidators.get(config.provider);
 	if (validateApiKey) {
 		await validateApiKey(apiKey, config);
+	}
+
+	const onSave = onSaveCallbacks.get(config.provider);
+	if (onSave) {
+		await onSave(config);
 	}
 
 	// Remove existing sessions so we don't accumulate stale credentials.

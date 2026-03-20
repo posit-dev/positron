@@ -58,62 +58,13 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 	 *
 	 * Reads from config first (manual override), then falls back to the
 	 * auth extension's `authentication.foundry.baseUrl` setting.
+	 * The auth extension normalizes URLs during save.
 	 */
 	get baseUrl(): string {
-		const url = this._config.baseUrl
+		return this._config.baseUrl
 			?? vscode.workspace
 				.getConfiguration('authentication.foundry')
 				.get<string>('baseUrl', '');
-		return FoundryModelProvider.normalizeToV1Url(url);
-	}
-
-	/**
-	 * Normalizes any Foundry URL to the v1 API format.
-	 *
-	 * Handles deployment URLs (e.g., `{endpoint}/openai/deployments/{name}/...?api-version=...`)
-	 * by extracting the endpoint base. Strips query parameters since the v1 API
-	 * rejects `api-version`. Appends `/openai/v1` if not already present.
-	 */
-	static normalizeToV1Url(rawUrl: string): string {
-		let url = rawUrl.trim();
-
-		// Early return for empty URL
-		if (!url) {
-			return '';
-		}
-
-		// Strip query parameters (v1 API rejects api-version)
-		const queryIndex = url.indexOf('?');
-		if (queryIndex !== -1) {
-			url = url.substring(0, queryIndex);
-		}
-
-		url = url.replace(/\/+$/, '');
-
-		// Early return if URL became empty after normalization
-		if (!url) {
-			return '';
-		}
-
-		// Deployment URL: extract endpoint base before /openai/deployments/
-		const deploymentIndex = url.indexOf('/openai/deployments/');
-		if (deploymentIndex !== -1) {
-			url = url.substring(0, deploymentIndex);
-		}
-
-		if (url.endsWith('/openai/v1')) {
-			return url;
-		}
-
-		return `${url}/openai/v1`;
-	}
-
-	/**
-	 * Returns true if the URL is a deployment-based Azure OpenAI URL.
-	 * Used by the UI to show a warning when a deployment URL is entered.
-	 */
-	static isDeploymentUrl(rawUrl: string): boolean {
-		return /\/openai\/deployments\//.test(rawUrl);
 	}
 
 	protected override initializeProvider() {
