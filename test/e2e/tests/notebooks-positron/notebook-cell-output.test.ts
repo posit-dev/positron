@@ -97,6 +97,12 @@ test.describe('Positron Notebooks: Cell Output', {
 			await expect(notebooksPositron.outputTruncationMessage(0)).toBeVisible();
 		});
 
+		await test.step('Clicking the truncation message shows full output', async () => {
+			await notebooksPositron.outputTruncationMessage(0).click();
+			await expect(notebooksPositron.outputTruncationMessage(0)).toBeHidden();
+			await notebooksPositron.expectOutputAtIndex(0, ['line 25']);
+		});
+
 		await test.step('Re-running the cell resets truncation state', async () => {
 			// Currently showing full output (no truncation message).
 			// Re-run the cell - this should reset the per-cell override

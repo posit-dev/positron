@@ -7,15 +7,13 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import assert from 'assert';
+import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { Emitter, Event } from '../../../../../../base/common/event.js';
-import { CommandsRegistry } from '../../../../../../platform/commands/common/commands.js';
+import { Emitter } from '../../../../../../base/common/event.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../../base/test/browser/react.js';
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { TestInstantiationService } from '../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
-import { TestCommandService } from '../../../../../../editor/test/browser/editorTestServices.js';
 import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
@@ -39,10 +37,6 @@ class CellTextOutputFixture {
 
 	get truncationMessage() {
 		return this.container.querySelector<HTMLElement>('.notebook-output-truncation-message');
-	}
-
-	get settingsLink() {
-		return this.container.querySelector<HTMLAnchorElement>('.notebook-output-truncation-message a');
 	}
 
 	get quickFixContainer() {
@@ -69,16 +63,12 @@ suite('CellTextOutput', () => {
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
 	let layoutConfig: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>;
-	let commandService: TestCommandService;
 	let configurationService: TestConfigurationService;
 	let contextKeyService: MockContextKeyService;
 
 	setup(() => {
 		optionsEmitter = disposables.add(new Emitter<NotebookOptionsChangeEvent>());
 		layoutConfig = { outputLineLimit: 30, outputScrolling: false, outputWordWrap: false };
-
-		const instantiationService = disposables.add(new TestInstantiationService());
-		commandService = new TestCommandService(instantiationService);
 
 		configurationService = new TestConfigurationService();
 		contextKeyService = disposables.add(new MockContextKeyService());
@@ -96,9 +86,11 @@ suite('CellTextOutput', () => {
 			onDidChangeOptions: optionsEmitter.event,
 			getLayoutConfiguration: () => layoutConfig,
 		} as unknown as NotebookOptions;
-		const instance = { notebookOptions } as unknown as IPositronNotebookInstance;
+		const instance = {
+			notebookOptions,
+			hoverManager: { showHover: () => { }, hideHover: () => { } },
+		} as unknown as IPositronNotebookInstance;
 		const services = {
-			commandService,
 			configurationService,
 			contextKeyService,
 		} as unknown as PositronReactServices;
@@ -159,9 +151,7 @@ suite('CellTextOutput', () => {
 		assert.strictEqual(runs[1].textContent, ' plain');
 	});
 
-	test('truncates long output when scrolling is disabled', async () => {
-		disposables.add(CommandsRegistry.registerCommand('workbench.action.openSettings', () => { }));
-
+	test('truncates long output when scrolling is disabled', () => {
 		const content = makeLines(35);
 		const fixture = renderCellTextOutput(
 			{ content, type: 'stdout' },
@@ -171,14 +161,6 @@ suite('CellTextOutput', () => {
 		const message = fixture.truncationMessage;
 		assert.ok(message, 'Expected truncation message');
 		assert.ok(message.textContent?.includes('5 lines truncated'), 'Expected truncation count');
-
-		const link = fixture.settingsLink;
-		assert.ok(link, 'Expected "Change behavior" link');
-
-		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		link.click();
-		const event = await commandPromise;
-		assert.strictEqual(event.commandId, 'workbench.action.openSettings');
 	});
 
 	test('does not truncate when scrolling is enabled', () => {
@@ -205,6 +187,21 @@ suite('CellTextOutput', () => {
 		);
 
 		assert.ok(fixture.hasClass('word-wrap'), 'Expected word-wrap class');
+	});
+
+	test('clicking truncation message calls onShowFullOutput', () => {
+		const onShowFullOutput = sinon.stub();
+		const content = makeLines(35);
+		const fixture = renderCellTextOutput(
+			{ content, type: 'stdout' },
+			{ outputLineLimit: 30, outputScrolling: false },
+			onShowFullOutput,
+		);
+
+		const message = fixture.truncationMessage;
+		assert.ok(message, 'Expected truncation message');
+		message.click();
+		assert.strictEqual(onShowFullOutput.callCount, 1, 'Expected onShowFullOutput to be called once');
 	});
 
 	// TODO: useNotebookOptions has a bug where setNotebookOptions(instance.notebookOptions)
