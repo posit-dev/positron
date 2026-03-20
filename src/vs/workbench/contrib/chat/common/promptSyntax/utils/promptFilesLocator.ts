@@ -705,15 +705,18 @@ export class PromptFilesLocator {
 				const file = root.stat.children.find(c => c.isFile && c.name.toLowerCase() === fileNameLower);
 				// --- Start Positron ---
 				// Check for additional agent instructions files
+				// Note: claude.md is intentionally excluded here as it's handled by listClaudeMDs
+				// which respects the USE_CLAUDE_MD config setting
+				// We also exclude files matching the original fileName to avoid duplicates
 				const agentMds = root.stat.children.filter(
-					c => c.isFile && !c.isSymbolicLink && (
-						c.name.toLowerCase() === 'agents.md' ||
-						c.name.toLowerCase() === 'agent.md' ||
-						c.name.toLowerCase() === 'positron.md' ||
-						c.name.toLowerCase() === 'claude.md' ||
-						c.name.toLowerCase() === 'gemini.md' ||
-						c.name.toLowerCase() === 'llms.txt'
-					)
+					c => c.isFile && !c.isSymbolicLink &&
+						c.name.toLowerCase() !== fileNameLower && (
+							c.name.toLowerCase() === 'agents.md' ||
+							c.name.toLowerCase() === 'agent.md' ||
+							c.name.toLowerCase() === 'positron.md' ||
+							c.name.toLowerCase() === 'gemini.md' ||
+							c.name.toLowerCase() === 'llms.txt'
+						)
 				);
 				for (const md of agentMds) {
 					result.push({ uri: md.resource, realPath: undefined, type });
