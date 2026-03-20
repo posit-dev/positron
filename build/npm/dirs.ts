@@ -18,6 +18,7 @@ export let dirs = [
 	'build/vite',
 	'extensions',
 	// --- Start Positron ---
+	'extensions/authentication',
 	'extensions/open-remote-ssh',
 	'extensions/positron-assistant',
 	'extensions/positron-catalog-explorer',
