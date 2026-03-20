@@ -1,0 +1,55 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.cell-output-collapse-button-container {
+	/*
+	* A -24px offset will vertically align this area with the CellLeftActionMenu
+	* in the cell gutter. The offset is 1px less than CellLeftActionMenu because
+	* there is no 1px border on the parent of this element.
+	*/
+	--_container-offset-left: -24px;
+	--_container-size: 20px;
+	/*
+	 * To line up collapse button with the first line of the output, we need to pad the container
+	 * the same distance from the top of the cell as the start of the output contents.
+	 * The output contents are 0.5rem from the top of the cell because of the padding.
+	 * So we need to offset the button 0.5rem from the top of the cell as well.
+	 */
+	--_output-contents-offset-top: 0.5rem;
+
+	position: absolute;
+	left: var(--_container-offset-left);
+	width: var(--_container-size);
+
+	/* Span the full height of the output so that hovering anywhere left of the output
+	 * area shows the button. */
+	height: 100%;
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+
+	/*
+	 * To line up with the first line of the output, offset by the same
+	 * amount as the output content padding.
+	 */
+	padding-top: var(--_output-contents-offset-top);
+
+	& .cell-output-collapse-button {
+		/* Make action buttons compact so they fit in the left cell gutter. */
+		padding: 2px;
+		border-radius: 4px;
+
+		/* Hidden by default, shown on cell hover/selection or gutter hover. */
+		visibility: hidden;
+	}
+}
+
+/* Show button when the gutter area is hovered, cell is hovered, selected, or edited */
+.positron-notebook-cell:hover .cell-output-collapse-button-container .cell-output-collapse-button,
+.positron-notebook-cell.selected .cell-output-collapse-button-container .cell-output-collapse-button,
+.positron-notebook-cell.editing .cell-output-collapse-button-container .cell-output-collapse-button {
+	visibility: visible;
+}
