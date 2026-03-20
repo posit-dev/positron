@@ -44,10 +44,10 @@ import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../note
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions, IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { QMD_VIEW_TYPE } from '../../positronQuartoNotebook/common/quartoNotebookConstants.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -1512,6 +1512,66 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Truncate output
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.truncateOutput',
+			title: localize2('positronNotebook.cell.truncateOutput', "Truncate Output"),
+			icon: Codicon.fold,
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionBar,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
+				order: 0,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated(),
+					POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING
+				)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.truncateOutput();
+		}
+	}
+});
+
+// Show full output
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.showFullOutput',
+			title: localize2('positronNotebook.cell.showFullOutput', "Show Full Output"),
+			icon: Codicon.unfold,
+			menu: {
+				id: MenuId.PositronNotebookCellOutputActionBar,
+				group: PositronNotebookCellOutputActionGroup.Visibility,
+				order: 0,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated(),
+					POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
+					POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING.toNegated()
+				)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): void {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.showFullOutput();
+		}
+	}
+});
+
 // Collapse all outputs for a cell
 registerAction2(class extends NotebookAction2 {
 	constructor() {
@@ -1521,13 +1581,7 @@ registerAction2(class extends NotebookAction2 {
 			icon: Codicon.chevronDown,
 			menu: [
 				{
-					id: MenuId.PositronNotebookCellOutputActionBar,
-					group: PositronNotebookCellOutputActionGroup.Visibility,
-					order: 1,
-					when: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
-				},
-				{
-					id: MenuId.PositronNotebookCellOutputActionLeft,
+					id: MenuId.PositronNotebookCellOutputActionContext,
 					group: PositronNotebookCellOutputActionGroup.Visibility,
 					order: 1,
 					when: ContextKeyExpr.and(
@@ -1557,13 +1611,7 @@ registerAction2(class extends NotebookAction2 {
 			icon: Codicon.chevronRight,
 			menu: [
 				{
-					id: MenuId.PositronNotebookCellOutputActionBar,
-					group: PositronNotebookCellOutputActionGroup.Visibility,
-					order: 2,
-					when: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
-				},
-				{
-					id: MenuId.PositronNotebookCellOutputActionLeft,
+					id: MenuId.PositronNotebookCellOutputActionContext,
 					group: PositronNotebookCellOutputActionGroup.Visibility,
 					order: 2,
 					when: ContextKeyExpr.and(
@@ -1598,7 +1646,7 @@ registerAction2(class extends NotebookAction2 {
 					order: 1,
 				},
 				{
-					id: MenuId.PositronNotebookCellOutputActionLeft,
+					id: MenuId.PositronNotebookCellOutputActionContext,
 					group: PositronNotebookCellOutputActionGroup.Destructive,
 					order: 1,
 					when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
@@ -1620,18 +1668,32 @@ registerAction2(class extends NotebookAction2 {
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
-			id: 'positronNotebook.cell.copyOutputImage',
+			id: PositronNotebookActionId.CopyOutputImage,
 			title: localize2('positronNotebook.cell.copyOutputImage', "Copy Image"),
 			icon: ThemeIcon.fromId('copy'),
-			menu: {
-				id: MenuId.PositronNotebookCellOutputActionLeft,
-				group: PositronNotebookCellOutputActionGroup.Copy,
-				order: 1,
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED,
-					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
-				)
-			},
+			menu: [
+				{
+					id: MenuId.PositronNotebookCellOutputActionBar,
+					group: PositronNotebookCellOutputActionGroup.Copy,
+					order: 1,
+					when: ContextKeyExpr.and(
+						// Show the static "Copy Image" action only when there is exactly one
+						// image output. For multiple images, users can right-click individual
+						// images to copy them.
+						ContextKeyExpr.equals(POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT.key, 1),
+						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+					)
+				},
+				{
+					id: MenuId.PositronNotebookCellOutputActionContext,
+					group: PositronNotebookCellOutputActionGroup.Copy,
+					order: 1,
+					when: ContextKeyExpr.and(
+						POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED,
+						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+					)
+				},
+			],
 			// Keybinding deferred to #12434 (output-focused state for
 			// context-dependent Cmd+C)
 		});

@@ -52,6 +52,12 @@ export function useCellContextKeys(
 		const keys = bindCellContextKeys(scopedContextKeyService);
 
 		// Keep context keys in sync with cell state
+		const updateOutputScrollingKey = () => {
+			const perCellTruncated = cell.isCodeCell() ? cell.outputIsTruncated.get() : undefined;
+			const globalScrolling = notebookInstance.notebookOptions.getLayoutConfiguration().outputScrolling;
+			keys.outputScrolling.set(perCellTruncated !== undefined ? !perCellTruncated : globalScrolling);
+		};
+
 		disposables.add(autorun(reader => {
 			if (!keys) {
 				return;
@@ -67,6 +73,8 @@ export function useCellContextKeys(
 			const selectionStatus = cell.selectionStatus.read(reader);
 			const isActiveCell = cell.isActive.read(reader);
 			const cells = notebookInstance.cells.read(reader);
+			const outputs = cell.isCodeCell() ? cell.outputs.read(reader) : [];
+			const outputIsCollapsed = cell.isCodeCell() ? cell.outputIsCollapsed.read(reader) : false;
 
 			keys.isCode.set(cell.isCodeCell());
 			keys.isMarkdown.set(cell.isMarkdownCell());
@@ -81,9 +89,20 @@ export function useCellContextKeys(
 			keys.isActive.set(isActiveCell);
 			keys.canMoveUp.set(cell.index > 0 && cells.length > 1);
 			keys.canMoveDown.set(cell.index < cells.length - 1 && cells.length > 1);
-			const outputs = cell.isCodeCell() ? cell.outputs.read(reader) : [];
 			keys.hasOutputs.set(outputs.length > 0);
-			keys.outputIsCollapsed.set(cell.isCodeCell() ? cell.outputIsCollapsed.read(reader) : false);
+			keys.imageOutputCount.set(outputs.filter(o => o.parsed.type === 'image').length);
+			keys.outputIsCollapsed.set(outputIsCollapsed);
+			// Read the per-cell observable so autorun re-fires when it changes
+			if (cell.isCodeCell()) { cell.outputIsTruncated.read(reader); }
+			updateOutputScrollingKey();
+		}));
+
+		// Also update outputScrolling when the global notebook option changes,
+		// since getLayoutConfiguration() is not an observable tracked by autorun.
+		disposables.add(notebookInstance.notebookOptions.onDidChangeOptions(e => {
+			if (e.outputScrolling) {
+				updateOutputScrollingKey();
+			}
 		}));
 
 		// Set the state to let other components know that the context keys are ready
