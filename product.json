@@ -664,7 +664,7 @@
 			"positron.authentication",
 			"positron.positron-assistant"
 		],
-		"aws": [
+		"amazon-bedrock": [
 			"positron.authentication",
 			"positron.positron-assistant"
 		]

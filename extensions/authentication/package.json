@@ -12,7 +12,7 @@
 		"onStartupFinished",
 		"onAuthenticationRequest:anthropic-api",
 		"onAuthenticationRequest:ms-foundry",
-		"onAuthenticationRequest:aws",
+		"onAuthenticationRequest:amazon-bedrock",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateApiKey"
 	],
@@ -32,8 +32,8 @@
 				"label": "Microsoft Foundry"
 			},
 			{
-				"id": "aws",
-				"label": "AWS"
+				"id": "amazon-bedrock",
+				"label": "Amazon Bedrock"
 			}
 		],
 		"configuration": {

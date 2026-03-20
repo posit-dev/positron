@@ -5,10 +5,10 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { ApiKeyAuthenticationProvider } from '../apiKeyProvider';
+import { AuthProvider } from '../authProvider';
 
-suite('ApiKeyAuthenticationProvider', () => {
-	let provider: ApiKeyAuthenticationProvider;
+suite('AuthProvider', () => {
+	let provider: AuthProvider;
 	let secrets: Map<string, string>;
 	let globalState: Map<string, unknown>;
 
@@ -37,7 +37,7 @@ suite('ApiKeyAuthenticationProvider', () => {
 			},
 		} as unknown as vscode.ExtensionContext;
 
-		provider = new ApiKeyAuthenticationProvider(
+		provider = new AuthProvider(
 			'test-provider',
 			'Test Provider',
 			mockContext,

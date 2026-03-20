@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
-import { ApiKeyAuthenticationProvider } from './apiKeyProvider';
+import { AuthProvider } from './authProvider';
 import { log } from './log';
 
 export interface ConfigDialogResult {
@@ -17,23 +17,23 @@ export interface ConfigDialogResult {
 
 export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
 
-export interface RegisterApiKeyProviderOptions {
+export interface RegisterAuthProviderOptions {
 	validateApiKey?: ApiKeyValidator;
 }
 
-export const apiKeyProviders = new Map<string, ApiKeyAuthenticationProvider>();
+export const authProviders = new Map<string, AuthProvider>();
 const apiKeyValidators = new Map<string, ApiKeyValidator>();
 
 /**
- * Register an API key provider so the config dialog can store/remove
+ * Register an auth provider so the config dialog can store/remove
  * credentials through it.
  */
-export function registerApiKeyProvider(
+export function registerAuthProvider(
 	providerId: string,
-	provider: ApiKeyAuthenticationProvider,
-	options?: RegisterApiKeyProviderOptions
+	provider: AuthProvider,
+	options?: RegisterAuthProviderOptions
 ): void {
-	apiKeyProviders.set(providerId, provider);
+	authProviders.set(providerId, provider);
 	if (options?.validateApiKey) {
 		apiKeyValidators.set(providerId, options.validateApiKey);
 	} else {
@@ -42,38 +42,33 @@ export function registerApiKeyProvider(
 }
 
 /**
- * Get the API key provider for a given provider ID, if it is one.
- * Used by the migrateApiKey command which needs the typed provider.
+ * Get the auth provider for a given provider ID.
+ * Used by the migrateApiKey command.
  */
-export function getApiKeyProvider(
+export function getAuthProvider(
 	providerId: string
-): ApiKeyAuthenticationProvider | undefined {
-	return apiKeyProviders.get(providerId);
+): AuthProvider | undefined {
+	return authProviders.get(providerId);
 }
 
 /**
- * Enrich sources with credential state from registered authentication providers.
- * For each source whose provider.id matches a registered auth provider, check
- * whether a session exists and set signedIn accordingly.
+ * Enrich sources with credential state from registered auth providers.
  */
 async function enrichWithCredentialState(
 	sources: positron.ai.LanguageModelSource[]
 ): Promise<positron.ai.LanguageModelSource[]> {
 	return Promise.all(sources.map(async (source) => {
-		const provider = apiKeyProviders.get(source.provider.id);
+		const provider = authProviders.get(source.provider.id);
 		if (!provider) {
 			return source;
 		}
 		try {
 			const sessions = await provider.getSessions();
-			if (sessions.length > 0) {
-				return { ...source, signedIn: true };
-			}
+			return { ...source, signedIn: sessions.length > 0 };
 		} catch (err) {
 			log.error(`Failed to check credential state for ${source.provider.id}: ${err instanceof Error ? err.message : String(err)}`);
 			return source;
 		}
-		return { ...source, signedIn: false };
 	}));
 }
 
@@ -111,7 +106,6 @@ export async function showConfigurationDialog(
 		enrichedSources,
 		async (config, action) => {
 			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
-			const hasAuthProvider = apiKeyProviders.has(config.provider);
 			// applyConfig is a fallback while we transition providers to the Auth extension.
 			// It should eventually be removed so that the Auth extension is the single source of truth
 			// for all provider config actions.
@@ -120,7 +114,7 @@ export async function showConfigurationDialog(
 			};
 			switch (action) {
 				case 'save': {
-					if (hasAuthProvider) {
+					if (authProviders.has(config.provider)) {
 						const accountId = await handleSave(config);
 						addResult({ action, config, accountId });
 					} else {
@@ -129,23 +123,22 @@ export async function showConfigurationDialog(
 					break;
 				}
 				case 'delete':
-					if (hasAuthProvider) {
+					if (authProviders.has(config.provider)) {
 						await handleDelete(config);
 						addResult({ action, config });
 					} else {
 						await applyConfig();
 					}
-
 					break;
 				case 'oauth-signin':
-					if (hasAuthProvider) {
+					if (authProviders.has(config.provider)) {
 						addResult({ action, config });
 					} else {
 						await applyConfig();
 					}
 					break;
 				case 'oauth-signout':
-					if (hasAuthProvider) {
+					if (authProviders.has(config.provider)) {
 						addResult({ action, config });
 					} else {
 						await applyConfig();
@@ -167,18 +160,31 @@ export async function showConfigurationDialog(
 }
 
 /**
- * Store the API key credential. Returns the generated account ID so the
- * caller can use it for model registration.
+ * Store or resolve credentials. For providers with an API key in the
+ * config, validates and stores it. Otherwise resolves via createSession.
  */
 async function handleSave(
 	config: positron.ai.LanguageModelConfig
 ): Promise<string> {
-	const provider = apiKeyProviders.get(config.provider);
+	const provider = authProviders.get(config.provider);
 	if (!provider) {
 		throw new Error(
 			vscode.l10n.t('No auth provider registered for {0}', config.provider)
 		);
 	}
+
+	if (config.apiKey?.trim()) {
+		return handleApiKeySave(config, provider);
+	}
+
+	const session = await provider.createSession([], {});
+	return session.account.id;
+}
+
+async function handleApiKeySave(
+	config: positron.ai.LanguageModelConfig,
+	provider: AuthProvider
+): Promise<string> {
 	const apiKey = config.apiKey?.trim();
 	if (!apiKey) {
 		throw new Error(vscode.l10n.t('API key is required'));
@@ -203,7 +209,7 @@ async function handleSave(
 async function handleDelete(
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
-	const provider = apiKeyProviders.get(config.provider);
+	const provider = authProviders.get(config.provider);
 	if (!provider) {
 		log.warn(`handleDelete: no auth provider for "${config.provider}"`);
 		return;

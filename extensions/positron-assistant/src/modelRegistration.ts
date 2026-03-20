@@ -171,7 +171,7 @@ export async function registerModels(context: vscode.ExtensionContext) {
 	// auto-configured models, check for existing sessions and
 	// create a default config from provider metadata.
 	const AUTH_SESSION_PROVIDERS: [string, string][] = [
-		['amazon-bedrock', 'aws'],
+		['amazon-bedrock', 'amazon-bedrock'],
 		['ms-foundry', 'ms-foundry'],
 	];
 	for (const [modelProviderId, authProviderId] of AUTH_SESSION_PROVIDERS) {

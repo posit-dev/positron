@@ -165,7 +165,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		sessionToken?: string;
 	}> {
 		const session = await vscode.authentication.getSession(
-			'aws', [], { silent: true }
+			'amazon-bedrock', [], { silent: true }
 		);
 		if (!session) {
 			throw new Error('No AWS credentials available');

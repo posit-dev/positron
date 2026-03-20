@@ -25,25 +25,42 @@ export interface WorkbenchCredentialConfig {
 }
 
 /**
- * Generic AuthenticationProvider for API-key-based services.
- * Each provider instance manages keys for a single LLM provider (e.g. Anthropic, OpenAI).
- * Stores API keys in `context.secrets` with pattern `apiKey-{providerId}-{accountId}`.
- * The account registry lives in `context.globalState`.
+ * Credential chain config for providers that resolve credentials
+ * from an external source (e.g. AWS SDK credential chain).
  */
-export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvider, vscode.Disposable {
+export interface CredentialChainConfig {
+	readonly resolve: () => Promise<string>;
+	readonly refreshIntervalMs?: number;
+}
+
+/**
+ * Generic AuthenticationProvider supporting three credential strategies:
+ * 1. Credential chain -- resolved from environment (e.g. AWS SDK)
+ * 2. Workbench delegation -- bearer tokens from Posit Workbench
+ * 3. Stored API keys -- user-provided keys in secret storage
+ */
+export class AuthProvider
+	implements vscode.AuthenticationProvider, vscode.Disposable {
 
 	private readonly _onDidChangeSessions =
-		new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
+		new vscode.EventEmitter<
+			vscode.AuthenticationProviderAuthenticationSessionsChangeEvent
+		>();
 	readonly onDidChangeSessions = this._onDidChangeSessions.event;
+
+	private _chainSession: vscode.AuthenticationSession | undefined;
+	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
 
 	constructor(
 		private readonly providerId: string,
 		private readonly displayName: string,
 		private readonly context: vscode.ExtensionContext,
 		private readonly workbench?: WorkbenchCredentialConfig,
+		private readonly credentialChain?: CredentialChainConfig,
 	) { }
 
 	dispose(): void {
+		this.stopRefreshTimer();
 		this._onDidChangeSessions.dispose();
 	}
 
@@ -67,16 +84,22 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 		_scopes?: readonly string[],
 		options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession[]> {
-		// Workbench-managed credentials take priority when available.
+		// Credential chain (e.g. AWS)
+		if (this.credentialChain && this._chainSession) {
+			log.debug(`[${this.displayName}] getSessions: returned chain session`);
+			return [this._chainSession];
+		}
+
+		// Workbench-managed credentials
 		if (this.workbench) {
-			const managed = await this.getManagedSession();
-			if (managed) {
+			const session = await this.getManagedSession();
+			if (session) {
 				log.debug(`[${this.displayName}] getSessions: returned Workbench-managed session`);
-				return [managed];
+				return [session];
 			}
 		}
 
-		// Fall back to stored API keys.
+		// Stored API keys
 		const accounts = this.getStoredAccounts();
 		const filtered = options?.account
 			? accounts.filter(a => a.id === options.account!.id)
@@ -104,12 +127,27 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 	}
 
 	/**
-	 * Accounts menu entry point: prompts user for an API key via input box.
+	 * Accounts menu entry point. For credential chain providers,
+	 * re-resolves from the chain. Otherwise prompts for an API key.
 	 */
 	async createSession(
 		_scopes: readonly string[],
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
+		if (this.credentialChain) {
+			const session = await this.resolveChainCredentials();
+			if (!session) {
+				throw new Error(
+					vscode.l10n.t(
+						'No credentials found for {0}. Configure credentials ' +
+						'using the provider CLI or environment variables.',
+						this.displayName
+					)
+				);
+			}
+			return session;
+		}
+
 		const raw = await vscode.window.showInputBox({
 			prompt: vscode.l10n.t('Enter your {0} API key', this.displayName),
 			password: true,
@@ -125,7 +163,6 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 
 	/**
 	 * Store an API key and fire a session-added event.
-	 * Called internally by the config dialog onAction('save') handler.
 	 */
 	async storeKey(
 		accountId: string,
@@ -157,6 +194,17 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 	}
 
 	async removeSession(sessionId: string): Promise<void> {
+		if (this._chainSession?.id === sessionId) {
+			this.stopRefreshTimer();
+			const removed = this._chainSession;
+			this._chainSession = undefined;
+			this._onDidChangeSessions.fire({
+				added: [], removed: [removed], changed: [],
+			});
+			log.info(`[${this.displayName}] Chain session removed`);
+			return;
+		}
+
 		const accounts = this.getStoredAccounts();
 		const account = accounts.find(a => a.id === sessionId);
 		if (!account) {
@@ -180,7 +228,78 @@ export class ApiKeyAuthenticationProvider implements vscode.AuthenticationProvid
 		log.info(`[${this.displayName}] Removed session for account "${account.label}" (${sessionId})`);
 	}
 
-	private async getManagedSession(): Promise<vscode.AuthenticationSession | undefined> {
+	/**
+	 * Resolve credentials from the chain, update cache, and
+	 * start the background refresh timer.
+	 */
+	async resolveChainCredentials(
+	): Promise<vscode.AuthenticationSession | undefined> {
+		if (!this.credentialChain) {
+			return undefined;
+		}
+
+		try {
+			const accessToken = await this.credentialChain.resolve();
+			const session: vscode.AuthenticationSession = {
+				id: this.providerId,
+				accessToken,
+				account: {
+					id: this.providerId,
+					label: this.displayName,
+				},
+				scopes: [],
+			};
+
+			const hadSession = !!this._chainSession;
+			this._chainSession = session;
+			this.startRefreshTimer();
+
+			if (!hadSession) {
+				this._onDidChangeSessions.fire({
+					added: [session], removed: [], changed: [],
+				});
+				log.info(`[${this.displayName}] Credentials resolved`);
+			}
+
+			return session;
+		} catch (err) {
+			log.debug(
+				`[${this.displayName}] Credential resolution failed: ` +
+				`${err instanceof Error ? err.message : String(err)}`
+			);
+
+			if (this._chainSession) {
+				const removed = this._chainSession;
+				this._chainSession = undefined;
+				this._onDidChangeSessions.fire({
+					added: [], removed: [removed], changed: [],
+				});
+				log.info(`[${this.displayName}] Cached session invalidated`);
+			}
+			return undefined;
+		}
+	}
+
+	private startRefreshTimer(): void {
+		const interval = this.credentialChain?.refreshIntervalMs;
+		if (!interval || this._refreshTimer) {
+			return;
+		}
+		this._refreshTimer = setInterval(
+			() => this.resolveChainCredentials(),
+			interval
+		);
+	}
+
+	private stopRefreshTimer(): void {
+		if (this._refreshTimer) {
+			clearInterval(this._refreshTimer);
+			this._refreshTimer = undefined;
+		}
+	}
+
+	private async getManagedSession(
+	): Promise<vscode.AuthenticationSession | undefined> {
 		if (!IS_RUNNING_ON_PWB || !this.workbench!.isAvailable()) {
 			return undefined;
 		}
