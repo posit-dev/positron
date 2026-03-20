@@ -1177,12 +1177,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		});
 
 		// No affiliated runtimes; move on to the next phase.
-		if (!languageIds) {
+		if (languageIds.length === 0) {
 			return;
 		}
 
-		// Start the affiliated runtimes.
-		languageIds.map(languageId => {
+		// Build the sorted, filtered list of affiliations to start.
+		const affiliations = languageIds.map(languageId => {
 			// Get the affiliated runtime metadata.
 			return this.getAffiliatedRuntime(languageId);
 		}).filter(affiliation => {
@@ -1224,23 +1224,33 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Sort the affiliations by last used time, so that the most recently
 			// used runtime is started first
 			return b.lastUsed - a.lastUsed;
-		}).map(async (affiliation, idx) => {
-			if (idx === 0) {
-				// Let the UI know we're about to try starting this session
-				this._onWillAutoStartRuntime.fire({
-					runtime: affiliation.metadata,
-					newSession: true,
-					activate: idx === 0
-				});
-			}
-
-			// Activate the associated extension
-			await this.activateExtensionsForLanguages([affiliation.metadata.languageId]);
-
-			// Start each runtime. Activate the first one as soon as it's
-			// ready; let the others start in the background.
-			this.startAffiliatedRuntime(affiliation, idx === 0);
 		});
+
+		if (affiliations.length === 0) {
+			return;
+		}
+
+		// Start the primary (first) affiliated runtime synchronously: activate
+		// only its extension, then start it, before returning. This ensures
+		// that the caller sees a starting/running console and avoids falling
+		// through to slower paths that activate all extensions.
+		const primary = affiliations[0];
+		this._onWillAutoStartRuntime.fire({
+			runtime: primary.metadata,
+			newSession: true,
+			activate: true
+		});
+		await this.activateExtensionsForLanguages([primary.metadata.languageId]);
+		this.startAffiliatedRuntime(primary, true);
+
+		// Start the remaining affiliated runtimes in the background; they
+		// do not need to block the startup sequence.
+		for (let i = 1; i < affiliations.length; i++) {
+			const affiliation = affiliations[i];
+			this.activateExtensionsForLanguages([affiliation.metadata.languageId]).then(() => {
+				this.startAffiliatedRuntime(affiliation, false);
+			});
+		}
 	}
 
 	/**
