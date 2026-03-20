@@ -193,42 +193,68 @@ export class PositronModalReactRenderer extends Disposable {
 	 * Dispose method. Disposes this renderer and all renderers above it on the stack.
 	 */
 	public override dispose(): void {
-		// Only dispose if we haven't already been disposed.
-		if (this._overlay === undefined && this._root === undefined) {
-			super.dispose();
+		// Return if this renderer was never rendered or has already been disposed.
+		if (this._root === undefined) {
 			return;
 		}
 
-		// Collect all renderers from the top of the stack down to and including this one.
-		const renderersToDispose: PositronModalReactRenderer[] = [];
+		// Dispose all renderers above this one on the stack (child modals).
 		while (!PositronModalReactRenderer._renderersStack.isEmpty()) {
-			// Pop the top renderer from the stack. If there isn't one, break.
-			const rendererToDispose = PositronModalReactRenderer._renderersStack.pop();
-			if (rendererToDispose === undefined) {
+			// Get the top renderer on the stack.
+			const topRenderer = PositronModalReactRenderer._renderersStack.peek();
+
+			// If the top of the stack is this renderer, we're done unwinding children.
+			if (topRenderer === this) {
 				break;
 			}
 
-			// Add the renderer to the list of renderers to dispose.
-			renderersToDispose.push(rendererToDispose);
-
-			// If the popped renderer is this renderer, break.
-			if (rendererToDispose === this) {
-				break;
+			// Dispose the child renderer (which will pop itself from the stack).
+			if (topRenderer !== undefined) {
+				topRenderer.dispose();
 			}
 		}
 
-		// Dispose each renderer (child modals first).
-		for (const rendererToDispose of renderersToDispose) {
-			// Clean up the renderer's DOM and React resources.
-			rendererToDispose.doDispose();
+		// Now dispose this renderer.
+		// Remove ourselves from the stack.
+		const poppedRenderer = PositronModalReactRenderer._renderersStack.pop();
+		if (poppedRenderer !== this) {
+			// This should never happen, but log if it does.
+			console.error('[PositronModalReactRenderer] Disposed renderer was not at top of stack');
+		}
 
-			// Dispose the renderer's Disposable resources (event emitters, etc).
-			// Use Disposable.prototype to call parent's dispose without triggering recursion.
-			Disposable.prototype.dispose.call(rendererToDispose);
+		// Return focus to the last focused element.
+		// Use preventScroll to avoid unwanted scrolling when focus is restored
+		// (e.g., inline data explorer in notebooks scrolling the notebook container).
+		this._lastFocusedElement?.focus({ preventScroll: true });
+
+		// If this renderer was rendered, dispose it.
+		if (this._root !== undefined) {
+			// If there is a parent, remove its aria-expanded property.
+			if (this._options.parent !== undefined) {
+				this._options.parent.removeAttribute('aria-expanded');
+			}
+
+			// Unmount the root.
+			this._root.unmount();
+			this._root = undefined;
+
+			// Remove the overlay from the container.
+			if (this._overlay !== undefined) {
+				this._overlay.remove();
+				this._overlay = undefined;
+			}
+		}
+
+		// Call the onDisposed callback.
+		if (this._options.onDisposed !== undefined) {
+			this._options.onDisposed();
 		}
 
 		// Rebind event listeners for the new top renderer.
 		PositronModalReactRenderer.bindEventListeners();
+
+		// Call the base class's dispose method.
+		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
@@ -387,37 +413,6 @@ export class PositronModalReactRenderer extends Disposable {
 			window.removeEventListener(MOUSEDOWN, mousedownHandler, true);
 			window.removeEventListener(RESIZE, resizeHandler, false);
 		};
-	}
-
-	/**
-	 * Internal dispose method that cleans up this renderer's resources.
-	 */
-	private doDispose(): void {
-		// Return focus to the last focused element.
-		// Use preventScroll to avoid unwanted scrolling when focus is restored
-		// (e.g., inline data explorer in notebooks scrolling the notebook container).
-		this._lastFocusedElement?.focus({ preventScroll: true });
-
-		// If this renderer was rendered, dispose it.
-		if (this._overlay !== undefined && this._root !== undefined) {
-			// If there is a parent, remove its aria-expanded property.
-			if (this._options.parent !== undefined) {
-				this._options.parent.removeAttribute('aria-expanded');
-			}
-
-			// Unmount the root.
-			this._root.unmount();
-			this._root = undefined;
-
-			// Remove the overlay from the container.
-			this._overlay.remove();
-			this._overlay = undefined;
-		}
-
-		// Call the onDisposed callback.
-		if (this._options.onDisposed !== undefined) {
-			this._options.onDisposed();
-		}
 	}
 
 	//#endregion Private Methods
