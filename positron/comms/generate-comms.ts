@@ -685,7 +685,7 @@ use serde::Serialize;
 		yield `}\n\n`;
 	}
 
-	// Create the event enum
+	// Create the event enums
 	if (frontend) {
 		yield '/**\n';
 		yield ` * Frontend events for the ${name} comm\n`;
@@ -694,6 +694,31 @@ use serde::Serialize;
 		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}FrontendEvent {\n`;
 		for (const method of frontend.methods) {
+			if (method.result !== undefined) {
+				continue;
+			}
+			if (method.description) {
+				yield formatComment('\t/// ', method.description);
+			}
+			yield `\t#[serde(rename = "${method.name}")]\n`;
+			yield `\t${snakeCaseToSentenceCase(method.name)}`;
+			if (method.params.length > 0) {
+				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n\n`;
+			} else {
+				yield ',\n\n';
+			}
+		}
+		yield `}\n\n`;
+	}
+
+	if (backend && backend.methods.some((method: any) => !method.result)) {
+		yield '/**\n';
+		yield ` * Backend events (notifications) for the ${name} comm\n`;
+		yield ' */\n';
+		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[serde(tag = "method", content = "params")]\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}BackendEvent {\n`;
+		for (const method of backend.methods) {
 			if (method.result !== undefined) {
 				continue;
 			}
@@ -1073,6 +1098,23 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 	}
 
 	if (backend) {
+		const notifications = backend.methods.filter((m: any) => !m.result);
+		if (notifications.length) {
+			yield '@enum.unique\n';
+			yield `class ${snakeCaseToSentenceCase(name)}BackendEvent(str, enum.Enum):\n`;
+			yield `    """\n`;
+			yield `    An enumeration of all the possible events (notifications) that can be sent to the backend ${name} comm.\n`;
+			yield `    """\n`;
+			yield `\n`;
+			for (const method of notifications) {
+				yield formatComment('    # ', method.summary);
+				yield `    ${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
+				yield '\n';
+			}
+		}
+	}
+
+	if (backend) {
 		for (const method of backend.methods) {
 			if (!method.description) {
 				throw new Error(`No description for '${method.name}'; please add a description to the schema`);
@@ -1111,7 +1153,8 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 				}
 			}
 
-			const klass = `${snakeCaseToSentenceCase(method.name)}Request`;
+			const suffix = method.result ? 'Request' : 'Notification';
+			const klass = `${snakeCaseToSentenceCase(method.name)}${suffix}`;
 			models.push(klass);
 			yield `class ${klass}(BaseModel):\n`;
 			yield `    """\n`;
@@ -1124,7 +1167,10 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 				yield `    )\n`;
 				yield `\n`;
 			}
-			yield `    method: Literal[${snakeCaseToSentenceCase(name)}BackendRequest.${snakeCaseToSentenceCase(method.name)}] = Field(\n`;
+			const methodEnum = method.result
+				? `${snakeCaseToSentenceCase(name)}BackendRequest`
+				: `${snakeCaseToSentenceCase(name)}BackendEvent`;
+			yield `    method: Literal[${methodEnum}.${snakeCaseToSentenceCase(method.name)}] = Field(\n`;
 			yield `        description="The JSON-RPC method name (${method.name})",\n`;
 			yield `    )\n`;
 			yield '\n';
@@ -1141,11 +1187,13 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 		yield `class ${snakeCaseToSentenceCase(name)}BackendMessageContent(BaseModel):\n`;
 		yield `    comm_id: str\n`;
 		if (backend.methods.length === 1) {
-			yield `    data: ${snakeCaseToSentenceCase(backend.methods[0].name)}Request`;
+			const suffix = backend.methods[0].result ? 'Request' : 'Notification';
+			yield `    data: ${snakeCaseToSentenceCase(backend.methods[0].name)}${suffix}`;
 		} else {
 			yield `    data: Union[\n`;
 			for (const method of backend.methods) {
-				yield `        ${snakeCaseToSentenceCase(method.name)}Request,\n`;
+				const suffix = method.result ? 'Request' : 'Notification';
+				yield `        ${snakeCaseToSentenceCase(method.name)}${suffix},\n`;
 			}
 			yield `    ] = Field(..., discriminator="method")\n`;
 		}
@@ -1398,9 +1446,18 @@ import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
 	if (backend) {
 		yield `export enum ${snakeCaseToSentenceCase(name)}BackendRequest {\n`;
-		const requests = backend.methods.map((method: any) => `\t${snakeCaseToSentenceCase(method.name)} = '${method.name}'`);
+		const requestMethods = backend.methods.filter((m: any) => m.result);
+		const requests = requestMethods.map((method: any) => `\t${snakeCaseToSentenceCase(method.name)} = '${method.name}'`);
 		yield requests.join(',\n');
 		yield '\n}\n\n';
+
+		const eventMethods = backend.methods.filter((m: any) => !m.result);
+		if (eventMethods.length) {
+			yield `export enum ${snakeCaseToSentenceCase(name)}BackendEvent {\n`;
+			const events = eventMethods.map((method: any) => `\t${snakeCaseToSentenceCase(method.name)} = '${method.name}'`);
+			yield events.join(',\n');
+			yield '\n}\n\n';
+		}
 	}
 
 	yield `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;
@@ -1474,21 +1531,26 @@ import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 					yield ', ';
 				}
 			}
-			yield '): Promise<';
-			if (method.result && method.result.schema) {
-				if (method.result.schema.type === 'object') {
-					yield snakeCaseToSentenceCase(method.result.schema.name);
+			if (method.result) {
+				yield '): Promise<';
+				if (method.result.schema) {
+					if (method.result.schema.type === 'object') {
+						yield snakeCaseToSentenceCase(method.result.schema.name);
+					} else {
+						yield deriveType(contracts, TypescriptTypeMap, method.name, method.result.schema);
+					}
+					if (isOptional(method.result)) {
+						yield ' | undefined';
+					}
 				} else {
-					yield deriveType(contracts, TypescriptTypeMap, method.name, method.result.schema);
+					yield 'void';
 				}
-				if (isOptional(method.result)) {
-					yield ' | undefined';
-				}
+				yield '> {\n';
+				yield '\t\treturn super.performRpc(\'' + method.name + '\', [';
 			} else {
-				yield 'void';
+				yield '): void {\n';
+				yield '\t\tsuper.notify(\'' + method.name + '\', [';
 			}
-			yield '> {\n';
-			yield '\t\treturn super.performRpc(\'' + method.name + '\', [';
 			for (let i = 0; i < method.params.length; i++) {
 				yield `'${method.params[i].name}'`;
 				if (i < method.params.length - 1) {

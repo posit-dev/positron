@@ -158,6 +158,10 @@ export class PositronBaseComm extends Disposable {
 					`on comm ${this.clientInstance.getClientId()}: ` +
 					`${JSON.stringify(data.params)} ` +
 					`(No listeners for event '${data.method}'`);
+			} else {
+				console.warn(`Dropping unexpected message ` +
+					`on comm ${this.clientInstance.getClientId()}: ` +
+					`${JSON.stringify(data)}`);
 			}
 		}));
 
@@ -301,5 +305,37 @@ export class PositronBaseComm extends Disposable {
 
 		// Otherwise, return the result
 		return response.result;
+	}
+
+	/**
+	 * Send a fire-and-forget JSON-RPC notification to the backend.
+	 *
+	 * Unlike `performRpc`, this does not include an `id` field and does
+	 * not wait for a response. Per the JSON-RPC spec, the absence of
+	 * `id` signals that no response is expected.
+	 *
+	 * @param rpcName The name of the notification method.
+	 * @param paramNames The parameter names.
+	 * @param paramValues The parameter values.
+	 */
+	protected notify(rpcName: string,
+		paramNames: Array<string>,
+		paramValues: Array<any>): void {
+
+		const params: any = {};
+		for (let i = 0; i < paramNames.length; i++) {
+			params[paramNames[i]] = paramValues[i];
+		}
+
+		const notification: any = {
+			jsonrpc: '2.0',
+			method: rpcName,
+		};
+
+		if (paramNames.length > 0) {
+			notification.params = params;
+		}
+
+		this.clientInstance.sendMessage(notification);
 	}
 }
