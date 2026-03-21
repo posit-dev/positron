@@ -161,6 +161,9 @@
 					"include": "#keywords"
 				},
 				{
+					"include": "#namespace-call"
+				},
+				{
 					"include": "#function-call"
 				},
 				{
@@ -360,6 +363,13 @@
 					"match": "(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][+-]?\\d*)?[iL]?"
 				}
 			]
+		},
+		"namespace-call": {
+			"match": "([\\p{L}\\p{Nl}.][\\p{L}\\p{Nl}\\p{Mn}\\p{Mc}\\p{Nd}\\p{Pc}.]*)(:::?)",
+			"captures": {
+				"1": { "name": "support.class.r" },
+				"2": { "name": "{{ operator }}" }
+			}
 		},
 		"operators": {
 			"name": "{{ operator }}",
