@@ -328,6 +328,12 @@ export const ExtHostPositronContext = {
 	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
 };
 
+export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
+	$initializeEphemeralStorage(extensionId: string): Promise<string | undefined>;
+	$setEphemeralValue(extensionId: string, value: string): Promise<void>;
+	$deleteEphemeralValue(extensionId: string): Promise<void>;
+}
+
 export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
@@ -340,4 +346,5 @@ export const MainPositronContext = {
 	MainThreadAiFeatures: createProxyIdentifier<MainThreadAiFeaturesShape>('MainThreadAiFeatures'),
 	MainThreadPlotsService: createProxyIdentifier<MainThreadPlotsServiceShape>('MainThreadPlotsService'),
 	MainThreadNotebookFeatures: createProxyIdentifier<MainThreadNotebookFeaturesShape>('MainThreadNotebookFeatures'),
+	MainThreadPositronEphemeralStorage: createProxyIdentifier<MainThreadPositronEphemeralStorageShape>('MainThreadPositronEphemeralStorage'),
 };

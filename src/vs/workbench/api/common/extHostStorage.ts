@@ -10,6 +10,10 @@ import { createDecorator } from '../../../platform/instantiation/common/instanti
 import { IExtensionIdWithVersion } from '../../../platform/extensionManagement/common/extensionStorage.js';
 import { ILogService } from '../../../platform/log/common/log.js';
 
+// --- Start Positron ---
+import type { ExtHostPositronEphemeralStorage } from './positron/extHostPositronEphemeralStorage.js';
+// --- End Positron ---
+
 export interface IStorageChangeEvent {
 	shared: boolean;
 	key: string;
@@ -24,6 +28,23 @@ export class ExtHostStorage implements ExtHostStorageShape {
 
 	private readonly _onDidChangeStorage = new Emitter<IStorageChangeEvent>();
 	readonly onDidChangeStorage = this._onDidChangeStorage.event;
+
+	// --- Start Positron ---
+	// Set via `setPositronEphemeralStorage()` during extension host bootstrap,
+	// before any extension activates. Always initialised by call time.
+	private _positronEphemeralStorage: ExtHostPositronEphemeralStorage | undefined;
+
+	setPositronEphemeralStorage(ephemeralStorage: ExtHostPositronEphemeralStorage): void {
+		this._positronEphemeralStorage = ephemeralStorage;
+	}
+
+	get positronEphemeralStorage(): ExtHostPositronEphemeralStorage {
+		if (!this._positronEphemeralStorage) {
+			throw new Error('positronEphemeralStorage not initialized');
+		}
+		return this._positronEphemeralStorage;
+	}
+	// --- End Positron ---
 
 	constructor(
 		mainContext: IExtHostRpcService,
