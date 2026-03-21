@@ -8,20 +8,20 @@ import { mock } from '../../../../../base/test/common/mock.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { ExtHostPositronWindowStorage } from '../../../common/positron/extHostPositronWindowStorage.js';
-import { MainThreadPositronWindowStorageShape } from '../../../common/positron/extHost.positron.protocol.js';
+import { ExtHostPositronEphemeralStorage } from '../../../common/positron/extHostPositronEphemeralStorage.js';
+import { MainThreadPositronEphemeralStorageShape } from '../../../common/positron/extHost.positron.protocol.js';
 
 function createMockShape() {
-	return new class extends mock<MainThreadPositronWindowStorageShape>() {
+	return new class extends mock<MainThreadPositronEphemeralStorageShape>() {
 		private data = new Map<string, string>();
-		override $initializeWindowStorage(extensionId: string): Promise<string | undefined> {
+		override $initializeEphemeralStorage(extensionId: string): Promise<string | undefined> {
 			return Promise.resolve(this.data.get(extensionId));
 		}
-		override $setWindowValue(extensionId: string, value: string): Promise<void> {
+		override $setEphemeralValue(extensionId: string, value: string): Promise<void> {
 			this.data.set(extensionId, value);
 			return Promise.resolve();
 		}
-		override $deleteWindowValue(extensionId: string): Promise<void> {
+		override $deleteEphemeralValue(extensionId: string): Promise<void> {
 			this.data.delete(extensionId);
 			return Promise.resolve();
 		}
@@ -31,7 +31,7 @@ function createMockShape() {
 	};
 }
 
-suite('ExtHostPositronWindowStorage', function () {
+suite('ExtHostPositronEphemeralStorage', function () {
 
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -41,20 +41,20 @@ suite('ExtHostPositronWindowStorage', function () {
 		shape = createMockShape();
 	});
 
-	test('initializeWindowStorage returns defaultValue when nothing stored', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
-		const result = await storage.initializeWindowStorage('test.ext', { key: 'default' });
+	test('initializeEphemeralStorage returns defaultValue when nothing stored', async function () {
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const result = await storage.initializeEphemeralStorage('test.ext', { key: 'default' });
 		assert.deepStrictEqual(result, { key: 'default' });
 	});
 
-	test('initializeWindowStorage returns parsed stored value', async function () {
+	test('initializeEphemeralStorage returns parsed stored value', async function () {
 		shape.setRaw('test.ext', JSON.stringify({ hello: 'world' }));
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
-		const result = await storage.initializeWindowStorage('test.ext');
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const result = await storage.initializeEphemeralStorage('test.ext');
 		assert.deepStrictEqual(result, { hello: 'world' });
 	});
 
-	test('initializeWindowStorage returns defaultValue on invalid JSON', async function () {
+	test('initializeEphemeralStorage returns defaultValue on invalid JSON', async function () {
 		shape.setRaw('test.ext', '{invalid json!!!');
 		const errors: string[] = [];
 		const logService = new class extends NullLogService {
@@ -62,14 +62,14 @@ suite('ExtHostPositronWindowStorage', function () {
 				errors.push(typeof message === 'string' ? message : message.message);
 			}
 		};
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), logService);
-		const result = await storage.initializeWindowStorage('test.ext', { fallback: true });
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), logService);
+		const result = await storage.initializeEphemeralStorage('test.ext', { fallback: true });
 		assert.deepStrictEqual(result, { fallback: true });
 		assert.ok(errors.length > 0, 'Expected an error to be logged');
 	});
 
 	test('getOrCreateMemento returns same instance for same extensionId', function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const m1 = storage.getOrCreateMemento('test.ext');
 		disposables.add(m1);
 		const m2 = storage.getOrCreateMemento('test.ext');
@@ -77,7 +77,7 @@ suite('ExtHostPositronWindowStorage', function () {
 	});
 
 	test('getOrCreateMemento returns different instances for different extensionIds', function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const m1 = storage.getOrCreateMemento('ext.a');
 		disposables.add(m1);
 		const m2 = storage.getOrCreateMemento('ext.b');
@@ -86,7 +86,7 @@ suite('ExtHostPositronWindowStorage', function () {
 	});
 });
 
-suite('WindowExtensionMemento', function () {
+suite('EphemeralExtensionMemento', function () {
 
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -97,7 +97,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('whenReady resolves with the memento', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		const resolved = await memento.whenReady;
@@ -105,7 +105,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('get returns undefined for missing key', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
@@ -113,7 +113,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('get returns defaultValue for missing key', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
@@ -121,7 +121,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('update and get roundtrip', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
@@ -130,7 +130,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('update deep-clones object values', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
@@ -146,7 +146,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('keys filters out undefined values', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
@@ -160,16 +160,16 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('update persists to storage', async function () {
-		const storage1 = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage1 = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento1 = storage1.getOrCreateMemento('test.ext');
 		disposables.add(memento1);
 		await memento1.whenReady;
 
 		await memento1.update('persistKey', 'persistValue');
 
-		// Create a second ExtHostPositronWindowStorage instance using the same proxy shape
+		// Create a second ExtHostPositronEphemeralStorage instance using the same proxy shape
 		// to bypass the memento cache and verify that the value was persisted to the backend.
-		const storage2 = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage2 = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento2 = storage2.getOrCreateMemento('test.ext');
 		disposables.add(memento2);
 		await memento2.whenReady;
@@ -178,7 +178,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('clear removes all keys and deletes from backend', async function () {
-		const storage1 = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage1 = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento1 = storage1.getOrCreateMemento('test.ext');
 		disposables.add(memento1);
 		await memento1.whenReady;
@@ -190,7 +190,7 @@ suite('WindowExtensionMemento', function () {
 		assert.deepStrictEqual(memento1.keys(), []);
 
 		// Create a fresh storage + memento from the same proxy to verify backend is cleared
-		const storage2 = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage2 = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento2 = storage2.getOrCreateMemento('test.ext');
 		disposables.add(memento2);
 		await memento2.whenReady;
@@ -200,7 +200,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('dispose does not throw', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento);
 		await memento.whenReady;
@@ -211,7 +211,7 @@ suite('WindowExtensionMemento', function () {
 	});
 
 	test('dispose then getOrCreateMemento returns fresh working instance', async function () {
-		const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), new NullLogService());
+		const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), new NullLogService());
 		const memento1 = storage.getOrCreateMemento('test.ext');
 		disposables.add(memento1);
 		await memento1.whenReady;
@@ -230,7 +230,7 @@ suite('WindowExtensionMemento', function () {
 		assert.strictEqual(memento2.get('key'), 'after-dispose');
 	});
 
-	test('initializeWindowStorage rejects non-object stored values', async function () {
+	test('initializeEphemeralStorage rejects non-object stored values', async function () {
 		const errors: string[] = [];
 		const logService = new class extends NullLogService {
 			override error(message: string | Error): void {
@@ -242,7 +242,7 @@ suite('WindowExtensionMemento', function () {
 			errors.length = 0;
 			shape.setRaw('test.ext', bad);
 
-			const storage = new ExtHostPositronWindowStorage(SingleProxyRPCProtocol(shape), logService);
+			const storage = new ExtHostPositronEphemeralStorage(SingleProxyRPCProtocol(shape), logService);
 			const memento = storage.getOrCreateMemento('test.ext');
 			disposables.add(memento);
 			await memento.whenReady;

@@ -9,7 +9,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { EphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralStateService.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
-import { MainThreadPositronWindowStorage } from '../../../browser/positron/mainThreadPositronWindowStorage.js';
+import { MainThreadPositronEphemeralStorage } from '../../../browser/positron/mainThreadPositronEphemeralStorage.js';
 
 
 const TEST_WORKSPACE_ID = 'test-workspace-id';
@@ -22,62 +22,62 @@ function createMockWorkspaceContextService(): IWorkspaceContextService {
 	};
 }
 
-suite('MainThreadPositronWindowStorage', function () {
+suite('MainThreadPositronEphemeralStorage', function () {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	let ephemeralStateService: EphemeralStateService;
-	let storage: MainThreadPositronWindowStorage;
+	let storage: MainThreadPositronEphemeralStorage;
 	const mockExtHostContext = new class extends mock<IExtHostContext>() { };
 	const mockWorkspaceContextService = createMockWorkspaceContextService();
 
 	setup(function () {
 		ephemeralStateService = new EphemeralStateService();
-		storage = new MainThreadPositronWindowStorage(mockExtHostContext, ephemeralStateService, mockWorkspaceContextService);
+		storage = new MainThreadPositronEphemeralStorage(mockExtHostContext, ephemeralStateService, mockWorkspaceContextService);
 	});
 
 	teardown(function () {
 		storage.dispose();
 	});
 
-	test('$initializeWindowStorage returns undefined when nothing stored', async function () {
-		const result = await storage.$initializeWindowStorage('ext.a');
+	test('$initializeEphemeralStorage returns undefined when nothing stored', async function () {
+		const result = await storage.$initializeEphemeralStorage('ext.a');
 		assert.strictEqual(result, undefined);
 	});
 
-	test('$setWindowValue and $initializeWindowStorage roundtrip', async function () {
-		await storage.$setWindowValue('ext.a', 'hello world');
-		const result = await storage.$initializeWindowStorage('ext.a');
+	test('$setEphemeralValue and $initializeEphemeralStorage roundtrip', async function () {
+		await storage.$setEphemeralValue('ext.a', 'hello world');
+		const result = await storage.$initializeEphemeralStorage('ext.a');
 		assert.strictEqual(result, 'hello world');
 	});
 
-	test('$deleteWindowValue removes stored value', async function () {
-		await storage.$setWindowValue('ext.a', 'some value');
-		const before = await storage.$initializeWindowStorage('ext.a');
+	test('$deleteEphemeralValue removes stored value', async function () {
+		await storage.$setEphemeralValue('ext.a', 'some value');
+		const before = await storage.$initializeEphemeralStorage('ext.a');
 		assert.strictEqual(before, 'some value');
 
-		await storage.$deleteWindowValue('ext.a');
-		const after = await storage.$initializeWindowStorage('ext.a');
+		await storage.$deleteEphemeralValue('ext.a');
+		const after = await storage.$initializeEphemeralStorage('ext.a');
 		assert.strictEqual(after, undefined);
 	});
 
 	test('storage keys are scoped by workspaceId', async function () {
-		await storage.$setWindowValue('ext.a', 'test-value');
+		await storage.$setEphemeralValue('ext.a', 'test-value');
 
-		const result = await storage.$initializeWindowStorage('ext.a');
+		const result = await storage.$initializeEphemeralStorage('ext.a');
 		assert.strictEqual(result, 'test-value');
 
-		const expectedKey = `windowStorage.${TEST_WORKSPACE_ID}.ext.a`;
+		const expectedKey = `ephemeralStorage.${TEST_WORKSPACE_ID}.ext.a`;
 		const directValue = await ephemeralStateService.getItem<string>(expectedKey);
 		assert.strictEqual(directValue, 'test-value');
 	});
 
 	test('storage keys are scoped by extensionId', async function () {
-		await storage.$setWindowValue('ext.a', 'value-a');
-		await storage.$setWindowValue('ext.b', 'value-b');
+		await storage.$setEphemeralValue('ext.a', 'value-a');
+		await storage.$setEphemeralValue('ext.b', 'value-b');
 
-		const resultA = await storage.$initializeWindowStorage('ext.a');
-		const resultB = await storage.$initializeWindowStorage('ext.b');
+		const resultA = await storage.$initializeEphemeralStorage('ext.a');
+		const resultB = await storage.$initializeEphemeralStorage('ext.b');
 
 		assert.strictEqual(resultA, 'value-a');
 		assert.strictEqual(resultB, 'value-b');
@@ -85,7 +85,7 @@ suite('MainThreadPositronWindowStorage', function () {
 
 	test('different workspaces get isolated storage', async function () {
 		// Store a value using the default workspace
-		await storage.$setWindowValue('ext.a', 'workspace-1-value');
+		await storage.$setEphemeralValue('ext.a', 'workspace-1-value');
 
 		// Create a second storage instance with a different workspace ID
 		const otherWorkspaceService = new class extends mock<IWorkspaceContextService>() {
@@ -93,22 +93,22 @@ suite('MainThreadPositronWindowStorage', function () {
 				return { id: 'other-workspace-id', folders: [] } as any;
 			}
 		};
-		const storage2 = new MainThreadPositronWindowStorage(mockExtHostContext, ephemeralStateService, otherWorkspaceService);
+		const storage2 = new MainThreadPositronEphemeralStorage(mockExtHostContext, ephemeralStateService, otherWorkspaceService);
 
 		// The second workspace should not see the first workspace's value
-		const result = await storage2.$initializeWindowStorage('ext.a');
+		const result = await storage2.$initializeEphemeralStorage('ext.a');
 		assert.strictEqual(result, undefined);
 
 		// And can store its own value independently
-		await storage2.$setWindowValue('ext.a', 'workspace-2-value');
-		assert.strictEqual(await storage2.$initializeWindowStorage('ext.a'), 'workspace-2-value');
-		assert.strictEqual(await storage.$initializeWindowStorage('ext.a'), 'workspace-1-value');
+		await storage2.$setEphemeralValue('ext.a', 'workspace-2-value');
+		assert.strictEqual(await storage2.$initializeEphemeralStorage('ext.a'), 'workspace-2-value');
+		assert.strictEqual(await storage.$initializeEphemeralStorage('ext.a'), 'workspace-1-value');
 
 		storage2.dispose();
 	});
 
 	test('dispose does not throw', function () {
-		const instance = new MainThreadPositronWindowStorage(mockExtHostContext, ephemeralStateService, mockWorkspaceContextService);
+		const instance = new MainThreadPositronEphemeralStorage(mockExtHostContext, ephemeralStateService, mockWorkspaceContextService);
 		assert.doesNotThrow(() => instance.dispose());
 	});
 });

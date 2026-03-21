@@ -11,7 +11,7 @@ import { IExtensionIdWithVersion } from '../../../platform/extensionManagement/c
 import { ILogService } from '../../../platform/log/common/log.js';
 
 // --- Start Positron ---
-import type { ExtHostPositronWindowStorage } from './positron/extHostPositronWindowStorage.js';
+import type { ExtHostPositronEphemeralStorage } from './positron/extHostPositronEphemeralStorage.js';
 // --- End Positron ---
 
 export interface IStorageChangeEvent {
@@ -30,19 +30,19 @@ export class ExtHostStorage implements ExtHostStorageShape {
 	readonly onDidChangeStorage = this._onDidChangeStorage.event;
 
 	// --- Start Positron ---
-	// Set via `setPositronWindowStorage()` during extension host bootstrap,
+	// Set via `setPositronEphemeralStorage()` during extension host bootstrap,
 	// before any extension activates. Always initialised by call time.
-	private _positronWindowStorage: ExtHostPositronWindowStorage | undefined;
+	private _positronEphemeralStorage: ExtHostPositronEphemeralStorage | undefined;
 
-	setPositronWindowStorage(windowStorage: ExtHostPositronWindowStorage): void {
-		this._positronWindowStorage = windowStorage;
+	setPositronEphemeralStorage(ephemeralStorage: ExtHostPositronEphemeralStorage): void {
+		this._positronEphemeralStorage = ephemeralStorage;
 	}
 
-	get positronWindowStorage(): ExtHostPositronWindowStorage {
-		if (!this._positronWindowStorage) {
-			throw new Error('positronWindowStorage not initialized');
+	get positronEphemeralStorage(): ExtHostPositronEphemeralStorage {
+		if (!this._positronEphemeralStorage) {
+			throw new Error('positronEphemeralStorage not initialized');
 		}
-		return this._positronWindowStorage;
+		return this._positronEphemeralStorage;
 	}
 	// --- End Positron ---
 

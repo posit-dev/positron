@@ -507,7 +507,7 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		const workspaceState = extensionInternalStore.add(new ExtensionMemento(extensionDescription.identifier.value, false, this._storage));
 		const secrets = extensionInternalStore.add(new ExtensionSecrets(extensionDescription, this._secretState));
 		// --- Start Positron ---
-		const windowMemento = extensionInternalStore.add(this._storage.positronWindowStorage.getOrCreateMemento(extensionDescription.identifier.value));
+		const ephemeralMemento = extensionInternalStore.add(this._storage.positronEphemeralStorage.getOrCreateMemento(extensionDescription.identifier.value));
 		// --- End Positron ---
 		const extensionMode = extensionDescription.isUnderDevelopment
 			? (this._initData.environment.extensionTestsLocationURI ? ExtensionMode.Test : ExtensionMode.Development)
@@ -521,7 +521,7 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 			workspaceState.whenReady,
 			this._storagePath.whenReady,
 			// --- Start Positron ---
-			windowMemento.whenReady,
+			ephemeralMemento.whenReady,
 			// --- End Positron ---
 		]).then(() => {
 			const that = this;

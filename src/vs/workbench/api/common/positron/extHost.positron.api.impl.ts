@@ -40,7 +40,7 @@ import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
-import { ExtHostPositronWindowStorage } from './extHostPositronWindowStorage.js';
+import { ExtHostPositronEphemeralStorage } from './extHostPositronEphemeralStorage.js';
 import { IExtHostStorage } from '../extHostStorage.js';
 
 /**
@@ -91,8 +91,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
 	const storage = accessor.get(IExtHostStorage);
-	const extHostWindowStorage = new ExtHostPositronWindowStorage(rpcProtocol, accessor.get(ILogService));
-	storage.setPositronWindowStorage(extHostWindowStorage);
+	const extHostEphemeralStorage = new ExtHostPositronEphemeralStorage(rpcProtocol, accessor.get(ILogService));
+	storage.setPositronEphemeralStorage(extHostEphemeralStorage);
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -238,7 +238,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		const context: typeof positron.context = {
 			get ephemeralState() {
-				return extHostWindowStorage.getOrCreateMemento(extension.identifier.value);
+				return extHostEphemeralStorage.getOrCreateMemento(extension.identifier.value);
 			},
 		};
 
