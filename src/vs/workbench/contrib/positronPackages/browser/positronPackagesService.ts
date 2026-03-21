@@ -55,6 +55,12 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			this.setActiveInstance(session?.sessionId);
 		}));
+
+		// Initialize with the current foreground session if one exists.
+		const foregroundSession = this._runtimeSessionService.foregroundSession;
+		if (foregroundSession) {
+			this.createOrAssignInstance(foregroundSession, true);
+		}
 	}
 
 	private createOrAssignInstance(session: ILanguageRuntimeSession, activate: boolean) {
@@ -97,6 +103,10 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	get activeSession(): ILanguageRuntimeSession | undefined {
 		return this._activeInstance?.session;
+	}
+
+	get activePackagesInstance(): IPositronPackagesInstance | undefined {
+		return this._activeInstance;
 	}
 
 	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
