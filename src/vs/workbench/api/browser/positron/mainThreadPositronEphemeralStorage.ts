@@ -5,11 +5,11 @@
 
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { MainPositronContext, MainThreadPositronWindowStorageShape } from '../../common/positron/extHost.positron.protocol.js';
+import { MainPositronContext, MainThreadPositronEphemeralStorageShape } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 
-@extHostNamedCustomer(MainPositronContext.MainThreadPositronWindowStorage)
-export class MainThreadPositronWindowStorage implements MainThreadPositronWindowStorageShape {
+@extHostNamedCustomer(MainPositronContext.MainThreadPositronEphemeralStorage)
+export class MainThreadPositronEphemeralStorage implements MainThreadPositronEphemeralStorageShape {
 
 	private readonly _workspaceId: string;
 
@@ -39,18 +39,18 @@ export class MainThreadPositronWindowStorage implements MainThreadPositronWindow
 	 * the existing console-session behaviour.
 	 */
 	private _storageKey(extensionId: string): string {
-		return `windowStorage.${this._workspaceId}.${extensionId}`;
+		return `ephemeralStorage.${this._workspaceId}.${extensionId}`;
 	}
 
-	async $initializeWindowStorage(extensionId: string): Promise<string | undefined> {
+	async $initializeEphemeralStorage(extensionId: string): Promise<string | undefined> {
 		return this._ephemeralStateService.getItem<string>(this._storageKey(extensionId));
 	}
 
-	async $setWindowValue(extensionId: string, value: string): Promise<void> {
+	async $setEphemeralValue(extensionId: string, value: string): Promise<void> {
 		return this._ephemeralStateService.setItem(this._storageKey(extensionId), value);
 	}
 
-	async $deleteWindowValue(extensionId: string): Promise<void> {
+	async $deleteEphemeralValue(extensionId: string): Promise<void> {
 		return this._ephemeralStateService.removeItem(this._storageKey(extensionId));
 	}
 

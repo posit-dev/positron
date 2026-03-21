@@ -7,54 +7,55 @@ import type * as vscode from 'vscode';
 import { DeferredPromise, RunOnceScheduler } from '../../../../base/common/async.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IExtHostRpcService } from '../extHostRpcService.js';
-import { MainPositronContext, MainThreadPositronWindowStorageShape } from './extHost.positron.protocol.js';
+import { MainPositronContext, MainThreadPositronEphemeralStorageShape } from './extHost.positron.protocol.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
- * Ext-host side of the window-scoped extension storage. Communicates with
- * `MainThreadPositronWindowStorage` over the Positron RPC protocol.
+ * Ext-host side of the per-workspace ephemeral extension storage.
+ * Communicates with `MainThreadPositronEphemeralStorage` over the
+ * Positron RPC protocol.
  */
-export class ExtHostPositronWindowStorage {
+export class ExtHostPositronEphemeralStorage {
 
-	private readonly _proxy: MainThreadPositronWindowStorageShape;
-	private readonly _mementos = new Map<string, WindowExtensionMemento>();
+	private readonly _proxy: MainThreadPositronEphemeralStorageShape;
+	private readonly _mementos = new Map<string, EphemeralExtensionMemento>();
 
 	constructor(
 		rpcProtocol: IExtHostRpcService,
 		private readonly _logService: ILogService,
 	) {
-		this._proxy = rpcProtocol.getProxy(MainPositronContext.MainThreadPositronWindowStorage);
+		this._proxy = rpcProtocol.getProxy(MainPositronContext.MainThreadPositronEphemeralStorage);
 	}
 
-	async initializeWindowStorage(extensionId: string, defaultValue?: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
-		const raw = await this._proxy.$initializeWindowStorage(extensionId);
+	async initializeEphemeralStorage(extensionId: string, defaultValue?: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
+		const raw = await this._proxy.$initializeEphemeralStorage(extensionId);
 		if (raw) {
 			try {
 				const parsed = JSON.parse(raw);
 				if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
 					return parsed;
 				}
-				this._logService.error(`[extHostPositronWindowStorage] stored value is not a plain object (extensionId: ${extensionId})`);
+				this._logService.error(`[extHostPositronEphemeralStorage] stored value is not a plain object (extensionId: ${extensionId})`);
 			} catch (error) {
-				this._logService.error(`[extHostPositronWindowStorage] unexpected error parsing window storage (extensionId: ${extensionId}): ${error}`);
+				this._logService.error(`[extHostPositronEphemeralStorage] unexpected error parsing window storage (extensionId: ${extensionId}): ${error}`);
 			}
 		}
 		return defaultValue;
 	}
 
-	setWindowValue(extensionId: string, value: string): Promise<void> {
-		return this._proxy.$setWindowValue(extensionId, value);
+	setEphemeralValue(extensionId: string, value: string): Promise<void> {
+		return this._proxy.$setEphemeralValue(extensionId, value);
 	}
 
-	deleteWindowValue(extensionId: string): Promise<void> {
-		return this._proxy.$deleteWindowValue(extensionId);
+	deleteEphemeralValue(extensionId: string): Promise<void> {
+		return this._proxy.$deleteEphemeralValue(extensionId);
 	}
 
-	getOrCreateMemento(extensionId: string): WindowExtensionMemento {
+	getOrCreateMemento(extensionId: string): EphemeralExtensionMemento {
 		let memento = this._mementos.get(extensionId);
 		if (!memento) {
 			// Evict from cache on dispose so that re-activation gets a fresh instance
-			memento = new WindowExtensionMemento(extensionId, this, () => {
+			memento = new EphemeralExtensionMemento(extensionId, this, () => {
 				this._mementos.delete(extensionId);
 			});
 			this._mementos.set(extensionId, memento);
@@ -64,40 +65,40 @@ export class ExtHostPositronWindowStorage {
 }
 
 /**
- * `vscode.Memento` implementation backed by window-scoped storage. Data
- * survives extension host restarts and window reloads but does not persist
- * beyond the lifetime of the application process.
+ * `vscode.Memento` implementation backed by per-workspace ephemeral
+ * storage. Data survives extension host restarts and window reloads
+ * but does not persist beyond the lifetime of the application process.
  *
  * Modelled after upstream `ExtensionMemento` in `extHostMemento.ts`.
  * Copied: field layout, constructor init + batched-flush scheduler,
  * `keys()`, `get()`, `update()`, `whenReady`, `dispose()`.
  * Dropped: `_storageListener` (no cross-process change events for
- * window storage).
+ * ephemeral storage).
  * Added: `clear()` to wipe all state for an extension in one call.
  *
  * Cannot extend `ExtensionMemento` directly because its key fields
  * (`_value`, `_scheduler`, `_deferredPromises`) are private and its
  * constructor is hardwired to `ExtHostStorage`.
  */
-export class WindowExtensionMemento implements vscode.Memento, IDisposable {
+export class EphemeralExtensionMemento implements vscode.Memento, IDisposable {
 
 	private _value: { [n: string]: unknown } = Object.create(null);
-	private readonly _init: Promise<WindowExtensionMemento>;
+	private readonly _init: Promise<EphemeralExtensionMemento>;
 	private _deferredPromises: Map<string, DeferredPromise<void>> = new Map();
 	private readonly _scheduler: RunOnceScheduler;
 
-	private readonly _storage!: ExtHostPositronWindowStorage;
+	private readonly _storage!: ExtHostPositronEphemeralStorage;
 
 	constructor(
 		private readonly _id: string,
-		storage: ExtHostPositronWindowStorage,
+		storage: ExtHostPositronEphemeralStorage,
 		private readonly _onDispose: () => void,
 	) {
 		// Non-enumerable to match TypeScript `private` intent at runtime and
 		// prevent the RPC proxy at `_storage._proxy` from being discovered
 		// by the `assertNoRpcFromEntry` integration test walk.
 		Object.defineProperty(this, '_storage', { value: storage, enumerable: false });
-		this._init = this._storage.initializeWindowStorage(this._id, Object.create(null)).then(value => {
+		this._init = this._storage.initializeEphemeralStorage(this._id, Object.create(null)).then(value => {
 			this._value = value ?? Object.create(null);
 			return this;
 		});
@@ -107,7 +108,7 @@ export class WindowExtensionMemento implements vscode.Memento, IDisposable {
 			this._deferredPromises = new Map();
 			(async () => {
 				try {
-					await this._storage.setWindowValue(this._id, JSON.stringify(this._value));
+					await this._storage.setEphemeralValue(this._id, JSON.stringify(this._value));
 					for (const value of records.values()) {
 						value.complete();
 					}
@@ -120,7 +121,7 @@ export class WindowExtensionMemento implements vscode.Memento, IDisposable {
 		}, 0);
 	}
 
-	get whenReady(): Promise<WindowExtensionMemento> {
+	get whenReady(): Promise<EphemeralExtensionMemento> {
 		return this._init;
 	}
 
@@ -161,7 +162,7 @@ export class WindowExtensionMemento implements vscode.Memento, IDisposable {
 	}
 
 	/**
-	 * Remove all window-scoped state for this extension.
+	 * Remove all ephemeral state for this extension.
 	 */
 	async clear(): Promise<void> {
 		this._value = Object.create(null);
@@ -171,7 +172,7 @@ export class WindowExtensionMemento implements vscode.Memento, IDisposable {
 		for (const deferred of records.values()) {
 			deferred.complete();
 		}
-		return this._storage.deleteWindowValue(this._id);
+		return this._storage.deleteEphemeralValue(this._id);
 	}
 
 	dispose(): void {
