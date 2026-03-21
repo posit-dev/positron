@@ -8440,12 +8440,10 @@ declare module 'vscode' {
 		 * host restarts and window reloads, but does not persist beyond the
 		 * lifetime of the application process.
 		 *
-		 * Unlike {@link ExtensionContext.workspaceState workspaceState},
-		 * this storage is in-memory and per-process, so multiple windows
-		 * opening the same workspace cannot corrupt each other's state.
-		 *
-		 * Use this for state tied to runtime sessions or other per-workspace
-		 * resources that should not outlive the application process.
+		 * Use this instead of {@link ExtensionContext.workspaceState workspaceState}
+		 * for state that is only meaningful while the process is running,
+		 * such as runtime session mappings. This avoids leaking stale
+		 * state on disk and ensures automatic cleanup on shutdown.
 		 */
 		readonly ephemeralState: Memento & {
 			/**
