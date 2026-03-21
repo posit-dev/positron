@@ -202,10 +202,6 @@ class UiBackendRequest(str, enum.Enum):
     An enumeration of all the possible requests that can be sent to the backend ui comm.
     """
 
-    # Notification that the settings to render a plot (i.e. the plot size)
-    # have changed.
-    DidChangePlotsRenderSettings = "did_change_plots_render_settings"
-
     # Notification that the frontend is ready
     FrontendReady = "frontend_ready"
 
@@ -214,6 +210,17 @@ class UiBackendRequest(str, enum.Enum):
 
     # Evaluate a statement in the interpreter
     EvaluateCode = "evaluate_code"
+
+
+@enum.unique
+class UiBackendEvent(str, enum.Enum):
+    """
+    An enumeration of all the possible events (notifications) that can be sent to the backend ui comm.
+    """
+
+    # Notification that the settings to render a plot (i.e. the plot size)
+    # have changed.
+    DidChangePlotsRenderSettings = "did_change_plots_render_settings"
 
 
 class DidChangePlotsRenderSettingsParams(BaseModel):
@@ -228,7 +235,7 @@ class DidChangePlotsRenderSettingsParams(BaseModel):
     )
 
 
-class DidChangePlotsRenderSettingsRequest(BaseModel):
+class DidChangePlotsRenderSettingsNotification(BaseModel):
     """
     Typically fired when the plot component has been resized by the user.
     This notification is useful to produce accurate pre-renderings of
@@ -239,7 +246,7 @@ class DidChangePlotsRenderSettingsRequest(BaseModel):
         description="Parameters to the DidChangePlotsRenderSettings method",
     )
 
-    method: Literal[UiBackendRequest.DidChangePlotsRenderSettings] = Field(
+    method: Literal[UiBackendEvent.DidChangePlotsRenderSettings] = Field(
         description="The JSON-RPC method name (did_change_plots_render_settings)",
     )
 
@@ -353,7 +360,7 @@ class EvaluateCodeRequest(BaseModel):
 class UiBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
-        DidChangePlotsRenderSettingsRequest,
+        DidChangePlotsRenderSettingsNotification,
         FrontendReadyRequest,
         CallMethodRequest,
         EvaluateCodeRequest,
@@ -707,7 +714,7 @@ PreviewSource.update_forward_refs()
 
 DidChangePlotsRenderSettingsParams.update_forward_refs()
 
-DidChangePlotsRenderSettingsRequest.update_forward_refs()
+DidChangePlotsRenderSettingsNotification.update_forward_refs()
 
 FrontendReadyParams.update_forward_refs()
 
