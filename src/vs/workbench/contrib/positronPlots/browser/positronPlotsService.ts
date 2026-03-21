@@ -12,7 +12,7 @@ import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlF
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { onUnexpectedError } from '../../../../base/common/errors.js';
+
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -922,15 +922,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (session.runtimeMetadata.uiSubscriptions?.includes(UiRuntimeNotifications.DidChangePlotsRenderSettings)) {
 			this._register(this._runtimeSessionService.watchUiClient(session.sessionId, (uiClient) => {
 				// Send initial settings immediately
-				uiClient.
-					didChangePlotsRenderSettings(this.getPlotsRenderSettings()).
-					catch(onUnexpectedError);
+				uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
 
 				// Forward future settings updates
 				return this.onDidChangePlotsRenderSettings(settings => {
-					uiClient.
-						didChangePlotsRenderSettings(settings).
-						catch(onUnexpectedError);
+					uiClient.didChangePlotsRenderSettings(settings);
 				});
 			}));
 		}
