@@ -236,6 +236,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 		};
 
+		const context: typeof positron.context = {
+			get ephemeralState() {
+				return extHostWindowStorage.getOrCreateMemento(extension.identifier.value);
+			},
+		};
+
 		const languages: typeof positron.languages = {
 			registerStatementRangeProvider(
 				selector: vscode.DocumentSelector,
@@ -533,6 +539,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			buildNumber: initData.positronBuildNumber,
 			runtime,
 			window,
+			context,
 			languages,
 			methods,
 			environment,

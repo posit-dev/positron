@@ -86,11 +86,17 @@ export class WindowExtensionMemento implements vscode.Memento, IDisposable {
 	private _deferredPromises: Map<string, DeferredPromise<void>> = new Map();
 	private readonly _scheduler: RunOnceScheduler;
 
+	private readonly _storage!: ExtHostPositronWindowStorage;
+
 	constructor(
 		private readonly _id: string,
-		private readonly _storage: ExtHostPositronWindowStorage,
+		storage: ExtHostPositronWindowStorage,
 		private readonly _onDispose: () => void,
 	) {
+		// Non-enumerable to match TypeScript `private` intent at runtime and
+		// prevent the RPC proxy at `_storage._proxy` from being discovered
+		// by the `assertNoRpcFromEntry` integration test walk.
+		Object.defineProperty(this, '_storage', { value: storage, enumerable: false });
 		this._init = this._storage.initializeWindowStorage(this._id, Object.create(null)).then(value => {
 			this._value = value ?? Object.create(null);
 			return this;
