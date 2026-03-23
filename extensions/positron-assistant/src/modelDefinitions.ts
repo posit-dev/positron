@@ -53,6 +53,10 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 	// Microsoft Foundry models -- common deployments; admins can override via models.overrides.msFoundry
 	['ms-foundry', [
 		{
+			name: 'Model Router',
+			identifier: 'model-router',
+		},
+		{
 			name: 'GPT-5.3 Chat',
 			identifier: 'gpt-5.3-chat',
 			maxInputTokens: 1_047_576,
