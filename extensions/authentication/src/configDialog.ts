@@ -131,6 +131,7 @@ export async function showConfigurationDialog(
 		enrichedSources,
 		async (config, action) => {
 			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
+			const hasAuthProvider = authProviders.has(config.provider);
 			// applyConfig is a fallback while we transition providers to the Auth extension.
 			// It should eventually be removed so that the Auth extension is the single source of truth
 			// for all provider config actions.
@@ -139,7 +140,7 @@ export async function showConfigurationDialog(
 			};
 			switch (action) {
 				case 'save': {
-					if (authProviders.has(config.provider)) {
+					if (hasAuthProvider) {
 						const accountId = await handleSave(config);
 						addResult({ action, config, accountId });
 					} else {
@@ -148,7 +149,7 @@ export async function showConfigurationDialog(
 					break;
 				}
 				case 'delete':
-					if (authProviders.has(config.provider)) {
+					if (hasAuthProvider) {
 						await handleDelete(config);
 						addResult({ action, config });
 					} else {
@@ -156,14 +157,14 @@ export async function showConfigurationDialog(
 					}
 					break;
 				case 'oauth-signin':
-					if (authProviders.has(config.provider)) {
+					if (hasAuthProvider) {
 						addResult({ action, config });
 					} else {
 						await applyConfig();
 					}
 					break;
 				case 'oauth-signout':
-					if (authProviders.has(config.provider)) {
+					if (hasAuthProvider) {
 						addResult({ action, config });
 					} else {
 						await applyConfig();

@@ -117,13 +117,8 @@ export class AuthProvider
 				});
 			}
 		}
-		if (sessions.length > 0) {
-			log.debug(`[${this.displayName}] getSessions: returned ${sessions.length} stored session(s)`);
-			return sessions;
-		}
-
-		log.debug(`[${this.displayName}] getSessions: no sessions available`);
-		return [];
+		log.debug(`[${this.displayName}] getSessions: returned ${sessions.length} stored session(s)`);
+		return sessions;
 	}
 
 	/**
