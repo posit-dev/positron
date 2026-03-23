@@ -1496,10 +1496,21 @@ class KernelBase {
 	/**
 	 * Verify: Kernel badge contains expected text.
 	 */
-	async expectBadgeToContain(text: string, timeout = DEFAULT_TIMEOUT): Promise<void> {
+	async expectBadgeToContain(text: RegExp | string, timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step(`Expect kernel badge to contain: ${text}`, async () => {
 			await expect(this.statusBadge).toContainText(text, { timeout });
 		});
+	}
+
+	/**
+	 * Verify: Kernel status and badge text are as expected.
+	 */
+	async expectToBe(name: RegExp | string, options?: { status: SessionState; timeout?: number }): Promise<void> {
+		const { status, timeout = DEFAULT_TIMEOUT } = options ?? {};
+		if (status) {
+			await this.expectStatusToBe(status, timeout);
+		}
+		await this.expectBadgeToContain(name, timeout);
 	}
 }
 

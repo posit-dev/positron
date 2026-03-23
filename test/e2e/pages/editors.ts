@@ -45,6 +45,12 @@ export class Editors {
 		});
 	}
 
+	async runCurrentFile(): Promise<void> {
+		await test.step('Run current file in console', async () => {
+			await this.code.driver.page.getByRole('button', { name: /Run.*Console|Source R File/ }).click();
+		});
+	};
+
 	async verifyTab(
 		tabName: string | RegExp,
 		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
