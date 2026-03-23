@@ -142,7 +142,7 @@ export class PositronNotebooks extends Notebooks {
 
 
 	/**
-	 * Get the index of the currently focused cell.
+	 * Get the index of currently focused cell.
 	 */
 	async getFocusedCellIndex(): Promise<number | null> {
 		return await test.step(`Get focused cell index`, async () => {
