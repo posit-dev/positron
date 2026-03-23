@@ -163,7 +163,7 @@ jobs:
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         env:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -202,7 +202,7 @@ jobs:
             echo "npm ci completed successfully"
 
       - name: Download binaries (Ark, Kallichore) with retry
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
