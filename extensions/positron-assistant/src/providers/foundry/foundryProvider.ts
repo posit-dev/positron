@@ -42,8 +42,8 @@ export class FoundryModelProvider extends VercelModelProvider implements positro
 		provider: PROVIDER_METADATA.foundry,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'GPT-5.3 Chat',
-			model: 'gpt-5.3-chat',
+			name: 'Model Router',
+			model: 'model-router',
 			baseUrl: undefined,
 			toolCalls: true,
 		},

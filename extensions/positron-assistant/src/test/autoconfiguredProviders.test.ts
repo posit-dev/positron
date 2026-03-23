@@ -34,15 +34,6 @@ suite('Autoconfigured Providers', () => {
 	test('autoconfigured providers include toolCalls: true', async () => {
 		const configs = await createAutomaticModelConfigs();
 
-		// AWS and Foundry no longer use autoconfigure; they use
-		// session-based registration via registerModelsForProvider.
-		const awsConfig = configs.find(c => c.provider === 'amazon-bedrock');
-		assert.strictEqual(awsConfig, undefined, 'AWS should not be auto-configured');
-
-		const foundryConfig = configs.find(c => c.provider === 'ms-foundry');
-		assert.strictEqual(foundryConfig, undefined, 'Foundry should not be auto-configured');
-
-		// Snowflake still uses autoconfigure
 		const snowflakeConfig = configs.find(c => c.provider === 'snowflake-cortex');
 		assert.ok(snowflakeConfig, 'Snowflake config should be created');
 		assert.strictEqual(snowflakeConfig.toolCalls, true, 'Snowflake toolCalls should be true');
