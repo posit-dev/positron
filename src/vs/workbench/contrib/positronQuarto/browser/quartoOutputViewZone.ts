@@ -3,13 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as React from 'react';
 import * as dom from '../../../../base/browser/dom.js';
 import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
@@ -22,6 +23,11 @@ import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config
 import { applyFontInfo } from '../../../../editor/browser/config/domFontInfo.js';
 import { ANSIOutput, ANSIOutputLine, ANSIOutputRun } from '../../../../base/common/ansiOutput.js';
 import { computeAnsiStyles, resolveAnsiColor } from '../../../../base/common/ansiStyles.js';
+import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { POSITRON_QUARTO_INLINE_DATA_EXPLORER_ENABLED_KEY, POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../common/positronQuartoConfig.js';
+import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
+import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -92,6 +98,10 @@ export interface QuartoOutputViewZoneOptions {
 	readonly session?: ILanguageRuntimeSession;
 	/** Maximum number of lines to display in text output before truncating */
 	readonly maxLines?: number;
+	/** Configuration service for reading settings */
+	readonly configurationService?: IConfigurationService;
+	/** Document URI for this view zone's Quarto document */
+	readonly documentUri?: URI;
 }
 
 /**
@@ -130,6 +140,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _webviewContainersByOutputId = new Map<string, HTMLElement>();
 	// Cached clipping container for the editor
 	private _clippingContainer: HTMLElement | undefined;
+
+	// React renderers for inline data explorer outputs
+	private readonly _reactRenderersByOutputId = new Map<string, PositronReactRenderer>();
+
+	// Configuration service for reading settings
+	private readonly _configurationService: IConfigurationService | undefined;
+
+	// Document URI for this view zone's Quarto document
+	private _documentUri: URI | undefined;
 
 	// Callback when outputs are cleared by user action
 	private _onClear: (() => void) | undefined;
@@ -186,12 +205,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		webviewService?: IPositronNotebookOutputWebviewService,
 		session?: ILanguageRuntimeSession,
 		maxLines: number = 40,
+		configurationService?: IConfigurationService,
+		documentUri?: URI,
 	) {
 		super();
 
 		this._webviewService = webviewService;
 		this._session = session;
 		this._maxLines = maxLines;
+		this._configurationService = configurationService;
+		this._documentUri = documentUri;
 
 		this.afterLineNumber = afterLine;
 		this.heightInPx = MIN_VIEW_ZONE_HEIGHT;
@@ -398,6 +421,13 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Update the document URI for this view zone.
+	 */
+	setDocumentUri(documentUri: URI | undefined): void {
+		this._documentUri = documentUri;
+	}
+
+	/**
 	 * Update the runtime session for webview creation.
 	 * Call this when the kernel session becomes available.
 	 *
@@ -434,6 +464,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._outputs = [];
 			dom.clearNode(this._outputContainer);
 			this._disposeAllWebviews();
+			this._disposeAllReactRenderers();
 			this.setRecomputing(false);
 		}
 
@@ -462,8 +493,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._outputs = [];
 		dom.clearNode(this._outputContainer);
 
-		// Dispose all webviews
+		// Dispose all webviews and React renderers
 		this._disposeAllWebviews();
+		this._disposeAllReactRenderers();
 
 		// Reset recomputing state
 		this._isRecomputing = false;
@@ -486,6 +518,28 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._webviewsByOutputId.clear();
 		this._webviewContainersByOutputId.clear();
 		this._webviewDisposables.clear();
+	}
+
+	/**
+	 * Dispose all React renderers managed by this view zone.
+	 */
+	private _disposeAllReactRenderers(): void {
+		for (const renderer of this._reactRenderersByOutputId.values()) {
+			renderer.dispose();
+		}
+		this._reactRenderersByOutputId.clear();
+	}
+
+	/**
+	 * Check if inline data explorer is enabled in configuration.
+	 */
+	private _isDataExplorerEnabled(): boolean {
+		if (!this._configurationService) {
+			return true; // Default to enabled if no config service
+		}
+		return this._configurationService.getValue<boolean>(
+			POSITRON_QUARTO_INLINE_DATA_EXPLORER_ENABLED_KEY
+		) ?? true;
 	}
 
 	/**
@@ -560,6 +614,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this.hide();
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();
+		this._disposeAllReactRenderers();
 		if (this._copyButtonTimeout) {
 			clearTimeout(this._copyButtonTimeout);
 		}
@@ -1045,6 +1100,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	private _renderAllOutputs(): void {
 		this._disposeAllWebviews();
+		this._disposeAllReactRenderers();
 		dom.clearNode(this._outputContainer);
 
 		// Check if all outputs are errors only
@@ -1074,8 +1130,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		outputElement.className = 'quarto-output-item';
 		outputElement.setAttribute('role', 'log');
 
-		// Check if this output needs webview rendering
-		if (output.webviewMetadata?.webviewType && this._webviewService && this._session) {
+		// Check for data explorer MIME type
+		const dataExplorerItem = output.items.find(
+			item => item.mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase()
+		);
+
+		if (dataExplorerItem && this._isDataExplorerEnabled()) {
+			this._renderDataExplorerOutput(dataExplorerItem, output, outputElement);
+		} else if (output.webviewMetadata?.webviewType && this._webviewService && this._session) {
+			// Check if this output needs webview rendering
 			// Render via webview for interactive/complex outputs
 			this._renderWebviewOutput(output, outputElement);
 		} else if (output.webviewMetadata?.webviewType && (!this._webviewService || !this._session)) {
@@ -1090,8 +1153,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			placeholder.appendChild(loadingIndicator);
 			outputElement.appendChild(placeholder);
 		} else {
-			// Render items normally
+			// Render items normally, skipping data explorer MIME
 			for (const item of output.items) {
+				if (item.mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase()) {
+					continue;
+				}
 				const rendered = this._renderOutputItem(item, output);
 				if (rendered) {
 					outputElement.appendChild(rendered);
@@ -1138,6 +1204,123 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Render a data explorer output using a React component bridge.
+	 */
+	private _renderDataExplorerOutput(
+		dataExplorerItem: ICellOutputItem,
+		output: ICellOutput,
+		container: HTMLElement
+	): void {
+		// Parse the data explorer payload
+		let payload: {
+			comm_id?: string;
+			shape?: { rows: number; columns: number };
+			title?: string;
+			variable_path?: unknown;
+		};
+		try {
+			payload = JSON.parse(dataExplorerItem.data);
+		} catch {
+			// If parsing fails, fall back to rendering other items
+			this._renderDataExplorerFallback(output, container);
+			return;
+		}
+
+		const commId = payload.comm_id;
+		const shape = payload.shape;
+		const title = payload.title ?? 'DataFrame';
+
+		if (!commId || !shape) {
+			this._renderDataExplorerFallback(output, container);
+			return;
+		}
+
+		const variablePath = parseVariablePath(payload.variable_path);
+
+		// Calculate height (must match quartoInlineDataExplorer.tsx constants)
+		const maxHeight = this._configurationService?.getValue<number>(
+			POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
+		) ?? 300;
+		const COLUMN_HEADERS_HEIGHT = 34;
+		const ROW_HEIGHT = 22;
+		const TOOLBAR_HEIGHT = 26;
+		const BORDER = 2;
+		const SCROLLBAR_HEIGHT = 10;
+		const naturalHeight = TOOLBAR_HEIGHT + COLUMN_HEADERS_HEIGHT + (shape.rows * ROW_HEIGHT) + SCROLLBAR_HEIGHT + BORDER;
+		const height = Math.min(naturalHeight, maxHeight);
+
+		// Create a container for the React component
+		const dataExplorerContainer = document.createElement('div');
+		dataExplorerContainer.className = 'quarto-output-data-explorer';
+		dataExplorerContainer.style.height = `${height}px`;
+		dataExplorerContainer.style.overflow = 'hidden';
+		container.appendChild(dataExplorerContainer);
+
+		// Create a React renderer and render the component
+		const renderer = new PositronReactRenderer(dataExplorerContainer);
+		this._reactRenderersByOutputId.set(output.outputId, renderer);
+
+		const handleFallback = () => {
+			// Dispose the React renderer
+			renderer.dispose();
+			this._reactRenderersByOutputId.delete(output.outputId);
+
+			// Clear the container and render HTML fallback
+			dom.clearNode(dataExplorerContainer);
+			dataExplorerContainer.style.height = '';
+			dataExplorerContainer.style.overflow = '';
+			dataExplorerContainer.className = '';
+			this._renderDataExplorerFallback(output, container);
+
+			// Remove the now-empty data explorer container
+			if (dataExplorerContainer.parentNode) {
+				dataExplorerContainer.parentNode.removeChild(dataExplorerContainer);
+			}
+
+			this._updateHeight();
+		};
+
+		const handleHeightChange = (newHeight: number) => {
+			dataExplorerContainer.style.height = `${newHeight}px`;
+			this._updateHeight();
+		};
+
+		renderer.render(
+			React.createElement(QuartoInlineDataExplorer, {
+				commId,
+				shape,
+				title,
+				variablePath,
+				documentUri: this._documentUri ?? URI.parse(''),
+				onFallback: handleFallback,
+				onHeightChange: handleHeightChange,
+			})
+		);
+	}
+
+	/**
+	 * Render fallback content for a data explorer output (HTML table or text).
+	 */
+	private _renderDataExplorerFallback(output: ICellOutput, container: HTMLElement): void {
+		// Try to find an HTML fallback in the same output
+		const htmlItem = output.items.find(item => item.mime === 'text/html');
+		if (htmlItem) {
+			const rendered = this._renderHtml(htmlItem.data, output);
+			if (rendered) {
+				container.appendChild(rendered);
+				return;
+			}
+		}
+
+		// Fall back to text/plain
+		const textItem = output.items.find(item => item.mime === 'text/plain');
+		if (textItem) {
+			const rendered = this._renderText(textItem.data, 'stdout');
+			container.appendChild(rendered);
+		}
 	}
 
 	private _renderText(content: string, type: 'stdout' | 'stderr'): HTMLElement {
