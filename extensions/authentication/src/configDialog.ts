@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
 import { log } from './log';
+import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 
 export interface ConfigDialogResult {
 	action: string;
@@ -73,7 +74,22 @@ async function enrichWithCredentialState(
 		}
 		try {
 			const sessions = await provider.getSessions();
-			return { ...source, signedIn: sessions.length > 0 };
+			const signedIn = sessions.length > 0;
+			if (signedIn && source.provider.id === 'ms-foundry' && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
+				return {
+					...source,
+					signedIn,
+					defaults: {
+						...source.defaults,
+						autoconfigure: {
+							type: positron.ai.LanguageModelAutoconfigureType.Custom,
+							message: FOUNDRY_MANAGED_CREDENTIALS.displayName,
+							signedIn: true,
+						},
+					},
+				};
+			}
+			return { ...source, signedIn };
 		} catch (err) {
 			log.error(`Failed to check credential state for ${source.provider.id}: ${err instanceof Error ? err.message : String(err)}`);
 			return source;
