@@ -25,7 +25,7 @@ import jsonEditor from 'gulp-json-editor';
 import buildfile from './buildfile.ts';
 
 // --- Start Positron ---
-import { positronBuildNumber } from './utils.ts';
+import { positronBuildNumber, releaseChannel } from './utils.ts';
 // --- End Positron ---
 
 const REPO_ROOT = path.dirname(import.meta.dirname);
@@ -77,6 +77,7 @@ export const vscodeWebResourceIncludes = [
 	// Positron Help
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/*.html',
 	'out-build/vs/workbench/browser/media/*.svg',
+	'out-build/esm-package-dependencies/**',
 	// --- End Positron ---
 
 	// NLS
@@ -143,6 +144,7 @@ export const createVSCodeWebFileContentMapper = (extensionsRoot: string, product
 					// --- Start Positron ---
 					positronVersion,
 					positronBuildNumber,
+					quality: releaseChannel,
 					// --- End Positron ---
 					version,
 					commit,

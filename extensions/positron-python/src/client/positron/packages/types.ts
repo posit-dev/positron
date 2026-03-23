@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 
 /**
  * Interface for emitting messages to the Positron console
@@ -13,10 +14,13 @@ export interface MessageEmitter {
 }
 
 /**
- * Interface for a kernel that can list installed packages via RPC.
+ * Interface for a session that supports RPC method calls.
  */
-export interface PackageKernel {
-    callMethod(method: 'getPackagesInstalled'): Promise<positron.LanguageRuntimePackage[]>;
+export interface PackageSession {
+    /** Session metadata containing the session ID */
+    metadata: { sessionId: string };
+    /** Call an RPC method on the session */
+    callMethod(method: string, ...args: unknown[]): Thenable<unknown>;
 }
 
 /**
@@ -27,44 +31,51 @@ export interface PackageKernel {
 export interface IPackageManager {
     /**
      * Get list of installed packages.
+     * @param token Optional cancellation token
      * @returns Array of installed packages
      */
-    getPackages(): Promise<positron.LanguageRuntimePackage[]>;
+    getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]>;
 
     /**
      * Install one or more packages.
      * @param packages Array of package install requests with name and optional version
+     * @param token Optional cancellation token
      */
-    installPackages(packages: positron.PackageSpec[]): Promise<void>;
+    installPackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void>;
 
     /**
      * Uninstall one or more packages.
      * @param packages Array of package names to uninstall
+     * @param token Optional cancellation token
      */
-    uninstallPackages(packages: string[]): Promise<void>;
+    uninstallPackages(packages: string[], token?: vscode.CancellationToken): Promise<void>;
 
     /**
      * Update specific packages to latest versions.
      * @param packages Array of package install requests with name and optional version
+     * @param token Optional cancellation token
      */
-    updatePackages(packages: positron.PackageSpec[]): Promise<void>;
+    updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void>;
 
     /**
      * Update all installed packages to their latest versions.
+     * @param token Optional cancellation token
      */
-    updateAllPackages(): Promise<void>;
+    updateAllPackages(token?: vscode.CancellationToken): Promise<void>;
 
     /**
      * Search for packages matching a query.
      * @param query Search query string
+     * @param token Optional cancellation token
      * @returns Array of matching packages
      */
-    searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]>;
+    searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]>;
 
     /**
      * Search for available versions of a specific package.
      * @param name Package name
+     * @param token Optional cancellation token
      * @returns Array of version strings
      */
-    searchPackageVersions(name: string): Promise<string[]>;
+    searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
 }

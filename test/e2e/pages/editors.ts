@@ -13,8 +13,29 @@ export class Editors {
 	get editorIcon(): Locator { return this.code.driver.currentPage.locator('.monaco-icon-label.file-icon'); }
 	get editorPart(): Locator { return this.code.driver.currentPage.locator('.split-view-view .part.editor'); }
 	get suggestionList(): Locator { return this.code.driver.currentPage.locator('.suggest-widget .monaco-list-row'); }
+	get editorGroups(): Locator { return this.code.driver.currentPage.locator('.part.editor .editor-group-container'); }
 
 	constructor(private code: Code) { }
+
+	/**
+	 * Get a specific editor group by index.
+	 * Useful for side-by-side notebook testing where you need to scope actions to a specific editor.
+	 * @param index - 0-based index (0 = leftmost/first group)
+	 */
+	editorGroup(index: number): Locator {
+		return this.editorGroups.nth(index);
+	}
+
+	/**
+	 * Verify: the expected number of editor groups are visible.
+	 * @param count - Expected number of editor groups
+	 * @param timeout - Timeout for the expectation (default: 5000ms)
+	 */
+	async expectEditorGroupCount(count: number, timeout = 5000): Promise<void> {
+		await test.step(`Expect ${count} editor group(s)`, async () => {
+			await expect(this.editorGroups).toHaveCount(count, { timeout });
+		});
+	}
 
 	async clickTab(tabName: string): Promise<void> {
 		await test.step(`Click tab: ${tabName}`, async () => {

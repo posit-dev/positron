@@ -32,7 +32,6 @@ import { ILanguageFeaturesService } from '../../../../editor/common/services/lan
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IDebugService } from '../../debug/common/debug.js';
@@ -95,7 +94,6 @@ async function executeCodeInConsole(
 		languageService: ILanguageService;
 		notificationService: INotificationService;
 		positronConsoleService: IPositronConsoleService;
-		runtimeSessionService: IRuntimeSessionService;
 		debugService: IDebugService;
 		textFileService: ITextFileService;
 	},
@@ -106,7 +104,7 @@ async function executeCodeInConsole(
 		errorBehavior?: RuntimeErrorBehavior;
 	} = {}
 ): Promise<boolean> {
-	const { editorService, languageService, notificationService, positronConsoleService, runtimeSessionService, debugService, textFileService } = services;
+	const { editorService, languageService, notificationService, positronConsoleService, debugService, textFileService } = services;
 
 	// Ensure we have a target language.
 	const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
@@ -137,21 +135,6 @@ async function executeCodeInConsole(
 	const documentUri = cursorLocation.uri;
 	if (documentUri.scheme === Schemas.file && textFileService.isDirty(documentUri)) {
 		await debugService.sendBreakpoints(documentUri, true);
-	}
-
-	// Notify the backend that code is about to be executed from a file.
-	// This allows the backend to temporarily add the file's directory to sys.path.
-	// Only notify sessions matching the languageId since code will run in one of those.
-	const activeSessions = runtimeSessionService.getActiveSessions();
-	for (const activeSession of activeSessions) {
-		if (activeSession.session.runtimeMetadata.languageId === languageId && activeSession.uiClient) {
-			try {
-				await activeSession.uiClient.editorContextChanged(documentUri.toString(), true);
-			} catch (err) {
-				// Log but don't fail the execution if notification fails
-				console.warn(`Failed to send editor context changed: ${err}`);
-			}
-		}
 	}
 
 	// Ask the Positron console service to execute the code. Do not focus the console as
@@ -426,7 +409,6 @@ export function registerPositronConsoleActions() {
 
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
-			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 			const debugService = accessor.get(IDebugService);
 			const textFileService = accessor.get(ITextFileService);
 			const configurationService = accessor.get(IConfigurationService);
@@ -665,7 +647,6 @@ export function registerPositronConsoleActions() {
 					languageService,
 					notificationService,
 					positronConsoleService,
-					runtimeSessionService,
 					debugService,
 					textFileService
 				},
@@ -1039,7 +1020,6 @@ export function registerPositronConsoleActions() {
 		const languageService = accessor.get(ILanguageService);
 		const notificationService = accessor.get(INotificationService);
 		const positronConsoleService = accessor.get(IPositronConsoleService);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const debugService = accessor.get(IDebugService);
 		const textFileService = accessor.get(ITextFileService);
 
@@ -1109,7 +1089,6 @@ export function registerPositronConsoleActions() {
 				languageService,
 				notificationService,
 				positronConsoleService,
-				runtimeSessionService,
 				debugService,
 				textFileService,
 			},

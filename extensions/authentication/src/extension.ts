@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ApiKeyAuthenticationProvider } from './apiKeyProvider';
 import { apiKeyProviders, registerApiKeyProvider, showConfigurationDialog } from './configDialog';
+import { validateAnthropicApiKey } from './validation';
 import { log } from './log';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -54,6 +55,8 @@ function registerAnthropicProvider(context: vscode.ExtensionContext): void {
 		),
 		provider
 	);
-	registerApiKeyProvider('anthropic-api', provider);
+	registerApiKeyProvider('anthropic-api', provider, {
+		validateApiKey: validateAnthropicApiKey,
+	});
 	log.info('Registered auth provider: anthropic-api');
 }

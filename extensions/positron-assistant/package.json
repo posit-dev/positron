@@ -1421,6 +1421,7 @@
   },
   "extensionDependencies": [
     "positron.positron-supervisor",
-    "positron.positron-environment"
+    "positron.positron-environment",
+    "positron.authentication"
   ]
 }

@@ -113,6 +113,34 @@ suite('Positron Notebook Cell Outputs', () => {
 			assert.strictEqual(outputs[0].parsed.type, 'image');
 		});
 
+		test('clearing outputs resets collapse state', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]],
+				disposables
+			);
+			const cell = notebook.cells.get()[0];
+			assert.ok(cell.isCodeCell());
+
+			// Add output
+			notebook.textModel!.applyEdits([{
+				editType: CellEditType.Output,
+				index: 0,
+				outputs: [{ outputId: 'output-1', outputs: [textOutputItem('hello')] }],
+				append: false,
+			}], true, undefined, () => undefined, undefined, false);
+			assert.strictEqual(cell.outputs.get().length, 1);
+
+			// Collapse the output
+			cell.collapseOutput();
+			assert.strictEqual(cell.outputIsCollapsed.get(), true);
+
+			// Clear outputs
+			notebook.clearCellOutput(cell);
+
+			assert.strictEqual(cell.outputs.get().length, 0);
+			assert.strictEqual(cell.outputIsCollapsed.get(), false, 'collapse state should reset when outputs are cleared');
+		});
+
 		test('outputImageTargeted context key defaults to false and can be set', () => {
 			const notebook = createTestPositronNotebookInstance(
 				[['print("hello")', 'python', CellKind.Code]],

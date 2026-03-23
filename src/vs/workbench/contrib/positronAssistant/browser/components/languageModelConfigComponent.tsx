@@ -17,7 +17,7 @@ interface LanguageModelConfigComponentProps {
 	config: IPositronLanguageModelConfig,
 	source: IPositronLanguageModelSource,
 	onChange: (config: IPositronLanguageModelConfig) => void,
-	onSignIn: () => void,
+	onSignIn: (apiKeyFromInput?: string) => void,
 	onCancel: () => void,
 	closeDialog: () => void,
 }
@@ -137,6 +137,7 @@ function interpolate(text: string, value: (key: string) => React.ReactNode | und
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	const { authMethod, authStatus, config, source } = props;
 	const { apiKey } = config;
+	const apiKeyInputRef = React.useRef<HTMLInputElement | null>(null);
 
 	// hasAutoconfigure should only be true if the provider was autoconfigured AND the user is currently signed in.
 	// When the user signs out, we need to show the Sign In button even if autoconfigure.signedIn is still true.
@@ -153,8 +154,8 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 
 	return <>
 		{!hasAutoconfigure && <div className='language-model-container input'>
-			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onChange} />}
-			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
+			{showApiKeyInput && <ApiKey apiKey={apiKey} inputRef={apiKeyInputRef} onChange={onChange} />}
+			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={() => props.onSignIn(apiKeyInputRef.current?.value)} />
 			{showCancelButton &&
 				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
 					{localize('positron.languageModelConfig.cancel', "Cancel")}
@@ -214,10 +215,11 @@ const BaseUrl = (props: { baseUrl?: string; signedIn?: boolean; onChange: (newBa
 	</>);
 };
 
-const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void }) => {
+const ApiKey = (props: { apiKey?: string, inputRef: React.RefObject<HTMLInputElement | null>, onChange: (newApiKey: string) => void }) => {
 	return (<>
 		<div className='language-model-authentication-container' id='api-key-input'>
 			<LabeledTextInput
+				ref={props.inputRef}
 				label={apiKeyInputLabel}
 				type='password'
 				value={props.apiKey ?? ''}

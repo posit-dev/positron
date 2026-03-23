@@ -123,6 +123,13 @@ export const ActivityInput = (props: ActivityInputProps) => {
 			setState(props.activityItemInput.state);
 		}));
 
+		// Re-sync state: the item's state may have changed between
+		// the component mounting (useState initialization) and this
+		// effect running (which is deferred until after paint). Without
+		// this, state changes that occur in that window are missed
+		// because no subscriber was listening yet.
+		setState(props.activityItemInput.state);
+
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
 	}, [props.activityItemInput]);

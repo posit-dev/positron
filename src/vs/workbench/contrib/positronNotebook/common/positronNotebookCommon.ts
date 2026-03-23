@@ -31,4 +31,22 @@ export enum PositronNotebookCellActionBarLeftGroup {
 export enum PositronNotebookCellOutputActionGroup {
 	Copy = '0_copy',
 	Visibility = '1_visibility',
+	Destructive = '2_destructive',
+}
+
+/**
+ * Enum of Positron Notebook Action IDs
+ * Not exhaustive; add here when Action IDs are referenced in more than one place.
+ */
+export enum PositronNotebookActionId {
+	CopyOutputImage = 'positronNotebook.cell.copyOutputImage',
+}
+
+/**
+ * Check if a given string is a valid Positron Notebook Action ID
+ * Not exhaustive; add actions to the PositronNotebookActionId enum when action IDs
+ * are referenced in more than one place.
+ */
+export function isPositronNotebookActionId(id: string): id is PositronNotebookActionId {
+	return (Object.values(PositronNotebookActionId) as string[]).includes(id);
 }

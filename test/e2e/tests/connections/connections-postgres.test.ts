@@ -100,18 +100,18 @@ test.describe('Postgres DB Connection', {
 			'Password': password,
 		});
 
-		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: 'connections::connection_view(con)' })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: 'con <- connection_open' })).toBeVisible();
 		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: dbName })).toBeVisible();
-		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("user = \\\'${user}\\\'")`)).toBeVisible();
-		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("password = \\\'${password}\\\'")`)).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("user = \\"${user}\\"")`)).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("password = \\"${password}\\"")`)).toBeVisible();
 
 		await app.workbench.connections.connect();
 
 		await test.step('Open periodic table connection', async () => {
 
-			await app.workbench.connections.viewConnection('PqConnection');
+			await app.workbench.connections.viewConnection(dbName);
 
-			await app.workbench.connections.expandConnectionDetails('PqConnection');
+			await app.workbench.connections.expandConnectionDetails(dbName);
 
 			await app.workbench.connections.expandConnectionDetails('public');
 
@@ -148,7 +148,7 @@ test.describe('Postgres DB Connection', {
 
 			await app.code.driver.currentPage.getByRole('button', { name: 'Disconnect' }).click();
 
-			await app.code.driver.currentPage.locator('.col-name', { hasText: 'PqConnection' }).click();
+			await app.code.driver.currentPage.locator('.col-name', { hasText: dbName }).click();
 
 			await app.code.driver.currentPage.getByRole('button', { name: 'Delete Connection' }).click();
 

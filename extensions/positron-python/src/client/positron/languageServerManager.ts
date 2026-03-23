@@ -50,6 +50,14 @@ class LanguageServerManager implements vscode.Disposable {
                     return;
                 }
 
+                // Only activate the console LSP for Console sessions. Notebook
+                // sessions have restricted document selectors that don't cover
+                // script files, so activating them as the console LSP would
+                // break autocomplete in scripts.
+                if (foregroundSession.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
+                    return;
+                }
+
                 await Promise.all([
                     // Update the last foreground session.
                     lastForegroundSessionIdState.updateValue(sessionId),

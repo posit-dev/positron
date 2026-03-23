@@ -280,10 +280,13 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 
 		// Sign in to Anthropic (method handles auto-sign-in detection)
 		await assistant.loginModelProvider('anthropic-api');
-		await assistant.pickModel();
 
 		// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
-		await assistant.expectModelInPicker('Claude Haiku 4.5 (default)');
+		await expect(async () => {
+			await assistant.closeModelPickerDropdown();
+			await assistant.pickModel();
+			await assistant.expectModelInPicker('Claude Haiku 4.5 (default)');
+		}).toPass({ timeout: 30000 });
 
 		// Verify other Anthropic models do NOT have "(default)"
 		await assistant.expectModelInPicker(/^Claude Sonnet 4$/);
