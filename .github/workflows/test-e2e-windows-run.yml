@@ -120,7 +120,7 @@ jobs:
         run: git checkout ${{ inputs.commit }}
 
       - name: Load secret
-        uses: 1password/load-secrets-action@v3
+        uses: 1password/load-secrets-action@v4
         with:
           # Export loaded secrets as environment variables
           export-env: true
