@@ -7,3 +7,7 @@ import * as vscode from 'vscode';
 
 export const IS_RUNNING_ON_PWB =
 	!!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web;
+
+export const ANTHROPIC_MODELS_ENDPOINT = 'https://api.anthropic.com/v1/models';
+export const ANTHROPIC_API_VERSION = '2023-06-01';
+export const KEY_VALIDATION_TIMEOUT_MS = 5000;

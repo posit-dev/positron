@@ -653,7 +653,6 @@
 			"GitHub.copilot-chat"
 		],
 		"posit-workbench": [
-			"positron.positron-assistant",
 			"positron.authentication"
 		],
 		"anthropic-api": [

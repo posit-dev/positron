@@ -19,7 +19,7 @@ import {
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { getStoredModels, expandConfigToSource } from '../../config';
 import { ModelConfig } from '../../configTypes.js';
-import { DEFAULT_MAX_TOKEN_INPUT, IS_RUNNING_ON_PWB } from '../../constants';
+import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
 import { AssistantError } from '../../errors';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
@@ -73,12 +73,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	 * Used to determine which credential type was used for enhanced error messages.
 	 */
 	private _credentialSourcePromise?: Promise<AwsSdkCredentialsFeatures | undefined>;
-
-	/**
-	 * Cached result of whether managed credentials are available.
-	 * Computed once in initializeProvider to avoid repeated checks on every error.
-	 */
-	private _isManagedCredential: boolean = false;
 
 	/**
 	 * Supported Bedrock model providers.
@@ -156,28 +150,17 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	/**
 	 * Initializes the AWS Bedrock provider with credentials and region settings.
 	 */
-	/**
-	 * Gets AWS credentials from the auth extension session.
-	 */
-	private async getBedrockSession(): Promise<{
-		accessKeyId: string;
-		secretAccessKey: string;
-		sessionToken?: string;
-	}> {
-		const session = await vscode.authentication.getSession(
-			'amazon-bedrock', [], { silent: true }
-		);
-		if (!session) {
-			throw new Error('No AWS credentials available');
-		}
-		return JSON.parse(session.accessToken);
-	}
-
 	protected override initializeProvider() {
 		// Create a credential provider that fetches fresh credentials
 		// from the auth extension on each SDK request.
 		const credentials: AwsCredentialIdentityProvider = async () => {
-			const creds = await this.getBedrockSession();
+			const session = await vscode.authentication.getSession(
+				'amazon-bedrock', [], { silent: true }
+			);
+			if (!session) {
+				throw new Error('No AWS credentials available');
+			}
+			const creds = JSON.parse(session.accessToken);
 			return {
 				accessKeyId: creds.accessKeyId,
 				secretAccessKey: creds.secretAccessKey,
@@ -217,9 +200,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			}
 			return credentialSource;
 		});
-
-		// Cache managed credential state once to avoid repeated checks per error
-		this._isManagedCredential = IS_RUNNING_ON_PWB;
 
 		this.logger.info(
 			`Using AWS region: ${region}, profile: ${profile ?? '(not set, using default)'}, ` +
@@ -339,7 +319,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 				profile,
 				region,
 				credentialSource,
-				isManagedCredential: this._isManagedCredential
+
 			});
 		}
 
@@ -392,7 +372,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 					profile,
 					region,
 					credentialSource,
-					isManagedCredential: this._isManagedCredential
+
 				});
 			}
 		}

@@ -5,8 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-
-const VALIDATION_TIMEOUT_MS = 5000;
+import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 
 class FoundryValidationError extends Error {
 	constructor(message: string) {
@@ -63,7 +62,7 @@ export async function validateFoundryApiKey(
 	const endpoint = `${baseUrl}/chat/completions`;
 
 	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), VALIDATION_TIMEOUT_MS);
+	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
 	try {
 		const response = await fetch(endpoint, {
 			method: 'POST',
@@ -100,7 +99,7 @@ export async function validateFoundryApiKey(
 		if (err instanceof Error && err.name === 'AbortError') {
 			throw new FoundryValidationError(vscode.l10n.t(
 				'Could not validate Foundry credentials within {0} seconds',
-				String(VALIDATION_TIMEOUT_MS / 1000)
+				String(KEY_VALIDATION_TIMEOUT_MS / 1000)
 			));
 		}
 		if (err instanceof FoundryValidationError) {
