@@ -1909,7 +1909,7 @@ declare module 'positron' {
 		 *
 		 * @return New log output channel.
 		 */
-		export function createRawLogOutputChannel(name: string): vscode.OutputChannel;
+		export function createRawLogOutputChannel(name: string): vscode.LogOutputChannel;
 
 		/**
 		 * Create and show a simple modal dialog prompt.

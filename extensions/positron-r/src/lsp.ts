@@ -35,8 +35,8 @@ const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[
  * all LSP sessions. Watch out for session start log messages to find the
  * relevant section of the log.
  */
-let _lspOutputChannel: vscode.OutputChannel | undefined;
-function getLspOutputChannel(): vscode.OutputChannel {
+let _lspOutputChannel: vscode.LogOutputChannel | undefined;
+function getLspOutputChannel(): vscode.LogOutputChannel {
 	if (!_lspOutputChannel) {
 		_lspOutputChannel = positron.window.createRawLogOutputChannel('R Language Server');
 	}

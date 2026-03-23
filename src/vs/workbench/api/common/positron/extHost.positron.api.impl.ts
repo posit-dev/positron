@@ -202,7 +202,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			previewHtml(path: string) {
 				return extHostPreviewPanels.previewHtml(extension, path);
 			},
-			createRawLogOutputChannel(name: string): vscode.OutputChannel {
+			createRawLogOutputChannel(name: string): vscode.LogOutputChannel {
 				return extHostOutputService.createRawLogOutputChannel(name, extension);
 			},
 			showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Thenable<boolean> {
