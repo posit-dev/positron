@@ -64,12 +64,27 @@ export interface ParsedCellOptions {
  */
 function yamlNodeToValue(node: YamlNode): unknown {
 	switch (node.type) {
-		case 'string': return node.value;
-		case 'number': return node.value;
-		case 'boolean': return node.value;
-		case 'null': return null;
-		case 'array': return node.items.map(yamlNodeToValue);
-		case 'object': {
+		case 'scalar': {
+			const val = node.value;
+			// Interpret scalar values
+			if (val === 'null' || val === '~' || val === '') {
+				return null;
+			}
+			if (val === 'true') {
+				return true;
+			}
+			if (val === 'false') {
+				return false;
+			}
+			// Try to parse as number
+			const num = Number(val);
+			if (!isNaN(num) && val.trim() !== '') {
+				return num;
+			}
+			return val;
+		}
+		case 'sequence': return node.items.map(yamlNodeToValue);
+		case 'map': {
 			const result: Record<string, unknown> = {};
 			for (const prop of node.properties) {
 				result[prop.key.value] = yamlNodeToValue(prop.value);

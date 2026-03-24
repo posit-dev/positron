@@ -73,7 +73,7 @@ test.describe('Quarto - Inline Output: Copy and Select', {
 		await inlineQuarto.gotoLine(2);
 
 		// Select the line content using Home then Shift+End
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		await page.keyboard.press('Home');
 		await page.keyboard.press('Shift+End');
 

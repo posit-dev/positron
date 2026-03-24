@@ -26,7 +26,7 @@ test.describe('Autocomplete with Notebook Console', {
 
 	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
 		const { editors, console, notebooks } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 
 		await test.step('Enable notebook console actions', async () => {
@@ -90,7 +90,7 @@ test.describe('Autocomplete with Notebook Console', {
 		tag: [tags.ARK]
 	}, async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
 		const { editors, console, notebooks } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 
 		await test.step('Enable notebook console actions', async () => {
@@ -154,7 +154,7 @@ test.describe('Autocomplete with Notebook Console', {
 		tag: [tags.ARK, tags.QUARTO]
 	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
 		const { console, inlineQuarto, editors } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 
 		await test.step('Enable inline output and notebook consoles', async () => {
@@ -222,7 +222,7 @@ test.describe('Autocomplete with Notebook Console', {
 		tag: [tags.ARK, tags.QUARTO]
 	}, async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
 		const { editors, inlineQuarto } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
 
@@ -294,7 +294,7 @@ test.describe('Autocomplete with Notebook Console', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
 		const { console, inlineQuarto, editors } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 
 		await test.step('Enable inline output and notebook consoles', async () => {
@@ -363,7 +363,7 @@ test.describe('Autocomplete with Notebook Console', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, openFile, sessions, hotKeys, settings }) {
 		const { editors, inlineQuarto } = app.workbench;
-		const page = app.code.driver.page;
+		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
 		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
 
