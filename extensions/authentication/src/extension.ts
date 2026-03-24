@@ -7,10 +7,12 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AuthProvider } from './authProvider';
-import { getAuthProvider, registerAuthProvider, showConfigurationDialog } from './configDialog';
+import { registerAuthProvider, showConfigurationDialog } from './configDialog';
 import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { log } from './log';
+import { migrateAwsSettings } from './migration/aws';
+import { registerMigrateApiKeyCommand } from './migration/apiKey';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
@@ -36,22 +38,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				return showConfigurationDialog(sources ?? [], options);
 			}
 		),
-		vscode.commands.registerCommand(
-			'authentication.migrateApiKey',
-			async (providerId: string, accountId: string, label: string, key: string) => {
-				const provider = getAuthProvider(providerId);
-				if (!provider) {
-					throw new Error(vscode.l10n.t("No auth provider registered for {0}", providerId));
-				}
-				const existing = await provider.getSessions([], { account: { id: accountId, label: '' } });
-				if (existing.length > 0) {
-					log.info(`Skipping migration for ${providerId}/${accountId}: session already exists`);
-					return;
-				}
-				await provider.storeKey(accountId, label, key);
-			}
-		)
 	);
+	registerMigrateApiKeyCommand(context);
 }
 
 function registerAnthropicProvider(context: vscode.ExtensionContext): void {
@@ -121,59 +109,6 @@ function registerAwsProvider(
 		log.debug(`[AWS] Initial credential resolution failed: ${err}`)
 	);
 	log.info('Registered auth provider: amazon-bedrock');
-}
-
-/**
- * Migrate AWS settings from positron-assistant to the auth extension.
- * Reads old settings and writes them to the new location if not already set.
- */
-async function migrateAwsSettings(): Promise<void> {
-	type AwsVars = { AWS_PROFILE?: string; AWS_REGION?: string };
-
-	const oldVars = vscode.workspace
-		.getConfiguration('positron.assistant.providerVariables')
-		.inspect<AwsVars>('bedrock');
-	const oldInference = vscode.workspace
-		.getConfiguration('positron.assistant.bedrock')
-		.inspect<string>('inferenceProfileRegion');
-
-	const newVars = vscode.workspace
-		.getConfiguration('authentication.aws')
-		.inspect<AwsVars>('credentials');
-	const newInference = vscode.workspace
-		.getConfiguration('authentication.aws')
-		.inspect<string>('inferenceProfileRegion');
-
-	const newConfig = vscode.workspace
-		.getConfiguration('authentication.aws');
-
-	if (oldVars?.globalValue && !newVars?.globalValue) {
-		await newConfig.update(
-			'credentials', oldVars.globalValue,
-			vscode.ConfigurationTarget.Global
-		);
-	}
-	if (oldVars?.workspaceValue && !newVars?.workspaceValue) {
-		await newConfig.update(
-			'credentials', oldVars.workspaceValue,
-			vscode.ConfigurationTarget.Workspace
-		);
-	}
-
-	if (oldInference?.globalValue && !newInference?.globalValue) {
-		await newConfig.update(
-			'inferenceProfileRegion', oldInference.globalValue,
-			vscode.ConfigurationTarget.Global
-		);
-	}
-	if (oldInference?.workspaceValue && !newInference?.workspaceValue) {
-		await newConfig.update(
-			'inferenceProfileRegion', oldInference.workspaceValue,
-			vscode.ConfigurationTarget.Workspace
-		);
-	}
-
-	log.info('AWS settings migration complete');
 }
 
 function registerFoundryProvider(context: vscode.ExtensionContext): void {
