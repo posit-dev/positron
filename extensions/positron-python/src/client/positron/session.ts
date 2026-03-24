@@ -500,12 +500,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this._kernel = await this.createKernel();
 
             // Create package manager now that kernel is available
+            // Pass `this` (the session) which provides callMethod and interrupt
             this._packageManager = PackageManagerFactory.create(
                 this.runtimeMetadata.runtimeSource,
                 this._pythonPath,
                 this._messageEmitter,
                 this.serviceContainer,
-                this._kernel,
+                this,
             );
         }
 

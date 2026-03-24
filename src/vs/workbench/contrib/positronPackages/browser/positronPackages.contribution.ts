@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as nls from '../../../../nls.js';
@@ -20,8 +21,7 @@ import { IPositronPackagesService } from './interfaces/positronPackagesService.j
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { ILanguageRuntimePackage } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 
@@ -84,15 +84,28 @@ class RefreshPackagesAction extends Action2 {
 			precondition: POSITRON_PACKAGES_ENABLED,
 		});
 	}
-	override run(accessor: ServicesAccessor, ...args: unknown[]): Promise<ILanguageRuntimePackage[]> {
+	override async run(accessor: ServicesAccessor): Promise<ILanguageRuntimePackage[]> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
-		try {
-			return service.refreshPackages();
-		} catch (error) {
-			notifications.error(error);
-			throw error;
-		}
+		const progress = accessor.get<IProgressService>(IProgressService);
+
+		const cts = new CancellationTokenSource();
+
+		return progress.withProgress({
+			title: nls.localize('positronPackages.refreshingPackages', 'Refreshing Packages...'),
+			location: ProgressLocation.Notification,
+			cancellable: true,
+			delay: 500
+		}, async () => {
+			try {
+				return await service.refreshPackages(cts.token);
+			} catch (error) {
+				notifications.error(error);
+				throw error;
+			} finally {
+				cts.dispose(true);
+			}
+		}, () => cts.cancel());
 	}
 }
 
@@ -107,18 +120,21 @@ class InstallPackageAction extends Action2 {
 			precondition: POSITRON_PACKAGES_ENABLED,
 		});
 	}
-	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+	override async run(accessor: ServicesAccessor): Promise<void> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
 
+		// Create a token source for the entire install flow (search + install)
+		const cts = new CancellationTokenSource();
+
 		try {
 			const performSearch = async (q: string) => {
-				return await service.searchPackages(q);
+				return await service.searchPackages(q, cts.token);
 			};
 
 			const performSearchVersions = async (pkg: string) => {
-				return await service.searchPackageVersions(pkg);
+				return await service.searchPackageVersions(pkg, cts.token);
 			};
 
 			const performInstall = async (pkg: string, version?: string): Promise<void> => {
@@ -129,33 +145,25 @@ class InstallPackageAction extends Action2 {
 				await progress.withProgress({
 					title: nls.localize('positronPackages.installingPackages', 'Installing Packages...'),
 					location: ProgressLocation.Notification,
+					cancellable: true,
 					delay: 500
-				}, async (_progress) => {
+				}, async () => {
 					try {
-						await service.installPackages([{ name: pkg, version }]);
+						await service.installPackages([{ name: pkg, version }], cts.token);
 					} catch (e) {
-						notifications.notify({
-							severity: Severity.Error,
-							actions: {
-								primary: [{
-									id: 'viewLogs',
-									label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									enabled: true,
-									class: undefined,
-									run: () => service.activeSession?.showOutput(),
-								}]
-							},
-							message: nls.localize('positronPackages.failedToInstallPackage', "Failed to install package: '{0}'", pkg),
-						});
+						notifications.error(e);
+					} finally {
+						cts.dispose(true);
 					}
-				});
+				}, () => cts.dispose(true));
 			};
 
-			await installPackage(accessor, performSearch, performSearchVersions, performInstall);
+			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
 		} catch (error) {
 			notifications.error(error);
 			throw error;
+		} finally {
+			cts.dispose(true);
 		}
 	}
 }
@@ -172,45 +180,33 @@ class UninstallPackageAction extends Action2 {
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
-		const commands = accessor.get<ICommandService>(ICommandService);
 		const dialogService = accessor.get<IDialogService>(IDialogService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
+		const cts = new CancellationTokenSource();
 
 		try {
 			const performSearch = async () => {
-				const packages = await commands.executeCommand(PACKAGES_REFRESH_COMMAND_ID) as ILanguageRuntimePackage[];
+				const packages = await service.refreshPackages(cts.token);
 				return packages
 					.map((x) => ({
 						name: x.displayName
 					}));
 			};
 
-			const performUninstall = async (pkg: string, version?: string): Promise<void> => {
+			const performUninstall = async (pkg: string): Promise<void> => {
 				await progress.withProgress({
 					title: nls.localize('positronPackages.uninstallingPackages', 'Uninstalling Packages...'),
 					location: ProgressLocation.Notification,
+					cancellable: true,
 					delay: 500
-				}, async (_progress) => {
+				}, async () => {
 					try {
-						await service.uninstallPackages([pkg]);
+						await service.uninstallPackages([pkg], cts.token);
 					} catch (e) {
-						notifications.notify({
-							severity: Severity.Error,
-							actions: {
-								primary: [{
-									id: 'viewLogs',
-									label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									enabled: true,
-									class: undefined,
-									run: () => service.activeSession?.showOutput(),
-								}]
-							},
-							message: nls.localize('positronPackages.failedToUninstallPackage', "Failed to uninstall package: '{0}'", pkg),
-						});
+						notifications.error(e);
 					}
-				});
+				}, () => cts.dispose(true));
 			};
 
 			const argPackage = args.at(0) as string | undefined;
@@ -222,7 +218,7 @@ class UninstallPackageAction extends Action2 {
 					await performUninstall(argPackage);
 				}
 			} else {
-				await uninstallPackage(accessor, performSearch, performUninstall);
+				await uninstallPackage(accessor, performSearch, performUninstall, cts);
 			}
 		} catch (error) {
 			notifications.error(error);
@@ -250,12 +246,15 @@ class UpdatePackageAction extends Action2 {
 	}
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
-		const commands = accessor.get<ICommandService>(ICommandService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
+
+		// Create a token source for the entire update flow
+		const cts = new CancellationTokenSource();
+
 		try {
 			const performSearch = async () => {
-				const packages = await commands.executeCommand(PACKAGES_REFRESH_COMMAND_ID) as ILanguageRuntimePackage[];
+				const packages = await service.refreshPackages(cts.token);
 				return packages
 					.map((x) => ({
 						name: x.displayName
@@ -263,42 +262,31 @@ class UpdatePackageAction extends Action2 {
 			};
 
 			const performSearchVersions = async (pkg: string) => {
-				return await service.searchPackageVersions(pkg);
+				return service.searchPackageVersions(pkg, cts.token);
 			};
 
 			const performUpdate = async (pkg: string, version: string): Promise<void> => {
-
 				await progress.withProgress({
 					title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
 					location: ProgressLocation.Notification,
+					cancellable: true,
 					delay: 500
-				}, async (_progress) => {
+				}, async () => {
 					try {
-						await service.updatePackages([{ name: pkg, version }]);
+						await service.updatePackages([{ name: pkg, version }], cts.token);
 					} catch (e) {
-						notifications.notify({
-							severity: Severity.Error,
-							actions: {
-								primary: [{
-									id: 'viewLogs',
-									label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-									enabled: true,
-									class: undefined,
-									run: () => service.activeSession?.showOutput(),
-								}]
-							},
-							message: nls.localize('positronPackages.failedToUpdatePackage', "Failed to update package: '{0}'", pkg),
-						});
+						notifications.error(e);
 					}
-				});
+				}, () => cts.dispose(true));
 			};
 
 			const arg0 = args.at(0) as string | undefined;
-			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, arg0);
+			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, arg0, cts);
 		} catch (error) {
 			notifications.error(error);
 			throw error;
+		} finally {
+			cts.dispose(true);
 		}
 	}
 }
@@ -319,35 +307,26 @@ class UpdateAllPackagesAction extends Action2 {
 			}
 		});
 	}
-	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+	override async run(accessor: ServicesAccessor): Promise<void> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
 
+		const cts = new CancellationTokenSource();
+
 		await progress.withProgress({
 			title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
 			location: ProgressLocation.Notification,
+			cancellable: true,
 			delay: 500
-		}, async (_progress) => {
+		}, async () => {
 			try {
-				await service.updateAllPackages();
+				await service.updateAllPackages(cts.token);
 			} catch (e) {
-				notifications.notify({
-					severity: Severity.Error,
-					actions: {
-						primary: [{
-							id: 'viewLogs',
-							label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-							tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-							enabled: true,
-							class: undefined,
-							run: () => service.activeSession?.showOutput(),
-						}]
-					},
-					message: nls.localize('positronPackages.failedToUpdateAllPackages', "Failed to update all packages"),
-				});
+				notifications.error(e);
+				throw e;
 			}
-		});
+		}, () => cts.dispose(true));
 	}
 }
 

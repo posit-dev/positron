@@ -35,7 +35,7 @@ import { fetchUrls, fetchGithub } from './lib/fetch.ts';
 import jsonEditor from 'gulp-json-editor';
 
 // --- Start Positron ---
-import { positronBuildNumber } from './utils.ts';
+import { positronBuildNumber, releaseChannel } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
@@ -130,9 +130,6 @@ const serverResources = [
 const serverWithWebResourceIncludes = [
 	...serverResourceIncludes,
 	'out-build/vs/code/browser/workbench/*.html',
-	// --- Start Positron ---
-	'out-build/esm-package-dependencies/**',
-	// --- End Positron ---
 	...vscodeWebResourceIncludes
 ];
 
@@ -408,7 +405,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		let packageJsonContents = '';
 		// --- Start Positron ---
 		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
-		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
+		const packageJsonBase = isWebType(type) ? 'remote/reh-web' : 'remote';
 		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
 			// --- End Positron ---
 			.pipe(jsonEditor({ name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' }))
@@ -420,7 +417,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		let productJsonContents = '';
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
 			// --- Start Positron ---
-			.pipe(jsonEditor({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber }))
+			.pipe(jsonEditor({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber, quality: releaseChannel }))
 			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();
@@ -435,7 +432,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
 		// --- Start Positron ---
-		const productionDependencies = getProductionDependencies(type === 'reh-web' ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
+		const productionDependencies = getProductionDependencies(isWebType(type) ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
 		const deps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
 			// --- End Positron ---

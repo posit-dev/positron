@@ -105,7 +105,11 @@ registerAction2(class CancelExecutionAction extends Action2 {
 			keybinding: {
 				when: QUARTO_PRECONDITION,
 				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+				// On Mac, Ctrl+C is the traditional interrupt signal and does
+				// not conflict with copy (Cmd+C). On Windows/Linux, Ctrl+C is
+				// the copy shortcut, so we must not bind it there. Users can
+				// still cancel execution via toolbar.
+				primary: 0,
 				mac: {
 					primary: KeyMod.WinCtrl | KeyCode.KeyC,
 				},

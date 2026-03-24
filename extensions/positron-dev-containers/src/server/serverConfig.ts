@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -66,7 +66,7 @@ export interface ServerConfig {
 }
 
 // Default download URL template - matches the format used by open-remote-ssh
-const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
+const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/${quality}/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
 
 /**
  * Server configuration provider
@@ -185,15 +185,9 @@ export class ServerConfigProvider {
 	}
 
 	/**
-	 * Get the quality (stable, insider) from the environment
+	 * Get the quality (dailies, releases) from product.json
 	 */
 	private getQuality(): string {
-		// Check if this is an insider build
-		const appName = vscode.env.appName.toLowerCase();
-		if (appName.includes('insider') || appName.includes('insiders')) {
-			return 'insider';
-		}
-
 		// Check product.json for quality
 		try {
 			const appRoot = vscode.env.appRoot;
@@ -208,8 +202,8 @@ export class ServerConfigProvider {
 			this.logger.error(`Failed to read quality from product.json: ${error}`);
 		}
 
-		// Default to stable
-		return 'stable';
+		// Default to dailies for backwards compatibility
+		return 'dailies';
 	}
 
 	/**

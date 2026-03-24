@@ -25,6 +25,9 @@ import { createTestNotebookEditor, TestNotebookExecutionStateService } from '../
 import { RuntimeNotebookKernel } from '../../browser/runtimeNotebookKernel.js';
 import { CodeAttributionSource } from '../../../../api/common/positron/extHostTypes.positron.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { INotebookEditorService } from '../../../notebook/browser/services/notebookEditorService.js';
+import { NotebookEditorWidget } from '../../../notebook/browser/notebookEditorWidget.js';
+import { NotebookOptions } from '../../../notebook/browser/notebookOptions.js';
 
 suite('Positron - RuntimeNotebookKernel', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -64,6 +67,24 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		instantiationService.stub(INotebookService, new class extends mock<INotebookService>() {
 			override getNotebookTextModel(uri: URI): NotebookTextModel | undefined {
 				return notebookDocument;
+			}
+		});
+
+		// Stub a mocked notebook editor service that returns a widget with layout info.
+		instantiationService.stub(INotebookEditorService, new class extends mock<INotebookEditorService>() {
+			override retrieveExistingWidgetFromURI(_resource: URI) {
+				const mockNotebookOptions = {
+					getCellEditorContainerLeftMargin: () => 60,
+					getLayoutConfiguration: () => ({ cellRightMargin: 16 }),
+				} as unknown as NotebookOptions;
+
+				const mockWidget = {
+					getLayoutInfo: () => ({ width: 800 }),
+					getDomNode: () => document.createElement('div'),
+					notebookOptions: mockNotebookOptions,
+				} as unknown as NotebookEditorWidget;
+
+				return { value: mockWidget };
 			}
 		});
 
@@ -151,6 +172,33 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		assert.strictEqual(executed.attribution.source, CodeAttributionSource.Notebook);
 	});
 
+
+	test('single cell passes execution metadata with output_width_px and output_pixel_ratio', async () => {
+		// Start a session.
+		const session = await startSession();
+
+		// Spy on session.execute to capture execution metadata.
+		const executeSpy = sinon.spy(session, 'execute');
+
+		// On execute, reply with an idle state.
+		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+
+		// Execute a cell.
+		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
+
+		// Verify session.execute was called with executionMetadata.
+		sinon.assert.calledOnce(executeSpy);
+		const callArgs = executeSpy.firstCall.args as unknown as unknown[];
+		const executionMetadata = callArgs[5] as Record<string, unknown>;
+		assert.ok(executionMetadata, 'executionMetadata should be provided');
+		assert.strictEqual(typeof executionMetadata.output_width_px, 'number');
+		assert.strictEqual(typeof executionMetadata.output_pixel_ratio, 'number');
+		// The mock widget has width 800, leftMargin 60, rightMargin 16,
+		// so output_width_px should be 800 - 60 - 16 = 724.
+		assert.strictEqual(executionMetadata.output_width_px, 724);
+		assert.ok((executionMetadata.output_pixel_ratio as number) > 0,
+			'output_pixel_ratio should be a positive number');
+	});
 
 	test('single cell starts a new session if required', async () => {
 		// When a session is started, setup its execute handler to reply with an idle state.
