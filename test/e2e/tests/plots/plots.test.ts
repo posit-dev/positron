@@ -21,12 +21,13 @@ test.use({
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('Python Plots', () => {
 
-		test.beforeEach(async function ({ sessions, hotKeys }) {
-			await sessions.start('python');
+		test.beforeEach(async function ({ hotKeys, sessions }) {
+			await sessions.start('python')
 			await hotKeys.stackedLayout();
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
+			await hotKeys.closeAllEditors();
 			await hotKeys.fullSizeSecondarySidebar();
 			await expect(async () => {
 				await hotKeys.clearPlots();
@@ -180,7 +181,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				// confirming the action was "editor tab" not "new window"
 				const editorGroups = page.locator('.editor-group-container');
 				await expect(editorGroups).toHaveCount(1);
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 		});
 
@@ -209,7 +209,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await test.step('Save plot from editor', async () => {
 				await app.workbench.plots.savePlotFromEditor({ name: 'Python-scatter-editor', format: 'JPEG' });
 				await app.workbench.explorer.verifyExplorerFilesExist(['Python-scatter-editor.jpeg']);
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
 		});
@@ -381,6 +380,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
+			await hotKeys.closeAllEditors();
+			await hotKeys.fullSizeSecondarySidebar();
 			await expect(async () => {
 				await hotKeys.clearPlots();
 				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
@@ -423,13 +424,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await test.step('Verify plot can be opened in editor', async () => {
 				await app.workbench.plots.openPlotIn('editor');
 				await app.workbench.plots.waitForPlotInEditor();
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
-
-			await expect(async () => {
-				await hotKeys.clearPlots();
-				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
-			}).toPass({ timeout: 15000 });
 		});
 
 		test('R - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS, tags.CRITICAL] }, async function ({ app }) {
@@ -460,7 +455,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await test.step('Save plot from editor as JPEG', async () => {
 				await app.workbench.plots.savePlotFromEditor({ name: 'R-cars', format: 'JPEG' });
 				await app.workbench.explorer.verifyExplorerFilesExist(['R-cars.jpeg']);
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 		});
 
