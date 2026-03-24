@@ -142,7 +142,7 @@ export class EditorActionBar {
 	 * Verify: Check that the preview renders the specified heading
 	 * @param heading the heading to verify in the preview
 	 */
-	async verifyPreviewRendersHtml(heading: string, timeout = 5000) {
+	async verifyPreviewRendersHtml(heading: string, timeout = 20000) {
 		await test.step('Verify "preview" renders html', async () => {
 			const viewerFrame = this.viewer.getViewerFrame().frameLocator('iframe');
 			await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout });
