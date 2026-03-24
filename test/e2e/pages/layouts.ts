@@ -3,10 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
-import { expect, test } from '../tests/_test.setup.js';
 
 const FULL_APP = 'body';
 const AUX_BAR = '.part.auxiliarybar';
