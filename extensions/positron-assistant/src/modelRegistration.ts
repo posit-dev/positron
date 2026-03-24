@@ -167,30 +167,8 @@ export async function registerModels(context: vscode.ExtensionContext) {
 		}
 	}
 
-	// For auth-extension-managed providers without stored or
-	// auto-configured models, check for existing sessions and
-	// create a default config from provider metadata.
-	const AUTH_SESSION_PROVIDERS: [string, string][] = [
-		['amazon-bedrock', 'amazon-bedrock'],
-		['ms-foundry', 'ms-foundry'],
-	];
-	for (const [modelProviderId, authProviderId] of AUTH_SESSION_PROVIDERS) {
-		if (registeredModels.some(c => c.provider === modelProviderId)) {
-			continue;
-		}
-		try {
-			await registerModelsForProvider(
-				context, modelProviderId, authProviderId
-			);
-		} catch (e) {
-			log.warn(`Session-based registration failed for ${modelProviderId}: ${e instanceof Error ? e.message : String(e)}`);
-		}
-	}
-
 	// Set context for if we have chat models available for use.
-	// Check modelDisposables (includes session-based registrations
-	// from above) rather than the local registeredModels array.
-	const hasPositronChatModels = modelDisposables.some(d => d.modelConfig.type === 'chat');
+	const hasPositronChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
 	let hasOtherChatModels = false;
 
 	try {

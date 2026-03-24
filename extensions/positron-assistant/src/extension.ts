@@ -32,6 +32,7 @@ import { registerPositAuthProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_METADATA } from './providerMetadata.js';
 import { ModelConfig } from './configTypes.js';
 import { isAuthExtProvider } from './authExtRouting.js';
+import { IS_RUNNING_ON_PWB } from './constants.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -284,6 +285,22 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Register chat participants
 	const participantService = registerParticipants(context);
 
+	// Gate the session listener until initial model registration completes.
+	// Without this, the auth extension resolving credentials during startup
+	// fires onDidChangeSessions, which registers models and can cause the
+	// LM service to auto-switch the active provider before the initial
+	// registerModels() call finishes. Queued events are replayed afterward.
+	let initialRegistrationComplete = false;
+	const pendingSessionEvents: string[] = [];
+
+	// On Posit Workbench, session-backed providers (AWS, Foundry) may not
+	// have stored configs. Re-register with authProviderId to trigger the
+	// session-based fallback in registerModelsForProvider. On desktop,
+	// these providers only register when the user explicitly configures them.
+	const SESSION_PROVIDERS = IS_RUNNING_ON_PWB
+		? new Set(['amazon-bedrock', 'ms-foundry'])
+		: new Set<string>();
+
 	// Initialize provider configuration system (registration, migration, validation)
 	initializeProviderConfiguration(context)
 		.then(async () => {
@@ -307,18 +324,43 @@ function registerAssistant(context: vscode.ExtensionContext) {
 			// After initialization, register models
 			return registerModels(context);
 		})
+		.then(async () => {
+			initialRegistrationComplete = true;
+			// Replay session events that arrived during startup.
+			const unique = [...new Set(pendingSessionEvents)];
+			for (const providerId of unique) {
+				try {
+					const hasStoredConfig =
+						await reconcileAuthProviderModels(context, providerId);
+					if (hasStoredConfig || SESSION_PROVIDERS.has(providerId)) {
+						await registerModelsForProvider(
+							context, providerId,
+							SESSION_PROVIDERS.has(providerId)
+								? providerId : undefined
+						);
+					}
+				} catch (e) {
+					log.warn(`[Auth Startup] Deferred session registration failed for ${providerId}: ${e instanceof Error ? e.message : String(e)}`);
+				}
+			}
+		})
 		.catch((e) => {
+			initialRegistrationComplete = true;
 			log.error(`Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
 
 	// Keep Positron Assistant model state in sync when auth sessions change.
-	// Session-backed providers (AWS, Foundry) may not have stored configs,
-	// so always re-register with the authProviderId to trigger the
-	// session-based fallback in registerModelsForProvider.
-	const SESSION_PROVIDERS = new Set(['amazon-bedrock', 'ms-foundry']);
 	context.subscriptions.push(vscode.authentication.onDidChangeSessions(async (e) => {
 		const providerId = e.provider.id;
 		if (!isAuthExtProvider(providerId)) {
+			return;
+		}
+
+		// Queue session events during startup -- they are replayed after
+		// registerModels() completes to avoid racing with initial setup.
+		if (!initialRegistrationComplete) {
+			log.info(`[Auth Session Sync] Queuing session event for ${providerId} during initial registration`);
+			pendingSessionEvents.push(providerId);
 			return;
 		}
 
