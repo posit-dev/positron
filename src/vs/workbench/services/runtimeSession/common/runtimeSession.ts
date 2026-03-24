@@ -421,7 +421,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	deleteNotebookSession(notebookUri: URI): void {
 		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
 		if (session) {
-			this._logService.info(`Deleting notebook session record for ${notebookUri.toString()} (session ${session.metadata.sessionId})`);
+			this._logService.debug(`Deleting notebook session record for ${notebookUri.toString()} (session ${session.metadata.sessionId})`);
 			this._notebookSessionsByNotebookUri.delete(notebookUri);
 		}
 	}
