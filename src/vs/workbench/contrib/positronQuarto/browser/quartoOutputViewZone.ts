@@ -28,6 +28,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { POSITRON_QUARTO_INLINE_DATA_EXPLORER_ENABLED_KEY, POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../common/positronQuartoConfig.js';
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
+import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -1240,17 +1241,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		const variablePath = parseVariablePath(payload.variable_path);
 
-		// Calculate height (must match quartoInlineDataExplorer.tsx constants)
 		const maxHeight = this._configurationService?.getValue<number>(
 			POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 		) ?? 300;
-		const COLUMN_HEADERS_HEIGHT = 34;
-		const ROW_HEIGHT = 22;
-		const TOOLBAR_HEIGHT = 26;
-		const BORDER = 2;
-		const SCROLLBAR_HEIGHT = 10;
-		const naturalHeight = TOOLBAR_HEIGHT + COLUMN_HEADERS_HEIGHT + (shape.rows * ROW_HEIGHT) + SCROLLBAR_HEIGHT + BORDER;
-		const height = Math.min(naturalHeight, maxHeight);
+		const height = calculateInlineDataExplorerHeight(shape.rows, maxHeight);
 
 		// Create a container for the React component
 		const dataExplorerContainer = document.createElement('div');

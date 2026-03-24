@@ -6,6 +6,7 @@
 .inline-data-explorer-container {
 	display: flex;
 	flex-direction: column;
+	/* If you change the border width, update BORDER in quartoInlineDataExplorerLayout.ts */
 	border: 1px solid var(--vscode-panel-border);
 	border-radius: 4px;
 	overflow: hidden;
@@ -18,6 +19,7 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 8px;
+	/* If you change the height or border, update TOOLBAR_HEIGHT in quartoInlineDataExplorerLayout.ts */
 	height: 24px; /* Match .positron-notebook-code-cell-footer height */
 	background-color: var(--vscode-editorWidget-background);
 	border-bottom: 1px solid var(--vscode-panel-border);

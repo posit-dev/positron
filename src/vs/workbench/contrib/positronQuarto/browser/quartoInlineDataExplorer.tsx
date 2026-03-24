@@ -20,18 +20,7 @@ import { PositronDataGrid } from '../../../browser/positronDataGrid/positronData
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../common/positronQuartoConfig.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
-
-// Height calculation constants (from inlineTableDataGridInstance.tsx constructor options).
-const COLUMN_HEADERS_HEIGHT = 34; // columnHeadersHeight in grid options
-const ROW_HEIGHT = 22;            // defaultRowHeight
-const TOOLBAR_HEIGHT = 26;        // Header bar (24px CSS height + 1px border-bottom + 1px padding)
-const BORDER = 2;                 // 1px top + 1px bottom border on outer container
-const SCROLLBAR_HEIGHT = 10;      // horizontalScrollbar thickness
-
-const calculateHeight = (rowCount: number, maxHeight: number): number => {
-	const naturalHeight = TOOLBAR_HEIGHT + COLUMN_HEADERS_HEIGHT + (rowCount * ROW_HEIGHT) + SCROLLBAR_HEIGHT + BORDER;
-	return Math.min(naturalHeight, maxHeight);
-};
+import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
 
 /**
  * QuartoInlineDataExplorerProps interface.
@@ -104,7 +93,7 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 	) ?? 300;
 
 	// Notify parent of calculated height.
-	const dynamicHeight = calculateHeight(shape.rows, maxHeight);
+	const dynamicHeight = calculateInlineDataExplorerHeight(shape.rows, maxHeight);
 	useEffect(() => {
 		onHeightChange?.(dynamicHeight);
 	}, [dynamicHeight, onHeightChange]);
