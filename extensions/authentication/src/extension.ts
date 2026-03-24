@@ -19,11 +19,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerFoundryProvider(context);
 
 	// Migrate settings before registering the AWS provider so it
-	// reads the new setting values during initialization.
+	// reads the migrated profile/region during initialization.
 	await migrateAwsSettings().catch(err =>
 		log.error(`AWS settings migration failed: ${err}`)
 	);
-	await registerAwsProvider(context);
+	registerAwsProvider(context);
 	log.info('Authentication extension activated');
 
 	context.subscriptions.push(
@@ -71,9 +71,9 @@ function registerAnthropicProvider(context: vscode.ExtensionContext): void {
 	log.info('Registered auth provider: anthropic-api');
 }
 
-async function registerAwsProvider(
+function registerAwsProvider(
 	context: vscode.ExtensionContext
-): Promise<void> {
+): void {
 	const awsConfig = vscode.workspace
 		.getConfiguration('authentication.aws')
 		.get<{ AWS_PROFILE?: string; AWS_REGION?: string }>(
@@ -117,7 +117,9 @@ async function registerAwsProvider(
 		provider
 	);
 	registerAuthProvider('amazon-bedrock', provider);
-	await provider.resolveChainCredentials();
+	provider.resolveChainCredentials().catch(err =>
+		log.debug(`[AWS] Initial credential resolution failed: ${err}`)
+	);
 	log.info('Registered auth provider: amazon-bedrock');
 }
 
