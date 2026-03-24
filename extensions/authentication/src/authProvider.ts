@@ -50,6 +50,7 @@ export class AuthProvider
 
 	private _chainSession: vscode.AuthenticationSession | undefined;
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
+	private _disposed = false;
 
 	constructor(
 		private readonly providerId: string,
@@ -60,6 +61,7 @@ export class AuthProvider
 	) { }
 
 	dispose(): void {
+		this._disposed = true;
 		this.stopRefreshTimer();
 		this._onDidChangeSessions.dispose();
 	}
@@ -235,6 +237,9 @@ export class AuthProvider
 
 		try {
 			const accessToken = await this.credentialChain.resolve();
+			if (this._disposed) {
+				return undefined;
+			}
 			const session: vscode.AuthenticationSession = {
 				id: this.providerId,
 				accessToken,
