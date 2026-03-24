@@ -46,6 +46,62 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 		await inlineQuarto.expectNoDataExplorerMetadata();
 	});
 
+	test('Python - Verify DataFrame shows inline data explorer', {
+		tag: [tags.DATA_EXPLORER]
+	}, async function ({ python, app, openFile }) {
+		const { editors, inlineQuarto, inlineDataExplorer } = app.workbench;
+
+		// Open a Quarto file and wait for the kernel to be ready
+		await openFile(join('workspaces', 'quarto_inline_output', 'py_data_frame.qmd'));
+		await editors.waitForActiveTab('py_data_frame.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+
+		// Run the cell and wait for output
+		await editors.clickTab('py_data_frame.qmd');
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 12 });
+		await inlineQuarto.expectOutputVisible();
+
+		// Verify inline data explorer appears
+		await inlineDataExplorer.expectToBeVisible();
+		await inlineDataExplorer.expectGridToBeReady();
+
+		// Verify shape and column headers
+		await inlineDataExplorer.expectShapeToContain(3, 2);
+		await inlineDataExplorer.expectColumnHeaderToBeVisible('Name');
+		await inlineDataExplorer.expectColumnHeaderToBeVisible('Age');
+
+		// Verify data content
+		await inlineDataExplorer.expectCellValue('Name', 0, 'Alice');
+	});
+
+	test('R - Verify DataFrame shows inline data explorer', {
+		tag: [tags.DATA_EXPLORER]
+	}, async function ({ r, app, openFile }) {
+		const { editors, inlineQuarto, inlineDataExplorer } = app.workbench;
+
+		// Open a Quarto file and wait for the kernel to be ready
+		await openFile(join('workspaces', 'quarto_inline_output', 'r_data_frame.qmd'));
+		await editors.waitForActiveTab('r_data_frame.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+
+		// Run the cell and wait for output
+		await editors.clickTab('r_data_frame.qmd');
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 20 });
+		await inlineQuarto.expectOutputVisible();
+
+		// Verify inline data explorer appears
+		await inlineDataExplorer.expectToBeVisible();
+		await inlineDataExplorer.expectGridToBeReady();
+
+		// Verify shape and column headers
+		await inlineDataExplorer.expectShapeToContain(3, 2);
+		await inlineDataExplorer.expectColumnHeaderToBeVisible('Name');
+		await inlineDataExplorer.expectColumnHeaderToBeVisible('Age');
+
+		// Verify data content
+		await inlineDataExplorer.expectCellValue('Name', 0, 'Alice');
+	});
+
 	test('Python - Verify interactive HTML widget persists correctly after close and reopen', async function ({ python, app, openFile, hotKeys }) {
 		const { editors, inlineQuarto } = app.workbench;
 
