@@ -291,20 +291,15 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			return;
 		}
 
-		// Use `session` instead of `attachedRuntimeSession` to get the session even if it is "exited".
-		// This allows the foreground session to stay in sync with the console instance when a user clicks on a console tab.
-		const session = instance.session;
-		if (session) {
-			if (this._runtimeSessionService.foregroundSession?.sessionId !== session.sessionId) {
-				this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, setting foreground session: ${session.sessionId}`);
-				this._runtimeSessionService.foregroundSession = session;
-			} else {
-				this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, but it is already the foreground session: ${session.sessionId}`);
-			}
+		if (this._runtimeSessionService.foregroundSession?.sessionId !== instance.sessionId) {
+			// Get the session associated with the console instance. We fetch the session from the runtime
+			// session service because we don't have access to the console session via the console instance
+			// when its exited.
+			const session = this._runtimeSessionService.getSession(instance.sessionId);
+			this._runtimeSessionService.foregroundSession = session;
+			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, setting foreground session: ${instance.sessionId}`);
 		} else {
-			// Console instance has no session yet - this can happen for provisional
-			// instances while waiting for a session to connect
-			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected but no session: ${instance.sessionId}`);
+			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, but it is already the foreground session: ${instance.sessionId}`);
 		}
 	}
 
