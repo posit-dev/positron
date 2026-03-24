@@ -70,8 +70,10 @@ test.describe('Editor Action Bar: Document Files', {
 // Helper functions
 
 async function verifyPreviewRendersHtml(heading: string) {
-	// await editorActionBar.clickButton('Preview');
-	await editorActionBar.verifyPreviewRendersHtml(heading);
+	await expect(async () => {
+		await editorActionBar.clickButton('Preview');
+		await editorActionBar.verifyPreviewRendersHtml(heading);
+	}).toPass({ timeout: 60000 });
 }
 
 async function verifySplitEditor(tabName: string) {
