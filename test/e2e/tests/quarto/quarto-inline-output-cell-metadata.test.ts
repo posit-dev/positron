@@ -67,10 +67,11 @@ test.describe('Quarto - Inline Output: Cell Metadata', {
 		expect(typeof metadata['output_width_px']).toBe('number');
 		expect(metadata['output_width_px']).toBeGreaterThan(100);
 
-		// output_pixel_ratio should be present and have a reasonable value (1.0 - 3.0)
+		// output_pixel_ratio should be present and have a reasonable value (~1.0 - 3.0)
+		// Use 0.99 lower bound to allow for floating-point precision drift
 		expect(metadata['output_pixel_ratio']).toBeDefined();
 		expect(typeof metadata['output_pixel_ratio']).toBe('number');
-		expect(metadata['output_pixel_ratio']).toBeGreaterThanOrEqual(1.0);
+		expect(metadata['output_pixel_ratio']).toBeGreaterThanOrEqual(0.99);
 		expect(metadata['output_pixel_ratio']).toBeLessThanOrEqual(3.0);
 	});
 });
