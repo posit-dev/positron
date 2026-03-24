@@ -37,9 +37,9 @@ import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 import { RuntimeNotebookCellExecution } from './runtimeNotebookCellExecution.js';
 
-import { EditorLayoutMetadata } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
+import type { EditorLayoutMetadata } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 // Re-export for consumers that import from this module.
-export { EditorLayoutMetadata };
+export type { EditorLayoutMetadata };
 
 /** A notebook kernel for Positron's language runtimes. */
 export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
