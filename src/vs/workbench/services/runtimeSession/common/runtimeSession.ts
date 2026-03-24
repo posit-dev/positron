@@ -885,6 +885,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	/**
 	 * Gets the foreground session.
+	 *
+	 * The foreground session is the session which is currently shown in
+	 * the different UI panes and targeted by runtime actions.
+	 *
+	 * The ForegroundSessionContribution handles user-driven context changes (editor focus,
+	 * notebook focus, console tab selection). Add new handlers to ForegroundSessionContribution
+	 * instead of directly using the foregroundSession setter from this service when introducing
+	 * new UI patterns that affect the foreground session.
+	 *
+	 * Use the foregroundSession getter/setter for the cases where you need programmatic
+	 * control outside of UI-driven context changes.
 	 */
 	get foregroundSession(): ILanguageRuntimeSession | undefined {
 		return this._foregroundSession;
