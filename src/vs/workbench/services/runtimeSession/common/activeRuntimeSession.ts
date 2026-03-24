@@ -173,11 +173,14 @@ export class ActiveRuntimeSession extends Disposable {
 		// presence of the UI comm as the signal that the frontend is ready,
 		// so this is the place to send any initial state the backend needs.
 		const consoleWidth = this._consoleService?.getConsoleWidth() ?? 80;
+		const startType = this.getStartType();
+		const commOpenData = {
+			console_width: consoleWidth,
+			start_type: startType,
+		};
+		this._logService.debug(`UI comm_open data: ${JSON.stringify(commOpenData, null, 2)}`);
 		const client = await this.session.createClient<IUiClientMessageInput, IUiClientMessageOutput>
-			(RuntimeClientType.Ui, {
-				console_width: consoleWidth,
-				start_type: this.getStartType(),
-			});
+			(RuntimeClientType.Ui, commOpenData);
 
 		// Create the UI client instance wrapping the client instance.
 		const uiClient = new UiClientInstance(client, this._commandService, this._logService, this._openerService, this._configurationService,
