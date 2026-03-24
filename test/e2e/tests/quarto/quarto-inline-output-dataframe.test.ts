@@ -20,8 +20,13 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 		}, { reload: 'web' });
 	});
 
-	test('Python - Verify DataFrame output shows HTML only, not duplicate text and HTML', async function ({ python, app, openFile }) {
+	test('Python - Verify DataFrame output shows HTML only, not duplicate text and HTML', async function ({ python, app, openFile, settings }) {
 		const { editors, inlineQuarto } = app.workbench;
+
+		// Disable inline data explorer so DataFrame falls back to HTML rendering
+		await settings.set({
+			'positron.quarto.inlineDataExplorer.enabled': false
+		});
 
 		// Open a Quarto file and wait for the kernel to be ready
 		await openFile(join('workspaces', 'quarto_inline_output', 'py_data_frame.qmd'));
@@ -44,6 +49,11 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Verify no data explorer metadata leaked
 		await inlineQuarto.expectNoDataExplorerMetadata();
+
+		// Re-enable inline data explorer
+		await settings.set({
+			'positron.quarto.inlineDataExplorer.enabled': true
+		});
 	});
 
 	test('Python - Verify DataFrame shows inline data explorer', {

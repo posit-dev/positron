@@ -1798,7 +1798,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			mime.startsWith('image/') && mime in data
 		);
 		const hasDataExplorer = Object.keys(data).some(
-			mime => mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase()
+			mime => mime === DATA_EXPLORER_MIME_TYPE
 		);
 		const shouldExcludePlainText = hasHtml || hasImage || hasDataExplorer;
 
@@ -1825,7 +1825,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		for (const [mime, value] of Object.entries(data)) {
 			if (!mimeOrder.includes(mime) && value !== undefined &&
 				(!mime.startsWith('application/vnd.positron.') ||
-					mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase())) {
+					mime === DATA_EXPLORER_MIME_TYPE)) {
 				if (typeof value === 'string') {
 					outputItems.push({ mime, data: value });
 				} else {

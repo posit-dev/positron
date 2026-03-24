@@ -85,12 +85,29 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 	const [state, setState] = useState<QuartoInlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
 	const disposablesRef = useRef<DisposableStore | null>(null);
+	const onFallbackRef = useRef(onFallback);
+	onFallbackRef.current = onFallback;
 
 	const dataExplorerService = services.positronDataExplorerService;
 
-	const maxHeight = services.configurationService.getValue<number>(
-		POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
-	) ?? 300;
+	const [maxHeight, setMaxHeight] = useState<number>(
+		services.configurationService.getValue<number>(
+			POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
+		) ?? 300
+	);
+
+	useEffect(() => {
+		const listener = services.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY)) {
+				setMaxHeight(
+					services.configurationService.getValue<number>(
+						POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
+					) ?? 300
+				);
+			}
+		});
+		return () => listener.dispose();
+	}, [services.configurationService]);
 
 	// Notify parent of calculated height.
 	const dynamicHeight = calculateInlineDataExplorerHeight(shape.rows, maxHeight);
@@ -121,7 +138,7 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 				// When a fallback is available, use a short timeout since comms
 				// register within milliseconds during normal execution. On reload,
 				// the comm won't exist so we fall back quickly instead of waiting.
-				const timeout = onFallback ? 500 : 10000;
+				const timeout = onFallbackRef.current ? 500 : 10000;
 				const instance = await dataExplorerService.getInstanceAsync(commId, timeout);
 
 				if (cancelled || !disposables || disposables.isDisposed) {
@@ -129,8 +146,8 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 				}
 
 				if (!instance) {
-					if (onFallback) {
-						onFallback();
+					if (onFallbackRef.current) {
+						onFallbackRef.current();
 						return;
 					}
 					setState({
@@ -179,7 +196,7 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [commId, dataExplorerService, onFallback]);
+	}, [commId, dataExplorerService]);
 
 	const handleOpenInExplorer = () => {
 		services.commandService.executeCommand('positron-data-explorer.openFromInline', {

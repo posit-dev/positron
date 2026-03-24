@@ -1133,7 +1133,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Check for data explorer MIME type
 		const dataExplorerItem = output.items.find(
-			item => item.mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase()
+			item => item.mime === DATA_EXPLORER_MIME_TYPE
 		);
 
 		if (dataExplorerItem && this._isDataExplorerEnabled()) {
@@ -1156,7 +1156,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		} else {
 			// Render items normally, skipping data explorer MIME
 			for (const item of output.items) {
-				if (item.mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase()) {
+				if (item.mime === DATA_EXPLORER_MIME_TYPE) {
 					continue;
 				}
 				const rendered = this._renderOutputItem(item, output);
