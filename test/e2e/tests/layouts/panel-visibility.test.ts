@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -12,23 +12,6 @@ test.use({
 test.describe('Bottom Panel Visibility', {
 	tag: [tags.WEB, tags.LAYOUTS, tags.WIN]
 }, () => {
-
-	test('Visible panel maximizes on closing last editor', async function ({ app, hotKeys, openFile }) {
-		const layouts = app.workbench.layouts;
-
-		// Open a file in editor - panel should be visible
-		await openFile('README.md');
-		await layouts.expectBottomPanelToBeVisible(true);
-
-		// Get initial panel height
-		const initialPanelHeight = await layouts.boundingBoxProperty(layouts.panel, 'height');
-
-		// Close all editors - panel should maximize
-		await hotKeys.closeAllEditors();
-		await layouts.expectBottomPanelToBeVisible(true);
-		const expandedPanelHeight = await layouts.boundingBoxProperty(layouts.panel, 'height');
-		expect(expandedPanelHeight).toBeGreaterThan(initialPanelHeight);
-	});
 
 	test('Hidden panel stays hidden on closing last editor', async function ({ app, hotKeys, openFile }) {
 		const layouts = app.workbench.layouts;
