@@ -21,7 +21,7 @@ import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
-import { addDisposableListener } from '../../../../../base/browser/dom.js';
+import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { useObservedValue } from '../useObservedValue.js';
@@ -354,23 +354,39 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				// (e.g. clicking a cell in a side-by-side notebook). This mirrors
 				// the guard in the onDidBlurEditorWidget handler above.
 				const activeEl = cell.container?.ownerDocument.activeElement;
-				if (!activeEl || !instance.currentContainer?.contains(activeEl)) {
+				if (activeEl && !instance.currentContainer?.contains(activeEl)) {
 					return;
 				}
 
-				// Only focus the focus trap if the cell has outputs.
-				// When there are no outputs, the focus trap has tabIndex=-1 (not in tab order),
-				// so focusing it would disrupt keyboard navigation. In that case, let
-				// NotebookCellWrapper handle focus by focusing the cell container instead.
-				// Read current outputs value - undefined for markdown cells (no outputs)
-				const currentOutputs = cell.outputs?.get() ?? [];
-				const hasOutputs = currentOutputs.length > 0;
-				if (hasOutputs) {
-					focusTargetRef.current?.focus();
-				} else {
-					// Focus the cell container for cells without outputs
-					cell.container?.focus();
+				const restoreCellFocus = () => {
+					// Only focus the focus trap if the cell has outputs.
+					// When there are no outputs, the focus trap has tabIndex=-1
+					// (not in tab order), so focusing it would disrupt keyboard
+					// navigation. In that case, focus the cell container instead.
+					const currentOutputs = cell.outputs?.get() ?? [];
+					const hasOutputs = currentOutputs.length > 0;
+					if (hasOutputs) {
+						focusTargetRef.current?.focus();
+					} else {
+						cell.container?.focus();
+					}
+				};
+
+				if (!activeEl) {
+					// activeElement is transiently null during blur/focus
+					// handoff. Defer to the next frame so the browser settles
+					// on the actual target before we decide.
+					getWindow(cell.container).requestAnimationFrame(() => {
+						const resolved = cell.container?.ownerDocument.activeElement;
+						if (resolved && !instance.currentContainer?.contains(resolved)) {
+							return;
+						}
+						restoreCellFocus();
+					});
+					return;
 				}
+
+				restoreCellFocus();
 			}
 		});
 		return () => disposable.dispose();
