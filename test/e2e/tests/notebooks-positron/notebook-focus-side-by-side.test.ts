@@ -10,7 +10,7 @@
  * side-by-side notebooks, especially when a cell in one notebook is in edit mode.
  */
 
-import { expect, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
@@ -55,7 +55,7 @@ test.describe('Notebook Side-by-Side Focus', {
 
 			// Click into code cell in the LEFT notebook to enter edit mode
 			await leftNotebook.cell(0).click();
-			await expect(leftGroup).toHaveClass(/\bactive\b/, { timeout: 5000 });
+			await editors.expectEditorGroupActive(0, 5000);
 
 			// Click the rendered markdown cell in the RIGHT notebook
 			await rightNotebook.cell(1).click();
@@ -64,7 +64,7 @@ test.describe('Notebook Side-by-Side Focus', {
 			// The bug causes focus to snap back to the left notebook due to
 			// the autorunDelta in CellEditorMonacoWidget.tsx stealing focus
 			// when the left notebook's cell exits edit mode.
-			await expect(rightGroup).toHaveClass(/\bactive\b/, { timeout: 5000 });
-			await expect(leftGroup).toHaveClass(/\binactive\b/);
+			await editors.expectEditorGroupActive(1, 5000);
+			await editors.expectEditorGroupInactive(0);
 		});
 });
