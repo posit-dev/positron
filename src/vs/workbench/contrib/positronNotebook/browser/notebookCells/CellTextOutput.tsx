@@ -6,16 +6,25 @@
 // CSS.
 import './CellTextOutput.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
 import { ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { useNotebookOptions } from '../NotebookInstanceProvider.js';
+import { useNotebookInstance, useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { localize } from '../../../../../nls.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+
+const showFullOutputLabel = localize('positron.notebook.showFullOutput', "Click to Show Full Output");
+
+function linesTruncatedMessage(numLinesTruncated: number): string {
+	return localize(
+		'positron.notebook.linesTruncated',
+		"... {0} lines truncated",
+		numLinesTruncated.toLocaleString()
+	);
+}
 
 type TruncationResult =
 	{ content: string } & (
@@ -38,11 +47,15 @@ function truncateToNumberOfLines(content: string, outputScrolling: boolean, maxL
 		return { content, mode: 'normal' };
 	}
 
+	// Split the visible lines 50/50 between top and bottom
+	const topLines = Math.ceil(maxLines / 2);
+	const bottomLines = maxLines - topLines;
+
 	return {
 		mode: 'truncate',
-		content: splitByLine.slice(0, maxLines - 1).join('\n'),
-		contentAfter: splitByLine[splitByLine.length - 1],
-		numLinesTruncated: Math.max(numLines - maxLines, 0),
+		content: splitByLine.slice(0, topLines).join('\n'),
+		contentAfter: splitByLine.slice(numLines - bottomLines).join('\n'),
+		numLinesTruncated: numLines - maxLines,
 	};
 }
 
@@ -86,19 +99,14 @@ const TruncationMessage = ({ numLinesTruncated, onShowFullOutput }: {
 	numLinesTruncated: number;
 	onShowFullOutput: () => void;
 }) => {
-	const openSettings = (e: React.MouseEvent<HTMLAnchorElement>) => {
-		// Prevent the anchor from navigating, which would reload the
-		// Electron renderer and hang the window.
-		e.preventDefault();
-		onShowFullOutput();
-	};
-
-	return <i className='notebook-output-truncation-message'>
-		{`... ${numLinesTruncated.toLocaleString()} lines truncated. `}
-		<a
-			aria-label='notebook output settings'
-			href=''
-			onClick={openSettings}
-		>Change behavior.</a>
-	</i>;
+	const instance = useNotebookInstance();
+	return <Button
+		ariaLabel={showFullOutputLabel}
+		className='notebook-output-truncation-message'
+		hoverManager={instance.hoverManager}
+		tooltip={showFullOutputLabel}
+		onPressed={onShowFullOutput}
+	>
+		{linesTruncatedMessage(numLinesTruncated)}
+	</Button>;
 };

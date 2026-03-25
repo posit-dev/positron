@@ -11,24 +11,19 @@
 	font-size: var(--vscode-positronNotebook-text-output-font-size);
 	/* Don't wrap text by default */
 	white-space: pre;
-}
 
-.positron-notebook-text-output.word-wrap {
-	/* Wrap text when word-wrap is enabled */
-	white-space: pre-wrap;
-}
+	&.word-wrap {
+		white-space: pre-wrap;
+	}
 
-.notebook-output-truncation-message {
-	display: block;
-	font-size: 0.95em;
-	opacity: 0.8;
-}
+	& .notebook-output-truncation-message {
+		display: block;
+		font-style: italic;
+		color: var(--vscode-descriptionForeground);
+		padding: 4px 0;
 
-/* Use theme link colors */
-.notebook-output-truncation-message a {
-	color: var(--vscode-textLink-foreground);
-}
-.notebook-output-truncation-message a:hover,
-.notebook-output-truncation-message a:active {
-	color: var(--vscode-textLink-activeForeground);
+		&:hover {
+			color: var(--vscode-textLink-foreground);
+		}
+	}
 }
