@@ -350,6 +350,14 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				lastValue.active === cell &&
 				newValue.type === SelectionState.SingleSelection &&
 				newValue.active === cell) {
+				// Don't steal focus if the user navigated to a different editor
+				// (e.g. clicking a cell in a side-by-side notebook). This mirrors
+				// the guard in the onDidBlurEditorWidget handler above.
+				const activeEl = cell.container?.ownerDocument.activeElement;
+				if (activeEl && !instance.currentContainer?.contains(activeEl)) {
+					return;
+				}
+
 				// Only focus the focus trap if the cell has outputs.
 				// When there are no outputs, the focus trap has tabIndex=-1 (not in tab order),
 				// so focusing it would disrupt keyboard navigation. In that case, let
