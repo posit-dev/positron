@@ -130,11 +130,15 @@ export async function showConfigurationDialog(
 					if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 						const envVarName = source.defaults.autoconfigure.key;
 						const envVarValue = process.env[envVarName];
+						// Check for provider-specific base URL env var (e.g., ANTHROPIC_BASE_URL)
+						const baseUrlEnvVar = `${envVarName.replace(/_API_KEY$/, '')}_BASE_URL`;
+						const baseUrlValue = process.env[baseUrlEnvVar];
 
 						return {
 							...source,
 							defaults: {
 								...source.defaults,
+								...(baseUrlValue && { baseUrl: baseUrlValue }),
 								autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn: !!envVarValue }
 							},
 						};

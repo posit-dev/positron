@@ -69,4 +69,54 @@ suite('Autoconfigured Providers', () => {
 
 		assert.strictEqual(failures.length, 0, `Failures:\n${failures.join('\n')}`);
 	});
+
+	test('ANTHROPIC_BASE_URL env var populates baseUrl in autoconfigured model', async () => {
+		const originalApiKey = process.env.ANTHROPIC_API_KEY;
+		const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+		try {
+			process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+			process.env.ANTHROPIC_BASE_URL = 'https://proxy.example.com';
+
+			const configs = await createAutomaticModelConfigs();
+			const anthropicConfig = configs.find((c) => c.provider === 'anthropic-api');
+			assert.ok(anthropicConfig, 'Anthropic config should be created');
+			assert.strictEqual(anthropicConfig.baseUrl, 'https://proxy.example.com');
+		} finally {
+			if (originalApiKey === undefined) {
+				delete process.env.ANTHROPIC_API_KEY;
+			} else {
+				process.env.ANTHROPIC_API_KEY = originalApiKey;
+			}
+			if (originalBaseUrl === undefined) {
+				delete process.env.ANTHROPIC_BASE_URL;
+			} else {
+				process.env.ANTHROPIC_BASE_URL = originalBaseUrl;
+			}
+		}
+	});
+
+	test('no baseUrl when only ANTHROPIC_API_KEY is set', async () => {
+		const originalApiKey = process.env.ANTHROPIC_API_KEY;
+		const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+		try {
+			process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+			delete process.env.ANTHROPIC_BASE_URL;
+
+			const configs = await createAutomaticModelConfigs();
+			const anthropicConfig = configs.find((c) => c.provider === 'anthropic-api');
+			assert.ok(anthropicConfig, 'Anthropic config should be created');
+			assert.strictEqual(anthropicConfig.baseUrl, undefined);
+		} finally {
+			if (originalApiKey === undefined) {
+				delete process.env.ANTHROPIC_API_KEY;
+			} else {
+				process.env.ANTHROPIC_API_KEY = originalApiKey;
+			}
+			if (originalBaseUrl === undefined) {
+				delete process.env.ANTHROPIC_BASE_URL;
+			} else {
+				process.env.ANTHROPIC_BASE_URL = originalBaseUrl;
+			}
+		}
+	});
 });

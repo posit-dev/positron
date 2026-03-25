@@ -64,8 +64,12 @@ async function resolveAutoconfigureCredentials(model: ConcreteModelProviderConst
 		const key = autoconfigure.key;
 		const apiKey = key ? process.env[key] : undefined;
 		if (key && apiKey) {
+			// Check for provider-specific base URL env var (e.g., ANTHROPIC_BASE_URL)
+			const baseUrlEnvKey = `${key.replace(/_API_KEY$/, '')}_BASE_URL`;
+			const baseUrl = process.env[baseUrlEnvKey];
 			return {
 				apiKey,
+				...(baseUrl && { baseUrl }),
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
 					key,
