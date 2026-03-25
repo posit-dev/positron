@@ -1297,24 +1297,26 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
-	 * Render fallback content for a data explorer output (HTML table or text).
+	 * Render fallback content for a data explorer output (text or HTML).
+	 * Prefers text/plain because the R kernel's text/html for data frames
+	 * is currently a stub; text/plain contains the actual formatted output.
 	 */
 	private _renderDataExplorerFallback(output: ICellOutput, container: HTMLElement): void {
-		// Try to find an HTML fallback in the same output
+		// Prefer text/plain - it contains the actual console representation
+		const textItem = output.items.find(item => item.mime === 'text/plain');
+		if (textItem) {
+			const rendered = this._renderText(textItem.data, 'stdout');
+			container.appendChild(rendered);
+			return;
+		}
+
+		// Fall back to HTML
 		const htmlItem = output.items.find(item => item.mime === 'text/html');
 		if (htmlItem) {
 			const rendered = this._renderHtml(htmlItem.data, output);
 			if (rendered) {
 				container.appendChild(rendered);
-				return;
 			}
-		}
-
-		// Fall back to text/plain
-		const textItem = output.items.find(item => item.mime === 'text/plain');
-		if (textItem) {
-			const rendered = this._renderText(textItem.data, 'stdout');
-			container.appendChild(rendered);
 		}
 	}
 

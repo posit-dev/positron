@@ -1790,9 +1790,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			'text/plain',
 		];
 
-		// Determine which rich MIME types are present to filter out redundant text/plain
-		// When a richer representation (HTML, images, data explorer) is available, we
-		// should not show the plain text fallback as it duplicates the content
+		// Determine which rich MIME types are present to filter out redundant text/plain.
+		// When a richer representation (HTML, images) is available, we should not
+		// show the plain text fallback as it duplicates the content.
+		// Exception: when data explorer is present, always keep text/plain. The data
+		// explorer is a live component that won't work after the document is closed
+		// and reopened; text/plain serves as the cache-safe fallback for that case.
 		const hasHtml = 'text/html' in data;
 		const hasImage = mimeOrder.some(mime =>
 			mime.startsWith('image/') && mime in data
@@ -1800,7 +1803,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		const hasDataExplorer = Object.keys(data).some(
 			mime => mime === DATA_EXPLORER_MIME_TYPE
 		);
-		const shouldExcludePlainText = hasHtml || hasImage || hasDataExplorer;
+		const shouldExcludePlainText = (hasHtml || hasImage) && !hasDataExplorer;
 
 		for (const mime of mimeOrder) {
 			// Skip text/plain when a richer representation is available

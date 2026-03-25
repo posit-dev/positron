@@ -112,6 +112,49 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 		await inlineDataExplorer.expectCellValue('Name', 0, 'Alice');
 	});
 
+	test('R - Verify DataFrame output persists correctly after window reload', {
+		tag: [tags.DATA_EXPLORER]
+	}, async function ({ r, app, openFile, hotKeys }) {
+		const { editors, inlineQuarto, inlineDataExplorer } = app.workbench;
+
+		const filePath = join('workspaces', 'quarto_inline_output', 'r_data_frame.qmd');
+
+		// Open a Quarto file and wait for the kernel to be ready
+		await openFile(filePath);
+		await editors.waitForActiveTab('r_data_frame.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+
+		// Run the cell and wait for output
+		await editors.clickTab('r_data_frame.qmd');
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 20 });
+		await inlineQuarto.expectOutputVisible();
+
+		// Verify inline data explorer appears with live data
+		await inlineDataExplorer.expectToBeVisible();
+		await inlineDataExplorer.expectGridToBeReady();
+
+		// Skip reload in web mode (cache may not flush)
+		if (app.web) {
+			return;
+		}
+
+		// Reload window - this kills the R session and data explorer comms,
+		// forcing the output to fall back to cached text/plain
+		await hotKeys.reloadWindow(true);
+
+		await editors.waitForActiveTab('r_data_frame.qmd', false);
+
+		// Verify output persisted - should show text fallback with actual
+		// data frame content, not the "Hello, world!" stub from text/html
+		await inlineQuarto.gotoLine(20);
+		await inlineQuarto.expectOutputVisible({ timeout: 1000 });
+		await inlineQuarto.expectOutputContainsText(/Alice|Name/i, { timeout: 15000 });
+		await inlineQuarto.expectOutputNotContainsText('Hello, world!');
+
+		// Verify no raw data explorer JSON leaked into the output
+		await inlineQuarto.expectNoDataExplorerMetadata();
+	});
+
 	test('Python - Verify interactive HTML widget persists correctly after close and reopen', async function ({ python, app, openFile, hotKeys }) {
 		const { editors, inlineQuarto } = app.workbench;
 
