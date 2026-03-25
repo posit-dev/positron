@@ -25,7 +25,8 @@ import { ANSIOutput, ANSIOutputLine, ANSIOutputRun } from '../../../../base/comm
 import { computeAnsiStyles, resolveAnsiColor } from '../../../../base/common/ansiStyles.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_QUARTO_INLINE_DATA_EXPLORER_ENABLED_KEY, POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../common/positronQuartoConfig.js';
+import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
@@ -539,7 +540,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			return true; // Default to enabled if no config service
 		}
 		return this._configurationService.getValue<boolean>(
-			POSITRON_QUARTO_INLINE_DATA_EXPLORER_ENABLED_KEY
+			POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY
 		) ?? true;
 	}
 

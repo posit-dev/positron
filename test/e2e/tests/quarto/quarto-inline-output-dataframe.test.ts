@@ -25,7 +25,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Disable inline data explorer so DataFrame falls back to HTML rendering
 		await settings.set({
-			'positron.quarto.inlineDataExplorer.enabled': false
+			'positron.notebook.inlineDataExplorer.enabled': false
 		});
 
 		// Open a Quarto file and wait for the kernel to be ready
@@ -52,7 +52,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Re-enable inline data explorer
 		await settings.set({
-			'positron.quarto.inlineDataExplorer.enabled': true
+			'positron.notebook.inlineDataExplorer.enabled': true
 		});
 	});
 

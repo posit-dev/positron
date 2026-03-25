@@ -25,11 +25,6 @@ export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.e
 export const POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY = 'positron.quarto.inlineOutput.maxLines';
 
 /**
- * Configuration key for the Quarto inline data explorer setting.
- */
-export const POSITRON_QUARTO_INLINE_DATA_EXPLORER_ENABLED_KEY = 'positron.quarto.inlineDataExplorer.enabled';
-
-/**
  * Configuration key for the maximum height of the inline data explorer.
  */
 export const POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY = 'positron.quarto.inlineDataExplorer.maxHeight';
@@ -92,16 +87,6 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.quarto.inlineOutput.maxLines',
 				'Maximum number of lines to display in inline text output. If output exceeds this limit, only the last N lines are shown with a link to open the full output in an editor.'
-			),
-			tags: ['preview'],
-			scope: ConfigurationScope.WINDOW,
-		},
-		[POSITRON_QUARTO_INLINE_DATA_EXPLORER_ENABLED_KEY]: {
-			type: 'boolean',
-			default: true,
-			markdownDescription: localize(
-				'positron.quarto.inlineDataExplorer.enabled',
-				'Enable inline data explorer for Quarto documents. When enabled, data frames and tables are displayed as interactive data grids instead of plain text or HTML tables.'
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,
