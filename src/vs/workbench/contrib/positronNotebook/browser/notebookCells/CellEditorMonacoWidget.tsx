@@ -344,6 +344,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 	// Watch for exit-editor transitions to return focus to the focus trap
 	React.useEffect(() => {
+		let pendingFrame: number | undefined;
 		const disposable = autorunDelta(instance.selectionStateMachine.state, ({ lastValue, newValue }) => {
 			// Check if we transitioned from editing THIS cell to single selection of THIS cell
 			if (lastValue?.type === SelectionState.EditingSelection &&
@@ -376,7 +377,16 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 					// activeElement is transiently null during blur/focus
 					// handoff. Defer to the next frame so the browser settles
 					// on the actual target before we decide.
-					getWindow(cell.container).requestAnimationFrame(() => {
+					const win = getWindow(cell.container);
+					pendingFrame = win.requestAnimationFrame(() => {
+						pendingFrame = undefined;
+						// Re-check selection state: if the user moved to
+						// another cell during the deferred frame, bail out.
+						const currentState = instance.selectionStateMachine.state.get();
+						if (currentState.type !== SelectionState.SingleSelection ||
+							currentState.active !== cell) {
+							return;
+						}
 						const resolved = cell.container?.ownerDocument.activeElement;
 						if (resolved && !instance.currentContainer?.contains(resolved)) {
 							return;
@@ -389,7 +399,12 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				restoreCellFocus();
 			}
 		});
-		return () => disposable.dispose();
+		return () => {
+			disposable.dispose();
+			if (pendingFrame !== undefined) {
+				getWindow(cell.container).cancelAnimationFrame(pendingFrame);
+			}
+		};
 	}, [cell, instance.currentContainer, instance.selectionStateMachine]);
 
 	return { editorPartRef, focusTargetRef };
