@@ -129,6 +129,10 @@
           "when": "notebookCellHasOutputs"
         },
         {
+          "command": "notebook.cellOutput.addToChat",
+          "when": "activeEditor != 'workbench.editor.positronNotebook'"
+        },
+        {
           "command": "notebook.cellOutput.openInTextEditor",
           "when": "false"
         }

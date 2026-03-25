@@ -11,6 +11,10 @@ import { localize2 } from '../../../../../nls.js';
 import { Categories } from '../../../../../platform/action/common/actionCommonCategories.js';
 import { Action2, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
+// --- Start Positron ---
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR } from '../../common/notebookContextKeys.js';
+// --- End Positron ---
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { getNotebookEditorFromEditorPane, INotebookViewCellsUpdateEvent, INotebookViewZone, INotebookViewZoneChangeAccessor } from '../notebookBrowser.js';
 import { NotebookCellListView } from '../view/notebookCellListView.js';
@@ -220,7 +224,9 @@ class ToggleNotebookViewZoneDeveloperAction extends Action2 {
 			id: 'notebook.developer.addViewZones',
 			title: localize2('workbench.notebook.developer.addViewZones', "Toggle Notebook View Zones"),
 			category: Categories.Developer,
-			precondition: IsDevelopmentContext,
+			// --- Start Positron ---
+			precondition: ContextKeyExpr.and(IsDevelopmentContext, POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR),
+			// --- End Positron ---
 			f1: true
 		});
 	}
