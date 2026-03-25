@@ -354,7 +354,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				// (e.g. clicking a cell in a side-by-side notebook). This mirrors
 				// the guard in the onDidBlurEditorWidget handler above.
 				const activeEl = cell.container?.ownerDocument.activeElement;
-				if (activeEl && !instance.currentContainer?.contains(activeEl)) {
+				if (!activeEl || !instance.currentContainer?.contains(activeEl)) {
 					return;
 				}
 
