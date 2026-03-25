@@ -1144,6 +1144,11 @@ export class GettingStartedPage extends EditorPane {
 				id: 'positron-newsletter',
 				title: localize('positron.welcome.newsletter', "Sign Up for Positron Updates"),
 				href: 'https://posit.co/positron-updates-signup/'
+			},
+			{
+				id: 'positron-privacy',
+				title: localize('positron.welcome.privacy', "Privacy"),
+				href: this.docsService.getUrl('privacy.html')
 			}
 		];
 

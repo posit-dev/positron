@@ -3,10 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IInputBox, IQuickInput, IQuickInputButton, IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import * as semver from '../../../../base/common/semver/semver.js';
 
 interface VersionSearchResult {
 	name: string;
@@ -20,13 +22,31 @@ interface PackageSearchResult {
 	detail?: string;
 }
 
+/**
+ * Sort version strings in descending order (newest first).
+ * Uses semver comparison when possible, falls back to string comparison.
+ */
+function sortVersionsDescending(versions: string[]): string[] {
+	return [...versions].sort((a, b) => {
+		const aSemver = semver.valid(a, true) ? a : semver.coerce(a);
+		const bSemver = semver.valid(b, true) ? b : semver.coerce(b);
+
+		if (aSemver && bSemver) {
+			return semver.rcompare(aSemver, bSemver, true);
+		}
+
+		// Fall back to simple string comparison
+		return a < b ? 1 : a > b ? -1 : 0;
+	});
+}
+
 export const updatePackage = async (
 	accessor: ServicesAccessor,
 	performGetPackages: (q: string) => Promise<PackageSearchResult[]>,
 	performLookup: (q: string) => Promise<string[]>,
 	performUpdate: (pkg: string, version: string) => Promise<void>,
-	packageToInstall?: string
-
+	packageToInstall?: string,
+	cts?: CancellationTokenSource,
 ) => {
 	const title = localize('positronPackages.updatePackageTitle', 'Update Package');
 
@@ -49,9 +69,9 @@ export const updatePackage = async (
 
 		if (packageToInstall) {
 			state.selectedPackage = packageToInstall;
-			await MultiStepInput.run(accessor, (input) => pickVersion(input, state));
+			await MultiStepInput.run(accessor, (input) => pickVersion(input, state), cts);
 		} else {
-			await MultiStepInput.run(accessor, (input) => showLoading(input, state));
+			await MultiStepInput.run(accessor, (input) => showLoading(input, state), cts);
 		}
 
 		return state as State;
@@ -89,7 +109,8 @@ export const updatePackage = async (
 
 	async function pickVersion(input: MultiStepInput, state: State) {
 		const versions = await performLookup(state.selectedPackage ?? '');
-		state.versions = versions.map((v) => ({ name: v }));
+		const sortedVersions = sortVersionsDescending(versions);
+		state.versions = sortedVersions.map((v) => ({ name: v }));
 
 		const selection = await input.showQuickPick({
 			title,
@@ -113,7 +134,8 @@ export const updatePackage = async (
 export const uninstallPackage = async (
 	accessor: ServicesAccessor,
 	performGetPackages: (q: string) => Promise<PackageSearchResult[]>,
-	performUninstall: (pkg: string, version?: string) => Promise<void>
+	performUninstall: (pkg: string, version?: string) => Promise<void>,
+	cts?: CancellationTokenSource,
 ) => {
 	const title = localize('positronPackages.uninstallPackageTitle', 'Uninstall Package');
 
@@ -127,7 +149,7 @@ export const uninstallPackage = async (
 			packages: [],
 			selectedPackage: undefined,
 		};
-		await MultiStepInput.run(accessor, (input) => showLoading(input, state));
+		await MultiStepInput.run(accessor, (input) => showLoading(input, state), cts);
 		return state as State;
 	}
 
@@ -170,6 +192,7 @@ export const installPackage = async (
 	performSearch: (q: string) => Promise<PackageSearchResult[]>,
 	performLookup: (q: string) => Promise<string[]>,
 	performInstall: (pkg: string, version?: string) => Promise<void>,
+	cts?: CancellationTokenSource,
 ) => {
 	const title = localize('positronPackages.installPackageTitle', 'Install Package');
 
@@ -189,13 +212,14 @@ export const installPackage = async (
 			selectedPackage: undefined,
 			selectedVersion: undefined,
 		};
-		await MultiStepInput.run(accessor, (input) => searchPackage(input, state));
+		await MultiStepInput.run(accessor, (input) => searchPackage(input, state), cts);
 		return state as State;
 	}
 
 	async function pickVersion(input: MultiStepInput, state: State) {
 		const versions = await performLookup(state.selectedPackage ?? '');
-		state.versions = versions.map((v) => ({ name: v }));
+		const sortedVersions = sortVersionsDescending(versions);
+		state.versions = sortedVersions.map((v) => ({ name: v }));
 
 		const selection = await input.showQuickPick({
 			title,
@@ -296,15 +320,13 @@ interface InputBoxParameters {
 
 class MultiStepInput {
 	quickPickService: IQuickInputService;
-	static async run(accessor: ServicesAccessor, start: InputStep) {
+	static async run(accessor: ServicesAccessor, start: InputStep, cts?: CancellationTokenSource) {
 		const quickPickService = accessor.get(IQuickInputService);
-		const input = new MultiStepInput(quickPickService);
+		const input = new MultiStepInput(quickPickService, cts);
 		return input.stepThrough(start);
 	}
 
-
-
-	constructor(quickPickService: IQuickInputService) {
+	constructor(quickPickService: IQuickInputService, private readonly cts?: CancellationTokenSource) {
 		this.quickPickService = quickPickService;
 	}
 
@@ -327,7 +349,8 @@ class MultiStepInput {
 					step = this.steps.pop();
 				} else if (err === InputFlowAction.resume) {
 					step = this.steps.pop();
-				} else if (err === InputFlowAction.cancel) {
+				} else if (err === InputFlowAction.cancel || err.cause === InputFlowAction.cancel || err.message === InputFlowAction.cancel || err.message === 'canceled') {
+					this.cts?.cancel();
 					step = undefined;
 				} else {
 					throw err;
@@ -376,7 +399,10 @@ class MultiStepInput {
 							}
 						}),
 						input.onDidChangeSelection((items) => resolve(items[0])),
-						input.onDidHide(() => reject(InputFlowAction.cancel)),
+						input.onDidHide(() => {
+							this.cts?.cancel();
+							reject(InputFlowAction.cancel);
+						}),
 					);
 					if (this.current) {
 						this.current.dispose();

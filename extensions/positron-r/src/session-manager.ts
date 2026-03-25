@@ -132,6 +132,14 @@ export class RSessionManager implements vscode.Disposable {
 			throw Error(`Foreground session with ID ${sessionId} must not be a background session.`);
 		}
 
+		// Only activate console sessions as the foreground LSP. Notebook
+		// sessions have restricted document selectors that don't cover
+		// script files, so activating them as the console session would
+		// break autocomplete in scripts.
+		if (session.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
+			return;
+		}
+
 		// Multiple `activateConsoleSession()` might run concurrently if the
 		// `didChangeForegroundSession` event fires rapidly. We might want to queue
 		// the handling.

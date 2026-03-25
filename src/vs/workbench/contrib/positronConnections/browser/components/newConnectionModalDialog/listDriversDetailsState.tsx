@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,7 +11,7 @@ import './listDriversDetailsState.css';
 import React, { PropsWithChildren, useEffect } from 'react';
 import { IDriver, Input } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { localize } from '../../../../../../nls.js';
-import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 
 
@@ -100,18 +100,18 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 			))}
 		</div>
 		<div className='footer'>
-			<PositronButton
+			<Button
 				className='button action-bar-button'
 				onPressed={props.onBack}
 			>
 				{(() => localize('positron.resumeConnectionModalDialog.back', "Back"))()}
-			</PositronButton>
-			<PositronButton
+			</Button>
+			<Button
 				className='button action-bar-button right'
 				onPressed={props.onCancel}
 			>
 				{(() => localize('positron.resumeConnectionModalDialog.cancel', "Cancel"))()}
-			</PositronButton>
+			</Button>
 		</div>
 	</div>;
-}
+};

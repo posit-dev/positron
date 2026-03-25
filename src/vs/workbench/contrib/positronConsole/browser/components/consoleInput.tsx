@@ -37,7 +37,7 @@ import { TabCompletionController } from '../../../snippets/browser/tabCompletion
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
-import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
@@ -862,15 +862,18 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Provide a reference to the code editor.
 		props.positronConsoleInstance.codeEditor = codeEditorWidget;
 
-		// Attach the text model.
+		// Attach the text model. Use a different URI path prefix for
+		// notebook console inputs so that the notebook LSP can match
+		// them via document selectors, while the console LSP skips them.
+		const languageId = props.positronConsoleInstance.runtimeMetadata.languageId;
+		const isNotebook = props.positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
+		const replPrefix = isNotebook ? 'notebook-repl' : 'repl';
 		codeEditorWidget.setModel(services.modelService.createModel(
 			'',
-			services.languageService.createById(
-				props.positronConsoleInstance.runtimeMetadata.languageId
-			),
+			services.languageService.createById(languageId),
 			URI.from({
 				scheme: Schemas.inMemory,
-				path: `/repl-${props.positronConsoleInstance.runtimeMetadata.languageId}-${generateUuid()}`
+				path: `/${replPrefix}-${languageId}-${generateUuid()}`
 			}),
 			false
 		));

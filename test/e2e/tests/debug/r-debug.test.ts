@@ -303,6 +303,9 @@ test.describe('R Breakpoints', {
 		await page.keyboard.press('Enter');
 		await page.keyboard.type('# test comment');
 
+		await hotKeys.minimizeBottomPanel();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Home' : 'Control+Home');
+
 		// Breakpoint should become unverified after edit
 		await debug.expectBreakpointUnverified(0);
 
@@ -310,6 +313,8 @@ test.describe('R Breakpoints', {
 		await hotKeys.selectAll();
 		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
 		await debug.expectBreakpointVerified(0, 30000);
+
+		await hotKeys.restoreBottomPanel();
 
 		// Verify breakpoint still works
 		await console.pasteCodeToConsole('multiply_values(5, 3)', true);

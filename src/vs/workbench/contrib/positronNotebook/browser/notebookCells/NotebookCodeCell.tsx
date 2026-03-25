@@ -7,7 +7,7 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React from 'react';
+import React, { useMemo } from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -21,8 +21,10 @@ import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
-import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
+import { CellOutputCollapseButton } from './CellOutputCollapseButton.js';
+import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
+import { isHTMLElement } from '../../../../../base/browser/dom.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -31,6 +33,10 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
+import { useScrollingIndicator } from './useScrollingIndicator.js';
+import { CellOutputActionBar } from './CellOutputActionBar.js';
 
 
 interface CellOutputsSectionProps {
@@ -41,10 +47,20 @@ interface CellOutputsSectionProps {
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const contextKeyService = useCellScopedContextKeyService();
+	const outputImageTargeted = useMemo(
+		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
+		[contextKeyService]
+	);
+	const notebookOptions = useNotebookOptions();
+	const layout = notebookOptions.getLayoutConfiguration();
+	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
+	useScrollingIndicator(outputsInnerRef);
 	const { showContextMenu } = useCellContextMenu({
 		cell,
-		menuId: MenuId.PositronNotebookCellOutputActionLeft,
+		menuId: MenuId.PositronNotebookCellOutputActionContext,
 	});
+	const hasOutputs = outputs.length > 0;
 	const isSingleDataExplorer = outputs?.length === 1 &&
 		outputs[0].parsed.type === 'dataExplorer';
 
@@ -63,26 +79,53 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 	const handleContextMenu = (event: React.MouseEvent) => {
 		// Only show context menu if there are outputs
-		if (outputs.length === 0) {
+		if (!hasOutputs) {
 			return;
 		}
-		showContextMenu({ x: event.clientX, y: event.clientY });
+
+		// Check if the click target is an <img> with a data: URL
+		const src = isHTMLElement(event.target) && event.target.tagName === 'IMG'
+			? (event.target as HTMLImageElement).src
+			: undefined;
+		const imageDataUrl = src?.startsWith('data:') ? src : undefined;
+
+		// Set context key so the "Copy Image" menu item shows only when an image is targeted
+		outputImageTargeted?.set(!!imageDataUrl);
+
+		const onHide = () => outputImageTargeted?.set(false);
+
+		if (imageDataUrl) {
+			showContextMenu(
+				{ x: event.clientX, y: event.clientY },
+				undefined,
+				onHide,
+				{ arg: { imageDataUrl }, shouldForwardArgs: true },
+			);
+		} else {
+			showContextMenu({ x: event.clientX, y: event.clientY }, undefined, onHide);
+		}
 	};
 
 	return (
 		<div className={positronClassNames(
 			'positron-notebook-outputs-section',
-			{ 'no-outputs': outputs.length === 0 },
+			{ 'no-outputs': !hasOutputs },
 			{ 'single-data-explorer': isSingleDataExplorer && !isCollapsed }
 		)}>
-			<CellOutputLeftActionMenu cell={cell} />
+			{hasOutputs ? <CellOutputCollapseButton cell={cell} /> : null}
+			<CellOutputActionBar cell={cell} scrollTargetRef={outputsInnerRef} />
 			<section
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
 				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
 				data-testid='cell-output'
 				onContextMenu={handleContextMenu}
 			>
-				<div className='positron-notebook-code-cell-outputs-inner'>
+				<div ref={outputsInnerRef} className={positronClassNames(
+					'positron-notebook-code-cell-outputs-inner',
+					'positron-notebook-scrollable',
+					'positron-notebook-scrollable-fade',
+					{ 'output-scrolling': layout.outputScrolling }
+				)}>
 					{isCollapsed
 						? <Button
 							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
@@ -91,18 +134,16 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 						>
 							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
 						</Button>
-						: <>
-							{outputs?.map((output) => (
-								<NotebookErrorBoundary
-									key={output.outputId}
-									componentName={`CellOutput[${output.parsed.type}]`}
-									level='output'
-									logService={services.logService}
-								>
-									<CellOutput {...output} />
-								</NotebookErrorBoundary>
-							))}
-						</>
+						: outputs?.map((output) => (
+							<NotebookErrorBoundary
+								key={output.outputId}
+								componentName={`CellOutput[${output.parsed.type}]`}
+								level='output'
+								logService={services.logService}
+							>
+								<CellOutput {...output} />
+							</NotebookErrorBoundary>
+						))
 					}
 				</div>
 			</section>

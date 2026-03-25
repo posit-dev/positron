@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
@@ -48,8 +49,8 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
-	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI): Promise<string>;
-	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[]): Promise<void>;
+	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>): Promise<string>;
+	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
 	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]>;
@@ -61,7 +62,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
 	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void>;
-	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void>;
+	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, executionMetadata?: Record<string, unknown>): Promise<void>;
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
 	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
@@ -86,7 +87,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$disposeLanguageRuntime(handle: number): Promise<void>;
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, executionId?: string): void;
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, executionId?: string, executionMetadata?: Record<string, unknown>): void;
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus>;
 	$createClient(handle: number, id: string, type: RuntimeClientType, params: unknown, metadata?: unknown): Promise<void>;
 	$listClients(handle: number, type?: RuntimeClientType): Promise<Record<string, string>>;
@@ -108,13 +109,13 @@ export interface ExtHostLanguageRuntimeShape {
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
 	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void;
-	$getPackages(handle: number): Promise<LanguageRuntimePackage[]>;
-	$installPackages(handle: number, packages: PackageSpec[]): Promise<void>;
-	$uninstallPackages(handle: number, packageNames: string[]): Promise<void>;
-	$updatePackages(handle: number, packages: PackageSpec[]): Promise<void>;
-	$updateAllPackages(handle: number): Promise<void>;
-	$searchPackages(handle: number, query: string): Promise<LanguageRuntimePackage[]>;
-	$searchPackageVersions(handle: number, name: string): Promise<string[]>;
+	$getPackages(handle: number, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
+	$installPackages(handle: number, packages: PackageSpec[], token: CancellationToken): Promise<void>;
+	$uninstallPackages(handle: number, packageNames: string[], token: CancellationToken): Promise<void>;
+	$updatePackages(handle: number, packages: PackageSpec[], token: CancellationToken): Promise<void>;
+	$updateAllPackages(handle: number, token: CancellationToken): Promise<void>;
+	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
+	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 }
 
 // This is the interface that the main process exposes to the extension host

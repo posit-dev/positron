@@ -8,7 +8,7 @@ import { useEffect, useRef } from 'react';
 
 // Other dependencies.
 import { ActionRunner, IAction } from '../../../../../base/common/actions.js';
-import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { IMenuActionOptions, MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -78,14 +78,17 @@ export function useCellContextMenu({ cell, menuId }: UseCellContextMenuOptions) 
 	 *                   Called at the time the menu is shown, allowing callers to capture
 	 *                   context-specific state (like text selection) at the right moment.
 	 * @param onHide Optional callback to run when the menu is hidden
+	 * @param menuActionOptions Optional options forwarded to the menu actions (e.g. to pass
+	 *                          an arg that will be forwarded to the action's run method)
 	 */
-	const showContextMenu = (anchor: HTMLElement | IAnchor, getActions?: () => IAction[], onHide?: () => void) => {
+	const showContextMenu = (anchor: HTMLElement | IAnchor, getActions?: () => IAction[], onHide?: () => void, menuActionOptions?: IMenuActionOptions) => {
 		if (!actionRunnerRef.current) {
 			return;
 		}
 
 		contextMenuService.showContextMenu({
 			menuId,
+			menuActionOptions,
 			contextKeyService,
 			getAnchor: () => anchor,
 			actionRunner: actionRunnerRef.current,

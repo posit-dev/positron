@@ -14,10 +14,17 @@ import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, Session
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
+
+/**
+ * Minimum pointer distance (px) before a drag activates.
+ * Must match DRAG_ACTIVATION_DISTANCE_PX in SortableCellList.tsx.
+ */
+const DRAG_ACTIVATION_DISTANCE_PX = 10;
 const MARKDOWN_ARIA_LABEL = 'Markdown cell - Press Enter to edit';
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
 type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
+type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Output' | 'Show Full Output' | 'Truncate Output' | 'Copy Image';
 
 /**
  * Notebooks functionality exclusive to Positron notebooks.
@@ -28,7 +35,9 @@ export class PositronNotebooks extends Notebooks {
 	private cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
-	editorAtIndex = (index: number) => this.cell.nth(index).locator('.view-line');
+	editorAtIndex = (index: number) => this.cell.nth(index).locator('.monaco-editor :is(.native-edit-context, .inputarea)');
+	/** The visible editor code area -- clickable even when the editor is not focused. */
+	editorWidgetAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .view-lines');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
 	markdownCell = this.code.driver.page.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
@@ -41,13 +50,14 @@ export class PositronNotebooks extends Notebooks {
 	private addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
 	private addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 
-	// Cell action buttons, menus, tooltips, output, etc
+	// Cell action buttons, menus, tooltips, etc
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /More Cell Actions/i });
+	// Drag handle is a sibling of the cell inside .sortable-cell parent
+	sortableCellAtIndex = (index: number) => this.code.driver.page.locator('.sortable-cell').nth(index);
+	dragHandleAtIndex = (index: number) => this.sortableCellAtIndex(index).getByRole('button', { name: /Drag to reorder cell/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
-	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
-	private executionStatusBadgeWrapperAtIndex = (index: number) => this.cell.nth(index).locator('.execution-status-badge-wrapper');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellFooterAtIndex = (index: number) => this.cell.nth(index).locator('.positron-notebook-code-cell-footer');
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/Cell is executing/i);
@@ -55,6 +65,12 @@ export class PositronNotebooks extends Notebooks {
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
+
+	// Cell outputs
+	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
+	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
+	showHiddenOutputButton = (index: number) => this.cellOutput(index).getByRole('button', { name: 'Show hidden output' });
+	outputCollapseToggle = (index: number) => this.cell.nth(index).locator('.cell-output-collapse-button-container').getByRole('button');
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
@@ -77,6 +93,15 @@ export class PositronNotebooks extends Notebooks {
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
 		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
+	}
+
+	/**
+	 * Returns a scoped version of the notebook for use with side-by-side notebooks.
+	 * All locators and actions will be scoped to the provided container.
+	 * @param container - A locator for the editor group container (e.g., `editors.editorGroup(0)`)
+	 */
+	scopedTo(container: Locator): ScopedNotebook {
+		return new ScopedNotebook(container, this.contextMenu);
 	}
 
 	// #region GETTERS
@@ -351,6 +376,234 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Internal helper: activate a drag on a cell's handle.
+	 * Hovers the cell, waits for the handle, presses mouse down, and moves
+	 * past the 10px activation threshold. Returns the start coordinates.
+	 */
+	private async _activateDrag(cellIndex: number): Promise<{ startX: number; startY: number }> {
+		const dragHandle = this.dragHandleAtIndex(cellIndex);
+
+		// Hover near the left edge of the cell to trigger handle visibility.
+		// Uses locator.hover() for auto-wait and auto-scroll guarantees
+		// (avoids coupling to the internal .cell-drag-zone CSS class).
+		await this.sortableCellAtIndex(cellIndex).hover({ position: { x: 8, y: 20 } });
+		await expect(dragHandle).toBeVisible({ timeout: 2000 });
+
+		const handleBox = await dragHandle.boundingBox();
+		if (!handleBox) {
+			throw new Error('Could not get bounding box for drag handle');
+		}
+
+		const startX = handleBox.x + handleBox.width / 2;
+		const startY = handleBox.y + handleBox.height / 2;
+
+		// Start drag and move past activation threshold
+		// (DRAG_ACTIVATION_DISTANCE_PX in SortableCellList.tsx)
+		await this.code.driver.page.mouse.move(startX, startY);
+		await this.code.driver.page.mouse.down();
+		await this.code.driver.page.mouse.move(startX, startY + DRAG_ACTIVATION_DISTANCE_PX + 5, { steps: 3 });
+
+		// Wait for the cursor-following drag overlay to appear, which is the
+		// user-visible signal that a drag is fully active.
+		const page = this.code.driver.page;
+		await expect(page.locator('.cursor-following-overlay')).toBeVisible({ timeout: 2000 });
+
+		return { startX, startY };
+	}
+
+	/**
+	 * Action: Drag a cell from one position to another using the drag handle.
+	 * @param fromIndex - The index of the cell to drag
+	 * @param toIndex - The index of the cell to drop onto
+	 */
+	async dragCellToPosition(fromIndex: number, toIndex: number): Promise<void> {
+		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex}`, async () => {
+			const { startX } = await this._activateDrag(fromIndex);
+			const page = this.code.driver.page;
+
+			try {
+				// Scroll the target cell into view programmatically AFTER
+				// the drag activates. _activateDrag hovers the source cell
+				// which may scroll the container; we need the target visible
+				// so the mouse move doesn't trigger dnd-kit's auto-scroll
+				// (which shifts cell positions mid-move).
+				const targetCell = this.sortableCellAtIndex(toIndex);
+				const handle = await targetCell.elementHandle();
+				if (!handle) {
+					throw new Error('Could not get element handle for target cell');
+				}
+				await page.evaluate(
+					(el) => el.scrollIntoView({ block: 'center' }),
+					handle
+				);
+
+				const targetBox = await targetCell.boundingBox();
+				if (!targetBox) {
+					throw new Error('Could not get bounding box for target cell during drag');
+				}
+
+				// Target 75%/25% inside the cell because dnd-kit's collision
+				// detection uses the vertical midpoint to decide above vs. below
+				// placement. See: SortableCellList.tsx collisionDetection
+				// callback (midY calculation).
+				const targetY = toIndex > fromIndex
+					? targetBox.y + targetBox.height * 0.75
+					: targetBox.y + targetBox.height * 0.25;
+
+				await page.mouse.move(startX, targetY, { steps: 10 });
+
+				// Wait for the drop indicator to appear, confirming dnd-kit
+				// processed the pointer position. This method is only used for
+				// real (non-no-op) moves, so the indicator will always appear.
+				await expect(
+					page.getByTestId('drop-indicator')
+				).toBeVisible({ timeout: 2000 });
+			} finally {
+				await page.mouse.up();
+			}
+		});
+	}
+
+	/**
+	 * Action: Start dragging a cell (without releasing). Useful for testing drag cancellation.
+	 * @param cellIndex - The index of the cell to start dragging
+	 */
+	async startDragCell(cellIndex: number): Promise<void> {
+		await test.step(`Start dragging cell at index ${cellIndex}`, async () => {
+			await this._activateDrag(cellIndex);
+			// Leave mouse down - caller controls what happens next
+		});
+	}
+
+	/**
+	 * Action: Drag a cell to a position that requires auto-scrolling.
+	 * This method handles dragging across long notebooks where the target
+	 * position is not initially visible.
+	 * @param fromIndex - The index of the cell to drag
+	 * @param toIndex - The target index (may be off-screen)
+	 */
+	async dragCellToPositionWithScroll(fromIndex: number, toIndex: number): Promise<void> {
+		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex} (with auto-scroll)`, async () => {
+			// Ensure source cell is visible before activating drag
+			const sourceCell = this.sortableCellAtIndex(fromIndex);
+			await sourceCell.scrollIntoViewIfNeeded();
+			await expect(sourceCell).toBeVisible();
+
+			const { startX } = await this._activateDrag(fromIndex);
+
+			// Get the notebook container for viewport bounds
+			const notebookContainer = this.positronNotebook;
+			const containerBox = await notebookContainer.boundingBox();
+			if (!containerBox) {
+				throw new Error('Could not get notebook container bounding box');
+			}
+
+			// Determine scroll direction
+			const scrollingDown = toIndex > fromIndex;
+
+			// Move to the edge of the viewport to trigger auto-scroll
+			// dnd-kit's auto-scroll triggers near viewport edges
+			const edgeY = scrollingDown
+				? containerBox.y + containerBox.height * 0.85  // Near bottom edge
+				: containerBox.y + containerBox.height * 0.15; // Near top edge
+
+			// Helper to check if target cell is visible and in a good drop position
+			const isTargetReachable = async (): Promise<{ reachable: boolean; targetY?: number }> => {
+				const targetCell = this.sortableCellAtIndex(toIndex);
+				const targetBox = await targetCell.boundingBox();
+
+				if (!targetBox) {
+					return { reachable: false };
+				}
+
+				// Ensure target is sufficiently visible within container (not just peeking)
+				const targetCenter = targetBox.y + targetBox.height / 2;
+				const containerTop = containerBox.y + containerBox.height * 0.1;
+				const containerBottom = containerBox.y + containerBox.height * 0.9;
+
+				if (targetCenter >= containerTop && targetCenter <= containerBottom) {
+					// Target 75%/25% inside the cell because dnd-kit's collision
+					// detection uses the vertical midpoint to decide above vs.
+					// below placement. See: SortableCellList.tsx collisionDetection
+					// callback (midY calculation).
+					const dropY = scrollingDown
+						? targetBox.y + targetBox.height * 0.75
+						: targetBox.y + targetBox.height * 0.25;
+					return { reachable: true, targetY: dropY };
+				}
+
+				return { reachable: false };
+			};
+
+			// This method is only used for real (non-no-op) moves, so
+			// the drop indicator will always appear.
+			const dropIndicator = this.code.driver.page.getByTestId('drop-indicator');
+
+			try {
+				// First check if target is already visible (no scrolling needed)
+				const initialCheck = await isTargetReachable();
+				if (initialCheck.reachable && initialCheck.targetY !== undefined) {
+					await this.code.driver.page.mouse.move(startX, initialCheck.targetY, { steps: 10 });
+					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
+					return;
+				}
+
+				// Move to edge and wait for auto-scroll to bring target into view
+				// Use polling with timeout instead of fixed iteration count
+				await this.code.driver.page.mouse.move(startX, edgeY, { steps: 5 });
+
+				await expect(async () => {
+					// Keep cursor at edge to maintain auto-scroll
+					await this.code.driver.page.mouse.move(startX, edgeY, { steps: 2 });
+
+					const result = await isTargetReachable();
+					if (!result.reachable) {
+						throw new Error('Target not yet reachable');
+					}
+					return result;
+				}).toPass({ timeout: 15000, intervals: [100, 200, 300, 500] });
+
+				// Target is now reachable - get fresh position and drop
+				const finalCheck = await isTargetReachable();
+				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
+					await this.code.driver.page.mouse.move(startX, finalCheck.targetY, { steps: 10 });
+					await expect(dropIndicator).toBeVisible({ timeout: 2000 });
+					return;
+				}
+
+				throw new Error(`Could not reach target cell at index ${toIndex} via auto-scroll`);
+			} finally {
+				await this.code.driver.page.mouse.up();
+			}
+		});
+	}
+
+	/**
+	 * Action: Hover over a cell to show the drag handle.
+	 * @param cellIndex - The index of the cell to hover over
+	 */
+	async hoverCell(cellIndex: number): Promise<void> {
+		await test.step(`Hover over cell at index ${cellIndex}`, async () => {
+			// Hover near the left edge of the cell to trigger handle visibility.
+			// Uses locator.hover() for auto-wait and auto-scroll guarantees
+			// (avoids coupling to the internal .cell-drag-zone CSS class).
+			await this.sortableCellAtIndex(cellIndex).hover({ position: { x: 8, y: 20 } });
+		});
+	}
+
+	/**
+	 * Action: Select an output action from the Output Action Bar for a cell.
+	 * @param cellIndex - The index of the cell to act on
+	 * @param button - The button to click on the Output Action Bar
+	 */
+	async triggerCellOutputAction(cellIndex: number, button: OutputActionBarButtons): Promise<void> {
+		await test.step(`Click "${button}" for cell ${cellIndex}`, async () => {
+			await this.cellOutput(cellIndex).hover();
+			await this.outputActionBar(cellIndex).getByRole('button', { name: button }).click();
+		});
+	}
+
+	/**
 	 * Action: Create a new code cell at the END of the notebook.
 	 */
 	private async addCodeCellToEnd(): Promise<void> {
@@ -385,14 +638,6 @@ export class PositronNotebooks extends Notebooks {
 			});
 			await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
 		});
-	}
-
-	/**
-	 * Action: Hover over the execution status badge for a cell to trigger the execution info tooltip.
-	 * @param cellIndex - The index of the cell whose execution badge to hover.
-	 */
-	async hoverExecutionBadge(cellIndex: number): Promise<void> {
-		await this.executionStatusBadgeWrapperAtIndex(cellIndex).hover();
 	}
 
 	/**
@@ -948,6 +1193,31 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Verify: drag handle visibility state for a cell.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param visible - Whether the drag handle should be visible.
+	 * @param timeout - Timeout for the expectation.
+	 */
+	async expectDragHandleVisibility(cellIndex: number, visible: boolean, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect drag handle at index ${cellIndex} to be ${visible ? 'visible' : 'hidden'}`, async () => {
+			const dragHandle = this.dragHandleAtIndex(cellIndex);
+
+			// Note: Drag handle uses opacity for show/hide (see SortableCell.css)
+			// opacity: 0 when hidden, 1 on hover (via CSS :hover on parent element)
+			await expect(async () => {
+				const opacity = await dragHandle.evaluate(el =>
+					parseFloat(window.getComputedStyle(el).opacity)
+				);
+				if (visible) {
+					expect(opacity).toBeGreaterThan(0);
+				} else {
+					expect(opacity).toBe(0);
+				}
+			}).toPass({ timeout });
+		});
+	}
+
+	/**
 	 * Verify: the cell at the specified index is (or is not) selected,
 	 * and optionally, whether it is in edit mode.
 	 * @param expectedIndex - The index of the cell to check.
@@ -1152,26 +1422,32 @@ export class PositronNotebooks extends Notebooks {
 }
 
 // -----------------
-//     Kernel
+//    KernelBase
 // -----------------
-export class Kernel {
+
+/**
+ * Base class for kernel functionality shared between Kernel and ScopedKernel.
+ * Contains common locators and methods for kernel actions.
+ */
+class KernelBase {
 	statusBadge: Locator;
-	private activeStatus: Locator;
-	private idleStatus: Locator;
-	private disconnectedStatus: Locator;
+	protected activeStatus: Locator;
+	protected idleStatus: Locator;
+	protected disconnectedStatus: Locator;
 
-	constructor(private code: Code, private notebooks: PositronNotebooks, private contextMenu: ContextMenu, private hotKeys: HotKeys, private quickinput: QuickInput) {
-		this.statusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' });
-		this.activeStatus = this.notebooks.editorActionBar.locator(ACTIVE_STATUS_ICON);
-		this.idleStatus = this.notebooks.editorActionBar.locator(IDLE_STATUS_ICON);
-		this.disconnectedStatus = this.notebooks.editorActionBar.locator(DISCONNECTED_STATUS_ICON);
+	constructor(
+		statusBadge: Locator,
+		editorActionBar: Locator,
+		protected contextMenu: ContextMenu
+	) {
+		this.statusBadge = statusBadge;
+		this.activeStatus = editorActionBar.locator(ACTIVE_STATUS_ICON);
+		this.idleStatus = editorActionBar.locator(IDLE_STATUS_ICON);
+		this.disconnectedStatus = editorActionBar.locator(DISCONNECTED_STATUS_ICON);
 	}
-
-	// #region ACTIONS
 
 	/**
 	 * Action: Restart the notebook kernel and optionally wait for it to be ready.
-	 * @param param0 - { waitForRestart?: boolean } - Whether to wait for the kernel to be idle after restart (default: true).
 	 */
 	async restart({ waitForRestart = true }: { waitForRestart?: boolean } = {}): Promise<void> {
 		await test.step('Restart kernel', async () => {
@@ -1198,6 +1474,60 @@ export class Kernel {
 			await this.expectStatusToBe('disconnected', 15000);
 		});
 	}
+
+	/**
+	 * Verify: Kernel status is as expected.
+	 */
+	async expectStatusToBe(expectedStatus: SessionState, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect kernel status to be: ${expectedStatus}`, async () => {
+			const statusMap: Record<Exclude<SessionState, 'exited'>, Locator> = {
+				active: this.activeStatus,
+				idle: this.idleStatus,
+				disconnected: this.disconnectedStatus
+			};
+
+			const locator = statusMap[expectedStatus];
+			if (!locator) {
+				throw new Error(`Unknown expected status: ${expectedStatus}`);
+			}
+			await expect(locator).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Verify: Kernel badge contains expected text.
+	 */
+	async expectBadgeToContain(text: string, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect kernel badge to contain: ${text}`, async () => {
+			await expect(this.statusBadge).toContainText(text, { timeout });
+		});
+	}
+}
+
+// -----------------
+//     Kernel
+// -----------------
+
+/**
+ * Full kernel functionality for single-notebook scenarios.
+ * Extends KernelBase with additional page-level methods like select().
+ */
+export class Kernel extends KernelBase {
+	constructor(
+		private code: Code,
+		private notebooks: PositronNotebooks,
+		contextMenu: ContextMenu,
+		private hotKeys: HotKeys,
+		private quickinput: QuickInput
+	) {
+		super(
+			code.driver.page.getByRole('button', { name: 'Kernel Actions' }),
+			notebooks.editorActionBar,
+			contextMenu
+		);
+	}
+
+	// #region ACTIONS
 
 	/**
 	 * Action: Open the notebook session scratchpad in console.
@@ -1308,28 +1638,92 @@ export class Kernel {
 		});
 	}
 
-	/**
-	 * Verify: Kernel status is as expected.
-	 * @param expectedStatus - the kernel status (idle | active | disconnected)
-	 * @param timeout - the timeout for the expectation
-	 */
-	async expectStatusToBe(expectedStatus: SessionState, timeout = DEFAULT_TIMEOUT): Promise<void> {
-		await test.step(`Expect kernel status to be: ${expectedStatus}`, async () => {
-			const statusMap: Record<Exclude<SessionState, 'exited'>, Locator> = {
-				active: this.activeStatus,
-				idle: this.idleStatus,
-				disconnected: this.disconnectedStatus
-			};
-
-			// Use the mapped locator for the expected status
-			const locator = statusMap[expectedStatus];
-			if (!locator) {
-				throw new Error(`Unknown expected status: ${expectedStatus}`);
-			}
-			await expect(locator).toBeVisible({ timeout });
-		});
-	}
-
 	// #endregion
 
+	/**
+	 * Returns a scoped version of the Kernel for use with side-by-side notebooks.
+	 * All locators and actions will be scoped to the provided container.
+	 * @param container - A locator for the editor group container (e.g., `.editor-group-container`)
+	 */
+	scopedTo(container: Locator): ScopedKernel {
+		const editorActionBar = container.locator('.editor-action-bar-container');
+		const statusBadge = container.getByRole('button', { name: 'Kernel Actions' });
+		return new ScopedKernel(statusBadge, editorActionBar, this.contextMenu);
+	}
+}
+
+// -----------------
+//   ScopedKernel
+// -----------------
+
+/**
+ * A scoped version of Kernel for testing side-by-side notebooks.
+ * Extends KernelBase - shares restart(), shutdown(), expectStatusToBe(), expectBadgeToContain().
+ *
+ * NOTE: For kernel selection, use the page-level `notebooksPositron.kernel.select()` while
+ * only one notebook is visible (before splitting side-by-side).
+ */
+export class ScopedKernel extends KernelBase {
+	constructor(
+		statusBadge: Locator,
+		editorActionBar: Locator,
+		contextMenu: ContextMenu
+	) {
+		super(statusBadge, editorActionBar, contextMenu);
+	}
+}
+
+// -----------------
+//  ScopedNotebook
+// -----------------
+
+/**
+ * A scoped version of PositronNotebooks for testing side-by-side notebooks.
+ * Exposes locators scoped to the provided container (editor group).
+ */
+export class ScopedNotebook {
+	/** All cells in this notebook */
+	cells: Locator;
+	/** The editor action bar for this notebook */
+	editorActionBar: Locator;
+	/** Scoped kernel helper for this notebook */
+	kernel: ScopedKernel;
+
+	// Editor action bar buttons
+	runAllButton: Locator;
+	addCodeButton: Locator;
+	addMarkdownButton: Locator;
+	clearOutputsButton: Locator;
+
+	constructor(
+		container: Locator,
+		contextMenu: ContextMenu
+	) {
+		this.cells = container.locator('[data-testid="notebook-cell"]');
+		this.editorActionBar = container.locator('.editor-action-bar-container');
+
+		const statusBadge = container.getByRole('button', { name: 'Kernel Actions' });
+		this.kernel = new ScopedKernel(statusBadge, this.editorActionBar, contextMenu);
+
+		// Action bar buttons
+		this.runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All' });
+		this.addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
+		this.addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
+		this.clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear Outputs' });
+	}
+
+	/** Get a specific cell by index */
+	cell(index: number): Locator {
+		return this.cells.nth(index);
+	}
+
+	/** Get cell output for a specific cell */
+	cellOutput(index: number): Locator {
+		return this.cell(index).getByTestId('cell-output');
+	}
+
+	/** Get the "Run Cell" button for a specific cell */
+	runCellButton(index: number): Locator {
+		return this.cell(index).getByRole('button', { name: 'Run Cell', exact: true });
+	}
 }

@@ -268,7 +268,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		return this._onWillStartSession;
 	}
 
-	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => IDisposable | void): IDisposable {
 		throw new Error('Method not implemented.');
 	}
 }

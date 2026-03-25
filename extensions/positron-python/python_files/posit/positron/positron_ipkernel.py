@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import enum
 import json
 import logging
@@ -17,6 +16,8 @@ import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import psutil
 import traitlets
@@ -221,6 +222,17 @@ class PositronMagics(Magics):
         except TypeError as e:
             raise UsageError(f"cannot show object of type '{get_qualname(info.obj)}'") from e
 
+    @line_magic
+    def _positron_exec_metadata(self, line: str) -> None:  # noqa: ARG002
+        """Print the positron execution metadata from the current execute_request as JSON."""
+        import json as _json
+
+        kernel = self.shell.kernel
+        parent = kernel.get_parent("shell")
+        content: dict = cast("dict", parent.get("content", {}))
+        positron_meta: dict = cast("dict", content.get("positron", {}))
+        print(_json.dumps(positron_meta, sort_keys=True))
+
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
 
@@ -240,6 +252,34 @@ class PositronDisplayFormatter(DisplayFormatter):
     def _default_formatter(self):
         return PositronIPythonDisplayFormatter(parent=self)
 
+    def _resolve_variable_name(self, obj) -> str | None:
+        """Find the top-level variable name for an object by scanning user_ns.
+
+        Returns the first non-hidden variable name whose value is the same
+        object (by identity), or None if no match is found.
+        """
+        shell = self.parent
+        if shell is None:
+            return None
+
+        user_ns = shell.user_ns or {}
+        hidden = shell.user_ns_hidden or {}
+
+        for name, value in user_ns.items():
+            if value is not obj:
+                continue
+            # Skip hidden variables (IPython internals like _, __, _oh, etc.)
+            # For _, only treat it as hidden if the value is the same object
+            # as in user_ns_hidden (i.e. the user hasn't reassigned it).
+            if name == "_":
+                if name in hidden and value is hidden[name]:
+                    continue
+            elif name in hidden:
+                continue
+            return name
+
+        return None
+
     def format(self, obj, include=None, exclude=None):
         """Format an object for display, with special handling for dataframes in notebooks."""
         # Get the standard format result first
@@ -255,29 +295,36 @@ class PositronDisplayFormatter(DisplayFormatter):
 
         # Register the table with data explorer service and get comm_id
         try:
-            # Generate a unique title for the inline display
             rows, cols = _get_table_shape(obj)
             source = _get_table_source(obj)
-            title = source
 
-            # Register without opening a full data explorer panel
+            # Try to resolve the top-level variable name
+            var_name = self._resolve_variable_name(obj)
+            if var_name is not None:
+                title = var_name
+                variable_path = [encode_access_key(var_name)]
+            else:
+                title = source
+                variable_path = None
+
             comm_id = self._kernel.data_explorer_service.register_table(
                 obj,
                 title,
-                variable_path=None,  # No variable path for inline displays
-                inline_only=True,  # Prevent auto-opening full data explorer
+                variable_path=variable_path,
+                inline_only=True,
             )
 
-            # Add the custom MIME type with metadata for the inline data explorer
-            format_dict[POSITRON_DATA_EXPLORER_MIME] = json.dumps(
-                {
-                    "version": 1,
-                    "comm_id": comm_id,
-                    "shape": {"rows": rows, "columns": cols},
-                    "title": title,
-                    "source": source,
-                }
-            )
+            payload: dict[str, Any] = {
+                "version": 1,
+                "comm_id": comm_id,
+                "shape": {"rows": rows, "columns": cols},
+                "title": title,
+                "source": source,
+            }
+            if variable_path is not None:
+                payload["variable_path"] = variable_path
+
+            format_dict[POSITRON_DATA_EXPLORER_MIME] = json.dumps(payload)
 
         except Exception:
             # If registration fails, just use the standard format
@@ -438,14 +485,14 @@ class PositronShell(ZMQInteractiveShell):
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user's environment.
         """
+        # Clean up the temporarily added editor directory from sys.path
+        self._remove_editor_dir_from_sys_path()
+
         # If an empty cell was executed, do nothing.
         info = cast("ExecutionInfo", result.info)
         raw_cell = cast("str", info.raw_cell)
         if not raw_cell or raw_cell.isspace():
             return
-
-        # Remove the temporarily added editor directory from sys.path
-        self._remove_editor_dir_from_sys_path()
 
         # TODO: Split these to separate callbacks?
         # Check for changes to the working directory
@@ -461,28 +508,33 @@ class PositronShell(ZMQInteractiveShell):
 
     def _add_editor_dir_to_sys_path(self) -> str | None:
         """
-        Add the directory of the last active editor to sys.path.
+        Add the directory of the executed file to sys.path.
 
-        Only adds the path if it differs from the working directory and code is being
-        executed from a file. This only adds the path when is_execution_source is True,
-        which indicates that code is being executed from a script file (not typed in
-        the console).
+        Uses `code_location` from the execute request's positron metadata to
+        determine the source file. Only adds the path if it differs from the
+        working directory and isn't already in sys.path.
 
         Returns the path that was added, or None if no path was added.
         """
         try:
-            ui_service = self.kernel.ui_service
-
-            # Only add to sys.path when executing code from a file
-            if not ui_service.is_execution_source:
+            parent: dict[str, Any] = self.kernel.get_parent("shell")
+            content = parent.get("content", {})
+            metadata = content.get("positron", {})
+            code_location = metadata.get("code_location")
+            if not code_location:
                 return None
 
-            editor_path = ui_service.get_editor_file_path()
-            if editor_path is None:
+            editor_uri = urlparse(code_location.get("uri", ""))
+            if editor_uri.scheme != "file":
                 return None
 
-            editor_dir = str(editor_path.parent)
-            working_dir = str(ui_service.working_directory or Path.cwd())
+            url_path = (
+                f"//{editor_uri.netloc}{editor_uri.path}" if editor_uri.netloc else editor_uri.path
+            )
+            editor_path = url2pathname(url_path)
+
+            editor_dir = str(Path(editor_path).parent)
+            working_dir = str(self.kernel.ui_service.working_directory or Path.cwd())
 
             # If editor directory differs from working directory, add to sys.path
             if editor_dir != working_dir and editor_dir not in sys.path:
@@ -504,10 +556,6 @@ class PositronShell(ZMQInteractiveShell):
                 pass  # Already removed
             finally:
                 self._editor_path_added = None
-
-        # Clear the execution source flag
-        with contextlib.suppress(Exception):
-            self.kernel.ui_service.clear_execution_source()
 
     async def _stop(self):
         # Initiate the kernel shutdown sequence.

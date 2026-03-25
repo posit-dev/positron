@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -28,7 +28,7 @@ test.use({
 });
 
 test.describe('Editor Action Bar: Document Files', {
-	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
+	tag: [tags.WEB, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 
 	test.beforeAll(async function ({ app }) {

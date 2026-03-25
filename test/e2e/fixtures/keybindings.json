@@ -129,6 +129,10 @@
         "key": "cmd+l r",
         "command": "quarto.runCurrent" // Quarto: Run Current Code
     },
+    {
+        "key": "cmd+l b",
+        "command": "positron-assistant.configureProviders" // Configure Language Model Providers
+    },
     // Custom keybinding for command palette to avoid browser shortcut conflicts.
     // The default Ctrl+Shift+P opens private browsing in Firefox, so we use a
     // multi-key sequence that browsers won't intercept.

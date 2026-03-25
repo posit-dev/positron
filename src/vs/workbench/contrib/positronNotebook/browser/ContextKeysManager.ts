@@ -6,7 +6,7 @@
 import * as DOM from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
-import { IContextKey, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyValue, IContextKey, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
@@ -53,7 +53,16 @@ export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN = new RawContextKey<boolean>('
 
 // Output-related context keys
 export const POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS = new RawContextKey<boolean>('positronNotebookCellHasOutputs', false);
+export const POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT = new RawContextKey<number>('positronNotebookCellImageOutputCount', 0);
 export const POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED = new RawContextKey<boolean>('positronNotebookCellOutputIsCollapsed', false);
+
+/**
+ * Interaction-driven context key set to true when the user right-clicks on an
+ * image in the output area, or opens the ellipsis menu for a cell with image
+ * output. This key tracks the current menu interaction and is NOT part of the
+ * cell context key set or bindCellContextKeys.
+ */
+export const POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED = new RawContextKey<boolean>('positronNotebookOutputImageTargeted', false);
 
 // All cell context keys in one place so we can easily operate on them all at once
 export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
@@ -71,12 +80,13 @@ export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	canMoveUp: POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP,
 	canMoveDown: POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN,
 	hasOutputs: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
+	imageOutputCount: POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT,
 	outputIsCollapsed: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED,
 } as const;
 
 // Interface for the cell context keys
 export type IPositronNotebookCellContextKeys = {
-	readonly [K in keyof typeof POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS]: IContextKey<boolean>;
+	readonly [K in keyof typeof POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS]: IContextKey<ContextKeyValue>;
 };
 
 
@@ -99,6 +109,7 @@ export function bindCellContextKeys(service: IScopedContextKeyService): IPositro
 		canMoveUp: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveUp.bindTo(service),
 		canMoveDown: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveDown.bindTo(service),
 		hasOutputs: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.hasOutputs.bindTo(service),
+		imageOutputCount: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.imageOutputCount.bindTo(service),
 		outputIsCollapsed: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputIsCollapsed.bindTo(service),
 	} satisfies IPositronNotebookCellContextKeys;
 }

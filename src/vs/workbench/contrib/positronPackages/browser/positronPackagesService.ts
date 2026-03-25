@@ -4,15 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { timeout } from '../../../../base/common/async.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
-import { isEqual } from '../../../../base/common/resources.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { NotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
-import { PositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
@@ -44,7 +41,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		// Call the disposable constructor.
@@ -55,21 +51,16 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 			this.createOrAssignInstance(e.session, e.activate);
 		}));
 
-		// Register session cleanup handler
-		this._register(this._runtimeSessionService.onDidChangeRuntimeState(e => {
-			if (e.new_state === RuntimeState.Exited) {
-				this.cleanupSession(e.session_id);
-			}
-		}));
-
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			this.setActiveInstance(session?.sessionId);
 		}));
 
-		this._register(this._editorService.onDidActiveEditorChange(() => {
-			this._syncToActiveEditor();
-		}));
+		// Initialize with the current foreground session if one exists.
+		const foregroundSession = this._runtimeSessionService.foregroundSession;
+		if (foregroundSession) {
+			this.createOrAssignInstance(foregroundSession, true);
+		}
 	}
 
 	private createOrAssignInstance(session: ILanguageRuntimeSession, activate: boolean) {
@@ -79,8 +70,9 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		}
 
 		let instance = this._instancesBySessionId.get(session.sessionId);
-
-		if (!instance) {
+		if (instance) {
+			instance.setRuntimeSession(session);
+		} else {
 			instance = new PositronPackagesInstance(session, this._logService);
 			this._instancesBySessionId.set(session.sessionId, instance);
 		}
@@ -92,53 +84,10 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		return instance;
 	}
 
-	/**
-	 * Cleans up resources associated with a session.
-	 * @param session The session to clean up.
-	 */
-	private cleanupSession(sessionId: string): void {
-		const instance = this._instancesBySessionId.get(sessionId);
-		if (instance) {
-			// If this was the active instance, clear it
-			if (this._activeInstance === instance) {
-				this.setActiveInstance(undefined);
-			}
-
-			// Dispose the instance and remove it from our map
-			this._instancesBySessionId.deleteAndDispose(sessionId);
-			this._onDidStopPositronPackagesInstanceEmitter.fire(instance);
-		}
-	}
-
 	private setActiveInstance(sessionId?: string) {
 		const instance = sessionId ? this._instancesBySessionId.get(sessionId) : undefined;
 		this._activeInstance = instance;
 		this._onDidChangeActivePackagesInstance.fire(instance);
-	}
-
-	/**
-	 * Syncs the active packages instance to the active editor.
-	 * This is called when the active editor changes or the service is initialized.
-	 */
-	private _syncToActiveEditor() {
-		const editorInput = this._editorService.activeEditor;
-		if (editorInput instanceof NotebookEditorInput || editorInput instanceof PositronNotebookEditorInput) {
-			// If this is a notebook editor try and set the active packages session to the one
-			// that corresponds with it.
-			const notebookSession = this._runtimeSessionService.activeSessions.find(
-				s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
-			);
-			// If the editor is not for a jupyter notebook, just leave packages session as is.
-			if (!notebookSession) { return; }
-			this.setActiveInstance(notebookSession.sessionId);
-		} else if (this._runtimeSessionService.foregroundSession) {
-			// Revert to the most recent console session if we're not in a notebook editor
-			this.setActiveInstance(
-				this._runtimeSessionService.foregroundSession.sessionId);
-		} else {
-			// All else fails, just reset to the default
-			this.setActiveInstance(undefined);
-		}
 	}
 
 	//#endregion Constructor & Dispose
@@ -156,11 +105,15 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		return this._activeInstance?.session;
 	}
 
-	async refreshPackages(): Promise<ILanguageRuntimePackage[]> {
+	get activePackagesInstance(): IPositronPackagesInstance | undefined {
+		return this._activeInstance;
+	}
+
+	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const instance = this._activeInstance;
 		if (instance) {
 			return await Promise.race([
-				instance.refreshPackages(),
+				instance.refreshPackages(token),
 				timeout(TIMEOUT_REFRESH_MS).then(() => { throw new Error('Package refresh timed out'); })
 			]);
 		}
@@ -168,55 +121,55 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		throw new Error('No active session found.');
 	}
 
-	async installPackages(packages: IPackageSpec[]): Promise<void> {
+	async installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.installPackages(packages);
+			return await instance.installPackages(packages, token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async uninstallPackages(packageNames: string[]): Promise<void> {
+	async uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.uninstallPackages(packageNames);
+			return await instance.uninstallPackages(packageNames, token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async updatePackages(packages: IPackageSpec[]): Promise<void> {
+	async updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.updatePackages(packages);
+			return await instance.updatePackages(packages, token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async updateAllPackages(): Promise<void> {
+	async updateAllPackages(token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.updateAllPackages();
+			return await instance.updateAllPackages(token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async searchPackages(name: string): Promise<ILanguageRuntimePackage[]> {
+	async searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.searchPackages(name);
+			return await instance.searchPackages(name, token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async searchPackageVersions(name: string): Promise<string[]> {
+	async searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.searchPackageVersions(name);
+			return await instance.searchPackageVersions(name, token);
 		}
 
 		throw new Error('No active session found.');

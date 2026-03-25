@@ -16,6 +16,7 @@ import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 import { StoredModelConfig, ModelConfig } from './configTypes.js';
+import { isAuthExtProvider, resolveApiKey, delegateConfigDialog } from './authExtRouting.js';
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
 	return context.globalState.get('positron.assistant.models') || [];
@@ -29,7 +30,7 @@ export async function getModelConfiguration(id: string, context: vscode.Extensio
 		return undefined;
 	}
 
-	const apiKey = await context.secrets.get(`apiKey-${config.id}`);
+	const apiKey = await resolveApiKey(config, context.secrets);
 	return {
 		...config,
 		apiKey: apiKey || ''
@@ -41,7 +42,7 @@ export async function getModelConfigurations(context: vscode.ExtensionContext): 
 
 	const fullConfigs: ModelConfig[] = await Promise.all(
 		storedConfigs.map(async (config) => {
-			const apiKey = await context.secrets.get(`apiKey-${config.id}`);
+			const apiKey = await resolveApiKey(config, context.secrets);
 			return {
 				...config,
 				apiKey: apiKey || ''
@@ -148,6 +149,7 @@ export async function showConfigurationDialog(
 									signedIn: result.configured,
 									defaults: {
 										...source.defaults,
+										...(result.configuration?.baseUrl && { baseUrl: result.configuration.baseUrl }),
 										autoconfigure: {
 											type: positron.ai.LanguageModelAutoconfigureType.Custom,
 											message: result.message ?? source.defaults.autoconfigure.message,
@@ -168,42 +170,64 @@ export async function showConfigurationDialog(
 			})
 	);
 
-	// Show a modal asking user for configuration details
-	return positron.ai.showLanguageModelConfig(sources, async (userConfig, action) => {
-		switch (action) {
-			case 'save':
-				await saveModel(userConfig, sources, context);
-				break;
-			case 'delete':
-				await deleteConfigurationByProvider(context, userConfig.provider);
-				break;
-			case 'oauth-signin':
-				await oauthSignin(userConfig, sources, context);
-				break;
-			case 'oauth-signout':
-				await oauthSignout(userConfig, sources, context);
-				break;
-			case 'cancel':
-				// User cancelled the dialog, clean up any pending operations
-				PositModelProvider.cancelCurrentSignIn();
-				break;
-			default:
-				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
-		}
-	}, { preselectedProviderId });
-
+	// Delegate the config dialog to the authentication extension. It
+	// handles credential storage/removal for routed providers and returns
+	// action results so we can handle model lifecycle here.
+	const results = await delegateConfigDialog(sources, { preselectedProviderId });
+	for (const result of results) {
+		await applyConfigAction(context, sources, result.config, result.action, result.accountId);
+	}
 }
 
-async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
+export async function applyConfigAction(
+	context: vscode.ExtensionContext,
+	sources: positron.ai.LanguageModelSource[],
+	config: positron.ai.LanguageModelConfig,
+	action: string,
+	accountId?: string,
+) {
+	switch (action) {
+		case 'save':
+			if (isAuthExtProvider(config.provider) && accountId) {
+				await saveModel(config, sources, context, {
+					id: accountId,
+					skipSecretStorage: true,
+				});
+			} else {
+				await saveModel(config, sources, context);
+			}
+			break;
+		case 'delete':
+			await deleteConfigurationByProvider(context, config.provider);
+			break;
+		case 'oauth-signin':
+			await oauthSignin(config, sources, context);
+			break;
+		case 'oauth-signout':
+			await oauthSignout(config, sources, context);
+			break;
+		case 'cancel':
+			// User cancelled the dialog, clean up any pending operations.
+			PositModelProvider.cancelCurrentSignIn();
+			break;
+		default:
+			throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
+	}
+}
+
+async function saveModel(
+	userConfig: positron.ai.LanguageModelConfig,
+	sources: positron.ai.LanguageModelSource[],
+	context: vscode.ExtensionContext,
+	options?: { id?: string; skipSecretStorage?: boolean }
+) {
 	const { name: nameRaw, model: modelRaw, baseUrl: baseUrlRaw, apiKey: apiKeyRaw, oauth: oauth, ...otherConfig } = userConfig;
 	const name = nameRaw.trim();
 	const model = modelRaw.trim();
 	const baseUrl = baseUrlRaw?.trim();
 	const apiKey = apiKeyRaw?.trim();
 
-	// Create unique ID for the configuration
-	const id = randomUUID();
-
+	const id = options?.id ?? randomUUID();
 
 	// Filter out sources that use autoconfiguration for required field validation
 	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
@@ -220,8 +244,8 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			}
 		});
 
-	// Store API key in secret storage
-	if (apiKey) {
+	// Store API key in secret storage (skipped when the auth extension owns credentials)
+	if (!options?.skipSecretStorage && apiKey) {
 		await context.secrets.store(`apiKey-${id}`, apiKey);
 	}
 
@@ -238,7 +262,6 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		baseUrl,
 	};
 
-
 	// Register the new model FIRST, before saving configuration
 	// Note: Autoconfigurable providers are registered upon extension activation, so don't need to be handled here.
 	// Likewise, the configuration dialog hides affordances to login/logout for autoconfigured models, so we'd never reach this state.
@@ -250,7 +273,9 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			[...existingConfigs, newConfig]
 		);
 
-		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
+		const addedSource = expandConfigToSource(newConfig);
+		addedSource.signedIn = true;
+		positron.ai.addLanguageModelConfig(addedSource);
 
 		// Remember the base URL for this provider so it can be pre-populated after sign-out
 		if (baseUrl) {
@@ -272,7 +297,9 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
 		);
 	} catch (error) {
-		await context.secrets.delete(`apiKey-${id}`);
+		if (!options?.skipSecretStorage) {
+			await context.secrets.delete(`apiKey-${id}`);
+		}
 		await context.globalState.update(
 			'positron.assistant.models',
 			existingConfigs
@@ -282,16 +309,19 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	}
 }
 
-async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {
+export async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
-	const targetConfig = existingConfigs.find(config => config.provider === providerId);
-	if (targetConfig === undefined) {
+	const targetConfigs = existingConfigs.filter(config => config.provider === providerId);
+	if (targetConfigs.length === 0) {
 		// Provider may be autoconfigured and not in persistent state
 		// Remove from autoconfigured models list if present
 		removeAutoconfiguredModel(providerId);
 		return;
 	}
-	await deleteConfiguration(context, targetConfig.id);
+
+	for (const config of targetConfigs) {
+		await deleteConfiguration(context, config.id);
+	}
 }
 
 async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], context: vscode.ExtensionContext) {
@@ -392,13 +422,17 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, id: 
 		updatedConfigs
 	);
 
-	await context.secrets.delete(`apiKey-${id}`);
+	if (!isAuthExtProvider(targetConfig.provider)) {
+		await context.secrets.delete(`apiKey-${id}`);
+	}
 
 	disposeModels(id);
 
 	clearTokenUsage(targetConfig.provider);
 
-	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
+	const removedSource = expandConfigToSource(targetConfig);
+	removedSource.signedIn = false;
+	positron.ai.removeLanguageModelConfig(removedSource);
 
 	// Refresh CopilotService signed-in state if this was a copilot model
 	if (targetConfig.provider === 'copilot-auth') {

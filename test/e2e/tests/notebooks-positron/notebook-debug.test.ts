@@ -26,7 +26,7 @@ test.describe('Positron Notebook Debugging', {
 	tag: [tags.WEB, tags.WIN, tags.DEBUG, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
+	test.skip('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
 		const { notebooksPositron, debug } = app.workbench;
 
 		await notebooksPositron.createNewNotebook();

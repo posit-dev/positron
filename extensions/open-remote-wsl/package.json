@@ -43,7 +43,7 @@
           "type": "string",
           "description": "%configuration.remote.WSL.serverDownloadUrlTemplate.description%",
           "scope": "application",
-          "default": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz"
+          "default": "https://cdn.posit.co/positron/${quality}/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz"
         }
       }
     },

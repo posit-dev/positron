@@ -8,6 +8,7 @@ import * as path from 'path';
 import { RBinary } from './provider.js';
 import { ReasonDiscovered, RVersionsMetadata } from './r-installation.js';
 import { LOGGER } from './extension.js';
+import { getEnvironmentModulesApi, parseRVersion } from './provider-module.js';
 
 /**
  * Represents a single entry parsed from an r-versions file.
@@ -192,13 +193,95 @@ export async function discoverRVersionsBinaries(): Promise<RBinary[]> {
 
 	const binaries: RBinary[] = [];
 
+	// Get environment modules API for entries with Module field
+	const modulesApi = await getEnvironmentModulesApi();
+	const modulesAvailable = modulesApi ? await modulesApi.isAvailable() : false;
+
 	for (const entry of entries) {
-		// For now, only handle entries with Path field
-		// TODO: module field support will be added in a later PR
-		if (!entry.path) {
-			if (entry.module) {
-				LOGGER.info(`Skipping r-versions entry with Module field (not yet supported): ${entry.module}`);
+		// Handle entries with Module field
+		if (entry.module) {
+			if (!modulesAvailable) {
+				// Module system not available
+				if (entry.path) {
+					// Scenario A fallback: use Path without module loading
+					LOGGER.warn(`Module system not available; using Path without module for: ${entry.module}`);
+				} else {
+					// Scenario B: cannot proceed without module system
+					LOGGER.warn(`Skipping r-versions entry with Module field (module system not available): ${entry.module}`);
+					continue;
+				}
 			}
+
+			let binPath: string | undefined;
+			let moduleStartupCommand: string | undefined;
+
+			if (entry.path) {
+				// Scenario A: Module + Path - use Path for binary, build startup command for module
+				if (!fs.existsSync(entry.path)) {
+					LOGGER.warn(`R_HOME path from r-versions does not exist: ${entry.path}`);
+					continue;
+				}
+				binPath = getRBinaryFromHome(entry.path);
+				if (!binPath) {
+					continue;
+				}
+				if (modulesAvailable && modulesApi) {
+					moduleStartupCommand = modulesApi.buildStartupCommand([entry.module]);
+					LOGGER.info(`Built module startup command for ${entry.module}: ${moduleStartupCommand}`);
+				}
+			} else {
+				// Scenario B: Module only - resolve binary path via module system
+				if (!modulesAvailable || !modulesApi) {
+					// Already logged warning above
+					continue;
+				}
+
+				LOGGER.info(`Resolving R binary from module: ${entry.module}`);
+				const resolved = await modulesApi.resolveInterpreterFromModules(
+					[entry.module],
+					{
+						environmentName: entry.label || entry.module,
+						language: 'r',
+						interpreterBinaryNames: ['R'],
+						versionArgs: ['--version'],
+						parseVersion: parseRVersion
+					}
+				);
+
+				if (!resolved) {
+					LOGGER.warn(`Failed to resolve R binary from module: ${entry.module}`);
+					continue;
+				}
+
+				binPath = resolved.interpreterPath;
+				moduleStartupCommand = resolved.startupCommand;
+				LOGGER.info(`Resolved R at ${binPath} from module ${entry.module}`);
+			}
+
+			// Build metadata from r-versions entry fields
+			const metadata: RVersionsMetadata = {
+				type: 'rversions',
+				label: entry.label,
+				script: entry.script,
+				repo: entry.repo,
+				library: entry.library,
+				module: entry.module,
+				moduleStartupCommand: moduleStartupCommand,
+			};
+
+			binaries.push({
+				path: binPath,
+				reasons: [ReasonDiscovered.RVERSIONS],
+				packagerMetadata: metadata,
+			});
+
+			LOGGER.info(`Found R at ${binPath} from r-versions file (with module: ${entry.module})`);
+			continue;
+		}
+
+		// Handle entries with Path only (no Module)
+		if (!entry.path) {
+			LOGGER.warn('Skipping r-versions entry without Path or Module field');
 			continue;
 		}
 

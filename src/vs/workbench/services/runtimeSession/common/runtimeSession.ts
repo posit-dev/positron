@@ -11,7 +11,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, RuntimeStartupPhase } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -371,11 +371,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *  no console session with the given language identifier exists.
 	 */
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined {
-		// Return the foreground session if the languageId matches
-		if (this._foregroundSession?.runtimeMetadata.languageId === languageId) {
+		// Return the foreground session if the languageId matches and it is a
+		// Console session. Notebook sessions should not be returned here even
+		// if they are the foreground session, because they have restricted LSP
+		// document selectors that don't cover script files.
+		if (this._foregroundSession?.runtimeMetadata.languageId === languageId &&
+			this._foregroundSession.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			return this.foregroundSession;
 		}
-		// Otherwise, return the last active session for the languageId if there is one
+		// Otherwise, return the last active console session for the languageId if there is one
 		return this._lastActiveConsoleSessionByLanguageId.get(languageId);
 	}
 
@@ -474,7 +478,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			//       returned here. Is that expected?
 			const existingSession = this.getConsoleSessionForRuntime(runtimeId, true);
 			if (existingSession) {
-				// Set it as the foreground session and return.
+				// If startup is not yet complete, don't override the foreground
+				// session, as it interrupts the session selection that happens
+				// during startup
+				if (this.foregroundSession &&
+					this._languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete) {
+					return;
+				}
+				// Otherwise, set it as the foreground session and return.
 				if (existingSession.runtimeMetadata.runtimeId !== this.foregroundSession?.runtimeMetadata.runtimeId) {
 					this.foregroundSession = existingSession;
 				}
@@ -802,8 +813,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		this._foregroundSession = session;
 
-		if (session) {
-			// Update the map of active console sessions per language
+		if (session && session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			// Update the map of active console sessions per language.
+			// Only track Console sessions here; notebook sessions should not
+			// replace the last active console session, as that would cause
+			// getConsoleSessionForLanguage() to return the wrong session.
 			this._lastActiveConsoleSessionByLanguageId.set(session.runtimeMetadata.languageId, session);
 		}
 
@@ -1717,7 +1731,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// Make the newly-started runtime the foreground runtime if it's a console session.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this.foregroundSession = session;
+				// Make this the foreground session if there isn't one already,
+				// or if the caller requested to activate it.
+				if (!this.foregroundSession || activate) {
+					this.foregroundSession = session;
+				}
 			}
 		} catch (reason) {
 			this.clearStartingSessionMaps(
@@ -1894,26 +1912,44 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
 	 *
 	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 * The `IDisposable` returned by `handler` is automatically disposed before the next
+	 * invocation, ensuring resources tied to a previous UI client are cleaned up on restart.
 	 *
 	 * @param sessionId The ID of the session to observe.
-	 * @param handler Called with started UI clients.
-	 * @returns An `IDisposable` to clean up the event handler.
+	 * @param handler Called with started UI clients. The returned `IDisposable` is
+	 *   disposed before the next invocation and on outer disposal.
+	 * @returns An `IDisposable` to clean up the event handler and the current handler disposable.
 	 */
-	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => IDisposable | void): IDisposable {
+		const store = new DisposableStore();
+		let handlerDisposable: IDisposable | undefined;
+
+		// Enforces "one at a time" invariant. Disposes the previous handler before
+		// running new one.
+		const runHandler = (uiClient: UiClientInstance) => {
+			handlerDisposable?.dispose();
+			handlerDisposable = handler(uiClient) ?? undefined;
+		};
+
 		// Run handler with currently started client, if any
 		const currentUiClient = this.getActiveSession(sessionId)?.uiClient;
 		if (currentUiClient) {
-			handler(currentUiClient);
+			runHandler(currentUiClient);
 		}
 
 		// Run handler on future instances, e.g. after reconnect
-		const disposable = this.onDidStartUiClient((event) => {
+		store.add(this.onDidStartUiClient((event) => {
 			if (event.sessionId === sessionId) {
-				handler(event.uiClient);
+				runHandler(event.uiClient);
 			}
-		});
+		}));
 
-		return disposable;
+		store.add(toDisposable(() => {
+			handlerDisposable?.dispose();
+			handlerDisposable = undefined;
+		}));
+
+		return store;
 	}
 
 	/**

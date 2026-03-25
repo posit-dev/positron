@@ -197,6 +197,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         mode: positron.RuntimeCodeExecutionMode,
         errorBehavior: positron.RuntimeErrorBehavior,
         codeLocation?: positron.Utf8Location,
+        executionMetadata?: Record<string, any>,
     ): void {
         if (this._kernel) {
             if (this._isUninstallBundledPackageCommand(code, id)) {
@@ -204,7 +205,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 return;
             }
 
-            this._kernel.execute(code, id, mode, errorBehavior, codeLocation);
+            this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata);
         } else {
             throw new Error(`Cannot execute '${code}'; kernel not started`);
         }
@@ -499,12 +500,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this._kernel = await this.createKernel();
 
             // Create package manager now that kernel is available
+            // Pass `this` (the session) which provides callMethod and interrupt
             this._packageManager = PackageManagerFactory.create(
                 this.runtimeMetadata.runtimeSource,
                 this._pythonPath,
                 this._messageEmitter,
                 this.serviceContainer,
-                this._kernel,
+                this,
             );
         }
 

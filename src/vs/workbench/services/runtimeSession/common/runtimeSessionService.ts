@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -189,6 +190,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
+		executionMetadata?: Record<string, unknown>,
 	): void;
 
 	/** Test a code fragment for completeness */
@@ -295,43 +297,50 @@ export interface IPackageSpec {
 export interface ILanguageRuntimePackageManager {
 	/**
 	 * Get list of installed packages.
+	 * @param token Optional cancellation token
 	 */
-	getPackages(): Promise<ILanguageRuntimePackage[]>;
+	getPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
 	/**
 	 * Install the list of packages.
 	 * @param packages Array of package install requests with name and optional version
+	 * @param token Optional cancellation token
 	 */
-	installPackages(packages: IPackageSpec[]): Promise<void>;
+	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Uninstall the list of packages.
 	 * @param packageNames Array of package names to uninstall
+	 * @param token Optional cancellation token
 	 */
-	uninstallPackages(packageNames: string[]): Promise<void>;
+	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Update the list of packages.
 	 * @param packages Array of package install requests with name and optional version
+	 * @param token Optional cancellation token
 	 */
-	updatePackages(packages: IPackageSpec[]): Promise<void>;
+	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Update all installed packages.
+	 * @param token Optional cancellation token
 	 */
-	updateAllPackages(): Promise<void>;
+	updateAllPackages(token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Search a repository for packages matching the query.
 	 * @param query Search query string
+	 * @param token Optional cancellation token
 	 */
-	searchPackages(query: string): Promise<ILanguageRuntimePackage[]>;
+	searchPackages(query: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
 	/**
 	 * Search a repository for available versions of a package.
 	 * @param name Package name
+	 * @param token Optional cancellation token
 	 */
-	searchPackageVersions(name: string): Promise<string[]>;
+	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 }
 
 /**
@@ -675,12 +684,14 @@ export interface IRuntimeSessionService {
 	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
 	 *
 	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 * If the handler returns an `IDisposable`, it is disposed before the handler is called again
+	 * with a new client (e.g. after restart).
 	 *
 	 * @param sessionId The ID of the session to observe.
-	 * @param handler Called with started UI clients.
+	 * @param handler Called with started UI clients. May return an `IDisposable` for per-client cleanup.
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
-	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => IDisposable | void): IDisposable;
 
 	/**
 	 * When true, suppresses implicit runtime auto-start triggered by

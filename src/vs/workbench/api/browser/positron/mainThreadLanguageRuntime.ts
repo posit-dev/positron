@@ -24,6 +24,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientStatus, RuntimeClientType } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../base/common/errors.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
@@ -127,32 +128,32 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 		private readonly _handle: number,
 	) { }
 
-	getPackages(): Promise<ILanguageRuntimePackage[]> {
-		return this._proxy.$getPackages(this._handle);
+	getPackages(token: CancellationToken): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$getPackages(this._handle, token);
 	}
 
-	installPackages(packages: IPackageSpec[]): Promise<void> {
-		return this._proxy.$installPackages(this._handle, packages);
+	installPackages(packages: IPackageSpec[], token: CancellationToken): Promise<void> {
+		return this._proxy.$installPackages(this._handle, packages, token);
 	}
 
-	uninstallPackages(packageNames: string[]): Promise<void> {
-		return this._proxy.$uninstallPackages(this._handle, packageNames);
+	uninstallPackages(packageNames: string[], token: CancellationToken): Promise<void> {
+		return this._proxy.$uninstallPackages(this._handle, packageNames, token);
 	}
 
-	updatePackages(packages: IPackageSpec[]): Promise<void> {
-		return this._proxy.$updatePackages(this._handle, packages);
+	updatePackages(packages: IPackageSpec[], token: CancellationToken): Promise<void> {
+		return this._proxy.$updatePackages(this._handle, packages, token);
 	}
 
-	updateAllPackages(): Promise<void> {
-		return this._proxy.$updateAllPackages(this._handle);
+	updateAllPackages(token: CancellationToken): Promise<void> {
+		return this._proxy.$updateAllPackages(this._handle, token);
 	}
 
-	searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
-		return this._proxy.$searchPackages(this._handle, query);
+	searchPackages(query: string, token: CancellationToken): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$searchPackages(this._handle, query, token);
 	}
 
-	searchPackageVersions(name: string): Promise<string[]> {
-		return this._proxy.$searchPackageVersions(this._handle, name);
+	searchPackageVersions(name: string, token: CancellationToken): Promise<string[]> {
+		return this._proxy.$searchPackageVersions(this._handle, name, token);
 	}
 }
 
@@ -549,6 +550,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
+		executionMetadata?: Record<string, unknown>,
 	): void {
 		this._lastUsed = Date.now();
 
@@ -560,7 +562,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			codeLocation = attribution.metadata?.codeLocation;
 		}
 
-		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation);
+		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation, undefined, executionMetadata);
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {
@@ -1860,33 +1862,11 @@ export class MainThreadLanguageRuntime
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
-		documentUri?: URI): Promise<string> {
+		documentUri?: URI,
+		executionMetadata?: Record<string, unknown>): Promise<string> {
 
 		// Revive the URI from the serialized form, if provided.
 		const revivedUri = documentUri ? URI.revive(documentUri) : undefined;
-
-		// If a document URI is provided, notify the backend that code is being executed from a file.
-		// This allows the backend to temporarily add the file's directory to sys.path.
-		if (revivedUri) {
-			// Determine which session(s) to notify:
-			// - If a specific sessionId is provided, only notify that session
-			// - Otherwise, only notify sessions matching the languageId
-			const activeSessions = this._runtimeSessionService.getActiveSessions();
-			for (const activeSession of activeSessions) {
-				const shouldNotify = sessionId
-					? activeSession.session.sessionId === sessionId
-					: activeSession.session.runtimeMetadata.languageId === languageId;
-
-				if (shouldNotify && activeSession.uiClient) {
-					try {
-						await activeSession.uiClient.editorContextChanged(revivedUri.toString(), true);
-					} catch (err) {
-						// Log but don't fail the execution if notification fails
-						console.warn(`Failed to send editor context changed: ${err}`);
-					}
-				}
-			}
-		}
 
 		// Attribute this code to the extension that requested it. If a document
 		// URI is provided, use Script attribution so that the code location is
@@ -1917,22 +1897,22 @@ export class MainThreadLanguageRuntime
 		}
 
 		return this._positronConsoleService.executeCode(
-			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
+			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId, undefined, executionMetadata);
 	}
 
-	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: IRange[]): Promise<void> {
+	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void> {
 		const revivedUri = URI.revive(documentUri);
 		// Convert IRange objects (with startLineNumber, etc.) to editor Range objects
 		const cellRanges = ranges.map(r => Range.lift(r));
-		return this._quartoExecutionManager.executeInlineCells(revivedUri, cellRanges);
+		return this._quartoExecutionManager.executeInlineCells(revivedUri, cellRanges, undefined, executionMetadata);
 	}
 
-	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {
+	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, executionMetadata?: Record<string, unknown>): Promise<void> {
 		const session = this._runtimeSessionService.getSession(sessionId);
 		if (!session) {
 			return Promise.reject(new Error(`No such session: ${id}`));
 		}
-		return Promise.resolve(session.execute(code, id, mode, errorBehavior));
+		return Promise.resolve(session.execute(code, id, mode, errorBehavior, undefined, executionMetadata));
 	}
 
 	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void> {

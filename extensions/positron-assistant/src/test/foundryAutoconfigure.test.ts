@@ -97,6 +97,87 @@ suite('Foundry Autoconfigure', () => {
 		assert.strictEqual(result.message, 'Foundry managed credentials');
 	});
 
+	// --- URL normalization tests ---
+
+	suite('normalizeToV1Url', () => {
+		test('converts full deployment URL to v1', () => {
+			const input = 'https://r.azure.com/openai/deployments/m/chat/completions?api-version=2025-01-01-preview';
+			assert.strictEqual(FoundryModelProvider.normalizeToV1Url(input), 'https://r.azure.com/openai/v1');
+		});
+
+		test('converts partial deployment URL to v1', () => {
+			assert.strictEqual(
+				FoundryModelProvider.normalizeToV1Url('https://r.azure.com/openai/deployments/m'),
+				'https://r.azure.com/openai/v1'
+			);
+		});
+
+		test('preserves already-v1 URL', () => {
+			assert.strictEqual(
+				FoundryModelProvider.normalizeToV1Url('https://r.azure.com/openai/v1'),
+				'https://r.azure.com/openai/v1'
+			);
+		});
+
+		test('strips trailing slash from v1 URL', () => {
+			assert.strictEqual(
+				FoundryModelProvider.normalizeToV1Url('https://r.azure.com/openai/v1/'),
+				'https://r.azure.com/openai/v1'
+			);
+		});
+
+		test('appends /openai/v1 to bare endpoint with trailing slash', () => {
+			assert.strictEqual(
+				FoundryModelProvider.normalizeToV1Url('https://r.azure.com/'),
+				'https://r.azure.com/openai/v1'
+			);
+		});
+
+		test('appends /openai/v1 to bare endpoint', () => {
+			assert.strictEqual(
+				FoundryModelProvider.normalizeToV1Url('https://r.azure.com'),
+				'https://r.azure.com/openai/v1'
+			);
+		});
+
+		test('strips query params from bare endpoint', () => {
+			assert.strictEqual(
+				FoundryModelProvider.normalizeToV1Url('https://r.azure.com?api-version=x'),
+				'https://r.azure.com/openai/v1'
+			);
+		});
+
+		test('handles empty string', () => {
+			assert.strictEqual(
+				FoundryModelProvider.normalizeToV1Url(''),
+				''
+			);
+		});
+	});
+
+	suite('isDeploymentUrl', () => {
+		test('detects full deployment URL', () => {
+			assert.strictEqual(
+				FoundryModelProvider.isDeploymentUrl('https://r.azure.com/openai/deployments/m/chat/completions'),
+				true
+			);
+		});
+
+		test('returns false for v1 URL', () => {
+			assert.strictEqual(
+				FoundryModelProvider.isDeploymentUrl('https://r.azure.com/openai/v1'),
+				false
+			);
+		});
+
+		test('returns false for bare endpoint', () => {
+			assert.strictEqual(
+				FoundryModelProvider.isDeploymentUrl('https://r.azure.com/'),
+				false
+			);
+		});
+	});
+
 	test('Existing providers (AWS/Snowflake) still work after Foundry addition', async () => {
 		// Re-enable AWS and Snowflake
 		AWSModelProvider.autoconfigure = async () => ({

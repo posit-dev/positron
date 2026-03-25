@@ -37,6 +37,14 @@
 	background: var(--vscode-positronModalDialog-buttonHoverBackground);
 }
 
+/*
+	VS Code 1.109.0 changed secondary buttons to have transparent background and no border in dark mode.
+	For modal dialog buttons, we need a visible border for secondary buttons (Cancel, Back, etc.)
+*/
+.vs-dark .positron-modal-dialog-box .action-bar-button:not(.default) {
+	border: 1px solid var(--vscode-button-border);
+}
+
 .positron-modal-dialog-box .action-bar-button.default {
 	color: var(--vscode-positronModalDialog-defaultButtonForeground);
 	background: var(--vscode-positronModalDialog-defaultButtonBackground);
