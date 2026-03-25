@@ -10,7 +10,7 @@
  * side-by-side notebooks, especially when a cell in one notebook is in edit mode.
  */
 
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
@@ -56,6 +56,11 @@ test.describe('Notebook Side-by-Side Focus', {
 			// Click into code cell in the LEFT notebook to enter edit mode
 			await leftNotebook.cell(0).click();
 			await editors.expectEditorGroupActive(0, 5000);
+			// Verify the cell actually entered edit mode (Monaco editor focused).
+			// The bug only manifests on the EditingSelection -> SingleSelection
+			// transition, so edit mode is a prerequisite.
+			const leftEditorFocused = leftNotebook.cell(0).locator('.monaco-editor-background .focused');
+			await expect(leftEditorFocused).toHaveCount(1);
 
 			// Click the rendered markdown cell in the RIGHT notebook
 			await rightNotebook.cell(1).click();
