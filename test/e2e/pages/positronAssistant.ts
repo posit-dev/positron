@@ -39,7 +39,7 @@ const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_PROVIDERS_LINK = 'a[data-href="command:positron-assistant.configureProviders"]';
-const CONFIGURE_PROVIDERS_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
+const CONFIGURE_PROVIDERS_BUTTON = '.action-widget .monaco-list-row span.title:has-text("Configure Model Providers...")';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -67,14 +67,14 @@ const KEEP_BUTTON = 'a.action-label[role="button"][aria-label^="Keep Chat Edits"
 const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor .native-edit-context';
-const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-send[aria-label^="Send"]';
+const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-arrow-up[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = '.chat-input-toolbars a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 // const MODEL_PICKER_DROPDOWN = '.action-item.chat-input-picker-item a.action-label[aria-label^="Pick Model"] .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
+const MANAGE_MODELS_ITEM = '.action-widget .monaco-list-row span.title:has-text("Manage Models...")';
 
 /**
  * Result of sending a chat message.
@@ -920,7 +920,7 @@ export class Assistant {
 	}
 
 	async waitForReadyToSend(timeout: number = 25000) {
-		await this.code.driver.currentPage.waitForSelector('.chat-input-toolbars .codicon-send', { timeout });
+		await this.code.driver.currentPage.waitForSelector('.chat-input-toolbars .codicon-arrow-up', { timeout });
 		await this.code.driver.currentPage.waitForSelector('.detail-container .detail:has-text("Working")', { state: 'hidden', timeout });
 	}
 

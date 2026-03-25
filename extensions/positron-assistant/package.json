@@ -460,6 +460,11 @@
             "default": "",
             "markdownDescription": "%configuration.models.preference.anthropic.description%"
           },
+          "positron.assistant.models.preference.githubCopilot": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.githubCopilot.description%"
+          },
           "positron.assistant.models.preference.amazonBedrock": {
             "type": "string",
             "default": "",
@@ -500,6 +505,22 @@
             "type": "string",
             "default": "",
             "markdownDescription": "%configuration.models.preference.google.description%",
+            "tags": [
+              "advanced"
+            ]
+          },
+          "positron.assistant.models.preference.echo": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.echo.description%",
+            "tags": [
+              "advanced"
+            ]
+          },
+          "positron.assistant.models.preference.error": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.models.preference.error.description%",
             "tags": [
               "advanced"
             ]

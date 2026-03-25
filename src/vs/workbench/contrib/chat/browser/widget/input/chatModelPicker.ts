@@ -98,6 +98,13 @@ function createModelAction(
 	onSelect: (model: ILanguageModelChatMetadataAndIdentifier) => void,
 	section?: string,
 ): IActionWidgetDropdownAction & { section?: string } {
+	// --- Start Positron ---
+	// Check if this model is marked as the default for its provider
+	const isDefaultForLocation = model.metadata.isDefaultForLocation;
+	const isDefault = isDefaultForLocation && Object.values(isDefaultForLocation).some(v => v);
+	// Add "(default)" suffix to label if this is the default model
+	const label = isDefault ? localize('chat.modelPicker.defaultModel', "{0} (default)", model.metadata.name) : model.metadata.name;
+	// --- End Positron ---
 	return {
 		id: model.identifier,
 		enabled: true,
@@ -106,7 +113,7 @@ function createModelAction(
 		class: undefined,
 		description: model.metadata.multiplier ?? model.metadata.detail,
 		tooltip: model.metadata.name,
-		label: model.metadata.name,
+		label: label,
 		section,
 		run: () => onSelect(model),
 	};
@@ -743,8 +750,30 @@ export class ModelPickerWidget extends Disposable {
 			return;
 		}
 
-		const { name, statusIcon } = this._selectedModel?.metadata || {};
+		const { name, statusIcon, vendor } = this._selectedModel?.metadata || {};
 		const domChildren: (HTMLElement | string)[] = [];
+
+		// --- Start Positron ---
+		// Show provider icon for the selected model
+		if (vendor) {
+			const providerIcon = getProviderIcon(vendor);
+			if (providerIcon) {
+				if (providerIcon.svgContent) {
+					// SVG-based icons: render as background image
+					const base64 = btoa(providerIcon.svgContent);
+					const providerIconElement = dom.$('span.chat-model-picker-provider-icon');
+					providerIconElement.style.backgroundImage = `url(data:image/svg+xml;base64,${base64})`;
+					providerIconElement.style.marginRight = '4px';
+					domChildren.push(providerIconElement);
+				} else {
+					// Codicon-based icons (e.g., posit-ai): use renderIcon
+					const providerIconElement = renderIcon(providerIcon.themeIcon);
+					providerIconElement.classList.add('chat-model-picker-provider-icon');
+					domChildren.push(providerIconElement);
+				}
+			}
+		}
+		// --- End Positron ---
 
 		if (statusIcon) {
 			const iconElement = renderIcon(statusIcon);
