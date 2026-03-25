@@ -41,6 +41,15 @@ export function buildMoreActionsMenuItems(
 			label: action.label,
 			icon: ThemeIcon.isThemeIcon(action.item.icon) ? action.item.icon.id : undefined,
 			onWillSelect: () => {
+				// Focus this notebook's container so it becomes the active editor.
+				// The menu popup lives outside the notebook container, so the
+				// active element is never inside it at selection time. Without
+				// this, commands dispatch against the wrong notebook in
+				// side-by-side scenarios.
+				const container = instance.currentContainer;
+				if (container && !container.contains(container.ownerDocument.activeElement)) {
+					container.focus();
+				}
 				// Select cell BEFORE command runs to keep notebook selection in sync
 				instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 			},

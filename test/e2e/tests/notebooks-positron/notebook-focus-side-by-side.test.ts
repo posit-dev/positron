@@ -72,4 +72,57 @@ test.describe('Notebook Side-by-Side Focus', {
 			await editors.expectEditorGroupActive(1, 5000);
 			await editors.expectEditorGroupInactive(0);
 		});
+
+	test('Overflow menu actions target correct notebook in side-by-side layout',
+		async function ({ app, runCommand }) {
+			const { notebooksPositron, editors } = app.workbench;
+
+			// Create first notebook with two code cells
+			await notebooksPositron.newNotebook({ codeCells: 2 });
+			await notebooksPositron.kernel.select('Python');
+			await notebooksPositron.kernel.expectStatusToBe('idle');
+
+			// Create second notebook with two code cells
+			await notebooksPositron.newNotebook({ codeCells: 2 });
+			await notebooksPositron.kernel.select('Python');
+			await notebooksPositron.kernel.expectStatusToBe('idle');
+
+			// Split notebooks side-by-side
+			await runCommand('workbench.action.moveEditorToNextGroup');
+			await editors.expectEditorGroupCount(2);
+
+			const leftGroup = editors.editorGroup(0);
+			const rightGroup = editors.editorGroup(1);
+			const leftNotebook = notebooksPositron.scopedTo(leftGroup);
+			const rightNotebook = notebooksPositron.scopedTo(rightGroup);
+
+			// Click into the LEFT notebook to give it focus
+			await leftNotebook.cell(0).click();
+			await editors.expectEditorGroupActive(0, 5000);
+
+			// Hover over a cell in the RIGHT notebook to reveal the action bar,
+			// then click the "More Cell Actions" overflow button
+			const rightCell = rightNotebook.cell(0);
+			await rightCell.hover();
+			// Use a CSS selector instead of getByRole because the action bar
+			// has aria-hidden=true when the cell is not active. We
+			// intentionally skip clicking the cell first since that would
+			// transfer focus and mask the bug we are testing.
+			const moreActionsButton = rightCell.locator('button[aria-label="More Cell Actions"]');
+			await expect(moreActionsButton).toBeVisible();
+			await moreActionsButton.click();
+
+			// Select "Insert Code Cell Below" from the context menu
+			const insertOption = app.code.driver.page.locator(
+				'button.custom-context-menu-item',
+				{ hasText: 'Insert Code Cell Below' }
+			);
+			await insertOption.click();
+
+			// Verify the right editor group is now active (focus was transferred)
+			// and the insert operated on the RIGHT notebook (cell count increased)
+			await editors.expectEditorGroupActive(1, 5000);
+			await expect(rightNotebook.cells).toHaveCount(3);
+			await expect(leftNotebook.cells).toHaveCount(2);
+		});
 });
