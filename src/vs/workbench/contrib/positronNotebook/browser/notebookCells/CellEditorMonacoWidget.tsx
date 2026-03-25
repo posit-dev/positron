@@ -378,6 +378,9 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 					// handoff. Defer to the next frame so the browser settles
 					// on the actual target before we decide.
 					const win = getWindow(cell.container);
+					if (pendingFrame !== undefined) {
+						win.cancelAnimationFrame(pendingFrame);
+					}
 					pendingFrame = win.requestAnimationFrame(() => {
 						pendingFrame = undefined;
 						// Re-check selection state: if the user moved to
