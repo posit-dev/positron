@@ -91,20 +91,26 @@ test.describe('Positron Notebooks: Cell Output', {
 		const outputTruncationMessage = notebooksPositron.outputTruncationMessage(0);
 
 		await test.step('Long output is truncated with a truncation message', async () => {
-			await expect(outputTruncationMessage).toContainText('lines truncated');
+			await expect(outputTruncationMessage).toContainText('more lines');
 		});
 
 		await test.step('Show Full Output via action bar removes truncation', async () => {
 			await notebooksPositron.triggerCellOutputAction(0, 'Show Full Output');
 			await expect(outputTruncationMessage).toBeHidden();
 			// A line hidden during truncation should now be visible.
-			// With 50 lines and a 30-line limit, lines 29-48 are truncated.
+			// With 50 lines and a 30-line limit, lines 16-34 are truncated (50/50 split).
 			await notebooksPositron.expectOutputAtIndex(0, ['line 35']);
 		});
 
 		await test.step('Truncate Output via action bar restores truncation', async () => {
 			await notebooksPositron.triggerCellOutputAction(0, 'Truncate Output');
 			await expect(outputTruncationMessage).toBeVisible();
+		});
+
+		await test.step('Clicking the truncation message shows full output', async () => {
+			await notebooksPositron.outputTruncationMessage(0).click();
+			await expect(notebooksPositron.outputTruncationMessage(0)).toBeHidden();
+			await notebooksPositron.expectOutputAtIndex(0, ['line 25']);
 		});
 
 		await test.step('Re-running the cell resets truncation state', async () => {

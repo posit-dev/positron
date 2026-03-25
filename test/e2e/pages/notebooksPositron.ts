@@ -70,7 +70,7 @@ export class PositronNotebooks extends Notebooks {
 	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
 	outputCollapsedLabel = (index: number) => this.cellOutput(index).getByText('Output collapsed');
-	outputTruncationMessage = (index: number) => this.cellOutput(index).getByText(/\.\.\. [\d,.\s\u00A0]+ lines truncated/);
+	outputTruncationMessage = (index: number) => this.cellOutput(index).getByText(/\.\.\. Show [\d,.\s\u00A0]+ more lines/);
 	outputCollapseToggle = (index: number) => this.cell.nth(index).locator('.cell-output-collapse-button-container').getByRole('button');
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
