@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
 
@@ -120,6 +120,20 @@ export class Layouts {
 	async boundingBoxProperty(locator: Locator, property: 'x' | 'y' | 'width' | 'height') {
 		const boundingBox = await this.boundingBox(locator);
 		return boundingBox[property];
+	}
+
+	/**
+	 * Assert that the bottom panel is visible or not visible.
+	 * @param visible Whether the panel should be visible.
+	 */
+	async expectBottomPanelToBeVisible(visible = true): Promise<void> {
+		await test.step(`Expect panel to be ${visible ? 'visible' : 'not visible'}`, async () => {
+			if (visible) {
+				await expect(this.panelContent).toBeVisible();
+			} else {
+				await expect(this.panelContent).not.toBeVisible();
+			}
+		});
 	}
 }
 
