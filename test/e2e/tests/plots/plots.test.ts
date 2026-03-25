@@ -22,7 +22,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('Python Plots', () => {
 
 		test.beforeEach(async function ({ hotKeys, sessions }) {
-			await sessions.start('python')
+			await sessions.start('python');
 			await hotKeys.stackedLayout();
 		});
 
