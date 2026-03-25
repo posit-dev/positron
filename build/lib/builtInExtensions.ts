@@ -188,12 +188,13 @@ export function getBuiltInExtensions(): Promise<void> {
 		control[extension.name] = controlState;
 
 		// --- Start Positron ---
-		// Discard extensions intended for the web. The 'type' field isn't a
-		// formal part of the extension definition but a custom field we use to
-		// filter out web-only extensions (i.e. Posit Workbench)
+		// Discard extensions intended for the web unless building for for the web
 		// @ts-ignore
 		if (extension.type === 'reh-web' || extension.type === 'reh-web-pwb') {
-			continue;
+			// @ts-ignore
+			if (!process.env.POSITRON_BUILD_TYPE || extension.type !== process.env.POSITRON_BUILD_TYPE) {
+				continue;
+			}
 		}
 		// --- End Positron ---
 
