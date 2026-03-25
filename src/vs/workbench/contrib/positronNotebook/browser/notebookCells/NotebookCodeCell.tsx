@@ -32,7 +32,7 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED } from '../ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS } from '../ContextKeysManager.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
@@ -49,6 +49,7 @@ interface CellOutputsSectionProps {
 const CellOutputsSection = React.memo(function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+	const perCellScrolling = useObservedValue(cell.outputScrolling);
 	const contextKeyService = useCellScopedContextKeyService();
 	const outputImageTargeted = useMemo(
 		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
@@ -58,6 +59,21 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
 	useScrollingIndicator(outputsInnerRef);
+
+	// Per-cell scrolling override takes precedence over global setting.
+	const outputScrolling = perCellScrolling ?? layout.outputScrolling;
+
+	// Update the output overflow context key.
+	React.useEffect(() => {
+		if (!contextKeyService) { return; }
+		const hasOverflowingOutput = outputs.some(o =>
+			isParsedTextOutput(o.parsed) && o.parsed.content.trimEnd().split('\n').length > layout.outputLineLimit
+		);
+		const outputOverflowsKey = POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS.bindTo(contextKeyService);
+		outputOverflowsKey.set(hasOverflowingOutput);
+		return () => outputOverflowsKey.reset();
+	}, [contextKeyService, outputs, layout.outputLineLimit]);
+
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionContext,
@@ -126,7 +142,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					'positron-notebook-code-cell-outputs-inner',
 					'positron-notebook-scrollable',
 					'positron-notebook-scrollable-fade',
-					{ 'output-scrolling': layout.outputScrolling }
+					{ 'output-scrolling': outputScrolling }
 				)}>
 					{isCollapsed
 						? <CollapsedOutputLabel onExpand={handleShowHiddenOutput} />
@@ -137,7 +153,11 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 								level='output'
 								logService={services.logService}
 							>
-								<CellOutput {...output} />
+								<CellOutput
+									{...output}
+									outputScrolling={outputScrolling}
+									onShowFullOutput={() => cell.showFullOutput()}
+								/>
 							</NotebookErrorBoundary>
 						))
 					}
@@ -176,15 +196,24 @@ export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: {
 	return prevProps.cell === nextProps.cell;
 });
 
-const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
+interface CellOutputProps extends NotebookCellOutputs {
+	outputScrolling: boolean;
+	onShowFullOutput: () => void;
+}
+
+const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 	if (output.preloadMessageResult) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed, outputs } = output;
+	const { parsed, outputs, outputScrolling, onShowFullOutput } = output;
 
 	if (isParsedTextOutput(parsed)) {
-		return <CellTextOutput {...parsed} />;
+		return <CellTextOutput
+			{...parsed}
+			outputScrolling={outputScrolling}
+			onShowFullOutput={onShowFullOutput}
+		/>;
 	}
 
 	switch (parsed.type) {
@@ -208,7 +237,8 @@ const CellOutput = React.memo(function CellOutput(output: NotebookCellOutputs) {
 }, (prevProps, nextProps) => {
 	// Reference equality on parsed is correct - new execution creates new parsed objects
 	return prevProps.outputId === nextProps.outputId &&
-		prevProps.parsed === nextProps.parsed;
+		prevProps.parsed === nextProps.parsed &&
+		prevProps.outputScrolling === nextProps.outputScrolling;
 });
 
 const CollapsedOutputLabel = ({ onExpand }: { onExpand: () => void }) => {
