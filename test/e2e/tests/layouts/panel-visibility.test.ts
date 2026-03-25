@@ -13,7 +13,11 @@ test.describe('Bottom Panel Visibility', {
 	tag: [tags.WEB, tags.LAYOUTS, tags.WIN]
 }, () => {
 
-	test('Hidden panel stays hidden on closing last editor', async function ({ app, hotKeys, openFile }) {
+	test('Hidden panel stays hidden on closing last editor', {
+		annotation: [
+			{ type: 'issue', description: 'https://github.com/posit-dev/positron/pull/12644' },
+		],
+	}, async function ({ app, hotKeys, openFile }) {
 		const layouts = app.workbench.layouts;
 
 		// Open a file in editor - panel should be visible
