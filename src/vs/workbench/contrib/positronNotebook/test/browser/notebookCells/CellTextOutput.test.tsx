@@ -39,6 +39,10 @@ class CellTextOutputFixture {
 		return this.container.querySelector<HTMLElement>('.notebook-output-truncation-message');
 	}
 
+	get showLessMessage() {
+		return this.container.querySelector<HTMLElement>('.notebook-output-show-less-seam');
+	}
+
 	get quickFixContainer() {
 		return this.container.querySelector<HTMLElement>('.notebook-cell-quick-fix');
 	}
@@ -78,6 +82,7 @@ suite('CellTextOutput', () => {
 		props: ParsedTextOutput,
 		options?: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>,
 		onShowFullOutput: () => void = () => { },
+		onTruncateOutput: () => void = () => { },
 	) {
 		if (options !== undefined) {
 			layoutConfig = { ...layoutConfig, ...options };
@@ -102,6 +107,7 @@ suite('CellTextOutput', () => {
 						{...props}
 						outputScrolling={layoutConfig.outputScrolling ?? false}
 						onShowFullOutput={onShowFullOutput}
+						onTruncateOutput={onTruncateOutput}
 					/>
 				</NotebookInstanceProvider>
 			</PositronReactServicesContext.Provider>
@@ -162,29 +168,46 @@ suite('CellTextOutput', () => {
 
 		const message = fixture.truncationMessage;
 		assert.ok(message, 'Expected truncation message');
-		assert.ok(message.textContent?.includes('5 lines truncated'), 'Expected truncation count');
+		assert.ok(message.textContent?.includes('5 more lines'), 'Expected truncation count');
 
-		// Verify visible line ranges: top 29 lines + last line, middle lines hidden
+		// 50/50 split: top 15 lines (1-15), bottom 15 lines (21-35), lines 16-20 hidden
 		const text = fixture.outputContainer.textContent ?? '';
 		assert.ok(text.includes('line 1'), 'Expected first line to be visible');
-		assert.ok(text.includes('line 29'), 'Expected line 29 (last top line) to be visible');
-		assert.ok(!text.includes('line 30'), 'Expected line 30 to be truncated');
-		assert.ok(!text.includes('line 34'), 'Expected line 34 to be truncated');
+		assert.ok(text.includes('line 15'), 'Expected line 15 (last top line) to be visible');
+		assert.ok(!text.includes('line 16\n'), 'Expected line 16 to be truncated');
+		assert.ok(!text.includes('line 20\n'), 'Expected line 20 to be truncated');
+		assert.ok(text.includes('line 21'), 'Expected line 21 (first bottom line) to be visible');
 		assert.ok(text.includes('line 35'), 'Expected last line to be visible');
 
 		message.click();
 		assert.ok(onShowFullOutput.calledOnce, 'Expected onShowFullOutput to be called');
 	});
 
-	test('does not truncate when scrolling is enabled', () => {
+	test('shows full output with show-less button when scrolling is enabled', () => {
+		const onTruncateOutput = sinon.stub();
 		const content = makeLines(35);
+		const fixture = renderCellTextOutput(
+			{ content, type: 'stdout' },
+			{ outputLineLimit: 30, outputScrolling: true },
+			() => { },
+			onTruncateOutput,
+		);
+
+		assert.ok(fixture.outputContainer.textContent?.includes('line 35'), 'Expected all lines rendered');
+		const showLess = fixture.showLessMessage;
+		assert.ok(showLess, 'Expected show-less message');
+		showLess.click();
+		assert.strictEqual(onTruncateOutput.callCount, 1, 'Expected onTruncateOutput to be called once');
+	});
+
+	test('does not show show-less button when content is short and scrolling is enabled', () => {
+		const content = makeLines(5);
 		const fixture = renderCellTextOutput(
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: true },
 		);
 
-		assert.ok(fixture.outputContainer.textContent?.includes('line 35'), 'Expected all lines rendered');
-		assert.strictEqual(fixture.truncationMessage, null, 'Expected no truncation message');
+		assert.strictEqual(fixture.showLessMessage, null, 'Expected no show-less message for short content');
 	});
 
 	test('does not apply word-wrap class when outputWordWrap is false', () => {

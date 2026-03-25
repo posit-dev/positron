@@ -15,53 +15,73 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { localize } from '../../../../../nls.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { ThemeIcon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 
-const showFullOutputLabel = localize('positron.notebook.showFullOutput', "Click to Show Full Output");
+type TruncationMessageStyle = 'chevron' | 'ellipsis';
+const TRUNCATION_MESSAGE_STYLE_SETTING = 'notebook.output.truncationMessageStyle';
 
-function linesTruncatedMessage(numLinesTruncated: number): string {
-	return localize(
-		'positron.notebook.linesTruncated',
-		"... {0} lines truncated",
-		numLinesTruncated.toLocaleString()
-	);
+const showMoreLinesChevronLabel = (n: number) => localize(
+	'positron.notebook.showMoreLines',
+	"Show {0} more lines",
+	n.toLocaleString()
+);
+const showMoreLinesEllipsisLabel = (n: number) => localize(
+	'positron.notebook.showMoreLinesEllipsis',
+	"... Show {0} more lines",
+	n.toLocaleString()
+);
+const showLessLabel = localize('positron.notebook.showLess', "Show less");
+
+/** Shared fields for modes where the content exceeds the line limit. */
+interface TruncationSplit {
+	contentHead: string;
+	contentTail: string;
+	numLinesTruncated: number;
 }
 
 type TruncationResult =
-	{ content: string } & (
-		{ mode: 'normal' } |
-		{
-			mode: 'truncate';
-			contentAfter: string;
-			numLinesTruncated: number;
-		}
-	);
+	{ mode: 'normal'; content: string } |
+	({ mode: 'truncate' } & TruncationSplit) |
+	({ mode: 'full'; contentMiddle: string } & TruncationSplit);
 
 function truncateToNumberOfLines(content: string, outputScrolling: boolean, maxLines: number): TruncationResult {
 	// Trim newline from end of content if it exists.
 	const splitByLine = content.trimEnd().split('\n');
 	const numLines = splitByLine.length;
 
-	// When scrolling is enabled or content is short, return as-is.
-	// The parent container handles scroll constraints via CSS.
-	if (outputScrolling || numLines <= maxLines) {
+	// Content is short enough -- no truncation needed.
+	if (numLines <= maxLines) {
 		return { content, mode: 'normal' };
 	}
 
-	// Split the visible lines 50/50 between top and bottom
+	// Split point: 50/50 between top and bottom
 	const topLines = Math.ceil(maxLines / 2);
 	const bottomLines = maxLines - topLines;
+	const contentHead = splitByLine.slice(0, topLines).join('\n');
+	const contentTail = splitByLine.slice(numLines - bottomLines).join('\n');
+	const numLinesTruncated = numLines - maxLines;
 
-	return {
-		mode: 'truncate',
-		content: splitByLine.slice(0, topLines).join('\n'),
-		contentAfter: splitByLine.slice(numLines - bottomLines).join('\n'),
-		numLinesTruncated: numLines - maxLines,
-	};
+	// Content exceeds limit but scrolling is enabled -- show full output with
+	// a "show less" button at the split point.
+	if (outputScrolling) {
+		return {
+			mode: 'full',
+			contentHead,
+			contentMiddle: splitByLine.slice(topLines, numLines - bottomLines).join('\n'),
+			contentTail,
+			numLinesTruncated,
+		};
+	}
+
+	return { mode: 'truncate', contentHead, contentTail, numLinesTruncated };
 }
 
 export interface CellTextOutputProps extends ParsedTextOutput {
 	outputScrolling: boolean;
 	onShowFullOutput: () => void;
+	onTruncateOutput: () => void;
 }
 
 
@@ -70,11 +90,14 @@ export function CellTextOutput({
 	type,
 	outputScrolling,
 	onShowFullOutput,
+	onTruncateOutput,
 }: CellTextOutputProps) {
 
 	const layoutConfig = useNotebookOptions().getLayoutConfiguration();
 	const truncation = truncateToNumberOfLines(content, outputScrolling, layoutConfig.outputLineLimit);
 	const outputWordWrap = layoutConfig.outputWordWrap;
+	const services = usePositronReactServicesContext();
+	const messageStyle = services.configurationService.getValue<TruncationMessageStyle>(TRUNCATION_MESSAGE_STYLE_SETTING) ?? 'chevron';
 
 	return <>
 		<div className={positronClassNames(
@@ -82,31 +105,70 @@ export function CellTextOutput({
 			'positron-notebook-text-output',
 			{ 'word-wrap': outputWordWrap },
 		)}>
-			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />
-			{truncation.mode === 'truncate' && <>
-				<TruncationMessage
-					numLinesTruncated={truncation.numLinesTruncated}
-					onShowFullOutput={onShowFullOutput}
-				/>
-				<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentAfter)} />
-			</>}
+			{truncation.mode === 'normal'
+				? <OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />
+				: <>
+					<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentHead)} />
+					{truncation.mode === 'truncate'
+						? <TruncationMessage
+							messageStyle={messageStyle}
+							numLinesTruncated={truncation.numLinesTruncated}
+							onShowFullOutput={onShowFullOutput}
+						/>
+						: <>
+							<ShowLessMessage onTruncateOutput={onTruncateOutput} />
+							<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentMiddle)} />
+						</>
+					}
+					<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentTail)} />
+				</>
+			}
 		</div>
 		{type === 'error' && <NotebookCellQuickFix errorContent={content} />}
 	</>;
 }
 
-const TruncationMessage = ({ numLinesTruncated, onShowFullOutput }: {
+const TruncationMessage = ({ messageStyle, numLinesTruncated, onShowFullOutput }: {
+	messageStyle: TruncationMessageStyle;
 	numLinesTruncated: number;
 	onShowFullOutput: () => void;
 }) => {
 	const instance = useNotebookInstance();
+	const useChevron = messageStyle === 'chevron';
+	const label = useChevron
+		? showMoreLinesChevronLabel(numLinesTruncated)
+		: showMoreLinesEllipsisLabel(numLinesTruncated);
 	return <Button
-		ariaLabel={showFullOutputLabel}
+		ariaLabel={label}
 		className='notebook-output-truncation-message'
 		hoverManager={instance.hoverManager}
-		tooltip={showFullOutputLabel}
 		onPressed={onShowFullOutput}
 	>
-		{linesTruncatedMessage(numLinesTruncated)}
+		{useChevron && <span className='codicon codicon-chevron-right truncation-chevron' />}
+		{label}
 	</Button>;
+};
+
+const ShowLessMessage = ({ onTruncateOutput }: {
+	onTruncateOutput: () => void;
+}) => {
+	return <div
+		aria-label={showLessLabel}
+		className='notebook-output-show-less-seam'
+		role='button'
+		tabIndex={0}
+		onClick={onTruncateOutput}
+		onKeyDown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				onTruncateOutput();
+			}
+		}}
+	>
+		<span className='show-less-line' />
+		<span className='show-less-label'>
+			<ThemeIcon className='show-less-icon' icon={Codicon.fold} />
+			<span className='show-less-text'>{showLessLabel}</span>
+		</span>
+	</div>;
 };
