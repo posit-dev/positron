@@ -374,7 +374,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			}
 		});
 		return () => disposable.dispose();
-	}, [cell, instance.selectionStateMachine]);
+	}, [cell, instance.currentContainer, instance.selectionStateMachine]);
 
 	return { editorPartRef, focusTargetRef };
 }
