@@ -408,18 +408,42 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		// Wait to register these listeners after the editor group service
 		// is ready to avoid conflicts on startup
 		this.editorGroupService.whenRestored.then(() => {
+			// --- Start Positron ---
+			// On startup, if no editors are open and the panel is visible,
+			// hide the editor to maximize the panel.
+			if (this.isVisible(Parts.PANEL_PART) &&
+				this.getPanelPosition() === Position.BOTTOM &&
+				this.getPanelAlignment() === 'center' &&
+				!this.editorService.activeEditor &&
+				!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
+				this.setEditorHidden(true);
+			}
+			// --- End Positron ---
 
 			// Handle visible editors changing for parts visibility
 			// --- Start Positron ---
 			// Positron-specific editor/panel visibility handling:
-			// When no editors are visible, automatically show the panel (if hidden)
-			// When editors become visible, hide the panel (if shown by us)
+			// When the panel is visible and no editors remain, hide the editor
+			// to maximize the panel. When editors become visible again, restore
+			// the editor. Crucially, if the user has explicitly hidden the
+			// panel (e.g. via Cmd+J), we do NOT force it back open.
 			const onDidVisibleEditorsChangeHandler = () => {
 				const handled = maybeMaximizeAuxiliaryBar();
 				if (!handled) {
 					if (this.mainPartEditorService.visibleEditors.length === 0) {
-						if (!this.isVisible(Parts.PANEL_PART)) {
-							this.setPanelHidden(false);
+						// Only maximize the panel (by hiding the editor) when the
+						// panel is already visible. This prevents force-showing a
+						// panel the user has explicitly hidden.
+						if (this.isVisible(Parts.PANEL_PART) &&
+							this.getPanelPosition() === Position.BOTTOM &&
+							this.getPanelAlignment() === 'center' &&
+							!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
+							const size = this.workbenchGrid.getViewSize(this.panelPartView);
+							this.stateModel.setRuntimeValue(
+								LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
+								size.height
+							);
+							this.setEditorHidden(true);
 						}
 					} else {
 						showEditorIfHidden();

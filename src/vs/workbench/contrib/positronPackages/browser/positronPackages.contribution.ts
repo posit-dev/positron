@@ -3,29 +3,29 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IAction } from '../../../../base/common/actions.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as nls from '../../../../nls.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
-import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
-import { PositronPackagesView } from './positronPackagesView.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
-import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
-import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { PositronPackagesService } from './positronPackagesService.js';
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
-import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
-import { IAction } from '../../../../base/common/actions.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
+import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
+import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
+import { PositronPackagesService } from './positronPackagesService.js';
+import { PositronPackagesView } from './positronPackagesView.js';
 
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
 export const POSITRON_PACKAGES_VIEW_ID = 'workbench.view.positronPackages.view';
@@ -466,20 +466,8 @@ class UpdateAllPackagesAction extends Action2 {
 					service
 				);
 			} catch (e) {
-				notifications.notify({
-					severity: Severity.Error,
-					actions: {
-						primary: [{
-							id: 'viewLogs',
-							label: nls.localize('positronPackages.viewLogs', 'View Logs'),
-							tooltip: nls.localize('positronPackages.viewLogs', 'View Logs'),
-							enabled: true,
-							class: undefined,
-							run: () => service.activeSession?.showOutput(),
-						}]
-					},
-					message: nls.localize('positronPackages.failedToUpdateAllPackages', "Failed to update all packages"),
-				});
+				notifications.error(e);
+				throw e;
 			}
 		}, () => cts.dispose(true));
 	}
