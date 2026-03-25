@@ -157,6 +157,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 									{...output}
 									outputScrolling={outputScrolling}
 									onShowFullOutput={() => cell.showFullOutput()}
+									onTruncateOutput={() => cell.truncateOutput()}
 								/>
 							</NotebookErrorBoundary>
 						))
@@ -199,6 +200,7 @@ export const NotebookCodeCell = React.memo(function NotebookCodeCell({ cell }: {
 interface CellOutputProps extends NotebookCellOutputs {
 	outputScrolling: boolean;
 	onShowFullOutput: () => void;
+	onTruncateOutput: () => void;
 }
 
 const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
@@ -206,13 +208,14 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed, outputs, outputScrolling, onShowFullOutput } = output;
+	const { parsed, outputs, outputScrolling, onShowFullOutput, onTruncateOutput } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput
 			{...parsed}
 			outputScrolling={outputScrolling}
 			onShowFullOutput={onShowFullOutput}
+			onTruncateOutput={onTruncateOutput}
 		/>;
 	}
 
