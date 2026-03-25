@@ -21,8 +21,11 @@ test.use({
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('Python Plots', () => {
 
-		test.beforeEach(async function ({ hotKeys, sessions }) {
+		test.beforeAll(async function ({ sessions }) {
 			await sessions.start('python');
+		});
+
+		test.beforeEach(async function ({ hotKeys, sessions }) {
 			await hotKeys.stackedLayout();
 		});
 
@@ -374,9 +377,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		tag: [tags.ARK]
 	}, () => {
 
+		test.beforeAll(async function ({ sessions }) {
+			await sessions.start('r');
+		});
+
 		test.beforeEach(async function ({ sessions, hotKeys }) {
 			await hotKeys.stackedLayout();
-			await sessions.start('r');
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
