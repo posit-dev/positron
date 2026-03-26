@@ -628,9 +628,9 @@ export interface IRuntimeSessionService {
 	 * Removes the notebook session from the notebook session tracking map.
 	 *
 	 * This should be called when a notebook editor is closed to clean up the session
-	 * record from `_notebookSessionsByNotebookUri`. Since notebook sessions are now
+	 * record from `_notebookSessionsByNotebookUri` since notebook sessions are now
 	 * kept in the map after they exit (to support showing exited session info in
-	 * the interpreter picker), this method is needed to prevent memory leaks.
+	 * the interpreter picker).
 	 *
 	 * @param notebookUri The notebook's URI.
 	 */
