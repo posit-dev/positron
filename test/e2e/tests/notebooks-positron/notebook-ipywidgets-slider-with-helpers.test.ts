@@ -33,7 +33,7 @@ test.describe('Positron Notebooks: ipywidgets Slider (Using Helpers)', {
 			const interactCode = `import ipywidgets as ipw
 
 def f(x):
-    print(x * x)
+	print(x * x)
 
 ipw.interact(f, x=(0, 100))`;
 
@@ -123,7 +123,7 @@ ipw.interact(f, x=(0, 100))`;
 			const interactCode = `import ipywidgets as ipw
 
 def g(value):
-    print(f"Result: {value * 3}")
+	print(f"Result: {value * 3}")
 
 ipw.interact(g, value=(10, 50, 5))`;
 
@@ -163,7 +163,7 @@ ipw.interact(g, value=(10, 50, 5))`;
 			const interactCode = `import ipywidgets as ipw
 
 def compute(n):
-    print(f"n={n}, n²={n*n}, n³={n*n*n}")
+	print(f"n={n}, n²={n*n}, n³={n*n*n}")
 
 ipw.interact(compute, n=(0, 10))`;
 
