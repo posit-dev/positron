@@ -25,6 +25,13 @@ suite('chat', () => {
 			displayName: 'Test LM Vendor',
 			settingName: 'testLmVendor'
 		});
+		// Register copilot provider metadata so it's enabled in Positron
+		// The 'copilot' vendor is enabled via 'copilot-auth' provider with 'githubCopilot' setting (default: true)
+		positron.ai.registerProviderMetadata({
+			id: 'copilot-auth',
+			displayName: 'Test Copilot',
+			settingName: 'githubCopilot'
+		});
 		// --- End Positron ---
 
 		// Register a dummy default model which is required for a participant request to go through
