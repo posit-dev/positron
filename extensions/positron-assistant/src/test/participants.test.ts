@@ -503,3 +503,158 @@ suite('PositronAssistantPromptRenderer', () => {
 		assert.ok(content.includes(`When writing R code you generally follow tidyverse coding style and principles.`));
 	});
 });
+
+suite('Tool Invocation Path Resolution', () => {
+	let sandbox: sinon.SinonSandbox;
+	let invokeToolStub: sinon.SinonStub;
+
+	setup(() => {
+		sandbox = sinon.createSandbox();
+		// Stub vscode.lm.invokeTool to capture the input passed to it
+		invokeToolStub = sandbox.stub(vscode.lm, 'invokeTool');
+		invokeToolStub.resolves(new vscode.LanguageModelToolResult([
+			new vscode.LanguageModelTextPart('Tool result')
+		]));
+
+		// PromptRenderer is a singleton that must be initialized before requestHandler runs
+		const extensionContext = mock<vscode.ExtensionContext>({});
+		new PromptRenderer(extensionContext);
+
+		// Stub getPositronChatContext (required by requestHandler)
+		sandbox.stub(positron.ai, 'getPositronChatContext').resolves({});
+	});
+
+	teardown(() => {
+		sandbox.restore();
+	});
+
+	test('resolves relative paths in copilot_createFile tool calls', async () => {
+		const workspaceUri = vscode.Uri.file('/workspace/root');
+		sandbox.stub(vscode.workspace, 'workspaceFolders').value([
+			{ uri: workspaceUri, name: 'test', index: 0 }
+		]);
+
+		const chatParticipant = new PositronAssistantChatParticipant(
+			mock<vscode.ExtensionContext>({}),
+			new ParticipantService()
+		);
+
+		const model = new TestLanguageModelChat();
+		const emptyResponse = {
+			stream: { [Symbol.asyncIterator]: async function* () { } },
+			text: { [Symbol.asyncIterator]: async function* () { } },
+		} as vscode.LanguageModelChatResponse;
+		// First call returns a tool call; subsequent calls return empty (prevents infinite loop)
+		const sendRequestStub = sandbox.stub(model, 'sendRequest');
+		sendRequestStub.onFirstCall().resolves({
+			stream: {
+				[Symbol.asyncIterator]: async function* () {
+					yield new vscode.LanguageModelToolCallPart('call-1', 'copilot_createFile', {
+						filePath: 'test.R',
+						content: 'print("hello")'
+					});
+				}
+			},
+			text: { [Symbol.asyncIterator]: async function* () { } },
+		} as vscode.LanguageModelChatResponse);
+		sendRequestStub.resolves(emptyResponse);
+
+		const request = makeChatRequest({ model, references: [] });
+		const response = new TestChatResponseStream();
+		const token = new vscode.CancellationTokenSource().token;
+
+		await chatParticipant.requestHandler(request, { history: [] }, response, token);
+
+		// Verify invokeTool was called with resolved path
+		assert.ok(invokeToolStub.calledOnce, 'invokeTool should be called once');
+		const [toolName, options] = invokeToolStub.firstCall.args;
+		assert.strictEqual(toolName, 'copilot_createFile');
+		assert.ok(options.input.filePath.endsWith('test.R'), `Expected resolved path, got: ${options.input.filePath}`);
+		assert.ok(!options.input.filePath.startsWith('test.R'), 'Path should be absolute, not relative');
+	});
+
+	test('does not modify absolute paths in copilot tool calls', async () => {
+		const workspaceUri = vscode.Uri.file('/workspace/root');
+		sandbox.stub(vscode.workspace, 'workspaceFolders').value([
+			{ uri: workspaceUri, name: 'test', index: 0 }
+		]);
+
+		const chatParticipant = new PositronAssistantChatParticipant(
+			mock<vscode.ExtensionContext>({}),
+			new ParticipantService()
+		);
+
+		const model = new TestLanguageModelChat();
+		const absolutePath = '/absolute/path/test.R';
+		const emptyResponse = {
+			stream: { [Symbol.asyncIterator]: async function* () { } },
+			text: { [Symbol.asyncIterator]: async function* () { } },
+		} as vscode.LanguageModelChatResponse;
+		const sendRequestStub = sandbox.stub(model, 'sendRequest');
+		sendRequestStub.onFirstCall().resolves({
+			stream: {
+				[Symbol.asyncIterator]: async function* () {
+					yield new vscode.LanguageModelToolCallPart('call-1', 'copilot_readFile', {
+						filePath: absolutePath
+					});
+				}
+			},
+			text: { [Symbol.asyncIterator]: async function* () { } },
+		} as vscode.LanguageModelChatResponse);
+		sendRequestStub.resolves(emptyResponse);
+
+		const request = makeChatRequest({ model, references: [] });
+		const response = new TestChatResponseStream();
+		const token = new vscode.CancellationTokenSource().token;
+
+		await chatParticipant.requestHandler(request, { history: [] }, response, token);
+
+		// Verify invokeTool was called with unchanged absolute path
+		assert.ok(invokeToolStub.calledOnce, 'invokeTool should be called once');
+		const [toolName, options] = invokeToolStub.firstCall.args;
+		assert.strictEqual(toolName, 'copilot_readFile');
+		assert.strictEqual(options.input.filePath, absolutePath);
+	});
+
+	test('does not modify non-Copilot tool calls', async () => {
+		const workspaceUri = vscode.Uri.file('/workspace/root');
+		sandbox.stub(vscode.workspace, 'workspaceFolders').value([
+			{ uri: workspaceUri, name: 'test', index: 0 }
+		]);
+
+		const chatParticipant = new PositronAssistantChatParticipant(
+			mock<vscode.ExtensionContext>({}),
+			new ParticipantService()
+		);
+
+		const model = new TestLanguageModelChat();
+		const emptyResponse = {
+			stream: { [Symbol.asyncIterator]: async function* () { } },
+			text: { [Symbol.asyncIterator]: async function* () { } },
+		} as vscode.LanguageModelChatResponse;
+		const sendRequestStub = sandbox.stub(model, 'sendRequest');
+		sendRequestStub.onFirstCall().resolves({
+			stream: {
+				[Symbol.asyncIterator]: async function* () {
+					yield new vscode.LanguageModelToolCallPart('call-1', 'some_other_tool', {
+						filePath: 'test.R'
+					});
+				}
+			},
+			text: { [Symbol.asyncIterator]: async function* () { } },
+		} as vscode.LanguageModelChatResponse);
+		sendRequestStub.resolves(emptyResponse);
+
+		const request = makeChatRequest({ model, references: [] });
+		const response = new TestChatResponseStream();
+		const token = new vscode.CancellationTokenSource().token;
+
+		await chatParticipant.requestHandler(request, { history: [] }, response, token);
+
+		// Verify invokeTool was called with unchanged input
+		assert.ok(invokeToolStub.calledOnce, 'invokeTool should be called once');
+		const [toolName, options] = invokeToolStub.firstCall.args;
+		assert.strictEqual(toolName, 'some_other_tool');
+		assert.strictEqual(options.input.filePath, 'test.R');
+	});
+});
