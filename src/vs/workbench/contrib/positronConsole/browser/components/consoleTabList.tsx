@@ -180,22 +180,23 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 
 	/**
 	 * Handles the click event for the console tab.
-	 * If clicking the already-active tab, focus the tab for keyboard navigation.
-	 * If clicking a different tab, change the active instance and let the console pane get focus.
+	 * Changes the active console instance and focuses the tab for keyboard navigation.
 	 */
 	const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-		if (isActiveTab) {
-			// Clicking the already-active tab: focus the tab for keyboard navigation
-			e.stopPropagation();
-			setTimeout(() => {
-				if (tabRef.current) {
-					tabRef.current.focus();
-				}
-			}, 0);
-		} else {
-			// Clicking a different tab: change active instance, let console pane get focus
+		// Prevent the console from stealing focus from the tab element
+		e.stopPropagation();
+
+		// Change the active console instance if clicking a different tab
+		if (!isActiveTab) {
 			onChangeSession(positronConsoleInstance);
 		}
+
+		// Focus the tab for keyboard navigation
+		setTimeout(() => {
+			if (tabRef.current) {
+				tabRef.current.focus();
+			}
+		}, 0);
 	};
 
 	/**
