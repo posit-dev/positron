@@ -14,6 +14,8 @@
 	// --- Start Positron ---
 	// Enable the test lm vendor for testing purposes
 	"positron.assistant.provider.testLmVendor.enable": true,
+	// Enable GitHub Copilot provider for chat participant tests
+	"positron.assistant.provider.githubCopilot.enable": true,
 	// --- End Positron ---
 	"workbench.localHistory.enabled": false
 }

@@ -8,7 +8,7 @@ import * as cp from 'child_process';
 import { promises as fs } from 'fs';
 import * as os from 'os';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { isWindows } from '../../../../../base/common/platform.js';
+import { isLinux, isWindows } from '../../../../../base/common/platform.js';
 import { dirname, join } from '../../../../../base/common/path.js';
 import { FileAccess } from '../../../../../base/common/network.js';
 import * as util from 'util';
@@ -48,7 +48,9 @@ suite('PolicyExport Integration Tests', () => {
 				: join(rootPath, 'scripts', 'code.sh');
 
 			// Skip prelaunch to avoid redownloading electron while the parent VS Code is using it
-			await exec(`"${scriptPath}" --export-policy-data="${tempFile}"`, {
+			// On Linux CI, the sandbox requires special permissions, so disable it
+			const noSandbox = isLinux && process.env['CI'] ? ' --no-sandbox' : '';
+			await exec(`"${scriptPath}" --export-policy-data="${tempFile}"${noSandbox}`, {
 				cwd: rootPath,
 				env: { ...process.env, VSCODE_SKIP_PRELAUNCH: '1' }
 			});
