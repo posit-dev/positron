@@ -33,6 +33,7 @@ const baseIgnore = [
 	'**/workbench/**',
 	'**/remote-ssh/**',
 	'**/assistant-eval/**',
+	'**/explore/**',
 ];
 
 let reporter: ReporterDescription[];
