@@ -392,11 +392,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @returns The last active console session, or undefined if no console session has been active.
 	 */
 	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined {
-		// Return the foreground session if it's a console session
-		if (this._foregroundSession?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-			return this._foregroundSession;
-		}
-		// Otherwise, return the global last active console session
 		return this._lastActiveConsoleSession;
 	}
 
