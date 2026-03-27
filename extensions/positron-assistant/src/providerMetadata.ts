@@ -106,6 +106,7 @@ export const PROVIDER_METADATA = {
 		id: 'snowflake-cortex',
 		displayName: 'Snowflake Cortex',
 		settingName: 'snowflakeCortex',
+		providerVariablesSettingName: 'authentication.snowflake.credentials',
 	},
 } as const satisfies Record<string, ProviderInfo>;
 

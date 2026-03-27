@@ -1,5 +1,6 @@
 {
 	"configuration.aws.credentials.description": "Variables used to configure AWS credentials.\n\nExample: to set the AWS region and profile, add items with keys `AWS_REGION` and `AWS_PROFILE`.",
 	"configuration.aws.inferenceProfileRegion.description": "Override the inference profile region for AWS services.\n\nBy default, the inference profile region is derived from `AWS_REGION` (e.g., 'us-east-1' -> 'us'). Use this setting to explicitly specify a different region.\n\nExamples: 'global', 'us', 'eu', 'apac'.",
+	"configuration.snowflake.credentials.description": "Variables used to configure Snowflake credentials.\n\nSet `SNOWFLAKE_ACCOUNT` to your Snowflake account identifier and `SNOWFLAKE_HOME` to the directory containing your `connections.toml` file.",
 	"configuration.foundry.baseUrl.description": "Microsoft Foundry endpoint URL."
 }

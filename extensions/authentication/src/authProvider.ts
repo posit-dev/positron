@@ -31,6 +31,8 @@ export interface WorkbenchCredentialConfig {
 export interface CredentialChainConfig {
 	readonly resolve: () => Promise<string>;
 	readonly refreshIntervalMs?: number;
+	/** Optional check called in getSessions to decide whether to re-resolve. */
+	readonly shouldRefresh?: () => Promise<boolean>;
 }
 
 /**
@@ -86,10 +88,18 @@ export class AuthProvider
 		_scopes?: readonly string[],
 		options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession[]> {
-		// Credential chain (e.g. AWS)
+		// Credential chain (e.g. AWS, Snowflake)
 		if (this.credentialChain && this._chainSession) {
-			log.debug(`[${this.displayName}] getSessions: returned chain session`);
-			return [this._chainSession];
+			if (this.credentialChain.shouldRefresh) {
+				const needsRefresh = await this.credentialChain.shouldRefresh();
+				if (needsRefresh) {
+					await this.resolveChainCredentials();
+				}
+			}
+			if (this._chainSession) {
+				log.debug(`[${this.displayName}] getSessions: returned chain session`);
+				return [this._chainSession];
+			}
 		}
 
 		// Workbench-managed credentials

@@ -8,11 +8,14 @@ import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
-import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey } from './validation';
-import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey, validateSnowflakeApiKey } from './validation';
+import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials, SNOWFLAKE_MANAGED_CREDENTIALS } from './managedCredentials';
+import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
 import { CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
+import * as fs from 'fs';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
+import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -21,12 +24,18 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerAnthropicProvider(context);
 	registerFoundryProvider(context);
 
-	// Migrate settings before registering the AWS provider so it
-	// reads the migrated profile/region during initialization.
+	// Migrate settings before registering providers so they
+	// read the migrated values during initialization.
 	await migrateAwsSettings().catch(err =>
 		log.error(`AWS settings migration failed: ${err}`)
 	);
 	registerAwsProvider(context);
+
+	await migrateSnowflakeSettings().catch(err =>
+		log.error(`Snowflake settings migration failed: ${err}`)
+	);
+	registerSnowflakeProvider(context);
+
 	log.info('Authentication extension activated');
 
 	context.subscriptions.push(
@@ -154,4 +163,70 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 				.then(undefined, err => log.error(`Failed to sync Foundry endpoint: ${err}`));
 		}
 	}
+}
+
+function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
+	let lastTomlCheck: number | undefined;
+
+	const provider = new AuthProvider(
+		'snowflake-cortex', 'Snowflake Cortex', context,
+		undefined,
+		{
+			resolve: async () => {
+				const credentials = await detectSnowflakeCredentials();
+				if (!credentials) {
+					throw new Error('No Snowflake credentials found');
+				}
+				// Sync detected account to settings for baseUrl derivation
+				if (credentials.account) {
+					const cfg = vscode.workspace.getConfiguration(
+						'authentication.snowflake'
+					);
+					const current = cfg.get<Record<string, string>>(
+						'credentials', {}
+					);
+					if (current.SNOWFLAKE_ACCOUNT !== credentials.account) {
+						await cfg.update('credentials',
+							{ ...current, SNOWFLAKE_ACCOUNT: credentials.account },
+							vscode.ConfigurationTarget.Global
+						).then(undefined, err =>
+							log.error(`Failed to sync Snowflake account: ${err}`)
+						);
+					}
+				}
+				return credentials.token;
+			},
+			shouldRefresh: async () => {
+				const tomlPath = getSnowflakeConnectionsTomlPath();
+				if (!tomlPath) {
+					return false;
+				}
+				try {
+					const stats = await fs.promises.stat(tomlPath);
+					const mtime = stats.mtime.getTime();
+					if (!lastTomlCheck || mtime > lastTomlCheck) {
+						lastTomlCheck = mtime;
+						return true;
+					}
+					return false;
+				} catch {
+					return false;
+				}
+			},
+		}
+	);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			'snowflake-cortex', 'Snowflake Cortex', provider,
+			{ supportsMultipleAccounts: false }
+		),
+		provider
+	);
+	registerAuthProvider('snowflake-cortex', provider, {
+		validateApiKey: validateSnowflakeApiKey,
+	});
+	provider.resolveChainCredentials().catch(err =>
+		log.debug(`[Snowflake] Initial credential resolution failed: ${err}`)
+	);
+	log.info('Registered auth provider: snowflake-cortex');
 }
