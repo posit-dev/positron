@@ -144,9 +144,11 @@ export class EditorActionBar {
 	 */
 	async verifyPreviewRendersHtml(heading: string) {
 		await test.step('Verify "preview" renders html', async () => {
-			await this.page.getByLabel('Preview', { exact: true }).nth(0).click();
-			const viewerFrame = this.viewer.getViewerFrame().frameLocator('iframe');
-			await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout: 60000 });
+			await expect(async () => {
+				await this.page.getByLabel('Preview', { exact: true }).nth(0).click();
+				const viewerFrame = this.viewer.getViewerFrame().frameLocator('iframe');
+				await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout: 30000 });
+			}).toPass({ timeout: 60000 });
 		});
 	}
 

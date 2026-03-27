@@ -16,6 +16,7 @@
  * - Confirm expected visibility/invisibility of the action bar based on file type
  */
 
+import path = require('path');
 import { expect, Page } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { EditorActionBar } from '../../pages/editorActionBar';
@@ -25,6 +26,24 @@ let editorActionBar: EditorActionBar;
 
 test.use({
 	suiteId: __filename
+});
+
+test.describe('Editor Action Bar: R Markdown Workspace', {
+	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR, tags.R_MARKDOWN]
+}, () => {
+
+	test.beforeAll(async function ({ app }) {
+		editorActionBar = app.workbench.editorActionBar;
+	});
+
+	test('R Markdown Document - Verify `preview`, `split editor`, `open in new window` behavior', async function ({ app, openFolder, openFile, hotKeys }) {
+		await openFolder(path.join('qa-example-content', 'workspaces', 'basic-rmd-file'));
+		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
+		await verifyPreviewRendersHtml('Getting startedAnchor');
+		await verifySplitEditor('basicRmd.rmd');
+		await verifyOpenInNewWindow(app, 'This post examines the features');
+		await hotKeys.closeWorkspace();
+	});
 });
 
 test.describe('Editor Action Bar: Document Files', {
@@ -37,15 +56,6 @@ test.describe('Editor Action Bar: Document Files', {
 
 	test.afterEach(async function ({ runCommand }) {
 		await runCommand('workbench.action.closeAllEditors');
-	});
-
-	test('R Markdown Document - Verify `preview`, `split editor`, `open in new window` behavior', {
-		tag: [tags.R_MARKDOWN]
-	}, async function ({ app, openFile }) {
-		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
-		await verifyPreviewRendersHtml('Getting startedAnchor');
-		await verifySplitEditor('basicRmd.rmd');
-		await verifyOpenInNewWindow(app, 'This post examines the features');
 	});
 
 	test('Quarto Document - Verify `preview`, `split editor`, `open in new window` behavior', {
