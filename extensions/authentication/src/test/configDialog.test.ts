@@ -125,6 +125,52 @@ suite('configDialog', () => {
 		assert.strictEqual(stored, false);
 	});
 
+	test('delete rejects when only chain session exists', async () => {
+		const chainProvider = new AuthProvider(
+			'anthropic-api', 'Anthropic',
+			{
+				secrets: {
+					get: () => Promise.resolve(undefined),
+					store: () => Promise.resolve(),
+					delete: () => Promise.resolve(),
+				},
+				globalState: {
+					get: () => undefined,
+					update: () => Promise.resolve(),
+				},
+			} as unknown as vscode.ExtensionContext,
+			undefined,
+			{
+				resolve: async () => 'sk-ant-test-key',
+			}
+		);
+		authProviders.clear();
+		registerAuthProvider('anthropic-api', chainProvider);
+		await chainProvider.resolveChainCredentials();
+
+		const source = {
+			type: positron.PositronLanguageModelType.Chat,
+			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic-api' },
+			signedIn: true,
+			defaults: { name: 'Anthropic', model: 'claude-sonnet-4-0' },
+			supportedOptions: [],
+		} as unknown as positron.ai.LanguageModelSource;
+
+		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
+			await onAction({ provider: 'anthropic-api', type: positron.PositronLanguageModelType.Chat, name: 'Anthropic', model: 'claude-sonnet-4-0' }, 'delete');
+		};
+
+		await assert.rejects(
+			showConfigurationDialog([source]),
+			(error: Error) => error.message.includes('environment variable')
+		);
+
+		// Chain session should still exist
+		const sessions = await chainProvider.getSessions();
+		assert.strictEqual(sessions.length, 1);
+		chainProvider.dispose();
+	});
+
 	test('save without apiKey calls createSession for chain provider', async () => {
 		const chainProvider = new AuthProvider(
 			'test-chain', 'Test Chain',

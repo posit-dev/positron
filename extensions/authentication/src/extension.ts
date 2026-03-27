@@ -18,7 +18,7 @@ import { registerMigrateApiKeyCommand } from './migration/apiKey';
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
 
-	registerAnthropicProvider(context);
+	await registerAnthropicProvider(context);
 	registerFoundryProvider(context);
 
 	// Migrate settings before registering the AWS provider so it
@@ -43,9 +43,23 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerMigrateApiKeyCommand(context);
 }
 
-function registerAnthropicProvider(context: vscode.ExtensionContext): void {
+async function registerAnthropicProvider(
+	context: vscode.ExtensionContext
+): Promise<void> {
 	const provider = new AuthProvider(
-		'anthropic-api', 'Anthropic', context
+		'anthropic-api', 'Anthropic', context,
+		undefined,
+		{
+			resolve: async () => {
+				const apiKey = process.env.ANTHROPIC_API_KEY;
+				if (!apiKey) {
+					throw new Error('ANTHROPIC_API_KEY not set');
+				}
+				return apiKey;
+			},
+			// No refresh needed -- env vars are static for the
+			// process lifetime.
+		}
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
@@ -56,7 +70,37 @@ function registerAnthropicProvider(context: vscode.ExtensionContext): void {
 	);
 	registerAuthProvider('anthropic-api', provider, {
 		validateApiKey: validateAnthropicApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration('authentication.anthropic')
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global
+					);
+			}
+		},
 	});
+
+	// Eagerly resolve env var credentials so the session is
+	// available before positron-assistant registers models.
+	await provider.resolveChainCredentials().catch(err =>
+		log.debug(`[Anthropic] Initial credential resolution: ${err}`)
+	);
+
+	// Sync ANTHROPIC_BASE_URL env var to the config setting
+	const envBaseUrl = process.env.ANTHROPIC_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration('authentication.anthropic')
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				log.error(`Failed to sync Anthropic base URL: ${err}`)
+			);
+	}
+
 	log.info('Registered auth provider: anthropic-api');
 }
 

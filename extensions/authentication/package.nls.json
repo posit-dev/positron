@@ -1,5 +1,6 @@
 {
 	"configuration.aws.credentials.description": "Variables used to configure AWS credentials.\n\nExample: to set the AWS region and profile, add items with keys `AWS_REGION` and `AWS_PROFILE`.",
 	"configuration.aws.inferenceProfileRegion.description": "Override the inference profile region for AWS services.\n\nBy default, the inference profile region is derived from `AWS_REGION` (e.g., 'us-east-1' -> 'us'). Use this setting to explicitly specify a different region.\n\nExamples: 'global', 'us', 'eu', 'apac'.",
+	"configuration.anthropic.baseUrl.description": "Custom Anthropic API base URL. Overrides the default https://api.anthropic.com endpoint. Also set automatically from the ANTHROPIC_BASE_URL environment variable.",
 	"configuration.foundry.baseUrl.description": "Microsoft Foundry endpoint URL."
 }
