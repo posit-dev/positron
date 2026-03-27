@@ -1,0 +1,17 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Overrides for the inline data explorer when rendered inside a Quarto editor
+ * view zone, which inherits the editor's monospace font. The header and status
+ * areas should use the workbench (proportional) font instead.
+ */
+.quarto-output-data-explorer .inline-data-explorer-header,
+.quarto-output-data-explorer .inline-data-explorer-loading,
+.quarto-output-data-explorer .inline-data-explorer-disconnected,
+.quarto-output-data-explorer .inline-data-explorer-error {
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+}

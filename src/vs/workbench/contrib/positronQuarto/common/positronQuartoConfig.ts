@@ -25,6 +25,11 @@ export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.e
 export const POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY = 'positron.quarto.inlineOutput.maxLines';
 
 /**
+ * Configuration key for the maximum height of the inline data explorer.
+ */
+export const POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY = 'positron.quarto.inlineDataExplorer.maxHeight';
+
+/**
  * Context key for whether Quarto inline output is enabled.
  * Used for conditionally showing commands and menus.
  */
@@ -82,6 +87,18 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.quarto.inlineOutput.maxLines',
 				'Maximum number of lines to display in inline text output. If output exceeds this limit, only the last N lines are shown with a link to open the full output in an editor.'
+			),
+			tags: ['preview'],
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY]: {
+			type: 'number',
+			default: 300,
+			minimum: 100,
+			maximum: 800,
+			markdownDescription: localize(
+				'positron.quarto.inlineDataExplorer.maxHeight',
+				'Maximum height in pixels for the inline data explorer in Quarto documents.'
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,

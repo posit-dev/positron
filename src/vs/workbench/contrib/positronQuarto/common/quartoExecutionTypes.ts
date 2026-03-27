@@ -11,6 +11,11 @@ import { QuartoCodeCell } from './quartoTypes.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
+/**
+ * MIME type for Positron inline data explorer.
+ */
+export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+json';
+
 // Service decorators
 export const IQuartoOutputCacheService = createDecorator<IQuartoOutputCacheService>('quartoOutputCacheService');
 

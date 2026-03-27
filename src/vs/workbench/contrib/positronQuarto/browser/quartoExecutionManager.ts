@@ -28,6 +28,7 @@ import {
 	ICellOutputWebviewMetadata,
 	IQuartoExecutionManager,
 	DEFAULT_EXECUTION_CONFIG,
+	DATA_EXPLORER_MIME_TYPE,
 } from '../common/quartoExecutionTypes.js';
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
@@ -1789,14 +1790,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			'text/plain',
 		];
 
-		// Determine which rich MIME types are present to filter out redundant text/plain
-		// When a richer representation (HTML, images) is available, we should not show
-		// the plain text fallback as it duplicates the content
+		// Determine which rich MIME types are present to filter out redundant text/plain.
+		// When a richer representation (HTML, images) is available, we should not
+		// show the plain text fallback as it duplicates the content.
+		// Exception: when data explorer is present, always keep text/plain. The data
+		// explorer is a live component that won't work after the document is closed
+		// and reopened; text/plain serves as the cache-safe fallback for that case.
 		const hasHtml = 'text/html' in data;
 		const hasImage = mimeOrder.some(mime =>
 			mime.startsWith('image/') && mime in data
 		);
-		const shouldExcludePlainText = hasHtml || hasImage;
+		const hasDataExplorer = Object.keys(data).some(
+			mime => mime === DATA_EXPLORER_MIME_TYPE
+		);
+		const shouldExcludePlainText = (hasHtml || hasImage) && !hasDataExplorer;
 
 		for (const mime of mimeOrder) {
 			// Skip text/plain when a richer representation is available
@@ -1815,11 +1822,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		}
 
 		// Handle any remaining MIME types, skipping Positron-internal types
-		// (e.g. application/vnd.positron.dataExplorer+json) that are used for
-		// comm channel metadata and should not be rendered as output.
+		// that are used for comm channel metadata and should not be rendered
+		// as output. The data explorer MIME type is allowed through so it can
+		// be rendered as an inline data grid.
 		for (const [mime, value] of Object.entries(data)) {
 			if (!mimeOrder.includes(mime) && value !== undefined &&
-				!mime.startsWith('application/vnd.positron.')) {
+				(!mime.startsWith('application/vnd.positron.') ||
+					mime === DATA_EXPLORER_MIME_TYPE)) {
 				if (typeof value === 'string') {
 					outputItems.push({ mime, data: value });
 				} else {

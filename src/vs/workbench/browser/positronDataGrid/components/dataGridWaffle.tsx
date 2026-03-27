@@ -539,13 +539,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		}
 
 		const onWheel = (e: globalThis.WheelEvent) => {
-			// Consume the event to prevent scroll chaining to parent containers.
-			e.preventDefault();
-			e.stopPropagation();
-
-			// Record the last wheel event.
-			setLastWheelEvent(e.timeStamp);
-
 			// Get the delta X and delta Y.
 			let deltaX = e.deltaX;
 			let deltaY = e.deltaY;
@@ -573,19 +566,35 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				deltaY *= 10;
 			}
 
-			// Set the scroll offsets.
-			context.instance.setScrollOffsets(
-				pinToRange(
-					context.instance.horizontalScrollOffset + deltaX,
-					0,
-					context.instance.maximumHorizontalScrollOffset
-				),
-				pinToRange(
-					context.instance.verticalScrollOffset + deltaY,
-					0,
-					context.instance.maximumVerticalScrollOffset
-				)
+			// Compute the new scroll offsets.
+			const newHorizontalOffset = pinToRange(
+				context.instance.horizontalScrollOffset + deltaX,
+				0,
+				context.instance.maximumHorizontalScrollOffset
 			);
+			const newVerticalOffset = pinToRange(
+				context.instance.verticalScrollOffset + deltaY,
+				0,
+				context.instance.maximumVerticalScrollOffset
+			);
+
+			// If the scroll position wouldn't actually change, let the event
+			// bubble up so parent containers (e.g. Quarto documents) can scroll.
+			const horizontalChanged = newHorizontalOffset !== context.instance.horizontalScrollOffset;
+			const verticalChanged = newVerticalOffset !== context.instance.verticalScrollOffset;
+			if (!horizontalChanged && !verticalChanged) {
+				return;
+			}
+
+			// Consume the event to prevent scroll chaining to parent containers.
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Record the last wheel event.
+			setLastWheelEvent(e.timeStamp);
+
+			// Set the scroll offsets.
+			context.instance.setScrollOffsets(newHorizontalOffset, newVerticalOffset);
 		};
 
 		element.addEventListener('wheel', onWheel, { passive: false });

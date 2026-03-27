@@ -766,7 +766,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			cell.endLine,
 			this._webviewService,
 			session,
-			this._maxLines
+			this._maxLines,
+			this._configurationService,
+			this._documentUri,
 		);
 
 		// Set up clear callback
