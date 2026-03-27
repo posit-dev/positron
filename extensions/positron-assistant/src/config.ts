@@ -199,12 +199,75 @@ export async function applyConfigAction(
 		case 'delete':
 			await deleteConfigurationByProvider(context, config.provider);
 			break;
+		case 'oauth-signin':
+			await oauthSignin(config, sources, context);
+			break;
+		case 'oauth-signout':
+			await oauthSignout(config, sources, context);
+			break;
 		case 'cancel':
 			// No-op for auth-extension-managed providers.
 			// Cancellation handled by the auth extension.
 			break;
 		default:
 			throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
+	}
+}
+
+async function oauthSignin(
+	userConfig: positron.ai.LanguageModelConfig,
+	sources: positron.ai.LanguageModelSource[],
+	context: vscode.ExtensionContext
+) {
+	try {
+		switch (userConfig.provider) {
+			case 'copilot-auth':
+				await CopilotService.instance().signIn();
+				break;
+			default:
+				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
+		}
+
+		if (userConfig.provider !== 'copilot-auth') {
+			await saveModel(userConfig, sources, context);
+		}
+
+		PositronAssistantApi.get().notifySignIn(userConfig.provider);
+
+	} catch (error) {
+		if (error instanceof vscode.CancellationError) {
+			return;
+		}
+
+		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
+		throw new Error(vscode.l10n.t('Failed to sign in to provider {0}: {1}', userConfig.provider, err.message));
+	}
+}
+
+async function oauthSignout(
+	userConfig: positron.ai.LanguageModelConfig,
+	sources: positron.ai.LanguageModelSource[],
+	context: vscode.ExtensionContext
+) {
+	let oauthCompleted = false;
+	try {
+		switch (userConfig.provider) {
+			case 'copilot-auth':
+				oauthCompleted = await CopilotService.instance().signOut();
+				break;
+			default:
+				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));
+		}
+
+		if (oauthCompleted) {
+			await deleteConfigurationByProvider(context, userConfig.provider);
+		} else {
+			throw new Error(vscode.l10n.t('OAuth sign-out was not completed successfully.'));
+		}
+
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
+		throw new Error(vscode.l10n.t('Failed to sign out of provider {0}: {1}', userConfig.provider, err.message));
 	}
 }
 
