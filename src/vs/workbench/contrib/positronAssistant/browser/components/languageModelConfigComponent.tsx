@@ -142,7 +142,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	const hasAutoconfigure = !!source.defaults.autoconfigure && source.defaults.autoconfigure.signedIn;
 	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasAutoconfigure;
 	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasAutoconfigure;
-	const showBaseUrl = authMethod === AuthMethod.API_KEY && source.supportedOptions?.includes('baseUrl');
+	const showBaseUrl = authMethod === AuthMethod.API_KEY && source.supportedOptions?.includes('baseUrl') && !hasAutoconfigure;
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
 	// additional configuration options for language models.

@@ -653,9 +653,17 @@
 			"GitHub.copilot-chat"
 		],
 		"posit-workbench": [
-			"positron.positron-assistant"
+			"positron.authentication"
 		],
 		"anthropic-api": [
+			"positron.authentication",
+			"positron.positron-assistant"
+		],
+		"ms-foundry": [
+			"positron.authentication",
+			"positron.positron-assistant"
+		],
+		"amazon-bedrock": [
 			"positron.authentication",
 			"positron.positron-assistant"
 		]
