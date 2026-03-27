@@ -647,17 +647,20 @@
 	"trustedExtensionAuthAccess": {
 		"github": [
 			"GitHub.copilot-chat",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"github-enterprise": [
 			"GitHub.copilot-chat"
 		],
 		"posit-workbench": [
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"anthropic-api": [
 			"positron.authentication",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		]
 	}
 }
