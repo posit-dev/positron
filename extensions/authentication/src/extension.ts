@@ -10,6 +10,7 @@ import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
 import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
@@ -94,7 +95,7 @@ function registerAwsProvider(
 					sessionToken: resolved.sessionToken,
 				});
 			},
-			refreshIntervalMs: 10 * 60 * 1000,
+			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
 		}
 	);
 	context.subscriptions.push(
