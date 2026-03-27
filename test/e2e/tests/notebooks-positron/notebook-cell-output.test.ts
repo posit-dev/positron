@@ -51,13 +51,13 @@ test.describe('Positron Notebooks: Cell Output', {
 
 		await test.step('Clicking the collapse toggle hides the output', async () => {
 			await notebooksPositron.outputCollapseToggle(0).click();
-			await expect(notebooksPositron.showHiddenOutputButton(0)).toBeVisible();
+			await expect(notebooksPositron.outputCollapsedLabel(0)).toBeVisible();
 			await expect(notebooksPositron.cellOutput(0).getByText('hello world')).toBeHidden();
 		});
 
 		await test.step('Clicking the expand toggle shows the output again', async () => {
 			await notebooksPositron.outputCollapseToggle(0).click();
-			await expect(notebooksPositron.showHiddenOutputButton(0)).toBeHidden();
+			await expect(notebooksPositron.outputCollapsedLabel(0)).toBeHidden();
 			await notebooksPositron.expectOutputAtIndex(0, ['hello world']);
 		});
 

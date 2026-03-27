@@ -19,6 +19,10 @@ import { getNotebookEditorFromEditorPane } from '../notebookBrowser.js';
 import { INotebookEditorService } from '../services/notebookEditorService.js';
 import { NotebookSetting } from '../../common/notebookCommon.js';
 import { NOTEBOOK_EDITOR_FOCUSED, NOTEBOOK_IS_ACTIVE_EDITOR } from '../../common/notebookContextKeys.js';
+// -- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR } from '../../common/notebookContextKeys.js';
+// -- End Positron ---
 import { INotebookService } from '../../common/notebookService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
@@ -65,6 +69,9 @@ registerAction2(class NotebookConfigureLayoutAction extends Action2 {
 			id: 'workbench.notebook.layout.configure',
 			title: localize2('workbench.notebook.layout.configure.label', "Customize Notebook Layout"),
 			f1: true,
+			// --- Start Positron ---
+			precondition: POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR,
+			// --- End Positron ---
 			category: NOTEBOOK_ACTIONS_CATEGORY,
 			menu: [
 				{
@@ -268,7 +275,10 @@ registerAction2(class ToggleNotebookStickyScroll extends Action2 {
 				mnemonicTitle: localize({ key: 'mitoggleNotebookStickyScroll', comment: ['&& denotes a mnemonic'] }, "&&Sticky Scroll"),
 			},
 			menu: [
-				{ id: MenuId.CommandPalette },
+				// --- Start Positron ---
+				// Command palette entry uses `when` (not `precondition`) because this action registers explicit menu entries without `f1: true`.
+				{ id: MenuId.CommandPalette, when: POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR },
+				// --- End Positron ---
 				{ id: MenuId.NotebookStickyScrollContext, group: 'notebookView', order: 2 },
 				{ id: MenuId.NotebookToolbarContext, group: 'notebookView', order: 2 }
 			]

@@ -6,17 +6,17 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { apiKeyProviders, registerApiKeyProvider, showConfigurationDialog } from '../configDialog';
-import { ApiKeyAuthenticationProvider } from '../apiKeyProvider';
+import { authProviders, registerAuthProvider, showConfigurationDialog } from '../configDialog';
+import { AuthProvider } from '../authProvider';
 import { validateAnthropicApiKey } from '../validation';
 
 suite('configDialog', () => {
 	let originalShowLanguageModelConfig: typeof positron.ai.showLanguageModelConfig;
 	let originalFetch: typeof globalThis.fetch;
-	let provider: ApiKeyAuthenticationProvider;
+	let provider: AuthProvider;
 
 	setup(() => {
-		apiKeyProviders.clear();
+		authProviders.clear();
 		originalShowLanguageModelConfig = positron.ai.showLanguageModelConfig;
 		originalFetch = globalThis.fetch;
 		const secrets = new Map<string, string>();
@@ -41,15 +41,15 @@ suite('configDialog', () => {
 				},
 			},
 		} as unknown as vscode.ExtensionContext;
-		provider = new ApiKeyAuthenticationProvider('anthropic-api', 'Anthropic', mockContext);
-		registerApiKeyProvider('anthropic-api', provider, {
+		provider = new AuthProvider('anthropic-api', 'Anthropic', mockContext);
+		registerAuthProvider('anthropic-api', provider, {
 			validateApiKey: async (apiKey) => validateAnthropicApiKey(apiKey),
 		});
 	});
 
 	teardown(() => {
 		provider.dispose();
-		apiKeyProviders.clear();
+		authProviders.clear();
 		positron.ai.showLanguageModelConfig = originalShowLanguageModelConfig;
 		globalThis.fetch = originalFetch;
 	});
@@ -123,5 +123,46 @@ suite('configDialog', () => {
 			(error: Error) => error.message.includes('Invalid Anthropic API key')
 		);
 		assert.strictEqual(stored, false);
+	});
+
+	test('save without apiKey calls createSession for chain provider', async () => {
+		const chainProvider = new AuthProvider(
+			'test-chain', 'Test Chain',
+			{
+				secrets: {
+					get: () => Promise.resolve(undefined),
+					store: () => Promise.resolve(),
+					delete: () => Promise.resolve(),
+				},
+				globalState: {
+					get: () => undefined,
+					update: () => Promise.resolve(),
+				},
+			} as unknown as vscode.ExtensionContext,
+			undefined,
+			{
+				resolve: async () => JSON.stringify({ accessKeyId: 'AKIA', secretAccessKey: 'secret' }),
+			}
+		);
+		registerAuthProvider('test-chain', chainProvider);
+
+		const source = {
+			type: positron.PositronLanguageModelType.Chat,
+			provider: { id: 'test-chain', displayName: 'Test Chain', settingName: 'test-chain' },
+			signedIn: false,
+			defaults: { name: 'Test Chain', model: 'test-model' },
+			supportedOptions: [],
+		} as unknown as positron.ai.LanguageModelSource;
+
+		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
+			await onAction({ provider: 'test-chain', type: positron.PositronLanguageModelType.Chat, name: 'Test Chain', model: 'test-model' }, 'save');
+		};
+
+		const results = await showConfigurationDialog([source]);
+
+		assert.strictEqual(results.length, 1);
+		assert.strictEqual(results[0].action, 'save');
+		assert.strictEqual(results[0].accountId, 'test-chain');
+		chainProvider.dispose();
 	});
 });

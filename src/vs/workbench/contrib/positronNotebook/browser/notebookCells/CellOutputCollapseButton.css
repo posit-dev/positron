@@ -44,6 +44,15 @@
 
 		/* Hidden by default, shown on cell hover/selection or gutter hover. */
 		visibility: hidden;
+
+		/* Animated chevron rotation for collapse/expand. */
+		& .collapse-chevron {
+			transition: transform 0.15s ease;
+		}
+
+		& .collapse-chevron.collapsed {
+			transform: rotate(-90deg);
+		}
 	}
 }
 

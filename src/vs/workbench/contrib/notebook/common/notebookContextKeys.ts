@@ -5,6 +5,9 @@
 
 import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { INTERACTIVE_WINDOW_EDITOR_ID, NOTEBOOK_EDITOR_ID, REPL_EDITOR_ID } from './notebookCommon.js';
+// --- Start Positron ---
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
+// --- End Positron ---
 
 
 
@@ -68,5 +71,8 @@ export const NOTEBOOK_INTERRUPTIBLE_KERNEL = new RawContextKey<boolean>('noteboo
 export const NOTEBOOK_MISSING_KERNEL_EXTENSION = new RawContextKey<boolean>('notebookMissingKernelExtension', false);
 export const NOTEBOOK_HAS_OUTPUTS = new RawContextKey<boolean>('notebookHasOutputs', false);
 export const KERNEL_HAS_VARIABLE_PROVIDER = new RawContextKey<boolean>('kernelHasVariableProvider', false);
+// --- Start Positron ---
+export const POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR = ContextKeyExpr.notEquals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID);
+// --- End Positron ---
 
 //#endregion

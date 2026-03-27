@@ -55,7 +55,7 @@ export const PROVIDER_METADATA = {
 		id: 'amazon-bedrock',
 		displayName: 'Amazon Bedrock',
 		settingName: 'amazonBedrock',
-		providerVariablesSettingName: 'positron.assistant.providerVariables.bedrock',
+		providerVariablesSettingName: 'authentication.aws.credentials',
 	},
 	anthropic: {
 		id: 'anthropic-api',
