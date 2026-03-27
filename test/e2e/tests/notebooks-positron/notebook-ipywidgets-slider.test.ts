@@ -35,7 +35,6 @@ def f(x):
 ipw.interact(f, x=(0, 100))`;
 
 			await notebooksPositron.addCodeToCell(0, interactCode, { run: true });
-			await notebooksPositron.waitForExecutionComplete(0);
 		});
 
 		await test.step('Verify slider widget renders', async () => {
@@ -72,7 +71,7 @@ ipw.interact(f, x=(0, 100))`;
 
 			// Verify output shows 10 * 10 = 100
 			const outputArea = cellOutput.locator('.jp-OutputArea-output, .widget-output');
-			await expect(outputArea.getByText('100')).toBeVisible({ timeout: 5000 });
+			await expect(outputArea.getByText('100')).toBeVisible();
 		});
 	});
 });
