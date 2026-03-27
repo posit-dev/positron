@@ -159,9 +159,8 @@ export async function showConfigurationDialog(
 					break;
 				case 'oauth-signin': {
 					if (hasAuthProvider) {
-						const provider = authProviders.get(config.provider)!;
-						await provider.createSession([], {});
-						addResult({ action: 'save', config, accountId: config.provider });
+						const accountId = await handleSave(config);
+						addResult({ action: 'save', config, accountId });
 					} else {
 						await applyConfig();
 					}
@@ -169,8 +168,7 @@ export async function showConfigurationDialog(
 				}
 				case 'oauth-signout': {
 					if (hasAuthProvider) {
-						const provider = authProviders.get(config.provider)!;
-						await provider.removeSession('');
+						await handleDelete(config);
 						addResult({ action: 'delete', config });
 					} else {
 						await applyConfig();
