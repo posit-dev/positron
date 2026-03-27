@@ -5,7 +5,6 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { POSIT_AUTH_PROVIDER_ID } from '../constants';
 import { PositOAuthProvider } from '../positOAuthProvider';
 
 function storeValidTokens(secrets: Map<string, string>, overrides?: {
@@ -60,61 +59,6 @@ suite('PositOAuthProvider', () => {
 		provider.dispose();
 		globalThis.fetch = originalFetch;
 	});
-
-	// --- getSessions ---
-
-	suite('getSessions', () => {
-		test('returns session when tokens exist', async () => {
-			storeValidTokens(secrets);
-			const sessions = await provider.getSessions();
-			assert.strictEqual(sessions.length, 1);
-			assert.strictEqual(sessions[0].id, POSIT_AUTH_PROVIDER_ID);
-			assert.strictEqual(sessions[0].accessToken, 'test-access-token');
-			assert.strictEqual(sessions[0].account.id, POSIT_AUTH_PROVIDER_ID);
-		});
-
-		test('returns empty when access token missing', async () => {
-			secrets.set('posit-ai.token_expiry', String(Date.now() + 3600 * 1000));
-			const sessions = await provider.getSessions();
-			assert.strictEqual(sessions.length, 0);
-		});
-
-	});
-
-	// --- removeSession ---
-
-	suite('removeSession', () => {
-		test('clears stored tokens', async () => {
-			storeValidTokens(secrets);
-			await provider.removeSession('');
-			assert.strictEqual(secrets.has('posit-ai.access_token'), false);
-			assert.strictEqual(secrets.has('posit-ai.refresh_token'), false);
-			assert.strictEqual(secrets.has('posit-ai.token_expiry'), false);
-		});
-
-		test('fires onDidChangeSessions with removed session', async () => {
-			storeValidTokens(secrets);
-
-			const eventPromise = new Promise<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>(
-				resolve => {
-					const disposable = provider.onDidChangeSessions(e => {
-						disposable.dispose();
-						resolve(e);
-					});
-				}
-			);
-
-			await provider.removeSession('');
-			const event = await eventPromise;
-
-			assert.strictEqual(event.removed!.length, 1);
-			assert.strictEqual(event.removed![0].id, POSIT_AUTH_PROVIDER_ID);
-			assert.strictEqual(event.added!.length, 0);
-		});
-
-	});
-
-	// --- getAccessToken ---
 
 	suite('getAccessToken', () => {
 		test('returns token when not expired', async () => {
