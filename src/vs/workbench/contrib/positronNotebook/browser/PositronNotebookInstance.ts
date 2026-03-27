@@ -36,7 +36,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorunDelta, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { autorun, autorunDelta, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
@@ -188,6 +188,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * The DOM element that contains the cells for the notebook.
 	 */
 	private _cellsContainer: HTMLElement | undefined = undefined;
+
+	/**
+	 * Scroll position to restore when the cells container is ready.
+	 * See the comments in setCellsContainer() for details on how this is applied.
+	 */
+	private _pendingScrollPosition: INotebookEditorViewState['scrollPosition'] = undefined;
 
 	/**
 	 * The DOM element for contributions (like find widget) to render into.
@@ -346,6 +352,49 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._cellsContainer = container;
+
+		// Restore pending scroll position if one was queued by restoreEditorViewState().
+		//
+		// Scroll restoration requires careful timing. When the editor is re-activated
+		// (e.g. switching tabs or reloading the window), the lifecycle is:
+		//
+		//   1. PositronNotebookEditor.setInput() loads saved view state and calls
+		//      restoreEditorViewState(), which stores the pending scroll position.
+		//   2. PositronNotebookEditor._renderReact() renders the React component tree.
+		//   3. React's useEffect fires (after the browser has painted), calling
+		//      setCellsContainer() with the container ref. However, cell editor
+		//      widgets (Monaco editors) mount asynchronously after this, so the
+		//      cells may not yet have their final heights.
+		//   4. Here, we set up an autorun that watches each cell's
+		//      editorModel observable. Once all cells have their editor
+		//      models set (meaning their content heights are computed), we
+		//      apply the saved scroll position.
+		if (this._pendingScrollPosition !== undefined &&
+			(this._pendingScrollPosition.top > 0 || this._pendingScrollPosition.left > 0)) {
+			// Pop the pending scroll position.
+			const targetScroll = this._pendingScrollPosition;
+			this._pendingScrollPosition = undefined;
+
+			const scrollDisposable = this._cellsContainerListeners.add(autorun(reader => {
+				// Read each cell's editorModel observable. The autorun
+				// re-subscribes on each run, so if .every() short-circuits
+				// on a null cell, we'll re-run when that cell becomes ready
+				// and progressively subscribe to the remaining cells.
+				const cells = this.cells.read(reader);
+				const allReady = cells.every(c => c.editorModel.read(reader) !== null);
+				if (!allReady) {
+					return;
+				}
+
+				// All cell editors have their models set and content heights
+				// computed. Apply the saved scroll position.
+				container.scrollTop = targetScroll.top;
+				container.scrollLeft = targetScroll.left;
+
+				// Stop listening.
+				scrollDisposable.dispose();
+			}));
+		}
 	}
 
 	/**
@@ -1974,14 +2023,25 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * fully determine the view we see.
 	 */
 	getEditorViewState(): INotebookEditorViewState {
-		// NOTE: Placeholder if we need to use editor view state
 		return {
 			editingCells: {},
 			cellLineNumberStates: {},
 			editorViewStates: {},
 			collapsedInputCells: {},
 			collapsedOutputCells: {},
+			scrollPosition: this._cellsContainer ? {
+				left: this._cellsContainer.scrollLeft,
+				top: this._cellsContainer.scrollTop,
+			} : undefined,
 		};
+	}
+
+	/**
+	 * Queues view state to be restored when the cells container is next mounted.
+	 * See the comments in setCellsContainer for the full timing and explanation.
+	 */
+	restoreEditorViewState(viewState: INotebookEditorViewState | undefined): void {
+		this._pendingScrollPosition = viewState?.scrollPosition;
 	}
 
 	/**
@@ -2278,13 +2338,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				const cell = state.type === SelectionState.SingleSelection
 					? state.active
 					: state.selected[0];
-				cell.container?.focus();
+				cell.container?.focus({ preventScroll: true });
+
 				break;
 			}
 
 			case SelectionState.NoCells:
 				// Fall back to notebook container
-				this.currentContainer?.focus();
+				this.currentContainer?.focus({ preventScroll: true });
 				break;
 		}
 	}

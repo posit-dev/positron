@@ -66,8 +66,17 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private _container: HTMLElement | undefined;
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
-	public readonly editorObservable: IObservable<ICodeEditor | undefined> = this._editor;
 	public readonly editor: IObservable<ICodeEditor | undefined> = this._editor;
+
+	private readonly _editorModel = derived(this, reader => {
+		const editor = this._editor.read(reader);
+		if (!editor) {
+			return null;
+		}
+		const model = observableFromEvent(editor.onDidChangeModel, () => editor.getModel()).read(reader);
+		return model;
+	});
+	public readonly editorModel: IObservable<ITextModel | null> = this._editorModel;
 	protected readonly _internalMetadata;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;

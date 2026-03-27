@@ -8,6 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { IObservable, IObservableSignal, ISettableObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { ITextModel } from '../../../../../editor/common/model.js';
 import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../selectionMachine.js';
@@ -83,10 +84,10 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	readonly editor: IObservable<ICodeEditor | undefined>;
 
 	/**
-	 * Observable for the cell's code editor widget.
-	 * Use this when you need to track changes to the editor (e.g., when the editor is attached/detached).
+	 * The cell editor's text model as an observable.
+	 * Null when no editor is attached or when the editor hasn't had its model set yet.
 	 */
-	readonly editorObservable: IObservable<ICodeEditor | undefined>;
+	readonly editorModel: IObservable<ITextModel | null>;
 
 	/**
 	 * Current cell outputs as an observable.

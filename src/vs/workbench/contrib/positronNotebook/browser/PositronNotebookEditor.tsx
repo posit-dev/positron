@@ -269,8 +269,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
 
-		// NOTE: Placeholder if we need to use editor view state:
-		// const viewState = options?.viewState ?? this.loadEditorViewState(input, context);
+		// Load saved view state (e.g. scroll position) from either:
+		// - options.viewState: passed explicitly when the editor is moved between groups
+		// - loadEditorViewState: loaded from persisted storage (e.g. after reload)
+		const viewState = options?.viewState ?? this.loadEditorViewState(input, context);
 		const { notebookInstance } = input;
 
 		// Update the editor control given the notebook instance.
@@ -319,6 +321,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			this._editorContainer!
 		);
 
+		// Restore the editor view state (e.g. scroll position).
+		notebookInstance.restoreEditorViewState(viewState);
+
 		// Now render the React component tree.
 		this._renderReact();
 	}
@@ -338,20 +343,23 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	override clearInput(): void {
 		this._logService.debug(this._identifier, 'clearInput');
 
-		if (this.notebookInstance) {
-			this.notebookInstance.detachView();
-		}
+		// Capture the notebook instance before super.clearInput() clears this._input.
+		const notebookInstance = this._input?.notebookInstance;
 
-		// Clear the input.
-		this._input = undefined;
+		// Call super first so that AbstractEditorWithViewState can save the
+		// editor view state (e.g. scroll position) while the input and the
+		// DOM are still alive. The base class reads view state via
+		// computeEditorViewState() which needs the notebook instance and
+		// its cells container to still be accessible.
+		super.clearInput();
+
+		// Detach the notebook instance.
+		notebookInstance?.detachView();
 
 		// Clear the editor control.
 		this._control.clear();
 
 		this._disposeReactRenderer();
-
-		// Call the base class's method.
-		super.clearInput();
 	}
 
 	override async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
