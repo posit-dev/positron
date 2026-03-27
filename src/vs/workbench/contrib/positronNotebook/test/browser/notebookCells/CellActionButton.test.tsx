@@ -81,6 +81,7 @@ suite('CellActionButton', () => {
 		selectCellStub = sinon.stub();
 		instance = {
 			hoverManager: undefined,
+			currentContainer: undefined,
 			selectionStateMachine: { selectCell: selectCellStub },
 		} as unknown as IPositronNotebookInstance;
 		cell = { id: 'cell-1' } as unknown as IPositronNotebookCell;
