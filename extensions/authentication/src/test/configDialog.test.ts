@@ -43,7 +43,7 @@ suite('configDialog', () => {
 		} as unknown as vscode.ExtensionContext;
 		provider = new AuthProvider('anthropic-api', 'Anthropic', mockContext);
 		registerAuthProvider('anthropic-api', provider, {
-			validateApiKey: async (apiKey) => validateAnthropicApiKey(apiKey),
+			validateApiKey: async (apiKey, config) => validateAnthropicApiKey(apiKey, config),
 		});
 	});
 

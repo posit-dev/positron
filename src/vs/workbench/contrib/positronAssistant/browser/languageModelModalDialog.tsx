@@ -277,6 +277,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			return true;
 		}
 
+		// Autoconfigured providers have API keys from env vars, not user input
+		const hasAutoconfigure = !!selectedProvider.defaults.autoconfigure && selectedProvider.defaults.autoconfigure.signedIn;
+		if (hasAutoconfigure) {
+			return true;
+		}
+
 		if (isOauthInProgress()) {
 			return await props.renderer.services.positronModalDialogsService.showSimpleModalDialogPrompt(
 				localize('positron.languageModelProviderModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", selectedProvider.provider.displayName),

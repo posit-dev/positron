@@ -160,9 +160,9 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 				</Button>
 			}
 		</div>}
-		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} />
 		{source.provider.id === 'copilot-auth' && authStatus === AuthStatus.SIGNED_IN && <CopilotSignoutGuidance closeDialog={props.closeDialog} />}
 		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
+		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} supportsBaseUrl={source.supportedOptions?.includes('baseUrl')} />
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
@@ -279,14 +279,21 @@ const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
 	</a>;
 }
 
-const AutoconfiguredModel = (props: { provider: string, displayName: string, details?: IPositronLanguageModelAutoconfigure }) => {
+const AutoconfiguredModel = (props: { provider: string; displayName: string; details?: IPositronLanguageModelAutoconfigure; supportsBaseUrl?: boolean }) => {
 	if (props.details?.type === LanguageModelAutoconfigureType.EnvVariable) {
+		const baseUrlEnvVar = props.supportsBaseUrl
+			? props.details.key.replace(/_API_KEY$/, '_BASE_URL')
+			: undefined;
 		return (<div className='language-model-authentication-container'>
 			{
-				props.details.signedIn ?
-					<p>{localize('positron.languageModelConfig.externalApiInUse', "✓ {0} authenticated automatically using environment variable {1}", props.displayName, props.details.key)}</p>
-					:
-					<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron.", props.details.key)}</p>
+				props.details.signedIn && baseUrlEnvVar ?
+					<p>{localize('positron.languageModelConfig.externalApiInUseWithBaseUrl', "✓ {0} authenticated automatically using environment variables {1} and {2}", props.displayName, props.details.key, baseUrlEnvVar)}</p>
+					: props.details.signedIn ?
+						<p>{localize('positron.languageModelConfig.externalApiInUse', "✓ {0} authenticated automatically using environment variable {1}", props.displayName, props.details.key)}</p>
+						: baseUrlEnvVar ?
+							<p>{localize('positron.languageModelConfig.externalApiSetupWithBaseUrl', "You can also assign the {0} and {1} environment variables and restart Positron.", props.details.key, baseUrlEnvVar)}</p>
+							:
+							<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron.", props.details.key)}</p>
 			}
 		</div>);
 	} else if (props.details?.type === LanguageModelAutoconfigureType.Custom && props.details.signedIn) {
