@@ -12,3 +12,5 @@ export const ANTHROPIC_MODELS_ENDPOINT = 'https://api.anthropic.com/v1/models';
 export const ANTHROPIC_API_VERSION = '2023-06-01';
 export const KEY_VALIDATION_TIMEOUT_MS = 5000;
 export const CREDENTIAL_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+export const POSIT_AUTH_PROVIDER_ID = 'posit-ai';

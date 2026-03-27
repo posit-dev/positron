@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
+import { PositOAuthProvider } from './positOAuthProvider';
 import { log } from './log';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 
@@ -25,7 +26,7 @@ export interface RegisterAuthProviderOptions {
 	onSave?: OnSaveCallback;
 }
 
-export const authProviders = new Map<string, AuthProvider>();
+export const authProviders = new Map<string, vscode.AuthenticationProvider>();
 const apiKeyValidators = new Map<string, ApiKeyValidator>();
 const onSaveCallbacks = new Map<string, OnSaveCallback>();
 
@@ -35,7 +36,7 @@ const onSaveCallbacks = new Map<string, OnSaveCallback>();
  */
 export function registerAuthProvider(
 	providerId: string,
-	provider: AuthProvider,
+	provider: vscode.AuthenticationProvider,
 	options?: RegisterAuthProviderOptions
 ): void {
 	authProviders.set(providerId, provider);
@@ -52,13 +53,14 @@ export function registerAuthProvider(
 }
 
 /**
- * Get the auth provider for a given provider ID.
- * Used by the migrateApiKey command.
+ * Get the auth provider for a given provider ID, if it is an AuthProvider
+ * (API-key-based). Used by the migrateApiKey command.
  */
 export function getAuthProvider(
 	providerId: string
 ): AuthProvider | undefined {
-	return authProviders.get(providerId);
+	const provider = authProviders.get(providerId);
+	return provider instanceof AuthProvider ? provider : undefined;
 }
 
 /**
@@ -73,7 +75,7 @@ async function enrichWithCredentialState(
 			return source;
 		}
 		try {
-			const sessions = await provider.getSessions();
+			const sessions = await provider.getSessions([], {});
 			const signedIn = sessions.length > 0;
 			if (signedIn && source.provider.id === 'ms-foundry' && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
 				return {
@@ -131,48 +133,60 @@ export async function showConfigurationDialog(
 		enrichedSources,
 		async (config, action) => {
 			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
-			const hasAuthProvider = authProviders.has(config.provider);
 			// applyConfig is a fallback while we transition providers to the Auth extension.
 			// It should eventually be removed so that the Auth extension is the single source of truth
 			// for all provider config actions.
 			const applyConfig = async () => {
 				await vscode.commands.executeCommand('positron-assistant.applyConfigAction', config, action, enrichedSources);
 			};
+			const provider = authProviders.get(config.provider);
 			switch (action) {
 				case 'save': {
-					if (hasAuthProvider) {
-						const accountId = await handleSave(config);
+					if (provider instanceof AuthProvider) {
+						const accountId = await handleSave(config, provider);
 						addResult({ action, config, accountId });
+					} else if (provider) {
+						addResult({ action, config });
 					} else {
 						await applyConfig();
 					}
 					break;
 				}
 				case 'delete':
-					if (hasAuthProvider) {
-						await handleDelete(config);
+					if (provider instanceof AuthProvider) {
+						await handleDelete(config, provider);
+						addResult({ action, config });
+					} else if (provider) {
 						addResult({ action, config });
 					} else {
 						await applyConfig();
 					}
 					break;
-				case 'oauth-signin':
-					if (hasAuthProvider) {
-						addResult({ action, config });
+				case 'oauth-signin': {
+					if (provider) {
+						await provider.createSession([], {});
+						addResult({ action: 'save', config, accountId: config.provider });
 					} else {
 						await applyConfig();
 					}
 					break;
-				case 'oauth-signout':
-					if (hasAuthProvider) {
-						addResult({ action, config });
+				}
+				case 'oauth-signout': {
+					if (provider) {
+						await provider.removeSession('');
+						addResult({ action: 'delete', config });
 					} else {
 						await applyConfig();
 					}
 					break;
-				case 'cancel':
+				}
+				case 'cancel': {
+					if (provider instanceof PositOAuthProvider) {
+						provider.cancelSignIn();
+					}
 					await applyConfig();
 					break;
+				}
 				default:
 					throw new Error(
 						vscode.l10n.t('Invalid action: {0}', action)
@@ -190,15 +204,9 @@ export async function showConfigurationDialog(
  * config, validates and stores it. Otherwise resolves via createSession.
  */
 async function handleSave(
-	config: positron.ai.LanguageModelConfig
+	config: positron.ai.LanguageModelConfig,
+	provider: AuthProvider
 ): Promise<string> {
-	const provider = authProviders.get(config.provider);
-	if (!provider) {
-		throw new Error(
-			vscode.l10n.t('No auth provider registered for {0}', config.provider)
-		);
-	}
-
 	if (config.apiKey?.trim()) {
 		return handleApiKeySave(config, provider);
 	}
@@ -238,13 +246,9 @@ async function handleApiKeySave(
 }
 
 async function handleDelete(
-	config: positron.ai.LanguageModelConfig
+	config: positron.ai.LanguageModelConfig,
+	provider: AuthProvider
 ): Promise<void> {
-	const provider = authProviders.get(config.provider);
-	if (!provider) {
-		log.warn(`handleDelete: no auth provider for "${config.provider}"`);
-		return;
-	}
 	const sessions = await provider.getSessions();
 	log.info(`Deleting ${sessions.length} session(s) for provider "${config.provider}"`);
 	for (const session of sessions) {

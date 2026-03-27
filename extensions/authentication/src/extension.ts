@@ -6,11 +6,12 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { POSIT_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
 import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
+import { PositOAuthProvider } from './positOAuthProvider';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
@@ -19,6 +20,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
 
 	registerAnthropicProvider(context);
+	registerPositAIProvider(context);
 	registerFoundryProvider(context);
 
 	// Migrate settings before registering the AWS provider so it
@@ -58,6 +60,18 @@ function registerAnthropicProvider(context: vscode.ExtensionContext): void {
 		validateApiKey: validateAnthropicApiKey,
 	});
 	log.info('Registered auth provider: anthropic-api');
+}
+
+function registerPositAIProvider(context: vscode.ExtensionContext): void {
+	const provider = new PositOAuthProvider(context);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			POSIT_AUTH_PROVIDER_ID, 'Posit AI', provider
+		),
+		provider
+	);
+	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
+	log.info(`Registered auth provider: ${POSIT_AUTH_PROVIDER_ID}`);
 }
 
 function registerAwsProvider(

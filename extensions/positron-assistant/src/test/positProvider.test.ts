@@ -43,7 +43,7 @@ suite('PositModelProvider', () => {
 		};
 
 		sinon.stub(vscode.workspace, 'getConfiguration').callsFake((section?: string) => {
-			if (section === 'positron.assistant.positai' || section === 'positron.assistant') {
+			if (section === 'authentication.positai' || section === 'positron.assistant') {
 				return mockConfig as any;
 			}
 			return { get: () => undefined } as any;
