@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { POSIT_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
+import { AuthProvider } from './authProvider';
 import { log } from './log';
 
 
@@ -13,18 +14,19 @@ import { log } from './log';
  * Posit AI authentication provider using OAuth 2.0 Device Authorization
  * Grant (RFC 8628).
  *
+ * Extends AuthProvider so the config dialog can treat it uniformly
+ * alongside API-key and credential-chain providers.
+ *
  * Sign-in and sign-out are routed through `createSession`/`removeSession`
  * so the config dialog can use the standard AuthenticationProvider API.
  */
-export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode.Disposable {
-	private readonly _onDidChangeSessions = new vscode.EventEmitter<
-		vscode.AuthenticationProviderAuthenticationSessionsChangeEvent
-	>();
-	readonly onDidChangeSessions = this._onDidChangeSessions.event;
+export class PositOAuthProvider extends AuthProvider {
 
 	private _cancellationToken: vscode.CancellationTokenSource | null = null;
 
-	constructor(private readonly _context: vscode.ExtensionContext) { }
+	constructor(context: vscode.ExtensionContext) {
+		super(POSIT_AUTH_PROVIDER_ID, 'Posit AI', context);
+	}
 
 	private async signIn(): Promise<void> {
 		log.info('[Posit AI] Signing in.');
@@ -96,9 +98,9 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 					const { access_token, refresh_token, expires_in } = tokenData;
 					const expiryTime = Date.now() + expires_in * 1000;
 
-					await this._context.secrets.store('posit-ai.access_token', access_token);
-					await this._context.secrets.store('posit-ai.refresh_token', refresh_token);
-					await this._context.secrets.store('posit-ai.token_expiry', expiryTime.toString());
+					await this.context.secrets.store('posit-ai.access_token', access_token);
+					await this.context.secrets.store('posit-ai.refresh_token', refresh_token);
+					await this.context.secrets.store('posit-ai.token_expiry', expiryTime.toString());
 
 					log.info('[Posit AI] Sign-in successful.');
 					return;
@@ -133,9 +135,9 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 
 	private async signOut(): Promise<void> {
 		log.info('[Posit AI] Signing out.');
-		await this._context.secrets.delete('posit-ai.access_token');
-		await this._context.secrets.delete('posit-ai.refresh_token');
-		await this._context.secrets.delete('posit-ai.token_expiry');
+		await this.context.secrets.delete('posit-ai.access_token');
+		await this.context.secrets.delete('posit-ai.refresh_token');
+		await this.context.secrets.delete('posit-ai.token_expiry');
 	}
 
 	cancelSignIn(): void {
@@ -144,9 +146,12 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 		this._cancellationToken = null;
 	}
 
-	// --- vscode.AuthenticationProvider ---
+	// --- AuthProvider overrides ---
 
-	async getSessions(_scopes?: readonly string[], _options?: vscode.AuthenticationProviderSessionOptions): Promise<vscode.AuthenticationSession[]> {
+	override async getSessions(
+		_scopes?: readonly string[],
+		_options?: vscode.AuthenticationProviderSessionOptions
+	): Promise<vscode.AuthenticationSession[]> {
 		try {
 			const accessToken = await this.getAccessToken();
 			return [{
@@ -160,7 +165,10 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 		}
 	}
 
-	async createSession(_scopes: readonly string[], _options: vscode.AuthenticationProviderSessionOptions): Promise<vscode.AuthenticationSession> {
+	override async createSession(
+		_scopes: readonly string[],
+		_options?: vscode.AuthenticationProviderSessionOptions
+	): Promise<vscode.AuthenticationSession> {
 		await this.signIn();
 
 		const accessToken = await this.getAccessToken();
@@ -172,20 +180,25 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 			scopes: [],
 		};
 
-		this._onDidChangeSessions.fire({
+		this.fireSessionsChanged({
 			added: [session], removed: [], changed: [],
 		});
 
 		return session;
 	}
 
-	async removeSession(_sessionId: string): Promise<void> {
+	override async removeSession(_sessionId: string): Promise<void> {
 		const sessions = await this.getSessions();
 		await this.signOut();
 
-		this._onDidChangeSessions.fire({
+		this.fireSessionsChanged({
 			added: [], removed: sessions, changed: [],
 		});
+	}
+
+	override dispose(): void {
+		this.cancelSignIn();
+		super.dispose();
 	}
 
 	// --- Token management ---
@@ -194,8 +207,8 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 	 * Get the current access token, refreshing if needed.
 	 */
 	async getAccessToken(): Promise<string> {
-		let accessToken = await this._context.secrets.get('posit-ai.access_token');
-		const tokenExpiry = await this._context.secrets.get('posit-ai.token_expiry');
+		let accessToken = await this.context.secrets.get('posit-ai.access_token');
+		const tokenExpiry = await this.context.secrets.get('posit-ai.token_expiry');
 
 		if (!accessToken || !tokenExpiry) {
 			throw new Error('No Posit AI access token found. Please sign in.');
@@ -217,7 +230,7 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 		log.info('[Posit AI] Refreshing access token.');
 		const params = this.getOAuthParameters();
 
-		const refreshToken = await this._context.secrets.get('posit-ai.refresh_token');
+		const refreshToken = await this.context.secrets.get('posit-ai.refresh_token');
 		if (!refreshToken) {
 			log.error('[Posit AI] No refresh token found.');
 			return { success: false };
@@ -253,9 +266,9 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 		const { access_token, refresh_token, expires_in } = tokenData;
 		const expiryTime = Date.now() + expires_in * 1000;
 
-		await this._context.secrets.store('posit-ai.access_token', access_token);
-		await this._context.secrets.store('posit-ai.refresh_token', refresh_token);
-		await this._context.secrets.store('posit-ai.token_expiry', expiryTime.toString());
+		await this.context.secrets.store('posit-ai.access_token', access_token);
+		await this.context.secrets.store('posit-ai.refresh_token', refresh_token);
+		await this.context.secrets.store('posit-ai.token_expiry', expiryTime.toString());
 
 		log.info('[Posit AI] Access token refreshed successfully.');
 		return { success: true, accessToken: access_token };
@@ -271,10 +284,5 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 			?? 'positron';
 
 		return { authHost, scope, clientId };
-	}
-
-	dispose(): void {
-		this.cancelSignIn();
-		this._onDidChangeSessions.dispose();
 	}
 }

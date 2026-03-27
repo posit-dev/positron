@@ -55,10 +55,17 @@ export class AuthProvider
 	constructor(
 		private readonly providerId: string,
 		private readonly displayName: string,
-		private readonly context: vscode.ExtensionContext,
+		protected readonly context: vscode.ExtensionContext,
 		private readonly workbench?: WorkbenchCredentialConfig,
 		private readonly credentialChain?: CredentialChainConfig,
 	) { }
+
+	/** Expose session-change events to subclasses. */
+	protected fireSessionsChanged(
+		event: vscode.AuthenticationProviderAuthenticationSessionsChangeEvent
+	): void {
+		this._onDidChangeSessions.fire(event);
+	}
 
 	dispose(): void {
 		this._disposed = true;
