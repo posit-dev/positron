@@ -1990,6 +1990,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	detachView(): void {
 		this.container.set(undefined, undefined);
 		this._overlayContainer = undefined;
+		this._scopedContextKeyService = undefined;
 		this._logService.debug(this.id, 'detachView');
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
