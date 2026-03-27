@@ -192,6 +192,31 @@ export class AuthProvider
 
 	async removeSession(sessionId: string): Promise<void> {
 		if (this._chainSession?.id === sessionId) {
+			// If the chain can still resolve, re-resolve immediately
+			// instead of leaving an inconsistent state where the
+			// session is gone but registered models still work.
+			try {
+				const token = await this.credentialChain!.resolve();
+				if (token) {
+					log.info(
+						`[${this.displayName}] Chain session ` +
+						`removal blocked -- credentials still ` +
+						`available from environment`
+					);
+					vscode.window.showInformationMessage(
+						vscode.l10n.t(
+							'{0} credentials are configured via ' +
+							'environment variable and cannot be ' +
+							'signed out.',
+							this.displayName
+						)
+					);
+					return;
+				}
+			} catch {
+				// Chain can no longer resolve; allow removal.
+			}
+
 			this.stopRefreshTimer();
 			const removed = this._chainSession;
 			this._chainSession = undefined;

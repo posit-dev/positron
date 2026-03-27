@@ -191,8 +191,22 @@ suite('AuthProvider (credential chain)', () => {
 		assert.strictEqual(event.added!.length, 1);
 	});
 
-	test('removeSession clears chain session and fires removed event', async () => {
+	test('removeSession is blocked while chain can still resolve', async () => {
 		await chainProvider.resolveChainCredentials();
+
+		await chainProvider.removeSession('test-chain');
+
+		// Session should still exist because the chain can resolve
+		const sessions = await chainProvider.getSessions();
+		assert.strictEqual(sessions.length, 1);
+		assert.strictEqual(sessions[0].id, 'test-chain');
+	});
+
+	test('removeSession clears chain session when chain fails', async () => {
+		await chainProvider.resolveChainCredentials();
+
+		// Make the chain fail so removal is allowed
+		resolveShouldFail = true;
 
 		const eventPromise = new Promise<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>(
 			resolve => {

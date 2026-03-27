@@ -46,6 +46,20 @@ export async function activate(context: vscode.ExtensionContext) {
 async function registerAnthropicProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
+	// Sync ANTHROPIC_BASE_URL env var to the config setting before
+	// chain resolution so validation uses the correct endpoint.
+	const envBaseUrl = process.env.ANTHROPIC_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration('authentication.anthropic')
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				log.error(`Failed to sync Anthropic base URL: ${err}`)
+			);
+	}
+
 	const provider = new AuthProvider(
 		'anthropic-api', 'Anthropic', context,
 		undefined,
@@ -55,6 +69,16 @@ async function registerAnthropicProvider(
 				if (!apiKey) {
 					throw new Error('ANTHROPIC_API_KEY not set');
 				}
+				const baseUrl = vscode.workspace
+					.getConfiguration('authentication.anthropic')
+					.get<string>('baseUrl') || undefined;
+				await validateAnthropicApiKey(apiKey, {
+					provider: 'anthropic-api',
+					name: 'Anthropic',
+					model: '',
+					type: positron.PositronLanguageModelType.Chat,
+					...(baseUrl && { baseUrl }),
+				});
 				return apiKey;
 			},
 			// No refresh needed -- env vars are static for the
@@ -87,19 +111,6 @@ async function registerAnthropicProvider(
 	await provider.resolveChainCredentials().catch(err =>
 		log.debug(`[Anthropic] Initial credential resolution: ${err}`)
 	);
-
-	// Sync ANTHROPIC_BASE_URL env var to the config setting
-	const envBaseUrl = process.env.ANTHROPIC_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration('authentication.anthropic')
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				log.error(`Failed to sync Anthropic base URL: ${err}`)
-			);
-	}
 
 	log.info('Registered auth provider: anthropic-api');
 }
