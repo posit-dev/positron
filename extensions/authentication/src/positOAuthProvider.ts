@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { POSIT_AUTH_PROVIDER_ID } from './constants';
+import { POSIT_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
 import { log } from './log';
 
 
@@ -201,8 +201,7 @@ export class PositOAuthProvider implements vscode.AuthenticationProvider, vscode
 			throw new Error('No Posit AI access token found. Please sign in.');
 		}
 
-		const tenMin = 10 * 60 * 1000;
-		const expiry = parseInt(tokenExpiry) - tenMin;
+		const expiry = parseInt(tokenExpiry) - CREDENTIAL_REFRESH_INTERVAL_MS;
 		if (Date.now() >= expiry) {
 			const result = await this.refreshAccessToken();
 			if (!result.success) {

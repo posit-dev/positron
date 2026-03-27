@@ -53,8 +53,8 @@ export function registerAuthProvider(
 }
 
 /**
- * Get the auth provider for a given provider ID, if it is an AuthProvider
- * (API-key-based). Used by the migrateApiKey command.
+ * Get the auth provider for a given provider ID.
+ * Used by the migrateApiKey command.
  */
 export function getAuthProvider(
 	providerId: string

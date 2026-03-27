@@ -113,11 +113,6 @@ export class PositModelProvider extends VercelModelProvider {
 	 * Only attaches the token for URLs matching the configured baseUrl.
 	 */
 	private async authFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
-		const url = typeof input === 'string' ? input : input.url;
-		const baseUrl = this.baseUrl;
-		if (!url.startsWith(baseUrl)) {
-			return fetch(input, init);
-		}
 		const token = await this.getAccessToken();
 		const headers = new Headers(init?.headers);
 		headers.set('Authorization', `Bearer ${token}`);
