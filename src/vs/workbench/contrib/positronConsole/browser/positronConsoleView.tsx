@@ -143,6 +143,17 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._positronConsoleFocusedContextKey.set(focused);
 
 		if (focused) {
+			// When the console pane gains focus, ensure the foreground session matches
+			// the active console instance. This is set directly here rather than through
+			// the ForegroundSessionContribution because we're not changing the active
+			// console instance - we're just syncing the foreground session to it.
+			// If the user clicked a console tab, that already set the foreground session
+			// via onDidChangeActivePositronConsoleInstance. This handles the case where
+			// the user clicks elsewhere in the console pane (not a tab).
+			const activeInstance = this.positronConsoleService.activePositronConsoleInstance;
+			if (activeInstance?.attachedRuntimeSession) {
+				this.runtimeSessionService.foregroundSession = activeInstance.attachedRuntimeSession;
+			}
 			this._onFocusedEmitter.fire();
 		}
 	}
@@ -343,7 +354,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			// Remove duplicates, and current runtime.
 			.filter((runtime, index, runtimes) =>
 				runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
-			)
+			);
 
 		// Add current runtime first, if present.
 		// Allows for "plus" + enter behavior to clone session.

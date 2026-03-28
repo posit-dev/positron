@@ -42,7 +42,7 @@ export async function verifyReticulateFunctionality(
 
 	// Verify executing reticulate::repl_python() moves focus to the reticulate session
 	await console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${zValue}")`, true);
-	await sessions.expectSessionPickerToBe(pythonSessionId, 20000);
+	await sessions.expectSessionPickerToBe(pythonSessionId, { timeout: 20000 });
 	await console.clearButton.click();
 
 	// Print the R variable r.y (should reflect the R-side value) and ensure it appears in the console

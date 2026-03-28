@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -532,7 +532,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}));
 
-		// Register the onDidChangeActiveRuntime event handler so we can activate the REPL for the active runtime.
+		// Register the onDidChangeForegroundSession event handler so we can activate the REPL for the active runtime.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			if (!session) {
 				this.setActivePositronConsoleInstance();
@@ -974,11 +974,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
-		// Activate the console instance if it isn't already active
-		if (consoleInstance !== this._activePositronConsoleInstance) {
-			this.setActivePositronConsoleInstance(consoleInstance);
-			this._runtimeSessionService.foregroundSession = consoleInstance.session;
-		}
+		// Activate the console instance. This fires onDidChangeActivePositronConsoleInstance,
+		// which ForegroundSessionContribution listens to and uses to set the foreground session.
+		this.setActivePositronConsoleInstance(consoleInstance);
 
 		// Ask the console instance to reveal the execution.
 		if (!consoleInstance.revealExecution(executionId)) {
