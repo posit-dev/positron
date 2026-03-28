@@ -140,3 +140,13 @@
 	align-items: center;
 	gap: 2px;
 }
+
+/* Resize sash on the left edge */
+.positron-find-widget .find-widget-sash {
+	position: absolute;
+	left: -2px;
+	top: 0;
+	bottom: 0;
+	width: 4px;
+	cursor: ew-resize;
+}

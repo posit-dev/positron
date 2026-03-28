@@ -22,6 +22,7 @@ import { IContextKeyService } from '../../../../../../platform/contextkey/common
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
+import { useResize } from '../../useResize.js';
 
 // Localized strings
 const previousMatchLabel = localize('positronNotebook.find.previousMatch', "Previous Match");
@@ -67,6 +68,8 @@ export interface PositronFindWidgetProps {
 	readonly onFindInputBlur: () => void;
 }
 
+const FIND_WIDGET_MIN_WIDTH = 300;
+
 export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronFindWidgetProps>((props, ref) => {
 	const findInputRef = useRef<PositronFindInputHandle>(null);
 	const replaceInputRef = useRef<PositronReplaceInputHandle>(null);
@@ -74,6 +77,13 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 	const nextButtonRef = useRef<HTMLButtonElement>(null);
 	const closeButtonRef = useRef<HTMLButtonElement>(null);
 	const replaceButtonRef = useRef<HTMLButtonElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const { handleRef: sashRef, sizeOverride: widgetWidth } = useResize({
+		axis: 'horizontal',
+		edge: 'start',
+		containerRef,
+		minSize: FIND_WIDGET_MIN_WIDTH,
+	});
 
 	useImperativeHandle(ref, () => ({
 		focusFindInput() {
@@ -237,7 +247,12 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 	);
 
 	return (
-		<div className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
+		<div
+			ref={containerRef}
+			className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}
+			style={widgetWidth !== undefined ? { width: widgetWidth } : undefined}
+		>
+			<div ref={sashRef} className='find-widget-sash' />
 			{props.replace && (
 				<ActionButton
 					ariaLabel={toggleReplaceLabel}
