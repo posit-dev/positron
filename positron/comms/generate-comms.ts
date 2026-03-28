@@ -1078,15 +1078,15 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 			}
 		}
 
-		const notifications = backend.methods.filter((m: any) => !m.result);
-		if (notifications.length) {
+		const events = backend.methods.filter((m: any) => !m.result);
+		if (events.length) {
 			yield '@enum.unique\n';
 			yield `class ${snakeCaseToSentenceCase(name)}BackendEvent(str, enum.Enum):\n`;
 			yield `    """\n`;
 			yield `    An enumeration of all the possible events (notifications) that can be sent to the backend ${name} comm.\n`;
 			yield `    """\n`;
 			yield `\n`;
-			for (const method of notifications) {
+			for (const method of events) {
 				yield formatComment('    # ', method.summary);
 				yield `    ${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
 				yield '\n';
@@ -1131,7 +1131,7 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 				}
 			}
 
-			const suffix = method.result ? 'Request' : 'Notification';
+			const suffix = method.result ? 'Request' : 'Event';
 			const klass = `${snakeCaseToSentenceCase(method.name)}${suffix}`;
 			models.push(klass);
 			yield `class ${klass}(BaseModel):\n`;
@@ -1165,12 +1165,12 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 		yield `class ${snakeCaseToSentenceCase(name)}BackendMessageContent(BaseModel):\n`;
 		yield `    comm_id: str\n`;
 		if (backend.methods.length === 1) {
-			const suffix = backend.methods[0].result ? 'Request' : 'Notification';
+			const suffix = backend.methods[0].result ? 'Request' : 'Event';
 			yield `    data: ${snakeCaseToSentenceCase(backend.methods[0].name)}${suffix}`;
 		} else {
 			yield `    data: Union[\n`;
 			for (const method of backend.methods) {
-				const suffix = method.result ? 'Request' : 'Notification';
+				const suffix = method.result ? 'Request' : 'Event';
 				yield `        ${snakeCaseToSentenceCase(method.name)}${suffix},\n`;
 			}
 			yield `    ] = Field(..., discriminator="method")\n`;

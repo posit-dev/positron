@@ -232,7 +232,7 @@ class DidChangePlotsRenderSettingsParams(BaseModel):
     )
 
 
-class DidChangePlotsRenderSettingsNotification(BaseModel):
+class DidChangePlotsRenderSettingsEvent(BaseModel):
     """
     Typically fired when the plot component has been resized by the user.
     This notification is useful to produce accurate pre-renderings of
@@ -322,7 +322,7 @@ class EvaluateCodeRequest(BaseModel):
 class UiBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
-        DidChangePlotsRenderSettingsNotification,
+        DidChangePlotsRenderSettingsEvent,
         CallMethodRequest,
         EvaluateCodeRequest,
     ] = Field(..., discriminator="method")
@@ -675,7 +675,7 @@ PreviewSource.update_forward_refs()
 
 DidChangePlotsRenderSettingsParams.update_forward_refs()
 
-DidChangePlotsRenderSettingsNotification.update_forward_refs()
+DidChangePlotsRenderSettingsEvent.update_forward_refs()
 
 CallMethodParams.update_forward_refs()
 
