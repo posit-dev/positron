@@ -206,6 +206,33 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// Disable the notebook console actions setting after this test
 		await settings.remove(['console.showNotebookConsoleActions']);
 	});
+
+	test('ensure notebook session reattaches after window reload', async function ({ app, hotKeys }) {
+		const { notebooksPositron } = app.workbench;
+
+		// create new notebook and select kernel
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.select('Python');
+
+		// cell 0: create variable x and run it
+		await notebooksPositron.addCodeToCell(0, 'x = 2', { run: true });
+
+		// cell 1: add code that depends on x, but don't run yet
+		await notebooksPositron.addCodeToCell(1, 'x + 2', { run: false });
+
+		// reload window
+		await hotKeys.reloadWindow(true);
+
+		// verify kernel session reattaches
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'Python',
+			status: 'idle'
+		});
+
+		// run cell 1 and verify output proves session is functionally reattached
+		await notebooksPositron.runCodeAtIndex(1);
+		await notebooksPositron.expectOutputAtIndex(1, ['4']);
+	});
 });
 
 const rDataFrame = `data.frame(
