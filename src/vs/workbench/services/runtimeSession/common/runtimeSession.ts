@@ -971,11 +971,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param sessionId The session ID of the runtime to restart.
 	 * @param source The source of the request to restart the runtime.
 	 */
-	async restartSession(sessionId: string, source: string, interrupt: boolean = true): Promise<void> {
-		const session = this.getSession(sessionId);
-		if (!session) {
+	async restartSession(sessionId: string, source: string, interrupt: boolean = true): Promise<boolean> {
+		const activeSession = this._activeSessionsBySessionId.get(sessionId);
+		if (!activeSession) {
 			throw new Error(`No session with ID '${sessionId}' was found.`);
 		}
+
+		const session = activeSession.session;
 		this._logService.info(
 			`Restarting session '` +
 			`${formatLanguageRuntimeSession(session)}' (Source: ${source})`);
@@ -989,7 +991,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// The session was not interrupted, so we can't restart it.
 			if (!interrupted) {
-				return;
+				return false;
 			}
 		}
 
@@ -999,7 +1001,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			state === RuntimeState.Exited) {
 			// The runtime looks like it could handle a restart request, so send
 			// one over.
-			return this.doRestartRuntime(session);
+			await this.doRestartRuntime(session);
+			return true;
 		} else if (state === RuntimeState.Uninitialized) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
@@ -1012,13 +1015,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				RuntimeStartMode.Starting,
 				true
 			);
-			return;
-		} else if (state === RuntimeState.Starting ||
-			state === RuntimeState.Restarting) {
-			// The runtime is already starting or restarting. We could show an
-			// error, but this is probably just the result of a user mashing the
-			// restart when we already have one in flight.
-			return;
+			return true;
+		} else if (
+			state === RuntimeState.Starting ||
+			state === RuntimeState.Restarting
+		) {
+			// Already in progress. Wait for the existing start/restart to
+			// finish so callers can rely on the session being ready when
+			// this resolves.
+			await awaitStateChange(activeSession, [RuntimeState.Ready], 10);
+			return true;
 		} else {
 			// The runtime is not in a state where it can be restarted.
 			throw new Error(`The ${session.runtimeMetadata.languageName} session is '${state}' ` +

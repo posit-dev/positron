@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 /**
- * Represents options returned from ${@link RunAppOptions.getTerminalOptions}.
+ * Options returned from ${@link RunAppOptions.getTerminalOptions}.
  */
 export interface RunAppTerminalOptions {
 	/**
@@ -23,14 +23,52 @@ export interface RunAppTerminalOptions {
 }
 
 /**
- * Represents options for the ${@link PositronRunApp.runApplication} function.
+ * Code returned from ${@link RunConsoleAppOptions.getConsoleCode}.
  */
-export interface RunAppOptions {
+export interface RunAppConsoleCode {
 	/**
-	 * The human-readable label for the application e.g. `'Streamlit'`, also used as the ${@link vscode.Terminal.name}.
+	 * The code to execute in the console session.
+	 */
+	code: string;
+}
+
+/**
+ * Shared options for running an application.
+ */
+interface RunAppOptionsBase {
+	/**
+	 * The human-readable label for the application e.g. `'Streamlit'`.
 	 */
 	name: string;
 
+	/**
+	 * The optional URL path at which to preview the application.
+	 */
+	urlPath?: string;
+
+	/**
+	 * The optional app ready message to wait for before previewing the application.
+	 */
+	appReadyMessage?: string;
+
+	/**
+	 * An optional array of app URI formats to parse the URI from the output.
+	 */
+	appUrlStrings?: string[];
+
+	/**
+	 * The debug adapter type (e.g. `'ark'`) used by the runtime. When set
+	 * and breakpoints are present, the runner waits for that adapter's
+	 * `configurationDone` before executing app code. Leave unset for
+	 * runtimes without DAP support to avoid a waiting overhead on every run.
+	 */
+	debugAdapterType?: string;
+}
+
+/**
+ * Options for the ${@link PositronRunApp.runApplication} function.
+ */
+export interface RunAppOptions extends RunAppOptionsBase {
 	/**
 	 * A function that will be called to get the terminal options for running the application.
 	 *
@@ -44,25 +82,29 @@ export interface RunAppOptions {
 		document: vscode.TextDocument,
 		urlPrefix?: string,
 	) => RunAppTerminalOptions | undefined | Promise<RunAppTerminalOptions | undefined>;
-
-	/**
-	 * The optional URL path at which to preview the application.
-	 */
-	urlPath?: string;
-
-	/**
-	 * The optional app ready message to wait for in the terminal before previewing the application.
-	 */
-	appReadyMessage?: string;
-
-	/**
-	 * An optional array of app URI formats to parse the URI from the terminal output.
-	 */
-	appUrlStrings?: string[];
 }
 
 /**
- * Represents options for the ${@link PositronRunApp.debugApplication} function.
+ * Options for the ${@link PositronRunApp.runApplicationInConsole} function.
+ */
+export interface RunConsoleAppOptions extends RunAppOptionsBase {
+	/**
+	 * A function that will be called to get the code to execute in the console session.
+	 *
+	 * @param runtime The language runtime metadata for the document's language.
+	 * @param document The document to run.
+	 * @param urlPrefix The URL prefix to use, if known.
+	 * @returns The console code for running the application. Return `undefined` to abort the run.
+	 */
+	getConsoleCode: (
+		runtime: positron.LanguageRuntimeMetadata,
+		document: vscode.TextDocument,
+		urlPrefix?: string,
+	) => RunAppConsoleCode | undefined | Promise<RunAppConsoleCode | undefined>;
+}
+
+/**
+ * Options for the ${@link PositronRunApp.debugApplication} function.
  */
 export interface DebugAppOptions {
 	/**
@@ -112,6 +154,15 @@ export interface PositronRunApp {
 	 *  started, otherwise resolves when the command has been sent to the terminal.
 	 */
 	runApplication(options: RunAppOptions): Promise<void>;
+
+	/**
+	 * Run an application in a new console session.
+	 *
+	 * @param options Options for running the application.
+	 * @returns Resolves when the application server has started, or when the
+	 *  code has been sent to the console if URL detection times out.
+	 */
+	runApplicationInConsole(options: RunConsoleAppOptions): Promise<void>;
 
 	/**
 	 * Debug an application.

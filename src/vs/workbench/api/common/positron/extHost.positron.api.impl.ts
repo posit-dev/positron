@@ -148,7 +148,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			interruptSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.interruptSession(sessionId);
 			},
-			restartSession(sessionId: string): Thenable<void> {
+			restartSession(sessionId: string): Thenable<boolean> {
 				return extHostLanguageRuntime.restartSession(sessionId);
 			},
 			focusSession(sessionId: string): void {

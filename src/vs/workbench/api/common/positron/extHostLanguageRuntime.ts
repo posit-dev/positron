@@ -1495,7 +1495,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @param sessionId The session ID to restart.
 	 */
-	public restartSession(sessionId: string): Promise<void> {
+	public restartSession(sessionId: string): Promise<boolean> {
 		return this._proxy.$restartSession(sessionId);
 	}
 
