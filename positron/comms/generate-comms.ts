@@ -686,42 +686,24 @@ use serde::Serialize;
 	}
 
 	// Create the event enums
-	if (frontend) {
-		yield '/**\n';
-		yield ` * Frontend events for the ${name} comm\n`;
-		yield ' */\n';
-		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
-		yield `#[serde(tag = "method", content = "params")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}FrontendEvent {\n`;
-		for (const method of frontend.methods) {
-			if (method.result !== undefined) {
-				continue;
-			}
-			if (method.description) {
-				yield formatComment('\t/// ', method.description);
-			}
-			yield `\t#[serde(rename = "${method.name}")]\n`;
-			yield `\t${snakeCaseToSentenceCase(method.name)}`;
-			if (method.params.length > 0) {
-				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n\n`;
-			} else {
-				yield ',\n\n';
-			}
+	for (const contract of namedContracts) {
+		const source = contract.source;
+		if (!source) {
+			continue;
 		}
-		yield `}\n\n`;
-	}
 
-	if (backend && backend.methods.some((method: any) => !method.result)) {
+		const events = source.methods.filter((method: any) => !method.result);
+		if (events.length === 0) {
+			continue;
+		}
+
 		yield '/**\n';
-		yield ` * Backend events (notifications) for the ${name} comm\n`;
+		yield ` * ${contract.name} events for the ${name} comm\n`;
 		yield ' */\n';
 		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}BackendEvent {\n`;
-		for (const method of backend.methods) {
-			if (method.result !== undefined) {
-				continue;
-			}
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}Event {\n`;
+		for (const method of events) {
 			if (method.description) {
 				yield formatComment('\t/// ', method.description);
 			}
@@ -1095,9 +1077,7 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 				yield '\n';
 			}
 		}
-	}
 
-	if (backend) {
 		const notifications = backend.methods.filter((m: any) => !m.result);
 		if (notifications.length) {
 			yield '@enum.unique\n';
@@ -1112,9 +1092,7 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 				yield '\n';
 			}
 		}
-	}
 
-	if (backend) {
 		for (const method of backend.methods) {
 			if (!method.description) {
 				throw new Error(`No description for '${method.name}'; please add a description to the schema`);
