@@ -226,13 +226,7 @@ export class PositronBaseComm extends Disposable {
 		paramValues: Array<unknown>
 	): Promise<T> {
 
-		// Create the RPC arguments from the parameter names and values. This
-		// allows us to pass the parameters as positional parameters, but
-		// still have them be named parameters in the RPC.
-		const rpcArgs: Record<string, unknown> = {};
-		for (let i = 0; i < paramNames.length; i++) {
-			rpcArgs[paramNames[i]] = paramValues[i];
-		}
+		const rpcArgs = this.zipParams(paramNames, paramValues);
 
 		// Generate a unique ID for this message.
 		const id = generateUuid();
@@ -326,10 +320,7 @@ export class PositronBaseComm extends Disposable {
 		paramValues: Array<unknown>
 	): void {
 
-		const params: Record<string, unknown> = {};
-		for (let i = 0; i < paramNames.length; i++) {
-			params[paramNames[i]] = paramValues[i];
-		}
+		const params = this.zipParams(paramNames, paramValues);
 
 		const notification: Record<string, unknown> = {
 			jsonrpc: '2.0',
@@ -341,5 +332,29 @@ export class PositronBaseComm extends Disposable {
 		}
 
 		this.clientInstance.sendMessage(notification);
+	}
+
+	/**
+	 * Zip parallel arrays of parameter names and values into a
+	 * JSON-RPC params object.
+	 *
+	 * @param paramNames The parameter names.
+	 * @param paramValues The parameter values (must be same length as paramNames).
+	 */
+	private zipParams(
+		paramNames: Array<string>,
+		paramValues: Array<unknown>
+	): Record<string, unknown> {
+		if (paramNames.length !== paramValues.length) {
+			throw new Error(
+				`paramNames length (${paramNames.length}) !== ` +
+				`paramValues length (${paramValues.length})`
+			);
+		}
+		const params: Record<string, unknown> = {};
+		for (let i = 0; i < paramNames.length; i++) {
+			params[paramNames[i]] = paramValues[i];
+		}
+		return params;
 	}
 }
