@@ -139,7 +139,8 @@ export async function showConfigurationDialog(
 								const session = await vscode.authentication.getSession(
 									providerId, [], { silent: true }
 								);
-								signedIn = !!session?.accessToken;
+								signedIn = !!session?.accessToken
+									&& session.id === providerId;
 							} catch {
 								signedIn = false;
 							}
