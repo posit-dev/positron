@@ -15,7 +15,7 @@
 	"serverLicense": [],
 	"serverLicensePrompt": "",
 	"serverApplicationName": "positron-server",
-	"serverDataFolderName": ".vscode-server",
+	"serverDataFolderName": ".positron-server",
 	"serverDownloadUrlTemplate": "https://cdn.posit.co/positron/${quality}/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz",
 	"tunnelApplicationName": "positron-tunnel",
 	"win32DirName": "Positron",
