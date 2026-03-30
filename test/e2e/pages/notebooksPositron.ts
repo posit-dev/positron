@@ -675,7 +675,9 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async searchToggleCaseSensitive(): Promise<void> {
 		await test.step('Toggle case sensitivity', async () => {
-			await this.searchWidget.getByRole('button', { name: 'Match Case' }).click();
+			const caseButton = this.searchWidget.getByRole('button', { name: 'Match Case' });
+			await expect(caseButton).toBeVisible({ timeout: 5000 });
+			await caseButton.click();
 			// Wait for search to re-execute after toggle
 			await this.code.driver.page.waitForTimeout(500);
 		});
@@ -686,7 +688,9 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async searchToggleWholeWord(): Promise<void> {
 		await test.step('Toggle whole word', async () => {
-			await this.searchWidget.getByRole('button', { name: 'Match Whole Word' }).click();
+			const wholeWordButton = this.searchWidget.getByRole('button', { name: 'Match Whole Word' });
+			await expect(wholeWordButton).toBeVisible({ timeout: 5000 });
+			await wholeWordButton.click();
 			// Wait for search to re-execute after toggle
 			await this.code.driver.page.waitForTimeout(500);
 		});
@@ -794,6 +798,8 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectReplaceButtonToBeDisabled(): Promise<void> {
 		await test.step('Expect Replace button to be disabled', async () => {
+			// Wait a moment for the UI to update after search completes
+			await this.code.driver.page.waitForTimeout(500);
 			await expect(this.replaceButton).toBeDisabled({ timeout: DEFAULT_TIMEOUT });
 		});
 	}
@@ -803,6 +809,8 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectReplaceAllButtonToBeDisabled(): Promise<void> {
 		await test.step('Expect Replace All button to be disabled', async () => {
+			// Wait a moment for the UI to update after search completes
+			await this.code.driver.page.waitForTimeout(500);
 			await expect(this.replaceAllButton).toBeDisabled({ timeout: DEFAULT_TIMEOUT });
 		});
 	}

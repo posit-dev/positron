@@ -104,7 +104,7 @@ test.describe('Positron Notebooks: Search & Replace', {
 			await notebooksPositron.searchSetReplaceText('example');
 			await notebooksPositron.searchReplaceAll();
 			await notebooksPositron.expectSearchCountToBe({ total: 0 });
-			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Heading with example\nParagraph with example content');
+			await notebooksPositron.expectCellContentAtIndexToBe(1, ['# Heading with example', 'Paragraph with example content']);
 		});
 
 		await notebooksPositron.searchClose();
@@ -147,7 +147,7 @@ test.describe('Positron Notebooks: Search & Replace', {
 	test('Verify match counter updates correctly', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
-		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.newNotebook();
 		await notebooksPositron.addCodeToCell(0, 'item item item item item');
 
 		await notebooksPositron.search('item');
@@ -172,7 +172,7 @@ test.describe('Positron Notebooks: Search & Replace', {
 	test('Verify case sensitivity toggle', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
-		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.newNotebook();
 		await notebooksPositron.addCodeToCell(0, 'Test test TEST tEsT');
 
 		await test.step('Case-insensitive search matches all variations', async () => {
@@ -200,7 +200,7 @@ test.describe('Positron Notebooks: Search & Replace', {
 	test('Verify whole word toggle', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
-		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.newNotebook();
 		await notebooksPositron.addCodeToCell(0, 'test testing tested tester');
 
 		await test.step('Without whole word, matches partial words', async () => {
@@ -221,7 +221,7 @@ test.describe('Positron Notebooks: Search & Replace', {
 	test('Verify no matches state and disabled buttons', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
-		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.newNotebook();
 		await notebooksPositron.addCodeToCell(0, 'hello world');
 
 		await test.step('No matches shows "No results" and disables replace buttons', async () => {
@@ -238,7 +238,7 @@ test.describe('Positron Notebooks: Search & Replace', {
 	test('Verify empty replace string (deletion)', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
-		await notebooksPositron.newNotebook({ codeCells: 1 });
+		await notebooksPositron.newNotebook();
 		await notebooksPositron.addCodeToCell(0, 'remove remove keep');
 
 		await test.step('Replace with empty string deletes matches', async () => {
