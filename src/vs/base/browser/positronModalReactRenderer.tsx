@@ -61,6 +61,12 @@ class Stack<T> {
 	private items: T[] = [];
 
 	/**
+	 * Determines whether the stack is empty.
+	 * @returns true if the stack is empty; otherwise, false.
+	 */
+	isEmpty(): boolean { return this.items.length === 0; }
+
+	/**
 	 * Pushes an item onto the stack.
 	 * @param item The item to push onto the stack.
 	 */
@@ -77,25 +83,19 @@ class Stack<T> {
 	}
 
 	/**
-	 * Peeks at the top item of the stack without removing it.
+	 * Gets the top item of the stack without removing it.
 	 * @returns The top item of the stack or undefined if the stack is empty.
 	 */
-	peek(): T | undefined {
+	top(): T | undefined {
 		return this.items[this.items.length - 1];
 	}
 
 	/**
-	 * Determines whether the stack is empty.
-	 * @returns true if the stack is empty; otherwise, false.
+	 * Gets the bottom item of the stack without removing it.
+	 * @returns The bottom item of the stack or undefined if the stack is empty.
 	 */
-	isEmpty(): boolean { return this.items.length === 0; }
-
-	/**
-	 * Gets the size of the stack.
-	 * @returns The size of the stack.
-	 */
-	size(): number {
-		return this.items.length;
+	bottom(): T | undefined {
+		return this.items[0];
 	}
 
 	/**
@@ -142,6 +142,11 @@ export class PositronModalReactRenderer extends Disposable {
 	 * Gets or sets the root where the React element will be rendered.
 	 */
 	private _root?: Root;
+
+	/**
+	 * Provides the bounding rect of this renderer's popup element. Registered by PositronModalPopup.
+	 */
+	private _boundsProvider?: () => DOMRect;
 
 	/**
 	 * The onKeyDown event emitter.
@@ -202,7 +207,7 @@ export class PositronModalReactRenderer extends Disposable {
 		// Dispose all renderers above this one on the stack (child modals).
 		while (!PositronModalReactRenderer._renderersStack.isEmpty()) {
 			// Get the top renderer on the stack.
-			const topRenderer = PositronModalReactRenderer._renderersStack.peek();
+			const topRenderer = PositronModalReactRenderer._renderersStack.top();
 
 			// If the top of the stack is this renderer, we're done unwinding children.
 			if (topRenderer === this) {
@@ -300,6 +305,39 @@ export class PositronModalReactRenderer extends Disposable {
 	//#region Public Methods
 
 	/**
+	 * Registers a function that returns the bounding rect of this renderer's popup element.
+	 * Called by PositronModalPopup so the renderer stack can check click containment.
+	 * @param boundsProvider A function that returns the popup's DOMRect.
+	 */
+	public setBoundsProvider(boundsProvider: () => DOMRect): void {
+		this._boundsProvider = boundsProvider;
+	}
+
+	/**
+	 * Returns true if the mouse event occurred inside the popup of any renderer in the stack.
+	 * @param e The mouse event to check.
+	 */
+	public static isInsideAnyPopup(e: MouseEvent): boolean {
+		let inside = false;
+		PositronModalReactRenderer._renderersStack.forEach(renderer => {
+			if (renderer._boundsProvider !== undefined) {
+				const rect = renderer._boundsProvider();
+				if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+					inside = true;
+				}
+			}
+		});
+		return inside;
+	}
+
+	/**
+	 * Disposes all renderers in the stack by disposing the bottom renderer, which cascades upward.
+	 */
+	public static disposeAll(): void {
+		PositronModalReactRenderer._renderersStack.bottom()?.dispose();
+	}
+
+	/**
 	 * Renders the ReactElement that was supplied.
 	 * @param reactElement The ReactElement to render.
 	 */
@@ -361,7 +399,7 @@ export class PositronModalReactRenderer extends Disposable {
 		}
 
 		// Get the renderer to bind event listeners for. If there isn't one, return.
-		const renderer = PositronModalReactRenderer._renderersStack.peek();
+		const renderer = PositronModalReactRenderer._renderersStack.top();
 		if (renderer === undefined) {
 			return;
 		}
