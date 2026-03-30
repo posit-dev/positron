@@ -634,7 +634,7 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param notebookUri The notebook's URI.
 	 */
-	deleteNotebookSession(notebookUri: URI): void;
+	removeNotebookSessionFromNotebookMap(notebookUri: URI): void;
 
 	/**
 	 * Updates the URI of a notebook session to maintain session continuity when

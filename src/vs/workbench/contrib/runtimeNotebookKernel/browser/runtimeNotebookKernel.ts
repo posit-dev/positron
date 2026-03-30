@@ -176,8 +176,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 			// Get the notebook's session.
 			let session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-			if (!session) {
-				// There's no active session for the notebook, start one.
+			if (!session || session.getRuntimeState() === RuntimeState.Exited) {
+				// There's no active session for the notebook (or it has exited), start one.
 				const ensureSessionStartedForNotebook = () => this.ensureSessionStarted(
 					notebookUri,
 					`Runtime kernel ${this.id} executed cells for notebook`,

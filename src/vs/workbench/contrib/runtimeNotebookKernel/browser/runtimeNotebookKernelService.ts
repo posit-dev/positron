@@ -187,7 +187,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			// when the session exits because notebook sessions need to be  tracked
 			// even after they exit to support showing the session info in the
 			// interpreter picker while the notebook editor is still open.
-			this._runtimeSessionService.deleteNotebookSession(notebook.uri);
+			this._runtimeSessionService.removeNotebookSessionFromNotebookMap(notebook.uri);
 		}));
 
 		// Register kernel source action providers. This is how we customize the
