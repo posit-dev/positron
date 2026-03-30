@@ -11,24 +11,132 @@
 	font-size: var(--vscode-positronNotebook-text-output-font-size);
 	/* Don't wrap text by default */
 	white-space: pre;
+
+	&.word-wrap {
+		white-space: pre-wrap;
+	}
+
+	/* Clickable "Show N Hidden Lines" message shown when output is truncated. */
+	& .notebook-output-truncation-message {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		/* Override the parent's monospace font and Button's unset !important. */
+		font-family: system-ui, sans-serif !important;
+		font-size: 11px;
+		line-height: 11px;
+		color: var(--vscode-editorCodeLens-foreground);
+		padding: 4px 0;
+		user-select: none;
+
+		& .truncation-chevron.codicon {
+			font-size: inherit;
+			line-height: inherit;
+		}
+
+		&:hover {
+			color: var(--vscode-textLink-foreground);
+		}
+	}
+
+	/*
+	 * "Show Less" divider seam shown between the head and middle sections
+	 * when the full (untruncated) output is displayed. Renders as a thin
+	 * horizontal line that takes no vertical space in the layout, so the
+	 * output text above and below appears contiguous. On hover, a
+	 * "Show Less" label slides in from the left and the line darkens.
+	 */
+	& .notebook-output-show-less-seam {
+		display: flex;
+		align-items: center;
+		gap: 0;
+		padding: 0;
+		cursor: pointer;
+		user-select: none;
+		/* Zero height so the seam doesn't push output lines apart. */
+		height: 0;
+		overflow: visible;
+		position: relative;
+
+		/* Invisible hit area extending 8px above and below the line. */
+		&::before {
+			content: '';
+			position: absolute;
+			inset: -8px 0;
+			cursor: pointer;
+		}
+
+		& * {
+			cursor: pointer;
+		}
+
+		/* Line is hidden by default; only appears on hover/focus. */
+		& .show-less-line {
+			flex: 1;
+			height: 1px;
+			/* Fade out over the last 12px before the pill. */
+			background: linear-gradient(to right, var(--vscode-widget-border) calc(100% - 12px), transparent);
+			opacity: 0;
+			transition: opacity 0.15s ease;
+		}
+
+		/* Pill on the right -- round icon-only by default, expands
+		 * to show text on seam hover. Hidden until output container hover. */
+		& .show-less-label {
+			display: flex;
+			align-items: center;
+			white-space: nowrap;
+			opacity: 0;
+			overflow: hidden;
+			transition: opacity 0.15s ease;
+			/* Match the output action bar styling. */
+			color: var(--vscode-icon-foreground);
+			background-color: var(--vscode-positronNotebook-action-bar-background);
+			border: 1px solid var(--vscode-widget-border);
+			border-radius: var(--vscode-positronNotebook-cell-radius);
+			padding: 2px;
+			margin-left: 4px;
+
+			& .show-less-icon {
+				font-size: 12px;
+				flex-shrink: 0;
+			}
+
+			/* Text hidden by default, slides in on seam hover. */
+			& .show-less-text {
+				font-family: system-ui, sans-serif;
+				font-size: 11px;
+				line-height: 11px;
+				color: var(--vscode-icon-foreground);
+				max-width: 0;
+				overflow: hidden;
+				transition: max-width 0.15s ease, margin 0.15s ease;
+			}
+		}
+
+		/* Show line + expand pill on seam hover or keyboard focus. */
+		&:hover,
+		&:focus-visible {
+			& .show-less-line {
+				opacity: 0.6;
+				background: linear-gradient(to right, var(--vscode-positronActionBar-hoverBackground) calc(100% - 12px), transparent);
+			}
+
+			& .show-less-label {
+				opacity: 1;
+				padding: 2px 6px;
+				background-color: var(--vscode-positronActionBar-hoverBackground);
+
+				& .show-less-text {
+					max-width: 80px;
+					margin-left: 4px;
+				}
+			}
+		}
+	}
 }
 
-.positron-notebook-text-output.word-wrap {
-	/* Wrap text when word-wrap is enabled */
-	white-space: pre-wrap;
-}
-
-.notebook-output-truncation-message {
-	display: block;
-	font-size: 0.95em;
-	opacity: 0.8;
-}
-
-/* Use theme link colors */
-.notebook-output-truncation-message a {
-	color: var(--vscode-textLink-foreground);
-}
-.notebook-output-truncation-message a:hover,
-.notebook-output-truncation-message a:active {
-	color: var(--vscode-textLink-activeForeground);
+/* Icon pill shown when the output container is hovered. */
+.positron-notebook-outputs-section:hover .notebook-output-show-less-seam .show-less-label {
+	opacity: 1;
 }
