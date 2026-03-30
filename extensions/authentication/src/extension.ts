@@ -14,6 +14,7 @@ import { CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
+import { AuthProviderLogger } from './authProviderLogger';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
@@ -23,8 +24,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Migrate settings before registering the AWS provider so it
 	// reads the migrated profile/region during initialization.
+	const awsLogger = new AuthProviderLogger('AWS');
 	await migrateAwsSettings().catch(err =>
-		log.error(`AWS settings migration failed: ${err}`)
+		awsLogger.logOperationError('settings migration', err)
 	);
 	registerAwsProvider(context);
 	log.info('Authentication extension activated');
@@ -44,6 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 function registerAnthropicProvider(context: vscode.ExtensionContext): void {
+	const logger = new AuthProviderLogger('Anthropic');
 	const provider = new AuthProvider(
 		'anthropic-api', 'Anthropic', context
 	);
@@ -57,12 +60,13 @@ function registerAnthropicProvider(context: vscode.ExtensionContext): void {
 	registerAuthProvider('anthropic-api', provider, {
 		validateApiKey: validateAnthropicApiKey,
 	});
-	log.info('Registered auth provider: anthropic-api');
+	logger.info('Registered auth provider');
 }
 
 function registerAwsProvider(
 	context: vscode.ExtensionContext
 ): void {
+	const logger = new AuthProviderLogger('AWS');
 	const awsConfig = vscode.workspace
 		.getConfiguration('authentication.aws')
 		.get<{ AWS_PROFILE?: string; AWS_REGION?: string }>(
@@ -78,8 +82,8 @@ function registerAwsProvider(
 		profile ? { profile } : {}
 	);
 
-	log.info(
-		`[AWS] Credential chain initialized ` +
+	logger.info(
+		`Credential chain initialized ` +
 		`(region=${region}, profile=${profile ?? '(default)'})`
 	);
 
@@ -107,12 +111,16 @@ function registerAwsProvider(
 	);
 	registerAuthProvider('amazon-bedrock', provider);
 	provider.resolveChainCredentials().catch(err =>
-		log.debug(`[AWS] Initial credential resolution failed: ${err}`)
+		logger.logCredentialResolution(
+			'failed',
+			`Initial credential resolution failed: ${err}`
+		)
 	);
-	log.info('Registered auth provider: amazon-bedrock');
+	logger.info('Registered auth provider');
 }
 
 function registerFoundryProvider(context: vscode.ExtensionContext): void {
+	const logger = new AuthProviderLogger('Microsoft Foundry');
 	const provider = new AuthProvider(
 		'ms-foundry', 'Microsoft Foundry', context,
 		{
@@ -139,7 +147,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 			}
 		},
 	});
-	log.info('Registered auth provider: ms-foundry');
+	logger.info('Registered auth provider');
 
 	// Sync Workbench endpoint to auth extension setting
 	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
@@ -151,7 +159,9 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 			vscode.workspace
 				.getConfiguration('authentication.foundry')
 				.update('baseUrl', normalized, vscode.ConfigurationTarget.Global)
-				.then(undefined, err => log.error(`Failed to sync Foundry endpoint: ${err}`));
+				.then(undefined, err =>
+					logger.logOperationError('sync Foundry endpoint', err)
+				);
 		}
 	}
 }
