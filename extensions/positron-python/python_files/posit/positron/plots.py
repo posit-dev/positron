@@ -43,6 +43,19 @@ MIME_TYPE = {
 }
 
 
+def _render_to_plot_result(
+    render: Callable[[PlotSize | None, float, str], bytes],
+    settings: PlotRenderSettings,
+) -> PlotResult:
+    """Render a plot and return a PlotResult with base64-encoded data."""
+    rendered = render(settings.size, settings.pixel_ratio, settings.format.value)
+    return PlotResult(
+        data=base64.b64encode(rendered).decode(),
+        mime_type=MIME_TYPE[settings.format.value],
+        settings=settings,
+    )
+
+
 class Plot:
     """
     The backend representation of a frontend plot instance.
@@ -154,12 +167,7 @@ class Plot:
         if settings is None:
             return None
         try:
-            rendered = self._render(settings.size, settings.pixel_ratio, settings.format.value)
-            return PlotResult(
-                data=base64.b64encode(rendered).decode(),
-                mime_type=MIME_TYPE[settings.format.value],
-                settings=settings,
-            )
+            return _render_to_plot_result(self._render, settings)
         except Exception:
             logger.warning("Failed to generate pre-render", exc_info=True)
             return None
@@ -331,13 +339,7 @@ class PlotsService:
         # Generate pre-render
         if self._current_render_settings is not None:
             try:
-                settings = self._current_render_settings
-                rendered = render(settings.size, settings.pixel_ratio, settings.format.value)
-                pre_render = PlotResult(
-                    data=base64.b64encode(rendered).decode(),
-                    mime_type=MIME_TYPE[settings.format.value],
-                    settings=settings,
-                )
+                pre_render = _render_to_plot_result(render, self._current_render_settings)
                 open_data["pre_render"] = pre_render.dict()
             except Exception:
                 logger.warning("Failed to generate pre-render for comm_open", exc_info=True)
