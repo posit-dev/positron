@@ -37,6 +37,7 @@ import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { useOutputResize } from './useOutputResize.js';
 
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
 const outputCollapsedLabel = localize('positron.notebook.outputCollapsed', 'Output collapsed');
@@ -63,9 +64,19 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
 	useScrollingIndicator(outputsInnerRef);
+	const { handleRef: resizeHandleRef, heightOverride, clearHeightOverride } = useOutputResize(outputsInnerRef);
 
 	// Per-cell scrolling override takes precedence over global setting.
 	const outputScrolling = perCellScrolling ?? layout.outputScrolling;
+
+	// Reset height override when outputs change (new execution) or scrolling mode toggles
+	const prevOutputsRef = React.useRef(outputs);
+	const prevScrollingRef = React.useRef(outputScrolling);
+	if (prevOutputsRef.current !== outputs || prevScrollingRef.current !== outputScrolling) {
+		prevOutputsRef.current = outputs;
+		prevScrollingRef.current = outputScrolling;
+		clearHeightOverride();
+	}
 
 	// Update the output overflow context key.
 	React.useEffect(() => {
@@ -144,8 +155,14 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					'positron-notebook-code-cell-outputs-inner',
 					'positron-notebook-scrollable',
 					'positron-notebook-scrollable-fade',
-					{ 'output-scrolling': outputScrolling }
-				)}>
+					{ 'output-scrolling': outputScrolling },
+					{ 'height-override': heightOverride !== undefined }
+				)}
+				style={heightOverride !== undefined ? {
+					maxHeight: heightOverride,
+					height: heightOverride
+				} : undefined}
+				>
 					{isCollapsed
 						? <CollapsedOutputLabel onExpand={handleShowHiddenOutput} />
 						: outputs?.map((output) => (
@@ -164,6 +181,13 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 						))
 					}
 				</div>
+				{outputScrolling && !isCollapsed && outputs.length > 0 &&
+					<div
+						ref={resizeHandleRef}
+						className='cell-output-resize-handle'
+						onDoubleClick={clearHeightOverride}
+					/>
+				}
 			</section>
 		</div>
 	);
