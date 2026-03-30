@@ -659,6 +659,10 @@
 			"positron.authentication",
 			"positron.positron-assistant"
 		],
+		"posit-ai": [
+			"positron.authentication",
+			"positron.positron-assistant"
+		],
 		"ms-foundry": [
 			"positron.authentication",
 			"positron.positron-assistant"

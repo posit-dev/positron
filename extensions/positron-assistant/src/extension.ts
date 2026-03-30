@@ -27,8 +27,8 @@ import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { resetAssistantState } from './reset.js';
 import { performSettingsMigrations } from './providerMigration.js';
-import { disposeModels, registerModels, registerModelsForProvider } from './modelRegistration';
-import { registerPositAuthProvider } from './providers/posit/positProvider.js';
+import { addAutoconfiguredModel, disposeModels, getAutoconfiguredModels, registerModelWithAPI, registerModels, registerModelsForProvider } from './modelRegistration';
+import { getModelProviders } from './providers/index.js';
 import { PROVIDER_METADATA } from './providerMetadata.js';
 import { ModelConfig } from './configTypes.js';
 import { isAuthExtProvider } from './authExtRouting.js';
@@ -219,7 +219,7 @@ async function toggleInlineCompletions() {
 	let keyToToggle: string;
 	let currentValue: boolean;
 
-	if (currentLanguageId && (currentLanguageId in currentSettings)) {
+	if (currentLanguageId && Object.prototype.hasOwnProperty.call(currentSettings, currentLanguageId)) {
 		// If current file type has an explicit setting, toggle it
 		keyToToggle = currentLanguageId;
 		currentValue = currentSettings[currentLanguageId];
@@ -276,9 +276,6 @@ async function reconcileAuthProviderModels(
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
-	// Register Posit AI authentication provider
-	registerPositAuthProvider(context);
-
 	// Register Copilot service
 	registerCopilotService(context);
 
