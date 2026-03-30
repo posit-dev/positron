@@ -28,7 +28,6 @@ export function CellOutputCollapseButton({ cell }: CellOutputCollapseButtonProps
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 
 	const label = isCollapsed ? expandOutputLabel : collapseOutputLabel;
-	const icon = isCollapsed ? Codicon.chevronRight : Codicon.chevronDown;
 
 	const handleToggle = () => {
 		instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
@@ -44,7 +43,10 @@ export function CellOutputCollapseButton({ cell }: CellOutputCollapseButtonProps
 				tooltip={label}
 				onPressed={handleToggle}
 			>
-				<ThemeIcon icon={icon} />
+				<ThemeIcon
+					className={isCollapsed ? 'collapse-chevron collapsed' : 'collapse-chevron'}
+					icon={Codicon.chevronDown}
+				/>
 			</ActionButton>
 		</div>
 	);

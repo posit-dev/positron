@@ -143,7 +143,7 @@ jobs:
           submodules: recursive
 
       - name: Load secret
-        uses: 1password/load-secrets-action@v3
+        uses: 1password/load-secrets-action@v4
         with:
           # Export loaded secrets as environment variables
           export-env: true
@@ -167,7 +167,7 @@ jobs:
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1

@@ -325,7 +325,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 		// If we get here, all tested models failed
 		const allErrors = errors.join('; ');
 		this.logger.error(`All ${modelsToTest.length} tested models failed: ${allErrors}`);
-		return new Error(`All tested models failed: ${allErrors}`);
+		return new Error(`${this.providerName}: All tested models failed: ${allErrors}`);
 	}
 
 	/**

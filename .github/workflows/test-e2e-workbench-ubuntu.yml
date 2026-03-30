@@ -77,7 +77,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Load secret
-        uses: 1password/load-secrets-action@v3
+        uses: 1password/load-secrets-action@v4
         with:
           export-env: true
         env:

@@ -437,6 +437,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._notebookOptions = this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined);
 
+		// Reset per-cell scrolling overrides when the global output scrolling setting
+		// changes so all cells follow the new default.
+		this._register(this._notebookOptions.onDidChangeOptions(e => {
+			if (!e.outputScrolling) {
+				return;
+			}
+			for (const cell of this.cells.get()) {
+				if (!cell.isCodeCell()) {
+					continue;
+				}
+				cell.resetOutputScrolling();
+			}
+		}));
+
 		return this._notebookOptions;
 	}
 
