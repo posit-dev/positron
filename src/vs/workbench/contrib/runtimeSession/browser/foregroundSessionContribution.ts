@@ -296,8 +296,18 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			// session service because we don't have access to the console session via the console instance
 			// when its exited.
 			const session = this._runtimeSessionService.getSession(instance.sessionId);
-			this._runtimeSessionService.foregroundSession = session;
-			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, setting foreground session: ${instance.sessionId}`);
+
+			// The session may not yet exist for the console instance since we create console instances
+			// before the runtime sessions are created. We need to check if the session exists before
+			// setting it as the foreground session.
+			if (session) {
+				this._runtimeSessionService.foregroundSession = session;
+				this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, setting foreground session: ${instance.sessionId}`);
+			} else {
+				// Console instance has no session yet - this can happen for provisional
+				// instances while waiting for a session to connect.
+				this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected but no session found: ${instance.sessionId}`);
+			}
 		} else {
 			this._logService.trace(`[ForegroundSessionContribution] Console instance (${instance.sessionName}) selected, but it is already the foreground session: ${instance.sessionId}`);
 		}
