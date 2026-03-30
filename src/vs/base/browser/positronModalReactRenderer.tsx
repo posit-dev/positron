@@ -48,8 +48,9 @@ const RESIZE = 'resize';
 interface PositronModalReactRendererOptions {
 	container?: HTMLElement;
 	parent?: HTMLElement;
-	onDisposed?: () => void;
+	allowPointerPassthrough?: boolean;
 	disableCaptures?: boolean;
+	onDisposed?: () => void;
 }
 
 /**
@@ -320,6 +321,14 @@ export class PositronModalReactRenderer extends Disposable {
 		this._overlay = this._options.container!.appendChild(
 			DOM.$('.positron-modal-overlay', { tabIndex: 0 })
 		);
+
+		// When pointer passthrough is enabled, allow mouse events to pass through the overlay
+		// to elements beneath it (used for cascading context menus).
+		if (this._options.allowPointerPassthrough === true) {
+			this._overlay.style.pointerEvents = 'none';
+		}
+
+		// Create the root for this modal renderer.
 		this._root = createRoot(this._overlay);
 
 		// Render the ReactElement that was supplied.

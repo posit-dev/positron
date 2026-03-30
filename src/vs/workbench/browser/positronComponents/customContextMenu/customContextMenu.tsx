@@ -68,6 +68,7 @@ export class CustomContextMenuSubmenu {
  * CustomContextMenuProps interface.
  */
 export interface CustomContextMenuProps {
+	readonly isSubmenu?: boolean;
 	readonly anchorElement: HTMLElement;
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
@@ -87,6 +88,7 @@ export interface CustomContextMenuProps {
 
 /**
  * Shows a custom context menu.
+ * @param isSubmenu Whether this context menu is a submenu.
  * @param anchorElement The anchor element.
  * @param anchorPoint The anchor point.
  * @param popupPosition The popup position.
@@ -98,6 +100,7 @@ export interface CustomContextMenuProps {
  * @param onDismissParentMenus Callback to dismiss parent menus when an item is selected.
  */
 export const showCustomContextMenu = ({
+	isSubmenu,
 	anchorElement,
 	anchorPoint,
 	popupPosition,
@@ -111,6 +114,7 @@ export const showCustomContextMenu = ({
 }: CustomContextMenuProps) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
+		allowPointerPassthrough: isSubmenu,
 		container: PositronReactServices.services.workbenchLayoutService.getContainer(DOM.getWindow(anchorElement)),
 		parent: anchorElement,
 		onDisposed: onClose
@@ -299,6 +303,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 			// We use 'avoid' anchor mode to position the submenu adjacent to the parent menu item,
 			// instead of below the parent menu item so the parent menu item is not covered up.
 			showCustomContextMenu({
+				isSubmenu: true,
 				anchorElement: buttonRef.current,
 				popupPosition: 'auto',
 				popupAlignment: 'auto',
