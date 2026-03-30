@@ -277,6 +277,15 @@
 				},
 				"publisherDisplayName": "GitHub"
 			}
+		},
+		{
+			"name": "posit.assistant",
+			"version": "0.1.0",
+			"metadata": {
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Posit Assistant"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
 		}
 	],
 	"extensionsGallery": {
@@ -654,8 +663,7 @@
 			"GitHub.copilot-chat"
 		],
 		"posit-workbench": [
-			"positron.positron-assistant",
-			"posit.assistant"
+			"positron.positron-assistant"
 		],
 		"anthropic-api": [
 			"positron.authentication",
