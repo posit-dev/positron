@@ -904,4 +904,120 @@ suite('AnthropicModelProvider', () => {
 			);
 		});
 	});
+
+	suite('baseUrl support', () => {
+		test('baseUrl getter strips trailing slashes', () => {
+			const config: ModelConfig = {
+				id: 'test', name: 'Test', provider: 'anthropic-api',
+				model: 'claude-test', apiKey: 'sk-ant-test',
+				type: positron.PositronLanguageModelType.Chat,
+				baseUrl: 'https://proxy.example.com/',
+			};
+			const provider = new AnthropicModelProvider(
+				config, undefined, new MockAnthropicClient() as unknown as Anthropic
+			);
+			assert.strictEqual(provider.baseUrl, 'https://proxy.example.com');
+		});
+
+		test('baseUrl getter strips trailing /v1 suffix', () => {
+			const config: ModelConfig = {
+				id: 'test', name: 'Test', provider: 'anthropic-api',
+				model: 'claude-test', apiKey: 'sk-ant-test',
+				type: positron.PositronLanguageModelType.Chat,
+				baseUrl: 'https://proxy.example.com/v1',
+			};
+			const provider = new AnthropicModelProvider(
+				config, undefined, new MockAnthropicClient() as unknown as Anthropic
+			);
+			assert.strictEqual(provider.baseUrl, 'https://proxy.example.com');
+		});
+
+		test('baseUrl getter strips trailing /v1/ with slash', () => {
+			const config: ModelConfig = {
+				id: 'test', name: 'Test', provider: 'anthropic-api',
+				model: 'claude-test', apiKey: 'sk-ant-test',
+				type: positron.PositronLanguageModelType.Chat,
+				baseUrl: 'https://proxy.example.com/v1/',
+			};
+			const provider = new AnthropicModelProvider(
+				config, undefined, new MockAnthropicClient() as unknown as Anthropic
+			);
+			assert.strictEqual(provider.baseUrl, 'https://proxy.example.com');
+		});
+
+		test('baseUrl getter falls back to default', () => {
+			const config: ModelConfig = {
+				id: 'test', name: 'Test', provider: 'anthropic-api',
+				model: 'claude-test', apiKey: 'sk-ant-test',
+				type: positron.PositronLanguageModelType.Chat,
+			};
+			const provider = new AnthropicModelProvider(
+				config, undefined, new MockAnthropicClient() as unknown as Anthropic
+			);
+			assert.strictEqual(provider.baseUrl, 'https://api.anthropic.com');
+		});
+
+		test('baseUrl getter preserves path components', () => {
+			const config: ModelConfig = {
+				id: 'test', name: 'Test', provider: 'anthropic-api',
+				model: 'claude-test', apiKey: 'sk-ant-test',
+				type: positron.PositronLanguageModelType.Chat,
+				baseUrl: 'https://proxy.example.com/anthropic',
+			};
+			const provider = new AnthropicModelProvider(
+				config, undefined, new MockAnthropicClient() as unknown as Anthropic
+			);
+			assert.strictEqual(provider.baseUrl, 'https://proxy.example.com/anthropic');
+		});
+	});
+
+	suite('validateCredentials', () => {
+		async function validateWithConfig(
+			config: Partial<ModelConfig>
+		): Promise<boolean> {
+			const fullConfig: ModelConfig = {
+				id: 'test', name: 'Test', provider: 'anthropic-api',
+				model: 'claude-test', apiKey: '',
+				type: positron.PositronLanguageModelType.Chat,
+				...config,
+			};
+			const provider = new AnthropicModelProvider(
+				fullConfig, undefined, new MockAnthropicClient() as unknown as Anthropic
+			);
+			// Access the protected method via any cast
+			return (provider as any).validateCredentials();
+		}
+
+		test('returns false for empty API key', async () => {
+			assert.strictEqual(await validateWithConfig({ apiKey: '' }), false);
+		});
+
+		test('returns false for whitespace-only API key', async () => {
+			assert.strictEqual(await validateWithConfig({ apiKey: '   ' }), false);
+		});
+
+		test('passes sk-ant- keys with no custom URL', async () => {
+			assert.strictEqual(
+				await validateWithConfig({ apiKey: 'sk-ant-test123' }),
+				true
+			);
+		});
+
+		test('rejects non-sk-ant- keys with no custom URL', async () => {
+			assert.strictEqual(
+				await validateWithConfig({ apiKey: 'some-other-key' }),
+				false
+			);
+		});
+
+		test('passes any non-empty key when baseUrl is set', async () => {
+			assert.strictEqual(
+				await validateWithConfig({
+					apiKey: 'custom-proxy-key',
+					baseUrl: 'https://proxy.example.com',
+				}),
+				true
+			);
+		});
+	});
 });
