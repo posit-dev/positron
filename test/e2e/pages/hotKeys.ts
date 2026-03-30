@@ -21,7 +21,7 @@ export class HotKeys {
 	}
 
 	// ----------------------
-	// --- Editing Actions ---
+	// --- Editing Actions --
 	// ----------------------
 
 	public async copy() {
