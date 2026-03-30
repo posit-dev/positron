@@ -191,15 +191,44 @@ suite('AuthProvider (credential chain)', () => {
 		assert.strictEqual(event.added!.length, 1);
 	});
 
-	test('removeSession is blocked while chain can still resolve', async () => {
+	test('removeSession clears chain session by default', async () => {
 		await chainProvider.resolveChainCredentials();
 
-		await chainProvider.removeSession('test-chain');
+		const eventPromise = new Promise<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>(
+			resolve => {
+				const disposable = chainProvider.onDidChangeSessions(e => {
+					disposable.dispose();
+					resolve(e);
+				});
+			}
+		);
 
-		// Session should still exist because the chain can resolve
+		await chainProvider.removeSession('test-chain');
+		const event = await eventPromise;
+
+		assert.strictEqual(event.removed!.length, 1);
 		const sessions = await chainProvider.getSessions();
+		assert.strictEqual(sessions.length, 0);
+	});
+
+	test('removeSession is blocked when preventSignOut is set and chain resolves', async () => {
+		const protectedProvider = new AuthProvider(
+			'test-protected', 'Test Protected', createMockContext(),
+			undefined,
+			{
+				resolve: async () => resolveResult,
+				preventSignOut: true,
+			}
+		);
+		await protectedProvider.resolveChainCredentials();
+
+		await protectedProvider.removeSession('test-protected');
+
+		// Session should still exist because preventSignOut is set
+		const sessions = await protectedProvider.getSessions();
 		assert.strictEqual(sessions.length, 1);
-		assert.strictEqual(sessions[0].id, 'test-chain');
+		assert.strictEqual(sessions[0].id, 'test-protected');
+		protectedProvider.dispose();
 	});
 
 	test('removeSession clears chain session when chain fails', async () => {

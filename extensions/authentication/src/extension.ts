@@ -83,6 +83,7 @@ async function registerAnthropicProvider(
 			},
 			// No refresh needed -- env vars are static for the
 			// process lifetime.
+			preventSignOut: true,
 		}
 	);
 	context.subscriptions.push(

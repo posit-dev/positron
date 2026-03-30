@@ -31,6 +31,12 @@ export interface WorkbenchCredentialConfig {
 export interface CredentialChainConfig {
 	readonly resolve: () => Promise<string>;
 	readonly refreshIntervalMs?: number;
+	/**
+	 * When true, prevents the user from signing out while the chain
+	 * can still resolve. Use for static env var credentials that will
+	 * just reappear immediately after removal.
+	 */
+	readonly preventSignOut?: boolean;
 }
 
 /**
@@ -59,6 +65,11 @@ export class AuthProvider
 		private readonly workbench?: WorkbenchCredentialConfig,
 		private readonly credentialChain?: CredentialChainConfig,
 	) { }
+
+	/** Whether this provider blocks sign-out for chain sessions. */
+	get chainPreventsSignOut(): boolean {
+		return !!this.credentialChain?.preventSignOut;
+	}
 
 	dispose(): void {
 		this._disposed = true;
@@ -195,26 +206,28 @@ export class AuthProvider
 			// If the chain can still resolve, re-resolve immediately
 			// instead of leaving an inconsistent state where the
 			// session is gone but registered models still work.
-			try {
-				const token = await this.credentialChain!.resolve();
-				if (token) {
-					log.info(
-						`[${this.displayName}] Chain session ` +
-						`removal blocked -- credentials still ` +
-						`available from environment`
-					);
-					vscode.window.showInformationMessage(
-						vscode.l10n.t(
-							'{0} credentials are configured via ' +
-							'environment variable and cannot be ' +
-							'signed out.',
-							this.displayName
-						)
-					);
-					return;
+			if (this.credentialChain?.preventSignOut) {
+				try {
+					const token = await this.credentialChain.resolve();
+					if (token) {
+						log.info(
+							`[${this.displayName}] Chain session ` +
+							`removal blocked -- credentials still ` +
+							`available from environment`
+						);
+						vscode.window.showInformationMessage(
+							vscode.l10n.t(
+								'{0} credentials are configured via ' +
+								'environment variable and cannot be ' +
+								'signed out.',
+								this.displayName
+							)
+						);
+						return;
+					}
+				} catch {
+					// Chain can no longer resolve; allow removal.
 				}
-			} catch {
-				// Chain can no longer resolve; allow removal.
 			}
 
 			this.stopRefreshTimer();

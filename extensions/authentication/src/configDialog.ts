@@ -249,9 +249,9 @@ async function handleDelete(
 	// Credential-chain sessions (e.g. env var credentials) use the
 	// provider ID as their session ID. These cannot be removed via the
 	// UI -- the user must unset the environment variable and restart.
-	const deletable = sessions.filter(
-		s => s.id !== config.provider
-	);
+	const deletable = provider.chainPreventsSignOut
+		? sessions.filter(s => s.id !== config.provider)
+		: sessions;
 	if (deletable.length === 0 && sessions.length > 0) {
 		throw new Error(
 			vscode.l10n.t(

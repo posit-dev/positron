@@ -142,6 +142,7 @@ suite('configDialog', () => {
 			undefined,
 			{
 				resolve: async () => 'sk-ant-test-key',
+				preventSignOut: true,
 			}
 		);
 		authProviders.clear();
