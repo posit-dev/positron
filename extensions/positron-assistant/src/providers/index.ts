@@ -71,7 +71,7 @@ async function resolveAutoconfigureCredentials(model: ConcreteModelProviderConst
 			const session = await vscode.authentication.getSession(
 				providerId, [], { silent: true }
 			);
-			if (session?.accessToken) {
+			if (session?.accessToken && session.id === providerId) {
 				const baseUrl = vscode.workspace
 					.getConfiguration(`authentication.${providerId.replace(/-.*$/, '')}`)
 					.get<string>('baseUrl') || undefined;
