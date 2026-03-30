@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
 import { PositOAuthProvider } from './positOAuthProvider';
+import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 
@@ -76,7 +77,7 @@ async function enrichWithCredentialState(
 		try {
 			const sessions = await provider.getSessions();
 			const signedIn = sessions.length > 0;
-			if (signedIn && source.provider.id === 'ms-foundry' && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
+			if (signedIn && source.provider.id === FOUNDRY_AUTH_PROVIDER_ID && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
 				return {
 					...source,
 					signedIn,
