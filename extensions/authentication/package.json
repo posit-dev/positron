@@ -13,6 +13,7 @@
 		"onAuthenticationRequest:anthropic-api",
 		"onAuthenticationRequest:ms-foundry",
 		"onAuthenticationRequest:amazon-bedrock",
+		"onAuthenticationRequest:snowflake-cortex",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateApiKey"
 	],
@@ -34,6 +35,10 @@
 			{
 				"id": "amazon-bedrock",
 				"label": "AWS"
+			},
+			{
+				"id": "snowflake-cortex",
+				"label": "Snowflake Cortex"
 			}
 		],
 		"configuration": {
@@ -59,6 +64,22 @@
 					"type": "string",
 					"default": null,
 					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"
+				},
+				"authentication.snowflake.credentials": {
+					"type": "object",
+					"default": {},
+					"markdownDescription": "%configuration.snowflake.credentials.description%",
+					"properties": {
+						"SNOWFLAKE_ACCOUNT": {
+							"type": "string",
+							"default": null
+						},
+						"SNOWFLAKE_HOME": {
+							"type": "string",
+							"default": null
+						}
+					},
+					"additionalProperties": false
 				},
 				"authentication.foundry.baseUrl": {
 					"type": "string",

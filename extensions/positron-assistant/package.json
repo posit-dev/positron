@@ -429,6 +429,7 @@
             "type": "object",
             "default": {},
             "markdownDescription": "%configuration.providerVariables.snowflake.description%",
+            "markdownDeprecationMessage": "This setting has been moved to the Authentication extension. Use `#authentication.snowflake.credentials#` instead.",
             "properties": {
               "SNOWFLAKE_ACCOUNT": {
                 "type": "string",

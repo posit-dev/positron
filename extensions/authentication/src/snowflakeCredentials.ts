@@ -7,8 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as ai from 'ai';
-import { log } from '../../log.js';
+import { log } from './log';
 
 export interface SnowflakeProviderVariables {
 	SNOWFLAKE_ACCOUNT?: string;
@@ -145,12 +144,13 @@ export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialC
 
 /**
  * Gets the path to the connections.toml file for monitoring
- * @param logPath Whether to log the path for debugging (default: false)
  * @returns Path to connections.toml or undefined if not available
  */
 export function getSnowflakeConnectionsTomlPath(): string | undefined {
 	try {
-		const configSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<SnowflakeProviderVariables>('snowflake', {});
+		const configSettings = vscode.workspace
+			.getConfiguration('authentication.snowflake')
+			.get<SnowflakeProviderVariables>('credentials', {});
 		const snowflakeHome = configSettings.SNOWFLAKE_HOME || process.env.SNOWFLAKE_HOME;
 
 		if (snowflakeHome) {
@@ -230,8 +230,10 @@ export async function checkForUpdatedSnowflakeCredentials(
  * @returns Base URL string with account identifier filled in if possible
  */
 export function getSnowflakeDefaultBaseUrl(): string {
-	// Try to get the account from environment variables or configuration
-	const configSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<SnowflakeProviderVariables>('snowflake', {});
+	// Try to get the account from settings or environment variables
+	const configSettings = vscode.workspace
+		.getConfiguration('authentication.snowflake')
+		.get<SnowflakeProviderVariables>('credentials', {});
 	const account = configSettings.SNOWFLAKE_ACCOUNT || process.env.SNOWFLAKE_ACCOUNT;
 
 	if (account) {
@@ -245,56 +247,4 @@ export function getSnowflakeDefaultBaseUrl(): string {
 
 	// Fallback to placeholder if no account is available
 	return 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1';
-}
-
-/**
- * Extracts Snowflake-specific error messages with enhanced user guidance.
- * Returns the enhanced error message if this is a Snowflake-specific error, or undefined otherwise.
- * @param error The error object to check.
- * @returns Enhanced Snowflake error message or undefined.
- */
-export function extractSnowflakeError(error: any): string | undefined {
-	// Get error message from various error formats
-	let errorMessage = '';
-
-	if (ai.APICallError.isInstance(error) && error.responseBody) {
-		try {
-			const parsed = JSON.parse(error.responseBody);
-			errorMessage = parsed?.error?.message || error.responseBody;
-		} catch {
-			errorMessage = error.responseBody;
-		}
-	} else {
-		errorMessage = error?.message || String(error);
-	}
-
-	// Detect cross-region inference issues
-	const isCrossRegionError =
-		errorMessage.toLowerCase().includes('cross-region') ||
-		errorMessage.toLowerCase().includes('region mismatch') ||
-		errorMessage.toLowerCase().includes('not available in the current region') ||
-		errorMessage.toLowerCase().includes('model not available') ||
-		(error?.statusCode === 403 && errorMessage.toLowerCase().includes('region')) ||
-		(error?.statusCode === 404 && errorMessage.toLowerCase().includes('model'));
-
-	// Detect network policy issues
-	const isNetworkPolicyError =
-		errorMessage.toLowerCase().includes('network policy') ||
-		errorMessage.toLowerCase().includes('network policy is required');
-
-	if (isCrossRegionError || isNetworkPolicyError) {
-		// Create enhanced message based on error type
-		const statusCode = error?.statusCode || error?.status || 'Unknown';
-
-		if (isNetworkPolicyError && isCrossRegionError) {
-			// Both error types detected - treat as general Snowflake configuration issue
-			return `Snowflake Configuration Issue: Your Snowflake account configuration is preventing access to AI models. This appears to involve both network policies and cross-region settings. Contact your Snowflake administrator. Response Status: ${statusCode}. Technical Details: ${errorMessage}`;
-		} else if (isNetworkPolicyError) {
-			return `Snowflake Network Policy Issue: Your Snowflake account requires network policy configuration for AI model access. Contact your Snowflake administrator. Response Status: ${statusCode}. Details: ${errorMessage}`;
-		} else {
-			return `Snowflake Cross-Region Issue: The AI model may not be available in your Snowflake account's region. Contact your Snowflake administrator. Response Status: ${statusCode}. Details: ${errorMessage}`;
-		}
-	}
-
-	return undefined;
 }
