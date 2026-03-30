@@ -105,7 +105,6 @@ export class PositronNotebooks extends Notebooks {
 	private ghostCellAwaitingText = this.code.driver.page.locator('.ghost-cell-awaiting-text');
 	private ghostCellGetSuggestion = this.code.driver.page.locator('.ghost-cell-get-suggestion');
 	private ghostCellDismissButton = this.code.driver.page.locator('.ghost-cell-dismiss-button');
-	private ghostCellModeToggleContainer = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-container');
 	private ghostCellAutomaticButton = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-button.left');
 	private ghostCellOnDemandButton = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-button.right');
 
