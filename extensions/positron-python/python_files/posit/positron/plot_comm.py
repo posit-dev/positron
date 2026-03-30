@@ -302,6 +302,16 @@ class UpdateParams(BaseModel):
     )
 
 
+class ShowParams(BaseModel):
+    """
+    Show a plot.
+    """
+
+    pre_render: Optional[PlotResult] = Field(
+        description="Optional pre-rendering data for immediate display",
+    )
+
+
 IntrinsicSize.update_forward_refs()
 
 PlotMetadata.update_forward_refs()
@@ -325,3 +335,5 @@ RenderParams.update_forward_refs()
 RenderRequest.update_forward_refs()
 
 UpdateParams.update_forward_refs()
+
+ShowParams.update_forward_refs()

@@ -25,6 +25,9 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	// Output collapse state
 	private readonly _outputIsCollapsed: ISettableObservable<boolean>;
 
+	// Per-cell output scrolling override (undefined = use global setting)
+	private readonly _outputScrolling: ISettableObservable<boolean | undefined>;
+
 	// Execution timing observables
 	lastExecutionDuration;
 	lastExecutionOrder;
@@ -46,6 +49,12 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			cellModel.collapseState?.outputCollapsed ?? false
 		);
 
+		// Per-cell output scrolling override (undefined = use global setting)
+		this._outputScrolling = observableValue<boolean | undefined>(
+			'outputScrolling',
+			undefined
+		);
+
 		this._outputs = observableFromEvent(this, Event.any(this.model.onDidChangeOutputs, this.model.onDidChangeOutputItems), () => {
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
@@ -56,6 +65,9 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			if (this.model.outputs.length === 0) {
 				this._outputIsCollapsed.set(false, undefined);
 			}
+
+			// Reset per-cell scrolling override when outputs change (clear or re-run)
+			this._outputScrolling.set(undefined, undefined);
 		}));
 
 		// Execution timing observables
@@ -93,6 +105,22 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	toggleOutputCollapse(): void {
 		this._outputIsCollapsed.set(!this._outputIsCollapsed.get(), undefined);
+	}
+
+	get outputScrolling(): ISettableObservable<boolean | undefined> {
+		return this._outputScrolling;
+	}
+
+	truncateOutput(): void {
+		this._outputScrolling.set(false, undefined);
+	}
+
+	showFullOutput(): void {
+		this._outputScrolling.set(true, undefined);
+	}
+
+	resetOutputScrolling(): void {
+		this._outputScrolling.set(undefined, undefined);
 	}
 
 	/**

@@ -22,6 +22,7 @@ export interface ConfigDialogResult {
 /** Providers whose credentials are managed by the authentication extension. */
 const AUTH_EXT_PROVIDERS = new Set<string>([
 	'anthropic-api',
+	'posit-ai',
 	'amazon-bedrock',
 	'ms-foundry',
 ]);

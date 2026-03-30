@@ -61,7 +61,7 @@ export class AuthProvider
 	constructor(
 		private readonly providerId: string,
 		private readonly displayName: string,
-		private readonly context: vscode.ExtensionContext,
+		protected readonly context: vscode.ExtensionContext,
 		private readonly workbench?: WorkbenchCredentialConfig,
 		private readonly credentialChain?: CredentialChainConfig,
 	) { }
@@ -69,6 +69,13 @@ export class AuthProvider
 	/** Whether this provider blocks sign-out for chain sessions. */
 	get chainPreventsSignOut(): boolean {
 		return !!this.credentialChain?.preventSignOut;
+	}
+
+	/** Expose session-change events to subclasses. */
+	protected fireSessionsChanged(
+		event: vscode.AuthenticationProviderAuthenticationSessionsChangeEvent
+	): void {
+		this._onDidChangeSessions.fire(event);
 	}
 
 	dispose(): void {

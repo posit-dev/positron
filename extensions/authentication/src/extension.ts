@@ -6,11 +6,12 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, FOUNDRY_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
 import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
+import { PositOAuthProvider } from './positOAuthProvider';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
@@ -19,6 +20,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
 
 	await registerAnthropicProvider(context);
+	registerPositAIProvider(context);
 	registerFoundryProvider(context);
 
 	// Migrate settings before registering the AWS provider so it
@@ -61,7 +63,7 @@ async function registerAnthropicProvider(
 	}
 
 	const provider = new AuthProvider(
-		'anthropic-api', 'Anthropic', context,
+		ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', context,
 		undefined,
 		{
 			resolve: async () => {
@@ -73,7 +75,7 @@ async function registerAnthropicProvider(
 					.getConfiguration('authentication.anthropic')
 					.get<string>('baseUrl') || undefined;
 				await validateAnthropicApiKey(apiKey, {
-					provider: 'anthropic-api',
+					provider: ANTHROPIC_AUTH_PROVIDER_ID,
 					name: 'Anthropic',
 					model: '',
 					type: positron.PositronLanguageModelType.Chat,
@@ -81,19 +83,17 @@ async function registerAnthropicProvider(
 				});
 				return apiKey;
 			},
-			// No refresh needed -- env vars are static for the
-			// process lifetime.
 			preventSignOut: true,
 		}
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'anthropic-api', 'Anthropic', provider,
+			ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', provider,
 			{ supportsMultipleAccounts: true }
 		),
 		provider
 	);
-	registerAuthProvider('anthropic-api', provider, {
+	registerAuthProvider(ANTHROPIC_AUTH_PROVIDER_ID, provider, {
 		validateApiKey: validateAnthropicApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
@@ -113,7 +113,19 @@ async function registerAnthropicProvider(
 		log.debug(`[Anthropic] Initial credential resolution: ${err}`)
 	);
 
-	log.info('Registered auth provider: anthropic-api');
+	log.info(`Registered auth provider: ${ANTHROPIC_AUTH_PROVIDER_ID}`);
+}
+
+function registerPositAIProvider(context: vscode.ExtensionContext): void {
+	const provider = new PositOAuthProvider(context);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			POSIT_AUTH_PROVIDER_ID, 'Posit AI', provider
+		),
+		provider
+	);
+	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
+	log.info(`Registered auth provider: ${POSIT_AUTH_PROVIDER_ID}`);
 }
 
 function registerAwsProvider(
@@ -140,7 +152,7 @@ function registerAwsProvider(
 	);
 
 	const provider = new AuthProvider(
-		'amazon-bedrock', 'AWS', context,
+		AWS_AUTH_PROVIDER_ID, 'AWS', context,
 		undefined,
 		{
 			resolve: async () => {
@@ -156,21 +168,21 @@ function registerAwsProvider(
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'amazon-bedrock', 'AWS', provider,
+			AWS_AUTH_PROVIDER_ID, 'AWS', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider
 	);
-	registerAuthProvider('amazon-bedrock', provider);
+	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider);
 	provider.resolveChainCredentials().catch(err =>
 		log.debug(`[AWS] Initial credential resolution failed: ${err}`)
 	);
-	log.info('Registered auth provider: amazon-bedrock');
+	log.info(`Registered auth provider: ${AWS_AUTH_PROVIDER_ID}`);
 }
 
 function registerFoundryProvider(context: vscode.ExtensionContext): void {
 	const provider = new AuthProvider(
-		'ms-foundry', 'Microsoft Foundry', context,
+		FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', context,
 		{
 			authProviderId: FOUNDRY_MANAGED_CREDENTIALS.authProvider.id,
 			scopes: FOUNDRY_MANAGED_CREDENTIALS.authProvider.scopes,
@@ -179,12 +191,12 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'ms-foundry', 'Microsoft Foundry', provider,
+			FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider
 	);
-	registerAuthProvider('ms-foundry', provider, {
+	registerAuthProvider(FOUNDRY_AUTH_PROVIDER_ID, provider, {
 		validateApiKey: validateFoundryApiKey,
 		onSave: async (config) => {
 			if (config.baseUrl) {
@@ -195,7 +207,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 			}
 		},
 	});
-	log.info('Registered auth provider: ms-foundry');
+	log.info(`Registered auth provider: ${FOUNDRY_AUTH_PROVIDER_ID}`);
 
 	// Sync Workbench endpoint to auth extension setting
 	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {

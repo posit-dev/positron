@@ -11,6 +11,7 @@
 	"activationEvents": [
 		"onStartupFinished",
 		"onAuthenticationRequest:anthropic-api",
+		"onAuthenticationRequest:posit-ai",
 		"onAuthenticationRequest:ms-foundry",
 		"onAuthenticationRequest:amazon-bedrock",
 		"onCommand:authentication.configureProviders",
@@ -26,6 +27,10 @@
 			{
 				"id": "anthropic-api",
 				"label": "Anthropic"
+			},
+			{
+				"id": "posit-ai",
+				"label": "Posit AI"
 			},
 			{
 				"id": "ms-foundry",
