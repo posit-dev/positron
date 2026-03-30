@@ -266,4 +266,180 @@ suite('PositronModalReactRenderer', () => {
 			assert.strictEqual(parent.hasAttribute('aria-expanded'), false);
 		});
 	});
+
+	/**
+	 * disposeAll test suite.
+	 */
+	suite('disposeAll', () => {
+		test('disposes all renderers in the stack', () => {
+			const container = createMockContainer();
+
+			const renderers: PositronModalReactRenderer[] = [];
+			for (let i = 0; i < 5; i++) {
+				const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+				renderer.render(createMockReactElement());
+				renderers.push(renderer);
+			}
+
+			assert.strictEqual(container.children.length, 5);
+
+			PositronModalReactRenderer.disposeAll();
+
+			assert.strictEqual(container.children.length, 0);
+		});
+
+		test('calls onDisposed for every renderer', () => {
+			const container = createMockContainer();
+			const callbackFlags: boolean[] = new Array(5).fill(false);
+
+			for (let i = 0; i < 5; i++) {
+				const index = i;
+				const renderer = disposables.add(new PositronModalReactRenderer({
+					container,
+					onDisposed: () => { callbackFlags[index] = true; }
+				}));
+				renderer.render(createMockReactElement());
+			}
+
+			PositronModalReactRenderer.disposeAll();
+
+			assert.ok(callbackFlags.every(f => f), 'all onDisposed callbacks should have been called');
+		});
+
+		test('is a no-op on an empty stack', () => {
+			assert.doesNotThrow(() => PositronModalReactRenderer.disposeAll());
+		});
+	});
+
+	/**
+	 * isInsideAnyPopup / setBoundsProvider test suite.
+	 */
+	suite('isInsideAnyPopup', () => {
+		/**
+		 * Creates a mouse event at the given coordinates.
+		 */
+		function createMouseEvent(clientX: number, clientY: number): MouseEvent {
+			return new MouseEvent('mousedown', { clientX, clientY });
+		}
+
+		test('returns false when stack is empty', () => {
+			const e = createMouseEvent(100, 100);
+			assert.strictEqual(PositronModalReactRenderer.isInsideAnyPopup(e), false);
+		});
+
+		test('returns true when point is inside the registered bounds', () => {
+			const container = createMockContainer();
+			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+			renderer.render(createMockReactElement());
+
+			renderer.setBoundsProvider(() => new DOMRect(50, 50, 200, 200));
+
+			assert.strictEqual(PositronModalReactRenderer.isInsideAnyPopup(createMouseEvent(100, 100)), true);
+
+			renderer.dispose();
+		});
+
+		test('returns false when point is outside the registered bounds', () => {
+			const container = createMockContainer();
+			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+			renderer.render(createMockReactElement());
+
+			renderer.setBoundsProvider(() => new DOMRect(50, 50, 200, 200));
+
+			assert.strictEqual(PositronModalReactRenderer.isInsideAnyPopup(createMouseEvent(10, 10)), false);
+
+			renderer.dispose();
+		});
+
+		test('returns true when point is inside any one popup in the stack', () => {
+			const container = createMockContainer();
+
+			const r1 = disposables.add(new PositronModalReactRenderer({ container }));
+			r1.render(createMockReactElement());
+			r1.setBoundsProvider(() => new DOMRect(0, 0, 100, 100));
+
+			const r2 = disposables.add(new PositronModalReactRenderer({ container }));
+			r2.render(createMockReactElement());
+			r2.setBoundsProvider(() => new DOMRect(200, 200, 100, 100));
+
+			// Inside r1 only
+			assert.strictEqual(PositronModalReactRenderer.isInsideAnyPopup(createMouseEvent(50, 50)), true);
+			// Inside r2 only
+			assert.strictEqual(PositronModalReactRenderer.isInsideAnyPopup(createMouseEvent(250, 250)), true);
+			// Outside both
+			assert.strictEqual(PositronModalReactRenderer.isInsideAnyPopup(createMouseEvent(500, 500)), false);
+
+			PositronModalReactRenderer.disposeAll();
+		});
+
+		test('returns false for renderer with no bounds provider registered', () => {
+			const container = createMockContainer();
+			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+			renderer.render(createMockReactElement());
+
+			// No setBoundsProvider call - should not throw and should return false
+			assert.strictEqual(PositronModalReactRenderer.isInsideAnyPopup(createMouseEvent(100, 100)), false);
+
+			renderer.dispose();
+		});
+	});
+
+	/**
+	 * allowPointerPassthrough test suite.
+	 */
+	suite('allowPointerPassthrough', () => {
+		test('sets pointer-events: none on the overlay when enabled', () => {
+			const container = createMockContainer();
+			const renderer = disposables.add(new PositronModalReactRenderer({
+				container,
+				allowPointerPassthrough: true
+			}));
+			renderer.render(createMockReactElement());
+
+			const overlay = container.querySelector('.positron-modal-overlay') as HTMLElement;
+			assert.ok(overlay);
+			assert.strictEqual(overlay.style.pointerEvents, 'none');
+
+			renderer.dispose();
+		});
+
+		test('does not set pointer-events on the overlay when disabled', () => {
+			const container = createMockContainer();
+			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+			renderer.render(createMockReactElement());
+
+			const overlay = container.querySelector('.positron-modal-overlay') as HTMLElement;
+			assert.ok(overlay);
+			assert.notStrictEqual(overlay.style.pointerEvents, 'none');
+
+			renderer.dispose();
+		});
+	});
+
+	/**
+	 * Unrendered renderer test suite.
+	 */
+	suite('unrendered renderer', () => {
+		test('dispose before render is a no-op', () => {
+			const container = createMockContainer();
+			const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+
+			assert.doesNotThrow(() => renderer.dispose());
+			assert.strictEqual(container.children.length, 0);
+		});
+
+		test('onDisposed is not called when renderer was never rendered', () => {
+			const container = createMockContainer();
+			let callbackCalled = false;
+
+			const renderer = disposables.add(new PositronModalReactRenderer({
+				container,
+				onDisposed: () => { callbackCalled = true; }
+			}));
+
+			renderer.dispose();
+
+			assert.strictEqual(callbackCalled, false);
+		});
+	});
 });
