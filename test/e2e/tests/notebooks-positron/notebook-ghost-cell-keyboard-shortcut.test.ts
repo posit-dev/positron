@@ -16,21 +16,22 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 	test.beforeAll(async function ({ app, settings, assistant }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 
-		// Enable ghost cell suggestions and configure echo model
+		// Enable ghost cell suggestions and configure Anthropic model
 		// Set automatic mode to false so only manual trigger (Cmd+Shift+G) generates suggestions
 		await settings.set({
 			'positron.assistant.notebook.ghostCellSuggestions.enabled': true,
-			'positron.assistant.notebook.ghostCellSuggestions.model': ['echo'],
+			'positron.assistant.notebook.ghostCellSuggestions.model': ['claude'],
 			'positron.assistant.notebook.ghostCellSuggestions.automatic': false
 		}, { keepOpen: false });
 
-		// Open assistant and login to echo provider
+		// Open assistant and login to Anthropic provider
+		// Uses ANTHROPIC_API_KEY env var if set (auto-sign-in), or ANTHROPIC_KEY for manual login
 		await assistant.openPositronAssistantChat();
-		await assistant.loginModelProvider('echo');
+		await assistant.loginModelProvider('anthropic-api');
 	});
 
 	test.afterAll(async function ({ assistant, settings }) {
-		await assistant.logoutModelProvider('echo');
+		await assistant.logoutModelProvider('anthropic-api');
 
 		// Clean up ghost cell settings to ensure no interference with other tests
 		await settings.remove([
