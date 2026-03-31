@@ -3,76 +3,51 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { test } from '@playwright/test';
 import { Application } from '../../infra/application';
 import { AppState } from './types';
 
-const PROBE_TIMEOUT = 2000;
-
-/**
- * Probe a single piece of state. Returns undefined on any failure.
- */
-async function probe<T>(fn: () => Promise<T>): Promise<T | undefined> {
-	try {
-		return await Promise.race([
-			fn(),
-			new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), PROBE_TIMEOUT)),
-		]);
-	} catch {
-		return undefined;
-	}
-}
+const PROBE_TIMEOUT = 500;
 
 /**
  * Gather compact application state after each action.
- * Every probe is independent and failure-tolerant.
+ * Wrapped in a single "Observe state" test.step so it appears as one
+ * collapsible entry in the Playwright report.
  */
 export async function observeState(app: Application): Promise<AppState> {
-	const page = app.code.driver.page;
+	return await test.step('Observe state', async () => {
+		const page = app.code.driver.page;
 
-	const [activeEditor, consoleLinesCount, lastConsoleOutput, variableCount, plotVisible] = await Promise.all([
-		// Active editor tab
-		probe(async () => {
-			const tab = page.locator('.tab.active .label-name');
-			const text = await tab.textContent();
-			return text?.trim();
-		}),
+		try {
+			const state = await Promise.race([
+				page.evaluate(() => {
+					const activeTab = document.querySelector('.tab.active .label-name');
+					const activeEditor = activeTab?.textContent?.trim();
 
-		// Console line count
-		probe(async () => {
-			const activeConsole = '.console-instance[style*="z-index: auto"]';
-			const lines = page.locator(`${activeConsole} div span`);
-			return await lines.count();
-		}),
+					const consoleSelector = '.console-instance[style*="z-index: auto"]';
+					const consoleLines = document.querySelectorAll(`${consoleSelector} div span`);
+					const consoleLinesCount = consoleLines.length;
+					const lastConsoleOutput = consoleLinesCount > 0
+						? consoleLines[consoleLinesCount - 1]?.textContent?.trim()
+						: undefined;
 
-		// Last console output line
-		probe(async () => {
-			const activeConsole = '.console-instance[style*="z-index: auto"]';
-			const lines = page.locator(`${activeConsole} div span`);
-			const count = await lines.count();
-			if (count === 0) { return undefined; }
-			const last = await lines.nth(count - 1).textContent();
-			return last?.trim();
-		}),
+					const variableSelector = '.variables-instance[style*="z-index: 1"] .variable-item:not(.disabled)';
+					const variableCount = document.querySelectorAll(variableSelector).length;
 
-		// Variable count
-		probe(async () => {
-			const currentGroup = '.variables-instance[style*="z-index: 1"]';
-			const items = page.locator(`${currentGroup} .variable-item:not(.disabled)`);
-			return await items.count();
-		}),
+					const plotImg = document.querySelector('.plot-instance img');
+					const plotVisible = plotImg
+						? (plotImg as HTMLElement).offsetWidth > 0 && (plotImg as HTMLElement).offsetHeight > 0
+						: false;
 
-		// Plot visible
-		probe(async () => {
-			const plot = page.locator('.plot-instance img');
-			return await plot.isVisible();
-		}),
-	]);
-
-	return {
-		activeEditor,
-		consoleLinesCount,
-		lastConsoleOutput,
-		variableCount,
-		plotVisible,
-	};
+					return { activeEditor, consoleLinesCount, lastConsoleOutput, variableCount, plotVisible };
+				}),
+				new Promise<AppState>((resolve) =>
+					setTimeout(() => resolve({}), PROBE_TIMEOUT)
+				),
+			]);
+			return state;
+		} catch {
+			return {};
+		}
+	});
 }

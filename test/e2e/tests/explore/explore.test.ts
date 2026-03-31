@@ -4,20 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test } from '../_test.setup';
+import { TestTags } from '../../infra';
 import { startServer } from './server';
 
 const TEN_MINUTES = 10 * 60 * 1000;
+const title = process.env.EXPLORE_TITLE || 'wait for agent commands';
 
 test.use({ suiteId: __filename });
 
-test('Explore runner - wait for agent commands', async ({ app }) => {
+test(`Explore runner - ${title}`, { tag: [TestTags.WEB, TestTags.CROSS_BROWSER] }, async ({ app }) => {
 	test.setTimeout(TEN_MINUTES);
 
 	// Tracing is already started by the test framework (_test.setup.ts).
 	// The trace will be saved automatically as a test attachment on completion.
 	// View with: npx playwright show-trace <path-from-test-output>
 
-	const { donePromise, cleanup } = startServer(app);
+	const { donePromise, cleanup } = startServer(app, test.info());
 
 	try {
 		// Wait for either the /done signal or timeout

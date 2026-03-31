@@ -138,6 +138,57 @@ Every action returns:
 The `state` object is the key feedback loop -- the AI reads it to decide if a step
 passed and what to do next.
 
+## Claude Code Permissions
+
+The skill sends multiple `Bash` and `curl` commands per test run. To avoid being
+prompted for each one, add these permission rules to your Claude Code settings.
+
+**For local use**, add to `.claude/settings.local.json` (gitignored):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -f /tmp/explore-runner-port:*)",
+      "Bash(EXPLORE_TITLE=:*)",
+      "Bash(for i in $(seq 1 60):*)",
+      "Bash(for i in 1:*)",
+      "Bash(curl -s -X POST \"http://localhost:*)",
+      "Bash(curl -s \"http://localhost:*)",
+      "Bash(curl:*)",
+      "Bash(gh issue view:*)",
+      "Bash(npx playwright:*)",
+      "Bash(kill:*)",
+      "Bash(sleep:*)"
+    ]
+  }
+}
+```
+
+**What each rule covers:**
+
+| Rule | Purpose |
+|------|---------|
+| `rm -f /tmp/explore-runner-port:*` | Cleanup before starting runner |
+| `EXPLORE_TITLE=:*` | Runner startup with dynamic test title |
+| `for i in $(seq 1 60):*` | Polling loop waiting for runner to be ready |
+| `for i in 1:*` | Batched action loops |
+| `curl -s -X POST "http://localhost:*` | POST action/describe/done calls |
+| `curl -s "http://localhost:*` | GET health checks |
+| `curl:*` | General curl (fallback) |
+| `gh issue view:*` | Fetching GitHub issues for test planning |
+| `npx playwright:*` | Playwright commands |
+| `kill:*` | Cleanup of background processes |
+| `sleep:*` | Wait between actions |
+
+These rules use prefix matching (`:*` suffix), so they cover any command that
+starts with the given prefix. They are scoped to the commands the skill actually
+uses and do not grant broad shell access.
+
+**Note:** Rules with `$(...)` subshell syntax (e.g., `PORT=$(cat ...)`) may not
+match correctly in Claude Code's permission system. Use direct `curl` patterns
+instead.
+
 ## Design Decisions
 
 - **HTTP, not MCP**: 85 lines of Node built-in `http`. No protocol compatibility issues,

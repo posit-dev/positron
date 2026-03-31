@@ -5,9 +5,42 @@
 
 import * as http from 'http';
 import * as fs from 'fs';
+import { TestInfo } from '@playwright/test';
 import { Application } from '../../infra/application';
-import { executeAction } from './action-executor';
-import { ActionRequest } from './types';
+import { executeAction, executeBatch, executePom, listPoms, listMethodsWithSignatures } from './action-executor';
+import { ActionRequest, BatchRequest, PomRequest } from './types';
+
+/** Build a full catalog of all POMs and their methods at startup.
+ *  Also enumerates getter-based sub-objects (e.g. dataExplorer.grid, dataExplorer.summaryPanel)
+ *  so callers can use dotted paths like "dataExplorer.grid" with POST /pom.
+ */
+function buildCatalog(app: Application): Record<string, string[]> {
+	const workbench = app.workbench as any;
+	const catalog: Record<string, string[]> = {};
+	for (const name of listPoms(workbench)) {
+		const pom = workbench[name];
+		catalog[name] = listMethodsWithSignatures(pom);
+
+		// Enumerate getter-based sub-objects (e.g. grid, summaryPanel, filters)
+		const proto = Object.getPrototypeOf(pom);
+		if (!proto) { continue; }
+		for (const key of Object.getOwnPropertyNames(proto)) {
+			const descriptor = Object.getOwnPropertyDescriptor(proto, key);
+			if (descriptor?.get && !key.startsWith('_')) {
+				try {
+					const sub = pom[key];
+					if (sub && typeof sub === 'object' && Object.getPrototypeOf(sub) !== Object.prototype) {
+						const methods = listMethodsWithSignatures(sub);
+						if (methods.length > 0) {
+							catalog[`${name}.${key}`] = methods;
+						}
+					}
+				} catch { /* skip getters that throw */ }
+			}
+		}
+	}
+	return catalog;
+}
 
 const PORT_FILE = '/tmp/explore-runner-port';
 
@@ -24,7 +57,9 @@ function readBody(req: http.IncomingMessage): Promise<string> {
  * Start the explore runner HTTP server.
  * Returns a promise that resolves when /done is called.
  */
-export function startServer(app: Application): { donePromise: Promise<void>; cleanup: () => void } {
+export function startServer(app: Application, testInfo: TestInfo): { donePromise: Promise<void>; cleanup: () => void } {
+	const catalog = buildCatalog(app);
+
 	let resolveDone: () => void;
 	const donePromise = new Promise<void>((resolve) => {
 		resolveDone = resolve;
@@ -47,6 +82,50 @@ export function startServer(app: Application): { donePromise: Promise<void>; cle
 			return;
 		}
 
+		if (req.method === 'POST' && req.url === '/pom') {
+			try {
+				const body = await readBody(req);
+				const request: PomRequest = JSON.parse(body);
+				const result = await executePom(app, request);
+				res.writeHead(200);
+				res.end(JSON.stringify(result));
+			} catch (err: any) {
+				res.writeHead(400);
+				res.end(JSON.stringify({ error: err.message }));
+			}
+			return;
+		}
+
+		if (req.method === 'POST' && req.url === '/batch') {
+			try {
+				const body = await readBody(req);
+				const request: BatchRequest = JSON.parse(body);
+				const result = await executeBatch(app, request);
+				res.writeHead(200);
+				res.end(JSON.stringify(result));
+			} catch (err: any) {
+				res.writeHead(400);
+				res.end(JSON.stringify({ error: err.message }));
+			}
+			return;
+		}
+
+		if (req.method === 'POST' && req.url === '/describe') {
+			try {
+				const body = await readBody(req);
+				const { description } = JSON.parse(body);
+				if (description) {
+					testInfo.annotations.push({ type: 'description', description });
+				}
+				res.writeHead(200);
+				res.end(JSON.stringify({ status: 'ok' }));
+			} catch (err: any) {
+				res.writeHead(400);
+				res.end(JSON.stringify({ error: err.message }));
+			}
+			return;
+		}
+
 		if (req.method === 'POST' && req.url === '/done') {
 			res.writeHead(200);
 			res.end(JSON.stringify({ status: 'done' }));
@@ -56,12 +135,32 @@ export function startServer(app: Application): { donePromise: Promise<void>; cle
 
 		if (req.method === 'GET' && req.url === '/health') {
 			res.writeHead(200);
-			res.end(JSON.stringify({ status: 'ok' }));
+			res.end(JSON.stringify({ status: 'ok', catalog }));
+			return;
+		}
+
+		if (req.method === 'GET' && req.url?.startsWith('/catalog')) {
+			const url = new URL(req.url, `http://localhost`);
+			const pomFilter = url.searchParams.get('pom');
+			if (pomFilter) {
+				const names = pomFilter.split(',').map(s => s.trim());
+				const filtered: Record<string, string[]> = {};
+				for (const name of names) {
+					if (catalog[name]) {
+						filtered[name] = catalog[name];
+					}
+				}
+				res.writeHead(200);
+				res.end(JSON.stringify(filtered));
+			} else {
+				res.writeHead(200);
+				res.end(JSON.stringify(catalog));
+			}
 			return;
 		}
 
 		res.writeHead(404);
-		res.end(JSON.stringify({ error: 'Not found. Use POST /action, POST /done, or GET /health' }));
+		res.end(JSON.stringify({ error: 'Not found. Use POST /pom, POST /action, POST /batch, POST /describe, POST /done, GET /health, or GET /catalog' }));
 	});
 
 	server.listen(0, () => {

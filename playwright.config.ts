@@ -33,7 +33,8 @@ const baseIgnore = [
 	'**/workbench/**',
 	'**/remote-ssh/**',
 	'**/assistant-eval/**',
-	'**/explore/**',
+	// Explore tests are on-demand QA tools, excluded unless ALLOW_EXPLORE is set
+	...process.env.ALLOW_EXPLORE ? [] : ['**/explore/**'],
 ];
 
 let reporter: ReporterDescription[];

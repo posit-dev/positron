@@ -3,567 +3,26 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
 import * as path from 'path';
 import { Application } from '../../infra/application';
 
 type ActionFn = (app: Application, params: Record<string, any>) => Promise<string>;
 
+/**
+ * Action catalog: Custom actions and Raw Playwright actions only.
+ *
+ * POM methods are routed automatically via POST /pom -- no wrappers needed.
+ * This catalog is for:
+ *   1. Custom actions with logic beyond a single POM call (path resolution, multi-step flows)
+ *   2. Raw Playwright actions (snapshot, click, fill, press, etc.)
+ *   3. Escape hatches (evaluate, takeScreenshot, resizeWindow)
+ */
 export const actionCatalog: Record<string, ActionFn> = {
 
 	// =========================================================================
-	// Sessions
+	// Custom: File Operations (path resolution + error recovery)
 	// =========================================================================
-
-	/**
-	 * Start a language session (Python or R).
-	 * params: { language: 'python' | 'r' }
-	 */
-	startSession: async (app, params) => {
-		const language = params.language ?? 'python';
-		await app.workbench.sessions.start(language, { reuse: true });
-		return `Started ${language} session`;
-	},
-
-	/**
-	 * Restart the current session.
-	 * params: { sessionId?: string, waitForReady?: boolean }
-	 */
-	restartSession: async (app, params) => {
-		const sessionId = params.sessionId;
-		const waitForIdle = params.waitForIdle ?? true;
-		await app.workbench.sessions.restart(sessionId, { waitForIdle });
-		return `Restarted session${sessionId ? ` ${sessionId}` : ''}`;
-	},
-
-	/**
-	 * Delete all sessions.
-	 * params: {} (none required)
-	 */
-	deleteAllSessions: async (app, _params) => {
-		await app.workbench.sessions.deleteAll();
-		return 'Deleted all sessions';
-	},
-
-	/**
-	 * Select a session by ID or name.
-	 * params: { session: string, waitForIdle?: boolean }
-	 */
-	selectSession: async (app, params) => {
-		const session = params.session;
-		if (!session) {
-			throw new Error('selectSession requires a "session" param');
-		}
-		const waitForIdle = params.waitForIdle ?? true;
-		await app.workbench.sessions.select(session, waitForIdle);
-		return `Selected session: ${session}`;
-	},
-
-	/**
-	 * Get the number of sessions in the console.
-	 * params: {} (none required)
-	 */
-	getSessionCount: async (app, _params) => {
-		const count = await app.workbench.sessions.getSessionCount();
-		return `Session count: ${count}`;
-	},
-
-	/**
-	 * Verify all sessions are ready (idle or disconnected).
-	 * params: { timeout?: number }
-	 */
-	expectAllSessionsReady: async (app, params) => {
-		const timeout = params.timeout ?? 30000;
-		await app.workbench.sessions.expectAllSessionsToBeReady({ timeout });
-		return 'All sessions are ready';
-	},
-
-	// =========================================================================
-	// Console
-	// =========================================================================
-
-	/**
-	 * Execute code in the console.
-	 * params: { language: 'Python' | 'R', code: string, timeout?: number }
-	 */
-	executeCode: async (app, params) => {
-		const language = params.language ?? 'Python';
-		const code = params.code;
-		if (!code) {
-			throw new Error('executeCode requires a "code" param');
-		}
-		const timeout = params.timeout ?? 10000;
-		await app.workbench.console.executeCode(language, code, {
-			timeout,
-			waitForReady: true,
-			maximizeConsole: false,
-		});
-		return `Executed: ${code.substring(0, 80)}`;
-	},
-
-	/**
-	 * Wait for text or regex to appear in the console output.
-	 * params: { text: string, timeout?: number }
-	 */
-	expectConsoleOutput: async (app, params) => {
-		const text = params.text;
-		if (!text) {
-			throw new Error('expectConsoleOutput requires a "text" param');
-		}
-		const timeout = params.timeout ?? 10000;
-		await app.workbench.console.waitForConsoleContents(text, { timeout });
-		return `Console contains: "${text.substring(0, 80)}"`;
-	},
-
-	/**
-	 * Paste code into the console (useful for multi-line code).
-	 * params: { code: string, execute?: boolean }
-	 */
-	pasteToConsole: async (app, params) => {
-		const code = params.code;
-		if (!code) {
-			throw new Error('pasteToConsole requires a "code" param');
-		}
-		const execute = params.execute ?? false;
-		await app.workbench.console.pasteCodeToConsole(code, execute);
-		return `Pasted to console${execute ? ' and executed' : ''}: ${code.substring(0, 80)}`;
-	},
-
-	/**
-	 * Type text into the console input.
-	 * params: { text: string, pressEnter?: boolean }
-	 */
-	typeToConsole: async (app, params) => {
-		const text = params.text;
-		if (!text) {
-			throw new Error('typeToConsole requires a "text" param');
-		}
-		const pressEnter = params.pressEnter ?? false;
-		await app.workbench.console.typeToConsole(text, pressEnter);
-		return `Typed to console: ${text.substring(0, 80)}`;
-	},
-
-	/**
-	 * Wait for the console to be ready with a prompt.
-	 * params: { prompt?: string, timeout?: number }
-	 */
-	waitForConsoleReady: async (app, params) => {
-		const prompt = params.prompt ?? '>>>';
-		const timeout = params.timeout ?? 30000;
-		await app.workbench.console.waitForReady(prompt, timeout);
-		return `Console ready with prompt: ${prompt}`;
-	},
-
-	/**
-	 * Send Enter key to the console.
-	 * params: {} (none required)
-	 */
-	consoleSendEnter: async (app, _params) => {
-		await app.workbench.console.sendEnterKey();
-		return 'Sent Enter to console';
-	},
-
-	/**
-	 * Clear the console input.
-	 * params: {} (none required)
-	 */
-	clearConsoleInput: async (app, _params) => {
-		await app.workbench.console.clearInput();
-		return 'Cleared console input';
-	},
-
-	/**
-	 * Maximize the console panel.
-	 * params: {} (none required)
-	 */
-	maximizeConsole: async (app, _params) => {
-		await app.workbench.console.maximizeConsole();
-		return 'Maximized console';
-	},
-
-	/**
-	 * Interrupt the current execution.
-	 * params: {} (none required)
-	 */
-	interruptExecution: async (app, _params) => {
-		await app.workbench.console.interruptExecution();
-		return 'Interrupted execution';
-	},
-
-	/**
-	 * Verify the console contains an error message.
-	 * params: { error: string }
-	 */
-	expectConsoleError: async (app, params) => {
-		const error = params.error;
-		if (!error) {
-			throw new Error('expectConsoleError requires an "error" param');
-		}
-		await app.workbench.console.expectConsoleToContainError(error);
-		return `Console contains error: "${error.substring(0, 80)}"`;
-	},
-
-	/**
-	 * Focus the console.
-	 * params: {} (none required)
-	 */
-	focusConsole: async (app, _params) => {
-		await app.workbench.console.focus();
-		return 'Focused console';
-	},
-
-	// =========================================================================
-	// Variables
-	// =========================================================================
-
-	/**
-	 * Check that a variable exists with an expected value.
-	 * params: { name: string, value?: string, timeout?: number }
-	 */
-	expectVariable: async (app, params) => {
-		const name = params.name;
-		if (!name) {
-			throw new Error('expectVariable requires a "name" param');
-		}
-		const value = params.value;
-		const timeout = params.timeout ?? 10000;
-		if (value) {
-			await app.workbench.variables.expectVariableToBe(name, value, timeout);
-			return `Variable "${name}" = ${value}`;
-		}
-		await app.workbench.variables.waitForVariableRow(name);
-		return `Variable "${name}" exists`;
-	},
-
-	/**
-	 * Verify a variable does not exist.
-	 * params: { name: string }
-	 */
-	expectVariableNotExist: async (app, params) => {
-		const name = params.name;
-		if (!name) {
-			throw new Error('expectVariableNotExist requires a "name" param');
-		}
-		await app.workbench.variables.expectVariableToNotExist(name);
-		return `Variable "${name}" does not exist`;
-	},
-
-	/**
-	 * Open a variable in the Data Explorer by double-clicking it in the Variables pane.
-	 * params: { name: string }
-	 */
-	openInDataExplorer: async (app, params) => {
-		const name = params.name;
-		if (!name) {
-			throw new Error('openInDataExplorer requires a "name" param');
-		}
-		await app.workbench.variables.doubleClickVariableRow(name);
-		return `Opened "${name}" in Data Explorer`;
-	},
-
-	/**
-	 * Expand or collapse a variable in the Variables pane.
-	 * params: { name: string, action: 'expand' | 'collapse' }
-	 */
-	toggleVariable: async (app, params) => {
-		const name = params.name;
-		if (!name) {
-			throw new Error('toggleVariable requires a "name" param');
-		}
-		const action = params.action ?? 'expand';
-		await app.workbench.variables.toggleVariable({ variableName: name, action });
-		return `${action === 'expand' ? 'Expanded' : 'Collapsed'} variable "${name}"`;
-	},
-
-	/**
-	 * Delete all variables from the Variables pane.
-	 * params: {} (none required)
-	 */
-	deleteAllVariables: async (app, _params) => {
-		await app.workbench.variables.clickDeleteAllVariables();
-		return 'Deleted all variables';
-	},
-
-	/**
-	 * Click the database icon for a variable row (opens connection explorer).
-	 * params: { name: string }
-	 */
-	clickDatabaseIcon: async (app, params) => {
-		const name = params.name;
-		if (!name) {
-			throw new Error('clickDatabaseIcon requires a "name" param');
-		}
-		await app.workbench.variables.clickDatabaseIconForVariableRow(name);
-		return `Clicked database icon for "${name}"`;
-	},
-
-	// =========================================================================
-	// Data Explorer
-	// =========================================================================
-
-	/**
-	 * Sort a column in the Data Explorer.
-	 * params: { columnIndex: number, direction: 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' }
-	 */
-	sortColumn: async (app, params) => {
-		const columnIndex = params.columnIndex;
-		if (columnIndex === undefined) {
-			throw new Error('sortColumn requires a "columnIndex" param (1-based)');
-		}
-		const direction = params.direction ?? 'Sort Ascending';
-		await app.workbench.dataExplorer.grid.sortColumnBy(columnIndex, direction);
-		return `Sorted column ${columnIndex}: ${direction}`;
-	},
-
-	/**
-	 * Verify cell content at a specific position in the Data Explorer.
-	 * params: { rowIndex: number, colIndex: number, value: string }
-	 */
-	expectCellValue: async (app, params) => {
-		const { rowIndex, colIndex, value } = params;
-		if (rowIndex === undefined || colIndex === undefined || value === undefined) {
-			throw new Error('expectCellValue requires "rowIndex", "colIndex", and "value" params');
-		}
-		await app.workbench.dataExplorer.grid.expectCellContentToBe({ rowIndex, colIndex, value });
-		return `Cell [${rowIndex},${colIndex}] = "${value}"`;
-	},
-
-	/**
-	 * Verify the Data Explorer has the expected number of rows.
-	 * params: { count: number }
-	 */
-	expectRowCount: async (app, params) => {
-		const count = params.count;
-		if (count === undefined) {
-			throw new Error('expectRowCount requires a "count" param');
-		}
-		await app.workbench.dataExplorer.grid.verifyTableDataLength(count);
-		return `Data Explorer has ${count} rows`;
-	},
-
-	/**
-	 * Verify the Data Explorer column headers match expected values.
-	 * params: { headers: string[] }
-	 */
-	expectColumnHeaders: async (app, params) => {
-		const headers = params.headers;
-		if (!headers || !Array.isArray(headers)) {
-			throw new Error('expectColumnHeaders requires a "headers" array param');
-		}
-		await app.workbench.dataExplorer.grid.expectColumnHeadersToBe(headers);
-		return `Column headers match: ${headers.join(', ')}`;
-	},
-
-	/**
-	 * Verify the row order in the Data Explorer.
-	 * params: { expectedOrder: number[] }
-	 */
-	expectRowOrder: async (app, params) => {
-		const expectedOrder = params.expectedOrder;
-		if (!expectedOrder || !Array.isArray(expectedOrder)) {
-			throw new Error('expectRowOrder requires an "expectedOrder" array param');
-		}
-		await app.workbench.dataExplorer.grid.expectRowOrderToBe(expectedOrder);
-		return `Row order matches: ${expectedOrder.join(', ')}`;
-	},
-
-	/**
-	 * Add a filter to the Data Explorer.
-	 * params: { columnName: string, condition: string, value?: string }
-	 */
-	addDataFilter: async (app, params) => {
-		const columnName = params.columnName;
-		const condition = params.condition;
-		if (!columnName || !condition) {
-			throw new Error('addDataFilter requires "columnName" and "condition" params');
-		}
-		await app.workbench.dataExplorer.filters.add({
-			columnName,
-			condition,
-			value: params.value,
-		});
-		return `Added filter: ${columnName} ${condition}${params.value ? ` ${params.value}` : ''}`;
-	},
-
-	/**
-	 * Clear all filters and sorting in the Data Explorer.
-	 * params: {} (none required)
-	 */
-	clearAllFilters: async (app, _params) => {
-		await app.workbench.dataExplorer.filters.clearAll();
-		return 'Cleared all filters and sorting';
-	},
-
-	/**
-	 * Maximize the Data Explorer view.
-	 * params: { showSummaryPanel?: boolean }
-	 */
-	maximizeDataExplorer: async (app, params) => {
-		const showSummaryPanel = params.showSummaryPanel ?? false;
-		await app.workbench.dataExplorer.maximize(showSummaryPanel);
-		return `Maximized Data Explorer${showSummaryPanel ? ' with summary panel' : ''}`;
-	},
-
-	/**
-	 * Verify the Data Explorer status bar text.
-	 * params: { text: string, timeout?: number }
-	 */
-	expectDataExplorerStatus: async (app, params) => {
-		const text = params.text;
-		if (!text) {
-			throw new Error('expectDataExplorerStatus requires a "text" param');
-		}
-		const timeout = params.timeout ?? 10000;
-		await app.workbench.dataExplorer.expectStatusBarToHaveText(text, timeout);
-		return `Data Explorer status bar: "${text}"`;
-	},
-
-	/**
-	 * Click a cell in the Data Explorer by position.
-	 * params: { rowPosition: number, columnPosition: number }
-	 */
-	clickDataCell: async (app, params) => {
-		const { rowPosition, columnPosition } = params;
-		if (rowPosition === undefined || columnPosition === undefined) {
-			throw new Error('clickDataCell requires "rowPosition" and "columnPosition" params');
-		}
-		await app.workbench.dataExplorer.grid.clickCell(rowPosition, columnPosition);
-		return `Clicked cell [${rowPosition},${columnPosition}]`;
-	},
-
-	/**
-	 * Get all data from the Data Explorer grid.
-	 * params: {} (none required)
-	 */
-	getDataExplorerData: async (app, _params) => {
-		const data = await app.workbench.dataExplorer.grid.getData();
-		return JSON.stringify(data).substring(0, 3000);
-	},
-
-	/**
-	 * Get the column headers from the Data Explorer.
-	 * params: {} (none required)
-	 */
-	getColumnHeaders: async (app, _params) => {
-		const headers = await app.workbench.dataExplorer.grid.getColumnHeaders();
-		return `Column headers: ${headers.join(', ')}`;
-	},
-
-	// =========================================================================
-	// Plots
-	// =========================================================================
-
-	/**
-	 * Wait for a plot to appear in the Plots pane.
-	 * params: { timeout?: number }
-	 */
-	waitForPlot: async (app, _params) => {
-		await app.workbench.plots.waitForCurrentPlot();
-		return 'Plot appeared';
-	},
-
-	/**
-	 * Wait for a static plot to appear.
-	 * params: {} (none required)
-	 */
-	waitForStaticPlot: async (app, _params) => {
-		await app.workbench.plots.waitForCurrentStaticPlot();
-		return 'Static plot appeared';
-	},
-
-	/**
-	 * Verify the number of plot thumbnails.
-	 * params: { count: number }
-	 */
-	expectPlotCount: async (app, params) => {
-		const count = params.count;
-		if (count === undefined) {
-			throw new Error('expectPlotCount requires a "count" param');
-		}
-		await app.workbench.plots.expectPlotThumbnailsCountToBe(count);
-		return `Plot count: ${count}`;
-	},
-
-	/**
-	 * Clear all plots.
-	 * params: {} (none required)
-	 */
-	clearPlots: async (app, _params) => {
-		await app.workbench.plots.clearPlots();
-		return 'Cleared all plots';
-	},
-
-	/**
-	 * Wait for all plots to disappear.
-	 * params: { timeout?: number }
-	 */
-	waitForNoPlots: async (app, params) => {
-		const timeout = params.timeout ?? 10000;
-		await app.workbench.plots.waitForNoPlots({ timeout });
-		return 'No plots visible';
-	},
-
-	/**
-	 * Save a plot from the Plots pane.
-	 * params: { name: string, format: 'PNG' | 'JPEG' | 'SVG' | 'TIFF' | 'BMP' | 'PDF', overwrite?: boolean }
-	 */
-	savePlot: async (app, params) => {
-		const name = params.name;
-		const format = params.format ?? 'PNG';
-		if (!name) {
-			throw new Error('savePlot requires a "name" param');
-		}
-		const overwrite = params.overwrite ?? false;
-		await app.workbench.plots.savePlotFromPlotsPane({ name, format, overwrite });
-		return `Saved plot: ${name}.${format.toLowerCase()}`;
-	},
-
-	/**
-	 * Set the plot zoom level.
-	 * params: { zoom: 'Fit' | '50%' | '75%' | '100%' | '200%' }
-	 */
-	setPlotZoom: async (app, params) => {
-		const zoom = params.zoom ?? '100%';
-		await app.workbench.plots.setThePlotZoom(zoom);
-		return `Set plot zoom: ${zoom}`;
-	},
-
-	/**
-	 * Open the current plot in a different location.
-	 * params: { location: 'Editor' | 'New Window' | 'Editor Tab to the Side' }
-	 */
-	openPlotIn: async (app, params) => {
-		const location = params.location ?? 'Editor';
-		await app.workbench.plots.openPlotIn(location);
-		return `Opened plot in: ${location}`;
-	},
-
-	/**
-	 * Wait for a webview-based plot (e.g., plotly, bokeh).
-	 * params: { selector?: string, state?: 'attached' | 'visible' }
-	 */
-	waitForWebviewPlot: async (app, params) => {
-		const selector = params.selector ?? '.plot-instance';
-		const state = params.state ?? 'visible';
-		await app.workbench.plots.waitForWebviewPlot(selector, state);
-		return `Webview plot is ${state}`;
-	},
-
-	// =========================================================================
-	// Quick Access / Files
-	// =========================================================================
-
-	/**
-	 * Run a VS Code command via the command palette.
-	 * params: { command: string }
-	 */
-	runCommand: async (app, params) => {
-		const command = params.command;
-		if (!command) {
-			throw new Error('runCommand requires a "command" param');
-		}
-		await app.workbench.quickaccess.runCommand(command);
-		return `Ran command: ${command}`;
-	},
 
 	/**
 	 * Open a file via quick access.
@@ -576,7 +35,29 @@ export const actionCatalog: Record<string, ActionFn> = {
 			throw new Error('openFile requires a "path" param');
 		}
 		const fullPath = path.isAbsolute(filePath) ? filePath : path.join(app.workspacePathOrFolder, filePath);
-		await app.workbench.quickaccess.openFile(fullPath);
+		if (!fs.existsSync(fullPath)) {
+			throw new Error(`File not found: ${fullPath} (workspace: ${app.workspacePathOrFolder})`);
+		}
+		// Non-text files (PDF, images, etc.) open in custom viewers that don't
+		// satisfy quickaccess.openFile's editor-activation wait. Use the
+		// vscode.open command instead and wait for the tab to appear.
+		const nonTextExts = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp'];
+		const ext = path.extname(fullPath).toLowerCase();
+		if (nonTextExts.includes(ext)) {
+			await app.workbench.quickaccess.runCommand('workbench.action.quickOpen');
+			await app.code.driver.page.keyboard.type(fullPath);
+			await app.code.driver.page.keyboard.press('Enter');
+			const baseName = path.basename(fullPath);
+			await app.code.driver.page.locator(`.tab[aria-label="${baseName}"]`).waitFor({ state: 'visible', timeout: 10000 });
+			return `Opened file: ${filePath}`;
+		}
+		try {
+			await app.workbench.quickaccess.openFile(fullPath);
+		} catch (err) {
+			// Dismiss quick input if it got stuck open
+			await app.code.driver.page.keyboard.press('Escape');
+			throw err;
+		}
 		return `Opened file: ${filePath}`;
 	},
 
@@ -591,537 +72,146 @@ export const actionCatalog: Record<string, ActionFn> = {
 			throw new Error('openDataFile requires a "path" param');
 		}
 		const fullPath = path.isAbsolute(filePath) ? filePath : path.join(app.workspacePathOrFolder, filePath);
-		await app.workbench.quickaccess.openDataFile(fullPath);
+		if (!fs.existsSync(fullPath)) {
+			throw new Error(`File not found: ${fullPath} (workspace: ${app.workspacePathOrFolder})`);
+		}
+		try {
+			await app.workbench.quickaccess.openDataFile(fullPath);
+		} catch (err) {
+			await app.code.driver.page.keyboard.press('Escape');
+			throw err;
+		}
 		return `Opened data file: ${filePath}`;
 	},
 
 	// =========================================================================
-	// Editor
+	// Custom: Notebook (multi-step flows)
 	// =========================================================================
 
 	/**
-	 * Type text in the editor.
-	 * params: { text: string, pressEnter?: boolean }
+	 * Create a new Positron notebook (enables setting, reloads, creates).
+	 * params: { codeCells?: number, markdownCells?: number }
 	 */
-	editorType: async (app, params) => {
-		const text = params.text;
-		if (!text) {
-			throw new Error('editorType requires a "text" param');
-		}
-		const pressEnter = params.pressEnter ?? false;
-		await app.workbench.editor.type(text, pressEnter);
-		return `Typed in editor: ${text.substring(0, 80)}`;
-	},
-
-	/**
-	 * Select an editor tab and type text.
-	 * params: { filename: string, text: string }
-	 */
-	editorSelectAndType: async (app, params) => {
-		const { filename, text } = params;
-		if (!filename || !text) {
-			throw new Error('editorSelectAndType requires "filename" and "text" params');
-		}
-		await app.workbench.editor.selectTabAndType(filename, text);
-		return `Selected "${filename}" and typed: ${text.substring(0, 80)}`;
-	},
-
-	/**
-	 * Click the play/run button in the editor.
-	 * params: {} (none required)
-	 */
-	editorPressPlay: async (app, _params) => {
-		await app.workbench.editor.pressPlay();
-		return 'Pressed play button in editor';
-	},
-
-	/**
-	 * Wait for editor content to match a condition.
-	 * params: { filename: string, text: string, timeout?: number }
-	 */
-	expectEditorContent: async (app, params) => {
-		const { filename, text } = params;
-		if (!filename || !text) {
-			throw new Error('expectEditorContent requires "filename" and "text" params');
-		}
-		await app.workbench.editor.waitForEditorContents(filename, (content: string) => content.includes(text));
-		return `Editor "${filename}" contains: "${text.substring(0, 80)}"`;
-	},
-
-	/**
-	 * Get a specific line from the editor.
-	 * params: { filename: string, line: number }
-	 */
-	getEditorLine: async (app, params) => {
-		const { filename, line } = params;
-		if (!filename || line === undefined) {
-			throw new Error('getEditorLine requires "filename" and "line" params');
-		}
-		const content = await app.workbench.editor.getLine(filename, line);
-		return `Line ${line}: ${content}`;
-	},
-
-	// =========================================================================
-	// Editor Tabs
-	// =========================================================================
-
-	/**
-	 * Click an editor tab by name.
-	 * params: { name: string }
-	 */
-	clickTab: async (app, params) => {
-		const name = params.name;
-		if (!name) {
-			throw new Error('clickTab requires a "name" param');
-		}
-		await app.workbench.editors.clickTab(name);
-		return `Clicked tab: ${name}`;
-	},
-
-	/**
-	 * Verify an editor tab exists and optionally is selected.
-	 * params: { name: string, isVisible?: boolean, isSelected?: boolean }
-	 */
-	expectTab: async (app, params) => {
-		const name = params.name;
-		if (!name) {
-			throw new Error('expectTab requires a "name" param');
-		}
-		await app.workbench.editors.verifyTab(name, {
-			isVisible: params.isVisible,
-			isSelected: params.isSelected,
-		});
-		return `Tab "${name}" verified`;
-	},
-
-	/**
-	 * Wait for an editor tab to be active.
-	 * params: { filename: string }
-	 */
-	waitForActiveTab: async (app, params) => {
-		const filename = params.filename;
-		if (!filename) {
-			throw new Error('waitForActiveTab requires a "filename" param');
-		}
-		await app.workbench.editors.waitForActiveTab(filename);
-		return `Tab "${filename}" is active`;
-	},
-
-	/**
-	 * Create a new untitled file.
-	 * params: {} (none required)
-	 */
-	newUntitledFile: async (app, _params) => {
-		await app.workbench.editors.newUntitledFile();
-		return 'Created new untitled file';
-	},
-
-	/**
-	 * Save the currently open file.
-	 * params: {} (none required)
-	 */
-	saveFile: async (app, _params) => {
-		await app.workbench.editors.saveOpenedFile();
-		return 'Saved file';
-	},
-
-	/**
-	 * Save the current file with a new name.
-	 * Accepts workspace-relative paths (e.g., "newfile.txt") or absolute paths.
-	 * params: { path: string }
-	 */
-	saveFileAs: async (app, params) => {
-		const filePath = params.path;
-		if (!filePath) {
-			throw new Error('saveFileAs requires a "path" param');
-		}
-		const fullPath = path.isAbsolute(filePath) ? filePath : path.join(app.workspacePathOrFolder, filePath);
-		await app.workbench.quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
-		await app.workbench.quickInput.waitForQuickInputOpened();
-		await app.workbench.quickInput.type(fullPath);
-		await app.workbench.quickInput.clickOkButton();
-		return `Saved file as: ${filePath}`;
-	},
-
-	// =========================================================================
-	// Settings
-	// =========================================================================
-
-	/**
-	 * Set one or more IDE settings.
-	 * params: { settings: Record<string, unknown>, reload?: boolean }
-	 */
-	setSetting: async (app, params) => {
-		const newSettings = params.settings;
-		if (!newSettings || typeof newSettings !== 'object') {
-			throw new Error('setSetting requires a "settings" object param');
-		}
-		const reload = params.reload ?? false;
-		await app.workbench.settings.set(newSettings as Record<string, unknown>);
-		if (reload) {
+	newNotebook: async (app, params) => {
+		// Enable Positron notebooks; only browser/web mode needs a reload for this setting
+		await app.workbench.settings.set({ 'positron.notebook.enabled': true });
+		if (app.web) {
 			await app.workbench.hotKeys.reloadWindow(false);
 			await app.code.driver.page.waitForTimeout(3000);
 			await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		}
-		return `Set settings: ${Object.keys(newSettings).join(', ')}${reload ? ' (reloaded)' : ''}`;
-	},
 
-	/**
-	 * Clear all custom settings (restore defaults).
-	 * params: {} (none required)
-	 */
-	clearSettings: async (app, _params) => {
-		await app.workbench.settings.clear();
-		return 'Cleared all settings';
-	},
-
-	/**
-	 * Remove specific settings by key.
-	 * params: { keys: string[] }
-	 */
-	removeSettings: async (app, params) => {
-		const keys = params.keys;
-		if (!keys || !Array.isArray(keys)) {
-			throw new Error('removeSettings requires a "keys" array param');
-		}
-		await app.workbench.settings.remove(keys);
-		return `Removed settings: ${keys.join(', ')}`;
-	},
-
-	// =========================================================================
-	// Hot Keys
-	// =========================================================================
-
-	/**
-	 * Copy selected content to clipboard.
-	 * params: {} (none required)
-	 */
-	copy: async (app, _params) => {
-		await app.workbench.hotKeys.copy();
-		return 'Copied to clipboard';
-	},
-
-	/**
-	 * Cut selected content to clipboard.
-	 * params: {} (none required)
-	 */
-	cut: async (app, _params) => {
-		await app.workbench.hotKeys.cut();
-		return 'Cut to clipboard';
-	},
-
-	/**
-	 * Paste clipboard contents.
-	 * params: {} (none required)
-	 */
-	paste: async (app, _params) => {
-		await app.workbench.hotKeys.paste();
-		return 'Pasted from clipboard';
-	},
-
-	/**
-	 * Undo the last action.
-	 * params: {} (none required)
-	 */
-	undo: async (app, _params) => {
-		await app.workbench.hotKeys.undo();
-		return 'Undone last action';
-	},
-
-	/**
-	 * Redo the last undone action.
-	 * params: {} (none required)
-	 */
-	redo: async (app, _params) => {
-		await app.workbench.hotKeys.redo();
-		return 'Redone last action';
-	},
-
-	/**
-	 * Select all content.
-	 * params: {} (none required)
-	 */
-	selectAll: async (app, _params) => {
-		await app.workbench.hotKeys.selectAll();
-		return 'Selected all';
-	},
-
-	/**
-	 * Close all open editors.
-	 * params: {} (none required)
-	 */
-	closeAllEditors: async (app, _params) => {
-		await app.workbench.hotKeys.closeAllEditors();
-		return 'Closed all editors';
-	},
-
-	/**
-	 * Close the current editor tab.
-	 * params: {} (none required)
-	 */
-	closeTab: async (app, _params) => {
-		await app.workbench.hotKeys.closeTab();
-		return 'Closed current tab';
-	},
-
-	/**
-	 * Open the find dialog.
-	 * params: {} (none required)
-	 */
-	find: async (app, _params) => {
-		await app.workbench.hotKeys.find();
-		return 'Opened find dialog';
-	},
-
-	/**
-	 * Focus the console panel via hotkey.
-	 * params: {} (none required)
-	 */
-	focusConsoleHotKey: async (app, _params) => {
-		await app.workbench.hotKeys.focusConsole();
-		return 'Focused console via hotkey';
-	},
-
-	/**
-	 * Toggle the bottom panel visibility.
-	 * params: {} (none required)
-	 */
-	toggleBottomPanel: async (app, _params) => {
-		await app.workbench.hotKeys.toggleBottomPanel();
-		return 'Toggled bottom panel';
-	},
-
-	/**
-	 * Show the secondary sidebar.
-	 * params: {} (none required)
-	 */
-	showSecondarySidebar: async (app, _params) => {
-		await app.workbench.hotKeys.showSecondarySidebar();
-		return 'Showed secondary sidebar';
-	},
-
-	/**
-	 * Close the secondary sidebar.
-	 * params: {} (none required)
-	 */
-	closeSecondarySidebar: async (app, _params) => {
-		await app.workbench.hotKeys.closeSecondarySidebar();
-		return 'Closed secondary sidebar';
-	},
-
-	/**
-	 * Close the primary sidebar.
-	 * params: {} (none required)
-	 */
-	closePrimarySidebar: async (app, _params) => {
-		await app.workbench.hotKeys.closePrimarySidebar();
-		return 'Closed primary sidebar';
-	},
-
-	/**
-	 * Minimize the bottom panel.
-	 * params: {} (none required)
-	 */
-	minimizeBottomPanel: async (app, _params) => {
-		await app.workbench.hotKeys.minimizeBottomPanel();
-		return 'Minimized bottom panel';
-	},
-
-	/**
-	 * Restore the bottom panel to its previous size.
-	 * params: {} (none required)
-	 */
-	restoreBottomPanel: async (app, _params) => {
-		await app.workbench.hotKeys.restoreBottomPanel();
-		return 'Restored bottom panel';
-	},
-
-	/**
-	 * Reload the window.
-	 * params: { waitForReady?: boolean }
-	 */
-	reloadWindow: async (app, params) => {
-		const waitForReady = params.waitForReady ?? true;
-		await app.workbench.hotKeys.reloadWindow(waitForReady);
-		if (waitForReady) {
-			await app.code.driver.page.waitForTimeout(3000);
-			await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
-		}
-		return `Reloaded window${waitForReady ? ' (waited for ready)' : ''}`;
-	},
-
-	/**
-	 * Execute a notebook cell via hotkey.
-	 * params: {} (none required)
-	 */
-	executeNotebookCell: async (app, _params) => {
-		await app.workbench.hotKeys.executeNotebookCell();
-		return 'Executed notebook cell';
-	},
-
-	/**
-	 * Run the current file in the console.
-	 * params: {} (none required)
-	 */
-	runFileInConsole: async (app, _params) => {
-		await app.workbench.hotKeys.runFileInConsole();
-		return 'Ran file in console';
-	},
-
-	/**
-	 * Run the current line of code in the console.
-	 * params: {} (none required)
-	 */
-	runLineOfCode: async (app, _params) => {
-		await app.workbench.hotKeys.runLineOfCode();
-		return 'Ran line of code';
-	},
-
-	/**
-	 * Send interrupt signal to the console.
-	 * params: {} (none required)
-	 */
-	sendInterrupt: async (app, _params) => {
-		await app.workbench.hotKeys.sendInterrupt();
-		return 'Sent interrupt';
-	},
-
-	/**
-	 * Format the current document.
-	 * params: {} (none required)
-	 */
-	formatDocument: async (app, _params) => {
-		await app.workbench.hotKeys.formatDocument();
-		return 'Formatted document';
-	},
-
-	/**
-	 * Clear all breakpoints.
-	 * params: {} (none required)
-	 */
-	clearAllBreakpoints: async (app, _params) => {
-		await app.workbench.hotKeys.clearAllBreakpoints();
-		return 'Cleared all breakpoints';
-	},
-
-	/**
-	 * Show the Data Explorer summary panel.
-	 * params: {} (none required)
-	 */
-	showDataExplorerSummaryPanel: async (app, _params) => {
-		await app.workbench.hotKeys.showDataExplorerSummaryPanel();
-		return 'Showed Data Explorer summary panel';
-	},
-
-	/**
-	 * Hide the Data Explorer summary panel.
-	 * params: {} (none required)
-	 */
-	hideDataExplorerSummaryPanel: async (app, _params) => {
-		await app.workbench.hotKeys.hideDataExplorerSummaryPanel();
-		return 'Hid Data Explorer summary panel';
-	},
-
-	/**
-	 * Kill all terminals.
-	 * params: {} (none required)
-	 */
-	killAllTerminals: async (app, _params) => {
-		await app.workbench.hotKeys.killAllTerminals();
-		return 'Killed all terminals';
-	},
-
-	// =========================================================================
-	// Notebooks
-	// =========================================================================
-
-	/**
-	 * Create a new Positron notebook.
-	 * Automatically enables Positron notebooks (with reload) if needed.
-	 * params: { codeCells?: number, markdownCells?: number }
-	 */
-	newNotebook: async (app, params) => {
-		// Enable Positron notebooks with reload (required for the setting to take effect)
-		await app.workbench.settings.set({ 'positron.notebook.enabled': true });
-		await app.workbench.hotKeys.reloadWindow(false);
-		await app.code.driver.page.waitForTimeout(3000);
-		await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		const codeCells = params.codeCells ?? 1;
 		const markdownCells = params.markdownCells ?? 0;
-		await app.workbench.notebooksPositron.newNotebook({ codeCells, markdownCells });
-		return `Created notebook with ${codeCells} code cell(s) and ${markdownCells} markdown cell(s)`;
+		const language = params.language ?? 'Python'; // default Python; pass null to skip kernel selection
+		const clearCells = params.clearCells ?? true;
+
+		await app.workbench.notebooksPositron.newNotebook({
+			codeCells,
+			markdownCells,
+			language,
+			clearCells,
+		});
+
+		// Hide the bottom panel to maximize notebook space
+		await app.workbench.hotKeys.toggleBottomPanel();
+
+		const langNote = language ? ` with ${language} kernel` : '';
+		return `Created notebook with ${codeCells} code cell(s) and ${markdownCells} markdown cell(s)${langNote}`;
 	},
 
+	// =========================================================================
+	// Custom: Editor execution (Cmd+Enter from a file)
+	// =========================================================================
+
 	/**
-	 * Add code to a notebook cell and optionally run it.
-	 * params: { cellIndex: number, code: string, run?: boolean }
+	 * Write code to a temp file and execute it via Cmd+Enter (statement range execution).
+	 * This reliably simulates "execute code from editor" -- the code path that triggers
+	 * editor_context_changed notifications and statement range requests.
+	 * params: { code: string, language?: "r" | "python" (default "r") }
 	 */
-	addCodeToCell: async (app, params) => {
-		const cellIndex = params.cellIndex ?? 0;
+	runCodeInEditor: async (app, params) => {
 		const code = params.code;
 		if (!code) {
-			throw new Error('addCodeToCell requires a "code" param');
+			throw new Error('runCodeInEditor requires a "code" param');
 		}
-		const run = params.run ?? false;
-		await app.workbench.notebooksPositron.addCodeToCell(cellIndex, code, { run });
-		return run ? `Added and ran code in cell ${cellIndex}` : `Added code to cell ${cellIndex}`;
-	},
+		const language = params.language ?? 'r';
+		const ext = language === 'python' ? '.py' : '.R';
+		const tempName = `_explore_exec${ext}`;
+		const tempPath = path.join(app.workspacePathOrFolder, tempName);
 
-	/**
-	 * Add a new cell to the notebook.
-	 * params: { type: 'code' | 'markdown' }
-	 */
-	addCell: async (app, params) => {
-		const type = params.type ?? 'code';
-		await app.workbench.notebooksPositron.addCell(type);
-		return `Added ${type} cell`;
-	},
+		// Write code to a temp file
+		fs.writeFileSync(tempPath, code + '\n');
 
-	/**
-	 * Verify cell output contains expected text.
-	 * params: { cellIndex: number, expectedLines: string[] }
-	 */
-	expectCellOutput: async (app, params) => {
-		const cellIndex = params.cellIndex ?? 0;
-		const expectedLines = params.expectedLines;
-		if (!expectedLines || !Array.isArray(expectedLines)) {
-			throw new Error('expectCellOutput requires an "expectedLines" array param');
+		try {
+			// Open the file
+			await app.workbench.quickaccess.openFile(tempPath);
+
+			// Select all text so Cmd+Enter executes the full content
+			const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+			await app.code.driver.page.keyboard.press(`${modifier}+a`);
+
+			// Execute via Cmd+Enter (sends to active console session)
+			await app.code.driver.page.keyboard.press(`${modifier}+Enter`);
+
+			const preview = code.length > 60 ? code.substring(0, 57) + '...' : code;
+			return `Executed from editor: "${preview}"`;
+		} finally {
+			// Clean up temp file
+			try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
 		}
-		await app.workbench.notebooksPositron.expectOutputAtIndex(cellIndex, expectedLines);
-		return `Cell ${cellIndex} output matches expected`;
-	},
-
-	/**
-	 * Verify the notebook has the expected number of cells.
-	 * params: { count: number }
-	 */
-	expectCellCount: async (app, params) => {
-		const count = params.count;
-		if (count === undefined) {
-			throw new Error('expectCellCount requires a "count" param');
-		}
-		await app.workbench.notebooksPositron.expectCellCountToBe(count);
-		return `Notebook has ${count} cell(s)`;
-	},
-
-	/**
-	 * Select a notebook kernel.
-	 * params: { kernelGroup: 'Python' | 'R', waitForReady?: boolean }
-	 */
-	selectKernel: async (app, params) => {
-		const kernelGroup = params.kernelGroup ?? 'Python';
-		const waitForReady = params.waitForReady ?? true;
-		await app.workbench.notebooksPositron.kernel.select(kernelGroup, { waitForReady });
-		return `Selected ${kernelGroup} kernel`;
 	},
 
 	// =========================================================================
-	// Raw Playwright actions (adaptive layer)
+	// Custom: Assistant (methods with workspace path or non-obvious signatures)
 	// =========================================================================
 
 	/**
-	 * Take an accessibility snapshot of the current page.
-	 * Returns the aria tree so the AI can see the full UI state and find elements.
+	 * Get the assistant's response text (requires workspace path).
+	 */
+	getChatResponseText: async (app, _params) => {
+		const text = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
+		return text;
+	},
+
+	/**
+	 * Get available tools from the assistant (requires workspace path).
+	 */
+	getAvailableTools: async (app, _params) => {
+		const tools = await app.workbench.assistant.getAvailableTools(app.workspacePathOrFolder);
+		return `Available tools (${tools.length}): ${tools.join(', ')}`;
+	},
+
+	// =========================================================================
+	// Custom: Context menu (handles native macOS menus via dialog-contextMenu)
+	// =========================================================================
+
+	/**
+	 * Right-click an element and select a menu item from the context menu.
+	 * Works with both native (macOS/Electron) and web context menus.
+	 * params: { selector: string, menuItem: string, button?: 'left' | 'right' }
+	 */
+	contextMenu: async (app, params) => {
+		const selector = params.selector;
+		const menuItem = params.menuItem;
+		if (!selector) { throw new Error('contextMenu requires a "selector" param'); }
+		if (!menuItem) { throw new Error('contextMenu requires a "menuItem" param'); }
+		const button = params.button ?? 'right';
+		const locator = app.code.driver.page.locator(selector);
+		await app.workbench.contextMenu.triggerAndClick({
+			menuTrigger: locator,
+			menuItemLabel: menuItem,
+			menuTriggerButton: button,
+		});
+		return `Context menu: selected "${menuItem}" on "${selector}"`;
+	},
+
+	// =========================================================================
+	// Raw Playwright Actions (Tier 2)
+	// =========================================================================
+
+	/**
+	 * Get the accessibility tree of the page.
 	 * params: { maxLength?: number }
 	 */
 	snapshot: async (app, params) => {
@@ -1222,6 +312,23 @@ export const actionCatalog: Record<string, ActionFn> = {
 	},
 
 	/**
+	 * Type text into the currently focused element using keyboard.type().
+	 * Unlike `press` (single keys) or `fill` (replaces input value), this types
+	 * each character sequentially -- works in Monaco editors, console input, etc.
+	 * params: { text: string, delay?: number }
+	 */
+	type: async (app, params) => {
+		const text = params.text;
+		if (text === undefined || text === null) {
+			throw new Error('type requires a "text" param');
+		}
+		const delay = params.delay ?? 0;
+		await app.code.driver.page.keyboard.type(text, { delay });
+		const preview = text.length > 60 ? text.substring(0, 57) + '...' : text;
+		return `Typed: "${preview}"`;
+	},
+
+	/**
 	 * Wait for text to appear anywhere on the page.
 	 * params: { text: string, timeout?: number }
 	 */
@@ -1251,7 +358,7 @@ export const actionCatalog: Record<string, ActionFn> = {
 	},
 
 	// =========================================================================
-	// General
+	// Escape Hatches (Tier 3)
 	// =========================================================================
 
 	/**
@@ -1263,5 +370,57 @@ export const actionCatalog: Record<string, ActionFn> = {
 		const screenshotPath = `/tmp/${name}-${Date.now()}.png`;
 		await app.code.driver.page.screenshot({ path: screenshotPath });
 		return `Screenshot saved: ${screenshotPath}`;
+	},
+
+	/**
+	 * Evaluate JavaScript in the renderer process and return the result.
+	 * params: { expression: string }
+	 */
+	evaluate: async (app, params) => {
+		const expression = params.expression;
+		if (!expression) {
+			throw new Error('evaluate requires an "expression" param');
+		}
+		const result = await app.code.driver.page.evaluate(expression);
+		return typeof result === 'string' ? result : JSON.stringify(result);
+	},
+
+	/**
+	 * Resize the Electron window.
+	 * params: { width: number, height: number }
+	 */
+	resizeWindow: async (app, params) => {
+		const width = params.width;
+		const height = params.height;
+		if (!width || !height) {
+			throw new Error('resizeWindow requires "width" and "height" params');
+		}
+		const electronApp = app.code.electronApp;
+		if (!electronApp) {
+			throw new Error('resizeWindow is only available in Electron mode');
+		}
+		await electronApp.evaluate(({ BrowserWindow }, { w, h }) => {
+			const win = BrowserWindow.getAllWindows()[0];
+			if (win) {
+				win.setSize(w, h);
+			}
+		}, { w: width, h: height });
+		await app.code.driver.page.waitForTimeout(500);
+		return `Resized window to ${width}x${height}`;
+	},
+
+	/**
+	 * Get the current Electron window size.
+	 */
+	getWindowSize: async (app, _params) => {
+		const electronApp = app.code.electronApp;
+		if (!electronApp) {
+			throw new Error('getWindowSize is only available in Electron mode');
+		}
+		const size = await electronApp.evaluate(({ BrowserWindow }) => {
+			const win = BrowserWindow.getAllWindows()[0];
+			return win ? win.getSize() : [0, 0];
+		});
+		return JSON.stringify({ width: size[0], height: size[1] });
 	},
 };
