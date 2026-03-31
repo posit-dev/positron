@@ -17,9 +17,11 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 
 		// Enable ghost cell suggestions and configure echo model
+		// Set automatic mode to false so only manual trigger (Cmd+Shift+G) generates suggestions
 		await settings.set({
 			'positron.assistant.notebook.ghostCellSuggestions.enabled': true,
-			'positron.assistant.notebook.ghostCellSuggestions.model': ['echo']
+			'positron.assistant.notebook.ghostCellSuggestions.model': ['echo'],
+			'positron.assistant.notebook.ghostCellSuggestions.automatic': false
 		}, { keepOpen: false });
 
 		// Login to echo provider
@@ -32,7 +34,8 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		// Clean up ghost cell settings to ensure no interference with other tests
 		await settings.remove([
 			'positron.assistant.notebook.ghostCellSuggestions.enabled',
-			'positron.assistant.notebook.ghostCellSuggestions.model'
+			'positron.assistant.notebook.ghostCellSuggestions.model',
+			'positron.assistant.notebook.ghostCellSuggestions.automatic'
 		]);
 	});
 
@@ -55,14 +58,18 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		await notebooksPositron.addCodeToCell(0, '# context', { run: true });
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 
+		// In on-demand mode, after cell execution, ghost cell should show "AI suggestion available on request"
+		// Wait for debounce delay (default 2 seconds)
+		await app.code.driver.page.waitForTimeout(2500);
+		await notebooksPositron.expectGhostCellAwaitingRequest();
+
 		// Select cell in command mode (required for keyboard shortcut)
 		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
 
 		// Trigger ghost cell with keyboard shortcut - this is the main functionality being tested
 		await hotKeys.triggerGhostCell();
 
-		// Verify ghost cell suggestion appears (either "Generating..." or the actual suggestion)
-		// The expectGhostCellGenerationVisible waits for "Generating suggestion..." text
+		// Verify "Generating suggestion..." appears (confirms Cmd+Shift+G triggered the generation)
 		await notebooksPositron.expectGhostCellGenerationVisible();
 	});
 });
