@@ -342,10 +342,10 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	private async doEnsureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession> {
-		// If we've already got a session going, no need to do anything
+		// If we've already got a session going that is not exited, no need to do anything
 		const session = this._runtimeSessionService
 			.getNotebookSessionForNotebookUri(notebookUri);
-		if (session && session.runtimeMetadata.runtimeId === this.runtime.runtimeId) {
+		if (session && session.runtimeMetadata.runtimeId === this.runtime.runtimeId && session.getRuntimeState() !== RuntimeState.Exited) {
 			return session;
 		}
 
