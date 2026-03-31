@@ -24,7 +24,8 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 			'positron.assistant.notebook.ghostCellSuggestions.automatic': false
 		}, { keepOpen: false });
 
-		// Login to echo provider
+		// Open assistant and login to echo provider
+		await assistant.openPositronAssistantChat();
 		await assistant.loginModelProvider('echo');
 	});
 
