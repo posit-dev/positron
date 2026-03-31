@@ -8,6 +8,10 @@ import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../../../common/contributions.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { NOTEBOOK_CELL_EDITABLE, NOTEBOOK_EDITOR_EDITABLE, NOTEBOOK_EDITOR_FOCUSED, NOTEBOOK_OUTPUT_FOCUSED } from '../../../common/notebookContextKeys.js';
+// -- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR } from '../../../common/notebookContextKeys.js';
+// -- End Positron ---
 import { cellRangeToViewCells, expandCellRangesWithHiddenCells, getNotebookEditorFromEditorPane, ICellViewModel, INotebookEditor } from '../../notebookBrowser.js';
 import { CopyAction, CutAction, PasteAction } from '../../../../../../editor/contrib/clipboard/browser/clipboard.js';
 import { IClipboardService } from '../../../../../../platform/clipboard/common/clipboardService.js';
@@ -575,6 +579,9 @@ registerAction2(class extends Action2 {
 			id: 'workbench.action.toggleNotebookClipboardLog',
 			title: localize2('toggleNotebookClipboardLog', 'Toggle Notebook Clipboard Troubleshooting'),
 			category: Categories.Developer,
+			// --- Start Positron ---
+			precondition: POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR,
+			// --- End Positron ---
 			f1: true
 		});
 	}

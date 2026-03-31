@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -296,43 +297,50 @@ export interface IPackageSpec {
 export interface ILanguageRuntimePackageManager {
 	/**
 	 * Get list of installed packages.
+	 * @param token Optional cancellation token
 	 */
-	getPackages(): Promise<ILanguageRuntimePackage[]>;
+	getPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
 	/**
 	 * Install the list of packages.
 	 * @param packages Array of package install requests with name and optional version
+	 * @param token Optional cancellation token
 	 */
-	installPackages(packages: IPackageSpec[]): Promise<void>;
+	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Uninstall the list of packages.
 	 * @param packageNames Array of package names to uninstall
+	 * @param token Optional cancellation token
 	 */
-	uninstallPackages(packageNames: string[]): Promise<void>;
+	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Update the list of packages.
 	 * @param packages Array of package install requests with name and optional version
+	 * @param token Optional cancellation token
 	 */
-	updatePackages(packages: IPackageSpec[]): Promise<void>;
+	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Update all installed packages.
+	 * @param token Optional cancellation token
 	 */
-	updateAllPackages(): Promise<void>;
+	updateAllPackages(token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Search a repository for packages matching the query.
 	 * @param query Search query string
+	 * @param token Optional cancellation token
 	 */
-	searchPackages(query: string): Promise<ILanguageRuntimePackage[]>;
+	searchPackages(query: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 
 	/**
 	 * Search a repository for available versions of a package.
 	 * @param name Package name
+	 * @param token Optional cancellation token
 	 */
-	searchPackageVersions(name: string): Promise<string[]>;
+	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 }
 
 /**
@@ -594,10 +602,17 @@ export interface IRuntimeSessionService {
 	/**
 	 * Restart a runtime session.
 	 *
+	 * If the session is busy, the user is prompted whether to interrupt it
+	 * before restarting.
+	 *
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
+	 * @returns `true` if the session was restarted (or a restart already
+	 *  in progress completed), `false` if the restart was declined by
+	 *  the user. Rejects if the session is not found or not in a
+	 *  restartable state.
 	 */
-	restartSession(sessionId: string, source: string, interrupt?: boolean): Promise<void>;
+	restartSession(sessionId: string, source: string, interrupt?: boolean): Promise<boolean>;
 
 	/**
 	 * Interrupt a runtime session.

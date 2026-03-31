@@ -58,6 +58,7 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 		const folderName = addRandomNumSuffix('r-cancelRenvInstall');
 
 		await packages.manage('renv', 'uninstall');
+		await app.workbench.console.waitForReady('>', 30000);
 		await createNewFolder(app, {
 			folderTemplate,
 			folderName,

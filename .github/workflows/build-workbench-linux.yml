@@ -69,12 +69,12 @@ jobs:
           npm_config_arch: x64
           MANGLER_WORKER_POOL_SIZE: 1
         run: |
-          npm run gulp vscode-reh-web-linux-x64
+          npm run gulp vscode-reh-web-pwb-linux-x64
 
       - name: Package workbench tar.gz
         run: |
           cd ..
-          tar czvf positron/positron-workbench-linux-x64-branch.tar.gz vscode-reh-web-linux-x64
+          tar czvf positron/positron-workbench-linux-x64-branch.tar.gz vscode-reh-web-pwb-linux-x64
 
       - name: Upload workbench artifact
         uses: actions/upload-artifact@v7

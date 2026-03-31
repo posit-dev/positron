@@ -115,13 +115,20 @@ export class RuntimeItemActivity extends RuntimeItem {
 				}
 			} else if (activityItem instanceof ActivityItemInput && activityItem.state !== ActivityItemInputState.Provisional) {
 				// When a non-provisional ActivityItemInput is being added, see if there's a
-				// provisional ActivityItemInput for it in the activity items. If there is, replace
-				// the provisional ActivityItemInput with the actual ActivityItemInput.
+				// provisional or already-completed ActivityItemInput for it in the activity
+				// items. If there is, replace it with the actual ActivityItemInput.
 				for (let i = this._activityItems.length - 1; i >= 0; --i) {
 					const activityItemToCheck = this._activityItems[i];
 					if (activityItemToCheck instanceof ActivityItemInput) {
-						if (activityItemToCheck.state === ActivityItemInputState.Provisional &&
+						if ((activityItemToCheck.state === ActivityItemInputState.Provisional ||
+							activityItemToCheck.state === ActivityItemInputState.Completed) &&
 							activityItemToCheck.parentId === activityItem.parentId) {
+							// If the item was already completed (idle received
+							// before the input message), propagate that state
+							// to the replacement so it doesn't show as executing.
+							if (activityItemToCheck.state === ActivityItemInputState.Completed) {
+								activityItem.state = ActivityItemInputState.Completed;
+							}
 							this._activityItems[i] = activityItem;
 							return;
 						}

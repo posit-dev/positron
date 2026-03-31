@@ -7,9 +7,10 @@
 import './actionBarMenuButton.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { PropsWithChildren, useEffect, useRef } from 'react';
 
 // Other dependencies.
+import { disposeIfDisposable } from '../../../../base/common/lifecycle.js';
 import { ActionBarButton } from './actionBarButton.js';
 import { Icon } from '../../../action/common/action.js';
 import { IAction } from '../../../../base/common/actions.js';
@@ -19,6 +20,7 @@ import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+
 
 /**
  * ActionBarMenuButtonProps interface.
@@ -56,8 +58,6 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
-	// State hooks.
-	const [defaultActionId, setDefaultActionId] = useState<string | undefined>(undefined);
 
 	// Manage the aria-haspopup and aria-expanded attributes.
 	useEffect(() => {
@@ -74,18 +74,6 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	}, [positronActionBarContext.menuShowing]);
 
 	const { actions: getActions } = props;
-	const getMenuActions = React.useCallback(async () => {
-		const actions = await getActions();
-		const defaultAction = actions.find(action => action.checked);
-
-		setDefaultActionId(defaultAction?.id);
-
-		return actions;
-	}, [getActions]);
-
-	useEffect(() => {
-		getMenuActions();
-	}, [getMenuActions]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
@@ -95,8 +83,8 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	 * @returns A Promise<void> that resolves when the menu is shown.
 	 */
 	const showMenu = async () => {
-		const actions = await getActions();
 		// Get the actions. If there are no actions, return.
+		const actions = await getActions();
 		if (!actions.length) {
 			return;
 		}
@@ -121,7 +109,13 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 					return undefined;
 				}
 			},
-			onHide: () => positronActionBarContext.setMenuShowing(false),
+			onHide: () => {
+				// Update the menu showing state.
+				positronActionBarContext.setMenuShowing(false);
+
+				// Dispose all disposable actions.
+				disposeIfDisposable(actions);
+			},
 			anchorAlignment: props.align && props.align === 'right' ? AnchorAlignment.RIGHT : AnchorAlignment.LEFT,
 			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
 			contextKeyService: services.contextKeyService
@@ -140,10 +134,13 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 				if (props.dropdownIndicator !== 'enabled-split') {
 					await showMenu();
 				} else {
-					// Run the preferred action.
+					// Run the preferred action (checked action, or first action if none checked).
 					const actions = await getActions();
-					const defaultAction = actions.find(action => action.id === defaultActionId);
-					defaultAction ? defaultAction.run() : actions[0].run();
+					const defaultAction = actions.find(action => action.checked) || actions[0];
+					await defaultAction?.run();
+
+					// Dispose all disposable actions.
+					disposeIfDisposable(actions);
 				}
 			}}
 		/>

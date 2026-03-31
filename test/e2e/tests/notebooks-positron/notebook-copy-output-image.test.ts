@@ -29,42 +29,25 @@ test.describe('Positron Notebooks: Copy Output Image', {
 		await notebooksPositron.kernel.select('Python');
 	});
 
-	test('Copy Image appears in output ellipsis menu for plot output', async function ({ app, headless }) {
+	test('Copy Image appears in output action bar for plot output', async function ({ app, headless }) {
 		test.skip(!!headless, 'Clipboard image tests require headed mode');
 
-		const { notebooksPositron, contextMenu } = app.workbench;
+		const { notebooksPositron } = app.workbench;
 
 		await test.step('Execute cell that generates a plot', async () => {
 			await notebooksPositron.addCodeToCell(0, matplotlibPlotCode, { run: true, waitForSpinner: true });
 		});
 
-		const cellOutput = notebooksPositron.cell.nth(0).getByTestId('cell-output');
-		const ellipsisButton = notebooksPositron.cell.nth(0).getByRole('button', { name: 'Cell Output Actions' });
+		const cellOutput = notebooksPositron.cellOutput(0);
 
 		await test.step('Verify plot image appears in output', async () => {
 			await expect(cellOutput.locator('img')).toBeVisible();
 		});
 
-		await test.step('Verify Copy Image option exists in ellipsis menu', async () => {
-			// Retry to handle timing: context keys may not be set on the first
-			// attempt due to the React render cycle.
-			await expect(async () => {
-				await contextMenu.triggerAndVerifyMenuItems({
-					menuTrigger: ellipsisButton,
-					menuTriggerButton: 'left',
-					menuItemStates: [{ label: 'Copy Image', visible: true }],
-				});
-			}).toPass({ timeout: 15000 });
-		});
-
 		await test.step('Click Copy Image and verify clipboard has image data', async () => {
 			await app.workbench.clipboard.clearClipboard();
 
-			await contextMenu.triggerAndClick({
-				menuTrigger: ellipsisButton,
-				menuTriggerButton: 'left',
-				menuItemLabel: 'Copy Image',
-			});
+			await notebooksPositron.triggerCellOutputAction(0, 'Copy Image');
 
 			await expect(async () => {
 				const clipboardImageBuffer = await app.workbench.clipboard.getClipboardImage();

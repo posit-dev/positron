@@ -1169,43 +1169,50 @@ declare module 'positron' {
 	export interface LanguageRuntimePackageManager {
 		/**
 		 * Get list of installed packages.
+		 * @param token Optional cancellation token
 		 */
-		getPackages(): Thenable<LanguageRuntimePackage[]>;
+		getPackages(token?: vscode.CancellationToken): Thenable<LanguageRuntimePackage[]>;
 
 		/**
 		 * Install the list of packages.
 		 * @param packages Array of package install requests with name and optional version
+		 * @param token Optional cancellation token
 		 */
-		installPackages(packages: PackageSpec[]): Thenable<void>;
+		installPackages(packages: PackageSpec[], token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Uninstall the list of packages.
 		 * @param packageNames Array of package names to uninstall
+		 * @param token Optional cancellation token
 		 */
-		uninstallPackages(packageNames: string[]): Thenable<void>;
+		uninstallPackages(packageNames: string[], token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Update the list of packages.
 		 * @param packages Array of package install requests with name and optional version
+		 * @param token Optional cancellation token
 		 */
-		updatePackages(packages: PackageSpec[]): Thenable<void>;
+		updatePackages(packages: PackageSpec[], token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Update all installed packages.
+		 * @param token Optional cancellation token
 		 */
-		updateAllPackages(): Thenable<void>;
+		updateAllPackages(token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Search a repository for packages matching the query.
 		 * @param query Search query string
+		 * @param token Optional cancellation token
 		 */
-		searchPackages(query: string): Thenable<LanguageRuntimePackage[]>;
+		searchPackages(query: string, token?: vscode.CancellationToken): Thenable<LanguageRuntimePackage[]>;
 
 		/**
 		 * Search a repository for available versions of a package.
 		 * @param name Package name
+		 * @param token Optional cancellation token
 		 */
-		searchPackageVersions(name: string): Thenable<string[]>;
+		searchPackageVersions(name: string, token?: vscode.CancellationToken): Thenable<string[]>;
 	}
 
 	/**
@@ -1986,6 +1993,32 @@ declare module 'positron' {
 		 * plot widget.
 		 */
 		export function getPlotsRenderSettings(): Thenable<PlotRenderSettings>;
+
+	}
+
+	namespace context {
+		/**
+		 * Per-workspace ephemeral extension storage. Data survives extension
+		 * host restarts and window reloads, but does not persist beyond the
+		 * lifetime of the application process.
+		 *
+		 * Use this instead of {@link vscode.ExtensionContext.workspaceState workspaceState}
+		 * for state that is only meaningful while the process is running,
+		 * such as runtime session mappings. This avoids leaking stale
+		 * state on disk and ensures automatic cleanup on shutdown.
+		 */
+		export const ephemeralState: EphemeralMemento;
+
+		/**
+		 * A {@link vscode.Memento} with an additional `clear()` method that
+		 * removes all keys at once.
+		 */
+		export interface EphemeralMemento extends vscode.Memento {
+			/**
+			 * Remove all stored keys for this extension's ephemeral storage.
+			 */
+			clear(): Thenable<void>;
+		}
 	}
 
 	namespace runtime {
@@ -2223,9 +2256,15 @@ declare module 'positron' {
 		/**
 		 * Restart a running session.
 		 *
+		 * If the session is busy, the user is prompted whether to interrupt it
+		 * before restarting.
+		 *
 		 * @param sessionId The ID of the session to restart.
+		 * @returns `true` if the session was restarted (or a restart already in
+		 *   progress completed), `false` if the restart was declined by the user.
+		 *   Rejects if the session is not found or not in a restartable state.
 		 */
-		export function restartSession(sessionId: string): Thenable<void>;
+		export function restartSession(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Focus a running session.

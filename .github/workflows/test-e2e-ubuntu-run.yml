@@ -98,14 +98,14 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:100
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:116
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:64
+        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:116
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -155,7 +155,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Load secret
-        uses: 1password/load-secrets-action@v3
+        uses: 1password/load-secrets-action@v4
         with:
           export-env: true
         env:
@@ -279,7 +279,7 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
           POSITRON_PY_VER_SEL: "3.10.12"
-          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_R_VER_SEL: 4.5.2
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
@@ -489,7 +489,7 @@ jobs:
 
       - name: Clean up blob report artifacts
         if: success()
-        uses: geekyeggo/delete-artifact@v5
+        uses: geekyeggo/delete-artifact@v6
         with:
           name: blob-report-${{ inputs.project }}-*
           failOnError: false

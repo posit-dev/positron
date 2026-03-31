@@ -46,6 +46,7 @@ export class InlineQuarto {
 	readonly outputContent: Locator;
 	readonly outputItem: Locator;
 	readonly cellToolbar: Locator;
+	readonly visibleCellToolbar: Locator;
 	readonly toolbarRunButton: Locator;
 	readonly toolbarCancelButton: Locator;
 	readonly closeButton: Locator;
@@ -75,6 +76,7 @@ export class InlineQuarto {
 		this.outputContent = page.locator(`${INLINE_OUTPUT} ${OUTPUT_CONTENT}`);
 		this.outputItem = page.locator(`${INLINE_OUTPUT} ${OUTPUT_ITEM}`);
 		this.cellToolbar = page.locator(CELL_TOOLBAR);
+		this.visibleCellToolbar = page.locator(`${CELL_TOOLBAR}.visible`);
 		this.toolbarRunButton = page.locator(`${CELL_TOOLBAR} ${TOOLBAR_RUN}`);
 		this.toolbarCancelButton = page.getByRole('button', { name: 'Cancel pending execution' });
 		this.closeButton = page.locator(`${INLINE_OUTPUT} ${OUTPUT_CLOSE}`);
@@ -372,6 +374,12 @@ export class InlineQuarto {
 			await expect(kernelLabel).not.toHaveText(/No Kernel|Starting\.\.\./, { timeout });
 		});
 		return kernelText!;
+	}
+
+	async expectSingleVisibleToolbar(timeout = 15000): Promise<void> {
+		await test.step('Expect exactly one visible cell toolbar', async () => {
+			await expect(this.visibleCellToolbar).toHaveCount(1, { timeout });
+		});
 	}
 
 	async expectPendingExecution({ timeout }: { timeout?: number } = { timeout: 5000 }): Promise<void> {

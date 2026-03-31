@@ -43,6 +43,7 @@ export const vscodeWebResourceIncludes = [
 	// Positron Help
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/*.html',
 	'out-build/vs/workbench/browser/media/*.svg',
+	'out-build/esm-package-dependencies/**',
 	// --- End Positron ---
 
 	// NLS

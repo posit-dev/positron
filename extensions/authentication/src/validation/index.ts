@@ -4,3 +4,4 @@
  *--------------------------------------------------------------------------------------------*/
 
 export { validateAnthropicApiKey } from './anthropic';
+export { normalizeToV1Url, validateFoundryApiKey } from './foundry';

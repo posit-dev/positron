@@ -23,6 +23,10 @@ runs:
         #   NOT included in cache paths, so they must be downloaded fresh on each platform
         echo "Downloading Ark binary..."
         cd positron-r && npm rebuild --foreground-scripts
+        if [ ! -f resources/ark/ark ] && [ ! -f resources/ark/ark.exe ]; then
+          echo "Error: Ark binary not found after npm rebuild"
+          exit 1
+        fi
         echo "Downloading Kallichore binary..."
         cd ../positron-supervisor && npm rebuild --foreground-scripts
         echo "Binaries downloaded successfully"

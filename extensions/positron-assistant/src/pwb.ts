@@ -24,7 +24,7 @@ export interface EnvVarCredentialConfig {
 }
 
 /**
- * Managed credentials provided by PWB extension
+ * Managed credentials provided by PWB extension.
  */
 export interface AuthTokenCredentialConfig {
 	readonly kind: 'auth-token';
@@ -44,17 +44,6 @@ export type ManagedCredentialConfig =
 	| AuthTokenCredentialConfig;
 
 /**
- * AWS managed credentials configuration for Posit Workbench.
- */
-export const AWS_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
-	kind: 'env-var',
-	displayName: 'AWS managed credentials',
-	envVar: 'AWS_WEB_IDENTITY_TOKEN_FILE',
-	providerVariableKey: 'bedrock',
-	validator: (value: string) => value.includes('posit-workbench'),
-};
-
-/**
  * Snowflake managed credentials configuration for Posit Workbench.
  */
 export const SNOWFLAKE_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
@@ -66,25 +55,9 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
 };
 
 /**
- * Foundry managed credentials configuration for Posit Workbench.
- */
-export const FOUNDRY_MANAGED_CREDENTIALS: AuthTokenCredentialConfig = {
-	kind: 'auth-token',
-	displayName: 'Foundry managed credentials',
-	authProvider: {
-		id: 'posit-workbench',
-		scopes: ['msfoundry'],
-	},
-	validator: () => {
-		const config = vscode.workspace.getConfiguration('positWorkbench.foundry');
-		return !!config.get<string>('endpoint', '');
-	},
-};
-
-/**
  * Helper function to autoconfigure language models using managed credentials on Posit Workbench.
  *
- * @template T - The credential configuration type (e.g., typeof AWS_MANAGED_CREDENTIALS)
+ * @template T - The credential configuration type
  * @param credentialConfig - The credential configuration to check
  * @param providerId - The provider ID to check if enabled
  * @param displayName - The provider display name for logging

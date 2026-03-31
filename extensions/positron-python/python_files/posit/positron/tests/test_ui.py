@@ -343,23 +343,3 @@ webbrowser.open("file://file.html")
     params = ui_comm.messages[1]["data"]["params"]
     assert params["path"] == "file.html" if sys.platform == "win32" else "file://file.html"
     assert params["destination"] != "plot"
-
-
-class TestEditorContext:
-    """Tests for editor context change handling."""
-
-    def test_editor_context_changed_acknowledged(
-        self,
-        ui_service: UiService,  # noqa: ARG002
-        ui_comm: DummyComm,
-    ) -> None:
-        """Test that editor_context_changed RPC is acknowledged."""
-        msg = json_rpc_request(
-            "editor_context_changed",
-            {"document_uri": "file:///path/to/file.py", "is_execution_source": False},
-            comm_id="dummy_comm_id",
-        )
-        ui_comm.handle_msg(msg)
-
-        # Check that a null response was sent to acknowledge the RPC
-        assert ui_comm.messages == [json_rpc_response(None)]

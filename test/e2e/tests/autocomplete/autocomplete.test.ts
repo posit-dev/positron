@@ -184,11 +184,13 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 	const keyboard = app.code.driver.page.keyboard;
 
 	await sessions.select(session.id);
-	await hotKeys.firstTab();
 
 	// Wait for the editor to actually have focus before typing
-	const editorInput = app.code.driver.page.locator('.editor-instance .monaco-editor .native-edit-context');
-	await expect(editorInput).toBeFocused();
+	await expect(async () => {
+		await hotKeys.firstTab();
+		const editorInput = app.code.driver.page.locator('.editor-instance .monaco-editor .native-edit-context');
+		await expect(editorInput).toBeFocused({ timeout: 2000 });
+	}).toPass({ timeout: 10000 });
 
 	if (retrigger) {
 		const triggerText = session.name.includes('Python') ? 'pd.DataF' : 'read_p';

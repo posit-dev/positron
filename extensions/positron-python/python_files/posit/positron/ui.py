@@ -22,7 +22,6 @@ from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
-    EditorContextChangedRequest,
     EvaluateCodeRequest,
     OpenEditorParams,
     ShowHtmlFileDestination,
@@ -247,12 +246,6 @@ class UiService:
         if isinstance(request, CallMethodRequest):
             # Unwrap nested JSON-RPC
             self._call_method(request.params)
-
-        elif isinstance(request, EditorContextChangedRequest):
-            # Acknowledge the notification (state no longer tracked here,
-            # sys.path handling uses code_location from execute request metadata)
-            if self._comm is not None:
-                self._comm.send_result(data=None)
 
         elif isinstance(request, EvaluateCodeRequest):
             self._evaluate_code(request.params.code)

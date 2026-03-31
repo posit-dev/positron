@@ -4,10 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-
-const ANTHROPIC_MODELS_ENDPOINT = 'https://api.anthropic.com/v1/models';
-const ANTHROPIC_API_VERSION = '2023-06-01';
-const KEY_VALIDATION_TIMEOUT_MS = 5000;
+import { ANTHROPIC_API_VERSION, ANTHROPIC_MODELS_ENDPOINT, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 
 class ApiKeyValidationError extends Error {
 	constructor(message: string) {

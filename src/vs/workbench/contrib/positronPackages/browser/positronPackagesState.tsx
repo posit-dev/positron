@@ -28,7 +28,7 @@ export const usePositronPackagesState = (
 ): PositronPackagesState => {
 	// Hooks.
 	const services = usePositronReactServicesContext();
-	const [instance, setInstance] = useState<IPositronPackagesInstance>();
+	const [instance, setInstance] = useState<IPositronPackagesInstance | undefined>(services.positronPackagesService.activePackagesInstance);
 
 	// When the active session changes
 	useEffect(() => {

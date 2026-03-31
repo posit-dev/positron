@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags, } from '../_test.setup';
+import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -59,6 +59,32 @@ test.describe('Quarto - Inline Output: Copy and Select', {
 
 		// Wait for success state to revert
 		await inlineQuarto.expectCopySuccessReverted();
+	});
+
+	test('Python - Verify Ctrl+C copies editor text when inline output is enabled', async function ({ python, app, openFile, hotKeys }) {
+		const { editors, inlineQuarto, clipboard } = app.workbench;
+
+		// Open a Quarto file and wait for the kernel to be ready
+		await openFile(join('workspaces', 'quarto_inline_output', 'text_output.qmd'));
+		await editors.waitForActiveTab('text_output.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+
+		// Go to line 2 (the title line: title: "Text Output Test")
+		await inlineQuarto.gotoLine(2);
+
+		// Select the line content using Home then Shift+End
+		const page = app.code.driver.page;
+		await page.keyboard.press('Home');
+		await page.keyboard.press('Shift+End');
+
+		// Copy with the standard copy shortcut (Ctrl+C / Cmd+C)
+		await clipboard.copy();
+
+		// Verify the clipboard contains the title line text
+		await expect(async () => {
+			const clipboardText = await clipboard.getClipboardText();
+			expect(clipboardText).toContain('Text Output Test');
+		}).toPass({ timeout: 5000 });
 	});
 
 	test('Python - Verify copy output command copies text from cell output', async function ({ python, app, openFile }) {

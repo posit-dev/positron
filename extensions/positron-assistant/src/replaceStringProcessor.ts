@@ -122,6 +122,15 @@ export class ReplaceStringProcessor {
 	}
 
 	private onOldClose() {
+		// Handle empty <old> text as "insert at current position".
+		// This occurs when the model wants to insert new code (e.g. into an empty document)
+		// without replacing existing text. We skip the find/duplicate-check because
+		// indexOf with an empty search string always "matches" at every position.
+		if (this._oldTextBuffer.length === 0 && !this._insertPosition) {
+			this._insertPosition = new vscode.Position(0, 0);
+			return;
+		}
+
 		// Find the text to replace in the document.
 		const documentText = this._document.getText();
 

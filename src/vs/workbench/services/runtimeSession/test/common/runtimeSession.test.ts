@@ -951,7 +951,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 			assertActiveSessions([session]);
 			assertCurrentSession(runtime, notebookUri, session);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
+			assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
 		});
 
 		test(`restart ${mode} in 'restarting' state`, async () => {
@@ -967,7 +967,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 			assertActiveSessions([session]);
 			assertCurrentSession(runtime, notebookUri, session);
-			assert.strictEqual(session.getRuntimeState(), RuntimeState.Restarting);
+			assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
 
 			sinon.assert.notCalled(target);
 		});

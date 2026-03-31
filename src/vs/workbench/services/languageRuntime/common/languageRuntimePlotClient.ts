@@ -12,7 +12,19 @@ import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { padBase64 } from './utils.js';
+/**
+ * Convert a PlotResult with settings to an IRenderedPlot.
+ */
+function plotResultToRenderedPlot(preRender: PlotResult & { settings: NonNullable<PlotResult['settings']> }): IRenderedPlot {
+	const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
+	return {
+		uri,
+		size: preRender.settings.size,
+		pixel_ratio: preRender.settings.pixel_ratio,
+		format: preRender.settings.format,
+		renderTimeMs: 0,
+	};
+}
 
 export const OldFreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
 export const FreezeSlowPlotsConfigKey = 'plots.freezeSlowPlots';
@@ -206,21 +218,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// will be picked up automatically by the plot instance component. This is
 		// also used to bypass render request if the pre-rendering render policy
 		// (size, pixel ratio, and format) matches.
-		if (metadata.pre_render) {
-			const preRender = metadata.pre_render;
-
-			// The policy should normally be defined in a pre-render result but we
-			// check just in case
-			if (preRender.settings) {
-				const uri = `data:${preRender.mime_type};base64,${padBase64(preRender.data)}`;
-				this._lastRender = {
-					uri,
-					size: preRender.settings.size,
-					pixel_ratio: preRender.settings.pixel_ratio,
-					format: preRender.settings.format,
-					renderTimeMs: 0,
-				};
-			}
+		if (metadata.pre_render?.settings) {
+			this._lastRender = plotResultToRenderedPlot(metadata.pre_render as PlotResult & { settings: NonNullable<PlotResult['settings']> });
 		}
 
 		// Connect close emitter event
@@ -269,15 +268,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			const preRender = evt.pre_render;
 
 			// If there's a pre-rendering, check if we can use it for immediate display
-			if (preRender && preRender.settings) {
-				const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
-				const preRenderPlot: IRenderedPlot = {
-					uri,
-					size: preRender.settings.size,
-					pixel_ratio: preRender.settings.pixel_ratio,
-					format: preRender.settings.format,
-					renderTimeMs: 0,
-				};
+			if (preRender?.settings) {
+				const preRenderPlot = plotResultToRenderedPlot(preRender as PlotResult & { settings: NonNullable<PlotResult['settings']> });
 
 				// Store the pre-rendering as the last render
 				this._lastRender = preRenderPlot;
@@ -313,8 +305,21 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			}
 		}));
 
-		// Listn for plot show events
-		this._register(this._commProxy.onDidShowPlot(async (_evt) => {
+		// Listen for plot show events
+		this._register(this._commProxy.onDidShowPlot(async (evt) => {
+			const preRender = evt.pre_render;
+
+			// If there's a pre-rendering, use it for immediate display
+			if (preRender?.settings) {
+				const preRenderPlot = plotResultToRenderedPlot(preRender as PlotResult & { settings: NonNullable<PlotResult['settings']> });
+
+				// Store the pre-rendering as the last render
+				this._lastRender = preRenderPlot;
+
+				// Fire the complete render event to update the plot display
+				this._completeRenderEmitter.fire(preRenderPlot);
+			}
+
 			this._didShowPlotEmitter.fire();
 		}));
 	}

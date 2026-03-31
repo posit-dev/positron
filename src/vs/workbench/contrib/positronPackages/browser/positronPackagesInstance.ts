@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -14,13 +15,13 @@ export interface IPositronPackagesInstance {
 	session: ILanguageRuntimeSession;
 	attachRuntime(): void;
 	detachRuntime(): void;
-	refreshPackages(): Promise<ILanguageRuntimePackage[]>;
-	installPackages(packages: IPackageSpec[]): Promise<void>;
-	uninstallPackages(packageNames: string[]): Promise<void>;
-	updatePackages(packages: IPackageSpec[]): Promise<void>;
-	updateAllPackages(): Promise<void>;
-	searchPackages(name: string): Promise<ILanguageRuntimePackage[]>;
-	searchPackageVersions(name: string): Promise<string[]>;
+	refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
+	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
+	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
+	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
+	updateAllPackages(token?: CancellationToken): Promise<void>;
+	searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
+	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
 	readonly onDidRefreshPackagesInstance: Event<ILanguageRuntimePackage[]>;
 
@@ -111,13 +112,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		return packageManager;
 	}
 
-	async refreshPackages(): Promise<ILanguageRuntimePackage[]> {
+	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeRefreshState.fire(true);
 		try {
-			this._packages = await packageManager.getPackages();
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 			return this._packages;
 		} finally {
@@ -125,17 +127,18 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async installPackages(packages: IPackageSpec[]): Promise<void> {
+	async installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeInstallState.fire(true);
 
 		try {
-			await packageManager.installPackages(packages);
+			await packageManager.installPackages(packages, effectiveToken);
 
 			// Fire refresh event.
-			this._packages = await packageManager.getPackages();
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
@@ -143,17 +146,18 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async uninstallPackages(packageNames: string[]): Promise<void> {
+	async uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeUninstallState.fire(true);
 
 		try {
-			await packageManager.uninstallPackages(packageNames);
+			await packageManager.uninstallPackages(packageNames, effectiveToken);
 
 			// Fire refresh event.
-			this._packages = await packageManager.getPackages();
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
@@ -161,17 +165,21 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async updatePackages(packages: IPackageSpec[]): Promise<void> {
+	async updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeUpdateState.fire(true);
 
 		try {
-			await packageManager.updatePackages(packages);
+			await packageManager.updatePackages(packages, effectiveToken);
+			if (effectiveToken.isCancellationRequested) {
+				return;
+			}
 
 			// Fire refresh event.
-			this._packages = await packageManager.getPackages();
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
@@ -179,17 +187,21 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async updateAllPackages(): Promise<void> {
+	async updateAllPackages(token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
 
 		// Loading
 		this._onDidChangeUpdateAllState.fire(true);
 
 		try {
-			await packageManager.updateAllPackages();
+			await packageManager.updateAllPackages(effectiveToken);
+			if (effectiveToken.isCancellationRequested) {
+				return;
+			}
 
 			// Fire refresh event.
-			this._packages = await packageManager.getPackages();
+			this._packages = await packageManager.getPackages(effectiveToken);
 			this._onDidRefreshPackagesInstance.fire(this._packages);
 		} finally {
 			// Completed
@@ -197,14 +209,24 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 	}
 
-	async searchPackages(name: string): Promise<ILanguageRuntimePackage[]> {
+	async searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const packageManager = this.getPackageManagerOrThrow();
-		return await packageManager.searchPackages(name);
+		const effectiveToken = token ?? CancellationToken.None;
+		const results = await packageManager.searchPackages(name, effectiveToken);
+		if (effectiveToken.isCancellationRequested) {
+			return [];
+		}
+		return results;
 	}
 
-	async searchPackageVersions(name: string): Promise<string[]> {
+	async searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]> {
 		const packageManager = this.getPackageManagerOrThrow();
-		return await packageManager.searchPackageVersions(name);
+		const effectiveToken = token ?? CancellationToken.None;
+		const results = await packageManager.searchPackageVersions(name, effectiveToken);
+		if (effectiveToken.isCancellationRequested) {
+			return [];
+		}
+		return results;
 	}
 
 	/**

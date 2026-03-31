@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
@@ -56,7 +57,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined>;
 	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined>;
 	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined>;
-	$restartSession(sessionId: string): Promise<void>;
+	$restartSession(sessionId: string): Promise<boolean>;
 	$interruptSession(sessionId: string): Promise<void>;
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
@@ -108,13 +109,13 @@ export interface ExtHostLanguageRuntimeShape {
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
 	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void;
-	$getPackages(handle: number): Promise<LanguageRuntimePackage[]>;
-	$installPackages(handle: number, packages: PackageSpec[]): Promise<void>;
-	$uninstallPackages(handle: number, packageNames: string[]): Promise<void>;
-	$updatePackages(handle: number, packages: PackageSpec[]): Promise<void>;
-	$updateAllPackages(handle: number): Promise<void>;
-	$searchPackages(handle: number, query: string): Promise<LanguageRuntimePackage[]>;
-	$searchPackageVersions(handle: number, name: string): Promise<string[]>;
+	$getPackages(handle: number, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
+	$installPackages(handle: number, packages: PackageSpec[], token: CancellationToken): Promise<void>;
+	$uninstallPackages(handle: number, packageNames: string[], token: CancellationToken): Promise<void>;
+	$updatePackages(handle: number, packages: PackageSpec[], token: CancellationToken): Promise<void>;
+	$updateAllPackages(handle: number, token: CancellationToken): Promise<void>;
+	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
+	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 }
 
 // This is the interface that the main process exposes to the extension host
@@ -328,6 +329,12 @@ export const ExtHostPositronContext = {
 	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
 };
 
+export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
+	$initializeEphemeralStorage(extensionId: string): Promise<string | undefined>;
+	$setEphemeralValue(extensionId: string, value: string): Promise<void>;
+	$deleteEphemeralValue(extensionId: string): Promise<void>;
+}
+
 export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
@@ -340,4 +347,5 @@ export const MainPositronContext = {
 	MainThreadAiFeatures: createProxyIdentifier<MainThreadAiFeaturesShape>('MainThreadAiFeatures'),
 	MainThreadPlotsService: createProxyIdentifier<MainThreadPlotsServiceShape>('MainThreadPlotsService'),
 	MainThreadNotebookFeatures: createProxyIdentifier<MainThreadNotebookFeaturesShape>('MainThreadNotebookFeatures'),
+	MainThreadPositronEphemeralStorage: createProxyIdentifier<MainThreadPositronEphemeralStorageShape>('MainThreadPositronEphemeralStorage'),
 };

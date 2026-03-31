@@ -23,8 +23,6 @@ import { PROVIDER_METADATA } from '../../providerMetadata.js';
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
 
-const POSIT_AUTH_PROVIDER_ID = 'posit-ai';
-
 interface PositModelsResponse {
 	chat: {
 		display_name: string;
@@ -50,9 +48,6 @@ interface PositModelsResponse {
  * - Managed through workspace settings for authHost, scope, clientId, and baseUrl
  */
 export class PositModelProvider extends VercelModelProvider {
-	/** The cancellation token for the current operation. */
-	private static _cancellationToken: vscode.CancellationTokenSource | null = null;
-
 	private _anthropicClient!: Anthropic;
 	private _useNativeSdk!: boolean;
 	public readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
@@ -69,215 +64,6 @@ export class PositModelProvider extends VercelModelProvider {
 		},
 	};
 
-	private static getOAuthParameters() {
-		const config = vscode.workspace.getConfiguration('positron.assistant.positai');
-		const authHost = config.inspect<string>('authHost')?.globalValue ?? 'https://login.posit.cloud';
-		const scope = config.inspect<string>('scope')?.globalValue ?? 'prism';
-		const clientId = config.inspect<string>('clientId')?.globalValue ?? 'positron';
-		const baseUrl = config.inspect<string>('baseUrl')?.globalValue ?? 'https://gateway.posit.ai';
-
-		if (!authHost || !scope || !clientId || !baseUrl) {
-			throw new Error('OAuth parameters are not configured.');
-		}
-
-		return { authHost, scope, clientId, baseUrl };
-	}
-
-	public static async signIn(context: vscode.ExtensionContext): Promise<void> {
-		log.info('[Posit AI] Signing in.');
-
-		const params = PositModelProvider.getOAuthParameters();
-		const response = await fetch(
-			`${params.authHost}/oauth/device/authorize?scope=${params.scope}&client_id=${params.clientId}`,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded'
-				}
-			}
-		);
-
-		if (!response.ok) {
-			throw new Error(`Failed to start device authorization: ${response.statusText}`);
-		}
-
-		const data = await response.json();
-		const { verification_uri_complete, interval, user_code, device_code } = data;
-		await vscode.env.clipboard.writeText(user_code);
-		await positron.methods.showDialog(
-			'Posit AI Sign In',
-			`You will need this code to sign in: <code>${user_code}</code>. It has been copied to your clipboard.`,
-		);
-		await vscode.env.openExternal(vscode.Uri.parse(verification_uri_complete));
-
-		const cancellationToken = new vscode.CancellationTokenSource();
-		PositModelProvider._cancellationToken = cancellationToken;
-
-		cancellationToken.token.onCancellationRequested(() => {
-			vscode.window.showInformationMessage(vscode.l10n.t('Posit AI sign-in cancelled.'));
-		});
-
-		try {
-			let currentInterval = interval;
-			while (true) {
-				if (cancellationToken.token.isCancellationRequested) {
-					throw new Error('Posit AI sign-in cancelled.');
-				}
-
-				const tokenResponse = await fetch(
-					`${params.authHost}/oauth/token`,
-					{
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/x-www-form-urlencoded'
-						},
-						body: new URLSearchParams({
-							scope: params.scope,
-							client_id: params.clientId,
-							grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-							device_code: device_code
-						}).toString()
-					}
-				);
-
-				if (tokenResponse.status === 200) {
-					const tokenData = await tokenResponse.json();
-					const { access_token, refresh_token, expires_in } = tokenData;
-					log.info('[Posit AI] Sign-in successful.');
-
-					const expiryTime = Date.now() + expires_in * 1000;
-					context.secrets.store('positron.assistant.positai.access_token', access_token);
-					context.secrets.store('positron.assistant.positai.refresh_token', refresh_token);
-					context.secrets.store('positron.assistant.positai.token_expiry', expiryTime.toString());
-					break;
-				}
-
-				if (tokenResponse.status === 400) {
-					const errorData = await tokenResponse.json();
-					switch (errorData.error) {
-						case 'authorization_pending':
-							await new Promise(resolve => setTimeout(resolve, currentInterval * 1000));
-							continue;
-						case 'slow_down':
-							currentInterval += 5;
-							await new Promise(resolve => setTimeout(resolve, currentInterval * 1000));
-							continue;
-						case 'expired_token':
-							vscode.window.showErrorMessage(vscode.l10n.t('Your verification code has expired. Please try signing in again.'));
-							throw new Error('Verification code expired.');
-						case 'access_denied':
-							vscode.window.showErrorMessage(vscode.l10n.t('Authorization request was denied.'));
-							throw new Error('Authorization denied.');
-						default:
-							throw new Error(`Unexpected error during token exchange: ${errorData.error}`);
-					}
-				} else {
-					throw new Error(`Unexpected response from token endpoint: ${tokenResponse.statusText}`);
-				}
-			}
-		} finally {
-			cancellationToken.dispose();
-		}
-
-		return;
-	}
-
-	public static async signOut(context: vscode.ExtensionContext): Promise<boolean> {
-		log.info('[Posit AI] Signing out.');
-
-		try {
-			// Sign-out is considered successful when the model is deleted in the config service
-			context.secrets.delete('positron.assistant.positai.access_token');
-			context.secrets.delete('positron.assistant.positai.refresh_token');
-			context.secrets.delete('positron.assistant.positai.token_expiry');
-			return true;
-		} catch (error) {
-			if (error instanceof Error) {
-				vscode.window.showErrorMessage(vscode.l10n.t('Failed to sign out of Posit AI: {0}', error.message));
-			} else {
-				vscode.window.showErrorMessage(vscode.l10n.t('Failed to sign out of Posit AI.'));
-			}
-			return false;
-		}
-	}
-
-	public static cancelCurrentSignIn(): void {
-		PositModelProvider._cancellationToken?.cancel();
-		PositModelProvider._cancellationToken?.dispose();
-		PositModelProvider._cancellationToken = null;
-	}
-
-	public static async refreshAccessToken(context: vscode.ExtensionContext): Promise<{ success: false } | { success: true; accessToken: string }> {
-		log.info('[Posit AI] Refreshing access token.');
-		const params = PositModelProvider.getOAuthParameters();
-
-		const refreshToken = await context.secrets.get('positron.assistant.positai.refresh_token');
-		if (!refreshToken) {
-			log.error('[Posit AI] No refresh token found.');
-			return { success: false };
-		}
-
-		const response = await fetch(
-			`${params.authHost}/oauth/token`,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded'
-				},
-				body: new URLSearchParams({
-					scope: params.scope,
-					client_id: params.clientId,
-					grant_type: 'refresh_token',
-					refresh_token: refreshToken
-				}).toString()
-			}
-		);
-
-		if (!response.ok) {
-			const errorData = await response.json();
-			const errorMsg = errorData.error_description || response.statusText;
-			log.error(`[Posit AI] Failed to refresh token: ${errorMsg}`);
-			vscode.window.showErrorMessage(vscode.l10n.t('Failed to refresh Posit AI access token: {0}', errorMsg));
-			return { success: false };
-		}
-
-		const tokenData = await response.json();
-		const { access_token, refresh_token, expires_in } = tokenData;
-		const expiryTime = Date.now() + expires_in * 1000;
-
-		await context.secrets.store('positron.assistant.positai.access_token', access_token);
-		await context.secrets.store('positron.assistant.positai.refresh_token', refresh_token);
-		await context.secrets.store('positron.assistant.positai.token_expiry', expiryTime.toString());
-
-		log.info('[Posit AI] Access token refreshed successfully.');
-		return { success: true, accessToken: access_token };
-	}
-
-	public static async getAccessToken(context: vscode.ExtensionContext): Promise<string> {
-		let accessToken = await context.secrets.get('positron.assistant.positai.access_token');
-		const tokenExpiry = await context.secrets.get('positron.assistant.positai.token_expiry');
-		const now = Date.now();
-
-		log.debug(`[Posit AI] Token expiry at ${tokenExpiry}. Current time is ${now}.`);
-
-		if (!accessToken || !tokenExpiry) {
-			throw new Error('No Posit AI access token found. Please sign in.');
-		}
-
-		const tenMin = 10 * 60 * 1000;
-		const expiry = parseInt(tokenExpiry) - tenMin;
-		if (tokenExpiry && now >= expiry) {
-			log.info('Access token has expired.');
-			const result = await PositModelProvider.refreshAccessToken(context);
-			if (!result.success) {
-				throw new Error('Failed to refresh Posit AI access token. Please sign in again.');
-			}
-			accessToken = result.accessToken;
-		}
-
-		return accessToken;
-	}
-
 	constructor(
 		_config: ModelConfig,
 		_context?: vscode.ExtensionContext,
@@ -285,12 +71,19 @@ export class PositModelProvider extends VercelModelProvider {
 		super(_config, _context);
 	}
 
+	private get baseUrl(): string {
+		return vscode.workspace
+			.getConfiguration('authentication.positai')
+			.inspect<string>('baseUrl')?.globalValue
+			?? 'https://gateway.posit.ai';
+	}
+
 	/**
 	 * Initializes the Posit AI provider with OAuth-authenticated Anthropic client.
 	 * Uses either native Anthropic SDK or Vercel AI SDK based on the useAnthropicSdk preference.
 	 */
 	protected override initializeProvider() {
-		const params = PositModelProvider.getOAuthParameters();
+		const baseUrl = this.baseUrl;
 
 		// Check preference: true (default) = native SDK, false = Vercel SDK
 		this._useNativeSdk = vscode.workspace.getConfiguration('positron.assistant')
@@ -302,14 +95,14 @@ export class PositModelProvider extends VercelModelProvider {
 				authToken: '_', // Actual token is set in authFetch
 				apiKey: '_',   // API key is not used
 				fetch: this.authFetch.bind(this),
-				baseURL: `${params.baseUrl}/anthropic`,
+				baseURL: `${baseUrl}/anthropic`,
 			});
 		} else {
 			// Initialize Vercel AI SDK provider with OAuth fetch
 			// Note: Vercel SDK expects baseURL to include /v1 (default is https://api.anthropic.com/v1)
 			this.aiProvider = createAnthropic({
 				apiKey: '_',   // API key is not used
-				baseURL: `${params.baseUrl}/anthropic/v1`,
+				baseURL: `${baseUrl}/anthropic/v1`,
 				fetch: this.authFetch.bind(this),
 			});
 		}
@@ -317,6 +110,7 @@ export class PositModelProvider extends VercelModelProvider {
 
 	/**
 	 * Custom fetch implementation that adds OAuth Bearer token to requests.
+	 * Only attaches the token for URLs matching the configured baseUrl.
 	 */
 	private async authFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
 		const token = await this.getAccessToken();
@@ -326,13 +120,19 @@ export class PositModelProvider extends VercelModelProvider {
 	}
 
 	/**
-	 * Gets the current access token, refreshing if necessary.
+	 * Gets a fresh access token via the authentication extension.
 	 */
 	async getAccessToken(): Promise<string> {
 		try {
-			return await PositModelProvider.getAccessToken(this._context!);
+			const session = await vscode.authentication.getSession(
+				'posit-ai', [], { silent: true }
+			);
+			if (!session?.accessToken) {
+				throw new Error('No Posit AI access token found. Please sign in.');
+			}
+			return session.accessToken;
 		} catch (error) {
-			// On refresh failure, also clean up the model configuration
+			// On auth failure, clean up the model configuration
 			deleteConfiguration(this._context, this.providerId);
 			throw error;
 		}
@@ -554,13 +354,13 @@ export class PositModelProvider extends VercelModelProvider {
 
 	protected override async retrieveModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		try {
-			const params = PositModelProvider.getOAuthParameters();
+			const baseUrl = this.baseUrl;
 			const modelListing: vscode.LanguageModelChatInformation[] = [];
 			const knownPositModels = getAllModelDefinitions(this.providerId);
 
 			log.trace(`[${this.providerName}] Fetching models from Posit API...`);
 
-			const response = await this.authFetch(`${params.baseUrl}/models`);
+			const response = await this.authFetch(`${baseUrl}/models`);
 
 			if (!response.ok) {
 				throw new Error(`API returned ${response.status}`);
@@ -611,81 +411,3 @@ function isPositModelsResponse(data: unknown): data is PositModelsResponse {
 	);
 }
 
-/**
- * VS Code Authentication Provider for Posit AI.
- *
- * Allows other extensions to obtain Posit AI credentials via
- * `vscode.authentication.getSession()` without managing their own OAuth flow.
- * Delegates all authentication operations to PositModelProvider.
- */
-export class PositAuthProvider implements vscode.AuthenticationProvider {
-	private _didChangeSessions =
-		new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
-	onDidChangeSessions = this._didChangeSessions.event;
-
-	private readonly _disposable: vscode.Disposable;
-
-	constructor(private readonly _context: vscode.ExtensionContext) {
-		this._disposable = vscode.authentication.registerAuthenticationProvider(
-			POSIT_AUTH_PROVIDER_ID,
-			'Posit AI',
-			this
-		);
-	}
-
-	async getSessions(scopes?: string[]): Promise<vscode.AuthenticationSession[]> {
-		try {
-			const accessToken = await PositModelProvider.getAccessToken(this._context);
-			return [{
-				id: POSIT_AUTH_PROVIDER_ID,
-				accessToken,
-				account: { label: 'Posit AI', id: POSIT_AUTH_PROVIDER_ID },
-				scopes: scopes ?? [],
-			}];
-		} catch {
-			log.trace('[PositAuthProvider] No valid session found.');
-			return [];
-		}
-	}
-
-	async createSession(scopes: string[]): Promise<vscode.AuthenticationSession> {
-		await PositModelProvider.signIn(this._context);
-
-		const accessToken = await PositModelProvider.getAccessToken(this._context);
-		const newSession: vscode.AuthenticationSession = {
-			id: POSIT_AUTH_PROVIDER_ID,
-			accessToken,
-			account: { label: 'Posit AI', id: POSIT_AUTH_PROVIDER_ID },
-			scopes,
-		};
-
-		this._didChangeSessions.fire({
-			added: [newSession],
-			removed: [],
-			changed: [],
-		});
-
-		return newSession;
-	}
-
-	async removeSession(): Promise<void> {
-		const sessions = await this.getSessions();
-		await PositModelProvider.signOut(this._context);
-
-		this._didChangeSessions.fire({
-			added: [],
-			removed: sessions,
-			changed: [],
-		});
-	}
-
-	dispose() {
-		this._didChangeSessions.dispose();
-		this._disposable.dispose();
-	}
-}
-
-// Register Posit AI authentication provider
-export function registerPositAuthProvider(context: vscode.ExtensionContext) {
-	context.subscriptions.push(new PositAuthProvider(context));
-}

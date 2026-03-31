@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { timeout } from '../../../../base/common/async.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -54,6 +55,12 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			this.setActiveInstance(session?.sessionId);
 		}));
+
+		// Initialize with the current foreground session if one exists.
+		const foregroundSession = this._runtimeSessionService.foregroundSession;
+		if (foregroundSession) {
+			this.createOrAssignInstance(foregroundSession, true);
+		}
 	}
 
 	private createOrAssignInstance(session: ILanguageRuntimeSession, activate: boolean) {
@@ -98,11 +105,15 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		return this._activeInstance?.session;
 	}
 
-	async refreshPackages(): Promise<ILanguageRuntimePackage[]> {
+	get activePackagesInstance(): IPositronPackagesInstance | undefined {
+		return this._activeInstance;
+	}
+
+	async refreshPackages(token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const instance = this._activeInstance;
 		if (instance) {
 			return await Promise.race([
-				instance.refreshPackages(),
+				instance.refreshPackages(token),
 				timeout(TIMEOUT_REFRESH_MS).then(() => { throw new Error('Package refresh timed out'); })
 			]);
 		}
@@ -110,55 +121,55 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		throw new Error('No active session found.');
 	}
 
-	async installPackages(packages: IPackageSpec[]): Promise<void> {
+	async installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.installPackages(packages);
+			return await instance.installPackages(packages, token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async uninstallPackages(packageNames: string[]): Promise<void> {
+	async uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.uninstallPackages(packageNames);
+			return await instance.uninstallPackages(packageNames, token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async updatePackages(packages: IPackageSpec[]): Promise<void> {
+	async updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.updatePackages(packages);
+			return await instance.updatePackages(packages, token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async updateAllPackages(): Promise<void> {
+	async updateAllPackages(token?: CancellationToken): Promise<void> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.updateAllPackages();
+			return await instance.updateAllPackages(token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async searchPackages(name: string): Promise<ILanguageRuntimePackage[]> {
+	async searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.searchPackages(name);
+			return await instance.searchPackages(name, token);
 		}
 
 		throw new Error('No active session found.');
 	}
 
-	async searchPackageVersions(name: string): Promise<string[]> {
+	async searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]> {
 		const instance = this._activeInstance;
 		if (instance) {
-			return await instance.searchPackageVersions(name);
+			return await instance.searchPackageVersions(name, token);
 		}
 
 		throw new Error('No active session found.');

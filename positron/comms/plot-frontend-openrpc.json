@@ -22,7 +22,16 @@
 		{
 			"name": "show",
 			"summary": "Show a plot.",
-			"params": []
+			"params": [
+				{
+					"name": "pre_render",
+					"description": "Optional pre-rendering data for immediate display",
+					"required": false,
+					"schema": {
+						"$ref": "plot-backend-openrpc.json#/components/schemas/plot_result"
+					}
+				}
+			]
 		}
 	]
 }

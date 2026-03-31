@@ -24,10 +24,9 @@ function createSettingsUri(
 /**
  * Converts AWS SDK credential source features to a human-readable string.
  * @param source The credential source features from AWS SDK
- * @param isManagedCredential Whether the credentials are managed credentials (detected by caller)
  * @returns A human-readable description of the credential type
  */
-export function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures, isManagedCredential?: boolean): string | undefined {
+export function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures): string | undefined {
 	if (!source) {
 		return undefined;
 	}
@@ -48,10 +47,6 @@ export function getCredentialTypeDescription(source?: AwsSdkCredentialsFeatures,
 	} else if (source.CREDENTIALS_PROFILE) {
 		return 'shared credentials file';
 	} else if (source.CREDENTIALS_PROFILE_STS_WEB_ID_TOKEN || source.CREDENTIALS_ENV_VARS_STS_WEB_ID_TOKEN) {
-		// Managed credentials can come from either profile or environment variable sources
-		if (isManagedCredential) {
-			return 'managed credentials';
-		}
 		return 'web identity token';
 	}
 
@@ -83,7 +78,6 @@ export const ErrorTemplates = {
 	 * @param params.profile - Optional profile name (for AWS)
 	 * @param params.region - Optional region (for AWS)
 	 * @param params.credentialSource - Optional credential source features from AWS SDK
-	 * @param params.isManagedCredential - Whether the credentials are managed credentials
 	 * @returns Formatted error message with markdown
 	 */
 	authenticationError(params: {
@@ -91,7 +85,6 @@ export const ErrorTemplates = {
 		profile?: string;
 		region?: string;
 		credentialSource?: AwsSdkCredentialsFeatures;
-		isManagedCredential?: boolean;
 	}): string {
 		const profileContext = params.profile
 			? ` for profile '${params.profile}'`
@@ -99,7 +92,7 @@ export const ErrorTemplates = {
 		const region = params.region || 'us-east-1';
 		const regionContext = ` in region '${region}'`;
 
-		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource, params.isManagedCredential);
+		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource);
 		const credentialContext = credentialTypeDesc
 			? ` using ${credentialTypeDesc}`
 			: '';
@@ -167,7 +160,6 @@ export const ErrorTemplates = {
 	 * @param params.profile - Optional profile name (for AWS)
 	 * @param params.region - Optional region (for AWS)
 	 * @param params.credentialSource - Optional credential source features from AWS SDK
-	 * @param params.isManagedCredential - Whether the credentials are managed credentials
 	 * @returns Formatted error message with markdown
 	 */
 	permissionError(params: {
@@ -175,7 +167,6 @@ export const ErrorTemplates = {
 		profile?: string;
 		region?: string;
 		credentialSource?: AwsSdkCredentialsFeatures;
-		isManagedCredential?: boolean;
 	}): string {
 		const profileContext = params.profile
 			? ` for profile '${params.profile}'`
@@ -183,7 +174,7 @@ export const ErrorTemplates = {
 		const region = params.region || 'us-east-1';
 		const regionContext = ` in region '${region}'`;
 
-		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource, params.isManagedCredential);
+		const credentialTypeDesc = getCredentialTypeDescription(params.credentialSource);
 		const credentialContext = credentialTypeDesc
 			? ` using ${credentialTypeDesc}`
 			: '';

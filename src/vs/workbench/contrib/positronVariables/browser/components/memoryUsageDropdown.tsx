@@ -225,7 +225,7 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 			fixedHeight={true}
 			height='auto'
 			keyboardNavigationStyle='dialog'
-			popupAlignment='right'
+			popupAlignment='auto'
 			popupPosition='bottom'
 			renderer={props.renderer}
 			width={400}
