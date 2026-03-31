@@ -298,8 +298,9 @@ jobs:
 
       # Install rig (R Installation Manager)
       - name: Install rig
+        shell: pwsh
         run: |
-          choco install rig
+          winget install --id Posit.rig --accept-source-agreements --accept-package-agreements
 
       # Install R 4.4.0 using rig
       - name: Install R 4.4.0
