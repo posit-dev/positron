@@ -14,16 +14,20 @@ test.describe('Positron Notebooks: Output Resize Handle', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test('Drag handle resizes scrollable cell output', async function ({ app, page }) {
+	test('Drag handle resizes scrollable cell output', async function ({ app, page, settings }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		await test.step('Setup: Create notebook with scrollable output', async () => {
+			// Enable output scrolling explicitly -- the default depends on
+			// product.quality and may be false in local dev builds.
+			await settings.set({ 'notebook.output.scrolling': true });
+
 			await notebooks.createNewNotebook();
 			await notebooksPositron.expectCellCountToBe(1);
 			await notebooksPositron.kernel.select('Python');
 
 			// Generate output that exceeds the scrollable area so the resize
-			// handle appears (output scrolling is on by default).
+			// handle appears.
 			await notebooksPositron.addCodeToCell(0, 'for i in range(100): print(f"line {i}")', { run: true });
 			await notebooksPositron.expectOutputAtIndex(0, ['line 0']);
 		});
@@ -42,17 +46,43 @@ test.describe('Positron Notebooks: Output Resize Handle', {
 			expect(initialBox).toBeTruthy();
 			const initialHeight = initialBox!.height;
 
-			// Drag the resize handle downward to grow the output area
+			// Drag the resize handle downward to grow the output area.
+			// The HorizontalSplitter uses setPointerCapture on document.body,
+			// so we dispatch native PointerEvent objects to ensure capture
+			// and event routing work correctly.
 			const handleBox = await resizeHandle.boundingBox();
 			expect(handleBox).toBeTruthy();
 			const startX = handleBox!.x + handleBox!.width / 2;
 			const startY = handleBox!.y + handleBox!.height / 2;
 			const dragDistance = 150;
 
-			await page.mouse.move(startX, startY);
-			await page.mouse.down();
-			await page.mouse.move(startX, startY + dragDistance, { steps: 5 });
-			await page.mouse.up();
+			await resizeHandle.evaluate((el, { startX, startY, dragDistance }) => {
+				const body = document.body;
+
+				el.dispatchEvent(new PointerEvent('pointerdown', {
+					clientX: startX, clientY: startY,
+					pointerId: 1, pointerType: 'mouse',
+					buttons: 1, bubbles: true, cancelable: true,
+				}));
+
+				for (let i = 1; i <= 5; i++) {
+					body.dispatchEvent(new PointerEvent('pointermove', {
+						clientX: startX,
+						clientY: startY + (dragDistance * i) / 5,
+						pointerId: 1, pointerType: 'mouse',
+						buttons: 1, bubbles: true, cancelable: true,
+					}));
+				}
+
+				// Include final position -- the splitter calls pointerMoveHandler
+				// with this event for one last update before cleanup.
+				body.dispatchEvent(new PointerEvent('lostpointercapture', {
+					clientX: startX,
+					clientY: startY + dragDistance,
+					pointerId: 1, pointerType: 'mouse',
+					bubbles: true,
+				}));
+			}, { startX, startY, dragDistance });
 
 			// The output container should now be taller
 			await expect(async () => {
@@ -66,7 +96,9 @@ test.describe('Positron Notebooks: Output Resize Handle', {
 			// The output inner should have a height-override class after resizing
 			await expect(outputInner).toHaveClass(/height-override/);
 
-			await resizeHandle.dblclick();
+			// Dispatch dblclick directly to avoid triggering pointerdown
+			// drag handlers that would re-set the height override.
+			await resizeHandle.dispatchEvent('dblclick', {});
 
 			// After reset, the height-override class should be removed
 			await expect(outputInner).not.toHaveClass(/height-override/, { timeout: 5000 });
@@ -89,10 +121,23 @@ test.describe('Positron Notebooks: Output Resize Handle', {
 			const startX = handleBox!.x + handleBox!.width / 2;
 			const startY = handleBox!.y + handleBox!.height / 2;
 
-			await page.mouse.move(startX, startY);
-			await page.mouse.down();
-			await page.mouse.move(startX, startY + 100, { steps: 5 });
-			await page.mouse.up();
+			await resizeHandle.evaluate((el, { startX, startY }) => {
+				const body = document.body;
+				el.dispatchEvent(new PointerEvent('pointerdown', {
+					clientX: startX, clientY: startY,
+					pointerId: 1, pointerType: 'mouse',
+					buttons: 1, bubbles: true, cancelable: true,
+				}));
+				body.dispatchEvent(new PointerEvent('pointermove', {
+					clientX: startX, clientY: startY + 100,
+					pointerId: 1, pointerType: 'mouse',
+					buttons: 1, bubbles: true, cancelable: true,
+				}));
+				body.dispatchEvent(new PointerEvent('lostpointercapture', {
+					clientX: startX, clientY: startY + 100,
+					pointerId: 1, pointerType: 'mouse', bubbles: true,
+				}));
+			}, { startX, startY });
 
 			await expect(outputInner).toHaveClass(/height-override/);
 
