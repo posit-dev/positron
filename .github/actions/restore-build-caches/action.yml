@@ -204,9 +204,7 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
-        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
-        restore-keys: |
-          builtins-${{ runner.os }}-
+        key: builtins-v2-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
 
     - name: Get Playwright version
       if: ${{ inputs.restore-playwright == 'true' }}

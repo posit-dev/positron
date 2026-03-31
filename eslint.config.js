@@ -1285,7 +1285,11 @@ export default tseslint.config(
 				{
 					'selector': 'JSXOpeningElement > JSXIdentifier[name="PositronActionBar"]',
 					'message': 'PositronActionBar does not display actions at narrow widths gracefully. The action buttons will get cut off at narrower widths. Use PositronDynamicActionBar instead and configure overflowContextMenuItem on actions to allow them to move to an overflow menu when space is limited.'
-				}
+				},
+				{
+					'selector': 'JSXOpeningElement > JSXIdentifier[name="PositronButton"]',
+					'message': 'Use Button from positronComponents/button/button.tsx instead, which better follows accessibility standards.'
+				},
 				// --- End Positron ---
 			],
 			'no-restricted-globals': [

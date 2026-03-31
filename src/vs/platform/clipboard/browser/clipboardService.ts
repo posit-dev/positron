@@ -3,13 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { isSafari, isWebkitWebView } from '../../../base/browser/browser.js';
+// --- Start PWB: Import isFirefox for clipboard.read() workaround ---
+import { isFirefox, isSafari, isWebkitWebView } from '../../../base/browser/browser.js';
+// --- End PWB ---
 import { $, addDisposableListener, getActiveDocument, getActiveWindow, isHTMLElement, onDidRegisterWindow } from '../../../base/browser/dom.js';
 import { mainWindow } from '../../../base/browser/window.js';
 import { DeferredPromise } from '../../../base/common/async.js';
 import { Event } from '../../../base/common/event.js';
 import { hash } from '../../../base/common/hash.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
+// --- Start PWB: Import isNative for clipboard.read() workaround ---
+import { isNative } from '../../../base/common/platform.js';
+// --- End PWB ---
 import { URI } from '../../../base/common/uri.js';
 import { IClipboardService } from '../common/clipboardService.js';
 import { ILayoutService } from '../../layout/browser/layoutService.js';
@@ -307,6 +312,16 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 	}
 
 	async hasResources(): Promise<boolean> {
+		// --- Start PWB: Firefox clipboard.read() workaround ---
+		// Firefox only supports navigator.clipboard.read() in browser extensions, not web pages.
+		// Attempting to call it in Firefox web triggers the browser's native "Paste" permission UI,
+		// which interferes with VS Code's context menus.
+		// See https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/read#browser_compatibility
+		if (isFirefox && !isNative) {
+			return this.resources.length > 0;
+		}
+		// --- End PWB ---
+
 		// Guard access to navigator.clipboard with try/catch
 		// as we have seen DOMExceptions in certain browsers
 		// due to security policies.

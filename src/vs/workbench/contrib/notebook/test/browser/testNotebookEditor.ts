@@ -254,7 +254,7 @@ export function setupInstantiationService(disposables: Pick<DisposableStore, 'ad
 function _createTestNotebookEditor(instantiationService: TestInstantiationService, disposables: DisposableStore, cells: MockNotebookCell[]): { editor: IActiveNotebookEditorDelegate; viewModel: NotebookViewModel } {
 
 	const viewType = 'notebook';
-	const notebook = disposables.add(instantiationService.createInstance(NotebookTextModel, viewType, URI.parse('test://test'), cells.map((cell): ICellDto2 => {
+	const notebook = disposables.add(instantiationService.createInstance(NotebookTextModel, viewType, URI.parse('test://test/notebook'), cells.map((cell): ICellDto2 => {
 		return {
 			source: cell[0],
 			mime: undefined,

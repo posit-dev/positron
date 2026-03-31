@@ -130,6 +130,36 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 	}
 
 	/**
+	 * Resolve an interpreter by directly specifying modules to load.
+	 *
+	 * Unlike resolveInterpreter(), this does not look up environment configuration
+	 * from settings. Use this when the module names come from an external source
+	 * (e.g., r-versions file) rather than from user settings.
+	 */
+	async resolveInterpreterFromModules(
+		modules: string[],
+		options: Omit<ResolveInterpreterOptions, 'environmentName'> & { environmentName?: string }
+	): Promise<ModuleResolvedInterpreter | undefined> {
+		// Build a synthetic config from the modules array
+		const syntheticConfig: ModuleEnvironmentConfig = {
+			languages: [options.language],
+			modules: modules
+		};
+
+		// Get init script path
+		const systemInfo = await this.getModuleSystemInfo();
+		const initScript = systemInfo.initPath;
+
+		// Resolve the interpreter
+		const fullOptions: ResolveInterpreterOptions = {
+			...options,
+			environmentName: options.environmentName || modules.join(',')
+		};
+
+		return resolveModuleInterpreter(syntheticConfig, fullOptions, initScript);
+	}
+
+	/**
 	 * Build the startup command string for loading modules.
 	 * @param modules Array of module names to load
 	 * @returns Shell command string
@@ -199,6 +229,9 @@ export async function activate(
 				return new Map();
 			},
 			async resolveInterpreter(): Promise<ModuleResolvedInterpreter | undefined> {
+				return undefined;
+			},
+			async resolveInterpreterFromModules(): Promise<ModuleResolvedInterpreter | undefined> {
 				return undefined;
 			},
 			buildStartupCommand() {

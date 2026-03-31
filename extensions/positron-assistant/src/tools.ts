@@ -444,10 +444,9 @@ export function registerAssistantTools(
 
 	// Register notebook-specific tools for notebook participant
 	// These tools enable the assistant to interact with Jupyter notebooks:
-	// - RunNotebookCells: Execute cells and retrieve outputs
-	// - AddNotebookCell: Add new code or markdown cells
-	// - UpdateNotebookCell: Update existing cell content
-	// - GetCellOutputs: Retrieve outputs from executed cells
+	// - ExecuteNotebook: Execute cells and retrieve outputs
+	// - EditNotebook: Add, update, delete, or reorder cells
+	// - GetNotebookInfo: Retrieve cell info, outputs, and kernel status
 	registerNotebookTools(context, participantService);
 
 	// Register the CreateNotebook tool for creating new notebooks

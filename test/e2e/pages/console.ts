@@ -9,7 +9,6 @@ import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { QuickAccess } from './quickaccess.js';
 
 const CONSOLE_INPUT = '.console-input';
 export const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -40,7 +39,7 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
+	constructor(private code: Code, private quickinput: QuickInput, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		// Standard Console Button Locators
 		this.restartButton = this.code.driver.page.getByTestId('restart-session');
 		this.clearButton = this.code.driver.page.getByLabel('Clear console');
@@ -128,22 +127,20 @@ export class Console {
 			await expect(async () => {
 				// Kind of hacky, but activate console in case focus was previously lost
 				await this.focus();
-				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+				await this.hotKeys.executeCodeInConsole();
+				await this.quickinput.waitForQuickInputOpened();
+				await this.quickinput.type(languageName);
+				await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
+				await this.code.driver.page.keyboard.press('Enter');
 
+				await this.quickinput.waitForQuickInputOpened();
+				const unescapedCode = code
+					.replace(/\n/g, '\\n')
+					.replace(/\r/g, '\\r');
+				await this.quickinput.type(unescapedCode);
+				await this.code.driver.page.keyboard.press('Enter');
+				await this.quickinput.waitForQuickInputClosed();
 			}).toPass();
-
-			await this.quickinput.waitForQuickInputOpened();
-			await this.quickinput.type(languageName);
-			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
-			await this.code.driver.page.keyboard.press('Enter');
-
-			await this.quickinput.waitForQuickInputOpened();
-			const unescapedCode = code
-				.replace(/\n/g, '\\n')
-				.replace(/\r/g, '\\r');
-			await this.quickinput.type(unescapedCode);
-			await this.code.driver.page.keyboard.press('Enter');
-			await this.quickinput.waitForQuickInputClosed();
 
 			if (waitForReady) {
 				await this.waitForReady(languageName === 'Python' ? '>>>' : '>', timeout);

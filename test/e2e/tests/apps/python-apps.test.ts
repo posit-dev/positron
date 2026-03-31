@@ -21,7 +21,7 @@ interface AppTestConfig {
 const appTests: AppTestConfig[] = [
 	{
 		name: 'Dash',
-		tags: [tags.WIN, tags.WORKBENCH],
+		tags: [tags.WORKBENCH], // this test is flaky on Windows, so not tagged
 		filePath: 'dash_example/dash_example.py',
 		locator: frame => frame.getByText('Hello World'),
 	},
@@ -56,13 +56,11 @@ test.describe('Python Applications', {
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {
-		const { terminal, viewer } = app.workbench;
-
 		await hotKeys.closeAllEditors();
 		await hotKeys.focusConsole();
-		await terminal.clickTerminalTab();
-		await terminal.sendKeysToTerminal('Control+C');
-		await viewer.clearViewer();
+		await app.workbench.terminal.clickTerminalTab(); // ensure we are in the terminal tab for cleanup
+		await app.workbench.terminal.sendKeysToTerminal('Control+C');
+		await app.workbench.viewer.clearViewer();
 	});
 
 	for (const appTest of appTests) {

@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Variables: Sessions', {
-	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.VARIABLES, tags.SESSIONS]
+	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.VARIABLES, tags.SESSIONS, tags.CROSS_BROWSER]
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {
@@ -29,31 +29,31 @@ test.describe('Variables: Sessions', {
 
 		// Set and verify variables in Python Session 1
 		await sessions.select(pySession.id);
-		await console.typeToConsole('x = 1', true);
-		await console.typeToConsole('y = 2', true);
+		await console.executeCode('Python', 'x = 1');
+		await console.executeCode('Python', 'y = 2');
 		await variables.expectRuntimeToBe('visible', pySession.name);
 		await variables.expectVariableToBe('x', '1');
 		await variables.expectVariableToBe('y', '2');
 
 		// Set and verify variables in Python Session 2
 		await sessions.select(pySessionAlt.id);
-		await console.typeToConsole('x = 11', true);
-		await console.typeToConsole('y = 22', true);
+		await console.executeCode('Python', 'x = 11');
+		await console.executeCode('Python', 'y = 22');
 		await variables.expectRuntimeToBe('visible', pySessionAlt.name);
 		await variables.expectVariableToBe('x', '11');
 		await variables.expectVariableToBe('y', '22');
 
 		// Set and verify variables in R
 		await sessions.select(rSession.id);
-		await console.typeToConsole('x <- 3', true);
-		await console.typeToConsole('z <- 4', true);
+		await console.executeCode('R', 'x <- 3');
+		await console.executeCode('R', 'z <- 4');
 		await variables.expectRuntimeToBe('visible', rSession.name);
 		await variables.expectVariableToBe('x', '3');
 		await variables.expectVariableToBe('z', '4');
 
 		// Switch back to Python, update variables, and verify
 		await sessions.select(pySession.id);
-		await console.typeToConsole('x = 0', true);
+		await console.executeCode('Python', 'x = 0');
 		await variables.expectRuntimeToBe('visible', pySession.name);
 		await variables.expectVariableToBe('x', '0');
 		await variables.expectVariableToBe('y', '2');

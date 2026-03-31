@@ -338,6 +338,9 @@ async function downloadFromGitHubRepository(
 			throw new Error(`Invalid Ark repository: Cargo.toml not found at the repository root`);
 		}
 
+		console.log('Updating Rust toolchain...');
+		await executeCommand('rustup update stable');
+
 		console.log('Building Ark from source...');
 
 		const buildOutput = await executeCommand('cargo build --release', undefined, tempDir);
@@ -427,8 +430,10 @@ async function main() {
 	console.log(`package.json version: ${packageJsonVersion} `);
 	console.log(`Downloaded ark version: ${localArkVersion ? localArkVersion : 'Not found'} `);
 
-	// Skip installation if versions match
-	if (packageJsonVersion === localArkVersion) {
+	// Skip installation if versions match. Repo references (org/repo@branch)
+	// always re-download because the branch tip may have new commits even though
+	// the ref string is unchanged.
+	if (packageJsonVersion === localArkVersion && !isGitHubRepoReference(packageJsonVersion)) {
 		console.log('Versions match. No action required.');
 		return;
 	}

@@ -14,9 +14,9 @@ export class DashboardPage {
 	get newSessionButton() { return this.code.driver.page.getByRole('button', { name: 'New Session', exact: true }).first(); }
 	get positronProButton() { return this.code.driver.page.getByRole('tab', { name: 'Positron Pro' }); }
 	get sessionNameInput() { return this.code.driver.page.getByRole('textbox', { name: 'Session Name' }); }
-	project = (projectName: string) => this.code.driver.page.getByRole('button', { name: projectName });
-	projectNewSessionButton = (projectName: string) => this.project(projectName).locator('..').locator('..').getByRole('button', { name: 'Create new session' });
-	projectCheckbox = (projectName: string) => this.project(projectName).locator('..').locator('..').locator('button[role="checkbox"]');
+	project = (projectName: string) => this.code.driver.page.getByRole('link', { name: projectName });
+	projectNewSessionButton = (projectName: string) => this.project(projectName).locator('..').locator('..').locator('..').getByRole('button', { name: 'Create new session' });
+	projectCheckbox = (projectName: string) => this.code.driver.page.getByRole('checkbox', { name: `select ${projectName}` });
 
 	constructor(private code: Code, private quickInput: QuickInput) { }
 

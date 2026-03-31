@@ -64,6 +64,11 @@ const extensions = [
 	},
 	// --- Start Positron ---
 	{
+		label: 'authentication',
+		workspaceFolder: path.join(os.tmpdir(), `authentication-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-assistant',
 		workspaceFolder: 'extensions/positron-assistant/test-workspace',
 		mocha: { timeout: 60_000 }

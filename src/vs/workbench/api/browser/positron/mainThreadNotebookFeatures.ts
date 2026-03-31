@@ -21,6 +21,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -36,6 +37,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		// No initialization needed
 	}
@@ -112,13 +114,19 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Include all cells - filtering will be done on the extension side
 		const allCells = cells.map(cell => this.mapCellToDTO(cell));
 
+		// Get runtime state from the session service
+		const notebookUri = instance.uri;
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		const runtimeState = session?.getRuntimeState();
+
 		return {
-			uri: instance.uri.toString(),
+			uri: notebookUri.toString(),
 			kernelId: kernel?.id,
 			kernelLanguage: kernel?.runtime.languageId,
 			cellCount: cells.length,
 			selectedCells,
-			allCells
+			allCells,
+			runtimeState: runtimeState ?? undefined,
 		};
 	}
 
@@ -603,6 +611,43 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			if (autoFollow) {
 				await cell.reveal({ reason: 'programmatic' });
 			}
+		}
+	}
+
+	/**
+	 * Clears cell outputs in a notebook.
+	 * If cellIndices is provided, clears only those cells. Otherwise clears all.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndices Optional array of cell indices to clear.
+	 */
+	async $clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void> {
+		const instance = this._getInstanceByUri(notebookUri);
+		if (!instance) {
+			throw new Error(`No notebook found with URI: ${notebookUri}`);
+		}
+
+		if (cellIndices === undefined) {
+			// Clear all cell outputs
+			instance.clearAllCellOutputs();
+		} else {
+			if (cellIndices.length === 0) {
+				return;
+			}
+
+			const cells = instance.cells.get();
+			const cellCount = cells.length;
+
+			// De-duplicate and sort ascending
+			const uniqueIndices = [...new Set(cellIndices)].sort((a, b) => a - b);
+
+			// Validate all indices
+			for (const idx of uniqueIndices) {
+				if (!Number.isInteger(idx) || idx < 0 || idx >= cellCount) {
+					throw new Error(`Invalid cell index: ${idx}. Must be between 0 and ${cellCount - 1}`);
+				}
+			}
+
+			instance.clearCellOutputsByIndex(uniqueIndices);
 		}
 	}
 

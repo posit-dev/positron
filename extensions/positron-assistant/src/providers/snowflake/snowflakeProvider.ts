@@ -14,7 +14,6 @@ import {
 } from './snowflakeAuth';
 import { autoconfigureWithManagedCredentials, SNOWFLAKE_MANAGED_CREDENTIALS } from '../../pwb';
 import { OpenAICompatibleModelProvider } from '../openai/openaiCompatibleProvider.js';
-import { IS_RUNNING_ON_PWB } from '../../constants.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
@@ -40,7 +39,10 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 	};
 
 	protected override get customHeaders() {
-		return { 'User-Agent': IS_RUNNING_ON_PWB ? 'posit_workbench_positron' : 'posit_positron' };
+		const envConfig = vscode.workspace.getConfiguration('environmentVariables');
+		const envVars = envConfig.get<Record<string, string>>('set') ?? {};
+		const partnerTag = envVars['SF_PARTNER'] || 'posit_positron';
+		return { 'User-Agent': partnerTag };
 	}
 
 	/**

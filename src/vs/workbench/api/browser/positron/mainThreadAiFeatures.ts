@@ -63,9 +63,11 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 				sources,
 				async (config, action) => {
 					await this._proxy.$responseLanguageModelConfig(id, config, action);
+				},
+				() => {
+					this._proxy.$onCompleteLanguageModelConfig(id);
 					resolve();
 				},
-				() => this._proxy.$onCompleteLanguageModelConfig(id),
 				options,
 			);
 		});

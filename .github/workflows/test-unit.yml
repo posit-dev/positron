@@ -61,7 +61,7 @@ jobs:
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
@@ -174,15 +174,16 @@ jobs:
             ~/.cache/R
             /usr/local/lib/R/site-library
             /opt/R
-          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+          key: ${{ runner.os }}-r-4.5.2-${{ steps.download-r-desc.outputs.description-hash }}
           restore-keys: |
-            ${{ runner.os }}-r-4.4.0-
+            ${{ runner.os }}-r-4.5.2-
 
       - name: Setup R
         if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/install-r
         with:
-          version: "4.4.0"
+          version: "4.5.2"
+          install_undetectable_interpreters: true
 
       - name: Save R installation and packages cache
         if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
@@ -194,7 +195,7 @@ jobs:
             ~/.cache/R
             /usr/local/lib/R/site-library
             /opt/R
-          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+          key: ${{ runner.os }}-r-4.5.2-${{ steps.download-r-desc.outputs.description-hash }}
 
       - name: 🧪 Run Unit Tests (Electron)
         id: electron-unit-tests

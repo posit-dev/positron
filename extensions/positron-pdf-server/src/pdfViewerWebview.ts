@@ -74,6 +74,7 @@ export async function createWebviewHtml(
 	const viewerUrl = `${serverUrl}/viewer?file=${encodeURIComponent(pdfUrl)}&theme=${theme}`;
 
 	// Return the complete HTML for the webview, including the CSP and the iframe pointing to the viewer URL.
+	// Also includes a script to forward keyboard events from the PDF viewer to VS Code's keybinding service.
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -97,6 +98,41 @@ export async function createWebviewHtml(
 </head>
 <body>
 	<iframe id="pdf-frame" src="${viewerUrl}"></iframe>
+	<script nonce="${nonce}">
+		// Get VS Code API for messaging - this is provided by VS Code's webview infrastructure
+		const vscode = acquireVsCodeApi();
+
+		// Expected origin for messages from the PDF viewer iframe.
+		// We validate this to prevent other frames from spoofing keyboard events.
+		const expectedOrigin = new URL('${serverUrl}').origin;
+
+		// Listen for keyboard events forwarded from the PDF.js viewer.
+		// The keyboard-forwarder.js script in the PDF viewer posts messages
+		// when specific shortcuts are pressed that should be handled by VS Code.
+		window.addEventListener('message', function(event) {
+			// Validate the message origin - only accept messages from our PDF server
+			if (event.origin !== expectedOrigin) {
+				return;
+			}
+
+			if (event.data && event.data.channel === 'pdf-keyboard-event') {
+				const data = event.data.data;
+
+				// Send the keyboard event to the extension, which will execute
+				// the appropriate VS Code command
+				vscode.postMessage({
+					type: 'keyboard-shortcut',
+					key: data.key,
+					code: data.code,
+					keyCode: data.keyCode,
+					shiftKey: data.shiftKey,
+					altKey: data.altKey,
+					ctrlKey: data.ctrlKey,
+					metaKey: data.metaKey
+				});
+			}
+		});
+	</script>
 </body>
 </html>`;
 }

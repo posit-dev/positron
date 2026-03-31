@@ -758,4 +758,6 @@ export const codiconsLibrary = {
 	positronAssistantInProgress: register('positron-assistant-in-progress', 0xf295),
 	positronAssistantUnavailable: register('positron-assistant-unavailable', 0xf296),
 	positronClearPlot: register('positron-clear-plot', 0xf297),
+	positronPin: register('positron-pin', 0xf298),
+	positronUnpin: register('positron-unpin', 0xf299),
 } as const;

@@ -5,7 +5,7 @@
 
 // eslint-disable-next-line local/code-import-patterns
 import { S3Client, GetObjectCommand, GetObjectCommandOutput } from '@aws-sdk/client-s3';
-import { createWriteStream } from 'fs';
+import { createWriteStream, existsSync, statSync } from 'fs';
 import { pipeline } from 'stream';
 import { promisify } from 'util';
 
@@ -47,6 +47,15 @@ export const downloadFileFromS3 = async (options: S3FileDownloadOptions): Promis
 			const fileStream = createWriteStream(options.localFilePath);
 			const streamPipeline = promisify(pipeline);
 			await streamPipeline(response.Body, fileStream);
+
+			// Verify the file was written successfully
+			if (!existsSync(options.localFilePath)) {
+				throw new Error(`File not found after download: ${options.localFilePath}`);
+			}
+			const stats = statSync(options.localFilePath);
+			if (stats.size === 0) {
+				throw new Error(`Downloaded file is empty: ${options.localFilePath}`);
+			}
 			return;
 		} catch (error) {
 			console.error(`Attempt ${attempt + 1} failed:`, (error as any).message);

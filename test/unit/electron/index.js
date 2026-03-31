@@ -56,7 +56,10 @@ const args = minimist(process.argv.slice(2), {
 		'help': 'h'
 	},
 	default: {
-		'reporter': 'spec',
+		// --- Start Positron ---
+		// Use 'min' reporter for Claude Code to reduce output noise
+		'reporter': process.env.CLAUDE_CODE ? 'min' : 'spec',
+		// --- End Positron ---
 		'reporter-options': ''
 	}
 });

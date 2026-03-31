@@ -142,7 +142,11 @@ echo "Expected Node version: $NVMRC_VERSION"
 
 See commit `ffd551b3553` for an example of updating node versions across all files.
 
-### Step 6: Generate Review Report
+### Step 6: Check Copilot Extension Compatibility
+
+Upstream merges change the Code OSS version and API proposals compiled into Positron. Use the `pick-copilot-tag` skill to determine which `microsoft/vscode-copilot-chat` tag to use with the new build. Flag the latest compatible tag and any regressions vs. the currently pinned version.
+
+### Step 7: Generate Review Report
 
 Create a structured report with these sections:
 
@@ -202,6 +206,16 @@ Create a structured report with these sections:
 | Admin enforced settings | [OK/Changed] |
 | Relative path generation | [OK/Changed] |
 
+### Copilot Extension Compatibility
+
+| Tag | Status | Issues |
+|-----|--------|--------|
+| ... | OK/BAD | ... |
+
+**Latest compatible tag**: vX.Y.Z
+**Currently pinned**: vX.Y.Z
+**Action**: [None/Update needed]
+
 ### Potential Concerns
 [List any concerns with risk level]
 
@@ -209,7 +223,7 @@ Create a structured report with these sections:
 [Safe to merge / Needs attention / Do not merge]
 ```
 
-### Step 7: Additional Checks (if needed)
+### Step 8: Additional Checks (if needed)
 
 If the review identifies concerns that require investigating how Posit Workbench integrates with this code, **prompt the user for the rstudio-pro repository location**:
 
@@ -244,3 +258,4 @@ The merge is safe if:
 - [ ] File controls still functional
 - [ ] No major dependency breaking changes
 - [ ] Build environment Node versions match `.nvmrc` (or flagged for update)
+- [ ] Copilot extension compatibility checked (latest compatible tag identified)

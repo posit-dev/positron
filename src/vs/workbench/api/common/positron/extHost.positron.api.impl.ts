@@ -40,6 +40,8 @@ import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
+import { ExtHostPositronEphemeralStorage } from './extHostPositronEphemeralStorage.js';
+import { IExtHostStorage } from '../extHostStorage.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -88,21 +90,24 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
+	const storage = accessor.get(IExtHostStorage);
+	const extHostEphemeralStorage = new ExtHostPositronEphemeralStorage(rpcProtocol, accessor.get(ILogService));
+	storage.setPositronEphemeralStorage(extHostEphemeralStorage);
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?): Thenable<Record<string, unknown>> {
+			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?, executionMetadata?): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri);
+				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata);
 			},
 			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string): Thenable<positron.EvalResult> {
 				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId);
 			},
-			executeInlineCell(documentUri, ranges): Thenable<void> {
+			executeInlineCell(documentUri, ranges, executionMetadata?): Thenable<void> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges);
+				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, ranges, executionMetadata);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,
@@ -145,7 +150,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					sessionMode,
 					notebookUri);
 			},
-			restartSession(sessionId: string): Thenable<void> {
+			interruptSession(sessionId: string): Thenable<void> {
+				return extHostLanguageRuntime.interruptSession(sessionId);
+			},
+			restartSession(sessionId: string): Thenable<boolean> {
 				return extHostLanguageRuntime.restartSession(sessionId);
 			},
 			focusSession(sessionId: string): void {
@@ -225,7 +233,13 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getPlotsRenderSettings(): Thenable<positron.PlotRenderSettings> {
 				return extHostPlotsService.getPlotsRenderSettings();
-			}
+			},
+		};
+
+		const context: typeof positron.context = {
+			get ephemeralState() {
+				return extHostEphemeralStorage.getOrCreateMemento(extension.identifier.value);
+			},
 		};
 
 		const languages: typeof positron.languages = {
@@ -440,7 +454,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					kernelLanguage: context.kernelLanguage,
 					cellCount: context.cellCount,
 					selectedCells: context.selectedCells,
-					allCells: context.allCells
+					allCells: context.allCells,
+					runtimeState: context.runtimeState
 				};
 			},
 
@@ -510,6 +525,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 			async scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
 				return extHostNotebookFeatures.scrollToCellIfNeeded(notebookUri, cellIndex);
+			},
+
+			async clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void> {
+				return extHostNotebookFeatures.clearCellOutputs(notebookUri, cellIndices);
 			}
 		};
 
@@ -520,6 +539,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			buildNumber: initData.positronBuildNumber,
 			runtime,
 			window,
+			context,
 			languages,
 			methods,
 			environment,

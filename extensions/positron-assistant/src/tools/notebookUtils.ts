@@ -11,6 +11,62 @@ import { isRuntimeSessionReference } from '../utils.js';
 import { log } from '../log.js';
 
 /**
+ * MIME types for notebook cell output classification.
+ * Matches the canonical types from the ipynb extension and VS Code notebook renderer.
+ *
+ * NOTE: The core browser layer has similar utilities in
+ * `src/vs/workbench/contrib/positronNotebook/browser/notebookMimeUtils.ts`
+ * (isImageMimeType, isTextBasedMimeType). Extensions cannot import from core,
+ * so these are maintained separately. Keep them aligned when adding new types.
+ */
+const ERROR_MIME_TYPES = new Set([
+	'application/vnd.code.notebook.error',
+	'application/vnd.code.notebook.stderr',
+	'application/x.notebook.error',
+	'application/x.notebook.stderr',
+]);
+
+const TEXT_MIME_TYPES = new Set([
+	'application/vnd.code.notebook.stdout',
+	'application/x.notebook.stdout',
+	'application/x.notebook.stream',
+	'application/json',
+	'application/xml',
+	'image/svg+xml',
+]);
+
+/**
+ * Strips MIME parameters (e.g., `; charset=utf-8`) to get the base type.
+ *
+ * Differs from `normalizeMimeType` in `src/vs/base/common/mime.ts` which
+ * preserves parameters and only lowercases. This variant strips parameters
+ * entirely for Set-based lookups.
+ */
+function normalizeMime(mimeType: string): string {
+	const semicolonIndex = mimeType.indexOf(';');
+	const base = semicolonIndex >= 0 ? mimeType.slice(0, semicolonIndex) : mimeType;
+	return base.trim().toLowerCase();
+}
+
+/**
+ * Returns true if the MIME type represents an error or stderr output.
+ */
+export function isErrorMime(mimeType: string): boolean {
+	return ERROR_MIME_TYPES.has(normalizeMime(mimeType));
+}
+
+/**
+ * Returns true if the MIME type represents text-based output
+ * (including stdout, stderr, error, text/*, and structured text like JSON).
+ */
+export function isTextMime(mimeType: string): boolean {
+	const normalized = normalizeMime(mimeType);
+	return normalized.startsWith('text/') ||
+		TEXT_MIME_TYPES.has(normalized) ||
+		ERROR_MIME_TYPES.has(normalized);
+}
+
+/**
  * Maximum preview length per cell for confirmations (characters)
  */
 const MAX_CELL_PREVIEW_LENGTH = 500;
@@ -277,6 +333,9 @@ export function convertOutputsToLanguageModelParts(
 
 	// Convert each output to appropriate LanguageModel part
 	for (const output of outputs) {
+		// SVG (image/svg+xml) classification is inconsistent -- isTextMime
+		// treats it as text, but we want it as an image here. Uses
+		// startsWith as a workaround; proper fix deferred to #12096.
 		if (output.mimeType.startsWith('image/')) {
 			// Handle image outputs - convert base64 to binary
 			if (!output.data) {
@@ -443,10 +502,10 @@ export function serializeNotebookContext(
 		if (canIncludeFullNotebook) {
 			contextNote = xml.node('note', 'All cells are provided above because this notebook has fewer than 20 cells.');
 		} else {
-			contextNote = xml.node('note', 'A context window around the selected/recent cells is provided above. Use the GetNotebookCells tool to retrieve additional cells by index when needed.');
+			contextNote = xml.node('note', 'A context window around the selected/recent cells is provided above. Use the getNotebookInfo tool to retrieve additional cells by index when needed.');
 		}
 	} else {
-		contextNote = xml.node('note', 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by index when needed.');
+		contextNote = xml.node('note', 'Only selected cells are shown above to conserve tokens. Use the getNotebookInfo tool to retrieve additional cells by index when needed.');
 	}
 
 	// Build result
@@ -716,7 +775,7 @@ export function serializeNotebookContextAsUserMessage(
 			: 'Context window around selected/recent cells (notebook has 20+ cells)';
 		parts.push(xml.node('context-mode', contextMode));
 	} else {
-		parts.push(xml.node('context-mode', 'Selected cells only (use GetNotebookCells for other cells)'));
+		parts.push(xml.node('context-mode', 'Selected cells only (use getNotebookInfo for other cells)'));
 	}
 	parts.push('</notebook-info>');
 

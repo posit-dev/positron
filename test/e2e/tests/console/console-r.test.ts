@@ -17,6 +17,11 @@ test.describe('Console Pane: R', {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
+	test('R - do not allow extra console output on start', async function ({ app, r }) {
+
+		await app.workbench.console.waitForConsoleContents(process.env.POSITRON_R_VER_SEL!, { expectedCount: 2, timeout: 20000 });
+	});
+
 	test('R - Verify cat from .Rprofile', async function ({ app, r }) {
 		await expect(async () => {
 			await app.workbench.console.waitForConsoleContents('cat from .Rprofile');

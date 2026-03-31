@@ -192,7 +192,7 @@ export function getBuiltInExtensions(): Promise<void> {
 		// formal part of the extension definition but a custom field we use to
 		// filter out web-only extensions (i.e. Posit Workbench)
 		// @ts-ignore
-		if (extension.type === 'reh-web') {
+		if (extension.type === 'reh-web' || extension.type === 'reh-web-pwb') {
 			continue;
 		}
 		// --- End Positron ---

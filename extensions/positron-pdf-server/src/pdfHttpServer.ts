@@ -77,10 +77,35 @@ export class PdfHttpServer {
 			throw new Error('Server not initialized. Call initialize() with extension path first.');
 		}
 
-		// Serve PDF.js distribution files statically (includes web/viewer.html, build/, etc.).
+		// Serve PDF.js viewer.html with keyboard forwarder script injected.
+		this.app.get('/pdfjs/web/viewer.html', async (req: express.Request, res: express.Response) => {
+			try {
+				const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
+				let html = await fs.promises.readFile(viewerPath, 'utf-8');
+
+				// Inject our keyboard forwarder script in the <head> BEFORE PDF.js scripts.
+				// This ensures our capture-phase event listeners are registered first.
+				const scriptTag = '<script src="/keyboard-forwarder.js"></script>';
+				html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${scriptTag}`);
+
+				res.type('text/html');
+				return res.send(html);
+			} catch (err) {
+				console.error('Error serving modified viewer.html:', err);
+				return res.status(500).send('Error loading PDF viewer');
+			}
+		});
+
+		// Serve PDF.js distribution files statically (includes web/*, build/*, etc.).
 		this.app.use('/pdfjs', express.static(
 			path.join(this.extensionPath, 'pdfjs-dist')
 		));
+
+		// Serve keyboard forwarder script for injection into PDF.js viewer.
+		this.app.get('/keyboard-forwarder.js', (_req: express.Request, res: express.Response) => {
+			res.type('application/javascript');
+			res.sendFile(path.join(this.extensionPath!, 'keyboard-forwarder.js'));
+		});
 
 		// Serve custom viewer wrapper.
 		this.app.get('/viewer', (_req: express.Request, res: express.Response) => {

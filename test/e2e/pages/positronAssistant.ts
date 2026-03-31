@@ -9,6 +9,7 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
 import { Modals } from './dialog-modals.js';
+import { HotKeys } from './hotKeys.js';
 
 /**
  * Fills an input element's value using evaluate() instead of Playwright's
@@ -71,7 +72,7 @@ const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat ac
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = '.chat-input-toolbars a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MODEL_PICKER_DROPDOWN = '.action-item.chat-input-picker-item a.action-label[aria-label^="Pick Model"] .codicon.codicon-chevron-down';
+// const MODEL_PICKER_DROPDOWN = '.action-item.chat-input-picker-item a.action-label[aria-label^="Pick Model"] .codicon.codicon-chevron-down';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 
@@ -234,7 +235,11 @@ function isProviderAutoSignedIn(provider: ModelProvider): boolean {
  */
 export class Assistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) { }
+	private hotKeys: HotKeys;
+
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) {
+		this.hotKeys = new HotKeys(code);
+	}
 
 	async verifyChatButtonVisible() {
 		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
@@ -256,8 +261,16 @@ export class Assistant {
 		});
 	}
 
+	async openModelPickerDropdown() {
+		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
+		await chatInput.waitFor({ state: 'visible' });
+		await chatInput.click({ force: true });
+		const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+		await this.code.driver.page.keyboard.press(`${modifier}+Alt+Period`);
+	}
+
 	async runConfigureProviders() {
-		await this.quickaccess.runCommand('positron-assistant.configureProviders');
+		await this.hotKeys.configureProviders();
 	}
 
 	async clickConfigureProvidersLink() {
@@ -273,13 +286,13 @@ export class Assistant {
 
 		const configureProvidersButtonIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
 		if (!configureProvidersButtonIsVisible) {
-			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+			await this.openModelPickerDropdown();
 		}
 		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
 	}
 
 	async verifyConfigureProvidersButtonVisible() {
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		await this.openModelPickerDropdown();
 		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
 	}
 
@@ -298,7 +311,7 @@ export class Assistant {
 	}
 
 	async pickModel() {
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		await this.openModelPickerDropdown();
 	}
 
 	async expectManageModelsVisible() {
@@ -369,8 +382,8 @@ export class Assistant {
 		}
 
 		await test.step(`Sign in to ${provider} model provider`, async () => {
-			// Open the model configuration dialog via command (more reliable than clicking UI)
-			await this.quickaccess.runCommand('positron-assistant.configureProviders');
+			// Open the model configuration dialog via hotkey (more reliable than command palette UI)
+			await this.hotKeys.configureProviders();
 
 			// Select the provider
 			await this.selectModelProvider(provider);
@@ -947,8 +960,8 @@ export class Assistant {
 	}
 
 	async selectChatModel(model: string) {
-		// Click the model picker dropdown to open it
-		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		// Open the model picker dropdown
+		await this.openModelPickerDropdown();
 
 		// Wait for the dropdown menu to appear
 		await this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });

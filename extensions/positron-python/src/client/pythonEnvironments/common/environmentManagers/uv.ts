@@ -6,11 +6,23 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { cache } from '../../../common/utils/decorators';
-import { traceVerbose } from '../../../logging';
+import { traceError, traceVerbose } from '../../../logging';
 import { exec, pathExists, readFile, resolveSymbolicLink } from '../externalDependencies';
 import { isTestExecution } from '../../../common/constants';
 import { getPyvenvConfigPathsFrom } from './simplevirtualenvs';
 import { splitLines } from '../../../common/stringUtils';
+import { CreateEnv } from '../../../common/utils/localize';
+
+/** Regex to extract version from uv python list output (e.g., "cpython-3.14.0a5-macos-aarch64-none") */
+const UV_VERSION_REGEX = /cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i;
+
+/** Regex to check if a version string is a pre-release (alpha, beta, or release candidate) */
+const PRERELEASE_REGEX = /\d+\.\d+\.\d+(a|b|rc)\d+/i;
+
+/** Check if a version string represents a pre-release version */
+function isVersionPrerelease(version: string): boolean {
+    return PRERELEASE_REGEX.test(version);
+}
 
 /** Wraps the "uv" utility, and exposes its functionality. */
 class UvUtils {
@@ -131,6 +143,237 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
 export async function isUvInstalled(): Promise<boolean> {
     const uvUtils = await UvUtils.getUvUtils();
     return uvUtils !== undefined;
+}
+
+/**
+ * Information about a Python version that uv would install.
+ */
+export interface UvPythonVersionInfo {
+    /** The full version string (e.g., "3.14.0a5") */
+    version: string;
+    /** Whether this is a pre-release version (alpha, beta, or release candidate) */
+    isPrerelease: boolean;
+    /** The path to the Python executable */
+    path?: string;
+}
+
+/**
+ * Options for getUvPythonVersionInfo
+ */
+export interface GetUvPythonVersionInfoOptions {
+    /** If true, skip local pre-release versions and prefer downloadable stable versions */
+    skipLocalPrereleases?: boolean;
+}
+
+/**
+ * Checks what Python version uv would install for a given version request.
+ * Uses `uv python list` to see available versions without actually installing.
+ * @param requestedVersion The version requested (e.g., "3.14", "3.13")
+ * @param options Options for version lookup
+ * @returns Information about the Python version, or undefined if not found
+ */
+export async function getUvPythonVersionInfo(
+    requestedVersion: string,
+    options?: GetUvPythonVersionInfoOptions,
+): Promise<UvPythonVersionInfo | undefined> {
+    const uvUtils = await UvUtils.getUvUtils();
+    if (!uvUtils) {
+        return undefined;
+    }
+
+    try {
+        // Use `uv python list VERSION` to see available versions
+        // Output format:
+        //   cpython-3.15.0a6-macos-aarch64-none    <download available>
+        //   cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ...
+        const result = await exec(uvUtils.command, ['python', 'list', requestedVersion], { throwOnStdErr: false });
+        const output = result?.stdout.trim();
+
+        if (!output) {
+            return undefined;
+        }
+
+        const lines = output
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+        if (lines.length === 0) {
+            return undefined;
+        }
+
+        // Helper to check if a line represents a pre-release version
+        const isLinePrerelease = (line: string): boolean => {
+            const match = line.match(UV_VERSION_REGEX);
+            return match ? isVersionPrerelease(match[1]) : false;
+        };
+
+        // Find the appropriate version based on options
+        let selectedLine: string;
+        if (options?.skipLocalPrereleases) {
+            // When skipping local pre-releases, prefer:
+            // 1. First local stable version
+            // 2. First downloadable stable version
+            // 3. Fall back to first line (may be pre-release)
+            const localStableLine = lines.find(
+                (line) => !line.includes('<download available>') && !isLinePrerelease(line),
+            );
+            const downloadableStableLine = lines.find(
+                (line) => line.includes('<download available>') && !isLinePrerelease(line),
+            );
+            selectedLine = localStableLine ?? downloadableStableLine ?? lines[0];
+        } else {
+            // Default behavior: prefer local versions
+            const localLine = lines.find((line) => !line.includes('<download available>'));
+            selectedLine = localLine ?? lines[0];
+        }
+
+        // Format: "cpython-3.15.0a6-macos-aarch64-none    <download available>"
+        // or:     "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
+        const versionMatch = selectedLine.match(UV_VERSION_REGEX);
+        if (!versionMatch) {
+            traceVerbose(`Could not parse version from uv python list output: ${selectedLine}`);
+            return undefined;
+        }
+        const version = versionMatch[1];
+
+        const isPrerelease = isVersionPrerelease(version);
+
+        // Check if this version is locally installed
+        const isLocal = !selectedLine.includes('<download available>');
+
+        // Extract path if this is a local install
+        let pythonPath: string | undefined;
+        if (isLocal) {
+            // Extract path from format like:
+            //   "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
+            //   "cpython-3.13.7-windows-x86_64-none   C:\Program Files\Python\python.exe"
+            // Split on 2+ spaces to separate columns, then strip " -> ..." suffix
+            const columns = selectedLine.split(/\s{2,}/);
+            if (columns.length >= 2) {
+                let pathColumn = columns[1].trim();
+                const arrowIndex = pathColumn.indexOf(' -> ');
+                if (arrowIndex !== -1) {
+                    pathColumn = pathColumn.substring(0, arrowIndex);
+                }
+                if (pathColumn.length > 0) {
+                    pythonPath = pathColumn;
+                }
+            }
+        }
+
+        return {
+            version,
+            isPrerelease,
+            path: pythonPath,
+        };
+    } catch (ex) {
+        traceVerbose(`Error checking uv Python version: ${ex}`);
+        return undefined;
+    }
+}
+
+/**
+ * Runs `uv self update` to update uv to the latest version.
+ * @returns true if the update succeeded, false otherwise
+ */
+export async function updateUv(): Promise<boolean> {
+    const uvUtils = await UvUtils.getUvUtils();
+    if (!uvUtils) {
+        return false;
+    }
+
+    try {
+        traceVerbose('Running uv self update...');
+        await exec(uvUtils.command, ['self', 'update'], { throwOnStdErr: false });
+        traceVerbose('uv self update completed successfully');
+        return true;
+    } catch (ex) {
+        traceVerbose(`Error running uv self update: ${ex}`);
+        return false;
+    }
+}
+
+/**
+ * Installs a Python version using uv.
+ * @param version The version to install (e.g., "3.13.7", "3.14")
+ * @returns true if the installation succeeded, false otherwise
+ */
+export async function installUvPython(version: string): Promise<boolean> {
+    const uvUtils = await UvUtils.getUvUtils();
+    if (!uvUtils) {
+        return false;
+    }
+
+    try {
+        traceVerbose(`Running uv python install ${version}...`);
+        await exec(uvUtils.command, ['python', 'install', version], { throwOnStdErr: false });
+        traceVerbose(`uv python install ${version} completed successfully`);
+        return true;
+    } catch (ex) {
+        traceVerbose(`Error running uv python install: ${ex}`);
+        return false;
+    }
+}
+
+/**
+ * Result of attempting to get a stable Python version after updating uv.
+ */
+export type GetStablePythonResult =
+    | { success: true; version: string; wasInstalled: boolean }
+    | { success: false; error: 'update_failed' | 'install_failed' | 'no_stable_version'; version?: string };
+
+/**
+ * Updates uv and attempts to find/install a stable Python version.
+ * This handles the flow: update uv -> check for stable -> install if needed.
+ *
+ * @param requestedVersion The version requested (e.g., "3.14", "3.13")
+ * @param onProgress Optional callback for progress updates
+ * @returns Result indicating success with version info, or failure with error type
+ */
+export async function getStablePythonAfterUpdate(
+    requestedVersion: string,
+    onProgress?: (message: string) => void,
+): Promise<GetStablePythonResult> {
+    // Update uv
+    onProgress?.(CreateEnv.Uv.updatingUv);
+    traceVerbose('Running uv self update...');
+    const updateSuccess = await updateUv();
+    if (!updateSuccess) {
+        traceError('Failed to update uv');
+        return { success: false, error: 'update_failed' };
+    }
+    traceVerbose('uv updated successfully, checking for stable Python version...');
+
+    // Look for a stable version, skipping local pre-releases
+    const stableVersionInfo = await getUvPythonVersionInfo(requestedVersion, {
+        skipLocalPrereleases: true,
+    });
+
+    if (!stableVersionInfo || stableVersionInfo.isPrerelease) {
+        // No stable version available
+        traceError(
+            `No stable Python version available for ${requestedVersion}, only pre-release ${
+                stableVersionInfo?.version ?? 'unknown'
+            }`,
+        );
+        return { success: false, error: 'no_stable_version', version: stableVersionInfo?.version };
+    }
+
+    // Found a stable version - install it if not already local
+    if (!stableVersionInfo.path) {
+        onProgress?.(CreateEnv.Uv.installingPython(stableVersionInfo.version));
+        traceVerbose(`Installing stable Python ${stableVersionInfo.version}...`);
+        const installSuccess = await installUvPython(stableVersionInfo.version);
+        if (!installSuccess) {
+            traceError(`Failed to install Python ${stableVersionInfo.version}`);
+            return { success: false, error: 'install_failed', version: stableVersionInfo.version };
+        }
+        traceVerbose(`Using stable Python ${stableVersionInfo.version}`);
+        return { success: true, version: stableVersionInfo.version, wasInstalled: true };
+    }
+
+    traceVerbose(`Using existing stable Python ${stableVersionInfo.version}`);
+    return { success: true, version: stableVersionInfo.version, wasInstalled: false };
 }
 
 /**

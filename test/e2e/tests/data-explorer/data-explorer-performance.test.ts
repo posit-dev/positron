@@ -5,6 +5,7 @@
 
 import { test, tags } from '../_test.setup';
 import { MetricTargetType } from '../../utils/metrics/metric-base.js';
+import { TestTags } from '../../infra/index.js';
 
 const testCases: {
 	env: 'Python' | 'R' | 'DuckDB';
@@ -13,6 +14,7 @@ const testCases: {
 	varType: MetricTargetType;
 	preFilterSummary: RegExp;
 	postFilterSummary: RegExp;
+	tags?: TestTags[];
 }[] = [
 		{
 			env: 'Python',
@@ -45,6 +47,7 @@ const testCases: {
 			varType: 'r.tibble',
 			preFilterSummary: /5,051,640/,
 			postFilterSummary: /Showing 15 rows/,
+			tags: [tags.ARK]
 		}
 	];
 
@@ -63,7 +66,7 @@ test.describe('Data Explorer: Performance', { tag: [] }, () => {
 
 	testCases.forEach(testCase => {
 		test(`${testCase.varType} - Record data load, basic filtering and sorting [${testCase.preFilterSummary.source} rows]`,
-			{ tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] },
+			{ tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE, ...(testCase.tags || [])] },
 			async function ({ app, openFile, runCommand, metric, sessions }) {
 				const { dataExplorer, variables, editors } = app.workbench;
 				await sessions.start(testCase.env === 'Python' ? 'python' : 'r');

@@ -50,7 +50,7 @@ export const OKCancelActionBar = (props: OKCancelActionBarProps) => {
 
 	// Render.
 	return (
-		<div className='ok-cancel-action-bar top-separator'>
+		<div className='ok-cancel-action-bar'>
 			{preActions}
 			<PlatformNativeDialogActionBar primaryButton={okButton} secondaryButton={cancelButton} />
 		</div>

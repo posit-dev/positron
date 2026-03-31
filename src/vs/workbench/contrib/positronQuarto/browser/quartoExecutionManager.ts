@@ -38,6 +38,9 @@ import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../servic
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
+import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { getWindow } from '../../../../base/browser/dom.js';
+import { EditorLayoutMetadata } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 
 // Re-export for convenience
 export { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -309,7 +312,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * - `error: true` (default) - Stop execution queue on error.
 	 * - `error: false` - Continue execution queue even on error.
 	 */
-	async executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken): Promise<void> {
+	async executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken, executionMetadata?: Record<string, unknown>[]): Promise<void> {
 		if (codeRanges.length === 0) {
 			return;
 		}
@@ -327,16 +330,21 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		const documentModel = this._documentModelService.getModel(textModel);
 		const quartoCells = documentModel.cells;
 
+		// Compute layout metadata from the active editor for output sizing.
+		const layoutMetadata = this._getEditorLayoutMetadata();
+
 		// For each range, find the containing cell and prepare execution info
 		interface InlineExecution {
 			cell: QuartoCodeCell;
 			codeRange: Range;
 			effectiveCodeRange: Range;
 			options: QuartoCellExecutionOptions;
+			executionMetadata?: Record<string, unknown>;
 		}
 		const executions: InlineExecution[] = [];
 
-		for (const range of codeRanges) {
+		for (let rangeIdx = 0; rangeIdx < codeRanges.length; rangeIdx++) {
+			const range = codeRanges[rangeIdx];
 			// Find the cell containing this range
 			let containingCell: QuartoCodeCell | undefined;
 			for (const quartoCell of quartoCells) {
@@ -371,7 +379,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 			// Get the code content and parse execution options
 			const code = textModel.getValueInRange(clampedRange);
-			const { options, optionLineCount } = parseCellExecutionOptions(code);
+			const { options, optionLineCount, metadata } = parseCellExecutionOptions(code);
 
 			// Calculate effective code range (excluding option lines at the start)
 			let effectiveCodeRange = clampedRange;
@@ -384,11 +392,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				);
 			}
 
+			// Merge metadata from layout, cell YAML options, and external sources.
+			// Cell YAML options take highest precedence, then external, then layout.
+			const cellMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
+			const externalMetadata = executionMetadata?.[rangeIdx];
+			const mergedMetadata = cellMetadata || externalMetadata || layoutMetadata
+				? { ...layoutMetadata, ...externalMetadata, ...cellMetadata }
+				: undefined;
+
 			executions.push({
 				cell: containingCell,
 				codeRange: clampedRange,
 				effectiveCodeRange,
 				options,
+				executionMetadata: mergedMetadata,
 			});
 		}
 
@@ -471,7 +488,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						execution.cell,
 						execution.effectiveCodeRange,
 						execution.options,
-						token
+						token,
+						execution.executionMetadata
 					);
 
 					// If error occurred and error option is true (stop on error),
@@ -536,7 +554,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		cell: QuartoCodeCell,
 		codeRange: Range,
 		options: QuartoCellExecutionOptions = DEFAULT_CELL_EXECUTION_OPTIONS,
-		token?: CancellationToken
+		token?: CancellationToken,
+		executionMetadata?: Record<string, unknown>
 	): Promise<boolean> {
 		const cellLanguage = cell.language.toLowerCase();
 
@@ -598,7 +617,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					code,
 					executionId,
 					RuntimeCodeExecutionMode.Interactive,
-					errorBehavior
+					errorBehavior,
+					undefined,
+					executionMetadata
 				);
 
 				// Fire the event signaling code execution.
@@ -1639,7 +1660,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		// Parse execution options from cell code
 		const code = textModel.getValueInRange(codeRange);
-		const { options, optionLineCount } = parseCellExecutionOptions(code);
+		const { options, optionLineCount, metadata } = parseCellExecutionOptions(code);
 
 		// Calculate effective code range (excluding option lines at the start)
 		let effectiveCodeRange = codeRange;
@@ -1656,8 +1677,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		this._removeFromQueue(documentUri, cell.id);
 		await this._persistQueueState(documentUri);
 
-		// Delegate to the unified range execution with parsed options
-		const hadError = await this._executeRange(documentUri, currentCell, effectiveCodeRange, options, token);
+		// Delegate to the unified range execution with parsed options.
+		// Cell YAML options take highest precedence over layout metadata.
+		const cellMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
+		const layoutMetadata = this._getEditorLayoutMetadata();
+		const executionMetadata = cellMetadata || layoutMetadata
+			? { ...layoutMetadata, ...cellMetadata }
+			: undefined;
+		const hadError = await this._executeRange(documentUri, currentCell, effectiveCodeRange, options, token, executionMetadata);
 		return { hadError, options };
 	}
 
@@ -2027,6 +2054,23 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		} catch (error) {
 			this._logService.warn(`[QuartoExecutionManager] Failed to persist queue state:`, error);
 		}
+	}
+
+	/**
+	 * Compute output layout metadata from the active text editor.
+	 * Returns dimensions used by the kernel to size outputs (e.g. plot
+	 * rendering). Uses the same formula as QuartoOutputViewZone._getWidth().
+	 */
+	private _getEditorLayoutMetadata(): EditorLayoutMetadata | undefined {
+		const editorControl = this._editorService.activeTextEditorControl;
+		if (isCodeEditor(editorControl)) {
+			const layoutInfo = editorControl.getLayoutInfo();
+			return {
+				output_width_px: layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4,
+				output_pixel_ratio: getWindow(editorControl.getContainerDomNode()).devicePixelRatio,
+			};
+		}
+		return undefined;
 	}
 
 	/**

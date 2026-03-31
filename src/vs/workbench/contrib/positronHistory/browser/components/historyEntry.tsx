@@ -32,9 +32,10 @@ interface HistoryEntryProps {
 	historyItem: HistoryEntryItem;
 	style: CSSProperties;
 	isSelected: boolean;
+	isExpanded: boolean;
 	languageId: string;
 	searchText?: string;
-	onSelect: () => void;
+	onSelect: (e?: React.MouseEvent) => void;
 	onToConsole: () => void;
 	onToSource: () => void;
 	onCopy: () => void;
@@ -381,6 +382,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		historyItem,
 		style,
 		isSelected,
+		isExpanded,
 		languageId,
 		searchText,
 		onSelect,
@@ -424,10 +426,10 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	const lineCount = countLines(input);
 
 	// Calculate smart excerpt synchronously to determine if we'll show indicators
-	const smartExcerpt = (!isSelected && searchText) ? getSmartExcerpt(input, searchText) : null;
+	const smartExcerpt = (!isExpanded && searchText) ? getSmartExcerpt(input, searchText) : null;
 
 	// Determine what code to show - calculated synchronously to avoid layout shifts
-	const codeToHighlight = isSelected
+	const codeToHighlight = isExpanded
 		? input
 		: (smartExcerpt ? smartExcerpt.excerpt : truncateCode(input, MAX_COLLAPSED_LINES));
 
@@ -535,6 +537,11 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		event.preventDefault();
 		event.stopPropagation();
 
+		// If this entry is not already selected, select it (replacing any multi-select)
+		if (!isSelected) {
+			onSelect();
+		}
+
 		const x = event.clientX;
 		const y = event.clientY;
 
@@ -598,8 +605,8 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	// Only show expand indicator if we have more than MAX_COLLAPSED_LINES + 1 lines,
 	// since showing "1 more lines" would use the same space as showing that 1 extra line
 	const showExpandButton = lineCount > MAX_COLLAPSED_LINES + 1;
-	const needsTruncation = showExpandButton && !isSelected && !smartExcerpt;
-	const codeToDisplay = isSelected ? input : truncateCode(input, MAX_COLLAPSED_LINES);
+	const needsTruncation = showExpandButton && !isExpanded && !smartExcerpt;
+	const codeToDisplay = isExpanded ? input : truncateCode(input, MAX_COLLAPSED_LINES);
 
 	// Determine truncation state for CSS classes
 	const hasTruncatedTop = smartExcerpt && smartExcerpt.hiddenAbove > 0;
@@ -614,7 +621,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			className={`history-entry${isSelected ? ' selected' : ''}`}
 			style={styleWithoutHeight}
 			onClick={(e) => {
-				onSelect();
+				onSelect(e);
 			}}
 			onContextMenu={handleContextMenu}
 			onDoubleClick={() => onToConsole()}
