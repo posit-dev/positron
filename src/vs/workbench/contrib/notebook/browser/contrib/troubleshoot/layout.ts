@@ -15,6 +15,9 @@ import { CellStatusbarAlignment, INotebookCellStatusBarItem } from '../../../com
 import { INotebookService } from '../../../common/notebookService.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { n } from '../../../../../../base/browser/dom.js';
+// --- Start Positron ---
+import { POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR } from '../../../common/notebookContextKeys.js';
+// --- End Positron ---
 
 export class TroubleshootController extends Disposable implements INotebookEditorContribution {
 	static id: string = 'workbench.notebook.troubleshoot';
@@ -346,6 +349,9 @@ registerAction2(class extends Action2 {
 			id: 'notebook.toggleLayoutTroubleshoot',
 			title: localize2('workbench.notebook.toggleLayoutTroubleshoot', "Toggle Notebook Layout Troubleshoot"),
 			category: Categories.Developer,
+			// --- Start Positron ---
+			precondition: POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR,
+			// --- End Positron ---
 			f1: true
 		});
 	}
@@ -369,6 +375,9 @@ registerAction2(class extends Action2 {
 			id: 'notebook.inspectLayout',
 			title: localize2('workbench.notebook.inspectLayout', "Inspect Notebook Layout"),
 			category: Categories.Developer,
+			// --- Start Positron ---
+			precondition: POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR,
+			// --- End Positron ---
 			f1: true
 		});
 	}
@@ -394,6 +403,9 @@ registerAction2(class extends Action2 {
 			id: 'notebook.clearNotebookEdtitorTypeCache',
 			title: localize2('workbench.notebook.clearNotebookEdtitorTypeCache', "Clear Notebook Editor Type Cache"),
 			category: Categories.Developer,
+			// --- Start Positron ---
+			precondition: POSITRON_NOTEBOOK_IS_NOT_ACTIVE_EDITOR,
+			// --- End Positron ---
 			f1: true
 		});
 	}

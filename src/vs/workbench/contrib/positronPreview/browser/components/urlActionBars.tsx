@@ -23,6 +23,7 @@ import { kPaddingLeft, kPaddingRight } from './actionBars.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -63,16 +64,23 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	// State hooks for interrupt button
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
-	// Track which terminal is running the app displayed in the viewer
-	const [sourceTerminal, setSourceTerminal] = useState<ITerminalInstance | undefined>(undefined);
+
+	// The app source is either a terminal or a runtime session, never both.
+	type AppSource =
+		| { readonly type: 'terminal'; readonly terminal: ITerminalInstance }
+		| { readonly type: 'runtime'; readonly sessionId: string };
+	const [appSource, setAppSource] = useState<AppSource | undefined>(undefined);
+	const sourceTerminal = appSource?.type === 'terminal' ? appSource.terminal : undefined;
+	const sourceSessionId = appSource?.type === 'runtime' ? appSource.sessionId : undefined;
 
 	// Handler for the interrupt button.
 	const interruptHandler = async () => {
 		// Immediately hide the button to provide instant feedback
 		setInterruptible(false);
 
-		// Send Ctrl+C to the source terminal
-		if (sourceTerminal && sourceTerminal.hasChildProcesses) {
+		if (sourceSessionId) {
+			await services.runtimeSessionService.interruptSession(sourceSessionId);
+		} else if (sourceTerminal && sourceTerminal.hasChildProcesses) {
 			// Send Ctrl+C (SIGINT) to the terminal
 			sourceTerminal.sendText('\x03', false);
 
@@ -195,11 +203,17 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 		return () => disposables.dispose();
 	}, [props.preview]);
 
-	// useEffect hook to capture the source terminal when preview content changes.
+	// useEffect hook to capture the source when preview content changes.
 	useEffect(() => {
-		// Check if the preview has source information indicating it came from a terminal
 		const source = props.preview.source;
-		if (source && source.type === 'terminal') {
+		if (!source) {
+			setAppSource(undefined);
+			setInterruptible(false);
+			setInterrupting(false);
+			return;
+		}
+
+		if (source.type === 'terminal') {
 			// Find the terminal with the matching process ID
 			const terminalId = parseInt(source.id, 10);
 
@@ -209,19 +223,25 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 			);
 
 			if (terminal) {
-				setSourceTerminal(terminal);
+				setAppSource({ type: 'terminal', terminal });
 				if (terminal.hasChildProcesses) {
 					setInterruptible(true);
 					setInterrupting(false);
 				}
 			}
+		} else if (source.type === 'runtime') {
+			const session = services.runtimeSessionService.getSession(source.id);
+			if (session) {
+				setAppSource({ type: 'runtime', sessionId: source.id });
+				setInterruptible(session.getRuntimeState() === RuntimeState.Busy);
+				setInterrupting(false);
+			}
 		}
-	}, [props.preview, services.terminalService]);
+	}, [props.preview, services.terminalService, services.runtimeSessionService]);
 
 	// useEffect hook to track the source terminal's child process state.
 	useEffect(() => {
 		if (!sourceTerminal) {
-			setInterruptible(false);
 			return;
 		}
 
@@ -241,7 +261,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 					// Clear the viewer when the process stops
 					services.positronPreviewService.clearAllPreviews();
 					// Clear the source terminal when processes stop
-					setSourceTerminal(undefined);
+					setAppSource(undefined);
 				}
 			})
 		);
@@ -251,12 +271,41 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 			sourceTerminal.onDisposed(() => {
 				setInterruptible(false);
 				setInterrupting(false);
-				setSourceTerminal(undefined);
+				setAppSource(undefined);
 			})
 		);
 
 		return () => disposables.dispose();
 	}, [sourceTerminal, services.positronPreviewService]);
+
+	// Track the source runtime session's state for the stop button
+	useEffect(() => {
+		if (!sourceSessionId) {
+			return;
+		}
+
+		const disposables = new DisposableStore();
+
+		disposables.add(
+			services.runtimeSessionService.onDidChangeRuntimeState(e => {
+				if (e.session_id !== sourceSessionId) {
+					return;
+				}
+
+				const busy = e.new_state === RuntimeState.Busy;
+				setInterruptible(busy);
+				if (!busy) {
+					setInterrupting(false);
+				}
+
+				if (e.new_state === RuntimeState.Exited) {
+					setAppSource(undefined);
+				}
+			})
+		);
+
+		return () => disposables.dispose();
+	}, [sourceSessionId, services.runtimeSessionService]);
 
 	// Render.
 	return (

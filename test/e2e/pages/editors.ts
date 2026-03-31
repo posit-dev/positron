@@ -184,6 +184,24 @@ export class Editors {
 		});
 	}
 
+	/**
+	 * Verify: editor group at `index` has the `active` CSS class.
+	 */
+	async expectEditorGroupActive(index: number, timeout?: number): Promise<void> {
+		await test.step(`Expect editor group ${index} to be active`, async () => {
+			await expect(this.editorGroup(index)).toHaveClass(/\bactive\b/, { timeout });
+		});
+	}
+
+	/**
+	 * Verify: editor group at `index` has the `inactive` CSS class.
+	 */
+	async expectEditorGroupInactive(index: number): Promise<void> {
+		await test.step(`Expect editor group ${index} to be inactive`, async () => {
+			await expect(this.editorGroup(index)).toHaveClass(/\binactive\b/);
+		});
+	}
+
 	async expectActiveEditorIconClassToMatch(iconClass: RegExp): Promise<void> {
 		await test.step(`Expect active editor icon to match: ${iconClass}`, async () => {
 			await expect(this.activeEditor.locator(this.editorIcon)).toHaveClass(iconClass);

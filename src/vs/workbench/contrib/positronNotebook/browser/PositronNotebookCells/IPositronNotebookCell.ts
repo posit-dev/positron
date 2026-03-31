@@ -261,7 +261,14 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	/**
 	 * Whether the cell outputs are collapsed
 	 */
-	readonly outputIsCollapsed: ISettableObservable<boolean>;
+	readonly outputIsCollapsed: IObservable<boolean>;
+
+	/**
+	 * Per-cell output scrolling override.
+	 * When undefined, the global notebook.outputScrolling setting is used.
+	 * When true, output is scrollable (full). When false, output is truncated.
+	 */
+	readonly outputScrolling: IObservable<boolean | undefined>;
 
 	/**
 	 * Duration of the last execution in milliseconds
@@ -297,6 +304,21 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Toggle the collapse state of cell outputs
 	 */
 	toggleOutputCollapse(): void;
+
+	/**
+	 * Truncate the cell output.
+	 */
+	truncateOutput(): void;
+
+	/**
+	 * Show full cell output.
+	 */
+	showFullOutput(): void;
+
+	/**
+	 * Reset per-cell output truncation to follow the global setting.
+	 */
+	resetOutputScrolling(): void;
 }
 
 

@@ -2258,6 +2258,10 @@
         "worker-loader": "^3.0.8",
         "yargs": "^15.3.1"
     },
+    "overrides": {
+        "brace-expansion@1": "1.1.13",
+        "brace-expansion@2": "2.0.3"
+    },
     "positron": {
         "externalDependencies": {
             "pet": "2026.0"

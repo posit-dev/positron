@@ -136,7 +136,7 @@ test.describe('Remote SSH', {
 		await test.step(`Check that correct R is being used`, async () => {
 			await sshWorkbench.sessions.start('r');
 			await sshWorkbench.console.pasteCodeToConsole('Sys.getenv("R_HOME")', true);
-			await sshWorkbench.console.waitForConsoleContents('/opt/R/4.4.0/lib/R');
+			await sshWorkbench.console.waitForConsoleContents('/opt/R/4.5.2/lib/R');
 		});
 
 		await test.step(`Check that plots work`, async () => {

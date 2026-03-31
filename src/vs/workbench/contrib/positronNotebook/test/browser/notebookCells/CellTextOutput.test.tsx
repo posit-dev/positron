@@ -7,9 +7,9 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import assert from 'assert';
+import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { Emitter, Event } from '../../../../../../base/common/event.js';
-import { CommandsRegistry } from '../../../../../../platform/commands/common/commands.js';
+import { Emitter } from '../../../../../../base/common/event.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../../base/test/browser/react.js';
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
@@ -87,6 +87,7 @@ suite('CellTextOutput', () => {
 	function renderCellTextOutput(
 		props: ParsedTextOutput,
 		options?: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>,
+		onShowFullOutput: () => void = () => { },
 	) {
 		if (options !== undefined) {
 			layoutConfig = { ...layoutConfig, ...options };
@@ -105,7 +106,11 @@ suite('CellTextOutput', () => {
 		const container = render(
 			<PositronReactServicesContext.Provider value={services}>
 				<NotebookInstanceProvider instance={instance}>
-					<CellTextOutput {...props} />
+					<CellTextOutput
+						{...props}
+						outputScrolling={layoutConfig.outputScrolling ?? false}
+						onShowFullOutput={onShowFullOutput}
+					/>
 				</NotebookInstanceProvider>
 			</PositronReactServicesContext.Provider>
 		);
@@ -154,26 +159,32 @@ suite('CellTextOutput', () => {
 		assert.strictEqual(runs[1].textContent, ' plain');
 	});
 
-	test('truncates long output when scrolling is disabled', async () => {
-		disposables.add(CommandsRegistry.registerCommand('workbench.action.openSettings', () => { }));
-
+	test('truncates long output when scrolling is disabled', () => {
+		const onShowFullOutput = sinon.stub();
 		const content = makeLines(35);
 		const fixture = renderCellTextOutput(
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: false },
+			onShowFullOutput,
 		);
 
 		const message = fixture.truncationMessage;
 		assert.ok(message, 'Expected truncation message');
 		assert.ok(message.textContent?.includes('5 lines truncated'), 'Expected truncation count');
 
+		// Verify visible line ranges: top 29 lines + last line, middle lines hidden
+		const text = fixture.outputContainer.textContent ?? '';
+		assert.ok(text.includes('line 1'), 'Expected first line to be visible');
+		assert.ok(text.includes('line 29'), 'Expected line 29 (last top line) to be visible');
+		assert.ok(!text.includes('line 30'), 'Expected line 30 to be truncated');
+		assert.ok(!text.includes('line 34'), 'Expected line 34 to be truncated');
+		assert.ok(text.includes('line 35'), 'Expected last line to be visible');
+
 		const link = fixture.settingsLink;
 		assert.ok(link, 'Expected "Change behavior" link');
 
-		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
 		link.click();
-		const event = await commandPromise;
-		assert.strictEqual(event.commandId, 'workbench.action.openSettings');
+		assert.ok(onShowFullOutput.calledOnce, 'Expected onShowFullOutput to be called');
 	});
 
 	test('does not truncate when scrolling is enabled', () => {
