@@ -11,6 +11,7 @@ import './quartoInlineDataExplorer.css';
 import React, { useEffect, useState, useRef } from 'react';
 
 // Other dependencies.
+import { InlineDataExplorerHeader } from '../../positronNotebook/browser/notebookCells/InlineDataExplorer.js';
 import { localize } from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
@@ -45,36 +46,6 @@ type QuartoInlineDataExplorerState =
 	| { status: 'error'; message: string };
 
 /**
- * Header component for the inline data explorer.
- */
-function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
-	title: string;
-	shape: { rows: number; columns: number };
-	onOpenInExplorer?: () => void;
-}) {
-	return (
-		<div className='inline-data-explorer-header'>
-			<div className='inline-data-explorer-info'>
-				<span className='inline-data-explorer-title'>{title}</span>
-				<span className='inline-data-explorer-shape'>
-					{shape.rows.toLocaleString()} {localize('rows', 'rows')} x {shape.columns.toLocaleString()} {localize('columns', 'columns')}
-				</span>
-			</div>
-			{onOpenInExplorer && (
-				<button
-					className='inline-data-explorer-open-button'
-					title={localize('openInDataExplorer', 'Open in Data Explorer')}
-					onClick={onOpenInExplorer}
-				>
-					<span className='codicon codicon-go-to-file' />
-					{localize('openInDataExplorer', 'Open in Data Explorer')}
-				</button>
-			)}
-		</div>
-	);
-}
-
-/**
  * QuartoInlineDataExplorer component.
  *
  * Renders a simplified data explorer inline in Quarto document output view zones.
@@ -83,17 +54,17 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 	const { commId, shape, title, variablePath, documentUri, onFallback, onHeightChange } = props;
 	const services = PositronReactServices.services;
 	const [state, setState] = useState<QuartoInlineDataExplorerState>({ status: 'loading' });
-	const containerRef = useRef<HTMLDivElement>(null);
 	const disposablesRef = useRef<DisposableStore | null>(null);
 	const onFallbackRef = useRef(onFallback);
 	onFallbackRef.current = onFallback;
 
 	const dataExplorerService = services.positronDataExplorerService;
+	const defaultMaxHeight = 300;
 
 	const [maxHeight, setMaxHeight] = useState<number>(
 		services.configurationService.getValue<number>(
 			POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
-		) ?? 300
+		) ?? defaultMaxHeight
 	);
 
 	useEffect(() => {
@@ -102,7 +73,7 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 				setMaxHeight(
 					services.configurationService.getValue<number>(
 						POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
-					) ?? 300
+					) ?? defaultMaxHeight
 				);
 			}
 		});
@@ -220,7 +191,7 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 	};
 
 	return (
-		<div ref={containerRef} className='inline-data-explorer-container' style={{ height: `${dynamicHeight}px` }}>
+		<div className='inline-data-explorer-container' style={{ height: `${dynamicHeight}px` }}>
 			<InlineDataExplorerHeader
 				shape={shape}
 				title={title}
