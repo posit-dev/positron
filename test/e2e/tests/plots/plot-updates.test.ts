@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { fail } from 'assert';
-import { test, tags } from '../_test.setup';
+import { expect, test, tags } from '../_test.setup';
 
 
 test.use({
@@ -15,6 +15,13 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('R Plots', {
 		tag: [tags.ARK]
 	}, () => {
+
+		test.afterEach(async function ({ app, hotKeys }) {
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
+		});
 
 		test('R - plot should not be updated after initial appearance', { tag: [tags.WEB, tags.WIN] }, async function ({ app, r }) {
 
@@ -37,6 +44,13 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	});
 
 	test.describe('Python Plots', () => {
+
+		test.afterEach(async function ({ app, hotKeys }) {
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
+		});
 
 		test('Python - plot should not be updated after initial appearance', { tag: [tags.WEB, tags.WIN] }, async function ({ app, python }) {
 
