@@ -92,6 +92,16 @@ def verify_inspector(
                 # Check that the value is the same.
                 assert inspector.equals(copied)
 
+                # Verify the reverse direction works (snapshot inspector vs live value).
+                # This matches runtime change detection: inspector_for_snapshot.equals(live_value)
+                copied_inspector = get_inspector(copied)
+                assert type(copied_inspector) is type(inspector), (
+                    f"deepcopy changed inspector type from {type(inspector)} to {type(copied_inspector)}"
+                )
+                assert copied_inspector.equals(value), (
+                    "equals must work in both directions for change detection"
+                )
+
                 # Mutate the copied object, and check that the original object was not mutated.
                 assert mutate is not None, (
                     "mutate function must be provided to test mutable objects"

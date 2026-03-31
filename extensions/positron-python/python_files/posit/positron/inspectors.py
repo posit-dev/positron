@@ -1130,18 +1130,28 @@ class GeoDataFrameInspector(PandasDataFrameInspector):
         return self.value.shape[0] * num_cols
 
     def deepcopy(self):
-        """Copy only non-geometry columns for change detection."""
-        return self._get_non_geometry_df().copy(deep=True)
+        """Copy non-geometry columns deeply, geometry columns shallowly.
+
+        Returns a GeoDataFrame to preserve the inspector type for change detection.
+        Geometry columns are shallow-copied since we don't compare them.
+        """
+        # Shallow copy preserves GeoDataFrame type
+        result = self.value.copy(deep=False)
+
+        # Deep copy only non-geometry columns
+        geom_cols = set(self._get_geometry_column_names())
+        for col in self.value.columns:
+            if col not in geom_cols:
+                result[col] = self.value[col].copy(deep=True)
+
+        return result
 
     def equals(self, value) -> bool:
         """Compare only non-geometry columns."""
         try:
-            # Get non-geometry data from this GeoDataFrame
             self_non_geom = self._get_non_geometry_df()
-
-            # Handle comparison value - it's already a regular DataFrame from our deepcopy
-            # (geometry columns were dropped during deepcopy)
-            return self_non_geom.equals(value)
+            other_non_geom = GeoDataFrameInspector(value)._get_non_geometry_df()  # noqa: SLF001
+            return self_non_geom.equals(other_non_geom)
         except Exception:
             return False
 
