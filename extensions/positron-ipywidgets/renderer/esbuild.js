@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 // @ts-check
-const fs = require('fs');
 const path = require('path');
 
 const srcDir = path.join(__dirname, 'src');
@@ -26,17 +25,11 @@ require('../../esbuild-webview-common.mjs').run({
 			'.eot': 'dataurl',
 		},
 		define: {
-			// RequireJS is loaded by the renderer at activation time. Some of our dependencies
+			// RequireJS is loaded as a notebook static preload. Some of our dependencies
 			// (e.g. backbone) try to use RequireJS's `define` if it's present, but esbuild expects
 			// these modules to behave like CommonJS modules. Override the global `define` to
 			// undefined to disable this behavior during bundling.
 			'define': 'undefined',
 		},
 	},
-}, process.argv, (/** @type {string} */ outDir) => {
-	// Copy RequireJS to the output directory so the renderer can load it at activation time.
-	fs.copyFileSync(
-		path.join(__dirname, 'node_modules', 'requirejs', 'require.js'),
-		path.join(outDir, 'require.js'),
-	);
-});
+}, process.argv);

@@ -57,10 +57,10 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	 * @returns An array of renderers and the mime type they are preferred for along with the
 	 * associated output message.
 	 */
-	private _findRenderersForOutputs(outputs: ILanguageRuntimeMessageWebOutput[]): MessageRenderInfo[] {
+	private _findRenderersForOutputs(outputs: ILanguageRuntimeMessageWebOutput[], viewType?: string): MessageRenderInfo[] {
 		return outputs
 			.map(output => {
-				const info = this._findRendererForOutput(output);
+				const info = this._findRendererForOutput(output, viewType);
 				if (!info) {
 					this._logService.warn(
 						'Failed to find renderer for output with mime types: ' +
@@ -113,7 +113,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		viewType?: string;
 	}): Promise<INotebookOutputWebview | undefined> {
 
-		const displayInfo = this._findRendererForOutput(displayMessage);
+		const displayInfo = this._findRendererForOutput(displayMessage, viewType);
 		if (!displayInfo) {
 			this._logService.error(
 				'Failed to find renderer for output message with mime types: ' +
@@ -126,7 +126,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			id: displayMessage.id,
 			runtimeId,
 			displayMessageInfo: displayInfo,
-			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages),
+			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages, viewType),
 			viewType,
 		});
 	}
