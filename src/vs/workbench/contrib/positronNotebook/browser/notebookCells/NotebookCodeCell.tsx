@@ -93,6 +93,10 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		setHeightOverride(height);
 	}, []);
 
+	const onResetHeight = useCallback(() => {
+		setHeightOverride(undefined);
+	}, []);
+
 	// Update the output overflow context key.
 	React.useEffect(() => {
 		if (!outputOverflowsKey) { return; }
@@ -200,6 +204,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					<HorizontalSplitter
 						showResizeIndicator
 						onBeginResize={onBeginResize}
+						onDoubleClick={onResetHeight}
 						onResize={onResize}
 					/>
 				}

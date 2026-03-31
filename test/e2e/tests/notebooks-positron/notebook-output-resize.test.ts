@@ -62,6 +62,16 @@ test.describe('Positron Notebooks: Output Resize Handle', {
 			}).toPass({ timeout: 5000 });
 		});
 
+		await test.step('Double-clicking the handle resets to default height', async () => {
+			// The output inner should have a height-override class after resizing
+			await expect(outputInner).toHaveClass(/height-override/);
+
+			await resizeHandle.dblclick();
+
+			// After reset, the height-override class should be removed
+			await expect(outputInner).not.toHaveClass(/height-override/, { timeout: 5000 });
+		});
+
 		await test.step('Resize handle is hidden when output is collapsed', async () => {
 			await notebooksPositron.outputCollapseToggle(0).click();
 			await expect(notebooksPositron.outputCollapsedLabel(0)).toBeVisible();

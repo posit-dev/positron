@@ -36,6 +36,7 @@ export const HorizontalSplitter = (props: {
 	showResizeIndicator?: boolean;
 	onBeginResize: () => HorizontalSplitterResizeParams;
 	onResize: (height: number) => void;
+	onDoubleClick?: () => void;
 }) => {
 	// State hooks.
 	const [resizing, setResizing] = useState(false);
@@ -154,6 +155,8 @@ export const HorizontalSplitter = (props: {
 					'sizer',
 					{ 'resizing': resizing && props.showResizeIndicator }
 				)}
+				role='separator'
+				onDoubleClick={props.onDoubleClick}
 				onPointerDown={pointerDownHandler}
 			/>
 		</div>
