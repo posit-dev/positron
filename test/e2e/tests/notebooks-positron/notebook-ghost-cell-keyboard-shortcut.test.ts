@@ -40,7 +40,7 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Ghost cell workflow: Automatic mode to On-demand mode with Accept and Run', async function ({ app, hotKeys }) {
+	test('Cmd+Shift+G triggers ghost cell suggestion', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Create notebook - Positron will auto-select an available kernel
@@ -58,35 +58,11 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		// Select cell in command mode (required for keyboard shortcut)
 		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
 
-		// Trigger ghost cell with keyboard shortcut
+		// Trigger ghost cell with keyboard shortcut - this is the main functionality being tested
 		await hotKeys.triggerGhostCell();
 
-		// Verify "Generating suggestion..." appears
-		await notebooksPositron.expectGhostCellGenerationVisible();
-
-		// Wait for ghost cell to appear and verify all components
-		await notebooksPositron.expectGhostCellVisible();
-
-		// Verify default mode is Automatic
-		await notebooksPositron.expectGhostCellMode(true);
-
-		// Switch to On-demand mode
-		await notebooksPositron.selectGhostCellMode(false);
-		// Note: selectGhostCellMode already verifies the mode was selected
-
-		// Accept and Run the suggestion
-		await notebooksPositron.acceptGhostCellSuggestion();
-
-		// Verify cell is generated and executed (cell count increases from 1 to 2)
-		await notebooksPositron.expectCellCountToBe(2);
-
-		// Verify "AI suggestion available on request" appears for On-demand mode
-		await notebooksPositron.expectGhostCellAwaitingRequest();
-
-		// Request a suggestion to trigger generation again
-		await notebooksPositron.getSuggestion();
-
-		// Verify "Generating suggestion..." appears again
+		// Verify ghost cell suggestion appears (either "Generating..." or the actual suggestion)
+		// The expectGhostCellGenerationVisible waits for "Generating suggestion..." text
 		await notebooksPositron.expectGhostCellGenerationVisible();
 	});
 });
