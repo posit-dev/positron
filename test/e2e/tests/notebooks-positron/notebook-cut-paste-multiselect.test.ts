@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Positron Notebooks: Cut/Paste with Multi-Cell Selection', {
+test.describe('Positron Notebooks: Cut/Paste with Multi-Cell Selections', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
