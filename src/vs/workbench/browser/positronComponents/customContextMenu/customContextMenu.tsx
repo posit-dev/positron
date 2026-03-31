@@ -7,7 +7,7 @@
 import './customContextMenu.css';
 
 // React.
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -354,6 +354,9 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				hoverTimerRef.current = undefined;
 			}
 		};
+
+		// Cancel hover timer on unmount.
+		useEffect(() => cancelHoverTimer, []);
 
 		/**
 		 * Opens the submenu (another custom context menu) positioned relative to this menu item.
