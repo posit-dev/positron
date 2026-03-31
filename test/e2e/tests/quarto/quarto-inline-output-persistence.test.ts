@@ -65,12 +65,13 @@ test.describe('Quarto - Inline Output: Persistence', {
 		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
 
 		// Get initial kernel text
-		await inlineQuarto.expectKernelRunning();
+		await inlineQuarto.expectKernelIdle();
 		const initialKernelText = await inlineQuarto.getKernelText();
 
 		// Reload window and wait for kernel status to be visible again
 		await hotKeys.reloadWindow(true);
 		await inlineQuarto.expectKernelToHaveText(initialKernelText);
+		await inlineQuarto.expectKernelIdle();
 	});
 
 	test('Python - Verify inline output works in untitled Quarto document and persists through save', async function ({ app, python, page, runCommand, hotKeys, saveFileAs }) {
