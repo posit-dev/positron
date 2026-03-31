@@ -377,7 +377,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				return session as INotebookLanguageRuntimeSession;
 			} catch (err) {
 				this._notificationService.error(localize(
-					'positron.notebook.kernel.starting.failed',
+					'positron.notebook.kernel.restart.failed',
 					'Starting {0} interpreter for \'{1}\' failed. Reason: {2}',
 					this.label,
 					notebookUri.fsPath,
