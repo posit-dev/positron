@@ -199,8 +199,9 @@ export class PositronModalReactRenderer extends Disposable {
 	 * Dispose method. Disposes this renderer and all renderers above it on the stack.
 	 */
 	public override dispose(): void {
-		// Return if this renderer was never rendered or has already been disposed.
+		// If never rendered, just clean up internal resources and return.
 		if (this._root === undefined) {
+			super.dispose();
 			return;
 		}
 
