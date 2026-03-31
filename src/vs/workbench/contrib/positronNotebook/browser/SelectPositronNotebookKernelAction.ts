@@ -84,6 +84,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 					// Link kernel with notebook
 					notebookKernelService.selectKernelForNotebook(selectedKernel, notebook);
 					didSelectKernel = true;
+					activeNotebook.grabFocus();
 				}
 				quickPick.hide();
 			});

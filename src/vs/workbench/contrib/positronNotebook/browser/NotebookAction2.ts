@@ -47,6 +47,8 @@ export abstract class NotebookAction2 extends Action2 {
 			return;
 		}
 
+		notebook.grabFocus();
+
 		const result = this.runNotebookAction(notebook, accessor, ...args);
 		// Handle both sync (void) and async (Promise) returns
 		if (result instanceof Promise) {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -83,6 +83,7 @@ abstract class BaseRuntimeNotebookKernelAction extends Action2 {
 					debugMessage: `User clicked ${this.desc.id} button in Positron notebook editor toolbar`,
 				};
 				notebookUri = context.instance.uri;
+				context.instance.grabFocus();
 			} else {
 				source = {
 					id: 'vscodeNotebookToolbar',
