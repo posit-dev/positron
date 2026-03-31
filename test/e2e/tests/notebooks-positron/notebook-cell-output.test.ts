@@ -67,8 +67,16 @@ test.describe('Positron Notebooks: Cell Output', {
 		});
 	});
 
-	test('Toggle long output truncation', async function ({ app }) {
+	test('Toggle long output truncation', async function ({ app, settings }) {
 		const { notebooks, notebooksPositron } = app.workbench;
+
+		// Disable output scrolling so truncation is active.
+		// In non-stable builds (e.g. CI), scrolling defaults to true
+		// (see notebook.contribution.ts NotebookSetting.outputScrolling)
+		// which disables truncation entirely.
+		await settings.set(
+			{ 'notebook.output.scrolling': false },
+		);
 
 		await test.step('Setup: Open a notebook and generate long output', async () => {
 			await notebooks.createNewNotebook();
