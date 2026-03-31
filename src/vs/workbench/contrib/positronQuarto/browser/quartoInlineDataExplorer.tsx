@@ -19,7 +19,7 @@ import { InlineTableDataGridInstance } from '../../../services/positronDataExplo
 import { TableDataCache } from '../../../services/positronDataExplorer/common/tableDataCache.js';
 import { PositronDataGrid } from '../../../browser/positronDataGrid/positronDataGrid.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../common/positronQuartoConfig.js';
+import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
 
@@ -63,16 +63,16 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 
 	const [maxHeight, setMaxHeight] = useState<number>(
 		services.configurationService.getValue<number>(
-			POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
+			POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 		) ?? defaultMaxHeight
 	);
 
 	useEffect(() => {
 		const listener = services.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY)) {
+			if (e.affectsConfiguration(POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY)) {
 				setMaxHeight(
 					services.configurationService.getValue<number>(
-						POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
+						POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 					) ?? defaultMaxHeight
 				);
 			}

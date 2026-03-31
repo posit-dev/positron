@@ -25,7 +25,7 @@ import { ANSIOutput, ANSIOutputLine, ANSIOutputRun } from '../../../../base/comm
 import { computeAnsiStyles, resolveAnsiColor } from '../../../../base/common/ansiStyles.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../common/positronQuartoConfig.js';
+import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
@@ -1243,7 +1243,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const variablePath = parseVariablePath(payload.variable_path);
 
 		const maxHeight = this._configurationService?.getValue<number>(
-			POSITRON_QUARTO_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
+			POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 		) ?? 300;
 		const height = calculateInlineDataExplorerHeight(shape.rows, maxHeight);
 

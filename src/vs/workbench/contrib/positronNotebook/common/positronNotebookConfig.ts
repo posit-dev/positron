@@ -106,7 +106,7 @@ configurationRegistry.registerConfiguration({
 			maximum: 800,
 			markdownDescription: localize(
 				'positron.notebook.inlineDataExplorer.maxHeight',
-				'Maximum height in pixels for inline data explorer in notebook outputs.'
+				'Maximum height in pixels for inline data explorers in notebook and Quarto outputs.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
