@@ -489,16 +489,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			const activeSession =
 				this.getNotebookSessionForNotebookUri(notebookUri);
 			if (activeSession) {
-				const isExited = activeSession.getRuntimeState() === RuntimeState.Exited;
-				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId && !isExited) {
-					// The active session is for the same runtime and is still running. Nothing to do.
+				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
+					// The active session is for the same runtime. Nothing to do, regardless of
+					// whether it is running or exited. If it is exited, the caller is responsible
+					// for restarting it (e.g. via restartSession).
 					return;
 				}
 
+				const isExited = activeSession.getRuntimeState() === RuntimeState.Exited;
 				if (isExited) {
-					// The previous session has exited. Clean it up from both session maps
-					// before starting the new one so that startup validation doesn't treat
-					// it as an already-running session.
+					// The previous session for a different runtime has exited. Clean it up from
+					// both session maps before starting the new one so that startup validation
+					// doesn't treat it as an already-running session.
 					if (this._activeSessionsBySessionId.delete(activeSession.sessionId)) {
 						this.removeNotebookSessionFromNotebookMap(activeSession.metadata.notebookUri);
 						activeSession.dispose();

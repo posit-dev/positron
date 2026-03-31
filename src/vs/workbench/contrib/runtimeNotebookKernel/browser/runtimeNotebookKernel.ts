@@ -342,11 +342,33 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	private async doEnsureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession> {
-		// If we've already got a session going that is not exited, no need to do anything
+		// If we've already got a session going, handle it based on its state.
 		const session = this._runtimeSessionService
 			.getNotebookSessionForNotebookUri(notebookUri);
-		if (session && session.runtimeMetadata.runtimeId === this.runtime.runtimeId && session.getRuntimeState() !== RuntimeState.Exited) {
-			return session;
+
+		if (session && session.runtimeMetadata.runtimeId === this.runtime.runtimeId) {
+			if (session.getRuntimeState() !== RuntimeState.Exited) {
+				// Session is already running for this runtime.
+				return session;
+			}
+
+			// Session is exited for the same runtime, so restart it. We use restartSession
+			// rather than selectRuntime because selectRuntime is a no-op when the
+			// existing session is for the same runtime (even if exited).
+			try {
+				await this._runtimeSessionService.restartSession(session.sessionId, source, false);
+				await this.whenReadyToExecute(session);
+				return session as INotebookLanguageRuntimeSession;
+			} catch (err) {
+				this._notificationService.error(localize(
+					'positron.notebook.kernel.starting.failed',
+					'Starting {0} interpreter for \'{1}\' failed. Reason: {2}',
+					this.label,
+					notebookUri.fsPath,
+					err.toString(),
+				));
+				throw err;
+			}
 		}
 
 		// If the runtime startup phase isn't complete, it is possible that the
