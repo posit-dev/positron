@@ -35,6 +35,32 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 	});
+
+	test.describe('Python Plots', () => {
+
+		test('Python - plot should not be updated after initial appearance', { tag: [tags.WEB, tags.WIN] }, async function ({ app, python }) {
+
+			const code = `
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.plot(np.random.exponential(size=50000))
+plt.show()
+`;
+
+			await app.workbench.console.executeCode('Python', code);
+			await app.workbench.plots.waitForCurrentPlot();
+
+			try {
+				await waitForNoChangesAtLocator(app.code.driver.page, '.plot-instance img', 10000);
+				console.log('No changes detected for 10 seconds');
+			} catch (error) {
+				fail('Changes detected within the specified duration');
+			}
+
+		});
+
+	});
 });
 
 
