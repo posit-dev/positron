@@ -46,20 +46,6 @@
 		position: relative;
 	}
 
-	/* Resize handle at the bottom of scrollable output */
-	.cell-output-resize-handle {
-		height: 4px;
-		cursor: ns-resize;
-		position: relative;
-		background: transparent;
-		transition: background-color 150ms;
-	}
-
-	.cell-output-resize-handle:hover,
-	.cell-output-resize-handle:active {
-		background-color: var(--vscode-sash-hoverBorder);
-	}
-
 	.positron-notebook-code-cell-outputs-inner {
 		font-family: var(--vscode-positronNotebook-text-output-font-family, var(--monaco-monospace-font));
 		padding-inline: 0.5rem;

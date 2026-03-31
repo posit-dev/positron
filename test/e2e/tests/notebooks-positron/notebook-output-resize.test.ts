@@ -29,12 +29,12 @@ test.describe('Positron Notebooks: Output Resize Handle', {
 		});
 
 		const cellOutput = notebooksPositron.cellOutput(0);
-		const resizeHandle = cellOutput.locator('.cell-output-resize-handle');
+		const splitter = cellOutput.locator('.horizontal-splitter');
+		const resizeHandle = splitter.locator('.sizer');
 		const outputInner = cellOutput.locator('.positron-notebook-code-cell-outputs-inner');
 
 		await test.step('Resize handle is visible for scrollable output', async () => {
-			await expect(resizeHandle).toBeVisible({ timeout: 10000 });
-			await expect(resizeHandle).toHaveCSS('cursor', 'ns-resize');
+			await expect(splitter).toBeVisible({ timeout: 10000 });
 		});
 
 		await test.step('Dragging the handle changes the output height', async () => {
@@ -62,24 +62,14 @@ test.describe('Positron Notebooks: Output Resize Handle', {
 			}).toPass({ timeout: 5000 });
 		});
 
-		await test.step('Double-clicking the handle resets to default height', async () => {
-			// The output inner should have a height-override class after resizing
-			await expect(outputInner).toHaveClass(/height-override/);
-
-			await resizeHandle.dblclick();
-
-			// After reset, the height-override class should be removed
-			await expect(outputInner).not.toHaveClass(/height-override/, { timeout: 5000 });
-		});
-
 		await test.step('Resize handle is hidden when output is collapsed', async () => {
 			await notebooksPositron.outputCollapseToggle(0).click();
 			await expect(notebooksPositron.outputCollapsedLabel(0)).toBeVisible();
-			await expect(resizeHandle).toBeHidden();
+			await expect(splitter).toBeHidden();
 
 			// Expand again
 			await notebooksPositron.outputCollapseToggle(0).click();
-			await expect(resizeHandle).toBeVisible();
+			await expect(splitter).toBeVisible();
 		});
 
 		await test.step('Re-running cell resets the resize override', async () => {

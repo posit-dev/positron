@@ -7,7 +7,7 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -37,7 +37,7 @@ import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { useResize } from '../useResize.js';
+import { HorizontalSplitter, HorizontalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
 
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
 const outputCollapsedLabel = localize('positron.notebook.outputCollapsed', 'Output collapsed');
@@ -64,11 +64,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
 	useScrollingIndicator(outputsInnerRef);
-	const { handleRef: resizeHandleRef, sizeOverride: heightOverride, clearSizeOverride: clearHeightOverride } = useResize({
-		axis: 'vertical',
-		edge: 'end',
-		containerRef: outputsInnerRef,
-	});
+	const [heightOverride, setHeightOverride] = useState<number | undefined>(undefined);
 
 	// Per-cell scrolling override takes precedence over global setting.
 	const outputScrolling = perCellScrolling ?? layout.outputScrolling;
@@ -79,8 +75,23 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	if (prevOutputsRef.current !== outputs || prevScrollingRef.current !== outputScrolling) {
 		prevOutputsRef.current = outputs;
 		prevScrollingRef.current = outputScrolling;
-		clearHeightOverride();
+		if (heightOverride !== undefined) {
+			setHeightOverride(undefined);
+		}
 	}
+
+	const onBeginResize = useCallback((): HorizontalSplitterResizeParams => {
+		const el = outputsInnerRef.current;
+		return {
+			startingHeight: el?.offsetHeight ?? 0,
+			minimumHeight: 50,
+			maximumHeight: 2000,
+		};
+	}, []);
+
+	const onResize = useCallback((height: number) => {
+		setHeightOverride(height);
+	}, []);
 
 	// Update the output overflow context key.
 	React.useEffect(() => {
@@ -162,10 +173,10 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					{ 'output-scrolling': outputScrolling },
 					{ 'height-override': heightOverride !== undefined }
 				)}
-				style={heightOverride !== undefined ? {
-					maxHeight: heightOverride,
-					height: heightOverride
-				} : undefined}
+					style={heightOverride !== undefined ? {
+						maxHeight: heightOverride,
+						height: heightOverride
+					} : undefined}
 				>
 					{isCollapsed
 						? <CollapsedOutputLabel onExpand={handleShowHiddenOutput} />
@@ -186,10 +197,10 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					}
 				</div>
 				{outputScrolling && !isCollapsed && outputs.length > 0 &&
-					<div
-						ref={resizeHandleRef}
-						className='cell-output-resize-handle'
-						onDoubleClick={clearHeightOverride}
+					<HorizontalSplitter
+						showResizeIndicator
+						onBeginResize={onBeginResize}
+						onResize={onResize}
 					/>
 				}
 			</section>
