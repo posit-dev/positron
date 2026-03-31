@@ -269,6 +269,16 @@ export class UiClientInstance extends Disposable {
 	}
 
 	/**
+	 * Notify the backend that the frontend is ready.
+	 *
+	 * @param startType The type of session start ('new', 'restart', or
+	 * 'reconnect')
+	 */
+	public frontendReady(startType: string): Promise<null> {
+		return this._comm.frontendReady(startType);
+	}
+
+	/**
 	 * Evaluate code silently in the runtime and return a JSON-coerced result.
 	 *
 	 * @param code The code to evaluate
