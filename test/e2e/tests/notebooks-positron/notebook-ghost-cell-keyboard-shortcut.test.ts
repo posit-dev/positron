@@ -13,8 +13,27 @@ test.use({
 test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	test.beforeAll(async function ({ app, settings }) {
+	test.beforeAll(async function ({ app, settings, assistant }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+
+		// Enable ghost cell suggestions and configure echo model
+		await settings.set({
+			'positron.assistant.notebook.ghostCellSuggestions.enabled': true,
+			'positron.assistant.notebook.ghostCellSuggestions.model': ['echo']
+		}, { keepOpen: false });
+
+		// Login to echo provider
+		await assistant.loginModelProvider('echo');
+	});
+
+	test.afterAll(async function ({ assistant, settings }) {
+		await assistant.logoutModelProvider('echo');
+
+		// Clean up ghost cell settings to ensure no interference with other tests
+		await settings.remove([
+			'positron.assistant.notebook.ghostCellSuggestions.enabled',
+			'positron.assistant.notebook.ghostCellSuggestions.model'
+		]);
 	});
 
 	test.afterEach(async function ({ hotKeys }) {
@@ -24,11 +43,20 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 	test('Ghost cell workflow: Automatic mode to On-demand mode with Accept and Run', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
 
-		// Setup notebook with sample code
-		await notebooksPositron.newNotebook({ codeCells: 2 });
-		await notebooksPositron.addCodeToCell(0, 'import pandas as pd\ndf = pd.read_csv("data.csv")', { run: false });
-		await notebooksPositron.addCodeToCell(1, 'df_clean = df.dropna()', { run: false });
-		await notebooksPositron.selectCellAtIndex(1, { editMode: false });
+		// Create notebook - Positron will auto-select an available kernel
+		await notebooksPositron.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+
+		// Wait for kernel to be ready
+		await app.code.driver.page.waitForTimeout(5000);
+
+		// Add and execute a simple cell to provide context for ghost cell suggestions
+		// Using comment which works in both Python and R
+		await notebooksPositron.addCodeToCell(0, '# context', { run: true });
+		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
+
+		// Select cell in command mode (required for keyboard shortcut)
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
 
 		// Trigger ghost cell with keyboard shortcut
 		await hotKeys.triggerGhostCell();
@@ -49,8 +77,8 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		// Accept and Run the suggestion
 		await notebooksPositron.acceptGhostCellSuggestion();
 
-		// Verify cell is generated and executed (cell count increases)
-		await notebooksPositron.expectCellCountToBe(3);
+		// Verify cell is generated and executed (cell count increases from 1 to 2)
+		await notebooksPositron.expectCellCountToBe(2);
 
 		// Verify "AI suggestion available on request" appears for On-demand mode
 		await notebooksPositron.expectGhostCellAwaitingRequest();
