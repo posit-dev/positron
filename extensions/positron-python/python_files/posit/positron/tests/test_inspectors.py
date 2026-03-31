@@ -652,9 +652,12 @@ def test_inspect_geopandas_dataframe() -> None:
     value = geopandas.GeoDataFrame({"g": geopandas.GeoSeries([p1, p2, p3]), "data": [0, 1, 2]})
 
     rows, cols = value.shape
+    # Comparison cost should exclude geometry column (1 non-geom column * 3 rows = 3)
+    non_geom_cols = cols - 1
 
     def mutate(x):
-        x["data2"] = [4, 5, 6]
+        # Mutate non-geometry data (deepcopy only copies non-geometry columns)
+        x["data"] = [9, 9, 9]
 
     verify_inspector(
         value=value,
@@ -668,6 +671,7 @@ def test_inspect_geopandas_dataframe() -> None:
         length=cols,
         mutable=True,
         mutate=mutate,
+        comparison_cost=rows * non_geom_cols,
     )
 
 
@@ -738,9 +742,6 @@ def test_inspect_geopandas_series() -> None:
     )
     (rows,) = value.shape
 
-    def mutate(x):
-        x.iloc[0] = x.iloc[1]
-
     verify_inspector(
         value=value,
         display_value=f"geopandas.GeoSeries {value.to_list()!r}",
@@ -752,7 +753,8 @@ def test_inspect_geopandas_series() -> None:
         is_truncated=False,
         length=rows,
         mutable=True,
-        mutate=mutate,
+        # GeoSeries excludes itself from change detection (deepcopy raises copy.Error)
+        supports_deepcopy=False,
     )
 
 
