@@ -334,7 +334,9 @@ class PlotsService:
         render_settings = self._current_render_settings
         if render_settings is None:
             render_settings = PlotRenderSettings(
-                size=PlotSize(width=int(intrinsic_size[0] * 100), height=int(intrinsic_size[1] * 100)),
+                size=PlotSize(
+                    width=int(intrinsic_size[0] * 100), height=int(intrinsic_size[1] * 100)
+                ),
                 pixel_ratio=1.0,
                 format=PlotRenderFormat.Png,
             )
