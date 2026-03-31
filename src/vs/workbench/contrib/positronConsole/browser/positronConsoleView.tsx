@@ -37,6 +37,7 @@ import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
 import { MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { IForegroundSessionContribution } from '../../runtimeSession/browser/foregroundSessionContribution.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -144,15 +145,12 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 
 		if (focused) {
 			// When the console pane gains focus, ensure the foreground session matches
-			// the active console instance. This is set directly here rather than through
-			// the ForegroundSessionContribution because we're not changing the active
-			// console instance - we're just syncing the foreground session to it.
-			// If the user clicked a console tab, that already set the foreground session
-			// via onDidChangeActivePositronConsoleInstance. This handles the case where
-			// the user clicks elsewhere in the console pane (not a tab).
+			// the active console instance. If the user clicked a console tab, that already
+			// set the foreground session via onDidChangeActivePositronConsoleInstance. This
+			// handles the case where the user clicks elsewhere in the console pane (not a tab).
 			const activeInstance = this.positronConsoleService.activePositronConsoleInstance;
 			if (activeInstance?.attachedRuntimeSession) {
-				this.runtimeSessionService.foregroundSession = activeInstance.attachedRuntimeSession;
+				this.foregroundSessionContribution.setForegroundSession(activeInstance.attachedRuntimeSession);
 			}
 			this._onFocusedEmitter.fire();
 		}
@@ -198,6 +196,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IForegroundSessionContribution private readonly foregroundSessionContribution: IForegroundSessionContribution,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
