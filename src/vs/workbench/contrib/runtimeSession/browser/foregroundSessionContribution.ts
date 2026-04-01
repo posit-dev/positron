@@ -137,16 +137,12 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			this._logService.trace(`[ForegroundSessionContribution] (${notebookName}) onDidRemoveNotebookInstance fired: ${instance.getId()}`);
 			this._unregisterPositronNotebookFocusListener(instance);
 
-			// If the foreground session belongs to the closed notebook, switch to the
-			// last active console session (or clear it). This fires synchronously during
-			// notebook close, before the async map cleanup in runtimeNotebookKernelService,
-			// so the interpreter picker immediately reflects the correct session.
+			// When the last notebook instance is closed and the foreground is any notebook
+			// session, switch to the last active console session if there is one, or undefined.
 			const foregroundSession = this._runtimeSessionService.foregroundSession;
-			if (foregroundSession?.metadata.notebookUri &&
-				isEqual(foregroundSession.metadata.notebookUri, instance.uri)
-			) {
+			if (foregroundSession?.metadata.notebookUri && this._positronNotebookService.listInstances().length === 0) {
 				const consoleSession = this._runtimeSessionService.getLastActiveConsoleSession();
-				this._logService.trace(`[ForegroundSessionContribution] (${notebookName}) closed, switching foreground session from notebook to: ${consoleSession?.sessionId ?? 'no session'}`);
+				this._logService.trace(`[ForegroundSessionContribution] (${notebookName}) last notebook closed, switching foreground session to: ${consoleSession?.sessionId ?? 'none'}`);
 				this._runtimeSessionService.foregroundSession = consoleSession;
 			}
 		}));
