@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAction } from '../../../../base/common/actions.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
@@ -118,25 +117,17 @@ function showRestartSessionNotification(
 			operation
 		);
 
-	const restartAction: IAction = {
-		id: 'restartSession',
-		label: nls.localize('positronPackages.restartSession', 'Restart Session'),
-		tooltip: nls.localize('positronPackages.restartSessionTooltip', 'Restart the current session'),
-		enabled: true,
-		class: undefined,
-		run: async () => {
-			await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
-			await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
-		}
-	};
-
-	notifications.notify({
-		severity: Severity.Info,
+	notifications.prompt(
+		Severity.Info,
 		message,
-		actions: {
-			primary: [restartAction]
-		}
-	});
+		[{
+			label: nls.localize('positronPackages.restartSession', 'Restart Session'),
+			run: async () => {
+				await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
+				await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
+			}
+		}]
+	);
 }
 
 /**
@@ -158,25 +149,17 @@ function showRestartSessionNotificationForUpdateAll(
 		'Packages were updated. A session restart may be required for changes to take effect.'
 	);
 
-	const restartAction: IAction = {
-		id: 'restartSession',
-		label: nls.localize('positronPackages.restartSession', 'Restart Session'),
-		tooltip: nls.localize('positronPackages.restartSessionTooltip', 'Restart the current session'),
-		enabled: true,
-		class: undefined,
-		run: async () => {
-			await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
-			await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
-		}
-	};
-
-	notifications.notify({
-		severity: Severity.Info,
+	notifications.prompt(
+		Severity.Info,
 		message,
-		actions: {
-			primary: [restartAction]
-		}
-	});
+		[{
+			label: nls.localize('positronPackages.restartSession', 'Restart Session'),
+			run: async () => {
+				await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
+				await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
+			}
+		}]
+	);
 }
 
 class RefreshPackagesAction extends Action2 {
