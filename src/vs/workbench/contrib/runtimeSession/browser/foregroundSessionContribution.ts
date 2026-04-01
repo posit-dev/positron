@@ -383,12 +383,21 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 	 * - Notebook editors: Set the notebook's session as foreground
 	 * - Quarto files (with inline output): Set the Quarto session as foreground
 	 * - Regular files: Restore the last active console session (regardless of language)
+	 * - No editors: Fallback to the last active console session if there is one, otherwise clear the foreground session
 	 */
 	private _handleActiveEditorChange(): void {
 		const activeEditor = this._editorService.activeEditor;
 
-		// No editors are open, so there is nothing to do.
+		// If there are no editors, we need to make sure the foreground session is not
+		// set to a notebook session for a closed notebook file. We fallback to the last
+		// active console session if there is one, otherwise it will be undefined.
 		if (!activeEditor) {
+			const foregroundSession = this._runtimeSessionService.foregroundSession;
+			if (foregroundSession?.metadata.notebookUri) {
+				const consoleSession = this._runtimeSessionService.getLastActiveConsoleSession();
+				this._logService.trace(`[ForegroundSessionContribution] No active editor, switching foreground session from notebook to: ${consoleSession?.sessionId ?? 'none'}`);
+				this._runtimeSessionService.foregroundSession = consoleSession;
+			}
 			return;
 		}
 
@@ -456,7 +465,13 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				this._logService.trace(`[ForegroundSessionContribution] File focused (${fileName}), but it is already the foreground session: ${consoleSession.sessionId}`);
 			}
 		} else {
+			// If we've reached this point, it means there is no console session to set as the
+			// foreground session. In this case, we just need to make sure that we don't show
+			// a notebook session as the foreground for a non-notebook file.
 			this._logService.trace(`[ForegroundSessionContribution] File focused (${fileName}) but no console session found`);
+			if (this._runtimeSessionService.foregroundSession?.metadata.notebookUri) {
+				this._runtimeSessionService.foregroundSession = undefined;
+			}
 		}
 	}
 }
