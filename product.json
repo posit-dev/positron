@@ -281,6 +281,7 @@
 		{
 			"name": "posit.assistant",
 			"version": "0.1.0",
+			"sha256": "0a3ed15daf18b03f02928e210e83fb59d4cd518345ca7ea03533042894ed29a9",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -667,15 +668,18 @@
 		],
 		"anthropic-api": [
 			"positron.authentication",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"posit-ai": [
 			"positron.authentication",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"ms-foundry": [
 			"positron.authentication",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"amazon-bedrock": [
 			"positron.authentication",
