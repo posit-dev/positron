@@ -90,6 +90,12 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	}, []);
 
 	const onResize = useCallback((height: number) => {
+		const el = outputsInnerRef.current;
+		if (el) {
+			el.style.height = height + 'px';
+			el.style.maxHeight = height + 'px';
+			el.classList.add('height-override');
+		}
 		setHeightOverride(height);
 	}, []);
 

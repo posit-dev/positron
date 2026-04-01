@@ -57,9 +57,10 @@ export const HorizontalSplitter = (props: {
 
 		// Setup the resize state.
 		const resizeParams = props.onBeginResize();
-		const target = DOM.getWindow(e.currentTarget).document.body;
+		const sizer = e.currentTarget;
+		const body = DOM.getWindow(sizer).document.body;
 		const clientY = e.clientY;
-		const styleSheet = createStyleSheet(target);
+		const styleSheet = createStyleSheet(body);
 
 		/**
 		 * pointermove event handler.
@@ -85,9 +86,9 @@ export const HorizontalSplitter = (props: {
 				cursor = isMacintosh ? 'row-resize' : 'ns-resize';
 			}
 
-			// Update the style sheet's text content with the desired cursor. This is a clever
-			// technique adopted from src/vs/base/browser/ui/sash/sash.ts.
-			styleSheet.textContent = `* { cursor: ${cursor} !important; }`;
+			// Update the style sheet's text content with the desired cursor and
+			// disable text selection during the resize operation.
+			styleSheet.textContent = `* { cursor: ${cursor} !important; user-select: none !important; }`;
 
 			// Call the onResize callback.
 			props.onResize(newHeight);
@@ -102,8 +103,8 @@ export const HorizontalSplitter = (props: {
 			setResizing(false);
 
 			// Remove our pointer event handlers.
-			target.removeEventListener('pointermove', pointerMoveHandler);
-			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
+			sizer.removeEventListener('pointermove', pointerMoveHandler);
+			sizer.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
 			// Calculate the new height.
 			let newHeight = calculateNewHeight(e);
@@ -116,7 +117,7 @@ export const HorizontalSplitter = (props: {
 			}
 
 			// Remove the style sheet.
-			target.removeChild(styleSheet);
+			body.removeChild(styleSheet);
 
 			// Call the onEndResize callback.
 			props.onResize(newHeight);
@@ -129,7 +130,7 @@ export const HorizontalSplitter = (props: {
 		 */
 		const calculateNewHeight = (e: PointerEvent) => {
 			// Calculate the delta.
-			const delta = Math.trunc(e.clientY - clientY);
+			const delta = e.clientY - clientY;
 
 			// Calculate the new height.
 			return !resizeParams.invert ?
@@ -140,22 +141,21 @@ export const HorizontalSplitter = (props: {
 		// Set the dragging flag.
 		setResizing(true);
 
-		// Set the capture target of future pointer events to be the current target and add our
-		// pointer event handlers.
-		target.setPointerCapture(e.pointerId);
-		target.addEventListener('pointermove', pointerMoveHandler);
-		target.addEventListener('lostpointercapture', lostPointerCaptureHandler);
+		// Set pointer capture on the sizer element and add our pointer event handlers.
+		sizer.setPointerCapture(e.pointerId);
+		sizer.addEventListener('pointermove', pointerMoveHandler);
+		sizer.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 
 	// Render.
 	return (
 		<div className='horizontal-splitter'>
+			{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- TODO: add full keyboard accessibility (role, tabindex, arrow keys) */}
 			<div
 				className={positronClassNames(
 					'sizer',
 					{ 'resizing': resizing && props.showResizeIndicator }
 				)}
-				role='separator'
 				onDoubleClick={props.onDoubleClick}
 				onPointerDown={pointerDownHandler}
 			/>
