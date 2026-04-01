@@ -100,8 +100,14 @@ function showRestartSessionNotification(
 
 	const packageList = packageNames.length === 1
 		? `"${packageNames[0]}"`
-		: packageNames.slice(0, 3).map(name => `"${name}"`).join(', ') +
-		(packageNames.length > 3 ? ` and ${packageNames.length - 3} more` : '');
+		: (() => {
+			const visiblePackages = packageNames.slice(0, 3).map(name => `"${name}"`);
+			if (packageNames.length > 3) {
+				const remainingCount = packageNames.length - 3;
+				visiblePackages.push(nls.localize('positronPackages.morePackages', "and {0} more", remainingCount));
+			}
+			return visiblePackages.join(', ');
+		})();
 
 	const message = packageNames.length === 1
 		? nls.localize(
