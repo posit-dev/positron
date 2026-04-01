@@ -15,7 +15,7 @@
 	"serverLicense": [],
 	"serverLicensePrompt": "",
 	"serverApplicationName": "positron-server",
-	"serverDataFolderName": ".vscode-server",
+	"serverDataFolderName": ".positron-server",
 	"serverDownloadUrlTemplate": "https://cdn.posit.co/positron/${quality}/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz",
 	"tunnelApplicationName": "positron-tunnel",
 	"win32DirName": "Positron",
@@ -243,7 +243,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.22.0",
+			"version": "0.24.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",

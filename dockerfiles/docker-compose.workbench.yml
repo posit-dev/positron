@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   test:
-    image: ghcr.io/posit-dev/positron-ubuntu24-amd64:100
+    image: ghcr.io/posit-dev/positron-ubuntu24-amd64:116
     container_name: test
     init: true
     ports:
@@ -31,7 +31,7 @@ services:
       - connect_tokens:/tokens
 
   postgres:
-    image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:100
+    image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:116
     container_name: postgres
     ports:
       - "5432:5432"

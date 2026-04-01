@@ -65,6 +65,11 @@
 					"default": null,
 					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"
 				},
+				"authentication.anthropic.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.anthropic.baseUrl.description%"
+				},
 				"authentication.foundry.baseUrl": {
 					"type": "string",
 					"default": "",

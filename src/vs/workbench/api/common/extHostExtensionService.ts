@@ -506,6 +506,9 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		const globalState = extensionInternalStore.add(new ExtensionGlobalMemento(extensionDescription, this._storage));
 		const workspaceState = extensionInternalStore.add(new ExtensionMemento(extensionDescription.identifier.value, false, this._storage));
 		const secrets = extensionInternalStore.add(new ExtensionSecrets(extensionDescription, this._secretState));
+		// --- Start Positron ---
+		const ephemeralMemento = extensionInternalStore.add(this._storage.positronEphemeralStorage.getOrCreateMemento(extensionDescription.identifier.value));
+		// --- End Positron ---
 		const extensionMode = extensionDescription.isUnderDevelopment
 			? (this._initData.environment.extensionTestsLocationURI ? ExtensionMode.Test : ExtensionMode.Development)
 			: ExtensionMode.Production;
@@ -516,7 +519,10 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		return Promise.all([
 			globalState.whenReady,
 			workspaceState.whenReady,
-			this._storagePath.whenReady
+			this._storagePath.whenReady,
+			// --- Start Positron ---
+			ephemeralMemento.whenReady,
+			// --- End Positron ---
 		]).then(() => {
 			const that = this;
 			let extension: vscode.Extension<any> | undefined;

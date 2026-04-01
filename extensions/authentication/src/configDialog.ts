@@ -257,8 +257,23 @@ async function handleDelete(
 		return;
 	}
 	const sessions = await provider.getSessions();
-	log.info(`Deleting ${sessions.length} session(s) for provider "${config.provider}"`);
-	for (const session of sessions) {
+	// Credential-chain sessions (e.g. env var credentials) use the
+	// provider ID as their session ID. These cannot be removed via the
+	// UI -- the user must unset the environment variable and restart.
+	const deletable = provider.chainPreventsSignOut
+		? sessions.filter(s => s.id !== config.provider)
+		: sessions;
+	if (deletable.length === 0 && sessions.length > 0) {
+		throw new Error(
+			vscode.l10n.t(
+				'This credential was configured via an environment variable ' +
+				'and cannot be removed from the UI. Unset the environment ' +
+				'variable and restart Positron.'
+			)
+		);
+	}
+	log.info(`Deleting ${deletable.length} session(s) for provider "${config.provider}"`);
+	for (const session of deletable) {
 		await provider.removeSession(session.id);
 	}
 }

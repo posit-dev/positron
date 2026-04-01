@@ -128,13 +128,38 @@ export async function showConfigurationDialog(
 					// Resolve environment variables
 					if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 						const envVarName = source.defaults.autoconfigure.key;
-						const envVarValue = process.env[envVarName];
+						const providerId = source.provider.id;
+
+						// For providers migrated to the auth extension,
+						// check for a credential chain session.
+						let signedIn = false;
+						let baseUrlValue: string | undefined;
+						if (isAuthExtProvider(providerId)) {
+							try {
+								const session = await vscode.authentication.getSession(
+									providerId, [], { silent: true }
+								);
+								signedIn = !!session?.accessToken
+									&& session.id === providerId;
+							} catch {
+								signedIn = false;
+							}
+							const configKey = providerId.replace(/-.*$/, '');
+							baseUrlValue = vscode.workspace
+								.getConfiguration(`authentication.${configKey}`)
+								.get<string>('baseUrl') || undefined;
+						} else {
+							signedIn = !!process.env[envVarName];
+							const baseUrlEnvVar = `${envVarName.replace(/_API_KEY$/, '')}_BASE_URL`;
+							baseUrlValue = process.env[baseUrlEnvVar];
+						}
 
 						return {
 							...source,
 							defaults: {
 								...source.defaults,
-								autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn: !!envVarValue }
+								...(baseUrlValue && { baseUrl: baseUrlValue }),
+								autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn }
 							},
 						};
 					} else if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {

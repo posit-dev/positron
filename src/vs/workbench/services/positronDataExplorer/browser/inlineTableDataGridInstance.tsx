@@ -25,6 +25,15 @@ import { PositronReactServices } from '../../../../base/browser/positronReactSer
 import { buildTableSelectionFromClipboardData } from './utils.js';
 
 /**
+ * Grid layout constants used in the DataGridInstance constructor options.
+ * These are also used externally for pre-calculating inline data explorer heights
+ * (see quartoInlineDataExplorerLayout.ts, InlineDataExplorer.tsx).
+ */
+export const INLINE_GRID_COLUMN_HEADERS_HEIGHT = 34;
+export const INLINE_GRID_DEFAULT_ROW_HEIGHT = 22;
+export const INLINE_GRID_SCROLLBAR_THICKNESS = 10;
+
+/**
  * Constants.
  */
 const OVERSCAN_FACTOR = 3;
@@ -69,19 +78,19 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 		// Call the base class's constructor with simplified options
 		super({
 			columnHeaders: true,
-			columnHeadersHeight: 34,
+			columnHeadersHeight: INLINE_GRID_COLUMN_HEADERS_HEIGHT,
 			rowHeaders: true,
 			rowHeadersWidth: 50,
 			rowHeadersResize: false,
 			defaultColumnWidth: 150,
-			defaultRowHeight: 22,
+			defaultRowHeight: INLINE_GRID_DEFAULT_ROW_HEIGHT,
 			columnResize: false,
 			rowResize: false,
 			columnPinning: false,
 			rowPinning: false,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
-			scrollbarThickness: 10,
+			scrollbarThickness: INLINE_GRID_SCROLLBAR_THICKNESS,
 			scrollbarOverscroll: 0,
 			useEditorFont: true,
 			automaticLayout: true,

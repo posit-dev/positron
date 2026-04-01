@@ -19,7 +19,7 @@ import { registerMigrateApiKeyCommand } from './migration/apiKey';
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
 
-	registerAnthropicProvider(context);
+	await registerAnthropicProvider(context);
 	registerPositAIProvider(context);
 	registerFoundryProvider(context);
 
@@ -45,9 +45,46 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerMigrateApiKeyCommand(context);
 }
 
-function registerAnthropicProvider(context: vscode.ExtensionContext): void {
+async function registerAnthropicProvider(
+	context: vscode.ExtensionContext
+): Promise<void> {
+	// Sync ANTHROPIC_BASE_URL env var to the config setting before
+	// chain resolution so validation uses the correct endpoint.
+	const envBaseUrl = process.env.ANTHROPIC_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration('authentication.anthropic')
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				log.error(`Failed to sync Anthropic base URL: ${err}`)
+			);
+	}
+
 	const provider = new AuthProvider(
-		ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', context
+		ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', context,
+		undefined,
+		{
+			resolve: async () => {
+				const apiKey = process.env.ANTHROPIC_API_KEY;
+				if (!apiKey) {
+					throw new Error('ANTHROPIC_API_KEY not set');
+				}
+				const baseUrl = vscode.workspace
+					.getConfiguration('authentication.anthropic')
+					.get<string>('baseUrl') || undefined;
+				await validateAnthropicApiKey(apiKey, {
+					provider: ANTHROPIC_AUTH_PROVIDER_ID,
+					name: 'Anthropic',
+					model: '',
+					type: positron.PositronLanguageModelType.Chat,
+					...(baseUrl && { baseUrl }),
+				});
+				return apiKey;
+			},
+			preventSignOut: true,
+		}
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
@@ -58,7 +95,24 @@ function registerAnthropicProvider(context: vscode.ExtensionContext): void {
 	);
 	registerAuthProvider(ANTHROPIC_AUTH_PROVIDER_ID, provider, {
 		validateApiKey: validateAnthropicApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration('authentication.anthropic')
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global
+					);
+			}
+		},
 	});
+
+	// Eagerly resolve env var credentials so the session is
+	// available before positron-assistant registers models.
+	await provider.resolveChainCredentials().catch(err =>
+		log.debug(`[Anthropic] Initial credential resolution: ${err}`)
+	);
+
 	log.info(`Registered auth provider: ${ANTHROPIC_AUTH_PROVIDER_ID}`);
 }
 
