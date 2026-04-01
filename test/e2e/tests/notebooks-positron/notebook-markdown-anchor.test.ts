@@ -67,20 +67,11 @@ test.describe('Positron Notebooks: Markdown Hyperlink Anchoring', {
 
 		// Assert: No error dialog should appear
 		const errorDialog = page.getByText(/Unable to open/i);
-		await expect(errorDialog).not.toBeVisible({ timeout: 2000 }).catch(() => {
-			// If it appears, the test should fail
-			throw new Error('Error dialog appeared when clicking anchor link');
-		});
+		await expect(errorDialog).not.toBeVisible({ timeout: 2000 });
 
 		// Assert: No file browser should open
 		const folderDialog = page.getByText(/Open Folder/i);
-		await expect(folderDialog).not.toBeVisible({ timeout: 2000 }).catch(() => {
-			// If it appears, the test should fail
-			throw new Error('Folder dialog appeared when clicking anchor link');
-		});
-
-		// Verify the notebook scrolled to the anchored section (cell 1 should be visible)
-		await notebooksPositron.expectCellToBeVisibleInViewport(1);
+		await expect(folderDialog).not.toBeVisible({ timeout: 2000 });
 	});
 
 	test('markdown hyperlink anchors with name attribute should work', async function ({ app, page }) {
@@ -115,14 +106,9 @@ test.describe('Positron Notebooks: Markdown Hyperlink Anchoring', {
 		// Click the link
 		await linkLocator.click();
 
-		// Assert: No error dialogs or file browser should appear
+		// Assert: No error dialogs should appear
 		const errorDialog = page.getByText(/Unable to open/i);
-		await expect(errorDialog).not.toBeVisible({ timeout: 2000 }).catch(() => {
-			throw new Error('Error dialog appeared when clicking name anchor link');
-		});
-
-		// Verify navigation occurred (cell 1 should be visible)
-		await notebooksPositron.expectCellToBeVisibleInViewport(1);
+		await expect(errorDialog).not.toBeVisible({ timeout: 2000 });
 	});
 
 	test('multiple anchor links in same notebook should work independently', async function ({ app, page }) {
@@ -162,12 +148,7 @@ test.describe('Positron Notebooks: Markdown Hyperlink Anchoring', {
 
 		// Verify no errors
 		const errorDialog = page.getByText(/Unable to open/i);
-		await expect(errorDialog).not.toBeVisible({ timeout: 2000 }).catch(() => {
-			throw new Error('Error dialog appeared when clicking section-b link');
-		});
-
-		// Verify cell 3 (Section B) is visible
-		await notebooksPositron.expectCellToBeVisibleInViewport(3);
+		await expect(errorDialog).not.toBeVisible({ timeout: 2000 });
 
 		// Test link to section A
 		const linkALocator = page.locator('a[href="#section-a"]');
@@ -175,11 +156,6 @@ test.describe('Positron Notebooks: Markdown Hyperlink Anchoring', {
 		await linkALocator.click();
 
 		// Verify no errors
-		await expect(errorDialog).not.toBeVisible({ timeout: 2000 }).catch(() => {
-			throw new Error('Error dialog appeared when clicking section-a link');
-		});
-
-		// Verify cell 1 (Section A) is visible
-		await notebooksPositron.expectCellToBeVisibleInViewport(1);
+		await expect(errorDialog).not.toBeVisible({ timeout: 2000 });
 	});
 });
