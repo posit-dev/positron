@@ -10,7 +10,7 @@ import { AuthProvider } from './authProvider';
 import { PositOAuthProvider } from './positOAuthProvider';
 import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
-import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 
 export interface ConfigDialogResult {
 	action: string;
@@ -86,6 +86,20 @@ async function enrichWithCredentialState(
 						autoconfigure: {
 							type: positron.ai.LanguageModelAutoconfigureType.Custom,
 							message: FOUNDRY_MANAGED_CREDENTIALS.displayName,
+							signedIn: true,
+						},
+					},
+				};
+			}
+			if (signedIn && source.provider.id === 'snowflake-cortex' && hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS)) {
+				return {
+					...source,
+					signedIn,
+					defaults: {
+						...source.defaults,
+						autoconfigure: {
+							type: positron.ai.LanguageModelAutoconfigureType.Custom,
+							message: SNOWFLAKE_MANAGED_CREDENTIALS.displayName,
 							signedIn: true,
 						},
 					},

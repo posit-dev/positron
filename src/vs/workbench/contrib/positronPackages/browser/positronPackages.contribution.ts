@@ -7,23 +7,24 @@ import { CancellationTokenSource } from '../../../../base/common/cancellation.js
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as nls from '../../../../nls.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
+import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
-import { PositronPackagesView } from './positronPackagesView.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
-import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
-import { ILanguageRuntimePackage } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
+import { PositronPackagesView } from './positronPackagesView.js';
 
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
 export const POSITRON_PACKAGES_VIEW_ID = 'workbench.view.positronPackages.view';
@@ -74,6 +75,99 @@ export const PACKAGES_REFRESH_COMMAND_ID = 'positronPackages.refreshPackages';
 
 const PACKAGES_CATEGORY = nls.localize2('packages', 'Packages');
 
+/**
+ * Shows a notification suggesting the user restart their session after a package operation.
+ *
+ * @param notifications The notification service
+ * @param runtimeSessionService The runtime session service
+ * @param commandService The command service
+ * @param packagesService The packages service
+ * @param operation The operation that was performed (e.g., 'installed', 'uninstalled', 'updated')
+ * @param packageNames The names of the packages that were operated on
+ */
+function showRestartSessionNotification(
+	notifications: INotificationService,
+	runtimeSessionService: IRuntimeSessionService,
+	commandService: ICommandService,
+	packagesService: IPositronPackagesService,
+	operation: string,
+	packageNames: string[]
+): void {
+	const session = packagesService.activeSession;
+	if (!session) {
+		return;
+	}
+
+	const packageList = packageNames.length === 1
+		? `"${packageNames[0]}"`
+		: (() => {
+			const visiblePackages = packageNames.slice(0, 3).map(name => `"${name}"`);
+			if (packageNames.length > 3) {
+				const remainingCount = packageNames.length - 3;
+				visiblePackages.push(nls.localize('positronPackages.morePackages', "and {0} more", remainingCount));
+			}
+			return visiblePackages.join(', ');
+		})();
+
+	const message = packageNames.length === 1
+		? nls.localize(
+			'positronPackages.restartSessionSingular',
+			'Package {0} was {1}. A session restart may be required for changes to take effect.',
+			packageList,
+			operation
+		)
+		: nls.localize(
+			'positronPackages.restartSessionPlural',
+			'Packages {0} were {1}. A session restart may be required for changes to take effect.',
+			packageList,
+			operation
+		);
+
+	notifications.prompt(
+		Severity.Info,
+		message,
+		[{
+			label: nls.localize('positronPackages.restartSession', 'Restart Session'),
+			run: async () => {
+				await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
+				await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
+			}
+		}]
+	);
+}
+
+/**
+ * Shows a notification suggesting the user restart their session after updating all packages.
+ */
+function showRestartSessionNotificationForUpdateAll(
+	notifications: INotificationService,
+	runtimeSessionService: IRuntimeSessionService,
+	commandService: ICommandService,
+	packagesService: IPositronPackagesService
+): void {
+	const session = packagesService.activeSession;
+	if (!session) {
+		return;
+	}
+
+	const message = nls.localize(
+		'positronPackages.restartSessionUpdateAll',
+		'Packages were updated. A session restart may be required for changes to take effect.'
+	);
+
+	notifications.prompt(
+		Severity.Info,
+		message,
+		[{
+			label: nls.localize('positronPackages.restartSession', 'Restart Session'),
+			run: async () => {
+				await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
+				await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
+			}
+		}]
+	);
+}
+
 class RefreshPackagesAction extends Action2 {
 	constructor() {
 		super({
@@ -91,21 +185,23 @@ class RefreshPackagesAction extends Action2 {
 
 		const cts = new CancellationTokenSource();
 
-		return progress.withProgress({
-			title: nls.localize('positronPackages.refreshingPackages', 'Refreshing Packages...'),
-			location: ProgressLocation.Notification,
-			cancellable: true,
-			delay: 500
-		}, async () => {
-			try {
-				return await service.refreshPackages(cts.token);
-			} catch (error) {
-				notifications.error(error);
-				throw error;
-			} finally {
-				cts.dispose(true);
-			}
-		}, () => cts.cancel());
+		try {
+			return await progress.withProgress({
+				title: nls.localize('positronPackages.refreshingPackages', 'Refreshing Packages...'),
+				location: ProgressLocation.Notification,
+				cancellable: true,
+				delay: 500
+			}, async () => {
+				try {
+					return await service.refreshPackages(cts.token);
+				} catch (error) {
+					notifications.error(error);
+					throw error;
+				}
+			}, () => cts.cancel());
+		} finally {
+			cts.dispose(true);
+		}
 	}
 }
 
@@ -124,6 +220,8 @@ class InstallPackageAction extends Action2 {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
+		const runtimeSessionService = accessor.get<IRuntimeSessionService>(IRuntimeSessionService);
+		const commandService = accessor.get<ICommandService>(ICommandService);
 
 		// Create a token source for the entire install flow (search + install)
 		const cts = new CancellationTokenSource();
@@ -150,12 +248,18 @@ class InstallPackageAction extends Action2 {
 				}, async () => {
 					try {
 						await service.installPackages([{ name: pkg, version }], cts.token);
+						showRestartSessionNotification(
+							notifications,
+							runtimeSessionService,
+							commandService,
+							service,
+							nls.localize('positronPackages.operationInstalled', 'installed'),
+							[pkg]
+						);
 					} catch (e) {
 						notifications.error(e);
-					} finally {
-						cts.dispose(true);
 					}
-				}, () => cts.dispose(true));
+				}, () => cts.cancel());
 			};
 
 			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
@@ -183,6 +287,8 @@ class UninstallPackageAction extends Action2 {
 		const dialogService = accessor.get<IDialogService>(IDialogService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
+		const runtimeSessionService = accessor.get<IRuntimeSessionService>(IRuntimeSessionService);
+		const commandService = accessor.get<ICommandService>(ICommandService);
 		const cts = new CancellationTokenSource();
 
 		try {
@@ -203,10 +309,18 @@ class UninstallPackageAction extends Action2 {
 				}, async () => {
 					try {
 						await service.uninstallPackages([pkg], cts.token);
+						showRestartSessionNotification(
+							notifications,
+							runtimeSessionService,
+							commandService,
+							service,
+							nls.localize('positronPackages.operationUninstalled', 'uninstalled'),
+							[pkg]
+						);
 					} catch (e) {
 						notifications.error(e);
 					}
-				}, () => cts.dispose(true));
+				}, () => cts.cancel());
 			};
 
 			const argPackage = args.at(0) as string | undefined;
@@ -223,8 +337,9 @@ class UninstallPackageAction extends Action2 {
 		} catch (error) {
 			notifications.error(error);
 			throw error;
+		} finally {
+			cts.dispose(true);
 		}
-
 	}
 }
 
@@ -248,6 +363,8 @@ class UpdatePackageAction extends Action2 {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
+		const runtimeSessionService = accessor.get<IRuntimeSessionService>(IRuntimeSessionService);
+		const commandService = accessor.get<ICommandService>(ICommandService);
 
 		// Create a token source for the entire update flow
 		const cts = new CancellationTokenSource();
@@ -274,10 +391,18 @@ class UpdatePackageAction extends Action2 {
 				}, async () => {
 					try {
 						await service.updatePackages([{ name: pkg, version }], cts.token);
+						showRestartSessionNotification(
+							notifications,
+							runtimeSessionService,
+							commandService,
+							service,
+							nls.localize('positronPackages.operationUpdated', 'updated'),
+							[pkg]
+						);
 					} catch (e) {
 						notifications.error(e);
 					}
-				}, () => cts.dispose(true));
+				}, () => cts.cancel());
 			};
 
 			const arg0 = args.at(0) as string | undefined;
@@ -311,22 +436,34 @@ class UpdateAllPackagesAction extends Action2 {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
+		const runtimeSessionService = accessor.get<IRuntimeSessionService>(IRuntimeSessionService);
+		const commandService = accessor.get<ICommandService>(ICommandService);
 
 		const cts = new CancellationTokenSource();
 
-		await progress.withProgress({
-			title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
-			location: ProgressLocation.Notification,
-			cancellable: true,
-			delay: 500
-		}, async () => {
-			try {
-				await service.updateAllPackages(cts.token);
-			} catch (e) {
-				notifications.error(e);
-				throw e;
-			}
-		}, () => cts.dispose(true));
+		try {
+			await progress.withProgress({
+				title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
+				location: ProgressLocation.Notification,
+				cancellable: true,
+				delay: 500
+			}, async () => {
+				try {
+					await service.updateAllPackages(cts.token);
+					showRestartSessionNotificationForUpdateAll(
+						notifications,
+						runtimeSessionService,
+						commandService,
+						service
+					);
+				} catch (e) {
+					notifications.error(e);
+					throw e;
+				}
+			}, () => cts.cancel());
+		} finally {
+			cts.dispose(true);
+		}
 	}
 }
 

@@ -91,6 +91,7 @@ runs:
         retry_on: error
         shell: bash
         command: |
+          set -e
           echo "::group::📦 Install node dependencies"
           if [ -n "$POSITRON_EXTENSIONS_FILTER" ]; then
             echo "📦 Installing with filter: $POSITRON_EXTENSIONS_FILTER"

@@ -28,21 +28,10 @@ export const activate: ActivationFunction = async (context) => {
 	// However, we still need to define them as AMD modules since if a third party module
 	// depends on them it will try to load them with requirejs.
 
-	// Load RequireJS if it's not already available. It was previously provided by the notebook
-	// webview via vs/loader.js, but upstream removed that as part of the ESM migration.
-	if (!isDefineFn((window as Window & { define?: unknown }).define)) {
-		await new Promise<void>((resolve, reject) => {
-			const script = document.createElement('script');
-			script.src = new URL('./require.js', import.meta.url).href;
-			script.onload = () => resolve();
-			script.onerror = () => reject(new Error('Failed to load RequireJS'));
-			document.head.appendChild(script);
-		});
-	}
-
+	// RequireJS is provided by the ms-toolsai.jupyter-renderers static preload (preload.js).
 	const define: unknown = (window as Window & { define?: unknown }).define;
 	if (!isDefineFn(define)) {
-		throw new Error('Requirejs is needed, please ensure it is loaded on the page.');
+		throw new Error('RequireJS is needed but was not loaded by the notebook static preload.');
 	}
 	define('@jupyter-widgets/base', () => base);
 	define('@jupyter-widgets/controls', () => controls);

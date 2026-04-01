@@ -5,25 +5,83 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as ai from 'ai';
 import { OpenAIProvider } from '@ai-sdk/openai';
-import {
-	detectSnowflakeCredentials,
-	extractSnowflakeError,
-	getSnowflakeDefaultBaseUrl,
-	checkForUpdatedSnowflakeCredentials
-} from './snowflakeAuth';
-import { autoconfigureWithManagedCredentials, SNOWFLAKE_MANAGED_CREDENTIALS } from '../../pwb';
 import { OpenAICompatibleModelProvider } from '../openai/openaiCompatibleProvider.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
+
+function isValidSnowflakeAccount(account: string): boolean {
+	if (!account || typeof account !== 'string') {
+		return false;
+	}
+	return /^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/.test(account) ||
+		/^[a-zA-Z0-9_-]+$/.test(account);
+}
+
+function getSnowflakeDefaultBaseUrl(): string {
+	const creds = vscode.workspace
+		.getConfiguration('authentication.snowflake')
+		.get<{ SNOWFLAKE_ACCOUNT?: string }>('credentials', {});
+	const account = creds?.SNOWFLAKE_ACCOUNT ?? process.env.SNOWFLAKE_ACCOUNT;
+	if (account && isValidSnowflakeAccount(account)) {
+		return `https://${account}.snowflakecomputing.com/api/v2/cortex/v1`;
+	}
+	return 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1';
+}
+
+/**
+ * Extracts Snowflake-specific error messages with enhanced user guidance.
+ * Returns the enhanced error message if this is a Snowflake-specific error, or undefined otherwise.
+ */
+function extractSnowflakeError(error: any): string | undefined {
+	let errorMessage = '';
+
+	if (ai.APICallError.isInstance(error) && error.responseBody) {
+		try {
+			const parsed = JSON.parse(error.responseBody);
+			errorMessage = parsed?.error?.message || error.responseBody;
+		} catch {
+			errorMessage = error.responseBody;
+		}
+	} else {
+		errorMessage = error?.message || String(error);
+	}
+
+	const isCrossRegionError =
+		errorMessage.toLowerCase().includes('cross-region') ||
+		errorMessage.toLowerCase().includes('region mismatch') ||
+		errorMessage.toLowerCase().includes('not available in the current region') ||
+		errorMessage.toLowerCase().includes('model not available') ||
+		(error?.statusCode === 403 && errorMessage.toLowerCase().includes('region')) ||
+		(error?.statusCode === 404 && errorMessage.toLowerCase().includes('model'));
+
+	const isNetworkPolicyError =
+		errorMessage.toLowerCase().includes('network policy') ||
+		errorMessage.toLowerCase().includes('network policy is required');
+
+	if (isCrossRegionError || isNetworkPolicyError) {
+		const statusCode = error?.statusCode || error?.status || 'Unknown';
+
+		if (isNetworkPolicyError && isCrossRegionError) {
+			return `Snowflake Configuration Issue: Your Snowflake account configuration is preventing access to AI models. This appears to involve both network policies and cross-region settings. Contact your Snowflake administrator. Response Status: ${statusCode}. Technical Details: ${errorMessage}`;
+		} else if (isNetworkPolicyError) {
+			return `Snowflake Network Policy Issue: Your Snowflake account requires network policy configuration for AI model access. Contact your Snowflake administrator. Response Status: ${statusCode}. Details: ${errorMessage}`;
+		} else {
+			return `Snowflake Cross-Region Issue: The AI model may not be available in your Snowflake account's region. Contact your Snowflake administrator. Response Status: ${statusCode}. Details: ${errorMessage}`;
+		}
+	}
+
+	return undefined;
+}
 
 /**
  * Snowflake Cortex model provider implementation.
  * Extends OpenAI provider to use Snowflake's OpenAI-compatible API.
- * Includes automatic credential refresh from connections.toml.
+ * Credentials are managed by the authentication extension.
  */
 export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 	protected declare aiProvider: OpenAIProvider;
-	private lastConnectionsTomlCheck?: number; // Timestamp of last file check
+	private _lastSessionToken?: string;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -50,36 +108,30 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 	 * Overrides the parent implementation to use Snowflake-specific defaults.
 	 */
 	override get baseUrl() {
-		// Use the baseUrl from config or fallback to default
 		return this._config.baseUrl || SnowflakeModelProvider.source.defaults.baseUrl!;
 	}
 
 	/**
-	 * Check if connections.toml has been modified since our last check and update token if needed.
+	 * Check if the auth extension has refreshed credentials since our last request.
+	 * Preserves the per-request credential freshness check from the original implementation.
 	 */
 	private async checkForUpdatedCredentials(): Promise<void> {
-		// Only check for updates if autoconfigure was set successfully at session start
 		if (!this._config.autoconfigure?.signedIn) {
 			return;
 		}
-		const result = await checkForUpdatedSnowflakeCredentials(
-			this.lastConnectionsTomlCheck,
-			this._config.apiKey
+		const session = await vscode.authentication.getSession(
+			'snowflake-cortex', [], { silent: true }
 		);
-
-		if (result.updated && result.credentials) {
-			this._config.apiKey = result.credentials.token;
-			if (result.credentials.baseUrl && result.credentials.baseUrl !== this._config.baseUrl) {
-				this._config.baseUrl = result.credentials.baseUrl;
-			}
-
-			// Recreate the provider with updated credentials using the parent's initializeProvider
-			// which properly wraps the provider to use /v1/chat/completions endpoint
-			this.initializeProvider();
-
-			this.logger.info(`Refreshed credentials for account: ${result.credentials.account}`);
+		if (!session) {
+			return;
 		}
-		this.lastConnectionsTomlCheck = result.lastModified;
+		if (this._lastSessionToken !== session.accessToken) {
+			this._lastSessionToken = session.accessToken;
+			if (session.accessToken !== this._config.apiKey) {
+				this._config.apiKey = session.accessToken;
+				this.initializeProvider();
+			}
+		}
 	}
 
 	/**
@@ -93,34 +145,39 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 		token: vscode.CancellationToken
 	) {
 		await this.checkForUpdatedCredentials();
-		return super.provideLanguageModelChatResponse(model, messages, options, progress, token);
+		return super.provideLanguageModelChatResponse(
+			model, messages, options, progress, token
+		);
 	}
 
 	/**
-	 * Autoconfigures the Snowflake provider using managed credentials.
-	 * @returns The autoconfiguration result.
+	 * Autoconfigures the Snowflake provider using auth extension credentials.
 	 */
 	static override async autoconfigure() {
-		// Use the standard PWB flow for environment and settings validation
-		const configureResult = await autoconfigureWithManagedCredentials(
-			SNOWFLAKE_MANAGED_CREDENTIALS,
-			SnowflakeModelProvider.source.provider.id,
-			SnowflakeModelProvider.source.provider.displayName
-		);
+		const enabledProviders = await positron.ai.getEnabledProviders();
+		if (!enabledProviders.includes(
+			SnowflakeModelProvider.source.provider.id
+		)) {
+			return { configured: false };
+		}
 
-		// If PWB checks pass, get credentials and return with both token and baseUrl
-		if (configureResult.configured) {
-			const credentials = await detectSnowflakeCredentials();
-			if (credentials?.token && credentials.token.trim().length > 0) {
+		try {
+			const session = await vscode.authentication.getSession(
+				'snowflake-cortex', [], { silent: true }
+			);
+			if (session?.accessToken) {
+				const baseUrl = getSnowflakeDefaultBaseUrl();
 				return {
 					configured: true,
-					message: configureResult.message,
+					message: 'OAuth (Managed)',
 					configuration: {
-						apiKey: credentials.token,
-						baseUrl: credentials.baseUrl
+						apiKey: session.accessToken,
+						baseUrl,
 					}
 				};
 			}
+		} catch {
+			// No session available
 		}
 
 		return { configured: false };
@@ -128,11 +185,8 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 
 	/**
 	 * Parses Snowflake-specific errors.
-	 * @param error The error object.
-	 * @returns A user-friendly error message or undefined.
 	 */
 	override async parseProviderError(error: any) {
-		// Check for Snowflake-specific errors before generic authorization errors
 		if (this.providerName === SnowflakeModelProvider.source.provider.displayName) {
 			const snowflakeError = extractSnowflakeError(error);
 			if (snowflakeError) {

@@ -429,10 +429,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	/** Handles a language runtime output message. */
 	private async handleRuntimeOutputMessage(previewId: string, message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput, session: ILanguageRuntimeSession) {
+		// viewType ensures renderers registered for the jupyter-notebook type
+		// are resolved (e.g. Plotly) and that notebook static preloads (e.g.
+		// RequireJS from ms-toolsai.jupyter-renderers) are injected.
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview({
 			id: message.id,
 			runtime: session,
-			output: message
+			output: message,
+			viewType: 'jupyter-notebook',
 		});
 		if (webview) {
 			const preview = this.createPreviewWebview(

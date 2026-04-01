@@ -36,31 +36,24 @@ test.describe('Diagnostics', {
 		await runCommand('Python: New File');
 		await editor.type('import termcolor\n\ntermcolor.COLORS.copy()\n');
 
-		// Allow time for pyrefly to analyze the newly typed code
-		await app.code.driver.page.waitForTimeout(2000);
-
 		// Python Session 1 - verify no problems
-		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 10000 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Python Session 1 - restart session and verify no problems
 		await sessions.restart(pySession.id);
-		await app.code.driver.page.waitForTimeout(2000);
-		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 10000 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Start Python Session 2 (same runtime) - verify no problems
 		const pySession2 = await sessions.start('python', { reuse: false });
 		await sessions.select(pySession2.id);
-		await app.code.driver.page.waitForTimeout(2000);
-		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 10000 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Python Alt Session - verify warning since pkg not installed
 		await sessions.start('pythonAlt');
-		// Allow extra time for pyrefly to re-analyze with new session and detect missing package
-		await app.code.driver.page.waitForTimeout(3000);
-		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1, timeout: 15000 });
 		await problems.expectWarningText('Cannot find module `termcolor`');
 
 		// does pyrefly use squiggly correctly?
@@ -184,7 +177,7 @@ test.describe('Diagnostics', {
 		await test.step('Fix the error', async () => {
 			await notebooksPositron.selectCellAtIndex(0, { editMode: true });
 			await hotKeys.selectAll();
-			await notebooksPositron.editorAtIndex(0).pressSequentially('x = 1\nprint(x)');
+			await app.code.driver.page.keyboard.type('x = 1\nprint(x)');
 			await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(x)']);
 		});
 
