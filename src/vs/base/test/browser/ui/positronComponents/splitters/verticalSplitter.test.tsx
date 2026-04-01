@@ -7,7 +7,6 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import assert from 'assert';
-import React from 'react';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
 import { Emitter } from '../../../../../common/event.js';

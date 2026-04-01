@@ -7,13 +7,16 @@
 import './horizontalSplitter.css';
 
 // React.
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../dom.js';
+import { Delayer } from '../../../../common/async.js';
 import { isMacintosh } from '../../../../common/platform.js';
+import { DisposableStore } from '../../../../common/lifecycle.js';
 import { positronClassNames } from '../../../../common/positronUtilities.js';
 import { createStyleSheet } from '../../../domStylesheets.js';
+import { usePositronReactServicesContext } from '../../../positronReactRendererContext.js';
 
 /**
  * HorizontalSplitterResizeParams interface. This defines the parameters of a resize operation. When
@@ -38,8 +41,50 @@ export const HorizontalSplitter = (props: {
 	onResize: (height: number) => void;
 	onDoubleClick?: () => void;
 }) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// State hooks.
 	const [resizing, setResizing] = useState(false);
+	const [hovering, setHovering] = useState(false);
+	const [hoverDelay, setHoverDelay] = useState(
+		services.configurationService.getValue<number>('workbench.sash.hoverDelay')
+	);
+
+	// Ref hooks.
+	const hoverDelayerRef = useRef<Delayer<void>>(undefined!);
+
+	// Setup the hover delayer and listen for config changes.
+	useEffect(() => {
+		const disposables = new DisposableStore();
+		hoverDelayerRef.current = disposables.add(new Delayer<void>(0));
+
+		disposables.add(
+			services.configurationService.onDidChangeConfiguration(e => {
+				if (e.affectedKeys.has('workbench.sash.hoverDelay')) {
+					setHoverDelay(services.configurationService.getValue<number>('workbench.sash.hoverDelay'));
+				}
+			})
+		);
+
+		return () => disposables.dispose();
+	}, [services.configurationService]);
+
+	/**
+	 * onPointerEnter handler.
+	 */
+	const pointerEnterHandler = () => {
+		hoverDelayerRef.current?.trigger(() => setHovering(true), hoverDelay);
+	};
+
+	/**
+	 * onPointerLeave handler.
+	 */
+	const pointerLeaveHandler = () => {
+		if (!resizing) {
+			hoverDelayerRef.current?.trigger(() => setHovering(false), hoverDelay);
+		}
+	};
 
 	/**
 	 * onPointerDown handler.
@@ -130,6 +175,10 @@ export const HorizontalSplitter = (props: {
 				// Call the onEndResize callback.
 				props.onResize(newHeight);
 			}
+
+			// Reset hover state based on pointer position.
+			hoverDelayerRef.current?.cancel();
+			setHovering(false);
 		};
 
 		/**
@@ -147,8 +196,10 @@ export const HorizontalSplitter = (props: {
 				resizeParams.startingHeight - delta;
 		};
 
-		// Set the dragging flag.
+		// Set the dragging flag and show hover indicator immediately.
 		setResizing(true);
+		hoverDelayerRef.current?.cancel();
+		setHovering(true);
 
 		// Set pointer capture on the sizer element and add our pointer event handlers.
 		sizer.setPointerCapture(e.pointerId);
@@ -163,10 +214,13 @@ export const HorizontalSplitter = (props: {
 			<div
 				className={positronClassNames(
 					'sizer',
+					{ 'hovering': hovering && props.showResizeIndicator },
 					{ 'resizing': resizing && props.showResizeIndicator }
 				)}
 				onDoubleClick={props.onDoubleClick}
 				onPointerDown={pointerDownHandler}
+				onPointerEnter={pointerEnterHandler}
+				onPointerLeave={pointerLeaveHandler}
 			/>
 		</div>
 	);

@@ -4,28 +4,49 @@
  *--------------------------------------------------------------------------------------------*/
 
 /* eslint-disable no-restricted-syntax */
+/* eslint-disable local/code-no-dangerous-type-assertions */
 
 import assert from 'assert';
-import React from 'react';
 import sinon from 'sinon';
 import { flushSync } from 'react-dom';
+import { Emitter } from '../../../../../common/event.js';
 import { setupReactRenderer } from '../../../react.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../common/utils.js';
 import { HorizontalSplitter, HorizontalSplitterResizeParams } from '../../../../../browser/ui/positronComponents/splitters/horizontalSplitter.js';
+import { PositronReactServicesContext } from '../../../../../browser/positronReactRendererContext.js';
+import { PositronReactServices } from '../../../../../browser/positronReactServices.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 
 /**
  * Helper to create and dispatch pointer events on an element.
  */
 function pointerEvent(type: string, el: Element, opts: PointerEventInit = {}) {
-	const event = new PointerEvent(type, {
+	el.dispatchEvent(new PointerEvent(type, {
 		bubbles: true,
 		cancelable: true,
 		pointerId: 1,
 		pointerType: 'mouse',
 		...opts,
-	});
-	el.dispatchEvent(event);
-	return event;
+	}));
+}
+
+/**
+ * Creates a minimal mock of PositronReactServices with only the configurationService
+ * that HorizontalSplitter needs.
+ */
+function createMockServices(): { services: PositronReactServices; configChangeEmitter: Emitter<IConfigurationChangeEvent> } {
+	const configChangeEmitter = new Emitter<IConfigurationChangeEvent>();
+
+	const configurationService = {
+		getValue: sinon.stub().callsFake((key: string) => {
+			if (key === 'workbench.sash.hoverDelay') { return 300; }
+			return undefined;
+		}),
+		onDidChangeConfiguration: configChangeEmitter.event,
+	} as Partial<IConfigurationService> as IConfigurationService;
+
+	const services = { configurationService } as PositronReactServices;
+	return { services, configChangeEmitter };
 }
 
 class HorizontalSplitterFixture {
@@ -42,8 +63,10 @@ class HorizontalSplitterFixture {
 
 suite('HorizontalSplitter', () => {
 	const { render } = setupReactRenderer();
-	ensureNoDisposablesAreLeakedInTestSuite();
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	let mockServices: PositronReactServices;
+	let configChangeEmitter: Emitter<IConfigurationChangeEvent>;
 	let onBeginResize: sinon.SinonStub<[], HorizontalSplitterResizeParams>;
 	let onResize: sinon.SinonStub;
 	let onDoubleClick: sinon.SinonStub;
@@ -55,19 +78,26 @@ suite('HorizontalSplitter', () => {
 	};
 
 	setup(() => {
+		const mock = createMockServices();
+		mockServices = mock.services;
+		configChangeEmitter = mock.configChangeEmitter;
+		disposables.add(configChangeEmitter);
+
 		onBeginResize = sinon.stub<[], HorizontalSplitterResizeParams>().returns(defaultResizeParams);
 		onResize = sinon.stub();
 		onDoubleClick = sinon.stub();
 	});
 
-	function renderSplitter(props?: { showResizeIndicator?: boolean; invert?: boolean }) {
+	function renderSplitter(props?: { showResizeIndicator?: boolean }) {
 		const container = render(
-			<HorizontalSplitter
-				showResizeIndicator={props?.showResizeIndicator}
-				onBeginResize={onBeginResize}
-				onDoubleClick={onDoubleClick}
-				onResize={onResize}
-			/>
+			<PositronReactServicesContext.Provider value={mockServices}>
+				<HorizontalSplitter
+					showResizeIndicator={props?.showResizeIndicator}
+					onBeginResize={onBeginResize}
+					onDoubleClick={onDoubleClick}
+					onResize={onResize}
+				/>
+			</PositronReactServicesContext.Provider>
 		);
 		return new HorizontalSplitterFixture(container);
 	}
@@ -102,10 +132,7 @@ suite('HorizontalSplitter', () => {
 			const fixture = renderSplitter();
 			const sizer = fixture.sizer;
 
-			// Start drag at y=100
 			pointerEvent('pointerdown', sizer, { clientY: 100, buttons: 1 });
-
-			// Move to y=150 (delta = +50, newHeight = 200 + 50 = 250)
 			pointerEvent('pointermove', sizer, { clientY: 150 });
 
 			assert.ok(onResize.called, 'onResize should have been called');
@@ -117,7 +144,6 @@ suite('HorizontalSplitter', () => {
 			const sizer = fixture.sizer;
 
 			pointerEvent('pointerdown', sizer, { clientY: 100, buttons: 1 });
-			// Move up 200px -> newHeight = 200 - 200 = 0, clamped to 50
 			pointerEvent('pointermove', sizer, { clientY: -100 });
 
 			assert.strictEqual(onResize.lastCall.args[0], 50);
@@ -128,7 +154,6 @@ suite('HorizontalSplitter', () => {
 			const sizer = fixture.sizer;
 
 			pointerEvent('pointerdown', sizer, { clientY: 100, buttons: 1 });
-			// Move down 300px -> newHeight = 200 + 300 = 500, clamped to 400
 			pointerEvent('pointermove', sizer, { clientY: 400 });
 
 			assert.strictEqual(onResize.lastCall.args[0], 400);
@@ -139,7 +164,6 @@ suite('HorizontalSplitter', () => {
 			const sizer = fixture.sizer;
 
 			pointerEvent('pointerdown', sizer, { clientY: 100, buttons: 1 });
-			// Release without any pointermove
 			pointerEvent('lostpointercapture', sizer, { clientY: 100 });
 
 			assert.strictEqual(onResize.callCount, 0,
@@ -166,12 +190,9 @@ suite('HorizontalSplitter', () => {
 			const sizer = fixture.sizer;
 
 			pointerEvent('pointerdown', sizer, { clientY: 100, buttons: 1 });
-			// Flush React state update from setResizing(true)
 			flushSync(() => { });
 			assert.ok(sizer.classList.contains('resizing'), 'Should have resizing class during drag');
 
-			// lostpointercapture fires via native addEventListener, so wrap in flushSync
-			// to ensure React processes setResizing(false) synchronously.
 			flushSync(() => {
 				pointerEvent('lostpointercapture', sizer, { clientY: 100 });
 			});
@@ -187,13 +208,33 @@ suite('HorizontalSplitter', () => {
 		});
 	});
 
-	suite('hover indicator', () => {
-		test('sizer has ::before pseudo-element for hover styling', () => {
-			const fixture = renderSplitter();
-			const style = fixture.sizer.ownerDocument.defaultView!.getComputedStyle(fixture.sizer, ':before');
-			// The ::before should exist (content is not 'none')
-			assert.notStrictEqual(style.content, 'none',
-				'Sizer should have a ::before pseudo-element for hover indicator');
+	suite('hover', () => {
+		test('does not have hovering class by default', () => {
+			const fixture = renderSplitter({ showResizeIndicator: true });
+			assert.ok(!fixture.sizer.classList.contains('hovering'));
+		});
+
+		test('shows hovering class immediately during drag', () => {
+			const fixture = renderSplitter({ showResizeIndicator: true });
+			const sizer = fixture.sizer;
+
+			pointerEvent('pointerdown', sizer, { clientY: 100, buttons: 1 });
+			flushSync(() => { });
+			assert.ok(sizer.classList.contains('hovering'), 'Should hover immediately during drag');
+		});
+
+		test('removes hovering class after drag ends', () => {
+			const fixture = renderSplitter({ showResizeIndicator: true });
+			const sizer = fixture.sizer;
+
+			pointerEvent('pointerdown', sizer, { clientY: 100, buttons: 1 });
+			flushSync(() => { });
+			assert.ok(sizer.classList.contains('hovering'));
+
+			flushSync(() => {
+				pointerEvent('lostpointercapture', sizer, { clientY: 100 });
+			});
+			assert.ok(!sizer.classList.contains('hovering'), 'Should remove hovering after drag');
 		});
 	});
 });

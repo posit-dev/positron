@@ -26,24 +26,12 @@
 }
 
 .horizontal-splitter
-.sizer:before {
-	content: '';
-	pointer-events: none;
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	background: transparent;
+.sizer.hovering {
 	transition: background-color 0.1s ease-out;
+	background-color: var(--vscode-sash-hoverBorder);
 }
 
 .horizontal-splitter
-.sizer:hover:before {
+.sizer.resizing {
 	background-color: var(--vscode-sash-hoverBorder);
-	transition-delay: 0.15s;
-}
-
-.horizontal-splitter
-.sizer.resizing:before {
-	background-color: var(--vscode-sash-hoverBorder);
-	transition-delay: 0s;
 }
