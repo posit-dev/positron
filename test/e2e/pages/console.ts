@@ -190,6 +190,7 @@ export class Console {
 	}
 
 	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
+		await this.focus();
 		const activeLine = this.code.driver.currentPage.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
 		await expect(activeLine).toHaveText(prompt, { timeout });
 	}

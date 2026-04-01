@@ -385,7 +385,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 	private showShellIntegrationMessages(rerunApplicationCallback: () => any): boolean {
 		// Check if shell integration is enabled in the workspace.
-		const isShellIntegrationEnabled = vscode.workspace.getConfiguration().get<boolean>(Config.ShellIntegrationEnabled, false);
+		const isShellIntegrationEnabled = vscode.workspace.getConfiguration().get<boolean>(Config.ShellIntegrationEnabled, true);
 
 		// Check if shell integration was detected as supported in a previous application run.
 		const isShellIntegrationSupported = this.isShellIntegrationSupported();

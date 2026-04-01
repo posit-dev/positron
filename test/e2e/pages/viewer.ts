@@ -35,7 +35,11 @@ export class Viewer {
 	}
 
 	async clearViewer() {
-		await this.code.driver.currentPage.getByRole('tab', { name: 'Viewer' }).locator('a').click();
+		const viewerTab = this.code.driver.currentPage.getByRole('tab', { name: 'Viewer' });
+		if (!await viewerTab.isVisible()) {
+			return; // Viewer was never opened, nothing to clear.
+		}
+		await viewerTab.locator('a').click();
 
 		const clearRegex = /Clear the/;
 
