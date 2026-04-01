@@ -19,7 +19,7 @@ import {
 	RuntimeStartMode,
 } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -576,12 +576,17 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// Update state
 		this._setKernelState(documentUri, QuartoKernelState.ShuttingDown);
 
-		if (info.session) {
-			try {
-				await info.session.shutdown();
-			} catch (error) {
-				this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
-			}
+		try {
+			// Use the runtime session service to shut down and delete the
+			// notebook session so the associated console instance (if any)
+			// is also cleaned up.
+			await this._runtimeSessionService.shutdownNotebookSession(
+				documentUri,
+				RuntimeExitReason.Shutdown,
+				'Quarto document closed',
+			);
+		} catch (error) {
+			this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
 		}
 
 		// Clean up
