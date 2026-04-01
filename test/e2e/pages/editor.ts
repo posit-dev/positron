@@ -5,6 +5,7 @@
 
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { Toasts } from './dialog-toasts';
 
 // currently a dupe of declaration in ../editor.ts but trying not to modify that file
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
@@ -25,7 +26,7 @@ export class Editor {
 		return this.viewerFrame;
 	}
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private toasts: Toasts) { }
 
 	/**
 	 * Wait for content to be visible in the editor viewer frame.
@@ -77,14 +78,16 @@ export class Editor {
 
 	async pressPlay(skipToastVerification: boolean = false): Promise<void> {
 		await test.step('Press play button', async () => {
+			await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
 			if (!skipToastVerification) {
-				// Set up the toast locator BEFORE clicking to avoid racing with a fast-dismissing toast
-				const appRunningToast = this.code.driver.currentPage.locator('.notifications-toasts').getByText(/Running.*application:/);
-				await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
-				await expect(appRunningToast).toBeVisible({ timeout: 30000 });
-				await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
-			} else {
-				await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
+				// In smoke test mode (--enable-smoke-test-driver), toasts are suppressed to prevent
+				// covering UI elements (upstream change in 1.111.0). Check the notification center instead.
+				await this.toasts.openNotificationCenter();
+				const appRunningNotification = this.toasts.notificationsCenter
+					.locator('.notification-list-item')
+					.getByText(/Running.*application:/);
+				await expect(appRunningNotification).toBeVisible({ timeout: 30000 });
+				await this.toasts.closeNotificationCenter();
 			}
 		});
 	}
