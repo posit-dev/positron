@@ -365,7 +365,7 @@
 			]
 		},
 		"namespace-call": {
-			"match": "([\\p{L}\\p{Nl}.][\\p{L}\\p{Nl}\\p{Mn}\\p{Mc}\\p{Nd}\\p{Pc}.]*)(:::?)",
+			"match": "(?<![A-Za-z0-9._-])([A-Za-z](?:[A-Za-z0-9.]*[A-Za-z0-9])?)(:::?)",
 			"captures": {
 				"1": { "name": "support.class.r" },
 				"2": { "name": "keyword.operator" }
