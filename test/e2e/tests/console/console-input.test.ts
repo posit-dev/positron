@@ -101,9 +101,9 @@ cat(sprintf('Hello %s!\n', val))`;
 
 		await test.step('Verify console is ready for next command', async () => {
 			// Verify we can immediately type a new command without clicking
-			await app.workbench.console.typeToConsole('cat(name)');
+			await app.workbench.console.typeToConsole('cat("Name:", name)');
 			await app.workbench.console.sendEnterKey();
-			await app.workbench.console.waitForConsoleContents('Bob');
+			await app.workbench.console.waitForConsoleContents('Name: Bob');
 		});
 	});
 
