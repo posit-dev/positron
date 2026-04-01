@@ -277,6 +277,16 @@
 				},
 				"publisherDisplayName": "GitHub"
 			}
+		},
+		{
+			"name": "posit.assistant",
+			"version": "0.1.1",
+			"sha256": "87534c4229bac3ef6b12786226d560c9eaea6c617e2a8bd20a1fd85ee7cebf27",
+			"metadata": {
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Posit Assistant"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
 		}
 	],
 	"extensionsGallery": {
@@ -647,7 +657,8 @@
 	"trustedExtensionAuthAccess": {
 		"github": [
 			"GitHub.copilot-chat",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"github-enterprise": [
 			"GitHub.copilot-chat"
@@ -657,19 +668,23 @@
 		],
 		"anthropic-api": [
 			"positron.authentication",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"posit-ai": [
 			"positron.authentication",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"ms-foundry": [
 			"positron.authentication",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		],
 		"amazon-bedrock": [
 			"positron.authentication",
-			"positron.positron-assistant"
+			"positron.positron-assistant",
+			"posit.assistant"
 		]
 	}
 }

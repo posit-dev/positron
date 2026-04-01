@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
+import { expect } from '@playwright/test';
 import { tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
@@ -76,7 +77,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	});
 
 	test('ensure variable and output persistence after kernel restart', async function ({ app }) {
-		const { notebooksPositron, variables } = app.workbench;
+		const { notebooksPositron, variables, inlineDataExplorer } = app.workbench;
 
 		// create new notebook
 		await notebooksPositron.newNotebook();
@@ -90,9 +91,11 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await notebooksPositron.addCodeToCell(1, 'y = 3', { run: true });
 		await variables.expectVariableToBe('y', '3');
 
-		// cell 3: render data frame with HTML
+		// cell 2: render data frame as inline data explorer
 		await notebooksPositron.addCodeToCell(2, rDataFrame, { run: true });
-		await notebooksPositron.expectOutputAtIndex(2, cellOutput);
+		await inlineDataExplorer.expectToBeVisible();
+		await inlineDataExplorer.expectGridToBeReady();
+		await inlineDataExplorer.expectShapeToContain(4, 4);
 
 		// verify execution orders
 		await notebooksPositron.expectExecutionOrder([
@@ -114,8 +117,9 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			{ index: 1, order: 2 },
 		]);
 
-		// verify html cell output persists and remains unchanged
-		await notebooksPositron.expectOutputAtIndex(2, cellOutput);
+		// verify data explorer cell output persists (may show fallback/disconnected state after restart)
+		await notebooksPositron.cellOutput(2).scrollIntoViewIfNeeded();
+		await expect(notebooksPositron.cellOutput(2)).toBeVisible();
 
 		// run cell 0 again and ensure execution order restarts at 1
 		await notebooksPositron.runCodeAtIndex(1);
@@ -213,11 +217,3 @@ name = c("Alice", "Bob", "Charlie", "Diana"),
 age = c(25, 30, 35, 40),
 city = c("Austin", "Denver", "Chicago", "Seattle"),
 score = c(88, 92, 85, 95)`;
-
-const cellOutput = [
-	'name age city score',
-	'Alice 25 Austin 88',
-	'Bob 30 Denver 92',
-	'Charlie 35 Chicago 85',
-	'Diana 40 Seattle 95',
-];
