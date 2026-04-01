@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-03-04T17:56:14.438Z
+> 9 test cases · Auto-generated on 2026-04-01T15:23:58.339Z
 
 ## Hallucination
 
@@ -38,7 +38,7 @@ Extract the animal's primary color from their physical characteristics.
 </details>
 
 <details>
-<summary><strong>r-forested-hallucination</strong> · Ask · Ensure LLM does not hallucinate column names fo...</summary>
+<summary><strong>r-forested-hallucination</strong> · Agent · Ensure LLM does not hallucinate column names fo...</summary>
 
 ### Intent
 
@@ -248,7 +248,7 @@ Add a method to return today's date.
 </details>
 
 <details>
-<summary><strong>python-table-summary</strong> · Ask · Ensure getTableSummary tool is called when summ...</summary>
+<summary><strong>python-table-summary</strong> · Agent · Ensure getTableSummary tool is called when summ...</summary>
 
 ### Intent
 

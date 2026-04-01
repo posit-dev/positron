@@ -77,13 +77,14 @@ export class Editor {
 
 	async pressPlay(skipToastVerification: boolean = false): Promise<void> {
 		await test.step('Press play button', async () => {
-			await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
-
 			if (!skipToastVerification) {
-				// await appearance and disappearance of the toast
+				// Set up the toast locator BEFORE clicking to avoid racing with a fast-dismissing toast
 				const appRunningToast = this.code.driver.currentPage.locator('.notifications-toasts').getByText(/Running.*application:/);
+				await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
 				await expect(appRunningToast).toBeVisible({ timeout: 30000 });
 				await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
+			} else {
+				await this.code.driver.currentPage.locator(PLAY_BUTTON).click();
 			}
 		});
 	}
