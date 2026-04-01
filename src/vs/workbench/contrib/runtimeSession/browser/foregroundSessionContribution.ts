@@ -248,6 +248,18 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 	private _handlePositronNotebookFocus(instance: IPositronNotebookInstance): void {
 		const notebookUri = instance.uri;
 		const notebookName = basename(notebookUri);
+
+		// Guard against stale focus events. onDidFocusWidget can fire for a notebook that is
+		// no longer the active editor because of a deferred setTimeout focus callback
+		// that runs after the user has already clicked a different tab. onDidActiveEditorChange
+		// handles legitimate tab switches, so we only need to act here when the notebook is
+		// already confirmed as the active editor.
+		const activeEditor = this._editorService.activeEditor;
+		if (!isNotebookEditorInput(activeEditor) || !isEqual(activeEditor.resource, notebookUri)) {
+			this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}) but it is not the active editor, ignoring stale focus event`);
+			return;
+		}
+
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (session) {
 			if (this._runtimeSessionService.foregroundSession?.sessionId !== session.sessionId) {
@@ -304,7 +316,18 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			return;
 		}
 
+		// Guard against stale focus events. onDidFocusWidget can fire for a notebook that is
+		// no longer the active editor because of a deferred setTimeout focus callback
+		// that runs after the user has already clicked a different tab. onDidActiveEditorChange
+		// handles legitimate tab switches, so we only need to act here when the notebook is
+		// already confirmed as the active editor.
 		const notebookName = basename(notebookUri);
+		const activeEditor = this._editorService.activeEditor;
+		if (!isNotebookEditorInput(activeEditor) || !isEqual(activeEditor.resource, notebookUri)) {
+			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}) but it is not the active editor, ignoring stale focus event`);
+			return;
+		}
+
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (session) {
 			if (this._runtimeSessionService.foregroundSession?.sessionId !== session.sessionId) {
