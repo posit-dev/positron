@@ -74,6 +74,7 @@ const opts = parseArgs(process.argv.slice(2));
 
 const child = spawn('npx', ['deemon', '--attach', '--', ...opts.command], {
 	stdio: ['ignore', 'pipe', 'pipe'],
+	shell: true,
 });
 
 // These variables are mutated inside callbacks (processLine/processData), but
