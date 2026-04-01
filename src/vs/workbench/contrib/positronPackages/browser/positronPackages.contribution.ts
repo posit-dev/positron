@@ -323,19 +323,22 @@ class UpdateAllPackagesAction extends Action2 {
 
 		const cts = new CancellationTokenSource();
 
-		await progress.withProgress({
-			title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
-			location: ProgressLocation.Notification,
-			cancellable: true,
-			delay: 500
-		}, async () => {
-			try {
-				await service.updateAllPackages(cts.token);
-			} catch (e) {
-				notifications.error(cleanErrorMessage(e));
-				throw e;
-			}
-		}, () => cts.dispose(true));
+		try {
+			await progress.withProgress({
+				title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
+				location: ProgressLocation.Notification,
+				cancellable: true,
+				delay: 500
+			}, async () => {
+				try {
+					await service.updateAllPackages(cts.token);
+				} catch (error) {
+					notifications.error(cleanErrorMessage(error));
+				}
+			}, () => cts.dispose(true));
+		} finally {
+			cts.dispose();
+		}
 	}
 }
 
