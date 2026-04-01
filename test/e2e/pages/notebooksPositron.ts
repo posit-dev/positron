@@ -90,6 +90,25 @@ export class PositronNotebooks extends Notebooks {
 	private searchCloseButton = this.searchWidget.getByRole('button', { name: 'Close', exact: true });
 	private searchDecoration = this.code.driver.page.locator('.findMatchInline');
 
+	// Ghost Cell
+	private ghostCellHeader = this.code.driver.page.locator('.ghost-cell-header');
+	private ghostCellGenerating = this.code.driver.page.locator('text=Generating suggestion...');
+	private ghostCellExplanationText = this.code.driver.page.locator('.ghost-cell-explanation-text');
+	private ghostCellModeToggle = this.code.driver.page.locator('.ghost-cell-mode-toggle');
+	private ghostCellAccept = this.code.driver.page.locator('.ghost-cell-accept');
+	private ghostCellDismiss = this.code.driver.page.locator('.ghost-cell-dismiss');
+	private ghostCellRegenerate = this.code.driver.page.locator('.ghost-cell-regenerate');
+	private ghostCellCodePreview = this.code.driver.page.locator('.ghost-cell-code-preview');
+	private ghostCellCodeText = this.code.driver.page.locator('.ghost-cell-code-text');
+	private ghostCellFooter = this.code.driver.page.locator('.ghost-cell-footer');
+	private ghostCellInfoButton = this.code.driver.page.locator('.ghost-cell-info-button');
+	private ghostCellModelInfo = this.code.driver.page.locator('.ghost-cell-model-info');
+	private ghostCellAwaitingRequest = this.code.driver.page.locator('.ghost-cell-awaiting-request');
+	private ghostCellAwaitingText = this.code.driver.page.locator('.ghost-cell-awaiting-text');
+	private ghostCellGetSuggestion = this.code.driver.page.locator('.ghost-cell-get-suggestion');
+	private ghostCellDismissButton = this.code.driver.page.locator('.ghost-cell-dismiss-button');
+	private ghostCellAutomaticButton = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-button.left');
+	private ghostCellOnDemandButton = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-button.right');
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -1412,6 +1431,129 @@ export class PositronNotebooks extends Notebooks {
 			}).toPass({ timeout: DEFAULT_TIMEOUT });
 		});
 	}
+
+	// #region Ghost Cell Verifications
+
+	/**
+	 * Verify: "Generating suggestion..." message is visible.
+	 */
+	async expectGhostCellGenerationVisible(): Promise<void> {
+		await test.step('Verify "Generating suggestion..." is visible', async () => {
+			await expect(this.ghostCellGenerating).toBeVisible({ timeout: 5000 });
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell is visible with all expected components.
+	 */
+	async expectGhostCellVisible(): Promise<void> {
+		await test.step('Verify ghost cell is visible with all components', async () => {
+			// Wait for header first (indicates ghost cell is rendering)
+			await expect(this.ghostCellHeader).toBeVisible();
+
+			// Then check all other components in parallel
+			await Promise.all([
+				// Header components
+				expect(this.ghostCellExplanationText).toBeVisible(),
+				expect(this.ghostCellModeToggle).toBeVisible(),
+				expect(this.ghostCellAccept).toBeVisible(),
+				expect(this.ghostCellDismiss).toBeVisible(),
+				expect(this.ghostCellRegenerate).toBeVisible(),
+
+				// Code preview
+				expect(this.ghostCellCodePreview).toBeVisible(),
+				expect(this.ghostCellCodeText).toBeVisible(),
+
+				// Footer
+				expect(this.ghostCellFooter).toBeVisible(),
+				expect(this.ghostCellInfoButton).toBeVisible(),
+				expect(this.ghostCellModelInfo).toBeVisible()
+			]);
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell mode is set to the expected value.
+	 * @param automatic - True for Automatic mode, false for On-demand mode
+	 */
+	async expectGhostCellMode(automatic: boolean): Promise<void> {
+		await test.step(`Verify ghost cell mode is ${automatic ? 'Automatic' : 'On-demand'}`, async () => {
+			const button = automatic ? this.ghostCellAutomaticButton : this.ghostCellOnDemandButton;
+			// Check button has the highlighted class (indicates it's selected)
+			await expect(button).toHaveClass(/highlighted/);
+		});
+	}
+
+	/**
+	 * Verify: "AI suggestion available on request" UI is visible.
+	 */
+	async expectGhostCellAwaitingRequest(): Promise<void> {
+		await test.step('Verify "AI suggestion available on request" is visible', async () => {
+			// Wait for the container first
+			await expect(this.ghostCellAwaitingRequest).toBeVisible();
+
+			// Then check all other elements in parallel
+			await Promise.all([
+				expect(this.ghostCellAwaitingText).toHaveText('AI suggestion available on request'),
+				expect(this.ghostCellGetSuggestion).toBeVisible(),
+				expect(this.ghostCellGetSuggestion).toHaveText('Get Suggestion'),
+				expect(this.ghostCellDismissButton).toBeVisible()
+			]);
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell contains expected text.
+	 * @param expectedText - The text expected to be in the ghost cell
+	 */
+	async expectGhostCellToContainText(expectedText: string): Promise<void> {
+		await test.step(`Verify ghost cell contains text: "${expectedText}"`, async () => {
+			await expect(this.ghostCellCodeText).toContainText(expectedText);
+		});
+	}
+
+	// #endregion
+
+	// #region Ghost Cell Actions
+
+	/**
+	 * Action: Select ghost cell mode.
+	 * @param automatic - True for Automatic mode, false for On-demand mode
+	 */
+	async selectGhostCellMode(automatic: boolean): Promise<void> {
+		await test.step(`Select ghost cell mode: ${automatic ? 'Automatic' : 'On-demand'}`, async () => {
+			// Add retry logic for potentially flaky toggle
+			await expect(async () => {
+				// Click the appropriate button directly
+				const button = automatic ? this.ghostCellAutomaticButton : this.ghostCellOnDemandButton;
+				await button.click();
+
+				// Verify the mode was selected
+				await this.expectGhostCellMode(automatic);
+			}).toPass({ timeout: 5000 });
+		});
+	}
+
+	/**
+	 * Action: Accept ghost cell suggestion (clicks Accept and Run).
+	 */
+	async acceptGhostCellSuggestion(): Promise<void> {
+		await test.step('Accept ghost cell suggestion', async () => {
+			const acceptButton = this.code.driver.page.locator('.ghost-cell-accept .split-button-main');
+			await acceptButton.click();
+		});
+	}
+
+	/**
+	 * Action: Request a suggestion by clicking "Get Suggestion" button.
+	 */
+	async getSuggestion(): Promise<void> {
+		await test.step('Request suggestion', async () => {
+			await this.ghostCellGetSuggestion.click();
+		});
+	}
+
+	// #endregion
 
 	/**
 	 * Get the current scroll position of the notebook cells container.

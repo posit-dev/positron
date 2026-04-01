@@ -195,12 +195,12 @@ function registerSnowflakeConfigurationListener(context: vscode.ExtensionContext
 			// Snowflake provider enable setting changed
 			if (e.affectsConfiguration('positron.assistant.provider.snowflakeCortex.enable')) {
 				log.info('[Assistant] Snowflake provider enable setting changed, re-registering Snowflake models');
-				await registerModelsForProvider(context, snowflakeProviderId);
+				await registerModelsForProvider(context, snowflakeProviderId, 'snowflake-cortex');
 			}
-			// Snowflake provider variables changed (SNOWFLAKE_HOME, etc.)
-			if (e.affectsConfiguration('positron.assistant.providerVariables.snowflake')) {
-				log.info('[Assistant] Snowflake provider variables changed, re-registering Snowflake models');
-				await registerModelsForProvider(context, snowflakeProviderId);
+			// Snowflake credentials changed in auth extension
+			if (e.affectsConfiguration('authentication.snowflake.credentials')) {
+				log.info('[Assistant] Snowflake credentials changed, re-registering Snowflake models');
+				await registerModelsForProvider(context, snowflakeProviderId, 'snowflake-cortex');
 			}
 		})
 	);
@@ -295,7 +295,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// session-based fallback in registerModelsForProvider. On desktop,
 	// these providers only register when the user explicitly configures them.
 	const SESSION_PROVIDERS = IS_RUNNING_ON_PWB
-		? new Set(['amazon-bedrock', 'ms-foundry'])
+		? new Set(['amazon-bedrock', 'ms-foundry', 'snowflake-cortex'])
 		: new Set<string>();
 
 	// Initialize provider configuration system (registration, migration, validation)

@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import contextlib
 import copy
 import datetime
 import inspect
@@ -49,8 +50,6 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    import contextlib
-
     import numpy as np
     import pandas as pd
     import polars as pl
@@ -927,10 +926,7 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     # Simplified names
-    CLASS_QNAME = (
-        "pandas.Series",
-        "geopandas.GeoSeries",
-    )
+    CLASS_QNAME = ("pandas.Series",)
 
     def get_display_name(self, key: int) -> str:
         return str(self.value.index[key])
@@ -960,6 +956,16 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
 
     def has_viewer(self) -> bool:
         return True
+
+
+class GeoSeriesInspector(PandasSeriesInspector):
+    """Inspector for geopandas.GeoSeries - excludes from change detection."""
+
+    CLASS_QNAME = ("geopandas.GeoSeries",)
+
+    def deepcopy(self):
+        """GeoSeries cannot be efficiently copied for change detection."""
+        raise copy.Error("GeoSeries contains expensive geometry objects")
 
 
 class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
@@ -1063,10 +1069,7 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
 class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
     # Simplified names
-    CLASS_QNAME = (
-        "pandas.DataFrame",
-        "geopandas.GeoDataFrame",
-    )
+    CLASS_QNAME = ("pandas.DataFrame",)
 
     def get_display_name(self, key: int) -> str:
         return str(self.value.columns[key])
@@ -1090,6 +1093,67 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
 
     def to_plaintext(self) -> str:
         return self.value.to_csv(path_or_buf=None, sep="\t")
+
+
+class GeoDataFrameInspector(PandasDataFrameInspector):
+    """Inspector for geopandas.GeoDataFrame with optimized change detection."""
+
+    CLASS_QNAME = ("geopandas.GeoDataFrame",)
+
+    def _get_geometry_column_names(self) -> list[str]:
+        """Get the names of all geometry columns."""
+        geom_cols = []
+        with contextlib.suppress(AttributeError, KeyError):
+            # First try to get the active geometry column
+            geom_cols.append(self.value.geometry.name)
+
+        # Also check for columns with geometry dtype (handles unset active geometry)
+        for col in self.value.columns:
+            if str(self.value[col].dtype) == "geometry" and col not in geom_cols:
+                geom_cols.append(col)
+
+        return geom_cols
+
+    def _get_non_geometry_df(self):
+        """Get DataFrame with geometry columns dropped."""
+        geom_cols = self._get_geometry_column_names()
+        cols_to_drop = [col for col in geom_cols if col in self.value.columns]
+        if cols_to_drop:
+            return self.value.drop(columns=cols_to_drop)
+        return self.value
+
+    def get_comparison_cost(self) -> int:
+        """Return cost based on non-geometry columns only."""
+        geom_cols = self._get_geometry_column_names()
+        num_geom_cols = sum(1 for col in geom_cols if col in self.value.columns)
+        num_cols = self.value.shape[1] - num_geom_cols
+        return self.value.shape[0] * num_cols
+
+    def deepcopy(self):
+        """Copy non-geometry columns deeply, geometry columns shallowly.
+
+        Returns a GeoDataFrame to preserve the inspector type for change detection.
+        Geometry columns are shallow-copied since we don't compare them.
+        """
+        # Shallow copy preserves GeoDataFrame type
+        result = self.value.copy(deep=False)
+
+        # Deep copy only non-geometry columns
+        geom_cols = set(self._get_geometry_column_names())
+        for col in self.value.columns:
+            if col not in geom_cols:
+                result[col] = self.value[col].copy(deep=True)
+
+        return result
+
+    def equals(self, value) -> bool:
+        """Compare only non-geometry columns."""
+        try:
+            self_non_geom = self._get_non_geometry_df()
+            other_non_geom = GeoDataFrameInspector(value)._get_non_geometry_df()  # noqa: SLF001
+            return self_non_geom.equals(other_non_geom)
+        except Exception:
+            return False
 
 
 class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
@@ -1310,6 +1374,9 @@ class IbisExprInspector(PositronInspector["ibis.Expr"]):
 
 
 INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
+    # Geopandas inspectors (before pandas to take precedence)
+    **dict.fromkeys(GeoDataFrameInspector.CLASS_QNAME, GeoDataFrameInspector),
+    **dict.fromkeys(GeoSeriesInspector.CLASS_QNAME, GeoSeriesInspector),
     **dict.fromkeys(PandasDataFrameInspector.CLASS_QNAME, PandasDataFrameInspector),
     **dict.fromkeys(PandasSeriesInspector.CLASS_QNAME, PandasSeriesInspector),
     **dict.fromkeys(PandasIndexInspector.CLASS_QNAME, PandasIndexInspector),
