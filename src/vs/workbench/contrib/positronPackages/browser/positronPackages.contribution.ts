@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as nls from '../../../../nls.js';
@@ -74,6 +75,14 @@ export const PACKAGES_REFRESH_COMMAND_ID = 'positronPackages.refreshPackages';
 
 const PACKAGES_CATEGORY = nls.localize2('packages', 'Packages');
 
+/**
+ * Extracts the error message and strips ANSI escape codes for clean display.
+ */
+function cleanErrorMessage(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return removeAnsiEscapeCodes(message);
+}
+
 class RefreshPackagesAction extends Action2 {
 	constructor() {
 		super({
@@ -100,7 +109,7 @@ class RefreshPackagesAction extends Action2 {
 			try {
 				return await service.refreshPackages(cts.token);
 			} catch (error) {
-				notifications.error(error);
+				notifications.error(cleanErrorMessage(error));
 				throw error;
 			} finally {
 				cts.dispose(true);
@@ -151,7 +160,7 @@ class InstallPackageAction extends Action2 {
 					try {
 						await service.installPackages([{ name: pkg, version }], cts.token);
 					} catch (e) {
-						notifications.error(e);
+						notifications.error(cleanErrorMessage(e));
 					} finally {
 						cts.dispose(true);
 					}
@@ -160,7 +169,7 @@ class InstallPackageAction extends Action2 {
 
 			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
 		} catch (error) {
-			notifications.error(error);
+			notifications.error(cleanErrorMessage(error));
 			throw error;
 		} finally {
 			cts.dispose(true);
@@ -204,7 +213,7 @@ class UninstallPackageAction extends Action2 {
 					try {
 						await service.uninstallPackages([pkg], cts.token);
 					} catch (e) {
-						notifications.error(e);
+						notifications.error(cleanErrorMessage(e));
 					}
 				}, () => cts.dispose(true));
 			};
@@ -221,7 +230,7 @@ class UninstallPackageAction extends Action2 {
 				await uninstallPackage(accessor, performSearch, performUninstall, cts);
 			}
 		} catch (error) {
-			notifications.error(error);
+			notifications.error(cleanErrorMessage(error));
 			throw error;
 		}
 
@@ -275,7 +284,7 @@ class UpdatePackageAction extends Action2 {
 					try {
 						await service.updatePackages([{ name: pkg, version }], cts.token);
 					} catch (e) {
-						notifications.error(e);
+						notifications.error(cleanErrorMessage(e));
 					}
 				}, () => cts.dispose(true));
 			};
@@ -283,7 +292,7 @@ class UpdatePackageAction extends Action2 {
 			const arg0 = args.at(0) as string | undefined;
 			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, arg0, cts);
 		} catch (error) {
-			notifications.error(error);
+			notifications.error(cleanErrorMessage(error));
 			throw error;
 		} finally {
 			cts.dispose(true);
@@ -323,7 +332,7 @@ class UpdateAllPackagesAction extends Action2 {
 			try {
 				await service.updateAllPackages(cts.token);
 			} catch (e) {
-				notifications.error(e);
+				notifications.error(cleanErrorMessage(e));
 				throw e;
 			}
 		}, () => cts.dispose(true));
