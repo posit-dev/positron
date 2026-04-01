@@ -382,9 +382,14 @@ function toOutputItems(data: ILanguageRuntimeMessageOutputData): IOutputItemDto[
 			case 'application/x-nteract-model-debug+json':
 			// Positron inline data explorer: R (ark) sends the payload as a
 			// native object, so it needs JSON.stringify like the types above.
+			// Python sends it as a pre-serialized JSON string, so we must
+			// check the type to avoid double-encoding.
 			case DATA_EXPLORER_MIME_TYPE:
-				// The JSON cell output item will be rendered using the appropriate notebook renderer.
-				outputItems.push({ data: VSBuffer.fromString(JSON.stringify(value, undefined, '\t')), mime });
+				if (typeof value === 'string') {
+					outputItems.push({ data: VSBuffer.fromString(value), mime });
+				} else {
+					outputItems.push({ data: VSBuffer.fromString(JSON.stringify(value, undefined, '\t')), mime });
+				}
 				break;
 			default:
 				outputItems.push({ data: VSBuffer.fromString(String(value)), mime });
