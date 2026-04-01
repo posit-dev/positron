@@ -62,7 +62,7 @@ export class Console {
 	 * Useful for verifying console input is visible and editable.
 	 */
 	get inputEditor() {
-		return this.activeConsole.locator('.console-input');
+		return this.activeConsole.locator('.console-input').first();
 	}
 
 	/**
