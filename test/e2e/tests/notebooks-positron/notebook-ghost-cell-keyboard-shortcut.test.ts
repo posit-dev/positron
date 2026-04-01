@@ -30,6 +30,10 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		await assistant.loginModelProvider('anthropic-api');
 	});
 
+	test.beforeAll(async function ({ sessions }) {
+		await sessions.start('python');
+	});
+
 	test.afterAll(async function ({ assistant, settings }) {
 		await assistant.logoutModelProvider('anthropic-api');
 
