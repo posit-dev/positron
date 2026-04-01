@@ -89,7 +89,7 @@ export class AuthProvider
 		options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession[]> {
 		// Credential chain (e.g. AWS, Snowflake)
-		if (this.credentialChain && this._chainSession) {
+		if (this.credentialChain) {
 			if (this.credentialChain.shouldRefresh) {
 				const needsRefresh = await this.credentialChain.shouldRefresh();
 				if (needsRefresh) {

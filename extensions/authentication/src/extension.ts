@@ -167,6 +167,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 
 function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 	let lastTomlCheck: number | undefined;
+	let pendingMtime: number | undefined;
 
 	const provider = new AuthProvider(
 		'snowflake-cortex', 'Snowflake Cortex', context,
@@ -177,22 +178,31 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 				if (!credentials) {
 					throw new Error('No Snowflake credentials found');
 				}
-				// Sync detected account to settings for baseUrl derivation
+				// Sync detected account to global settings for baseUrl
+				// derivation. Use inspect() to read only the global scope
+				// so workspace-scoped values are not copied into global.
 				if (credentials.account) {
 					const cfg = vscode.workspace.getConfiguration(
 						'authentication.snowflake'
 					);
-					const current = cfg.get<Record<string, string>>(
-						'credentials', {}
+					const inspection = cfg.inspect<Record<string, string>>(
+						'credentials'
 					);
-					if (current.SNOWFLAKE_ACCOUNT !== credentials.account) {
+					const globalValue = inspection?.globalValue ?? {};
+					if (globalValue.SNOWFLAKE_ACCOUNT !== credentials.account) {
 						await cfg.update('credentials',
-							{ ...current, SNOWFLAKE_ACCOUNT: credentials.account },
+							{ ...globalValue, SNOWFLAKE_ACCOUNT: credentials.account },
 							vscode.ConfigurationTarget.Global
 						).then(undefined, err =>
 							log.error(`Failed to sync Snowflake account: ${err}`)
 						);
 					}
+				}
+				// Advance mtime only after successful resolve so a failed
+				// attempt retries on the next getSessions call.
+				if (pendingMtime !== undefined) {
+					lastTomlCheck = pendingMtime;
+					pendingMtime = undefined;
 				}
 				return credentials.token;
 			},
@@ -205,7 +215,7 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 					const stats = await fs.promises.stat(tomlPath);
 					const mtime = stats.mtime.getTime();
 					if (!lastTomlCheck || mtime > lastTomlCheck) {
-						lastTomlCheck = mtime;
+						pendingMtime = mtime;
 						return true;
 					}
 					return false;
