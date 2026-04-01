@@ -95,7 +95,7 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			markdownDescription: localize(
 				'positron.notebook.inlineDataExplorer.enabled',
-				'Display DataFrames inline in notebook outputs. When enabled, pandas and polars DataFrames are displayed as interactive data grids instead of static HTML tables.'
+				'Display data frames inline as interactive data grids instead of static HTML tables.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
@@ -106,7 +106,7 @@ configurationRegistry.registerConfiguration({
 			maximum: 800,
 			markdownDescription: localize(
 				'positron.notebook.inlineDataExplorer.maxHeight',
-				'Maximum height in pixels for inline data explorer in notebook outputs.'
+				'Maximum height in pixels for inline data explorers in notebook and Quarto outputs.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},

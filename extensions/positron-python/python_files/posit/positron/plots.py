@@ -274,16 +274,9 @@ class PlotsService:
         self._plots: list[Plot] = []
 
         # Track the most recent render settings for pre-rendering.
-        # Default to 640x480 at 1x pixel ratio until we receive actual render settings
-        # from the frontend. Note: The first pre-render may not match the actual display
-        # size, which can cause a visible resize flash when the frontend requests the
-        # correct size. This is expected behavior - we prioritize showing something
-        # immediately over waiting for the exact size.
-        self._current_render_settings: PlotRenderSettings | None = PlotRenderSettings(
-            size=PlotSize(width=640, height=480),
-            pixel_ratio=1.0,
-            format=PlotRenderFormat.Png,
-        )
+        # Initially None until we receive actual render settings from the frontend.
+        # Pre-renders will use the plot's intrinsic size when this is None.
+        self._current_render_settings: PlotRenderSettings | None = None
 
     def update_render_settings(self, settings: PlotRenderSettings) -> None:
         """Update the current render settings used for pre-rendering."""
@@ -336,13 +329,22 @@ class PlotsService:
         # Build data to send with comm_open
         open_data: dict = {}
 
-        # Generate pre-render
-        if self._current_render_settings is not None:
-            try:
-                pre_render = _render_to_plot_result(render, self._current_render_settings)
-                open_data["pre_render"] = pre_render.dict()
-            except Exception:
-                logger.warning("Failed to generate pre-render for comm_open", exc_info=True)
+        # Generate pre-render using current render settings if available,
+        # otherwise fall back to the plot's intrinsic size (converted to pixels at 100 DPI)
+        render_settings = self._current_render_settings
+        if render_settings is None:
+            render_settings = PlotRenderSettings(
+                size=PlotSize(
+                    width=int(intrinsic_size[0] * 100), height=int(intrinsic_size[1] * 100)
+                ),
+                pixel_ratio=1.0,
+                format=PlotRenderFormat.Png,
+            )
+        try:
+            pre_render = _render_to_plot_result(render, render_settings)
+            open_data["pre_render"] = pre_render.dict()
+        except Exception:
+            logger.warning("Failed to generate pre-render for comm_open", exc_info=True)
 
         plot_comm = PositronComm.create(self._target_name, comm_id, data=open_data or None)
         plot = Plot(

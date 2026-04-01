@@ -11,6 +11,7 @@ import React, {
 	CSSProperties,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from 'react';
@@ -168,6 +169,20 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 	}, [loading]);
 
+	// Deduplicate packages by name, keeping only the first occurrence.
+	// The same package can exist in multiple library paths (e.g., user and system libraries).
+	// We show only the first one, matching R's library search order.
+	const deduplicatedPackages = useMemo(() => {
+		const seen = new Set<string>();
+		return packages.filter((pkg) => {
+			if (seen.has(pkg.name)) {
+				return false;
+			}
+			seen.add(pkg.name);
+			return true;
+		});
+	}, [packages]);
+
 	// UI State
 	const [focused, setFocused] = useState(false);
 
@@ -207,7 +222,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
-		const itemProps = packages[props.index];
+		const itemProps = deduplicatedPackages[props.index];
 		const { id, name, displayName, version } = itemProps;
 
 		return (
@@ -236,7 +251,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
 									class: undefined,
 									enabled: true,
-									run: () => services.clipboardService.writeText(packages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
+									run: () => services.clipboardService.writeText(deduplicatedPackages.map((pkg) => `${pkg.name} (${pkg.version})`).join('\n'))
 								},
 								new Separator(),
 								{
@@ -273,8 +288,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Map selected item to package name
 	const getSelectedItemPackageName = useCallback((item: string | undefined) => {
-		return packages.find((pkg) => pkg.id === item)?.name;
-	}, [packages]);
+		return deduplicatedPackages.find((pkg) => pkg.id === item)?.name;
+	}, [deduplicatedPackages]);
 
 	return (
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -312,8 +327,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				<List
 					height={height - ACTION_BAR_HEIGHT}
 					innerRef={innerRef}
-					itemCount={packages.length}
-					itemKey={(index) => packages[index].id}
+					itemCount={deduplicatedPackages.length}
+					itemKey={(index) => deduplicatedPackages[index].id}
 					itemSize={26}
 					width={'calc(100% - 2px)'}
 				>

@@ -10,7 +10,7 @@ import { AuthProvider } from './authProvider';
 import { PositOAuthProvider } from './positOAuthProvider';
 import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
-import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 
 export interface ConfigDialogResult {
 	action: string;
@@ -86,6 +86,20 @@ async function enrichWithCredentialState(
 						autoconfigure: {
 							type: positron.ai.LanguageModelAutoconfigureType.Custom,
 							message: FOUNDRY_MANAGED_CREDENTIALS.displayName,
+							signedIn: true,
+						},
+					},
+				};
+			}
+			if (signedIn && source.provider.id === 'snowflake-cortex' && hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS)) {
+				return {
+					...source,
+					signedIn,
+					defaults: {
+						...source.defaults,
+						autoconfigure: {
+							type: positron.ai.LanguageModelAutoconfigureType.Custom,
+							message: SNOWFLAKE_MANAGED_CREDENTIALS.displayName,
 							signedIn: true,
 						},
 					},
@@ -257,8 +271,23 @@ async function handleDelete(
 		return;
 	}
 	const sessions = await provider.getSessions();
-	log.info(`Deleting ${sessions.length} session(s) for provider "${config.provider}"`);
-	for (const session of sessions) {
+	// Credential-chain sessions (e.g. env var credentials) use the
+	// provider ID as their session ID. These cannot be removed via the
+	// UI -- the user must unset the environment variable and restart.
+	const deletable = provider.chainPreventsSignOut
+		? sessions.filter(s => s.id !== config.provider)
+		: sessions;
+	if (deletable.length === 0 && sessions.length > 0) {
+		throw new Error(
+			vscode.l10n.t(
+				'This credential was configured via an environment variable ' +
+				'and cannot be removed from the UI. Unset the environment ' +
+				'variable and restart Positron.'
+			)
+		);
+	}
+	log.info(`Deleting ${deletable.length} session(s) for provider "${config.provider}"`);
+	for (const session of deletable) {
 		await provider.removeSession(session.id);
 	}
 }

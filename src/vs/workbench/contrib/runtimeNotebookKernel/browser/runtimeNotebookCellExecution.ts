@@ -10,6 +10,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { DATA_EXPLORER_MIME_TYPE } from '../../positronNotebook/browser/getOutputContents.js';
 import { POSITRON_CONSOLE_EXEC_PREFIX } from '../../../services/positronConsole/browser/positronConsoleService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -379,6 +380,9 @@ function toOutputItems(data: ILanguageRuntimeMessageOutputData): IOutputItemDto[
 			case 'application/vnd.vegalite.v3+json':
 			case 'application/vnd.vegalite.v4+json':
 			case 'application/x-nteract-model-debug+json':
+			// Positron inline data explorer: R (ark) sends the payload as a
+			// native object, so it needs JSON.stringify like the types above.
+			case DATA_EXPLORER_MIME_TYPE:
 				// The JSON cell output item will be rendered using the appropriate notebook renderer.
 				outputItems.push({ data: VSBuffer.fromString(JSON.stringify(value, undefined, '\t')), mime });
 				break;
