@@ -169,9 +169,8 @@ export class ActiveRuntimeSession extends Disposable {
 	}
 
 	private async startUiClientImpl(): Promise<string> {
-		// Pass initial state in the comm_open data. The backend uses the
-		// presence of the UI comm as the signal that the frontend is ready,
-		// so this is the place to send any initial state the backend needs.
+		// Pass initial state in the comm_open data so the backend can
+		// act on it as soon as the UI comm is established.
 		const consoleWidth = this._consoleService?.getConsoleWidth() ?? 80;
 		const startType = this.getStartType();
 		const commOpenData = {
