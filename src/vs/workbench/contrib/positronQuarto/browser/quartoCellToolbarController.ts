@@ -473,10 +473,12 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			return;
 		}
 
-		// Hide previous cell's toolbar (unless mouse is over it)
+		// Hide previous cell's toolbar. We always reset _isCursorInCell even
+		// when the mouse is over the toolbar; _updateVisualVisibility will
+		// keep it visible while hovered but hide it once the mouse leaves.
 		if (this._currentCellId && this._currentCellId !== this._mouseCellId) {
 			const previousToolbar = this._toolbars.get(this._currentCellId);
-			if (previousToolbar && !previousToolbar.isMouseOverToolbar) {
+			if (previousToolbar) {
 				previousToolbar.setCursorInCell(false);
 			}
 		}
@@ -492,13 +494,17 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	/**
 	 * Show the toolbar for the specified cell and hide all others.
 	 * This ensures only one toolbar is visible at a time.
+	 *
+	 * Note: We always call setCursorInCell(false) on non-target toolbars,
+	 * even when the mouse is over them. The toolbar's _updateVisualVisibility
+	 * will keep it visible while the mouse hovers, but once the mouse leaves,
+	 * it will properly hide since _isCursorInCell is false.
 	 */
 	private _showToolbarExclusively(cellId: string): void {
 		for (const [id, toolbar] of this._toolbars) {
 			if (id === cellId) {
 				toolbar.setCursorInCell(true);
-			} else if (!toolbar.isMouseOverToolbar) {
-				// Hide all other toolbars (unless the mouse is directly over them)
+			} else {
 				toolbar.setCursorInCell(false);
 			}
 		}

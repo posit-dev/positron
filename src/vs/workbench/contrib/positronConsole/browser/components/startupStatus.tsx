@@ -84,7 +84,11 @@ export const StartupStatus = () => {
 		disposableStore.add(
 			services.runtimeStartupService.onWillAutoStartRuntime(
 				evt => {
-					setRuntimeStartupEvent(evt);
+					// Ignore auto-start events that won't activate to avoid
+					// flickering between several runtimes starting up
+					if (evt.activate) {
+						setRuntimeStartupEvent(evt);
+					}
 				}));
 
 		// Return the cleanup function that will dispose of the disposables.

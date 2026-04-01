@@ -356,7 +356,8 @@ export function dispose<T extends IDisposable>(arg: T | Iterable<T> | undefined)
 	}
 }
 
-export function disposeIfDisposable<T extends IDisposable | object>(disposables: Array<T>): Array<T> {
+// --- Start Positron ---
+export function disposeIfDisposable<T extends IDisposable | object>(disposables: ReadonlyArray<T>): Array<T> {
 	for (const d of disposables) {
 		if (isDisposable(d)) {
 			d.dispose();
@@ -364,6 +365,7 @@ export function disposeIfDisposable<T extends IDisposable | object>(disposables:
 	}
 	return [];
 }
+// --- End Positron ---
 
 /**
  * Combine multiple disposable values into a single {@link IDisposable}.

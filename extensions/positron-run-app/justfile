@@ -1,0 +1,3 @@
+d-ts:
+  cp src/positron-run-app.d.ts ../positron-python/src/client/positron-run-app.d.ts
+  npx prettier --config ../positron-python/.prettierrc.js --write ../positron-python/src/client/positron-run-app.d.ts

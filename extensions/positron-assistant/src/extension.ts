@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
+import { applyConfigAction, deleteConfiguration, deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
 import { registerSupportedProviders, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
@@ -29,9 +29,10 @@ import { resetAssistantState } from './reset.js';
 import { performSettingsMigrations } from './providerMigration.js';
 import { addAutoconfiguredModel, disposeModels, getAutoconfiguredModels, registerModelWithAPI, registerModels, registerModelsForProvider } from './modelRegistration';
 import { getModelProviders } from './providers/index.js';
-import { registerPositAuthProvider } from './providers/posit/positProvider.js';
 import { PROVIDER_METADATA } from './providerMetadata.js';
 import { ModelConfig } from './configTypes.js';
+import { isAuthExtProvider } from './authExtRouting.js';
+import { IS_RUNNING_ON_PWB } from './constants.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -41,6 +42,14 @@ function registerConfigureProvidersCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.configureProviders', async (providerId?: string) => {
 			await showConfigurationDialog(context, providerId);
+		}),
+		vscode.commands.registerCommand('positron-assistant.applyConfigAction', async (
+			config: positron.ai.LanguageModelConfig,
+			action: string,
+			sources: positron.ai.LanguageModelSource[],
+			accountId?: string,
+		) => {
+			await applyConfigAction(context, sources, config, action, accountId);
 		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
 			logStoredModels(context);
@@ -210,7 +219,7 @@ async function toggleInlineCompletions() {
 	let keyToToggle: string;
 	let currentValue: boolean;
 
-	if (currentLanguageId && (currentLanguageId in currentSettings)) {
+	if (currentLanguageId && Object.prototype.hasOwnProperty.call(currentSettings, currentLanguageId)) {
 		// If current file type has an explicit setting, toggle it
 		keyToToggle = currentLanguageId;
 		currentValue = currentSettings[currentLanguageId];
@@ -244,129 +253,127 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
 	await validateProvidersEnabled();
 }
 
-/**
- * Registers a listener for deferred Foundry autoconfigure.
- * Handles the case where the Workbench extension activates after
- * Positron Assistant's initial autoconfigure pass. Uses the
- * onDidChangeSessions event to respond immediately when the
- * Workbench auth provider becomes available, with a timeout
- * fallback to avoid waiting indefinitely.
- */
-function registerDeferredFoundryAutoconfigure(context: vscode.ExtensionContext) {
-	// Skip if Foundry is already autoconfigured from the initial pass.
-	const existingModels = getAutoconfiguredModels();
-	if (existingModels.some(m => m.provider === PROVIDER_METADATA.foundry.id)) {
-		return;
-	}
+async function reconcileAuthProviderModels(
+	context: vscode.ExtensionContext,
+	providerId: string,
+): Promise<boolean> {
+	const accounts = await vscode.authentication.getAccounts(providerId);
+	const accountIds = new Set(accounts.map(account => account.id));
+	const providerModels = getStoredModels(context).filter(model => model.provider === providerId);
 
-	const foundryProvider = getModelProviders().find(
-		p => p.source.provider.id === PROVIDER_METADATA.foundry.id
-	);
-	if (!foundryProvider?.autoconfigure) {
-		return;
-	}
-
-	const autoconfigureFn = foundryProvider.autoconfigure;
-	let completed = false;
-
-	async function tryDeferredAutoconfigure(trigger: string) {
-		if (completed) {
-			return;
-		}
-
-		// Check again in case it was configured between events.
-		const models = getAutoconfiguredModels();
-		if (models.some(m => m.provider === PROVIDER_METADATA.foundry.id)) {
-			log.debug('[Foundry] Already autoconfigured, skipping deferred attempt');
-			completed = true;
-			return;
-		}
-
-		log.debug(`[Foundry] Deferred autoconfigure triggered by ${trigger}`);
-
-		try {
-			const result = await autoconfigureFn();
-			if (!result.configured) {
-				log.debug('[Foundry] Deferred autoconfigure: not yet ready');
-				return;
-			}
-
-			const modelConfig: ModelConfig = {
-				id: foundryProvider.source.provider.id,
-				provider: foundryProvider.source.provider.id,
-				type: positron.PositronLanguageModelType.Chat,
-				name: foundryProvider.source.provider.displayName,
-				model: foundryProvider.source.defaults.model,
-				apiKey: '',
-				toolCalls: foundryProvider.source.defaults.toolCalls,
-				completions: foundryProvider.source.defaults.completions,
-				autoconfigure: {
-					type: positron.ai.LanguageModelAutoconfigureType.Custom,
-					message: result.message,
-					signedIn: true,
-				},
-			};
-
-			await registerModelWithAPI(modelConfig, context);
-			addAutoconfiguredModel(modelConfig);
-			completed = true;
-			log.info('[Foundry] Deferred autoconfigure succeeded');
-		} catch (e) {
-			log.warn(`[Foundry] Deferred autoconfigure failed: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
+	for (const model of providerModels) {
+		if (!accountIds.has(model.id)) {
+			await deleteConfiguration(context, model.id);
 		}
 	}
 
-	// Listen for auth session changes from the Workbench extension.
-	const sessionListener = vscode.authentication.onDidChangeSessions((e) => {
-		if (e.provider.id === 'posit-workbench') {
-			tryDeferredAutoconfigure('session-change');
-		}
-	});
+	if (accountIds.size === 0) {
+		await deleteConfigurationByProvider(context, providerId);
+		return false;
+	}
 
-	// Timeout fallback: stop listening after 60s to avoid leaking the listener.
-	const timeoutHandle = setTimeout(() => {
-		if (!completed) {
-			log.debug('[Foundry] Deferred autoconfigure timed out after 60s');
-			tryDeferredAutoconfigure('timeout');
-		}
-		sessionListener.dispose();
-	}, 60_000);
-
-	context.subscriptions.push({
-		dispose: () => {
-			sessionListener.dispose();
-			clearTimeout(timeoutHandle);
-		}
-	});
-
-	log.debug('[Foundry] Listening for Workbench auth sessions for deferred autoconfigure');
+	return getStoredModels(context).some(model => model.provider === providerId);
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
-	// Register Posit AI authentication provider
-	registerPositAuthProvider(context);
-
 	// Register Copilot service
 	registerCopilotService(context);
 
 	// Register chat participants
 	const participantService = registerParticipants(context);
 
+	// Gate the session listener until initial model registration completes.
+	// Without this, the auth extension resolving credentials during startup
+	// fires onDidChangeSessions, which registers models and can cause the
+	// LM service to auto-switch the active provider before the initial
+	// registerModels() call finishes. Queued events are replayed afterward.
+	let initialRegistrationComplete = false;
+	const pendingSessionEvents: string[] = [];
+
+	// On Posit Workbench, session-backed providers (AWS, Foundry) may not
+	// have stored configs. Re-register with authProviderId to trigger the
+	// session-based fallback in registerModelsForProvider. On desktop,
+	// these providers only register when the user explicitly configures them.
+	const SESSION_PROVIDERS = IS_RUNNING_ON_PWB
+		? new Set(['amazon-bedrock', 'ms-foundry'])
+		: new Set<string>();
+
 	// Initialize provider configuration system (registration, migration, validation)
 	initializeProviderConfiguration(context)
+		.then(async () => {
+			// Reconcile stale auth-backed configs before model registration so
+			// startup doesn't attempt to register with missing session IDs.
+			const authProviderIds = new Set(
+				getStoredModels(context)
+					.map(model => model.provider)
+					.filter(providerId => isAuthExtProvider(providerId))
+			);
+
+			for (const providerId of authProviderIds) {
+				try {
+					await reconcileAuthProviderModels(context, providerId);
+				} catch (error) {
+					log.warn(`[Auth Startup Reconcile] Failed for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			}
+		})
 		.then(() => {
 			// After initialization, register models
 			return registerModels(context);
 		})
-		.then(() => {
-			// Register deferred autoconfigure for Workbench managed Foundry credentials.
-			// The Workbench extension may activate after this extension's initial
-			// autoconfigure pass, so we listen for auth session changes.
-			registerDeferredFoundryAutoconfigure(context);
+		.then(async () => {
+			initialRegistrationComplete = true;
+			// Replay session events that arrived during startup.
+			const unique = [...new Set(pendingSessionEvents)];
+			for (const providerId of unique) {
+				try {
+					const hasStoredConfig =
+						await reconcileAuthProviderModels(context, providerId);
+					if (hasStoredConfig || SESSION_PROVIDERS.has(providerId)) {
+						await registerModelsForProvider(
+							context, providerId,
+							SESSION_PROVIDERS.has(providerId)
+								? providerId : undefined
+						);
+					}
+				} catch (e) {
+					log.warn(`[Auth Startup] Deferred session registration failed for ${providerId}: ${e instanceof Error ? e.message : String(e)}`);
+				}
+			}
 		})
 		.catch((e) => {
-			log.error(`[Foundry] Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
+			initialRegistrationComplete = true;
+			log.error(`Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
+
+	// Keep Positron Assistant model state in sync when auth sessions change.
+	context.subscriptions.push(vscode.authentication.onDidChangeSessions(async (e) => {
+		const providerId = e.provider.id;
+		if (!isAuthExtProvider(providerId)) {
+			return;
+		}
+
+		// Queue session events during startup -- they are replayed after
+		// registerModels() completes to avoid racing with initial setup.
+		if (!initialRegistrationComplete) {
+			log.info(`[Auth Session Sync] Queuing session event for ${providerId} during initial registration`);
+			pendingSessionEvents.push(providerId);
+			return;
+		}
+
+		try {
+			const hasStoredConfig = await reconcileAuthProviderModels(context, providerId);
+			if (hasStoredConfig || SESSION_PROVIDERS.has(providerId)) {
+				await registerModelsForProvider(
+					context, providerId,
+					SESSION_PROVIDERS.has(providerId) ? providerId : undefined
+				);
+			}
+		} catch (error) {
+			log.warn(`[Auth Session Sync] Failed to sync provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}));
+
 
 	// Track opened files for completion context
 	registerHistoryTracking(context);

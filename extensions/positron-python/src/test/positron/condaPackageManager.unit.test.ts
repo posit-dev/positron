@@ -9,11 +9,12 @@ import { interfaces } from 'inversify';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as sinon from 'sinon';
+import * as vscode from 'vscode';
 import { ITerminalService, ITerminalServiceFactory } from '../../client/common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
 import { CondaPackageManager } from '../../client/positron/packages/condaPackageManager';
-import { MessageEmitter, PackageKernel } from '../../client/positron/packages/types';
+import { MessageEmitter, PackageSession } from '../../client/positron/packages/types';
 import { mock } from './utils';
 
 suite('Conda Package Manager', () => {
@@ -23,14 +24,16 @@ suite('Conda Package Manager', () => {
     let componentAdapter: IComponentAdapter;
     let terminalService: ITerminalService;
     let messageEmitter: MessageEmitter;
-    let kernel: PackageKernel;
+    let session: PackageSession;
     let sendCommandStub: sinon.SinonStub;
+    let cancellationToken: vscode.CancellationToken;
 
     const pythonPath = '/path/to/conda/envs/myenv/bin/python';
     const condaEnvPath = '/path/to/conda/envs/myenv';
     const condaFile = '/path/to/conda';
 
     setup(() => {
+        cancellationToken = new vscode.CancellationTokenSource().token;
         sendCommandStub = sinon.stub().resolves();
 
         terminalService = mock<ITerminalService>({
@@ -70,11 +73,11 @@ suite('Conda Package Manager', () => {
             fire: () => {},
         });
 
-        kernel = mock<PackageKernel>({
+        session = mock<PackageSession>({
             callMethod: () => Promise.resolve([]),
         });
 
-        condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
+        condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, session);
     });
 
     teardown(() => {
@@ -85,7 +88,7 @@ suite('Conda Package Manager', () => {
         test('installs single package with conda install', async () => {
             const packages: positron.PackageSpec[] = [{ name: 'numpy' }];
 
-            await condaPackageManager.installPackages(packages);
+            await condaPackageManager.installPackages(packages, cancellationToken);
 
             sinon.assert.calledOnce(sendCommandStub);
             const [executable, args] = sendCommandStub.firstCall.args;
@@ -96,7 +99,7 @@ suite('Conda Package Manager', () => {
         test('installs multiple packages', async () => {
             const packages: positron.PackageSpec[] = [{ name: 'numpy' }, { name: 'pandas' }];
 
-            await condaPackageManager.installPackages(packages);
+            await condaPackageManager.installPackages(packages, cancellationToken);
 
             sinon.assert.calledOnce(sendCommandStub);
             const [, args] = sendCommandStub.firstCall.args;
@@ -106,7 +109,7 @@ suite('Conda Package Manager', () => {
         test('installs package with specific version', async () => {
             const packages: positron.PackageSpec[] = [{ name: 'numpy', version: '1.24.0' }];
 
-            await condaPackageManager.installPackages(packages);
+            await condaPackageManager.installPackages(packages, cancellationToken);
 
             sinon.assert.calledOnce(sendCommandStub);
             const [, args] = sendCommandStub.firstCall.args;
@@ -114,7 +117,7 @@ suite('Conda Package Manager', () => {
         });
 
         test('does nothing for empty package list', async () => {
-            await condaPackageManager.installPackages([]);
+            await condaPackageManager.installPackages([], cancellationToken);
 
             sinon.assert.notCalled(sendCommandStub);
         });
@@ -122,7 +125,7 @@ suite('Conda Package Manager', () => {
 
     suite('uninstallPackages', () => {
         test('uninstalls single package with conda remove', async () => {
-            await condaPackageManager.uninstallPackages(['numpy']);
+            await condaPackageManager.uninstallPackages(['numpy'], cancellationToken);
 
             sinon.assert.calledOnce(sendCommandStub);
             const [executable, args] = sendCommandStub.firstCall.args;
@@ -131,7 +134,7 @@ suite('Conda Package Manager', () => {
         });
 
         test('uninstalls multiple packages', async () => {
-            await condaPackageManager.uninstallPackages(['numpy', 'pandas']);
+            await condaPackageManager.uninstallPackages(['numpy', 'pandas'], cancellationToken);
 
             sinon.assert.calledOnce(sendCommandStub);
             const [, args] = sendCommandStub.firstCall.args;
@@ -139,7 +142,7 @@ suite('Conda Package Manager', () => {
         });
 
         test('does nothing for empty package list', async () => {
-            await condaPackageManager.uninstallPackages([]);
+            await condaPackageManager.uninstallPackages([], cancellationToken);
 
             sinon.assert.notCalled(sendCommandStub);
         });
@@ -149,7 +152,7 @@ suite('Conda Package Manager', () => {
         test('updates single package with conda update', async () => {
             const packages: positron.PackageSpec[] = [{ name: 'numpy' }];
 
-            await condaPackageManager.updatePackages(packages);
+            await condaPackageManager.updatePackages(packages, cancellationToken);
 
             sinon.assert.calledOnce(sendCommandStub);
             const [executable, args] = sendCommandStub.firstCall.args;
@@ -160,7 +163,7 @@ suite('Conda Package Manager', () => {
         test('updates multiple packages', async () => {
             const packages: positron.PackageSpec[] = [{ name: 'numpy' }, { name: 'pandas' }];
 
-            await condaPackageManager.updatePackages(packages);
+            await condaPackageManager.updatePackages(packages, cancellationToken);
 
             sinon.assert.calledOnce(sendCommandStub);
             const [, args] = sendCommandStub.firstCall.args;
@@ -168,7 +171,7 @@ suite('Conda Package Manager', () => {
         });
 
         test('does nothing for empty package list', async () => {
-            await condaPackageManager.updatePackages([]);
+            await condaPackageManager.updatePackages([], cancellationToken);
 
             sinon.assert.notCalled(sendCommandStub);
         });
@@ -176,7 +179,7 @@ suite('Conda Package Manager', () => {
 
     suite('updateAllPackages', () => {
         test('updates all packages with conda update --all', async () => {
-            await condaPackageManager.updateAllPackages();
+            await condaPackageManager.updateAllPackages(cancellationToken);
 
             sinon.assert.calledOnce(sendCommandStub);
             const [executable, args] = sendCommandStub.firstCall.args;
@@ -209,10 +212,10 @@ suite('Conda Package Manager', () => {
                 },
             });
 
-            condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
+            condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, session);
 
             await assert.rejects(
-                () => condaPackageManager.installPackages([{ name: 'numpy' }]),
+                () => condaPackageManager.installPackages([{ name: 'numpy' }], cancellationToken),
                 /conda is not available/,
             );
         });
@@ -239,10 +242,10 @@ suite('Conda Package Manager', () => {
                 },
             });
 
-            condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, kernel);
+            condaPackageManager = new CondaPackageManager(pythonPath, messageEmitter, serviceContainer, session);
 
             await assert.rejects(
-                () => condaPackageManager.installPackages([{ name: 'numpy' }]),
+                () => condaPackageManager.installPackages([{ name: 'numpy' }], cancellationToken),
                 /Could not determine conda environment path/,
             );
         });

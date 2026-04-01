@@ -280,6 +280,14 @@ export class HotKeys {
 	}
 
 	// -----------------------
+	// ---  Assistant Actions ---
+	// -----------------------
+
+	public configureProviders() {
+		return this.pressHotKeys('Cmd+L B', 'Configure Language Model Providers');
+	}
+
+	// -----------------------
 	// ---  Debug Actions  ---
 	// -----------------------
 

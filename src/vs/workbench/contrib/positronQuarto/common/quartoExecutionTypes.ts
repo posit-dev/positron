@@ -11,6 +11,11 @@ import { QuartoCodeCell } from './quartoTypes.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
+/**
+ * MIME type for Positron inline data explorer.
+ */
+export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+json';
+
 // Service decorators
 export const IQuartoOutputCacheService = createDecorator<IQuartoOutputCacheService>('quartoOutputCacheService');
 
@@ -185,7 +190,7 @@ export interface IQuartoExecutionManager {
 	 * @param codeRanges Ranges of code to execute (can be partial cells)
 	 * @param token Optional cancellation token
 	 */
-	executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken): Promise<void>;
+	executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken, executionMetadata?: Record<string, unknown>[]): Promise<void>;
 
 	/**
 	 * Cancel execution for a document.

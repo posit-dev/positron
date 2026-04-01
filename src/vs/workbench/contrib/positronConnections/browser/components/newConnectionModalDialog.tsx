@@ -5,7 +5,7 @@
 
 
 // CSS.
-import './newConnectionModelDialog.css';
+import './newConnectionModalDialog.css';
 
 // React.
 import { PropsWithChildren, useState } from 'react';
@@ -47,8 +47,8 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 	}
 
 	type ModalState = { kind: ModalStateKind.ListDrivers } |
-	{ kind: ModalStateKind.CreateConnection, driver: IDriver, previous: ModalState } |
-	{ kind: ModalStateKind.SelectDriverDetails, drivers: IDriver[], previous: ModalState };
+	{ kind: ModalStateKind.CreateConnection; driver: IDriver; previous: ModalState } |
+	{ kind: ModalStateKind.SelectDriverDetails; drivers: IDriver[]; previous: ModalState };
 
 	const [modalState, setModalState] = useState<ModalState>({ kind: ModalStateKind.ListDrivers });
 

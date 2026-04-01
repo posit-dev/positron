@@ -472,23 +472,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// extensions won't activate until the workspace is trusted).
 		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 			this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
-			this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
-				if (!trusted) {
-					return;
-				}
-				// When the workspace becomes trusted while we are still
-				// awaiting trust, the extension host will restart and the
-				// ext point handler will fire with language packs, which
-				// drives the startup sequence forward. However, if no
-				// language packs arrive (e.g. no extensions contribute
-				// runtimes), we need a fallback to avoid hanging forever
-				// in the AwaitingTrust phase. Route through the full
-				// startup sequence so session restore, new-folder tasks,
-				// and affiliated/recommended startup are not skipped.
-				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-					this.startupSequence();
-				}
-			}));
 		}
 
 		// Find all the sessions that need to be restored.
@@ -611,11 +594,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async startupSequence() {
 
-		// Guard against double entry. Both the ext-point handler and the
-		// onDidChangeTrust handler can call startupSequence() when the
-		// workspace transitions from untrusted to trusted. Setting the
-		// phase synchronously before the first await ensures only the
-		// first caller proceeds.
+		// Guard against double entry. Multiple code paths can call
+		// startupSequence() (e.g. the ext-point handler and
+		// startupAfterTrust). Setting the phase synchronously before
+		// the first await ensures only the first caller proceeds.
 		if (this._startupPhase !== RuntimeStartupPhase.AwaitingTrust &&
 			this._startupPhase !== RuntimeStartupPhase.Initializing) {
 			return;
@@ -934,6 +916,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// Ignore if there's already a foreground session, regardless of
+		// language; at this point either we've autostarted a different runtime
+		// or the user has manually started a runtime, and we don't want to
+		// interfere by starting another one.
+		if (this._runtimeSessionService.foregroundSession) {
+			return;
+		}
+
 		// Get the runtime metadata that is affiliated with this workspace, if any.
 		const affiliatedRuntimeMetadataStr = this._storageService.get(
 			this.storageKeyForRuntime(metadata), this.affiliationStorageScope());
@@ -971,7 +961,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					metadata.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // Console session
-					`Affiliated runtime for workspace`,
+					`Affiliated runtime for workspace registered`,
 					RuntimeStartMode.Starting,
 					true);
 			} catch (e) {
@@ -1187,12 +1177,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		});
 
 		// No affiliated runtimes; move on to the next phase.
-		if (!languageIds) {
+		if (languageIds.length === 0) {
 			return;
 		}
 
-		// Start the affiliated runtimes.
-		languageIds.map(languageId => {
+		// Build the sorted, filtered list of affiliations to start.
+		const affiliations = languageIds.map(languageId => {
 			// Get the affiliated runtime metadata.
 			return this.getAffiliatedRuntime(languageId);
 		}).filter(affiliation => {
@@ -1234,22 +1224,33 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Sort the affiliations by last used time, so that the most recently
 			// used runtime is started first
 			return b.lastUsed - a.lastUsed;
-		}).map(async (affiliation, idx) => {
-			if (idx === 0) {
-				// Let the UI know we're about to try starting this session
-				this._onWillAutoStartRuntime.fire({
-					runtime: affiliation.metadata,
-					newSession: true
-				});
-			}
-
-			// Activate the associated extension
-			await this.activateExtensionsForLanguages([affiliation.metadata.languageId]);
-
-			// Start each runtime. Activate the first one as soon as it's
-			// ready; let the others start in the background.
-			this.startAffiliatedRuntime(affiliation, idx === 0);
 		});
+
+		if (affiliations.length === 0) {
+			return;
+		}
+
+		// Start the primary (first) affiliated runtime synchronously: activate
+		// only its extension, then start it, before returning. This ensures
+		// that the caller sees a starting/running console and avoids falling
+		// through to slower paths that activate all extensions.
+		const primary = affiliations[0];
+		this._onWillAutoStartRuntime.fire({
+			runtime: primary.metadata,
+			newSession: true,
+			activate: true
+		});
+		await this.activateExtensionsForLanguages([primary.metadata.languageId]);
+		await this.startAffiliatedRuntime(primary, true);
+
+		// Start the remaining affiliated runtimes in the background; they
+		// do not need to block the startup sequence.
+		for (let i = 1; i < affiliations.length; i++) {
+			const affiliation = affiliations[i];
+			this.activateExtensionsForLanguages([affiliation.metadata.languageId]).then(() => {
+				this.startAffiliatedRuntime(affiliation, false);
+			});
+		}
 	}
 
 	/**
@@ -1288,8 +1289,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async activateExtension(extensionId: ExtensionIdentifier, languageId: string): Promise<void> {
 		const key = extensionId.value;
+		// Add to the set immediately (before the await) to prevent
+		// concurrent calls from emitting duplicate perf marks.
 		const firstActivation = !this._activatedExtensions.has(key);
 		if (firstActivation) {
+			this._activatedExtensions.add(key);
+			perf.mark(`code/positron/runtimeStartup/extensionPreActivate/${key}`);
 			this._logService.debug(`[Runtime startup] Activating extension ${key} for language ID ${languageId}`);
 		}
 		try {
@@ -1300,10 +1305,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					startup: false
 				});
 			if (firstActivation) {
-				this._activatedExtensions.add(key);
-				perf.mark(`code/positron/runtimeStartup/extensionActivated/${key}`);
+				perf.mark(`code/positron/runtimeStartup/extensionPostActivate/${key}`);
 			}
 		} catch (e) {
+			if (firstActivation) {
+				this._activatedExtensions.delete(key);
+			}
 			this._logService.debug(
 				`[Runtime startup] Error activating extension ${key}: ${e}`);
 		}
@@ -1331,10 +1338,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param affiliatedRuntimeMetadata The metadata for the affiliated runtime.
 	 * @param activate Whether to activate/focus the new session
 	 */
-	private startAffiliatedRuntime(
+	private async startAffiliatedRuntime(
 		affiliatedRuntime: IAffiliatedRuntimeMetadata,
 		activate: boolean
-	): void {
+	): Promise<void> {
 
 		// No-op if no affiliated runtime metadata.
 		if (!affiliatedRuntime.metadata) {
@@ -1355,7 +1362,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		affiliatedRuntime.lastStarted = Date.now();
 		this.saveAffiliatedRuntime(affiliatedRuntime);
 
-		this.autoStartRuntime(affiliatedRuntimeMetadata,
+		await this.autoStartRuntime(affiliatedRuntimeMetadata,
 			`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,
 			activate);
 	}
@@ -1403,7 +1410,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Let the UI know we're about to try reconnecting to this session
 		this._onWillAutoStartRuntime.fire({
 			runtime: sessions[0].runtimeMetadata,
-			newSession: false
+			newSession: false,
+			activate: true
 		});
 
 		// Activate any extensions needed for the sessions we want to reconnect
@@ -1761,9 +1769,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	) {
 		this._onWillAutoStartRuntime.fire({
 			runtime: metadata,
-			newSession: true
+			newSession: true,
+			activate
 		});
-		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
+		await this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
 	}
 
 	// Storage key prefix for architecture mismatch dismissal

@@ -37,7 +37,7 @@ import rceditCallback from 'rcedit';
 // --- Start Positron ---
 import fancyLog from 'fancy-log';
 import { getQuartoBinaries } from './lib/quarto.ts';
-import { positronBuildNumber } from './utils.ts';
+import { positronBuildNumber, releaseChannel } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
 // --- End Positron ---
@@ -178,6 +178,9 @@ const coreCI = task.define('core-ci', task.series(
 		gulp.task('minify-vscode') as task.Task,
 		gulp.task('minify-vscode-reh') as task.Task,
 		gulp.task('minify-vscode-reh-web') as task.Task,
+		// --- Start PWB ---
+		gulp.task('minify-vscode-reh-web-pwb') as task.Task,
+		// --- End PWB ---
 	)
 ));
 gulp.task(coreCI);
@@ -188,6 +191,9 @@ const coreCIPR = task.define('core-ci-pr', task.series(
 		gulp.task('minify-vscode') as task.Task,
 		gulp.task('minify-vscode-reh') as task.Task,
 		gulp.task('minify-vscode-reh-web') as task.Task,
+		// --- Start PWB ---
+		gulp.task('minify-vscode-reh-web-pwb') as task.Task,
+		// --- End PWB ---
 	)
 ));
 gulp.task(coreCIPR);
@@ -248,9 +254,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 
 		const platformSpecificBuiltInExtensionsExclusions = product.builtInExtensions.filter(ext => {
 			// --- Start PWB ---
-			// Don't bundle reh-web extensions here. We bundle them for the
+			// Don't bundle reh-web-pwb extensions here. We bundle them for the
 			// remote web gulp build targets (see gulpfile.reh.js)
-			if (ext.type === 'reh-web') {
+			if (ext.type === 'reh-web-pwb') {
 				return true;
 			}
 			// --- End PWB ---
@@ -297,7 +303,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		let productJsonContents: string;
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
 			// --- Start Positron ---
-			.pipe(jsonEditor({ commit, date: readISODate('out-build'), checksums, version, positronVersion, positronBuildNumber }))
+			.pipe(jsonEditor({ commit, date: readISODate('out-build'), checksums, version, positronVersion, positronBuildNumber, quality: releaseChannel }))
 			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();

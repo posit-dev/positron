@@ -7,7 +7,7 @@
 import './button.css';
 
 // React.
-import React, { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef, useState } from 'react';
+import React, { CSSProperties, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../common/positronUtilities.js';
@@ -50,6 +50,7 @@ export interface ButtonProps {
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
 	readonly onPressed?: (e: KeyboardModifiers) => void;
+	ref?: React.Ref<HTMLButtonElement>;
 }
 
 /**
@@ -57,12 +58,12 @@ export interface ButtonProps {
  * @param props A PropsWithChildren<ButtonProps> that contains the component properties.
  * @returns The rendered component.
  */
-export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProps>>((props, ref) => {
+export const Button = (props: PropsWithChildren<ButtonProps>) => {
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Customize the ref handle that is exposed.
-	useImperativeHandle(ref, () => buttonRef.current, []);
+	useImperativeHandle(props.ref, () => buttonRef.current, []);
 
 	// State hooks.
 	const [mouseInside, setMouseInside] = useState(false);
@@ -197,7 +198,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 			{props.children}
 		</button>
 	);
-});
+};
 
 // Set the display name.
 Button.displayName = 'Button';

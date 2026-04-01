@@ -23,6 +23,7 @@ import {
 	ICacheInfo,
 	IClearCacheResult,
 	DEFAULT_CACHE_CONFIG,
+	DATA_EXPLORER_MIME_TYPE,
 } from '../common/quartoExecutionTypes.js';
 import { isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
 
@@ -344,8 +345,27 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 			cellEntry.source = source;
 		}
 
-		// Add output
-		cellEntry.outputs.push(output);
+		// Filter out the data explorer MIME type before caching. The data
+		// explorer requires a live runtime connection that won't exist when
+		// restoring from cache; text/plain is kept as the fallback.
+		// When data explorer is present, also strip text/html since it is
+		// typically a stub (e.g. "Hello, world!") and not the real content;
+		// text/plain contains the actual data frame representation.
+		const hasDataExplorer = output.items?.some(
+			item => item.mime === DATA_EXPLORER_MIME_TYPE
+		);
+		const filteredItems = output.items?.filter(
+			item => item.mime !== DATA_EXPLORER_MIME_TYPE &&
+				!(hasDataExplorer && item.mime === 'text/html')
+		);
+
+		// If filtering removed all items, skip saving this output entirely
+		if (!filteredItems || filteredItems.length === 0) {
+			return;
+		}
+
+		// Add output (with filtered items)
+		cellEntry.outputs.push({ ...output, items: filteredItems });
 		entry.lastUpdated = Date.now();
 
 		// Mark dirty and schedule write

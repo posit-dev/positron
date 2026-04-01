@@ -5,13 +5,14 @@
 
 // CSS.
 import './PositronNotebookComponent.css';
+import './positronNotebookScrollable.css';
 
 // React.
 import React from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { useNotebookInstance } from './NotebookInstanceProvider.js';
+import { useNotebookInstance, useNotebookOptions } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
@@ -19,6 +20,8 @@ import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { NotebookRawCell } from './notebookCells/NotebookRawCell.js';
 import { DeletionSentinel } from './notebookCells/DeletionSentinel.js';
 import { GhostCell } from './contrib/ghostCell/GhostCell.js';
+import { SortableCellList } from './notebookCells/SortableCellList.js';
+import { SortableCell } from './notebookCells/SortableCell.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
@@ -32,6 +35,7 @@ import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/bro
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
+import { getSelectedCells } from './selectionMachine.js';
 
 
 export function PositronNotebookComponent() {
@@ -90,6 +94,20 @@ export function PositronNotebookComponent() {
 	// Determine if scroll decoration should be shown
 	const showDecoration = isScrolled || isFindWidgetVisible;
 
+	// Handler for drag-and-drop reordering of cells (single or multi).
+	// Guard against read-only notebooks to prevent unintended reorders.
+	const handleReorder = React.useCallback((cells: IPositronNotebookCell[], targetIndex: number) => {
+		if (notebookInstance.isReadOnly) {
+			return;
+		}
+		notebookInstance.moveCells(cells, targetIndex);
+	}, [notebookInstance]);
+
+	// Get currently selected cells for multi-drag support
+	const getSelectedCellsCallback = React.useCallback(() => {
+		return getSelectedCells(notebookInstance.selectionStateMachine.state.get());
+	}, [notebookInstance]);
+
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			{showDecoration && (
@@ -99,9 +117,15 @@ export function PositronNotebookComponent() {
 					role='presentation'
 				/>
 			)}
-			<div ref={containerRef} className='positron-notebook-cells-container'>
-				<AddCellButtons index={0} />
-				{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
+			<div ref={containerRef} className='positron-notebook-cells-container positron-notebook-scrollable'>
+				<SortableCellList
+					cells={notebookCells}
+					getSelectedCells={getSelectedCellsCallback}
+					onReorder={handleReorder}
+				>
+					<AddCellButtons index={0} />
+					{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
+				</SortableCellList>
 				<GhostCell />
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
@@ -156,7 +180,7 @@ function renderCellsAndSentinels(
 			currentOriginalIndex++;
 		}
 
-		// Render the cell
+		// Render the cell wrapped in SortableCell for drag-and-drop
 		elements.push(
 			<React.Fragment key={cell.handle}>
 				<NotebookErrorBoundary
@@ -164,7 +188,9 @@ function renderCellsAndSentinels(
 					level='cell'
 					logService={services.logService}
 				>
-					<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+					<SortableCell cell={cell}>
+						<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+					</SortableCell>
 				</NotebookErrorBoundary>
 				<AddCellButtons index={cellArrayIndex + 1} />
 			</React.Fragment>
@@ -194,15 +220,19 @@ function renderCellsAndSentinels(
  */
 function useFontStyles(): React.CSSProperties {
 	const services = usePositronReactServicesContext();
+	const notebookOptions = useNotebookOptions();
+	const layout = notebookOptions.getLayoutConfiguration();
 
 	const editorOptions = services.configurationService.getValue<IEditorOptions>('editor');
 	const targetWindow = DOM.getActiveWindow();
 	const fontInfo = FontMeasurements.readFontInfo(targetWindow, createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
 	const family = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
+	const outputMaxHeight = layout.outputLineHeight * layout.outputLineLimit;
 
 	return {
 		['--vscode-positronNotebook-text-output-font-family' as string]: family,
-		['--vscode-positronNotebook-text-output-font-size' as string]: `${fontInfo.fontSize}px`,
+		['--vscode-positronNotebook-text-output-font-size' as string]: `${layout.outputFontSize}px`,
+		['--vscode-positronNotebook-output-max-height' as string]: `${outputMaxHeight}px`,
 	};
 }
 

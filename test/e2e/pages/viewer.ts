@@ -41,6 +41,7 @@ export class Viewer {
 
 		if (await this.fullApp.getByLabel(clearRegex).isVisible()) {
 			await this.fullApp.getByLabel(clearRegex).click();
+			await this.expectContentNotVisible(() => this.fullApp.getByLabel(clearRegex), 10000);
 		}
 	}
 
@@ -104,6 +105,16 @@ export class Viewer {
 
 				// Expect the content to be visible
 				await expect(locator).toBeVisible({ timeout: 5000 });
+			}).toPass({ timeout });
+		});
+	}
+
+	async expectContentNotVisible(getLocator: (frame: FrameLocator) => Locator, timeout = 10000): Promise<void> {
+		await test.step('Expect content not visible in viewer frame', async () => {
+			await expect(async () => {
+				const frame = this.getViewerFrame();
+				const locator = getLocator(frame);
+				await expect(locator).not.toBeVisible({ timeout: 5000 });
 			}).toPass({ timeout });
 		});
 	}

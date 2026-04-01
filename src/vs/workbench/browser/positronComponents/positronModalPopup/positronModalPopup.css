@@ -17,6 +17,7 @@
 	width: min-content;
 	height: min-content;
 	box-sizing: border-box;
+	pointer-events: auto;
 	color: var(--vscode-positronModalDialog-foreground);
 	border: 1px solid var(--vscode-positronModalDialog-border);
 	background-color: var(--vscode-positronModalDialog-background);

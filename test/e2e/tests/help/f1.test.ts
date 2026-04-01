@@ -53,7 +53,7 @@ test.describe('F1 Help', {
 
 	});
 
-	test('R - Verify basic F1 notebook help functionality', async function ({ app, page, r }) {
+	test('R - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, r }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
 
 		await app.workbench.layouts.enterLayout('notebook');
@@ -114,7 +114,7 @@ test.describe('F1 Help', {
 
 	});
 
-	test('Python - Verify basic F1 notebook help functionality', async function ({ app, page, python }) {
+	test('Python - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
 		// Position the mouse over the notebook for scrolling

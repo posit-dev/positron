@@ -56,13 +56,11 @@ test.describe('Python Applications', {
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {
-		const { terminal, viewer } = app.workbench;
-
 		await hotKeys.closeAllEditors();
 		await hotKeys.focusConsole();
-		await terminal.clickTerminalTab();
-		await terminal.sendKeysToTerminal('Control+C');
-		await viewer.clearViewer();
+		await app.workbench.terminal.clickTerminalTab(); // ensure we are in the terminal tab for cleanup
+		await app.workbench.terminal.sendKeysToTerminal('Control+C');
+		await app.workbench.viewer.clearViewer();
 	});
 
 	for (const appTest of appTests) {

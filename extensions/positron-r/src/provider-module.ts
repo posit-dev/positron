@@ -38,6 +38,11 @@ export interface EnvironmentModulesApi {
 	isAvailable(): Promise<boolean>;
 	getEnvironmentsForLanguage(language: string): Promise<Map<string, ModuleEnvironmentConfig>>;
 	resolveInterpreter(options: ResolveInterpreterOptions): Promise<ModuleResolvedInterpreter | undefined>;
+	resolveInterpreterFromModules(
+		modules: string[],
+		options: Omit<ResolveInterpreterOptions, 'environmentName'> & { environmentName?: string }
+	): Promise<ModuleResolvedInterpreter | undefined>;
+	buildStartupCommand(modules: string[]): string;
 	registerDiscoveredRuntime(
 		environmentName: string,
 		language: string,
@@ -68,7 +73,7 @@ export async function getEnvironmentModulesApi(): Promise<EnvironmentModulesApi 
  * Parse R version from `R --version` output.
  * Example output: "R version 4.3.0 (2023-04-21) -- "Already Tomorrow""
  */
-function parseRVersion(output: string): string | undefined {
+export function parseRVersion(output: string): string | undefined {
 	const match = output.match(/R version (\d+\.\d+\.\d+)/);
 	return match ? match[1] : undefined;
 }

@@ -10,7 +10,7 @@ import './listDriversState.css';
 import { PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
-import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { localize } from '../../../../../../nls.js';
 import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
@@ -137,12 +137,12 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 			}
 		</div>
 		<div className='footer'>
-			<PositronButton
+			<Button
 				className='button action-bar-button'
 				onPressed={props.onCancel}
 			>
 				{(() => localize('positron.resumeConnectionModalDialog.cancel', "Cancel"))()}
-			</PositronButton>
+			</Button>
 		</div>
 	</div>;
 };

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from '../../../../../base/common/event.js';
 import { ISettableObservable, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
@@ -23,6 +24,9 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	// Output collapse state
 	private readonly _outputIsCollapsed: ISettableObservable<boolean>;
+
+	// Per-cell output scrolling override (undefined = use global setting)
+	private readonly _outputScrolling: ISettableObservable<boolean | undefined>;
 
 	// Execution timing observables
 	lastExecutionDuration;
@@ -45,10 +49,26 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			cellModel.collapseState?.outputCollapsed ?? false
 		);
 
-		this._outputs = observableFromEvent(this, this.model.onDidChangeOutputs, () => {
+		// Per-cell output scrolling override (undefined = use global setting)
+		this._outputScrolling = observableValue<boolean | undefined>(
+			'outputScrolling',
+			undefined
+		);
+
+		this._outputs = observableFromEvent(this, Event.any(this.model.onDidChangeOutputs, this.model.onDidChangeOutputItems), () => {
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
 		});
+
+		// Reset collapse state when outputs are cleared so new outputs aren't born collapsed
+		this._register(this.model.onDidChangeOutputs(() => {
+			if (this.model.outputs.length === 0) {
+				this._outputIsCollapsed.set(false, undefined);
+			}
+
+			// Reset per-cell scrolling override when outputs change (clear or re-run)
+			this._outputScrolling.set(undefined, undefined);
+		}));
 
 		// Execution timing observables
 		this.lastExecutionDuration = this._internalMetadata.map(({ runStartTime, runEndTime }) => {
@@ -85,6 +105,22 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	toggleOutputCollapse(): void {
 		this._outputIsCollapsed.set(!this._outputIsCollapsed.get(), undefined);
+	}
+
+	get outputScrolling(): ISettableObservable<boolean | undefined> {
+		return this._outputScrolling;
+	}
+
+	truncateOutput(): void {
+		this._outputScrolling.set(false, undefined);
+	}
+
+	showFullOutput(): void {
+		this._outputScrolling.set(true, undefined);
+	}
+
+	resetOutputScrolling(): void {
+		this._outputScrolling.set(undefined, undefined);
 	}
 
 	/**

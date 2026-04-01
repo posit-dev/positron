@@ -1169,43 +1169,50 @@ declare module 'positron' {
 	export interface LanguageRuntimePackageManager {
 		/**
 		 * Get list of installed packages.
+		 * @param token Optional cancellation token
 		 */
-		getPackages(): Thenable<LanguageRuntimePackage[]>;
+		getPackages(token?: vscode.CancellationToken): Thenable<LanguageRuntimePackage[]>;
 
 		/**
 		 * Install the list of packages.
 		 * @param packages Array of package install requests with name and optional version
+		 * @param token Optional cancellation token
 		 */
-		installPackages(packages: PackageSpec[]): Thenable<void>;
+		installPackages(packages: PackageSpec[], token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Uninstall the list of packages.
 		 * @param packageNames Array of package names to uninstall
+		 * @param token Optional cancellation token
 		 */
-		uninstallPackages(packageNames: string[]): Thenable<void>;
+		uninstallPackages(packageNames: string[], token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Update the list of packages.
 		 * @param packages Array of package install requests with name and optional version
+		 * @param token Optional cancellation token
 		 */
-		updatePackages(packages: PackageSpec[]): Thenable<void>;
+		updatePackages(packages: PackageSpec[], token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Update all installed packages.
+		 * @param token Optional cancellation token
 		 */
-		updateAllPackages(): Thenable<void>;
+		updateAllPackages(token?: vscode.CancellationToken): Thenable<void>;
 
 		/**
 		 * Search a repository for packages matching the query.
 		 * @param query Search query string
+		 * @param token Optional cancellation token
 		 */
-		searchPackages(query: string): Thenable<LanguageRuntimePackage[]>;
+		searchPackages(query: string, token?: vscode.CancellationToken): Thenable<LanguageRuntimePackage[]>;
 
 		/**
 		 * Search a repository for available versions of a package.
 		 * @param name Package name
+		 * @param token Optional cancellation token
 		 */
-		searchPackageVersions(name: string): Thenable<string[]>;
+		searchPackageVersions(name: string, token?: vscode.CancellationToken): Thenable<string[]>;
 	}
 
 	/**
@@ -1254,6 +1261,7 @@ declare module 'positron' {
 		 * @param mode The code execution mode
 		 * @param errorBehavior The code execution error behavior
 		 * @param codeLocation Optionally, the location of `code` in the source editor.
+		 * @param executionMetadata Optionally, a record of additional metadata to associate with this execution.
 		 * Note: The errorBehavior parameter is currently ignored by kernels
 		 */
 		execute(
@@ -1262,6 +1270,7 @@ declare module 'positron' {
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior,
 			codeLocation?: Utf8Location,
+			executionMetadata?: Record<string, any>,
 		): void;
 
 		/**
@@ -1984,6 +1993,32 @@ declare module 'positron' {
 		 * plot widget.
 		 */
 		export function getPlotsRenderSettings(): Thenable<PlotRenderSettings>;
+
+	}
+
+	namespace context {
+		/**
+		 * Per-workspace ephemeral extension storage. Data survives extension
+		 * host restarts and window reloads, but does not persist beyond the
+		 * lifetime of the application process.
+		 *
+		 * Use this instead of {@link vscode.ExtensionContext.workspaceState workspaceState}
+		 * for state that is only meaningful while the process is running,
+		 * such as runtime session mappings. This avoids leaking stale
+		 * state on disk and ensures automatic cleanup on shutdown.
+		 */
+		export const ephemeralState: EphemeralMemento;
+
+		/**
+		 * A {@link vscode.Memento} with an additional `clear()` method that
+		 * removes all keys at once.
+		 */
+		export interface EphemeralMemento extends vscode.Memento {
+			/**
+			 * Remove all stored keys for this extension's ephemeral storage.
+			 */
+			clear(): Thenable<void>;
+		}
 	}
 
 	namespace runtime {
@@ -2090,6 +2125,11 @@ declare module 'positron' {
 		 *  not provided, an appropriate session will be chosen, and if no
 		 *  session for the desired language is running at all, a new session
 		 *  will be started.
+		 * @param documentUri An optional URI of the document in which the code to execute is located.
+		 * @param executionMetadata An optional object containing additional
+		 *  metadata to pass to the language runtime. Will be included in the
+		 *  `positron` field of the `metadata` argument passed to the runtime's
+		 *  `execute` method.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -2101,7 +2141,8 @@ declare module 'positron' {
 			errorBehavior?: RuntimeErrorBehavior,
 			observer?: ExecutionObserver,
 			sessionId?: string,
-			documentUri?: vscode.Uri): Thenable<Record<string, any>>;
+			documentUri?: vscode.Uri,
+			executionMetadata?: Record<string, any>): Thenable<Record<string, any>>;
 
 		/**
 		 * Evaluates code silently in a language runtime, without displaying
@@ -2129,9 +2170,13 @@ declare module 'positron' {
 		 *
 		 * @param documentUri The URI of the document
 		 * @param range The ranges of the cells to execute
+		 * @param executionMetadata An optional array of metadata objects to
+		 *  pass to the language runtime, one for each cell being executed.
 		 */
 		export function executeInlineCell(documentUri: vscode.Uri,
-			cellRanges: vscode.Range[]): Thenable<void>;
+			cellRanges: vscode.Range[],
+			executionMetadata?: Record<string, any>[]
+		): Thenable<void>;
 
 		/**
 		 * Register a language runtime manager with Positron.
@@ -2211,9 +2256,15 @@ declare module 'positron' {
 		/**
 		 * Restart a running session.
 		 *
+		 * If the session is busy, the user is prompted whether to interrupt it
+		 * before restarting.
+		 *
 		 * @param sessionId The ID of the session to restart.
+		 * @returns `true` if the session was restarted (or a restart already in
+		 *   progress completed), `false` if the restart was declined by the user.
+		 *   Rejects if the session is not found or not in a restartable state.
 		 */
-		export function restartSession(sessionId: string): Thenable<void>;
+		export function restartSession(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Focus a running session.

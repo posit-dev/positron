@@ -169,11 +169,12 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 		await app.workbench.variables.expectVariableToBe('foo', '200');
 	});
 
-	test('Verify Manage Models is available', { tag: [tags.SOFT_FAIL] }, async function ({ app }) {
+	test('Verify Manage Models is available', { tag: [tags.SOFT_FAIL] }, async function ({ app, page }) {
 		// sometimes the menu closes due to language model loading (?), so retry
 		await expect(async () => {
 			await app.workbench.assistant.pickModel();
 			await app.workbench.assistant.expectManageModelsVisible();
+			await page.keyboard.press('Escape');
 		}).toPass({ timeout: 30000 });
 	});
 });
@@ -279,10 +280,13 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 
 		// Sign in to Anthropic (method handles auto-sign-in detection)
 		await assistant.loginModelProvider('anthropic-api');
-		await assistant.pickModel();
 
 		// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
-		await assistant.expectModelInPicker('Claude Haiku 4.5 (default)');
+		await expect(async () => {
+			await assistant.closeModelPickerDropdown();
+			await assistant.pickModel();
+			await assistant.expectModelInPicker('Claude Haiku 4.5 (default)');
+		}).toPass({ timeout: 30000 });
 
 		// Verify other Anthropic models do NOT have "(default)"
 		await assistant.expectModelInPicker(/^Claude Sonnet 4$/);

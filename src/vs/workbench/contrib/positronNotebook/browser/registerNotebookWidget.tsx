@@ -11,7 +11,8 @@ import { PositronActionBarWidgetRegistry } from '../../../../platform/positronAc
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
+import { getNotebookInstanceFromActiveEditorPane, getNotebookInstanceFromEditorPane } from './notebookUtils.js';
+import { useEditorGroup } from '../../../browser/parts/editor/editorGroupContext.js';
 
 /**
  * Options for registering a notebook widget (React component without command).
@@ -120,9 +121,19 @@ export function registerNotebookWidget(options: INotebookWidgetOptions): IDispos
 		componentFactory: (accessor) => {
 			// Return a wrapper component that provides notebook context
 			return () => {
-				// Get the active notebook using the VS Code pattern
-				const editorService = accessor.get(IEditorService);
-				const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
+				// Use the editor group context to resolve the notebook instance
+				// from this specific editor group rather than the global active editor.
+				const editorGroup = useEditorGroup();
+				let notebook = editorGroup
+					? getNotebookInstanceFromEditorPane(editorGroup.activeEditorPane)
+					: undefined;
+
+				// Fall back to the global active editor (e.g. command palette context)
+				if (!notebook) {
+					const editorService = accessor.get(IEditorService);
+					notebook = getNotebookInstanceFromActiveEditorPane(editorService);
+				}
+
 				if (!notebook) {
 					return null;
 				}

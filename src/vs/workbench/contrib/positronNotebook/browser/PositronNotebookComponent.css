@@ -40,6 +40,8 @@
 	);
 	--_positron-notebook-cell-gap: 4px;
 	--_positron-notebook-add-cell-buttons-height: 26px; /* Icon 18px + padding 8px */
+	/* Gap between buttons in cell and output action bars */
+	--_positron-notebook-cell-action-bar-button-gap: 0.25rem;
 
 	/* Misc variables */
 	--vscode-positronNotebook-border: 1px solid

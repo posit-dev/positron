@@ -2143,8 +2143,8 @@ def _polars_summarize_object(
 
 
 def _polars_summarize_boolean(col: pl.Series, _):
-    null_count = col.is_null().sum()
-    true_count = col.sum()
+    null_count = int(col.is_null().sum())
+    true_count = int(col.sum())
     false_count = len(col) - true_count - null_count
     return _box_boolean_stats(true_count, false_count)
 
@@ -2975,10 +2975,14 @@ class DataExplorerService:
         if comm_id is None:
             comm_id = guid()
 
+        comm_open_data = {"title": title, "inline_only": inline_only}
+        if variable_path is not None:
+            comm_open_data["variable_path"] = variable_path
+
         base_comm = comm.create_comm(
             target_name=self.comm_target,
             comm_id=comm_id,
-            data={"title": title, "inline_only": inline_only},
+            data=comm_open_data,
         )
 
         def close_callback(_):
@@ -3173,10 +3177,15 @@ class DataExplorerService:
         table_view = self.table_views.get(source_comm_id)
         if table_view is None:
             raise KeyError(f"No table view found for comm_id: {source_comm_id}")
+
+        # Preserve the variable_path from the source inline explorer
+        source_path = self.comm_id_to_path.get(source_comm_id)
+        variable_path = list(source_path) if source_path is not None else None
+
         self.register_table(
             table_view.table,
             table_view.state.name,
-            variable_path=None,
+            variable_path=variable_path,
             inline_only=False,
         )
 

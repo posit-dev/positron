@@ -116,6 +116,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	// This prevents infinite loops when listening for model changes.
 	private _cachedOutputsLoaded = false;
 
+	// Stash outputs per document URI across model changes (tab switches).
+	// Unlike the disk cache, stashed outputs preserve data explorer MIME items
+	// so the inline data explorer can reconnect to a live comm when switching back.
+	private readonly _stashedOutputsByUri = new Map<string, {
+		outputsByCell: Map<string, ICellOutput[]>;
+		contentHashByCellId: Map<string, string>;
+	}>();
+
 	private readonly _onDidChangeOutputs = this._register(new Emitter<OutputChangeEvent>());
 	readonly onDidChangeOutputs = this._onDidChangeOutputs.event;
 
@@ -171,6 +179,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._register(this._editor.onDidChangeModel(() => {
 			// Capture the previous URI before updating
 			const previousUri = this._documentUri;
+
+			// Stash outputs for the previous document so they can be restored
+			// when switching back. This preserves data explorer MIME items that
+			// the disk cache intentionally strips.
+			if (previousUri && this._outputsByCell.size > 0) {
+				this._stashedOutputsByUri.set(previousUri.toString(), {
+					outputsByCell: new Map(this._outputsByCell),
+					contentHashByCellId: new Map(this._contentHashByCellId),
+				});
+			}
 
 			this._disposeAllViewZones();
 			this._outputsByCell.clear();
@@ -581,6 +599,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			return;
 		}
 
+		// Check for stashed outputs first (e.g., from a tab switch). Stashed
+		// outputs preserve data explorer MIME items so the inline data explorer
+		// can reconnect to a live comm without going through the disk cache.
+		const stash = this._stashedOutputsByUri.get(this._documentUri.toString());
+		if (stash && stash.outputsByCell.size > 0) {
+			this._stashedOutputsByUri.delete(this._documentUri.toString());
+			this._cachedOutputsLoaded = true;
+			this._restoreFromStash(stash);
+			return;
+		}
+
 		try {
 			let cachedDoc = await this._cacheService.loadCache(this._documentUri);
 
@@ -682,6 +711,39 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		}
 	}
 
+	/**
+	 * Restore outputs from a stash saved during a previous model change (tab switch).
+	 * The stash preserves data explorer MIME items that the disk cache strips.
+	 */
+	private _restoreFromStash(stash: { outputsByCell: Map<string, ICellOutput[]>; contentHashByCellId: Map<string, string> }): void {
+		// Restore content hashes
+		for (const [cellId, hash] of stash.contentHashByCellId) {
+			this._contentHashByCellId.set(cellId, hash);
+		}
+
+		// Restore outputs and recreate view zones
+		let restoredCount = 0;
+		for (const [cellId, outputs] of stash.outputsByCell) {
+			this._outputsByCell.set(cellId, outputs);
+
+			for (const output of outputs) {
+				let viewZone = this._viewZones.get(cellId);
+				if (!viewZone) {
+					viewZone = this._createViewZone(cellId);
+					if (viewZone) {
+						this._viewZones.set(cellId, viewZone);
+					}
+				}
+				if (viewZone) {
+					viewZone.addOutput(output);
+				}
+			}
+			restoredCount++;
+		}
+
+		this._logService.debug('[QuartoOutputContribution] Restored outputs from stash for', restoredCount, 'cells');
+	}
+
 	private _handleOutput(cellId: string, output: ICellOutput): void {
 		this._logService.debug('[QuartoOutputContribution] Received output for cell', cellId);
 
@@ -766,7 +828,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			cell.endLine,
 			this._webviewService,
 			session,
-			this._maxLines
+			this._maxLines,
+			this._configurationService,
+			this._documentUri,
 		);
 
 		// Set up clear callback

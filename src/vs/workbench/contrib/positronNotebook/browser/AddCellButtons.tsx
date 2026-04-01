@@ -13,11 +13,20 @@ import { CellKind } from '../../notebook/common/notebookCommon.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IconedButton } from './utilityComponents/IconedButton.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { useDragState } from './notebookCells/SortableCellList.js';
 
 export function AddCellButtons({ index }: { index: number }) {
 	const notebookInstance = useNotebookInstance();
+	const { dropIndicatorIndex, isDropNoOp } = useDragState();
+	const isDropTarget = dropIndicatorIndex === index;
+	const showIndicator = isDropTarget && !isDropNoOp;
 
-	return <div className='positron-add-cell-buttons'>
+	return <div className={positronClassNames(
+		'positron-add-cell-buttons',
+		{ 'drop-target': showIndicator },
+	)}>
+		{showIndicator && <div className='drag-drop-indicator' data-testid='drop-indicator' />}
 		<AddCodeCellButton bordered index={index} notebookInstance={notebookInstance} />
 		<AddMarkdownCellButton bordered index={index} notebookInstance={notebookInstance} />
 	</div>;

@@ -24,6 +24,7 @@ x = 1 + 2`;
 			assert.strictEqual(result.options.eval, DEFAULT_CELL_EXECUTION_OPTIONS.eval);
 			assert.strictEqual(result.options.error, DEFAULT_CELL_EXECUTION_OPTIONS.error);
 			assert.strictEqual(result.optionLineCount, 0);
+			assert.deepStrictEqual(result.metadata, {});
 		});
 
 		test('parses eval: false option', () => {
@@ -105,7 +106,7 @@ print("hello")
 			assert.strictEqual(result.optionLineCount, 1);
 		});
 
-		test('ignores unknown options', () => {
+		test('collects non-execution options as metadata', () => {
 			const code = `#| label: my-cell
 #| eval: false
 #| fig-width: 10
@@ -116,6 +117,18 @@ print("hello")`;
 			assert.strictEqual(result.options.eval, false);
 			assert.strictEqual(result.options.error, true); // default
 			assert.strictEqual(result.optionLineCount, 3);
+			assert.deepStrictEqual(result.metadata, { 'label': 'my-cell', 'fig-width': 10 });
+		});
+
+		test('returns empty metadata when only execution options present', () => {
+			const code = `#| eval: false
+#| error: false
+print("hello")`;
+			const result = parseCellExecutionOptions(code);
+
+			assert.strictEqual(result.options.eval, false);
+			assert.strictEqual(result.options.error, false);
+			assert.deepStrictEqual(result.metadata, {});
 		});
 
 		test('handles empty code', () => {
@@ -124,6 +137,7 @@ print("hello")`;
 			assert.strictEqual(result.options.eval, DEFAULT_CELL_EXECUTION_OPTIONS.eval);
 			assert.strictEqual(result.options.error, DEFAULT_CELL_EXECUTION_OPTIONS.error);
 			assert.strictEqual(result.optionLineCount, 0);
+			assert.deepStrictEqual(result.metadata, {});
 		});
 
 		test('handles code with only options', () => {
@@ -143,6 +157,23 @@ print("hello")`;
 			assert.strictEqual(result.options.eval, false);
 			assert.strictEqual(result.options.error, true);
 			assert.strictEqual(result.optionLineCount, 2);
+		});
+
+		test('handles CRLF line endings (Windows)', () => {
+			const code = '#| fig-width: 4\r\n#| fig-height: 3\r\nprint("hello")';
+			const result = parseCellExecutionOptions(code);
+
+			assert.strictEqual(result.optionLineCount, 2);
+			assert.deepStrictEqual(result.metadata, { 'fig-width': 4, 'fig-height': 3 });
+		});
+
+		test('handles CR-only line endings', () => {
+			const code = '#| eval: false\r#| fig-width: 10\rprint("hello")';
+			const result = parseCellExecutionOptions(code);
+
+			assert.strictEqual(result.options.eval, false);
+			assert.strictEqual(result.optionLineCount, 2);
+			assert.deepStrictEqual(result.metadata, { 'fig-width': 10 });
 		});
 	});
 
@@ -187,6 +218,13 @@ x = 1`);
 			const result = extractExecutableCode(code);
 
 			assert.strictEqual(result, '');
+		});
+
+		test('removes option lines with CRLF line endings', () => {
+			const code = '#| eval: false\r\n#| fig-width: 4\r\nprint("hello")';
+			const result = extractExecutableCode(code);
+
+			assert.strictEqual(result, 'print("hello")');
 		});
 
 		test('preserves internal #| comments (not at start)', () => {

@@ -1,8 +1,14 @@
 name: "Test: Full Suite"
+run-name: "${{ inputs.run_name || 'Test: Full Suite' }}"
 
 on:
   workflow_dispatch:
     inputs:
+      run_name:
+        description: "Custom run name:"
+        required: false
+        default: "Test: Full Suite"
+        type: string
       run_e2e_linux:
         description: "E2E Tests / Electron (Ubuntu)"
         required: false
@@ -69,7 +75,7 @@ on:
         default: false
         type: boolean
       commit:
-        description: "Commit SHA to test"
+        description: "Commit SHA to test:"
         required: false
         default: "latest"
         type: string
@@ -82,8 +88,13 @@ on:
           - failure
           - always
           - never
+      grep:
+        description: "Grep pattern:"
+        required: false
+        default: ""
+        type: string
       enable_diagnostic_logging:
-        description: "Enable diagnostic logging"
+        description: "Diagnostic logging"
         required: false
         default: false
         type: boolean
@@ -128,7 +139,7 @@ jobs:
     secrets: inherit
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-electron"
       display_name: "electron"
       install_undetectable_interpreters: true
@@ -149,7 +160,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-windows"
       display_name: "windows"
       allow_soft_fail: false
@@ -167,7 +178,7 @@ jobs:
     secrets: inherit
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-chromium"
       display_name: "chromium"
       install_undetectable_interpreters: true
@@ -188,7 +199,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-electron"
       display_name: "electron (rhel)"
       install_undetectable_interpreters: true
@@ -205,7 +216,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-chromium"
       display_name: "chromium (rhel)"
       install_undetectable_interpreters: true
@@ -222,7 +233,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-electron"
       display_name: "electron (suse)"
       install_undetectable_interpreters: true
@@ -239,7 +250,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-chromium"
       display_name: "chromium (suse)"
       install_undetectable_interpreters: true
@@ -256,7 +267,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-electron"
       display_name: "electron (sles)"
       install_undetectable_interpreters: true
@@ -273,7 +284,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-chromium"
       display_name: "chromium (sles)"
       install_undetectable_interpreters: true
@@ -290,7 +301,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-electron"
       display_name: "electron (debian)"
       install_undetectable_interpreters: true
@@ -307,7 +318,7 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       skip_cache: ${{ inputs.commit != 'latest' }}
-      grep: ""
+      grep: ${{ inputs.grep || '' }}
       project: "e2e-chromium"
       display_name: "chromium (debian)"
       install_undetectable_interpreters: true

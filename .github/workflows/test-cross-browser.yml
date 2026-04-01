@@ -57,7 +57,7 @@ jobs:
       shards: 1
       matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep }}
-      grep_invert: "great-tables"
+      grep_invert: "great-tables|notebook-focus-and-selection"
 
   e2e-webkit:
     name: e2e

@@ -20,6 +20,7 @@ import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } fro
 
 // --- Start Positron ---
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
+import { IStateService } from '../../state/node/state.js';
 import { arch } from 'os';
 // --- End Positron ---
 
@@ -41,9 +42,10 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
 		@IProductService productService: IProductService,
-		@INativeHostMainService nativeHostMainService: INativeHostMainService
+		@INativeHostMainService nativeHostMainService: INativeHostMainService,
+		@IStateService stateService: IStateService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService, stateService);
 		// --- End Positron ---
 
 		lifecycleMainService.setRelaunchHandler(this);

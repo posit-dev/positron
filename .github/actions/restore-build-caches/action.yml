@@ -176,8 +176,6 @@ runs:
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
-        restore-keys: |
-          npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
 
     - name: Restore npm volatile extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}
@@ -204,9 +202,7 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
-        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
-        restore-keys: |
-          builtins-${{ runner.os }}-
+        key: builtins-v2-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
 
     - name: Get Playwright version
       if: ${{ inputs.restore-playwright == 'true' }}

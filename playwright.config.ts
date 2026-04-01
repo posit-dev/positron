@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { defineConfig } from '@playwright/test';
+import { defineConfig, ReporterDescription } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import * as fs from 'fs';
 
@@ -35,6 +35,21 @@ const baseIgnore = [
 	'**/assistant-eval/**',
 ];
 
+let reporter: ReporterDescription[];
+if (process.env.CI) {
+	reporter = [
+		...githubSummaryReport,
+		...customReporter,
+		['json', { outputFile: jsonOut }],
+		['list'], ['html'], ['blob'],
+	];
+} else {
+	reporter = [['list']];
+	if (!process.env.CLAUDE_CODE) {
+		reporter.push(['html', { open: 'on-failure' }]);
+	}
+}
+
 export default defineConfig<CustomTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
@@ -55,17 +70,7 @@ export default defineConfig<CustomTestOptions>({
 	expect: {
 		timeout: 15000,
 	},
-	reporter: process.env.CI
-		? [
-			...githubSummaryReport,
-			...customReporter,
-			['json', { outputFile: jsonOut }],
-			['list'], ['html'], ['blob'],
-		]
-		: [
-			['list'],
-			['html', { open: 'on-failure' }],
-		],
+	reporter,
 
 
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */

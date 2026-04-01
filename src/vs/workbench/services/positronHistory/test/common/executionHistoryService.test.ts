@@ -199,7 +199,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	restartSession(_sessionId: string, _source: string): Promise<void> {
+	restartSession(_sessionId: string, _source: string): Promise<boolean> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -268,7 +268,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		return this._onWillStartSession;
 	}
 
-	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => IDisposable | void): IDisposable {
 		throw new Error('Method not implemented.');
 	}
 }

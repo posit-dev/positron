@@ -19,6 +19,18 @@ import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
+ * Metadata about the editor layout that may be relevant for execution, such as
+ * output sizing.
+ */
+export interface EditorLayoutMetadata {
+	/** The width of the output area in pixels */
+	output_width_px: number;
+
+	/** The pixel ratio of the output area (monitor-dependent) */
+	output_pixel_ratio: number;
+}
+
+/**
  * Represents a deletion sentinel - a temporary placeholder shown where cells were deleted.
  * Sentinels display a red fade animation and provide a restore button.
  */
@@ -438,6 +450,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @returns The contribution instance, or undefined if not found.
 	 */
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined;
+
+	/**
+	 * Computes the output area dimensions for execution metadata.
+	 * Returns undefined if the notebook is not connected to an editor or the
+	 * layout cannot be measured.
+	 */
+	getOutputLayoutInfo(): EditorLayoutMetadata | undefined;
 
 	/**
 	 * Fire the scroll event for the cells container.
