@@ -1155,9 +1155,19 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			placeholder.appendChild(loadingIndicator);
 			outputElement.appendChild(placeholder);
 		} else {
+			// Determine if we should skip text/plain because a richer
+			// representation is available (same logic as quartoExecutionManager).
+			const hasHtml = output.items.some(i => i.mime === 'text/html');
+			const hasImage = output.items.some(i => i.mime.startsWith('image/'));
+			const hasDataExplorer = output.items.some(i => i.mime === DATA_EXPLORER_MIME_TYPE);
+			const shouldExcludePlainText = (hasHtml || hasImage) && !hasDataExplorer;
+
 			// Render items normally, skipping data explorer MIME
 			for (const item of output.items) {
 				if (item.mime === DATA_EXPLORER_MIME_TYPE) {
+					continue;
+				}
+				if (item.mime === 'text/plain' && shouldExcludePlainText) {
 					continue;
 				}
 				const rendered = this._renderOutputItem(item, output);
