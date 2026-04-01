@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { fail } from 'assert';
-import { test, tags } from '../_test.setup';
+import { expect, test, tags } from '../_test.setup';
 
 
 test.use({
@@ -16,6 +16,13 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		tag: [tags.ARK]
 	}, () => {
 
+		test.afterEach(async function ({ app, hotKeys }) {
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
+		});
+
 		test('R - plot should not be updated after initial appearance', { tag: [tags.WEB, tags.WIN] }, async function ({ app, r }) {
 
 			// debug - uncomment so that test plot is second plot
@@ -23,6 +30,39 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			// await app.workbench.plots.waitForCurrentPlot();
 
 			await app.workbench.console.executeCode('R', 'plot(rexp(50000))');
+			await app.workbench.plots.waitForCurrentPlot();
+
+			try {
+				await waitForNoChangesAtLocator(app.code.driver.page, '.plot-instance img', 10000);
+				console.log('No changes detected for 10 seconds');
+			} catch (error) {
+				fail('Changes detected within the specified duration');
+			}
+
+		});
+
+	});
+
+	test.describe('Python Plots', () => {
+
+		test.afterEach(async function ({ app, hotKeys }) {
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
+		});
+
+		test('Python - plot should not be updated after initial appearance', { tag: [tags.WEB, tags.WIN] }, async function ({ app, python }) {
+
+			const code = `
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.plot(np.random.exponential(size=50000))
+plt.show()
+`;
+
+			await app.workbench.console.executeCode('Python', code);
 			await app.workbench.plots.waitForCurrentPlot();
 
 			try {

@@ -199,7 +199,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	restartSession(_sessionId: string, _source: string): Promise<void> {
+	restartSession(_sessionId: string, _source: string): Promise<boolean> {
 		throw new Error('Method not implemented.');
 	}
 

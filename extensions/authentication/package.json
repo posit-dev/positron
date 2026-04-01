@@ -11,6 +11,7 @@
 	"activationEvents": [
 		"onStartupFinished",
 		"onAuthenticationRequest:anthropic-api",
+		"onAuthenticationRequest:posit-ai",
 		"onAuthenticationRequest:ms-foundry",
 		"onAuthenticationRequest:amazon-bedrock",
 		"onAuthenticationRequest:snowflake-cortex",
@@ -27,6 +28,10 @@
 			{
 				"id": "anthropic-api",
 				"label": "Anthropic"
+			},
+			{
+				"id": "posit-ai",
+				"label": "Posit AI"
 			},
 			{
 				"id": "ms-foundry",
@@ -80,6 +85,11 @@
 						}
 					},
 					"additionalProperties": false
+				},
+				"authentication.anthropic.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.anthropic.baseUrl.description%"
 				},
 				"authentication.foundry.baseUrl": {
 					"type": "string",

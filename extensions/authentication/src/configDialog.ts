@@ -7,6 +7,8 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
+import { PositOAuthProvider } from './positOAuthProvider';
+import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
 import { FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 
@@ -75,7 +77,7 @@ async function enrichWithCredentialState(
 		try {
 			const sessions = await provider.getSessions();
 			const signedIn = sessions.length > 0;
-			if (signedIn && source.provider.id === 'ms-foundry' && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
+			if (signedIn && source.provider.id === FOUNDRY_AUTH_PROVIDER_ID && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
 				return {
 					...source,
 					signedIn,
@@ -170,23 +172,32 @@ export async function showConfigurationDialog(
 						await applyConfig();
 					}
 					break;
-				case 'oauth-signin':
+				case 'oauth-signin': {
 					if (hasAuthProvider) {
-						addResult({ action, config });
+						const accountId = await handleSave(config);
+						addResult({ action: 'save', config, accountId });
 					} else {
 						await applyConfig();
 					}
 					break;
-				case 'oauth-signout':
+				}
+				case 'oauth-signout': {
 					if (hasAuthProvider) {
-						addResult({ action, config });
+						await handleDelete(config);
+						addResult({ action: 'delete', config });
 					} else {
 						await applyConfig();
 					}
 					break;
-				case 'cancel':
+				}
+				case 'cancel': {
+					const provider = authProviders.get(config.provider);
+					if (provider instanceof PositOAuthProvider) {
+						provider.cancelSignIn();
+					}
 					await applyConfig();
 					break;
+				}
 				default:
 					throw new Error(
 						vscode.l10n.t('Invalid action: {0}', action)
@@ -260,8 +271,23 @@ async function handleDelete(
 		return;
 	}
 	const sessions = await provider.getSessions();
-	log.info(`Deleting ${sessions.length} session(s) for provider "${config.provider}"`);
-	for (const session of sessions) {
+	// Credential-chain sessions (e.g. env var credentials) use the
+	// provider ID as their session ID. These cannot be removed via the
+	// UI -- the user must unset the environment variable and restart.
+	const deletable = provider.chainPreventsSignOut
+		? sessions.filter(s => s.id !== config.provider)
+		: sessions;
+	if (deletable.length === 0 && sessions.length > 0) {
+		throw new Error(
+			vscode.l10n.t(
+				'This credential was configured via an environment variable ' +
+				'and cannot be removed from the UI. Unset the environment ' +
+				'variable and restart Positron.'
+			)
+		);
+	}
+	log.info(`Deleting ${deletable.length} session(s) for provider "${config.provider}"`);
+	for (const session of deletable) {
 		await provider.removeSession(session.id);
 	}
 }

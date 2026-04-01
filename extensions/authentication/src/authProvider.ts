@@ -33,6 +33,12 @@ export interface CredentialChainConfig {
 	readonly refreshIntervalMs?: number;
 	/** Optional check called in getSessions to decide whether to re-resolve. */
 	readonly shouldRefresh?: () => Promise<boolean>;
+	/**
+	 * When true, prevents the user from signing out while the chain
+	 * can still resolve. Use for static env var credentials that will
+	 * just reappear immediately after removal.
+	 */
+	readonly preventSignOut?: boolean;
 }
 
 /**
@@ -57,10 +63,22 @@ export class AuthProvider
 	constructor(
 		private readonly providerId: string,
 		private readonly displayName: string,
-		private readonly context: vscode.ExtensionContext,
+		protected readonly context: vscode.ExtensionContext,
 		private readonly workbench?: WorkbenchCredentialConfig,
 		private readonly credentialChain?: CredentialChainConfig,
 	) { }
+
+	/** Whether this provider blocks sign-out for chain sessions. */
+	get chainPreventsSignOut(): boolean {
+		return !!this.credentialChain?.preventSignOut;
+	}
+
+	/** Expose session-change events to subclasses. */
+	protected fireSessionsChanged(
+		event: vscode.AuthenticationProviderAuthenticationSessionsChangeEvent
+	): void {
+		this._onDidChangeSessions.fire(event);
+	}
 
 	dispose(): void {
 		this._disposed = true;
@@ -202,6 +220,33 @@ export class AuthProvider
 
 	async removeSession(sessionId: string): Promise<void> {
 		if (this._chainSession?.id === sessionId) {
+			// If the chain can still resolve, re-resolve immediately
+			// instead of leaving an inconsistent state where the
+			// session is gone but registered models still work.
+			if (this.credentialChain?.preventSignOut) {
+				try {
+					const token = await this.credentialChain.resolve();
+					if (token) {
+						log.info(
+							`[${this.displayName}] Chain session ` +
+							`removal blocked -- credentials still ` +
+							`available from environment`
+						);
+						vscode.window.showInformationMessage(
+							vscode.l10n.t(
+								'{0} credentials are configured via ' +
+								'environment variable and cannot be ' +
+								'signed out.',
+								this.displayName
+							)
+						);
+						return;
+					}
+				} catch {
+					// Chain can no longer resolve; allow removal.
+				}
+			}
+
 			this.stopRefreshTimer();
 			const removed = this._chainSession;
 			this._chainSession = undefined;
