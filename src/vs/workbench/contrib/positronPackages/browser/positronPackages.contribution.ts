@@ -454,7 +454,7 @@ class UpdateAllPackagesAction extends Action2 {
 					notifications.error(e);
 					throw e;
 				}
-			}, () => cts.dispose(true));
+			}, () => cts.cancel());
 		} finally {
 			cts.dispose(true);
 		}
