@@ -2178,6 +2178,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			} else {
 				// Remove the key entirely from the map since there are no sessions for the runtime
 				this._consoleSessionsByRuntimeId.delete(session.runtimeMetadata.runtimeId);
+				// Clear the last active console session when there are no console sessions left
+				this._lastActiveConsoleSession = undefined;
 			}
 		}
 	}
