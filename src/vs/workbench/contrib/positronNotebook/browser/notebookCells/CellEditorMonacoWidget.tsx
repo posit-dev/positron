@@ -105,6 +105,8 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	// Create the editor
 	React.useEffect(() => {
 		if (!editorPartRef.current) { return; }
+		// Guard against undefined services during lifecycle transitions
+		if (!instance.scopedInstantiationService) { return; }
 
 		const disposables = new DisposableStore();
 

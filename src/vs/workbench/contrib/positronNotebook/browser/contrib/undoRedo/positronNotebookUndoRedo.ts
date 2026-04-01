@@ -44,8 +44,9 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 		const { scopedContextKeyService } = instance;
 
 		// Read context keys from the scoped context service that actually has these keys bound
-		const containerFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_FOCUSED.key) ?? false;
-		const cellEditorFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
+		// During view lifecycle transitions, the service may be undefined
+		const containerFocused = scopedContextKeyService?.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_FOCUSED.key) ?? false;
+		const cellEditorFocused = scopedContextKeyService?.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
 
 		// Handle undo/redo if the container is focused OR a cell editor is focused OR the notebook is empty
 		// This allows undo to work even when typing in a cell (common after adding a new cell)

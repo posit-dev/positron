@@ -318,17 +318,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._cellsContainer;
 	}
 
-	get scopedContextKeyService(): IContextKeyService {
-		if (!this._scopedContextKeyService) {
-			throw new Error('scopedContextKeyService is not available - attachView() must be called first');
-		}
+	get scopedContextKeyService(): IContextKeyService | undefined {
 		return this._scopedContextKeyService;
 	}
 
-	get scopedInstantiationService(): IInstantiationService {
-		if (!this._scopedInstantiationService.value) {
-			throw new Error('scopedInstantiationService is not available - attachView() must be called first');
-		}
+	get scopedInstantiationService(): IInstantiationService | undefined {
 		return this._scopedInstantiationService.value;
 	}
 
@@ -1988,11 +1982,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Detaches the notebook view from its container and cleans up resources.
 	 */
 	detachView(): void {
-		this.container.set(undefined, undefined);
+		// Clear services first, before clearing the container observable.
+		// When container changes, React components re-render and may try to access these services.
+		this._scopedContextKeyService = undefined;
+		this._scopedInstantiationService.clear();
 		this._overlayContainer = undefined;
-		this._logService.debug(this.id, 'detachView');
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
+		// Set container last to trigger React re-renders after cleanup is complete.
+		this.container.set(undefined, undefined);
+		this._logService.debug(this.id, 'detachView');
 	}
 
 	/**

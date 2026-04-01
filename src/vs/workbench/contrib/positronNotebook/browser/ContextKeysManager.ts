@@ -165,6 +165,11 @@ export class PositronNotebookContextKeyManager extends Disposable {
 
 		const { scopedContextKeyService, scopedInstantiationService } = this._notebookInstance;
 
+		// Guard against undefined services during lifecycle transitions
+		if (!scopedContextKeyService || !scopedInstantiationService) {
+			return;
+		}
+
 		const positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(scopedContextKeyService);
 
 		disposables.add(toDisposable(() => positronEditorFocus.reset()));

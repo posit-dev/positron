@@ -138,8 +138,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 
 	/**
 	 * Instantiation service scoped to this notebook instance.
+	 * May be undefined during view lifecycle transitions (attach/detach).
 	 */
-	readonly scopedInstantiationService: IInstantiationService;
+	readonly scopedInstantiationService: IInstantiationService | undefined;
 
 	/**
 	 * The DOM element that contributions (such as the find widget) can render into.
