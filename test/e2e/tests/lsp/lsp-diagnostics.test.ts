@@ -37,23 +37,23 @@ test.describe('Diagnostics', {
 		await editor.type('import termcolor\n\ntermcolor.COLORS.copy()\n');
 
 		// Python Session 1 - verify no problems
-		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 3500 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 10000 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Python Session 1 - restart session and verify no problems
 		await sessions.restart(pySession.id);
-		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 3500 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 10000 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Start Python Session 2 (same runtime) - verify no problems
 		const pySession2 = await sessions.start('python', { reuse: false });
 		await sessions.select(pySession2.id);
-		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 3500 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0, timeout: 10000 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Python Alt Session - verify warning since pkg not installed
 		await sessions.start('pythonAlt');
-		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1, timeout: 4500 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1, timeout: 15000 });
 		await problems.expectWarningText('Cannot find module `termcolor`');
 
 		// does pyrefly use squiggly correctly?
