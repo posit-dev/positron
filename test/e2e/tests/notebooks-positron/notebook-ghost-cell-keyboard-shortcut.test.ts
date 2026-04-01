@@ -76,6 +76,13 @@ test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 		await hotKeys.triggerGhostCell();
 
 		// Note: "Generating suggestion..." appears too quickly to reliably wait for
-		// The test verifies the keyboard shortcut triggers the ghost cell generation workflow
+		// Instead, verify the ghost cell UI elements are present
+		const page = app.code.driver.page;
+
+		// Verify Get Suggestion button is visible
+		await page.getByRole('button', { name: 'Get Suggestion' }).waitFor({ timeout: 10000 });
+
+		// Verify mode toggle switch is visible
+		await page.getByRole('switch', { name: 'Toggle suggestion mode' }).waitFor({ timeout: 10000 });
 	});
 });
