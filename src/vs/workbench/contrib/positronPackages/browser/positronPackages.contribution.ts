@@ -192,7 +192,7 @@ class RefreshPackagesAction extends Action2 {
 					notifications.error(error);
 					throw error;
 				}
-			}, () => cts.dispose(true));
+			}, () => cts.cancel());
 		} finally {
 			cts.dispose(true);
 		}
