@@ -1,0 +1,43 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+ .cell-action-button.action-button {
+	aspect-ratio: 1;
+	display: grid;
+	place-content: center;
+	padding: 3px;
+	/* The added outline here is distracting */
+	outline: revert;
+
+	/* Update the border radius so it fits cleanly with the inset on the containing box. The 1px
+	comes from the border of that box */
+	border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
+
+	/* The debug codicon (the icon itself) is misaligned with run above / run below icons by 1 pixel */
+	&.codicon-debug-alt-small {
+		position: relative;
+		top: -1px;
+	}
+
+	&.disabled {
+		color: var(--vscode-positronActionBar-disabledForeground);
+	}
+
+	/* Ensure relative positioning for the separator pseudo-element we are adding below */
+	&.separator-after {
+		position: relative;
+	}
+
+	/* Add separator pseudo-element after this button */
+	&.separator-after::after {
+		content: '';
+		position: absolute;
+		right: calc((var(--_positron-notebook-cell-action-bar-button-gap) * -1) / 2); /* Separator should be centered in between the gap */
+		top: 4px;
+		bottom: 4px;
+		width: 1px;
+		background-color: var(--vscode-positronNotebook-action-bar-border-color);
+	}
+}

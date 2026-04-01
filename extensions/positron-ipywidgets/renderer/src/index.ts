@@ -27,6 +27,19 @@ export const activate: ActivationFunction = async (context) => {
 	// We bundle the main Jupyter widget packages together with the renderer.
 	// However, we still need to define them as AMD modules since if a third party module
 	// depends on them it will try to load them with requirejs.
+
+	// Load RequireJS if it's not already available. It was previously provided by the notebook
+	// webview via vs/loader.js, but upstream removed that as part of the ESM migration.
+	if (!isDefineFn((window as Window & { define?: unknown }).define)) {
+		await new Promise<void>((resolve, reject) => {
+			const script = document.createElement('script');
+			script.src = new URL('./require.js', import.meta.url).href;
+			script.onload = () => resolve();
+			script.onerror = () => reject(new Error('Failed to load RequireJS'));
+			document.head.appendChild(script);
+		});
+	}
+
 	const define: unknown = (window as Window & { define?: unknown }).define;
 	if (!isDefineFn(define)) {
 		throw new Error('Requirejs is needed, please ensure it is loaded on the page.');

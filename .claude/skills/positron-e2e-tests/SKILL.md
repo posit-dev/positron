@@ -151,7 +151,7 @@ See `references/common-mistakes.md` for 26 detailed gotchas with code examples.
 
 ```bash
 # Run specific test file
-npx playwright test <test-name>.test.ts --project e2e-electron --reporter list
+npx playwright test <test-name>.test.ts --project e2e-electron
 
 # Run all tests in a category
 npx playwright test test/e2e/tests/<category>/

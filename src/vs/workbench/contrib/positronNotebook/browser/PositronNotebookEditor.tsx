@@ -30,6 +30,7 @@ import { EnvironentProvider } from './EnvironmentProvider.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
 import { observableValue } from '../../../../base/common/observable.js';
 import { PositronNotebookEditorControl } from './PositronNotebookEditorControl.js';
@@ -427,7 +428,17 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 						size: this._size,
 						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
 					}}>
-						<PositronNotebookComponent />
+						<NotebookErrorBoundary
+							componentName='PositronNotebookComponent'
+							level='editor'
+							logService={this._logService}
+							onReload={() => {
+								this._disposeReactRenderer();
+								this._renderReact();
+							}}
+						>
+							<PositronNotebookComponent />
+						</NotebookErrorBoundary>
 					</EnvironentProvider>
 				</NotebookInstanceProvider>
 			</NotebookVisibilityProvider>

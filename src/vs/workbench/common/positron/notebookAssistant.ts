@@ -87,4 +87,6 @@ export interface INotebookContextDTO {
 	cellCount: number;
 	selectedCells: INotebookCellDTO[];
 	allCells?: INotebookCellDTO[];
+	/** The current state of the runtime session (e.g. 'idle', 'busy', 'restarting') */
+	runtimeState?: string;
 }

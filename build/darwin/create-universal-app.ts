@@ -64,6 +64,8 @@ const stashPatterns = [
 	'**/node_modules/@napi-rs/canvas-darwin-arm64/skia.darwin-arm64.node',
 	// Exclusions from positron-assistant
 	'**/resources/copilot/**',  // Copilot language server binary
+	// Exclusions from Snowflake SQL client
+	'**/node_modules/snowflake-sdk/dist/lib/minicore/binaries/**',
 ];
 
 // Some generated files may end up being different in both distributions.
@@ -182,8 +184,6 @@ async function main(buildDir?: string) {
 		'**/CodeResources',
 		'**/Credits.rtf',
 		'**/policies/{*.mobileconfig,**/*.plist}',
-		// TODO: Should we consider expanding this to other files in this area?
-		'**/node_modules/@vscode/node-addon-api/nothing.target.mk',
 	];
 
 	// --- Start Positron ---

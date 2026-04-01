@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,6 +24,7 @@ import { IInstantiationService, createDecorator } from '../../../../platform/ins
 import { HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
 
 /**
  * The help HTML file path.
@@ -210,6 +211,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IThemeService private readonly _themeService: IThemeService,
 		@IViewsService private readonly _viewsService: IViewsService,
+		@IPositronDocsService private readonly _docsService: IPositronDocsService,
 
 	) {
 		// Call the base class's constructor.
@@ -245,6 +247,10 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 					html = html
 						.replace(placeholder, dataUrl);
 				}));
+
+				// Replace Positron docs URL with configured value or default
+				html = html.replace('__positronDocsUrl__', this._docsService.baseUrl);
+
 				this._welcomeHTML = html;
 				this.showWelcomePage();
 			}).catch(error => {

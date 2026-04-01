@@ -8,7 +8,12 @@ import { PositronUiComm } from './positronUiComm.js';
 
 export class PositronUiCommInstance extends PositronUiComm {
 	constructor(client: IRuntimeClientInstance<any, any>) {
-		super(client);
+		super(client, {
+			// Disable timeout for evaluate_code since the user explicitly
+			// initiated the evaluation and we show progress UI. Evaluations
+			// like Sys.sleep() can take arbitrarily long.
+			evaluate_code: { timeout: undefined },
+		});
 
 		// Create a stub CallMethodReply event emitter. This allows us to
 		// gracefully handle the case wherein an RPC is initiated on the

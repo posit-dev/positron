@@ -10,6 +10,7 @@ import * as tar from 'tar';
 import * as crypto from 'crypto';
 import * as semver from 'semver';
 import * as os from 'os';
+import * as fs from 'fs';
 
 import { DevContainerConfig, DevContainerFeature, VSCodeCustomizations } from './configuration';
 import { mkdirpLocal, readLocalFile, rmLocal, writeLocalFile, cpDirectoryLocal, isLocalFile } from '../spec-utils/pfs';
@@ -466,7 +467,7 @@ function updateFromOldProperties<T extends { features: (Feature & { extensions?:
 	};
 }
 
-// Generate a base featuresConfig object with the set of locally-cached features, 
+// Generate a base featuresConfig object with the set of locally-cached features,
 // as well as downloading and merging in remote feature definitions.
 export async function generateFeaturesConfig(params: ContainerFeatureInternalParams, dstFolder: string, config: DevContainerConfig, additionalFeatures: Record<string, string | boolean | Record<string, string | boolean>>) {
 	const { output } = params;
@@ -930,7 +931,7 @@ export async function processFeatureIdentifier(params: CommonParams, configPath:
 		};
 		return newFeaturesSet;
 	} else {
-		// We must have a tag, return a tarball URI for the tagged version. 
+		// We must have a tag, return a tarball URI for the tagged version.
 		let newFeaturesSet: FeatureSet = {
 			sourceInformation: {
 				type: 'github-repo',
@@ -1097,7 +1098,7 @@ export async function fetchContentsAtTarballUri(params: { output: Log; env: Node
 		}
 
 		// Filter what gets emitted from the tar.extract().
-		const filter = (file: string, _: tar.FileStat) => {
+		const filter = (file: string, _: fs.Stats | tar.ReadEntry) => {
 			// Don't include .dotfiles or the archive itself.
 			if (file.startsWith('./.') || file === `./${V1_ASSET_NAME}` || file === './.') {
 				return false;
@@ -1128,7 +1129,7 @@ export async function fetchContentsAtTarballUri(params: { output: Log; env: Node
 			{
 				file: tempTarballPath,
 				cwd: featCachePath,
-				filter: (path: string, _: tar.FileStat) => {
+				filter: (path: string, _) => {
 					return path === `./${metadataFile}`;
 				}
 			});
@@ -1150,7 +1151,7 @@ export async function fetchContentsAtTarballUri(params: { output: Log; env: Node
 
 // Reads the feature's 'devcontainer-feature.json` and applies any attributes to the in-memory Feature object.
 // NOTE:
-// 		Implements the latest ('internalVersion' = '2') parsing logic, 
+// 		Implements the latest ('internalVersion' = '2') parsing logic,
 // 		Falls back to earlier implementation(s) if requirements not present.
 // 		Returns a boolean indicating whether the feature was successfully parsed.
 async function applyFeatureConfigToFeature(output: Log, featureSet: FeatureSet, feature: Feature, featCachePath: string, computedDigest: string | undefined): Promise<boolean> {

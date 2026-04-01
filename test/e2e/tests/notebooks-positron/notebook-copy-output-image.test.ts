@@ -1,0 +1,59 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { expect } from '@playwright/test';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
+
+test.use({
+	suiteId: __filename
+});
+
+// Generates a simple matplotlib plot
+const matplotlibPlotCode = `import matplotlib.pyplot as plt
+plt.figure(figsize=(3, 2))
+plt.plot([1, 2, 3], [1, 4, 9])
+plt.show()`;
+
+test.describe('Positron Notebooks: Copy Output Image', {
+	tag: [tags.POSITRON_NOTEBOOKS, tags.WIN, tags.WEB]
+}, () => {
+
+	test.beforeEach(async function ({ app, python }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+		await app.workbench.layouts.enterLayout('notebook');
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+		await notebooksPositron.kernel.select('Python');
+	});
+
+	test('Copy Image appears in output action bar for plot output', async function ({ app, headless }) {
+		test.skip(!!headless, 'Clipboard image tests require headed mode');
+
+		const { notebooksPositron } = app.workbench;
+
+		await test.step('Execute cell that generates a plot', async () => {
+			await notebooksPositron.addCodeToCell(0, matplotlibPlotCode, { run: true, waitForSpinner: true });
+		});
+
+		const cellOutput = notebooksPositron.cellOutput(0);
+
+		await test.step('Verify plot image appears in output', async () => {
+			await expect(cellOutput.locator('img')).toBeVisible();
+		});
+
+		await test.step('Click Copy Image and verify clipboard has image data', async () => {
+			await app.workbench.clipboard.clearClipboard();
+
+			await notebooksPositron.triggerCellOutputAction(0, 'Copy Image');
+
+			await expect(async () => {
+				const clipboardImageBuffer = await app.workbench.clipboard.getClipboardImage();
+				expect(clipboardImageBuffer).not.toBeNull();
+			}).toPass({ timeout: 15000 });
+		});
+	});
+
+});

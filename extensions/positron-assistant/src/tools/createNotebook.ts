@@ -100,7 +100,7 @@ export const createNotebookToolImpl = {
 			if (hadNotebookBefore) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(
-						`Created new ${lang} notebook. Use EditNotebookCells to add content.`
+						`Created new ${lang} notebook. Use editNotebook to add content.`
 					)
 				]);
 			}
@@ -110,7 +110,7 @@ export const createNotebookToolImpl = {
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(
 					`Created new ${lang} notebook.\n\n` +
-					`To add cells, use EditNotebookCells with:\n` +
+					`To add cells, use editNotebook with:\n` +
 					`- operation: 'add'\n` +
 					`- cellType: 'code' or 'markdown'\n` +
 					`- index: -1 (append to end) or specific position\n` +

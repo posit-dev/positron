@@ -3,21 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { RSession } from './session';
-import { EXTENSION_ROOT_DIR } from './constants';
-
-/** Path to the packages R script */
-const PACKAGES_SCRIPT_PATH = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'packages.R');
 
 /**
  * R Package Manager
  *
  * Provides package management functionality for R sessions using pak as the
- * primary backend with base R fallback.
+ * primary backend with base R fallback. Communicates with Ark via RPC methods.
  */
 export class RPackageManager {
 	/** Whether the user has declined to install pak (session-scoped) */
@@ -26,158 +21,238 @@ export class RPackageManager {
 	constructor(private readonly _session: RSession) { }
 
 	/**
-	 * Source the packages.R script in the R session.
-	 * Called at session startup to make package management functions available.
-	 */
-	async sourcePackagesScript(): Promise<void> {
-		// Escape backslashes for Windows paths
-		const escapedPath = PACKAGES_SCRIPT_PATH.replace(/\\/g, '\\\\');
-		// Use Silent mode and suppress all R output to avoid showing internal
-		// implementation details to the user
-		await this._executeAndCapture(
-			`source("${escapedPath}", echo = FALSE, print.eval = FALSE, verbose = FALSE)`,
-			positron.RuntimeCodeExecutionMode.Silent
-		);
-	}
-
-	/**
 	 * Get list of installed packages from all libpaths.
+	 * @param token Optional cancellation token
 	 */
-	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-		const hasPak = await this._ensurePakChecked();
-		const code = `.ps.packages.list_packages(method = "${hasPak ? 'pak' : 'base'}")`;
-
-		const result = await this._executeAndCapture(code);
-		if (!result || result.trim() === '') {
-			return [];
+	async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
 		}
-		return JSON.parse(result);
+
+		const method = await this._getPackageMethod();
+		const result = await this._callMethod<positron.LanguageRuntimePackage[] | null>(
+			'pkg_list', token, method
+		) ?? [];
+		// Result is not sorted, sort packages alphabetically by name (case-insensitive)
+		result.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+		return result;
 	}
 
 	/**
 	 * Install one or more packages.
 	 * @param packages Array of package install requests with name and optional version
+	 * @param token Optional cancellation token
 	 */
-	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
+	async installPackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
 		// Validate package names
 		for (const pkg of packages) {
 			this._validatePackageName(pkg.name);
 		}
 
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
 
-		// If we're installing pak, don't prompt to install pak
-		let hasPak: boolean;
-		if (packages.some((pkg) => pkg.name === 'pak')) {
-			hasPak = await this._ensurePakChecked();
+		let code: string;
+		if (isRenv) {
+			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+			const pkgVector = this._formatRVector(pkgSpecs);
+			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
-			hasPak = await this._ensurePak();
+			// If we're installing pak, don't prompt to install pak
+			let method: string;
+			if (packages.some((pkg) => pkg.name === 'pak')) {
+				method = await this._getPakMethod();
+			} else {
+				method = await this._ensurePak();
+			}
+
+			if (method === 'pak') {
+				// pak supports "pkg@version" syntax directly
+				const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+				const pkgVector = this._formatRVector(pkgSpecs);
+				code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
+			} else {
+				// base R: version not supported
+				const pkgNames = packages.map(p => p.name);
+				const pkgVector = this._formatRVector(pkgNames);
+				code = `install.packages(${pkgVector})`;
+			}
 		}
 
-		let pkgVector: string;
-		if (hasPak) {
-			// pak supports "pkg@version" syntax directly
-			pkgVector = this._formatPackageVector(packages.map(p => `${p.name}@${p.version}`));
-		} else {
-			// base R: strip version suffix if present (not supported)
-			const pkgNames = packages.map(p => p.name.split('@')[0]);
-			pkgVector = this._formatPackageVector(pkgNames);
-		}
-
-		const code = `.ps.packages.install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
-		await this._executeAndWait(code);
+		await this._execute(code, token);
 		this._session.invalidatePackageResourceCaches();
 	}
 
 	/**
 	 * Update specific packages to latest versions.
 	 * @param packages Array of package install requests with name and optional version
+	 * @param token Optional cancellation token
 	 */
-	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
+	async updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
 		// Validate package names
 		for (const pkg of packages) {
 			this._validatePackageName(pkg.name);
 		}
 
-		const hasPak = await this._ensurePak();
+		const isRenv = await this._detectRenv();
 
-		let pkgVector: string;
-		if (hasPak) {
-			pkgVector = this._formatPackageVector(packages.map(p => `${p.name}@${p.version}`));
+		let code: string;
+		if (isRenv) {
+			// renv::install supports "pkg@version" syntax
+			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+			const pkgVector = this._formatRVector(pkgSpecs);
+			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
-			// base R: strip version suffix if present (not supported)
-			const pkgNames = packages.map(p => p.name.split('@')[0]);
-			pkgVector = this._formatPackageVector(pkgNames);
+			const method = await this._ensurePak();
+
+			if (method === 'pak') {
+				// pak supports "pkg@version" syntax directly
+				const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
+				const pkgVector = this._formatRVector(pkgSpecs);
+				code = `pak::pkg_install(${pkgVector}, ask = FALSE)`;
+			} else {
+				// base R: version not supported
+				const pkgNames = packages.map(p => p.name);
+				const pkgVector = this._formatRVector(pkgNames);
+				code = `install.packages(${pkgVector})`;
+			}
 		}
 
-		const code = `.ps.packages.install_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
-		await this._executeAndWait(code);
+		await this._execute(code, token);
 		this._session.invalidatePackageResourceCaches();
 	}
 
 	/**
 	 * Update all packages with available updates.
+	 * @param token Optional cancellation token
 	 */
-	async updateAllPackages(): Promise<void> {
-		const hasPak = await this._ensurePak();
-		const code = `.ps.packages.update_all_packages(method = "${hasPak ? 'pak' : 'base'}")`;
-		await this._executeAndWait(code);
+	async updateAllPackages(token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
+
+		if (isRenv) {
+			await this._execute(`renv::update(lock = TRUE, prompt = FALSE)`, token);
+		} else {
+			const method = await this._ensurePak();
+
+			if (method === 'pak') {
+				// Get outdated packages via RPC, then update with pak
+				const outdated = await this._callMethod<string[] | null>(
+					'pkg_outdated', token
+				) ?? [];
+				if (outdated.length > 0) {
+					const pkgVector = this._formatRVector(outdated);
+					await this._execute(`pak::pkg_install(${pkgVector}, ask = FALSE)`, token);
+				} else {
+					// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
+				}
+			} else {
+				await this._execute(`update.packages(ask = FALSE)`, token);
+			}
+		}
+
 		this._session.invalidatePackageResourceCaches();
 	}
 
 	/**
 	 * Uninstall one or more packages.
+	 * @param packageNames Array of package names to uninstall
+	 * @param token Optional cancellation token
 	 */
-	async uninstallPackages(packageNames: string[]): Promise<void> {
+	async uninstallPackages(packageNames: string[], token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
 		// Validate package names
 		for (const pkg of packageNames) {
 			this._validatePackageName(pkg);
 		}
 
-		const hasPak = await this._ensurePakChecked();
-		const pkgVector = this._formatPackageVector(packageNames);
-		const code = `.ps.packages.uninstall_packages(${pkgVector}, method = "${hasPak ? 'pak' : 'base'}")`;
-		await this._executeAndWait(code);
+		// Check if we're in an renv project
+		const isRenv = await this._detectRenv();
+		const pkgVector = this._formatRVector(packageNames);
+
+		let code: string;
+		if (isRenv) {
+			code = `renv::remove(${pkgVector})`;
+		} else {
+			const method = await this._getPakMethod();
+
+			if (method === 'pak') {
+				code = `pak::pkg_remove(${pkgVector})`;
+			} else {
+				code = `remove.packages(${pkgVector})`;
+			}
+		}
+
+		await this._execute(code, token);
+
+		// Silently unload namespaces after removal (ignore errors)
+		try {
+			const unloadCode = packageNames
+				.map(pkg => `try(unloadNamespace("${pkg}"), silent = TRUE)`)
+				.join('; ');
+			await this._executeSilently(unloadCode);
+		} catch {
+			// Ignore errors from namespace unloading
+		}
+
+		// Update renv lockfile after removal
+		if (isRenv) {
+			await this._executeSilently('renv::snapshot(prompt = FALSE)');
+		}
+
 		this._session.invalidatePackageResourceCaches();
 	}
 
 	/**
 	 * Search repo for packages matching the query.
+	 * @param query Search query string
+	 * @param token Optional cancellation token
 	 */
-	async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
-		const hasPak = await this._ensurePakChecked();
-
-		// Sanitize query: remove quotes and backslashes that could break R string
-		const sanitizedQuery = query.replace(/["\\]/g, '');
-		const code = `.ps.packages.search_packages(${this._formatString(sanitizedQuery)}, method = "${hasPak ? 'pak' : 'base'}")`;
-
-		const result = await this._executeAndCapture(code);
-		if (!result || result.trim() === '') {
-			return [];
+	async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
 		}
-		return JSON.parse(result);
+
+		const method = await this._getPakMethod();
+		const result = await this._callMethod<positron.LanguageRuntimePackage[] | null>(
+			'pkg_search', token, query, method
+		);
+		return result ?? [];
 	}
 
 	/**
 	 * Get available versions of a specific package.
 	 * Returns the current version from configured repos.
+	 * @param name Package name
+	 * @param token Optional cancellation token
 	 *
 	 * TODO: Add support for historical versions from repo archive.
 	 */
-	async searchPackageVersions(name: string): Promise<string[]> {
-		this._validatePackageName(name);
-
-		const code = `.ps.packages.search_package_versions(${this._formatString(name)})`;
-
-		try {
-			const result = await this._executeAndCapture(code);
-			if (!result || result.trim() === '' || result.trim() === '[]') {
-				return [];
-			}
-			return JSON.parse(result);
-		} catch {
-			// Return empty if we can't get versions
-			return [];
+	async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
 		}
+
+		this._validatePackageName(name);
+		const result = await this._callMethod<string[] | null>(
+			'pkg_search_versions', token, name
+		);
+		return result ?? [];
 	}
 
 	// =========================================================================
@@ -185,123 +260,41 @@ export class RPackageManager {
 	// =========================================================================
 
 	/**
-	 * Format a package list as an R character vector.
-	 */
-	private _formatPackageVector(packages: string[]): string {
-		return `c(${packages.map(p => `"${p}"`).join(', ')})`;
-	}
-
-	/**
-	 * Format a string as an R string literal.
-	 */
-	private _formatString(str: string): string {
-		return `"${str}"`;
-	}
-
-	/**
-	 * Execute R code and capture the output (for queries).
-	 * Uses Transient mode by default so output doesn't appear in history.
-	 */
-	private async _executeAndCapture(
-		code: string,
-		mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Transient
-	): Promise<string> {
-		const id = randomUUID();
-		let output = '';
-
-		const promise = new Promise<string>((resolve, reject) => {
-			const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
-				if (msg.parent_id !== id) {
-					return;
-				}
-
-				// cat() output comes through as Stream messages
-				if (msg.type === positron.LanguageRuntimeMessageType.Stream) {
-					const streamMsg = msg as positron.LanguageRuntimeStream;
-					if (streamMsg.name === positron.LanguageRuntimeStreamName.Stdout) {
-						output += streamMsg.text;
-					}
-				}
-
-				// Also check Output messages for rich output
-				if (msg.type === positron.LanguageRuntimeMessageType.Output) {
-					const outputMsg = msg as positron.LanguageRuntimeOutput;
-					if (outputMsg.data['text/plain']) {
-						output += outputMsg.data['text/plain'];
-					}
-				}
-
-				if (msg.type === positron.LanguageRuntimeMessageType.State) {
-					const stateMsg = msg as positron.LanguageRuntimeState;
-					if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
-						resolve(output);
-						disp.dispose();
-					}
-				}
-
-				if (msg.type === positron.LanguageRuntimeMessageType.Error) {
-					const errorMsg = msg as positron.LanguageRuntimeError;
-					reject(new Error(errorMsg.message));
-					disp.dispose();
-				}
-			});
-		});
-
-		this._session.execute(
-			code,
-			id,
-			mode,
-			positron.RuntimeErrorBehavior.Stop
-		);
-
-		return promise;
-	}
-
-	/**
-	 * Execute R code and wait for completion (for mutations).
-	 * Uses Interactive mode so output appears in console.
-	 */
-	private async _executeAndWait(code: string): Promise<void> {
-		const id = randomUUID();
-
-		const promise = new Promise<void>((resolve, reject) => {
-			const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
-				if (msg.parent_id !== id) {
-					return;
-				}
-
-				if (msg.type === positron.LanguageRuntimeMessageType.State) {
-					const stateMsg = msg as positron.LanguageRuntimeState;
-					if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
-						resolve();
-						disp.dispose();
-					}
-				}
-
-				if (msg.type === positron.LanguageRuntimeMessageType.Error) {
-					const errorMsg = msg as positron.LanguageRuntimeError;
-					reject(new Error(errorMsg.message));
-					disp.dispose();
-				}
-			});
-		});
-
-		this._session.execute(
-			code,
-			id,
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Continue
-		);
-
-		return promise;
-	}
-
-	/**
 	 * Detect if pak is available in the R session.
 	 */
 	private async _detectPak(): Promise<boolean> {
 		const pak = await this._session.packageVersion('pak', null, true);
-		return pak?.compatible;
+		return pak?.compatible ?? false;
+	}
+
+	/**
+	 * Detect if the session is running in an renv project.
+	 */
+	private async _detectRenv(): Promise<boolean> {
+		try {
+			const result = await this._session.evaluate('!is.null(renv::project())');
+			return result.result === true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * Get the method string based on pak availability (without prompting).
+	 */
+	private async _getPakMethod(): Promise<string> {
+		const hasPak = await this._detectPak();
+		return hasPak ? 'pak' : 'base';
+	}
+
+	/**
+	 * Get the method string for package listing (renv > pak > base).
+	 */
+	private async _getPackageMethod(): Promise<string> {
+		if (await this._detectRenv()) {
+			return 'renv';
+		}
+		return this._getPakMethod();
 	}
 
 	/**
@@ -318,33 +311,28 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Check if pak is available without prompting to install.
-	 */
-	private async _ensurePakChecked(): Promise<boolean> {
-		return this._detectPak();
-	}
-
-	/**
 	 * Ensure pak is available, prompting to install if needed.
-	 * Returns true if pak is available after this call.
+	 * Returns 'pak' or 'base' depending on availability.
 	 */
-	private async _ensurePak(): Promise<boolean> {
+	private async _ensurePak(): Promise<string> {
 		const hasPak = await this._detectPak();
 		if (hasPak) {
-			return true;
+			return 'pak';
 		}
 
 		if (this._pakDeclined) {
-			return false;
+			return 'base';
 		}
 
 		const install = await this._promptInstallPak();
 		if (install) {
-			await this._executeAndWait('install.packages("pak")');
-			return await this._detectPak();
+			// Use base R to install pak
+			await this._execute('install.packages("pak")');
+			const nowHasPak = await this._detectPak();
+			return nowHasPak ? 'pak' : 'base';
 		} else {
 			this._pakDeclined = true;
-			return false;
+			return 'base';
 		}
 	}
 
@@ -361,5 +349,155 @@ export class RPackageManager {
 		if (!/^[a-zA-Z]([a-zA-Z0-9.]*[a-zA-Z0-9])?$/.test(name)) {
 			throw new Error(`Invalid R package name: "${name}". Package names must start with a letter, contain only letters, numbers, and periods, and cannot end with a period.`);
 		}
+	}
+
+	/**
+	 * Format an array of strings as an R character vector.
+	 */
+	private _formatRVector(items: string[]): string {
+		const escaped = items.map(s => `"${s.replace(/"/g, '\\"')}"`);
+		return `c(${escaped.join(', ')})`;
+	}
+
+	/**
+	 * Execute R code in the console and wait for completion.
+	 * Uses NonInteractive mode so output appears in the console.
+	 * @param code The R code to execute
+	 * @param token Optional cancellation token - if cancelled, interrupts the R session
+	 */
+	private async _execute(code: string, token?: vscode.CancellationToken): Promise<void> {
+		const id = randomUUID();
+
+		const promise = new Promise<void>((resolve, reject) => {
+			// Register cancellation handler to interrupt R execution
+			const cancelDisp = token?.onCancellationRequested(async () => {
+				await positron.runtime.interruptSession(this._session.metadata.sessionId);
+				reject(new vscode.CancellationError());
+				disp.dispose();
+			});
+
+			const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
+				if (msg.parent_id !== id) {
+					return;
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.State) {
+					const stateMsg = msg as positron.LanguageRuntimeState;
+					if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
+						resolve();
+						disp.dispose();
+						cancelDisp?.dispose();
+					}
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.Error) {
+					const errorMsg = msg as positron.LanguageRuntimeError;
+					reject(new Error(errorMsg.message));
+					disp.dispose();
+					cancelDisp?.dispose();
+				}
+			});
+		});
+
+		this._session.execute(
+			code,
+			id,
+			positron.RuntimeCodeExecutionMode.NonInteractive,
+			positron.RuntimeErrorBehavior.Continue
+		);
+
+		return promise;
+	}
+
+	/**
+	 * Call an RPC method with cancellation support.
+	 * If the token is cancelled, interrupts the R session.
+	 */
+	private async _callMethod<T>(
+		method: string,
+		token: vscode.CancellationToken | undefined,
+		...args: unknown[]
+	): Promise<T> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
+		const resultPromise = this._session.callMethod(method, ...args) as Promise<T>;
+
+		// If no token provided, just return the method result
+		if (!token) {
+			return resultPromise;
+		}
+
+		// Wrap `callMethod` promise with cancellation handling
+		return new Promise<T>((resolve, reject) => {
+			const cancelDisp = token.onCancellationRequested(async () => {
+				await positron.runtime.interruptSession(this._session.metadata.sessionId);
+				reject(new vscode.CancellationError());
+			});
+
+			resultPromise
+				.then((result) => {
+					cancelDisp.dispose();
+					resolve(result);
+				})
+				.catch((err) => {
+					cancelDisp.dispose();
+					reject(err);
+				});
+		});
+	}
+
+	/**
+	 * Execute R code silently without showing in the console.
+	 * @param code The R code to execute
+	 * @param token Optional cancellation token - if cancelled, interrupts the R session
+	 */
+	private async _executeSilently(code: string, token?: vscode.CancellationToken): Promise<void> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+
+		const id = randomUUID();
+
+		const promise = new Promise<void>((resolve, reject) => {
+			// Register cancellation handler to interrupt R execution
+			const cancelDisp = token?.onCancellationRequested(async () => {
+				await positron.runtime.interruptSession(this._session.metadata.sessionId);
+				reject(new vscode.CancellationError());
+				disp.dispose();
+			});
+
+			const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
+				if (msg.parent_id !== id) {
+					return;
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.State) {
+					const stateMsg = msg as positron.LanguageRuntimeState;
+					if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
+						resolve();
+						disp.dispose();
+						cancelDisp?.dispose();
+					}
+				}
+
+				if (msg.type === positron.LanguageRuntimeMessageType.Error) {
+					const errorMsg = msg as positron.LanguageRuntimeError;
+					reject(new Error(errorMsg.message));
+					disp.dispose();
+					cancelDisp?.dispose();
+				}
+			});
+		});
+
+		this._session.execute(
+			code,
+			id,
+			positron.RuntimeCodeExecutionMode.Silent,
+			positron.RuntimeErrorBehavior.Continue
+		);
+
+		return promise;
 	}
 }

@@ -23,6 +23,20 @@ Param = Any
 CallMethodResult = Any
 
 
+class EvalResult(BaseModel):
+    """
+    The results of evaluating the statement
+    """
+
+    result: Any = Field(
+        description="The result value",
+    )
+
+    output: StrictStr = Field(
+        description="The output, if any, emitted during evaluation",
+    )
+
+
 @enum.unique
 class OpenEditorKind(str, enum.Enum):
     """
@@ -195,8 +209,8 @@ class UiBackendRequest(str, enum.Enum):
     # Run a method in the interpreter and return the result to the frontend
     CallMethod = "call_method"
 
-    # Active editor context changed
-    EditorContextChanged = "editor_context_changed"
+    # Evaluate a statement in the interpreter
+    EvaluateCode = "evaluate_code"
 
 
 class DidChangePlotsRenderSettingsParams(BaseModel):
@@ -269,37 +283,27 @@ class CallMethodRequest(BaseModel):
     )
 
 
-class EditorContextChangedParams(BaseModel):
+class EvaluateCodeParams(BaseModel):
     """
-    This notification is sent from the frontend to the backend when the
-    active text editor changes or when code is about to be executed from a
-    file. It provides the document URI and indicates whether this is the
-    source file for code execution.
+    Execute a code fragment silently and return a JSON-serialized result.
     """
 
-    document_uri: StrictStr = Field(
-        description="The URI of the active document, or empty string if no editor is active",
-    )
-
-    is_execution_source: StrictBool = Field(
-        description="Whether this editor is the source of code being executed. When true, the backend may temporarily add the file's directory to sys.path.",
+    code: StrictStr = Field(
+        description="The code string to evaluate",
     )
 
 
-class EditorContextChangedRequest(BaseModel):
+class EvaluateCodeRequest(BaseModel):
     """
-    This notification is sent from the frontend to the backend when the
-    active text editor changes or when code is about to be executed from a
-    file. It provides the document URI and indicates whether this is the
-    source file for code execution.
+    Execute a code fragment silently and return a JSON-serialized result.
     """
 
-    params: EditorContextChangedParams = Field(
-        description="Parameters to the EditorContextChanged method",
+    params: EvaluateCodeParams = Field(
+        description="Parameters to the EvaluateCode method",
     )
 
-    method: Literal[UiBackendRequest.EditorContextChanged] = Field(
-        description="The JSON-RPC method name (editor_context_changed)",
+    method: Literal[UiBackendRequest.EvaluateCode] = Field(
+        description="The JSON-RPC method name (evaluate_code)",
     )
 
     jsonrpc: str = Field(
@@ -313,7 +317,7 @@ class UiBackendMessageContent(BaseModel):
     data: Union[
         DidChangePlotsRenderSettingsRequest,
         CallMethodRequest,
-        EditorContextChangedRequest,
+        EvaluateCodeRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -648,6 +652,8 @@ class OpenWithSystemParams(BaseModel):
     )
 
 
+EvalResult.update_forward_refs()
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -668,9 +674,9 @@ CallMethodParams.update_forward_refs()
 
 CallMethodRequest.update_forward_refs()
 
-EditorContextChangedParams.update_forward_refs()
+EvaluateCodeParams.update_forward_refs()
 
-EditorContextChangedRequest.update_forward_refs()
+EvaluateCodeRequest.update_forward_refs()
 
 BusyParams.update_forward_refs()
 

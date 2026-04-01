@@ -201,6 +201,15 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	callMethod(method: string, ...args: Array<any>): Promise<any>;
 
 	/**
+	 * Evaluates a code fragment silently in the runtime and returns the
+	 * JSON-serialized result, without displaying output in the console.
+	 *
+	 * @param code The code string to evaluate
+	 * @returns A promise that resolves with the result of the evaluation
+	 */
+	evaluate(code: string): Promise<positron.EvalResult>;
+
+	/**
 	 * Return logfile path
 	 */
 	getKernelLogFile(): string;

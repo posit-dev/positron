@@ -21,6 +21,9 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () =
 		// open the Matplotlib Interact notebook and run all cells
 		await quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'matplotlib', 'interact.ipynb'));
 		await notebooks.selectInterpreter('Python');
+
+		await hotKeys.closeSecondarySidebar();
+
 		await notebooks.runAllCells();
 		await hotKeys.toggleBottomPanel();
 

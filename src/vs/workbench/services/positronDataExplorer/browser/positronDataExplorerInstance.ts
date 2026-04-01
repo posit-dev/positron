@@ -7,6 +7,7 @@ import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { TableDataCache } from '../common/tableDataCache.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { TableDataDataGridInstance } from './tableDataDataGridInstance.js';
 import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
@@ -123,6 +124,15 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	private _fileHasHeaderRow = true;
 
+	/**
+	 * The number of editor panes currently showing this instance.
+	 *
+	 * A single data explorer instance can be rendered by multiple editors
+	 * (for example, after splitting the editor). We only mark the internal
+	 * data grids hidden when the last visible editor detaches.
+	 */
+	private _visibleEditorCount = 0;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -189,6 +199,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._tableDataDataGridInstance.onDidChangePinnedColumns(async pinnedColumns => {
 				// Update the pinned rows in the summary data grid instance.
 				await this._tableSchemaDataGridInstance.updatePinnedRows(pinnedColumns);
+			})
+		);
+
+		// Add the onDidSetRowFilters event handler.
+		// Refresh summary panel column profiles after row filters change.
+		this._register(
+			this._tableDataDataGridInstance.onDidSetRowFilters(async () => {
+				await this._tableSchemaDataGridInstance.fetchData(true);
 			})
 		);
 
@@ -482,6 +500,39 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 				)
 			);
 		}
+	}
+
+	/**
+	 * Sets the visibility state of the data explorer.
+	 * When not visible, expensive operations are deferred until visible again.
+	 * @param visible Whether the data explorer is currently visible.
+	 */
+	setVisible(visible: boolean): void {
+		if (visible) {
+			this._visibleEditorCount++;
+
+			// Instance was already visible from another editor.
+			if (this._visibleEditorCount > 1) {
+				return;
+			}
+
+			// Transitioned from hidden -> visible.
+			this._tableSchemaDataGridInstance.setVisible(true).catch(onUnexpectedError);
+			this._tableDataDataGridInstance.setVisible(true).catch(onUnexpectedError);
+			return;
+		}
+
+		// Guard against mismatched visibility calls.
+		this._visibleEditorCount = Math.max(0, this._visibleEditorCount - 1);
+
+		// Another editor is still showing this instance.
+		if (this._visibleEditorCount !== 0) {
+			return;
+		}
+
+		// Transitioned from visible -> hidden.
+		this._tableSchemaDataGridInstance.setVisible(false);
+		this._tableDataDataGridInstance.setVisible(false);
 	}
 
 	/**

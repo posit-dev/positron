@@ -50,6 +50,14 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
 	]],
+	// Microsoft Foundry models -- model-router means model routing is handled by Foundry.
+	// Any other models must be configured by user or admin.
+	['ms-foundry', [
+		{
+			name: 'Model Router',
+			identifier: 'model-router',
+		},
+	]],
 	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-rest-api#model-availability
 	['snowflake-cortex', [
 		{

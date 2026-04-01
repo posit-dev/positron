@@ -55,11 +55,11 @@ export class MainThreadLanguageModels implements MainThreadLanguageModelsShape {
 	}
 
 	// --- Start Positron ---
-	// Add extensionId parameter
+	// Pass extensionId for tracking, but the interface now takes 2 args (vendor, provider)
 	$registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier): void {
 		const disposables = new DisposableStore();
 		try {
-			disposables.add(this._chatProviderService.registerLanguageModelProvider(vendor, extensionId, {
+			disposables.add(this._chatProviderService.registerLanguageModelProvider(vendor, {
 				onDidChange: Event.filter(this._lmProviderChange.event, e => e.vendor === vendor, disposables) as unknown as Event<void>,
 				provideLanguageModelChatInfo: async (options, token) => {
 					const modelsAndIdentifiers = await this._proxy.$provideLanguageModelChatInfo(vendor, options, token);

@@ -672,6 +672,80 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Evaluates a code fragment silently in the runtime and returns the
+	 * JSON-serialized result, without displaying output in the console.
+	 *
+	 * @param code The code string to evaluate
+	 * @returns A promise that resolves with the result of the evaluation
+	 */
+	async evaluate(code: string): Promise<positron.EvalResult> {
+		// Wait for the runtime to be idle before evaluating
+		await this.waitForIdle();
+
+		const promise = new PromiseHandles<positron.EvalResult>;
+
+		// Find the UI comm
+		const uiComm = Array.from(this._clients.values())
+			.find(c => c.target === positron.RuntimeClientType.Ui);
+
+		if (!uiComm) {
+			promise.reject(new Error('No UI comm is open; cannot evaluate code'));
+			return promise.promise;
+		}
+
+		// Build the JSON-RPC request for evaluate_code
+		const request = {
+			jsonrpc: '2.0',
+			method: 'evaluate_code',
+			params: {
+				code
+			},
+			id: createUniqueId(),
+		};
+
+		const commMsg: JupyterCommMsg = {
+			comm_id: uiComm.id,
+			data: request
+		};
+
+		const commRequest = new CommMsgRequest(createUniqueId(), commMsg);
+		this.sendRequest(commRequest).then((reply) => {
+			const response = reply.data;
+
+			// If the response is an error, throw it
+			if (Object.keys(response).includes('error')) {
+				const error = response.error as any;
+				error.name = `RPC Error ${error.code}`;
+				promise.reject(error);
+				return;
+			}
+
+			// JSON-RPC specifies that the return value must have either a
+			// 'result' or an 'error'; make sure we got a result.
+			if (!Object.keys(response).includes('result')) {
+				const error: positron.RuntimeMethodError = {
+					code: positron.RuntimeMethodErrorCode.InternalError,
+					message: `Invalid response from UI comm: no 'result' field. ` +
+						`(response = ${JSON.stringify(response)})`,
+					name: `InvalidResponseError`,
+					data: {},
+				};
+				promise.reject(error);
+				return;
+			}
+
+			// Return the result
+			promise.resolve(response.result as positron.EvalResult);
+		})
+			.catch((err) => {
+				this.log(`Failed to send evaluate_code request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+				promise.reject(err);
+			});
+
+		return promise.promise;
+	}
+
+	/**
 	 * Gets the path to the kernel's log file, if any.
 	 *
 	 * @returns The kernel's log file.
@@ -718,6 +792,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior,
 		codeLocation?: positron.Utf8Location,
+		executionMetadata?: Record<string, unknown>
 	): void {
 
 		// Translate the parameters into a Jupyter execute request
@@ -730,12 +805,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
 
-		if (codeLocation) {
+		// If a code location or execution metadata is provided, include it in the request
+		if (codeLocation || executionMetadata) {
 			request.positron = {
-				code_location: {
-					uri: codeLocation.uri.toString(),
-					range: codeLocation.range,
-				}
+				...(codeLocation ? {
+					code_location: {
+						uri: codeLocation.uri.toString(),
+						range: codeLocation.range
+					}
+				} : {}),
+				...executionMetadata
 			};
 		}
 
@@ -1091,7 +1170,32 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await kernel.connected.wait();
 
 		// Connect to the session's websocket
-		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to adopted session ${this.metadata.sessionId}`);
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const connectTimeout = config.get<number>('startupTimeout', 15) * 1000;
+		const connectStartTime = Date.now();
+		for (let attempt = 0; attempt < 2; attempt++) {
+			try {
+				await withTimeout(
+					this.connect(),
+					connectTimeout,
+					`Timed out connecting to adopted session ${this.metadata.sessionId} ` +
+					`after ${connectTimeout}ms`);
+				break;
+			} catch (err) {
+				// Allow one retry for Axios (connectivity) errors on the first attempt
+				if (attempt === 0 && isAxiosError(err)) {
+					this.log(
+						`Failed to connect to adopted kernel; retrying: ${summarizeError(err)}`,
+						vscode.LogLevel.Warning);
+				} else {
+					this.log(
+						`Failed to connect to adopted kernel: ${summarizeError(err)}`,
+						vscode.LogLevel.Error);
+					throw err;
+				}
+			}
+		}
+		this.log(`Connected to adopted kernel after ${Date.now() - connectStartTime}ms`, vscode.LogLevel.Info);
 
 		// Mark the session as ready
 		this.markReady('kernel adoption complete');
@@ -1175,7 +1279,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Wait for the session to be established before connecting. This
 		// ensures either that we've created the session (if it's new) or that
 		// we've restored it (if it's not new).
-		await withTimeout(this._established.wait(), 2000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be established`);
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const timeout = config.get<number>('startupTimeout', 15) * 1000;
+		const establishStartTime = Date.now();
+		await withTimeout(
+			this._established.wait(),
+			timeout,
+			`Timed out waiting for session ${this.metadata.sessionId} to be established ` +
+			`after ${timeout}ms`);
+		this.log(`Session ${this.metadata.sessionId} established after ${Date.now() - establishStartTime}ms`, vscode.LogLevel.Info);
 
 		let runtimeInfo: positron.LanguageRuntimeInfo | undefined = this._runtimeInfo;
 
@@ -1216,7 +1328,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Before connecting, check if we should attach to the session on
 		// startup
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		if (attachOnStartup) {
 			try {
@@ -1227,7 +1338,30 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Connect to the session's websocket
-		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to session ${this.metadata.sessionId}`);
+		const connectStartTime = Date.now();
+		for (let attempt = 0; attempt < 2; attempt++) {
+			try {
+				await withTimeout(
+					this.connect(),
+					timeout,
+					`Timed out connecting to session ${this.metadata.sessionId} after ${timeout}ms`);
+				break;
+			} catch (err) {
+				if (attempt === 0 && isAxiosError(err)) {
+					this.log(
+						`Failed to connect to session; retrying: ${summarizeError(err)}`,
+						vscode.LogLevel.Warning
+					);
+				} else {
+					this.log(
+						`Failed to connect to session: ${summarizeError(err)}`,
+						vscode.LogLevel.Error
+					);
+					throw err;
+				}
+			}
+		}
+		this.log(`Connected to session after ${Date.now() - connectStartTime}ms`, vscode.LogLevel.Info);
 
 		if (this._new) {
 			// If it's a new session and we got runtime info from starting it,
@@ -1368,9 +1502,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * out or reject.
 	 */
 	async waitForIdle(): Promise<void> {
+		// If already idle, resolve immediately
+		if (this._runtimeState === positron.RuntimeState.Idle) {
+			return;
+		}
 		return new Promise((resolve, _reject) => {
-			this._state.event(async (state) => {
+			const listener = this._state.event(async (state) => {
 				if (state === positron.RuntimeState.Idle) {
+					listener.dispose();
 					resolve();
 				}
 			});

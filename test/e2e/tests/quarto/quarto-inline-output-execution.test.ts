@@ -50,13 +50,15 @@ test.describe('Quarto - Inline Output: Execution', {
 		await inlineQuarto.expectOutputVisible();
 	});
 
-	test('Python - Verify cell execution uses correct line numbers after document edits', async function ({ python, app, page, openFile }) {
+	test('Python - Verify cell execution uses correct line numbers after document edits', async function ({ python, app, page, openFile, hotKeys }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready
 		await openFile(join('workspaces', 'quarto_inline_output', 'editable_cell.qmd'));
 		await editors.waitForActiveTab('editable_cell.qmd');
 		await inlineQuarto.expectKernelStatusVisible();
+
+		await hotKeys.minimizeBottomPanel();
 
 		// Run all cells
 		await editors.clickTab('editable_cell.qmd');
@@ -92,6 +94,8 @@ One more line for good measure.
 		const outputText = await inlineQuarto.getOutputItemAt(1).textContent();
 		const pid = parseInt(outputText?.trim() ?? '', 10);
 		expect(pid).toBeGreaterThan(0);
+
+		await hotKeys.restoreBottomPanel();
 	});
 
 	test('Python - Verify cancel button removes queued cell from execution queue', async function ({ python, app, openFile }) {

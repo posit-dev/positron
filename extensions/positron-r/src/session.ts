@@ -247,9 +247,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior,
 		codeLocation?: positron.Utf8Location,
+		executionMetadata?: Record<string, any>
 	): void {
 		if (this._kernel) {
-			this._kernel.execute(code, id, mode, errorBehavior, codeLocation);
+			this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata);
 		} else {
 			throw new Error(`Cannot execute '${code}'; kernel not started`);
 		}
@@ -260,6 +261,14 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			return this._kernel.callMethod(method, ...args);
 		} else {
 			throw new Error(`Cannot call method '${method}'; kernel not started`);
+		}
+	}
+
+	evaluate(code: string): Promise<positron.EvalResult> {
+		if (this._kernel) {
+			return this._kernel.evaluate(code);
+		} else {
+			throw new Error(`Cannot evaluate '${code}'; kernel not started`);
 		}
 	}
 
@@ -771,75 +780,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
-	 * Get list of installed packages.
+	 * Get the package manager for this session.
 	 */
-	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+	getPackageManager(): positron.LanguageRuntimePackageManager {
 		if (!this._packageManager) {
 			throw new Error('Package manager not initialized');
 		}
-		return this._packageManager.getPackages();
-	}
-
-	/**
-	 * Install the list of packages.
-	 * @param packages Array of package install requests with name and optional version
-	 */
-	async installPackages(packages: positron.PackageSpec[]): Promise<void> {
-		if (!this._packageManager) {
-			throw new Error('Package manager not initialized');
-		}
-		await this._packageManager.installPackages(packages);
-	}
-
-	/**
-	 * Update the list of packages.
-	 * @param packages Array of package install requests with name and optional version
-	 */
-	async updatePackages(packages: positron.PackageSpec[]): Promise<void> {
-		if (!this._packageManager) {
-			throw new Error('Package manager not initialized');
-		}
-		await this._packageManager.updatePackages(packages);
-	}
-
-	/**
-	 * Update all installed packages.
-	 */
-	async updateAllPackages(): Promise<void> {
-		if (!this._packageManager) {
-			throw new Error('Package manager not initialized');
-		}
-		await this._packageManager.updateAllPackages();
-	}
-
-	/**
-	 * Uninstall the list of packages.
-	 */
-	async uninstallPackages(packageNames: string[]): Promise<void> {
-		if (!this._packageManager) {
-			throw new Error('Package manager not initialized');
-		}
-		await this._packageManager.uninstallPackages(packageNames);
-	}
-
-	/**
-	 * Search a repository for packages matching the query.
-	 */
-	async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
-		if (!this._packageManager) {
-			throw new Error('Package manager not initialized');
-		}
-		return this._packageManager.searchPackages(query);
-	}
-
-	/**
-	 * Search a repository for available versions of a package.
-	 */
-	async searchPackageVersions(name: string): Promise<string[]> {
-		if (!this._packageManager) {
-			throw new Error('Package manager not initialized');
-		}
-		return this._packageManager.searchPackageVersions(name);
+		return this._packageManager;
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
@@ -1135,21 +1082,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private async onStateChange(state: positron.RuntimeState): Promise<void> {
 		this._state = state;
 		if (state === positron.RuntimeState.Ready) {
-			const promises: Promise<void>[] = [
+			await Promise.all([
 				this.startDap(),
 				this.setConsoleWidth(),
-			];
-
-			// Only source the packages script if the environments feature is enabled
-			const environmentsEnabled = vscode.workspace
-				.getConfiguration('positron.environments')
-				.get<boolean>('enable', false);
-
-			if (environmentsEnabled) {
-				promises.push(this._packageManager!.sourcePackagesScript());
-			}
-
-			await Promise.all(promises);
+			]);
 		} else if (state === positron.RuntimeState.Exited) {
 			await Promise.all([
 				this.deactivateServices('session exited'),

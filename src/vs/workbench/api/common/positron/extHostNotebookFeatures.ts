@@ -133,5 +133,14 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 	async scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
 		return this._proxy.$scrollToCellIfNeeded(notebookUri, cellIndex);
 	}
+
+	/**
+	 * Clears cell outputs in a notebook.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndices Optional array of cell indices to clear. If omitted, clears all cells.
+	 */
+	async clearCellOutputs(notebookUri: string, cellIndices?: number[]): Promise<void> {
+		return this._proxy.$clearCellOutputs(notebookUri, cellIndices);
+	}
 }
 

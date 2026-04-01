@@ -127,7 +127,12 @@ export interface RVersionsMetadata {
 	readonly script?: string;
 	/** CRAN repository URL or path to repos.conf file */
 	readonly repo?: string;
-	// Future PRs will add: library
+	/** Colon-separated list of R library directories */
+	readonly library?: string;
+	/** Environment module to load */
+	readonly module?: string;
+	/** Pre-computed startup command for module loading */
+	readonly moduleStartupCommand?: string;
 }
 
 /**

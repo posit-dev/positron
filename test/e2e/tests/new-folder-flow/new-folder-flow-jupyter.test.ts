@@ -47,7 +47,7 @@ async function verifyNotebookEditorVisible(app: Application) {
 }
 
 async function verifyNotebookAndConsolePythonVersion(app: Application) {
-	const sessionSelectorButton = app.code.driver.page.getByRole('button', { name: 'Select Interpreter Session' });
+	const sessionSelectorButton = app.code.driver.page.getByRole('button', { name: 'Select Session' });
 	const sessionSelectorText = await sessionSelectorButton.textContent();
 
 	// Extract the version number (e.g., '3.10.12') from the button text

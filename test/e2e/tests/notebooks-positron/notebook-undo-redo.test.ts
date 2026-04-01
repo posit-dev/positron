@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Cell Undo-Redo Behavior', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER]
 }, () => {
 
 	test('Should correctly undo and redo cell actions', async function ({ app }) {

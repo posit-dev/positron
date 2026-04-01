@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createReadStream, promises } from 'fs';
+import { createReadStream, existsSync, promises } from 'fs';
 import * as http from 'http';
 import * as url from 'url';
 import * as cookie from 'cookie';
@@ -111,6 +111,7 @@ export class WebClientServer {
 	private readonly _webExtensionResourceUrlTemplate: URI | undefined;
 	// --- Start PWB ---
 	private readonly _proxyServer;
+	private readonly _rsLoginCheckScriptTag: string;
 	// --- End PWB ---
 
 	constructor(
@@ -141,6 +142,12 @@ export class WebClientServer {
 				(res as http.ServerResponse).end(message);
 			}
 		});
+
+		// Cache rsLoginCheck.js existence at startup to avoid synchronous file check on every request
+		const rsLoginCheckPath = join(APP_ROOT, 'out/vs/code/browser/workbench/rsLoginCheck.js');
+		this._rsLoginCheckScriptTag = existsSync(rsLoginCheckPath)
+			? `<script src="{{VS_BASE}}{{STATIC_ROUTE}}/out/vs/code/browser/workbench/rsLoginCheck.js"></script>`
+			: '';
 		// --- End PWB ---
 	}
 
@@ -317,6 +324,9 @@ export class WebClientServer {
 				queryConnectionToken,
 				{
 					sameSite: 'lax',
+					// --- Start PWB: Use secure auth cookie
+					httpOnly: true,
+					// --- End PWB
 					maxAge: 60 * 60 * 24 * 7 /* 1 week */
 				}
 			);
@@ -420,6 +430,9 @@ export class WebClientServer {
 			// Assistant and Copilot Chat to work with Github authenticaiton out
 			// of the box)
 			trustedExtensionAuthAccess: this._productService.trustedExtensionAuthAccess,
+			// Pass defaultChatAgent so the DefaultAccountService can initialize
+			// (required by upstream VS Code 1.109+, not in the web dev fallback product config)
+			defaultChatAgent: this._productService.defaultChatAgent,
 			// --- End Positron ---
 		} satisfies Partial<IProductConfiguration>;
 
@@ -443,6 +456,17 @@ export class WebClientServer {
 		} else {
 			this._logService.info('[WebClientServer] No POSITRON_ENFORCED_SETTINGS environment variable found');
 		}
+
+		// --- Start Positron ---
+		const positronDocsUrl = process.env['POSITRON_DOCS_URL'];
+		if (positronDocsUrl) {
+			this._logService.info(`[WebClientServer] Using POSITRON_DOCS_URL: ${positronDocsUrl}`);
+		}
+		// --- End Positron ---
+
+		// --- Start PWB: Use secure auth cookie ---
+		const cookies = cookie.parse(req.headers.cookie || '');
+		const connectionTokenFromCookie = cookies[connectionTokenCookieName];
 		// --- End PWB ---
 
 		const workbenchWebConfiguration = {
@@ -467,15 +491,16 @@ export class WebClientServer {
 			// --- Start Positron ---
 			disableExtension: this._environmentService.args['disable-extension'],
 			bootstrapExtensionsDir: this._environmentService.args['bootstrap-extensions-dir'],
+			positronDocsUrl,
 			// --- End Positron ---
 			productConfiguration,
 			callbackRoute: callbackRoute,
 			// --- Start PWB: Admin enforced settings ---
-			adminPoliciesData: enforcedSettings
+			adminPoliciesData: enforcedSettings,
+			// --- Start PWB: Use secure auth cookie ---
+			connectionToken: connectionTokenFromCookie
 			// --- End PWB ---
 		};
-
-		const cookies = cookie.parse(req.headers.cookie || '');
 		const locale = cookies['vscode.nls.locale'] || req.headers['accept-language']?.split(',')[0]?.toLowerCase() || 'en';
 		let WORKBENCH_NLS_BASE_URL: string | undefined;
 		let WORKBENCH_NLS_URL: string;
@@ -485,6 +510,13 @@ export class WebClientServer {
 		} else {
 			WORKBENCH_NLS_URL = ''; // fallback will apply
 		}
+
+		// --- Start PWB: Conditionally inject rsLoginCheck.js script if it exists in the build ---
+		// Uses cached value from constructor to avoid blocking I/O on every request
+		const rsLoginCheckScript = this._rsLoginCheckScriptTag
+			.replace('{{VS_BASE}}', vscodeBase)
+			.replace('{{STATIC_ROUTE}}', staticRoute);
+		// --- End PWB ---
 
 		const values: { [key: string]: string } = {
 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
@@ -497,6 +529,7 @@ export class WebClientServer {
 			WORKBENCH_NLS_FALLBACK_URL: `${vscodeBase}${staticRoute}/out/nls.messages.js`,
 			BASE: base,
 			VS_BASE: vscodeBase,
+			RS_LOGIN_CHECK_SCRIPT: rsLoginCheckScript,
 			// --- End PWB ---
 		};
 
@@ -557,6 +590,9 @@ export class WebClientServer {
 				this._connectionToken.value,
 				{
 					sameSite: 'lax',
+					// --- Start PWB: Use secure auth cookie
+					httpOnly: true,
+					// --- End PWB
 					maxAge: 60 * 60 * 24 * 7 /* 1 week */
 				}
 			);

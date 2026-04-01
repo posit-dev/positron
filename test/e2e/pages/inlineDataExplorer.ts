@@ -13,6 +13,7 @@ export class InlineDataExplorer {
 
 	// Header elements
 	readonly header: Locator;
+	readonly title: Locator;
 	readonly shape: Locator;
 	readonly openButton: Locator;
 
@@ -26,13 +27,13 @@ export class InlineDataExplorer {
 
 	// Data grid elements
 	readonly columnHeaders: Locator;
-	readonly cells: Locator;
 
 	constructor(
 		private page: Page,
 	) {
 		this.container = this.page.locator('.inline-data-explorer-container');
 		this.header = this.container.locator('.inline-data-explorer-header');
+		this.title = this.container.locator('.inline-data-explorer-title');
 		this.shape = this.container.locator('.inline-data-explorer-shape');
 		this.openButton = this.container.locator('.inline-data-explorer-open-button');
 		this.content = this.container.locator('.inline-data-explorer-content');
@@ -40,7 +41,6 @@ export class InlineDataExplorer {
 		this.disconnectedState = this.container.locator('.inline-data-explorer-disconnected');
 		this.errorState = this.container.locator('.inline-data-explorer-error');
 		this.columnHeaders = this.container.locator('.data-grid-column-header');
-		this.cells = this.container.locator('.data-grid-row-cell');
 	}
 
 	// --- Actions ---
@@ -88,11 +88,10 @@ export class InlineDataExplorer {
 
 	async expectShapeToContain(rows: number | string, columns?: number | string): Promise<void> {
 		await test.step(`Verify shape contains: ${rows} rows${columns ? `, ${columns} columns` : ''}`, async () => {
-			await expect(this.shape).toContainText(String(rows));
-			await expect(this.shape).toContainText('rows');
+			// Use word-boundary regex to avoid partial matches (e.g., "5" matching "50")
+			await expect(this.shape).toHaveText(new RegExp(`\\b${rows}\\b.*rows`));
 			if (columns !== undefined) {
-				await expect(this.shape).toContainText(String(columns));
-				await expect(this.shape).toContainText('columns');
+				await expect(this.shape).toHaveText(new RegExp(`\\b${columns}\\b.*columns`));
 			}
 		});
 	}
@@ -104,21 +103,41 @@ export class InlineDataExplorer {
 		});
 	}
 
-	async expectCellToBeVisible(text: string): Promise<void> {
-		await test.step(`Verify cell with text "${text}" is visible`, async () => {
-			await expect(this.container.getByText(text)).toBeVisible();
-		});
-	}
-
 	async expectOpenButtonToBeVisible(): Promise<void> {
 		await test.step('Verify Open button is visible', async () => {
 			await expect(this.openButton).toBeVisible();
 		});
 	}
 
+	async expectTitleToBe(expectedTitle: string, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Verify inline data explorer title is "${expectedTitle}"`, async () => {
+			await expect(this.title).toHaveText(expectedTitle, { timeout });
+		});
+	}
+
 	async expectNoError(): Promise<void> {
 		await test.step('Verify no error state', async () => {
 			await expect(this.errorState).not.toBeVisible();
+		});
+	}
+
+	async expectCellValue(
+		columnName: string,
+		rowIndex: number,
+		expectedValue: string | number,
+		timeout = DEFAULT_TIMEOUT
+	): Promise<void> {
+		await test.step(`Verify cell [${columnName}, row ${rowIndex}] = "${expectedValue}"`, async () => {
+			await expect(async () => {
+				const headers = await this.columnHeaders.locator('.title').allInnerTexts();
+				const columnIndex = headers.indexOf(columnName);
+				expect(columnIndex).toBeGreaterThanOrEqual(0);
+
+				const cell = this.container.locator(
+					`#data-grid-row-cell-content-${columnIndex}-${rowIndex}`
+				);
+				await expect(cell).toContainText(String(expectedValue));
+			}).toPass({ timeout });
 		});
 	}
 

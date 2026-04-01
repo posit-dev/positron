@@ -3,12 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
-import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
+import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
 
 interface ErrorMessageWithLinksProps {
 	message: string;
-	openerService: IOpenerService;
 	onLinkClick?: () => void;
 }
 
@@ -17,70 +15,8 @@ interface ErrorMessageWithLinksProps {
  * Parses links like [text](command:id?args) and makes them clickable.
  * Also handles newlines properly by converting them to <br /> elements.
  */
-export const ErrorMessageWithLinks = ({ message, openerService, onLinkClick }: ErrorMessageWithLinksProps) => {
-	// Convert text with newlines to React elements.
-	const renderTextWithNewlines = (text: string, startKey: number): (string | React.ReactElement)[] => {
-		const elements: (string | React.ReactElement)[] = [];
-		for (const [i, line] of text.split('\n').entries()) {
-			if (elements.length > 0) {
-				elements.push(<br key={`br-${startKey}-${i}`} />);
-			}
-			if (line) {
-				elements.push(line);
-			}
-		}
-		return elements;
-	};
-
-	// Parse markdown-style command links: [text](command:id?args)
-	const linkRegex = /\[([^\]]+)\]\(command:([^)]+)\)/g;
-
-	const parts: (string | React.ReactElement)[] = [];
-	let lastIndex = 0;
-	let match;
-	let key = 0;
-
-	while ((match = linkRegex.exec(message)) !== null) {
-		// Add text before the link (with newline handling)
-		if (match.index > lastIndex) {
-			const textBefore = message.substring(lastIndex, match.index);
-			parts.push(...renderTextWithNewlines(textBefore, key));
-			key++;
-		}
-
-		const linkText = match[1];
-		const commandLink = `command:${match[2]}`;
-
-		// Create clickable button styled as a link using openerService.
-		// A <button> is used instead of <a href="#"> for correct semantics:
-		// this is a command trigger, not navigation.
-		parts.push(
-			<button
-				key={`link-${key++}`}
-				className='link'
-				onClick={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					openerService.open(commandLink, {
-						fromUserGesture: true,
-						allowCommands: true
-					});
-					// Close the modal after opening the command
-					onLinkClick?.();
-				}}
-			>
-				{linkText}
-			</button>
-		);
-
-		lastIndex = match.index + match[0].length;
-	}
-
-	// Add remaining text after the last link (with newline handling)
-	if (lastIndex < message.length) {
-		const textAfter = message.substring(lastIndex);
-		parts.push(...renderTextWithNewlines(textAfter, key));
-	}
-
-	return <div className='language-model-error error error-msg'>{parts}</div>;
+export const ErrorMessageWithLinks = ({ message, onLinkClick }: ErrorMessageWithLinksProps) => {
+	return <div className='language-model-error error error-msg'>
+		<EmbeddedLink onLinkClick={onLinkClick}>{message}</EmbeddedLink>
+	</div>;
 };

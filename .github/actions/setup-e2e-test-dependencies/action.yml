@@ -32,6 +32,7 @@ runs:
         npm install @midleman/github-actions-reporter@^1.9.5
         npm install @vscode/v8-heap-parser@^0.1.0
         npm install fs-extra
+        npm install axe-core
 
         npm --prefix test/e2e install
         npm --prefix test/e2e run compile

@@ -19,7 +19,7 @@ import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNote
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
-import { JsonRpcErrorCode, PositronCommError } from '../../../../services/languageRuntime/common/positronBaseComm.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 
 // Height calculation constants (from inlineTableDataGridInstance.tsx constructor options)
 const HEADER_HEIGHT = 28;  // columnHeadersHeight
@@ -89,8 +89,9 @@ function InlineDataExplorerHeader({ title, shape, onOpenInExplorer }: {
  * Renders a simplified data explorer inline in notebook cell outputs.
  */
 export function InlineDataExplorer(props: InlineDataExplorerProps) {
-	const { commId, shape, title, onFallback } = props;
+	const { commId, shape, title, variablePath, onFallback } = props;
 	const services = PositronReactServices.services;
+	const notebookInstance = useNotebookInstance();
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
 	// Don't create DisposableStore in useRef - it will leak on remount.
@@ -201,40 +202,12 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		};
 	}, [commId, dataExplorerService, onFallback]);
 
-	const handleOpenInExplorer = async () => {
-		const instance = dataExplorerService.getInstance(commId);
-		if (!instance) {
-			services.notificationService.warn(
-				localize('dataExplorerNotFound', 'Unable to open Data Explorer. Please re-run the cell.')
-			);
-			return;
-		}
-
-		try {
-			// Request kernel to create a new, independent data explorer.
-			// The kernel creates a new comm which auto-opens an editor tab.
-			// Note: the RPC response may not arrive if the inline view
-			// unmounts (disposing the comm) before the response is delivered.
-			// This is expected -- the new editor tab opens regardless.
-			await instance.dataExplorerClientInstance.openDataExplorer();
-		} catch (error) {
-			// The RPC may "fail" because the inline view's comm was disposed
-			// before the response arrived (the new editor tab opening causes
-			// the notebook to deactivate, unmounting this component). This is
-			// fine -- the new editor tab was already created by the kernel.
-			// Only show an error for genuine MethodNotFound failures, which
-			// indicate the kernel doesn't support this method.
-			const isMethodNotFound = (error as PositronCommError)?.code === JsonRpcErrorCode.MethodNotFound;
-			if (isMethodNotFound) {
-				services.notificationService.warn(
-					localize('openDataExplorerNotSupported', 'Opening a full Data Explorer from inline view is not supported by this kernel.')
-				);
-			} else {
-				// Expected race: the inline view's comm was disposed before the
-				// RPC response arrived. The new editor tab was already created.
-				services.logService.trace('openDataExplorer RPC error (benign comm-disposed race):', error);
-			}
-		}
+	const handleOpenInExplorer = () => {
+		services.commandService.executeCommand('positron-data-explorer.openFromInline', {
+			commId,
+			variablePath,
+			notebookUri: notebookInstance.uri,
+		});
 	};
 
 	// Check if grid instance has become stale (no data but still "connected")

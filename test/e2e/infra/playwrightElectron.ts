@@ -52,6 +52,9 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 		executablePath: configuration.electronPath,
 		args: configuration.args,
 		env: configuration.env as { [key: string]: string },
+		// --- Start Positron ---
+		...(options.recordVideo ? { recordVideo: options.recordVideo } : {}),
+		// --- End Positron ---
 		timeout: 0
 	}), 'playwright-electron#launch', logger);
 

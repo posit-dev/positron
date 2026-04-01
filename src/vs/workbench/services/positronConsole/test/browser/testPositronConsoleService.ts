@@ -171,7 +171,9 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string
+		executionId?: string,
+		_documentUri?: URI,
+		_executionMetadata?: Record<string, unknown>
 	): Promise<string> {
 		// Create a code executed event
 		const event = this.createTestCodeExecutedEvent(languageId, code, attribution);
@@ -504,7 +506,8 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		attribution: IConsoleCodeAttribution,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId = 'test-execution-id'
+		executionId = 'test-execution-id',
+		_executionMetadata?: Record<string, unknown>
 	): void {
 		const event: ILanguageRuntimeCodeExecutedEvent = {
 			executionId,

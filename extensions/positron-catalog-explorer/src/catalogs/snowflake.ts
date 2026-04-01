@@ -133,10 +133,16 @@ export async function registerSnowflakeCatalog(
 		connOptions = connections[connName];
 	}
 
+	// Read partner tag from positron-environment configuration
+	const envConfig = vscode.workspace.getConfiguration('environmentVariables');
+	const envVars = envConfig.get<Record<string, string>>('set') ?? {};
+	const partnerTag = envVars['SF_PARTNER'] || 'posit_positron';
+
 	// Start with base connection options
 	const connectionOptions: snowflake.ConnectionOptions = {
 		account: connOptions.account,
 		authenticator: connOptions?.authenticator || 'externalbrowser',
+		application: partnerTag,
 	};
 
 	// Apply any additional options from connection profile

@@ -1,0 +1,81 @@
+{
+	"name": "authentication",
+	"displayName": "Authentication",
+	"description": "Centralized credential management",
+	"version": "0.0.1",
+	"publisher": "positron",
+	"private": true,
+	"engines": {
+		"vscode": "^1.108.0"
+	},
+	"activationEvents": [
+		"onStartupFinished",
+		"onAuthenticationRequest:anthropic-api",
+		"onAuthenticationRequest:posit-ai",
+		"onAuthenticationRequest:ms-foundry",
+		"onAuthenticationRequest:amazon-bedrock",
+		"onCommand:authentication.configureProviders",
+		"onCommand:authentication.migrateApiKey"
+	],
+	"main": "./out/extension.js",
+	"dependencies": {
+		"@aws-sdk/credential-providers": "^3.734.0",
+		"@aws-sdk/types": "^3.734.0"
+	},
+	"contributes": {
+		"authentication": [
+			{
+				"id": "anthropic-api",
+				"label": "Anthropic"
+			},
+			{
+				"id": "posit-ai",
+				"label": "Posit AI"
+			},
+			{
+				"id": "ms-foundry",
+				"label": "Microsoft Foundry"
+			},
+			{
+				"id": "amazon-bedrock",
+				"label": "AWS"
+			}
+		],
+		"configuration": {
+			"title": "Authentication",
+			"properties": {
+				"authentication.aws.credentials": {
+					"type": "object",
+					"default": {},
+					"markdownDescription": "%configuration.aws.credentials.description%",
+					"properties": {
+						"AWS_PROFILE": {
+							"type": "string",
+							"default": null
+						},
+						"AWS_REGION": {
+							"type": "string",
+							"default": null
+						}
+					},
+					"additionalProperties": false
+				},
+				"authentication.aws.inferenceProfileRegion": {
+					"type": "string",
+					"default": null,
+					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"
+				},
+				"authentication.anthropic.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.anthropic.baseUrl.description%"
+				},
+				"authentication.foundry.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.foundry.baseUrl.description%"
+				}
+			}
+		}
+	}
+}

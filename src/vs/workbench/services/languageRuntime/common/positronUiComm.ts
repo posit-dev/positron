@@ -28,6 +28,22 @@ export interface CallMethodResult {
 }
 
 /**
+ * The results of evaluating the statement
+ */
+export interface EvalResult {
+	/**
+	 * The result value
+	 */
+	result: any;
+
+	/**
+	 * The output, if any, emitted during evaluation
+	 */
+	output: string;
+
+}
+
+/**
  * Parameters for the DidChangePlotsRenderSettings method.
  */
 export interface DidChangePlotsRenderSettingsParams {
@@ -53,19 +69,13 @@ export interface CallMethodParams {
 }
 
 /**
- * Parameters for the EditorContextChanged method.
+ * Parameters for the EvaluateCode method.
  */
-export interface EditorContextChangedParams {
+export interface EvaluateCodeParams {
 	/**
-	 * The URI of the active document, or empty string if no editor is active
+	 * The code string to evaluate
 	 */
-	document_uri: string;
-
-	/**
-	 * Whether this editor is the source of code being executed. When true,
-	 * the backend may temporarily add the file's directory to sys.path.
-	 */
-	is_execution_source: boolean;
+	code: string;
 }
 
 /**
@@ -980,7 +990,7 @@ export enum UiFrontendRequest {
 export enum UiBackendRequest {
 	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 	CallMethod = 'call_method',
-	EditorContextChanged = 'editor_context_changed'
+	EvaluateCode = 'evaluate_code'
 }
 
 export class PositronUiComm extends PositronBaseComm {
@@ -1036,23 +1046,16 @@ export class PositronUiComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Active editor context changed
+	 * Evaluate a statement in the interpreter
 	 *
-	 * This notification is sent from the frontend to the backend when the
-	 * active text editor changes or when code is about to be executed from a
-	 * file. It provides the document URI and indicates whether this is the
-	 * source file for code execution.
+	 * Execute a code fragment silently and return a JSON-serialized result.
 	 *
-	 * @param documentUri The URI of the active document, or empty string if
-	 * no editor is active
-	 * @param isExecutionSource Whether this editor is the source of code
-	 * being executed. When true, the backend may temporarily add the file's
-	 * directory to sys.path.
+	 * @param code The code string to evaluate
 	 *
-	 * @returns Unused response to notification
+	 * @returns The results of evaluating the statement
 	 */
-	editorContextChanged(documentUri: string, isExecutionSource: boolean): Promise<null> {
-		return super.performRpc('editor_context_changed', ['document_uri', 'is_execution_source'], [documentUri, isExecutionSource]);
+	evaluateCode(code: string): Promise<EvalResult> {
+		return super.performRpc('evaluate_code', ['code'], [code]);
 	}
 
 

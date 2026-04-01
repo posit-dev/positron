@@ -77,15 +77,12 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
 		fs.mkdirSync(outputPath, { recursive: true });
 
 		const quality = (product as typeof product & { quality?: string }).quality || 'dev';
-		let versionedResourcesFolder = '';
+		const useVersionedUpdate = (product as typeof product & { win32VersionedUpdate?: boolean })?.win32VersionedUpdate;
+		const versionedResourcesFolder = useVersionedUpdate ? commit!.substring(0, 10) : '';
 		// --- Start Positron ---
 		// We use our own positron.iss file
 		/*
-		let issPath = path.join(import.meta.dirname, 'win32', 'code.iss');
-		if (quality && quality === 'insider') {
-			versionedResourcesFolder = commit!.substring(0, 10);
-			issPath = path.join(import.meta.dirname, 'win32', 'code-insider.iss');
-		}
+		const issPath = path.join(import.meta.dirname, 'win32', 'code.iss');
 		*/
 		// --- End Positron ---
 		const originalProductJsonPath = path.join(sourcePath, versionedResourcesFolder, 'resources/app/product.json');

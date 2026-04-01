@@ -20,6 +20,8 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { getActiveWindow } from '../../../../../base/browser/dom.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Localized strings.
 const copyLabel = localize('positron.notebook.copy', "Copy");
@@ -30,6 +32,7 @@ const renderedMarkdownContent = localize('positron.notebooks.markdownCell.render
 
 export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownCell }) {
 
+	const services = usePositronReactServicesContext();
 	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);
 	const markdownContentRef = useRef<HTMLElement>(null);
@@ -109,14 +112,20 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 						onContextMenu={handleContextMenu}
 						onDoubleClick={() => cell.toggleEditor()}
 					>
-						{
-							markdownString.length > 0
-								? <Markdown content={markdownString} />
-								: <div className='empty-output-msg'>
-									{emptyMarkdownCell}
-									{doubleClickToEdit}
-								</div>
-						}
+						<NotebookErrorBoundary
+							componentName='MarkdownOutput'
+							level='output'
+							logService={services.logService}
+						>
+							{
+								markdownString.length > 0
+									? <Markdown content={markdownString} />
+									: <div className='empty-output-msg'>
+										{emptyMarkdownCell}
+										{doubleClickToEdit}
+									</div>
+							}
+						</NotebookErrorBoundary>
 					</section>
 				)
 				: null

@@ -196,6 +196,40 @@ suite('Strings', () => {
 		assert.strictEqual(strings.lcut('............a', 10, '…'), '............a');
 	});
 
+	test('rcut', () => {
+		assert.strictEqual(strings.rcut('foo bar', 0), '');
+		assert.strictEqual(strings.rcut('foo bar', 1), '');
+		assert.strictEqual(strings.rcut('foo bar', 3), 'foo');
+		assert.strictEqual(strings.rcut('foo bar', 4), 'foo'); // Trailing whitespace trimmed
+		assert.strictEqual(strings.rcut('foo bar', 5), 'foo');
+		assert.strictEqual(strings.rcut('foo bar', 7), 'foo bar');
+		assert.strictEqual(strings.rcut('foo bar', 10), 'foo bar');
+		assert.strictEqual(strings.rcut('test string 0.1.2.3', 6), 'test');
+
+		assert.strictEqual(strings.rcut('foo bar', 0, '…'), '…');
+		assert.strictEqual(strings.rcut('foo bar', 1, '…'), '…');
+		assert.strictEqual(strings.rcut('foo bar', 3, '…'), 'foo…');
+		assert.strictEqual(strings.rcut('foo bar', 4, '…'), 'foo…'); // Trailing whitespace trimmed
+		assert.strictEqual(strings.rcut('foo bar', 5, '…'), 'foo…');
+		assert.strictEqual(strings.rcut('foo bar', 7, '…'), 'foo bar');
+		assert.strictEqual(strings.rcut('foo bar', 10, '…'), 'foo bar');
+		assert.strictEqual(strings.rcut('test string 0.1.2.3', 6, '…'), 'test…');
+
+		assert.strictEqual(strings.rcut('', 10), '');
+		assert.strictEqual(strings.rcut('a', 10), 'a');
+		assert.strictEqual(strings.rcut('a ', 10), 'a');
+		assert.strictEqual(strings.rcut('a            ', 10), 'a');
+		assert.strictEqual(strings.rcut('a       bbbb ', 10), 'a       bbbb');
+		assert.strictEqual(strings.rcut('a............', 10), 'a............');
+
+		assert.strictEqual(strings.rcut('', 10, '…'), '');
+		assert.strictEqual(strings.rcut('a', 10, '…'), 'a');
+		assert.strictEqual(strings.rcut('a ', 10, '…'), 'a');
+		assert.strictEqual(strings.rcut('a            ', 10, '…'), 'a');
+		assert.strictEqual(strings.rcut('a       bbbb ', 10, '…'), 'a       bbbb');
+		assert.strictEqual(strings.rcut('a............', 10, '…'), 'a............');
+	});
+
 	test('escape', () => {
 		assert.strictEqual(strings.escape(''), '');
 		assert.strictEqual(strings.escape('foo'), 'foo');
@@ -719,6 +753,106 @@ suite('Strings', () => {
 		assert.ok(strings.multibyteAwareBtoa('hello world').length > 0);
 		assert.ok(strings.multibyteAwareBtoa('平仮名').length > 0);
 		assert.ok(strings.multibyteAwareBtoa(new Array(100000).fill('vs').join('')).length > 0); // https://github.com/microsoft/vscode/issues/112013
+	});
+
+	suite('punycode', () => {
+		test('punycodeEncode - basic ASCII only', () => {
+			// Pure ASCII strings should be returned as-is
+			assert.strictEqual(strings.punycodeEncode('abc'), 'abc');
+			assert.strictEqual(strings.punycodeEncode('hello'), 'hello');
+			assert.strictEqual(strings.punycodeEncode('example'), 'example');
+		});
+
+		test('punycodeEncode - empty string', () => {
+			assert.strictEqual(strings.punycodeEncode(''), '');
+		});
+
+		test('punycodeEncode - German words', () => {
+			// "münchen" -> "mnchen-3ya"
+			assert.strictEqual(strings.punycodeEncode('münchen'), 'mnchen-3ya');
+			// "bücher" -> "bcher-kva"
+			assert.strictEqual(strings.punycodeEncode('bücher'), 'bcher-kva');
+		});
+
+		test('punycodeEncode - Chinese', () => {
+			// "中文" -> "fiq228c"
+			assert.strictEqual(strings.punycodeEncode('中文'), 'fiq228c');
+		});
+
+		test('punycodeEncode - Japanese', () => {
+			// "日本語" -> "wgv71a119e"
+			assert.strictEqual(strings.punycodeEncode('日本語'), 'wgv71a119e');
+		});
+
+		test('punycodeEncode - Arabic', () => {
+			// RFC 3492 example (A) - Arabic (Egyptian)
+			assert.strictEqual(
+				strings.punycodeEncode('ليهمابتكلموشعربي؟'),
+				'egbpdaj6bu4bxfgehfvwxn'
+			);
+		});
+
+		test('punycodeEncode - mixed ASCII and non-ASCII', () => {
+			// "café" -> "caf-dma"
+			assert.strictEqual(strings.punycodeEncode('café'), 'caf-dma');
+		});
+
+		test('punycodeEncode - supplementary plane characters', () => {
+			// Emoji test - "💻" (U+1F4BB = 128187 decimal)
+			assert.strictEqual(strings.punycodeEncode('💻'), '3s8h');
+			// Mixed with ASCII - "a💻b"
+			assert.strictEqual(strings.punycodeEncode('a💻b'), 'ab-sv72a');
+		});
+
+		test('punycodeEncode - RFC 3492 test vectors', () => {
+			// (B) Chinese (simplified) - "他们为什么不说中文"
+			assert.strictEqual(
+				strings.punycodeEncode('\u4ed6\u4eec\u4e3a\u4ec0\u4e48\u4e0d\u8bf4\u4e2d\u6587'),
+				'ihqwcrb4cv8a8dqg056pqjye'
+			);
+
+			// (C) Chinese (traditional) - "他們爲什麽不說中文"
+			assert.strictEqual(
+				strings.punycodeEncode('\u4ed6\u5011\u7232\u4ec0\u9ebd\u4e0d\u8aaa\u4e2d\u6587'),
+				'ihqwctvzc91f659drss3x8bo0yb'
+			);
+
+			// (D) Czech - "Pročprostěnemluvíčesky" - Note: uppercase P is preserved
+			assert.strictEqual(
+				strings.punycodeEncode('Pro\u010dprost\u011bnemluv\u00ed\u010desky'),
+				'Proprostnemluvesky-uyb24dma41a'
+			);
+
+			// (L) Japanese - "3年B組金八先生" (3nen B gumi Kinpachi sensei)
+			// Note: uppercase B is preserved in output
+			assert.strictEqual(
+				strings.punycodeEncode('3\u5e74B\u7d44\u91d1\u516b\u5148\u751f'),
+				'3B-ww4c5e180e575a65lsy2b'
+			);
+
+			// (M) Japanese - "安室奈美恵-with-SUPER-MONKEYS"
+			// Note: ASCII characters preserve their original case
+			assert.strictEqual(
+				strings.punycodeEncode('\u5b89\u5ba4\u5948\u7f8e\u6075-with-SUPER-MONKEYS'),
+				'-with-SUPER-MONKEYS-pc58ag80a8qai00g7n9n'
+			);
+		});
+
+		test('toACE - returns ASCII unchanged', () => {
+			assert.strictEqual(strings.toPunycodeACE('example'), 'example');
+			assert.strictEqual(strings.toPunycodeACE('hello-world'), 'hello-world');
+			assert.strictEqual(strings.toPunycodeACE('test123'), 'test123');
+		});
+
+		test('toACE - adds xn-- prefix for non-ASCII', () => {
+			assert.strictEqual(strings.toPunycodeACE('münchen'), 'xn--mnchen-3ya');
+			assert.strictEqual(strings.toPunycodeACE('bücher'), 'xn--bcher-kva');
+			assert.strictEqual(strings.toPunycodeACE('日本語'), 'xn--wgv71a119e');
+		});
+
+		test('toACE - empty string', () => {
+			assert.strictEqual(strings.toPunycodeACE(''), '');
+		});
 	});
 
 	ensureNoDisposablesAreLeakedInTestSuite();

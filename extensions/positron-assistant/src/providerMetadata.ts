@@ -55,17 +55,17 @@ export const PROVIDER_METADATA = {
 		id: 'amazon-bedrock',
 		displayName: 'Amazon Bedrock',
 		settingName: 'amazonBedrock',
-		providerVariablesSettingName: 'positron.assistant.providerVariables.bedrock',
+		providerVariablesSettingName: 'authentication.aws.credentials',
 	},
 	anthropic: {
 		id: 'anthropic-api',
 		displayName: 'Anthropic',
 		settingName: 'anthropic',
 	},
-	azure: {
-		id: 'azure',
-		displayName: 'Azure',
-		settingName: 'azure',
+	foundry: {
+		id: 'ms-foundry',
+		displayName: 'Microsoft Foundry',
+		settingName: 'msFoundry',
 	},
 	copilot: {
 		id: 'copilot-auth',

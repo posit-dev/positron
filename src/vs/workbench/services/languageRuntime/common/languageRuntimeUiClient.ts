@@ -6,7 +6,7 @@
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, OpenWithSystemEvent, ClearWebviewPreloadsEvent, ShowHtmlFileDestination } from './positronUiComm.js';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, OpenWithSystemEvent, ClearWebviewPreloadsEvent, ShowHtmlFileDestination, EvalResult } from './positronUiComm.js';
 import { PositronUiCommInstance } from './positronUiCommInstance.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -269,6 +269,16 @@ export class UiClientInstance extends Disposable {
 	}
 
 	/**
+	 * Evaluate code silently in the runtime and return a JSON-coerced result.
+	 *
+	 * @param code The code to evaluate
+	 * @returns The result of evaluating the code
+	 */
+	public evaluateCode(code: string): Promise<EvalResult> {
+		return this._comm.evaluateCode(code);
+	}
+
+	/**
 	 * Get the ID of the underlying runtime client
 	 */
 	public getClientId(): string {
@@ -295,15 +305,5 @@ export class UiClientInstance extends Disposable {
 	 */
 	public async didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
 		await this._comm.didChangePlotsRenderSettings(settings);
-	}
-
-	/**
-	 * Notification that the active editor context has changed.
-	 *
-	 * @param documentUri The URI of the active document, or empty string if no editor is active
-	 * @param isExecutionSource Whether this editor is the source of code being executed
-	 */
-	public async editorContextChanged(documentUri: string, isExecutionSource: boolean): Promise<void> {
-		await this._comm.editorContextChanged(documentUri, isExecutionSource);
 	}
 }

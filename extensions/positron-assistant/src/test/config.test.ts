@@ -124,7 +124,10 @@ suite('Configuration Dialog Tests', () => {
 			await showConfigurationDialog(mockContext);
 
 			assert.ok(!mockShowInformationMessage.called, 'Should not show information message');
-			assert.ok(mockShowLanguageModelConfig.called, 'Should show configuration dialog');
+			const delegateCall = mockExecuteCommand.getCalls().find(
+				(c: sinon.SinonSpyCall) => c.args[0] === 'authentication.configureProviders'
+			);
+			assert.ok(delegateCall, 'Should delegate to auth extension config dialog');
 		});
 	});
 });

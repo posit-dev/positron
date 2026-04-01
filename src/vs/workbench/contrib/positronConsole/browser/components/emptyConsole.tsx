@@ -9,7 +9,7 @@ import './emptyConsole.css';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import { LANGUAGE_RUNTIME_START_NEW_SESSION_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
+import { LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Load localized copy for control.
@@ -27,7 +27,7 @@ export const EmptyConsole = () => {
 	const services = usePositronReactServicesContext();
 
 	const handlePressed = () => {
-		services.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);
+		services.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID);
 	};
 
 	// Render.

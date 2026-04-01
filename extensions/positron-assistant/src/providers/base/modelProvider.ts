@@ -22,7 +22,7 @@ import { ErrorContext } from './errorContext';
  * Abstract base class for all model providers in the Positron Assistant extension.
  *
  * This class provides a universal interface for interacting with various AI model providers
- * (Anthropic, OpenAI, Google, Azure, etc.) through a consistent API. It implements the
+ * (Anthropic, OpenAI, Google, Microsoft Foundry, etc.) through a consistent API. It implements the
  * {@link positron.ai.LanguageModelChatProvider} interface to integrate with Positron's
  * language model system.
  *
@@ -325,7 +325,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 		// If we get here, all tested models failed
 		const allErrors = errors.join('; ');
 		this.logger.error(`All ${modelsToTest.length} tested models failed: ${allErrors}`);
-		return new Error(`All tested models failed: ${allErrors}`);
+		return new Error(`${this.providerName}: All tested models failed: ${allErrors}`);
 	}
 
 	/**

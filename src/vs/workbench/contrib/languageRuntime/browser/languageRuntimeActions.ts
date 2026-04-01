@@ -18,7 +18,7 @@ import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
@@ -28,6 +28,9 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { getErrorMessage } from '../../../../base/common/errors.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -39,13 +42,17 @@ interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeCli
 
 // Action IDs
 export const LANGUAGE_RUNTIME_SELECT_SESSION_ID = 'workbench.action.language.runtime.selectSession';
-export const LANGUAGE_RUNTIME_START_NEW_SESSION_ID = 'workbench.action.language.runtime.startNewSession';
 export const LANGUAGE_RUNTIME_RESTART_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.restartActiveSession';
 export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
-export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveSession';
-export const LANGUAGE_RUNTIME_SELECT_RUNTIME_ID = 'workbench.action.languageRuntime.selectRuntime';
 export const LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID = 'workbench.action.language.runtime.discoverAllRuntimes';
+
+// Console Session Specific Action IDs
+export const LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.startNewConsoleSession';
+export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveConsoleSession';
+
+// Notebook Session Specific Action IDs
+export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.action.languageRuntime.selectLegacyNotebookRuntime';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -170,7 +177,7 @@ const selectLanguageRuntimeSession = async (
 	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
 		{
-			label: localize('positron.languageRuntime.activeSessions', 'Active Interpreter Sessions'),
+			label: localize('positron.languageRuntime.activeConsoleSessions', 'Console Sessions'),
 			type: 'separator',
 		},
 		...activeRuntimeItems,
@@ -181,21 +188,21 @@ const selectLanguageRuntimeSession = async (
 
 	if (options?.allowStartSession) {
 		quickPickItems.push({
-			label: localize('positron.languageRuntime.newSession', 'New Interpreter Session...'),
+			label: localize('positron.languageRuntime.newConsoleSession', 'New Console Session...'),
 			id: startNewRuntimeId,
 			alwaysShow: true
 		});
 	}
 	const result = await quickInputService.pick(quickPickItems, {
-		title: options?.title || localize('positron.languageRuntime.selectSession', 'Select Interpreter Session'),
+		title: options?.title || localize('positron.languageRuntime.selectSession.quickPickTitle', 'Select Interpreter Session'),
 		canPickMany: false,
 		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
 	});
 
 	// Handle the user's selection.
 	if (result?.id === startNewRuntimeId) {
-		// If the user selected "All Runtimes...", execute the command to show all runtimes.
-		const sessionId: string | undefined = await commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);
+		// If the user selected "New Console Session...", execute the command to start a new console session.
+		const sessionId: string | undefined = await commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID);
 		if (sessionId) {
 			return runtimeSessionService.activeSessions.find(session => session.sessionId === sessionId);
 		}
@@ -278,8 +285,10 @@ const createInterpreterGroups = (
  * @returns
  */
 const selectNewLanguageRuntime = async (
-	accessor: ServicesAccessor
-): Promise<ILanguageRuntimeMetadata | undefined> => {
+	accessor: ServicesAccessor,
+	options?: {
+		title?: string;
+	}): Promise<ILanguageRuntimeMetadata | undefined> => {
 	// Access services.
 	const quickInputService = accessor.get(IQuickInputService);
 	const runtimeSessionService = accessor.get(IRuntimeSessionService);
@@ -408,7 +417,7 @@ const selectNewLanguageRuntime = async (
 	const selectedRuntime = await quickInputService.pick(
 		runtimeItems,
 		{
-			title: localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
+			title: options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
 			canPickMany: false
 		}
 	);
@@ -437,7 +446,7 @@ const renameLanguageRuntimeSession = async (
 	const sessionName = await quickInputService.input({
 		value: '',
 		placeHolder: '',
-		prompt: localize('positron.console.renameSession.prompt', "Enter the new session name"),
+		prompt: localize('positron.languageRuntime.renameSession.prompt', "Enter the new session name"),
 	});
 
 	// Validate the new session name
@@ -451,7 +460,7 @@ const renameLanguageRuntimeSession = async (
 		sessionService.updateSessionName(sessionId, newSessionName);
 	} catch (error) {
 		notificationService.error(
-			localize('positron.console.renameSession.error',
+			localize('positron.languageRuntime.renameSession.error',
 				"Failed to rename session {0}: {1}",
 				sessionId,
 				error
@@ -501,12 +510,12 @@ export function registerLanguageRuntimeActions() {
 	/**
 	 * Action used to select a registered language runtime (aka interpreter).
 	 *
-	 * NOTE: This is a convenience action that is used by the notebook services
+	 * NOTE: This is a convenience action that is used by the legacy notebook service
 	 */
 	registerAction2(class PickInterpreterAction extends Action2 {
 		constructor() {
 			super({
-				id: LANGUAGE_RUNTIME_SELECT_RUNTIME_ID,
+				id: LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID,
 				title: localize2('positron.command.selectInterpreter', "Select Interpreter"),
 				f1: false,
 				category,
@@ -566,14 +575,19 @@ export function registerLanguageRuntimeActions() {
 	 */
 	registerLanguageRuntimeAction(
 		LANGUAGE_RUNTIME_SELECT_SESSION_ID,
-		localize2('positron.languageRuntime.selectInterpreterSession', 'Select Interpreter Session'),
+		localize2('positron.languageRuntime.selectSession.commandTitle', 'Select Session'),
 		async accessor => {
 			// Access services.
 			const commandService = accessor.get(ICommandService);
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// Prompt the user to select a runtime to use.
-			const newActiveSession = await selectLanguageRuntimeSession(accessor, { allowStartSession: true });
+			const newActiveSession = await selectLanguageRuntimeSession(accessor,
+				{
+					allowStartSession: true,
+					title: localize('positron.languageRuntime.changeForegroundSession.quickPickTitle', 'Interpreter Sessions')
+				}
+			);
 
 			// If the user selected a specific session, set it as the active session if it still exists
 			if (newActiveSession) {
@@ -581,10 +595,11 @@ export function registerLanguageRuntimeActions() {
 				commandService.executeCommand('workbench.panel.positronConsole.focus');
 				runtimeSessionService.foregroundSession = newActiveSession;
 			}
-		});
+		}
+	);
 
 	/**
-	 * Action that allows the user to create a new session from a list of registered runtimes.
+	 * Action that allows the user to create a new console session from a list of registered runtimes.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -593,8 +608,8 @@ export function registerLanguageRuntimeActions() {
 		constructor() {
 			super({
 				icon: Codicon.plus,
-				id: LANGUAGE_RUNTIME_START_NEW_SESSION_ID,
-				title: localize2('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
+				id: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID,
+				title: localize2('positron.languageRuntime.startConsoleSession', 'Start New Console Session'),
 				category,
 				f1: true,
 				menu: [{
@@ -620,7 +635,10 @@ export function registerLanguageRuntimeActions() {
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// Prompt the user to select a runtime to start
-			const selectedRuntime = await selectNewLanguageRuntime(accessor);
+			const selectedRuntime = await selectNewLanguageRuntime(
+				accessor,
+				{ title: localize('positron.languageRuntime.startConsoleSession', 'Start New Console Session') }
+			);
 
 			// If the user selected a runtime, set it as the active runtime
 			if (selectedRuntime?.runtimeId) {
@@ -642,15 +660,15 @@ export function registerLanguageRuntimeActions() {
 	});
 
 	/**
-	 * Action that allows the user to create a new session based off the current active session.
+	 * Action that allows the user to create a new console session based off the current active console session.
 	 * This utilizes the runtime data from the current session to create a new session.
 	 */
 	registerAction2(class extends Action2 {
 		constructor() {
 			super({
 				icon: Codicon.plus,
-				id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID,
-				title: localize2('positron.languageRuntime.duplicateSession.title', 'Duplicate Active Interpreter Session'),
+				id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID,
+				title: localize2('positron.languageRuntime.duplicateActiveConsoleSession.title', 'Duplicate Active Console Session'),
 				category,
 				f1: true,
 				menu: [{
@@ -705,7 +723,7 @@ export function registerLanguageRuntimeActions() {
 		constructor() {
 			super({
 				id: LANGUAGE_RUNTIME_RENAME_SESSION_ID,
-				title: localize2('positron.console.renameSesison', "Rename Interpreter Session"),
+				title: localize2('positron.languageRuntime.renameSession', "Rename Interpreter Session"),
 				category,
 				f1: true,
 			});
@@ -724,7 +742,7 @@ export function registerLanguageRuntimeActions() {
 
 			// Prompt the user to select a session they want to rename.
 			const session = await selectLanguageRuntimeSession(
-				accessor, { title: 'Select Interpreter Session To Rename' });
+				accessor, { title: localize('positron.languageRuntime.selectSessionToRename', 'Select Session To Rename') });
 			if (!session) {
 				return;
 			}
@@ -748,7 +766,7 @@ export function registerLanguageRuntimeActions() {
 		constructor() {
 			super({
 				id: LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID,
-				title: localize2('positron.console.renameActiveSesison', "Rename Active Interpreter Session"),
+				title: localize2('positron.languageRuntime.renameActiveSession', "Rename Active Interpreter Session"),
 				category,
 				f1: true,
 				keybinding: {
@@ -1195,6 +1213,116 @@ export function registerLanguageRuntimeActions() {
 	});
 }
 
+registerAction2(class EvaluateCodeAction extends Action2 {
+
+	constructor() {
+		super({
+			id: 'workbench.action.evaluateCode',
+			title: localize2('positron.command.evaluateCode', "Evaluate Code"),
+			f1: true,
+			category
+		});
+	}
+
+	/**
+	 * Runs the Evaluate Code action.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+		const progressService = accessor.get(IProgressService);
+		const editorService = accessor.get(IEditorService);
+
+		// Get the foreground session
+		const foregroundSession = runtimeSessionService.foregroundSession;
+
+		if (!foregroundSession) {
+			notificationService.warn(
+				localize('positron.evaluateCode.noSession', "No active interpreter session.")
+			);
+			return;
+		}
+
+		// Get the active runtime session wrapper (which has the UI client)
+		const activeSession = runtimeSessionService.getActiveSession(foregroundSession.sessionId);
+
+		if (!activeSession || !activeSession.uiClient) {
+			notificationService.warn(
+				localize('positron.evaluateCode.noUiClient', "Session does not support code evaluation.")
+			);
+			return;
+		}
+
+		// Prompt the user for code to evaluate
+		const code = await quickInputService.input({
+			prompt: localize('positron.evaluateCode.prompt', "Enter code to evaluate"),
+			placeHolder: localize('positron.evaluateCode.placeholder', "Code expression"),
+		});
+
+		if (!code) {
+			return;
+		}
+
+		// Truncate code for display in progress title
+		const codeLabel = code.length > 50 ? code.substring(0, 50) + '...' : code;
+
+		const languageId = foregroundSession.runtimeMetadata.languageId;
+
+		// Build the input section (shared by success and error)
+		const lines: string[] = [];
+		lines.push('## Input');
+		lines.push('');
+		lines.push('```' + languageId + '');
+		lines.push(code);
+		lines.push('```');
+
+		try {
+			const result = await progressService.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: localize('positron.evaluateCode.evaluating', "Evaluating: {0}", codeLabel),
+					delay: 500,
+					cancellable: false,
+				},
+				() => activeSession.uiClient!.evaluateCode(code)
+			);
+
+			const resultStr = JSON.stringify(result.result, null, 2);
+
+			lines.push('');
+			lines.push('## Result');
+			lines.push('');
+			lines.push('```json');
+			lines.push(resultStr);
+			lines.push('```');
+			if (result.output) {
+				lines.push('');
+				lines.push('## Output');
+				lines.push('');
+				lines.push('```');
+				lines.push(result.output);
+				lines.push('```');
+			}
+		} catch (err) {
+			lines.push('');
+			lines.push('## Error');
+			lines.push('');
+			lines.push('```');
+			lines.push(getErrorMessage(err));
+			lines.push('```');
+		}
+
+		await editorService.openEditor({
+			resource: undefined,
+			contents: lines.join('\n'),
+			languageId: 'markdown',
+		});
+	}
+});
+
 registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 	// from explorer
 	constructor() {
@@ -1295,3 +1423,16 @@ registerAction2(class extends Action2 {
 		notificationService.info(localize('positron.interpreter.archMismatchReset', 'Architecture mismatch warning has been reset. The warning will appear the next time you start an interpreter with a different architecture than your system.'));
 	}
 });
+
+CommandsRegistry.registerCommandAlias(
+	'workbench.action.language.runtime.startNewSession',
+	LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID
+);
+CommandsRegistry.registerCommandAlias(
+	'workbench.action.language.runtime.duplicateActiveSession',
+	LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID
+);
+CommandsRegistry.registerCommandAlias(
+	'workbench.action.languageRuntime.selectRuntime',
+	LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID
+);

@@ -66,6 +66,35 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _onDidChangePinnedColumns = this._register(new Emitter<number[]>());
 
+	/**
+	 * The onDidSetRowFilters event emitter.
+	 * Fired after row filters are applied so the coordinator can refresh
+	 * the summary panel's column profiles.
+	 */
+	private readonly _onDidSetRowFilters = this._register(new Emitter<void>());
+
+	/**
+	 * Whether the data explorer is currently visible.
+	 * When not visible, expensive operations are deferred.
+	 */
+	private _visible = true;
+
+	/**
+	 * Whether a schema update is pending because we were not visible when it occurred.
+	 */
+	private _pendingSchemaUpdate = false;
+
+	/**
+	 * Whether a data update is pending because we were not visible when it occurred.
+	 */
+	private _pendingDataUpdate = false;
+
+	/**
+	 * Whether the initial data load has been completed.
+	 * Used to trigger initial load when first becoming visible.
+	 */
+	private _initialLoadComplete = false;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -111,111 +140,54 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		this._hoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
 		this._hoverManager.setCustomHoverDelay(500);
 
-		/**
-		 * Updates the layout entries.
-		 * @param state The backend state, if known; otherwise, undefined.
-		 */
-		const updateLayoutEntries = async (state?: BackendState) => {
-			// Get the backend state, if was not provided.
-			if (!state) {
-				state = await this._dataExplorerClientInstance.getBackendState();
-			}
-
-			// Notify the user if the dataset exceeds the advanced layout limits which will
-			// cause advanced features to be disabled to improve performance.
-			// See https://github.com/posit-dev/positron/issues/9265
-			const exceedsColumnLimit = await this.exceedsAdvancedLayoutLimits(state);
-			if (exceedsColumnLimit) {
-				const message = localize(
-					'positron.dataExplorer.largeDatasetNotificationColumns',
-					"Dataset '{0}' has {1} columns, which exceeds the size to fully support all features for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
-					state.display_name,
-					state.table_shape.num_columns.toLocaleString()
-				);
-
-				// Show a sticky notification that persists until dismissed
-				this._services.notificationService.notify({
-					id: `dataExplorer.largeDataset.${this._dataExplorerClientInstance.identifier}`,
-					severity: Severity.Warning,
-					message: message,
-					sticky: true,
-					source: localize('positron.dataExplorer.source', 'Data Explorer')
-				});
-			}
-
-			// Calculate column widths.
-			const columnWidths = await this._tableDataCache.calculateColumnWidths(
-				this.minimumColumnWidth,
-				this.maximumColumnWidth
-			);
-
-			// Set the layout entries.
-			this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
-			this._rowLayoutManager.setEntries(state.table_shape.num_rows);
-
-			// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
-			if (state.table_shape.num_rows === 0) {
-				this._verticalScrollOffset = 0;
-				this._horizontalScrollOffset = 0;
-				// Force a layout recomputation and repaint
-				this.softReset();
-				this.fireOnDidUpdateEvent();
-			} else {
-				// Adjust the vertical scroll offset, if needed.
-				if (!this.firstRow) {
-					this._verticalScrollOffset = 0;
-				} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
-					this._verticalScrollOffset = this.maximumVerticalScrollOffset;
-				}
-
-				// Adjust the horizontal scroll offset, if needed.
-				if (!this.firstColumn) {
-					this._horizontalScrollOffset = 0;
-				} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
-					this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
-				}
-			}
-		};
-
 		// Add the data explorer client onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			// Update the layout entries.
-			await updateLayoutEntries();
-
-			// Perform a soft reset.
-			this.softReset();
-
-			// Update the cache.
-			await this.fetchData(InvalidateCacheFlags.All);
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingSchemaUpdate = true;
+				return;
+			}
+			// Clear pending flags since we're doing the work now.
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this.handleSchemaUpdate();
 		}));
 
 		// Add the data explorer client onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			// Update the layout entries.
-			await updateLayoutEntries();
-
-			// Update the cache.
-			await this.fetchData(InvalidateCacheFlags.Data);
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingDataUpdate = true;
+				return;
+			}
+			// Clear pending flag since we're doing the work now.
+			this._pendingDataUpdate = false;
+			await this.handleDataUpdate();
 		}));
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Update the layout entries.
-			await updateLayoutEntries(state);
+			// If not visible, skip layout and sort key updates. Backend-
+			// initiated events will also fire onDidSchemaUpdate or
+			// onDidDataUpdate, which set the pending flags and will
+			// rebuild everything when we become visible again.
+			if (!this._visible) {
+				return;
+			}
 
-			// Clear column sort keys.
-			this._columnSortKeys.clear();
+			await this.updateLayoutEntries(state);
 
-			// Update the column sort keys from the state.
-			state.sort_keys.forEach((key, sortIndex) => {
-				this._columnSortKeys.set(
-					key.column_index,
-					new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
-				);
-			});
+			// Rebuild sort keys on every backend state change to keep the
+			// data grid's sort indicators in sync with the backend's sort
+			// state (e.g., sort keys may be affected by schema changes).
+			this.rebuildSortKeysFromCache();
 
-			// Fetch data.
-			await this.fetchData(InvalidateCacheFlags.Data);
+			// Do not fetch data here. For backend-initiated events,
+			// onDidUpdateBackendState fires before onDidSchemaUpdate /
+			// onDidDataUpdate. Fetching here would compute data twice --
+			// once here and again in the schema/data handler.
+			// UI-initiated operations (setRowFilters, sortData) handle
+			// their own cache updates explicitly.
 		}));
 
 		// Add the table data cache onDidUpdate event handler.
@@ -305,18 +277,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();
 
-		// Get the first column layout entry and the first row layout entry. If they were found,
-		// update the cache.
+		// Update the cache with the visible data range, or invalidate with empty arrays
+		// if there's no visible data (e.g., zero rows after filtering).
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
-		if (columnDescriptor && rowDescriptor) {
-			// Update the cache.
-			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.Data,
-				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
-				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
-			});
-		}
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.Data,
+			columnIndices: columnDescriptor && rowDescriptor
+				? this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR)
+				: [],
+			rowIndices: columnDescriptor && rowDescriptor
+				? this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
+				: []
+		});
 	}
 
 	/**
@@ -758,6 +731,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	readonly onDidChangePinnedColumns = this._onDidChangePinnedColumns.event;
 
+	/**
+	 * The onDidSetRowFilters event.
+	 */
+	readonly onDidSetRowFilters = this._onDidSetRowFilters.event;
+
 	//#region Public Methods
 
 	/**
@@ -806,18 +784,29 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();
 
-		// Get the first column layout entry and the first row layout entry. If they were found,
-		// update the cache.
+		// Update layout entries to reflect the new row count after filtering.
+		// Note: The onDidUpdateBackendState handler also does this, but since the
+		// handler runs asynchronously we need to ensure it's done before we proceed.
+		await this.updateLayoutEntries();
+
+		// Update the data cache with the visible data range, or invalidate with empty arrays
+		// if there's no visible data (e.g., zero rows after filtering).
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
-		if (columnDescriptor && rowDescriptor) {
-			// Update the cache.
-			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.Data,
-				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
-				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
-			});
-		}
+		const columnIndices = columnDescriptor && rowDescriptor
+			? this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR)
+			: [];
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.Data,
+			columnIndices,
+			rowIndices: columnDescriptor && rowDescriptor
+				? this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
+				: []
+		});
+
+		// Notify the coordinator to refresh the summary panel's column
+		// profiles now that the data cache has been updated.
+		this._onDidSetRowFilters.fire();
 	}
 
 	/**
@@ -825,6 +814,149 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	isFeatureEnabled(status: SupportStatus): boolean {
 		return status === SupportStatus.Supported;
+	}
+
+	/**
+	 * Sets the visibility state.
+	 * When becoming visible with pending updates, triggers deferred refresh operations.
+	 * @param visible Whether the data explorer is currently visible.
+	 */
+	async setVisible(visible: boolean): Promise<void> {
+		const wasHidden = !this._visible;
+		this._visible = visible;
+
+		if (!visible) {
+			return;
+		}
+
+		// Initial load: first time becoming visible, no data loaded yet.
+		if (!this._initialLoadComplete) {
+			this._initialLoadComplete = true;
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this.updateLayoutEntries();
+			this.rebuildSortKeysFromCache();
+			await this.fetchData(InvalidateCacheFlags.All);
+			return;
+		}
+
+		// Deferred updates: becoming visible after being hidden with pending updates.
+		// Schema updates take precedence since they're more comprehensive.
+		if (wasHidden) {
+			if (this._pendingSchemaUpdate) {
+				this._pendingSchemaUpdate = false;
+				this._pendingDataUpdate = false;
+				await this.handleSchemaUpdate();
+			} else if (this._pendingDataUpdate) {
+				this._pendingDataUpdate = false;
+				await this.handleDataUpdate();
+			}
+		}
+	}
+
+	/**
+	 * Updates the layout entries.
+	 * @param state The backend state, if known; otherwise, undefined.
+	 */
+	private async updateLayoutEntries(state?: BackendState): Promise<void> {
+		// Get the backend state, if it was not provided.
+		if (!state) {
+			state = await this._dataExplorerClientInstance.getBackendState();
+		}
+
+		// Notify the user if the dataset exceeds the advanced layout limits which will
+		// cause advanced features to be disabled to improve performance.
+		// See https://github.com/posit-dev/positron/issues/9265
+		const exceedsColumnLimit = await this.exceedsAdvancedLayoutLimits(state);
+		if (exceedsColumnLimit) {
+			const message = localize(
+				'positron.dataExplorer.largeDatasetNotificationColumns',
+				"Dataset '{0}' has {1} columns, which exceeds the size to fully support all features for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
+				state.display_name,
+				state.table_shape.num_columns.toLocaleString()
+			);
+
+			// Show a sticky notification that persists until dismissed
+			this._services.notificationService.notify({
+				id: `dataExplorer.largeDataset.${this._dataExplorerClientInstance.identifier}`,
+				severity: Severity.Warning,
+				message: message,
+				sticky: true,
+				source: localize('positron.dataExplorer.source', 'Data Explorer')
+			});
+		}
+
+		// Calculate column widths.
+		const columnWidths = await this._tableDataCache.calculateColumnWidths(
+			this.minimumColumnWidth,
+			this.maximumColumnWidth
+		);
+
+		// Set the layout entries.
+		this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
+		this._rowLayoutManager.setEntries(state.table_shape.num_rows);
+
+		// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
+		if (state.table_shape.num_rows === 0) {
+			this._verticalScrollOffset = 0;
+			this._horizontalScrollOffset = 0;
+			// Force a layout recomputation and repaint
+			this.softReset();
+			this.fireOnDidUpdateEvent();
+		} else {
+			// Adjust the vertical scroll offset, if needed.
+			if (!this.firstRow) {
+				this._verticalScrollOffset = 0;
+			} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+			}
+
+			// Adjust the horizontal scroll offset, if needed.
+			if (!this.firstColumn) {
+				this._horizontalScrollOffset = 0;
+			} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
+				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
+			}
+		}
+	}
+
+	/**
+	 * Handles a schema update from the backend.
+	 */
+	private async handleSchemaUpdate(): Promise<void> {
+		await this.updateLayoutEntries();
+		this.rebuildSortKeysFromCache();
+		this.softReset();
+		await this.fetchData(InvalidateCacheFlags.All);
+	}
+
+	/**
+	 * Handles a data update from the backend.
+	 */
+	private async handleDataUpdate(): Promise<void> {
+		await this.updateLayoutEntries();
+		this.rebuildSortKeysFromCache();
+		await this.fetchData(InvalidateCacheFlags.Data);
+	}
+
+	/**
+	 * Rebuilds the column sort keys from the cached backend state.
+	 * Called after schema/data updates to sync sort keys with backend state.
+	 */
+	private rebuildSortKeysFromCache(): void {
+		const state = this._dataExplorerClientInstance.cachedBackendState;
+		if (!state) {
+			return;
+		}
+
+		// Clear and rebuild column sort keys from the cached state.
+		this._columnSortKeys.clear();
+		state.sort_keys.forEach((key, sortIndex) => {
+			this._columnSortKeys.set(
+				key.column_index,
+				new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
+			);
+		});
 	}
 
 	/**

@@ -57,9 +57,10 @@
 }
 
 /* === Selection States: Hover (when not selected/editing) === */
+/* Use .sortable-cell:hover so hovering the drag handle also triggers the cell outline */
 
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-section,
-.positron-notebook-code-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs {
+.sortable-cell:hover > .positron-notebook-cell:not(.selected):not(.editing) .positron-notebook-editor-section,
+.sortable-cell:hover > .positron-notebook-code-cell:not(.selected):not(.editing) .positron-notebook-cell-outputs {
 	border-color: var(--vscode-editorWidget-border);
 }
 
@@ -81,7 +82,7 @@
 	border-bottom-color: var(--vscode-focusBorder);
 }
 
-.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section {
+.sortable-cell:hover > .positron-notebook-cell:not(.selected):not(.editing):has(.positron-notebook-outputs-section.no-outputs) .positron-notebook-editor-section {
 	border-bottom-color: var(--vscode-editorWidget-border);
 }
 
@@ -110,7 +111,7 @@
 	border-color: var(--vscode-focusBorder);
 }
 
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-container:not(.editor-hidden) {
+.sortable-cell:hover > .positron-notebook-cell:not(.selected):not(.editing) .positron-notebook-editor-container:not(.editor-hidden) {
 	border-color: var(--vscode-editorWidget-border);
 }
 
@@ -129,7 +130,7 @@
 }
 
 /* Show border on hover */
-.positron-notebook-markdown-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs {
+.sortable-cell:hover > .positron-notebook-markdown-cell:not(.selected):not(.editing) .positron-notebook-cell-outputs {
 	border-color: var(--vscode-editorWidget-border);
 }
 

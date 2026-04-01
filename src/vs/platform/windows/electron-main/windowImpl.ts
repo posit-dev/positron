@@ -50,6 +50,7 @@ import { FocusMode } from '../../native/common/native.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { join } from '../../../base/common/path.js';
+import { recolorDevIcon } from './devIconColorizer.js';
 // -- End Positron ---
 
 export interface IWindowCreationOptions {
@@ -397,6 +398,12 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 		}
 
 		win.focus();
+
+		// When focusing the window, the workbench should always be the view that receives focus.
+		// However, in scenarios where the window has multiple child views (e.g. browser WebContentsViews),
+		// the last focused view in the window may not be the workbench.
+		// So we explicitly focus the workbench web contents here to ensure it gets focus.
+		win.webContents.focus();
 	}
 
 	//#region Window Control Overlays
@@ -674,6 +681,14 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 				options.icon = join(this.environmentMainService.appRoot, 'resources/linux/positron.png');
 			} else if (isWindows && !this.environmentMainService.isBuilt) {
 				options.icon = join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png');
+			}
+
+			// Use dev icon when running from source to distinguish from production builds
+			const customColor = !environmentMainService.isBuilt ? configurationService.getValue<string>('development.iconColor') : undefined;
+			if (customColor && typeof options.icon === 'string') {
+				// Use has custom color set + we are running in dev mode
+				const coloredIcon = recolorDevIcon(options.icon, customColor);
+				options.icon = coloredIcon;
 			}
 			// --- End Positron ---
 
@@ -1105,6 +1120,25 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 				electron.app.setProxy({ proxyRules, proxyBypassRules, pacScript: '' });
 			}
 		}
+		// --- Start Positron ---
+		// Icon
+		if (e && e.affectsConfiguration('development.iconColor')) {
+			const customColor = !this.environmentMainService.isBuilt ? this.configurationService.getValue<string>('development.iconColor') : undefined;
+			const iconPath = isLinux ? join(this.environmentMainService.appRoot, 'resources/linux/positron.png') :
+				isWindows ? join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png') :
+					isMacintosh ? join(this.environmentMainService.appRoot, 'resources/darwin/positron.png') : undefined;
+			if (customColor && iconPath) {
+				// Use has custom color set + we are running in dev mode
+				const coloredIcon = recolorDevIcon(iconPath, customColor);
+				this._win.setIcon(coloredIcon);
+				electron.app.dock?.setIcon(coloredIcon);
+			} else if (iconPath) {
+				// Use default icon
+				this._win.setIcon(iconPath);
+				electron.app.dock?.setIcon(iconPath);
+			}
+		}
+		// --- End Positron ---
 	}
 
 	private readonly swipeListenerDisposable = this._register(new MutableDisposable());

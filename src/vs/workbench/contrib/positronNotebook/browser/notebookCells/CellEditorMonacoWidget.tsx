@@ -21,13 +21,14 @@ import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
+import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
-import { SelectionState } from '../selectionMachine.js';
+import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
@@ -155,10 +156,17 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const editorInstaService = instance.scopedInstantiationService.createChild(serviceCollection);
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
+		const defaultOptions = editorOptions.getDefaultValue();
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
-			...editorOptions.getDefaultValue(),
+			...defaultOptions,
 			// Override padding for Positron notebooks to add breathing room between action bar and editor content
 			padding: { top: 16, bottom: 16 },
+			scrollbar: {
+				...defaultOptions.scrollbar,
+				// Smaller scrollbars since we embed many editor widgets
+				verticalScrollbarSize: 8,
+				horizontalScrollbarSize: 8
+			},
 			tabIndex: -1, // Remove editor from tab order - use Enter to focus
 			dimension: {
 				width: 0,
@@ -178,13 +186,51 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		// (CodeEditorWidget creates this synchronously in its constructor)
 		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editor.contextKeyService);
 
+		// Track whether the most recent mousedown had modifier keys held.
+		// Monaco's _onMouseDown calls focus() BEFORE emitting onMouseDown,
+		// so editor.onMouseDown fires AFTER onDidFocusEditorWidget. We use a
+		// native DOM capture-phase listener which fires before Monaco's
+		// handler to detect modifier keys early enough.
+		let hadModifierMouseDown = false;
+		const editorContainer = editor.getContainerDomNode();
+		const nativeMouseDownHandler = (e: MouseEvent) => {
+			hadModifierMouseDown = e.shiftKey || e.ctrlKey || e.metaKey;
+		};
+		disposables.add(addDisposableListener(editorContainer, 'mousedown', nativeMouseDownHandler, true));
+
+		// Also handle multi-selection from editor.onMouseDown (fires after
+		// focus) as a secondary path for cases where the focus handler
+		// couldn't prevent enterEditor in time.
+		disposables.add(editor.onMouseDown((e) => {
+			if (e.event.shiftKey || e.event.ctrlKey || e.event.metaKey) {
+				instance.selectionStateMachine.selectCell(cell, CellSelectionType.Add);
+			}
+		}));
+
 		disposables.add(editor.onDidFocusEditorWidget(() => {
-			// enterEditor() automatically detects that editor has focus and skips focus management
+			// Consume and reset the modifier flag so it doesn't affect
+			// subsequent programmatic focus calls.
+			const wasModifierClick = hadModifierMouseDown;
+			hadModifierMouseDown = false;
+
+			// If the user shift/ctrl/cmd-clicked, the wrapper's onClick handler
+			// will handle multi-selection. Don't override that by entering edit mode.
+			if (wasModifierClick) {
+				cellEditorFocusedKey.set(true);
+				return;
+			}
+
+			// enterEditor() automatically detects that editor has focus and skips focus management.
+			// This also handles plain clicks during MultiSelection, collapsing the selection
+			// into EditingSelection for this cell.
 			instance.selectionStateMachine.enterEditor(cell);
 			cellEditorFocusedKey.set(true);
 		}));
 
 		disposables.add(editor.onDidBlurEditorWidget(() => {
+			// Clear any stale modifier flag so it doesn't incorrectly suppress
+			// enterEditor() on a later keyboard/programmatic focus.
+			hadModifierMouseDown = false;
 			cellEditorFocusedKey.set(false);
 
 			// Check where focus moved to - don't exit edit mode if focus moved to VS Code overlays
@@ -298,29 +344,71 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 	// Watch for exit-editor transitions to return focus to the focus trap
 	React.useEffect(() => {
+		let pendingFrame: number | undefined;
 		const disposable = autorunDelta(instance.selectionStateMachine.state, ({ lastValue, newValue }) => {
 			// Check if we transitioned from editing THIS cell to single selection of THIS cell
 			if (lastValue?.type === SelectionState.EditingSelection &&
 				lastValue.active === cell &&
 				newValue.type === SelectionState.SingleSelection &&
 				newValue.active === cell) {
-				// Only focus the focus trap if the cell has outputs.
-				// When there are no outputs, the focus trap has tabIndex=-1 (not in tab order),
-				// so focusing it would disrupt keyboard navigation. In that case, let
-				// NotebookCellWrapper handle focus by focusing the cell container instead.
-				// Read current outputs value - undefined for markdown cells (no outputs)
-				const currentOutputs = cell.outputs?.get() ?? [];
-				const hasOutputs = currentOutputs.length > 0;
-				if (hasOutputs) {
-					focusTargetRef.current?.focus();
-				} else {
-					// Focus the cell container for cells without outputs
-					cell.container?.focus();
+				// Don't steal focus if the user navigated to a different editor
+				// (e.g. clicking a cell in a side-by-side notebook). This mirrors
+				// the guard in the onDidBlurEditorWidget handler above.
+				const activeEl = cell.container?.ownerDocument.activeElement;
+				if (activeEl && !instance.currentContainer?.contains(activeEl)) {
+					return;
 				}
+
+				const restoreCellFocus = () => {
+					// Only focus the focus trap if the cell has outputs.
+					// When there are no outputs, the focus trap has tabIndex=-1
+					// (not in tab order), so focusing it would disrupt keyboard
+					// navigation. In that case, focus the cell container instead.
+					const currentOutputs = cell.outputs?.get() ?? [];
+					const hasOutputs = currentOutputs.length > 0;
+					if (hasOutputs) {
+						focusTargetRef.current?.focus();
+					} else {
+						cell.container?.focus();
+					}
+				};
+
+				if (!activeEl) {
+					// activeElement is transiently null during blur/focus
+					// handoff. Defer to the next frame so the browser settles
+					// on the actual target before we decide.
+					const win = getWindow(cell.container);
+					if (pendingFrame !== undefined) {
+						win.cancelAnimationFrame(pendingFrame);
+					}
+					pendingFrame = win.requestAnimationFrame(() => {
+						pendingFrame = undefined;
+						// Re-check selection state: if the user moved to
+						// another cell during the deferred frame, bail out.
+						const currentState = instance.selectionStateMachine.state.get();
+						if (currentState.type !== SelectionState.SingleSelection ||
+							currentState.active !== cell) {
+							return;
+						}
+						const resolved = cell.container?.ownerDocument.activeElement;
+						if (resolved && !instance.currentContainer?.contains(resolved)) {
+							return;
+						}
+						restoreCellFocus();
+					});
+					return;
+				}
+
+				restoreCellFocus();
 			}
 		});
-		return () => disposable.dispose();
-	}, [cell, instance.selectionStateMachine]);
+		return () => {
+			disposable.dispose();
+			if (pendingFrame !== undefined) {
+				getWindow(cell.container).cancelAnimationFrame(pendingFrame);
+			}
+		};
+	}, [cell, instance.currentContainer, instance.selectionStateMachine]);
 
 	return { editorPartRef, focusTargetRef };
 }

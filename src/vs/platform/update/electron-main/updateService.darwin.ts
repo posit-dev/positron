@@ -20,6 +20,7 @@ import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } fro
 
 // --- Start Positron ---
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
+import { IStateService } from '../../state/node/state.js';
 import { arch } from 'os';
 // --- End Positron ---
 
@@ -41,9 +42,10 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
 		@IProductService productService: IProductService,
-		@INativeHostMainService nativeHostMainService: INativeHostMainService
+		@INativeHostMainService nativeHostMainService: INativeHostMainService,
+		@IStateService stateService: IStateService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService, stateService);
 		// --- End Positron ---
 
 		lifecycleMainService.setRelaunchHandler(this);
@@ -135,7 +137,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			return;
 		}
 
-		this.setState(State.Downloading);
+		this.setState(State.Downloading(false, false));
 	}
 
 	private onUpdateDownloaded(update: IUpdate): void {
@@ -143,7 +145,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			return;
 		}
 
-		this.setState(State.Downloaded(update));
+		this.setState(State.Downloaded(update, false, false));
 
 		type UpdateDownloadedClassification = {
 			owner: 'joaomoreno';
@@ -152,7 +154,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		};
 		this.telemetryService.publicLog2<{ newVersion: String }, UpdateDownloadedClassification>('update:downloaded', { newVersion: update.version });
 
-		this.setState(State.Ready(update));
+		this.setState(State.Ready(update, false, false));
 	}
 
 	private onUpdateNotAvailable(): void {

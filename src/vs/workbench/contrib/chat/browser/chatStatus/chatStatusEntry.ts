@@ -19,8 +19,9 @@ import { IChatSessionsService } from '../../common/chatSessionsService.js';
 import { ChatStatusDashboard } from './chatStatusDashboard.js';
 import { mainWindow } from '../../../../../base/browser/window.js';
 import { disposableWindowInterval } from '../../../../../base/browser/dom.js';
-import { isNewUser, isCompletionsEnabled } from './chatStatus.js';
+import { isNewUser } from './chatStatus.js';
 import product from '../../../../../platform/product/common/product.js';
+import { isCompletionsEnabled } from '../../../../../editor/common/services/completionsEnablement.js';
 
 // --- Start Positron ---
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -137,7 +138,7 @@ export class ChatStatus extends Disposable {
 		this._register(this.editorService.onDidActiveEditorChange(() => this.onDidActiveEditorChange()));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(product.defaultChatAgent.completionsEnablementSetting)) {
+			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting)) {
 				this.update();
 			}
 		}));

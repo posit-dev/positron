@@ -11,8 +11,12 @@ test.use({
 });
 
 test.describe('Notebook Edit Mode', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER]
 }, () => {
+
+	test.beforeAll(async function ({ hotKeys }) {
+		await hotKeys.minimizeBottomPanel();
+	});
 
 	test('Clicking/dbl clicking into cell focuses editor and enters into edit mode', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;

@@ -12,17 +12,17 @@ import sys
 import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
 from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
-from .positron_comm import CommMessage, PositronComm
+from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
-    EditorContextChangedRequest,
+    EvaluateCodeRequest,
     OpenEditorParams,
     ShowHtmlFileDestination,
     ShowHtmlFileParams,
@@ -141,6 +141,44 @@ _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional
 }
 
 
+def _to_json_compatible(obj: object) -> JsonData:
+    """Convert a Python object to a JSON-compatible type."""
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    if isinstance(obj, dict):
+        return {str(k): _to_json_compatible(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_json_compatible(v) for v in obj]
+    if isinstance(obj, set):
+        return [_to_json_compatible(v) for v in sorted(obj, key=str)]
+    # Handle numpy scalars if numpy is available
+    try:
+        import numpy as np
+
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, (np.floating,)):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+    except ImportError:
+        pass
+    # Handle pandas objects if pandas is available
+    try:
+        import pandas as pd
+
+        if isinstance(obj, pd.DataFrame):
+            return obj.to_dict(orient="list")
+        if isinstance(obj, pd.Series):
+            return obj.tolist()
+    except ImportError:
+        pass
+    # Fallback: convert to string
+    return str(obj)
+
+
 class UiService:
     """
     Wrapper around a comm channel whose lifetime matches that of the Positron frontend.
@@ -154,60 +192,6 @@ class UiService:
         self._comm: Optional[PositronComm] = None
 
         self.working_directory: Optional[Path] = None
-
-        # The URI of the last active editor, updated by the frontend
-        self._last_active_editor_uri: str = ""
-
-        # Whether the current editor context is the source of code being executed
-        # This is set to True when code is about to be executed from a file,
-        # and should be reset to False after execution completes.
-        self._is_execution_source: bool = False
-
-    @property
-    def last_active_editor_uri(self) -> str:
-        """
-        The URI of the last active text editor.
-
-        Returns an empty string if no editor is active.
-        """
-        return self._last_active_editor_uri
-
-    @property
-    def is_execution_source(self) -> bool:
-        """
-        Whether the current editor context is the source of code being executed.
-
-        When True, the backend should temporarily add the editor's directory to sys.path.
-        """
-        return self._is_execution_source
-
-    def clear_execution_source(self) -> None:
-        """Clear the execution source flag after code execution completes."""
-        self._is_execution_source = False
-
-    def get_editor_file_path(self) -> Optional[Path]:
-        """
-        Parse the last active editor URI and return the file path.
-
-        Returns None if no editor is active or the URI is not a file URI.
-        """
-        if not self._last_active_editor_uri:
-            return None
-
-        parsed = urlparse(self._last_active_editor_uri)
-
-        if parsed.scheme not in ["file", "vscode-remote"]:  # for remote and local files
-            return None
-
-        path = unquote(parsed.path)
-
-        # On Windows, file URIs like file:///C:/path result in /C:/path after parsing.
-        # We need to strip the leading slash to get a valid Windows path.
-        # Check for drive letter pattern: /X:/ where X is a letter
-        if len(path) >= 3 and path[0] == "/" and path[1].isalpha() and path[2] == ":":
-            path = path[1:]
-
-        return Path(path)
 
     def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
@@ -263,13 +247,8 @@ class UiService:
             # Unwrap nested JSON-RPC
             self._call_method(request.params)
 
-        elif isinstance(request, EditorContextChangedRequest):
-            # Update the cached last active editor URI and execution source flag
-            self._last_active_editor_uri = request.params.document_uri
-            self._is_execution_source = request.params.is_execution_source
-            # Send null result to acknowledge the notification
-            if self._comm is not None:
-                self._comm.send_result(data=None)
+        elif isinstance(request, EvaluateCodeRequest):
+            self._evaluate_code(request.params.code)
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -290,6 +269,33 @@ class UiService:
             self._comm.send_result(data=result)
             return None
         return None
+
+    def _evaluate_code(self, code: str) -> None:
+        from io import StringIO
+
+        stdout_buf = StringIO()
+        stderr_buf = StringIO()
+
+        try:
+            with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
+                try:
+                    # Try eval first (for expressions)
+                    result = eval(code, self.kernel.shell.user_ns)
+                    json_result = _to_json_compatible(result)
+                except SyntaxError:
+                    # Fall back to exec for statements
+                    exec(code, self.kernel.shell.user_ns)
+                    json_result = None
+        except Exception as err:
+            logger.warning(f"Error evaluating code: {err}")
+            if self._comm is not None:
+                self._comm.send_error(JsonRpcErrorCode.INTERNAL_ERROR, str(err))
+            return
+
+        output = stdout_buf.getvalue() + stderr_buf.getvalue()
+
+        if self._comm is not None:
+            self._comm.send_result(data={"result": json_result, "output": output})
 
     def shutdown(self) -> None:
         if self._comm is not None:

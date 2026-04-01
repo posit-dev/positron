@@ -24,7 +24,8 @@ import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
 import { askForPromptFileName } from './pickers/askForPromptName.js';
 import { askForPromptSourceFolder } from './pickers/askForPromptSourceFolder.js';
-import { IChatModeService } from '../../common/chatModes.js';
+import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
+import { getCleanPromptName, SKILL_FILENAME } from '../../common/promptSyntax/config/promptFileLocations.js';
 
 
 class AbstractNewPromptFileAction extends Action2 {
@@ -55,7 +56,6 @@ class AbstractNewPromptFileAction extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const fileService = accessor.get(IFileService);
 		const instaService = accessor.get(IInstantiationService);
-		const chatModeService = accessor.get(IChatModeService);
 
 		const selectedFolder = await instaService.invokeFunction(askForPromptSourceFolder, this.type);
 		if (!selectedFolder) {
@@ -66,7 +66,6 @@ class AbstractNewPromptFileAction extends Action2 {
 		if (!fileName) {
 			return;
 		}
-
 		// create the prompt file
 
 		await fileService.createFolder(selectedFolder.uri);
@@ -76,11 +75,13 @@ class AbstractNewPromptFileAction extends Action2 {
 
 		await openerService.open(promptUri);
 
+		const cleanName = getCleanPromptName(promptUri);
+
 		const editor = getCodeEditor(editorService.activeTextEditorControl);
 		if (editor && editor.hasModel() && isEqual(editor.getModel().uri, promptUri)) {
 			SnippetController2.get(editor)?.apply([{
 				range: editor.getModel().getFullModelRange(),
-				template: getDefaultContentSnippet(this.type, chatModeService),
+				template: getDefaultContentSnippet(this.type, cleanName),
 			}]);
 		}
 
@@ -138,41 +139,53 @@ class AbstractNewPromptFileAction extends Action2 {
 	}
 }
 
-function getDefaultContentSnippet(promptType: PromptsType, chatModeService: IChatModeService): string {
-	const agents = chatModeService.getModes();
-	const agentNames = agents.builtin.map(agent => agent.name.get()).join(',') + (agents.custom.length ? (',' + agents.custom.map(agent => agent.name.get()).join(',')) : '');
+function getDefaultContentSnippet(promptType: PromptsType, name: string | undefined): string {
 	switch (promptType) {
 		case PromptsType.prompt:
 			return [
 				`---`,
-				`agent: \${1|${agentNames}|}`,
+				`name: ${name ?? '${1:prompt-name}'}`,
+				`description: \${2:Describe when to use this prompt}`,
 				`---`,
-				`\${2:Define the task to achieve, including specific requirements, constraints, and success criteria.}`,
+				`\${3:Define the prompt content here. You can include instructions, examples, and any other relevant information to guide the AI's responses.}`,
 			].join('\n');
 		case PromptsType.instructions:
 			return [
 				`---`,
-				`applyTo: '\${1|**,**/*.ts|}'`,
+				`description: \${1:Describe when these instructions should be loaded}`,
+				`# applyTo: '\${1|**,**/*.ts|}' # when provided, instructions will automatically be added to the request context when the pattern matches an attached file`,
 				`---`,
 				`\${2:Provide project context and coding guidelines that AI should follow when generating code, answering questions, or reviewing changes.}`,
 			].join('\n');
 		case PromptsType.agent:
 			return [
 				`---`,
-				`description: '\${1:Describe what this custom agent does and when to use it.}'`,
-				`tools: []`,
+				`name: ${name ?? '${1:agent-name}'}`,
+				`description: \${2:Describe what this custom agent does and when to use it.}`,
+				`argument-hint: \${3:The inputs this agent expects, e.g., "a task to implement" or "a question to answer".}`,
+				`# tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'todo'] # specify the tools this agent can use. If not set, all enabled tools are allowed.`,
 				`---`,
-				`\${2:Define what this custom agent accomplishes for the user, when to use it, and the edges it won't cross. Specify its ideal inputs/outputs, the tools it may call, and how it reports progress or asks for help.}`,
+				`\${4:Define what this custom agent does, including its behavior, capabilities, and any specific instructions for its operation.}`,
+			].join('\n');
+		case PromptsType.skill:
+			return [
+				`---`,
+				`name: ${name ?? '${1:skill-name}'}`,
+				`description: \${2:Describe what this skill does and when to use it. Include keywords that help agents identify relevant tasks.}`,
+				`---`,
+				`\${3:Define the functionality provided by this skill, including detailed instructions and examples}`,
 			].join('\n');
 		default:
-			throw new Error(`Unknown prompt type: ${promptType}`);
+			throw new Error(`Unsupported prompt type: ${promptType}`);
 	}
 }
+
 
 
 export const NEW_PROMPT_COMMAND_ID = 'workbench.command.new.prompt';
 export const NEW_INSTRUCTIONS_COMMAND_ID = 'workbench.command.new.instructions';
 export const NEW_AGENT_COMMAND_ID = 'workbench.command.new.agent';
+export const NEW_SKILL_COMMAND_ID = 'workbench.command.new.skill';
 
 class NewPromptFileAction extends AbstractNewPromptFileAction {
 	constructor() {
@@ -192,6 +205,89 @@ class NewAgentFileAction extends AbstractNewPromptFileAction {
 	}
 }
 
+class NewSkillFileAction extends Action2 {
+	constructor() {
+		super({
+			id: NEW_SKILL_COMMAND_ID,
+			title: localize('commands.new.skill.local.title', "New Skill File..."),
+			f1: false,
+			precondition: ChatContextKeys.enabled,
+			category: CHAT_CATEGORY,
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib
+			},
+			menu: {
+				id: MenuId.CommandPalette,
+				when: ChatContextKeys.enabled
+			}
+		});
+	}
+
+	public override async run(accessor: ServicesAccessor) {
+		const openerService = accessor.get(IOpenerService);
+		const editorService = accessor.get(IEditorService);
+		const fileService = accessor.get(IFileService);
+		const instaService = accessor.get(IInstantiationService);
+		const quickInputService = accessor.get(IQuickInputService);
+
+		const selectedFolder = await instaService.invokeFunction(askForPromptSourceFolder, PromptsType.skill);
+		if (!selectedFolder) {
+			return;
+		}
+
+		// Ask for skill name (will be the folder name)
+		// Per agentskills.io/specification: name must be 1-64 chars, lowercase alphanumeric + hyphens,
+		// no leading/trailing hyphens, no consecutive hyphens, must match folder name
+		const skillName = await quickInputService.input({
+			prompt: localize('commands.new.skill.name.prompt', "Enter a name for the skill (lowercase letters, numbers, and hyphens only)"),
+			placeHolder: localize('commands.new.skill.name.placeholder', "e.g., pdf-processing, data-analysis"),
+			validateInput: async (value) => {
+				if (!value || !value.trim()) {
+					return localize('commands.new.skill.name.required', "Skill name is required");
+				}
+				const name = value.trim();
+				if (name.length > 64) {
+					return localize('commands.new.skill.name.tooLong', "Skill name must be 64 characters or less");
+				}
+				// Per spec: lowercase alphanumeric and hyphens only
+				if (!/^[a-z0-9-]+$/.test(name)) {
+					return localize('commands.new.skill.name.invalidChars', "Skill name may only contain lowercase letters, numbers, and hyphens");
+				}
+				if (name.startsWith('-') || name.endsWith('-')) {
+					return localize('commands.new.skill.name.hyphenEdge', "Skill name must not start or end with a hyphen");
+				}
+				if (name.includes('--')) {
+					return localize('commands.new.skill.name.consecutiveHyphens', "Skill name must not contain consecutive hyphens");
+				}
+				return undefined;
+			}
+		});
+
+		if (!skillName) {
+			return;
+		}
+
+		const trimmedName = skillName.trim();
+
+		// Create the skill folder and SKILL.md file
+		const skillFolder = URI.joinPath(selectedFolder.uri, trimmedName);
+		await fileService.createFolder(skillFolder);
+
+		const skillFileUri = URI.joinPath(skillFolder, SKILL_FILENAME);
+		await fileService.createFile(skillFileUri);
+
+		await openerService.open(skillFileUri);
+
+		const editor = getCodeEditor(editorService.activeTextEditorControl);
+		if (editor && editor.hasModel() && isEqual(editor.getModel().uri, skillFileUri)) {
+			SnippetController2.get(editor)?.apply([{
+				range: editor.getModel().getFullModelRange(),
+				template: getDefaultContentSnippet(PromptsType.skill, trimmedName),
+			}]);
+		}
+	}
+}
+
 class NewUntitledPromptFileAction extends Action2 {
 	constructor() {
 		super({
@@ -208,7 +304,6 @@ class NewUntitledPromptFileAction extends Action2 {
 
 	public override async run(accessor: ServicesAccessor) {
 		const editorService = accessor.get(IEditorService);
-		const chatModeService = accessor.get(IChatModeService);
 
 		const languageId = getLanguageIdForPromptsType(PromptsType.prompt);
 
@@ -225,7 +320,7 @@ class NewUntitledPromptFileAction extends Action2 {
 		if (editor && editor.hasModel()) {
 			SnippetController2.get(editor)?.apply([{
 				range: editor.getModel().getFullModelRange(),
-				template: getDefaultContentSnippet(type, chatModeService),
+				template: getDefaultContentSnippet(type, undefined),
 			}]);
 		}
 
@@ -237,5 +332,6 @@ export function registerNewPromptFileActions(): void {
 	registerAction2(NewPromptFileAction);
 	registerAction2(NewInstructionsFileAction);
 	registerAction2(NewAgentFileAction);
+	registerAction2(NewSkillFileAction);
 	registerAction2(NewUntitledPromptFileAction);
 }

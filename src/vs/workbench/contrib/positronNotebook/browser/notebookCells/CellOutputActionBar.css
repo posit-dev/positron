@@ -1,0 +1,27 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Floating action bar in the top-right corner of the cell output area */
+.cell-output-action-bar {
+	position: absolute;
+	top: 0.25rem;
+	right: calc(0.25rem + 8px); /* 8px to clear the scrollbar */
+	z-index: 10;
+
+	display: flex;
+	gap: var(--_positron-notebook-cell-action-bar-button-gap);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	background-color: var(--vscode-positronNotebook-action-bar-background);
+	border: 1px solid var(--vscode-widget-border);
+
+	/* Hidden by default, shown on output hover or keyboard focus */
+	visibility: hidden;
+}
+
+/* Show on hover of the output area or when a button inside has focus */
+.positron-notebook-outputs-section:hover > .cell-output-action-bar:not(:empty),
+.cell-output-action-bar:focus-within {
+	visibility: visible;
+}

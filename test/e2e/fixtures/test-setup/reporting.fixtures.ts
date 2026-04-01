@@ -42,8 +42,12 @@ export function AttachScreenshotsToReportFixture() {
 
 		// if test failed, take and attach screenshot
 		if (testInfo.status !== testInfo.expectedStatus) {
-			const screenshot = await page.screenshot();
-			await testInfo.attach('on-test-end', { body: screenshot, contentType: 'image/png' });
+			try {
+				const screenshot = await page.screenshot();
+				await testInfo.attach('on-test-end', { body: screenshot, contentType: 'image/png' });
+			} catch {
+				// Page may not be available if app failed to start
+			}
 		}
 
 		for (const screenshotPath of screenshots) {

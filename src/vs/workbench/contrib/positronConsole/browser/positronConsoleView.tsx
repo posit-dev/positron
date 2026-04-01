@@ -32,7 +32,7 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 import { IActionViewItem } from '../../../../base/browser/ui/actionbar/actionbar.js';
 import { IDropdownMenuActionViewItemOptions } from '../../../../base/browser/ui/dropdown/dropdownActionViewItem.js';
 import { Action, IAction } from '../../../../base/common/actions.js';
-import { LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
 import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/browser/dropdownWithPrimaryActionViewItem.js';
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
@@ -310,7 +310,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 
 	override createActionViewItem(action: IAction, options?: IDropdownMenuActionViewItemOptions): IActionViewItem | undefined {
 		// Do not create the session dropdown if there are no Positron console instances.
-		if (action.id === LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID && this.positronConsoleService.positronConsoleInstances.length > 0) {
+		if (action.id === LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID && this.positronConsoleService.positronConsoleInstances.length > 0) {
 			if (action instanceof MenuItemAction) {
 				const dropdownAction = new Action('console.session.quickLaunch', localize('console.session.quickLaunch', 'Quick Launch Session...'), 'codicon-chevron-down', true);
 				this._register(dropdownAction);
@@ -389,7 +389,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			undefined,
 			true,
 			() => {
-				this.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);
+				this.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID);
 			})
 		);
 

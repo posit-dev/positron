@@ -35,7 +35,7 @@ configurationRegistry.registerConfiguration({
 				category: PolicyCategory.Update,
 				minimumVersion: '1.67',
 				localization: {
-					description: { key: 'updateMode', value: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change. The updates are fetched from a Microsoft online service."), },
+					description: { key: 'updateModePolicy', value: localize('updateModePolicy', "Configure whether you receive automatic updates. Requires a restart after change. The updates are fetched from a Microsoft online service."), },
 					enumDescriptions: [
 						{
 							key: 'none',
@@ -69,7 +69,7 @@ configurationRegistry.registerConfiguration({
 			type: 'string',
 			default: 'default',
 			scope: ConfigurationScope.APPLICATION,
-			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
+			description: localize('updateChannel', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
 			deprecationMessage: localize('deprecated', "This setting is deprecated, please use '{0}' instead.", 'update.mode')
 		},
 		'update.positron.channel': {
@@ -90,6 +90,14 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('update.primaryLanguageReporting', "Share the primary data science languages in use, such as Python and R, to help us improve Positron."),
+			tags: ['usesOnlineServices'],
+			included: !isWeb
+		},
+		'update.anonymousUsageReporting': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			markdownDescription: localize('update.anonymousUsageReporting', "Share an anonymous identifier during update checks to help us understand unique usage patterns. This ID is randomly generated and not linked to any other identifiers. See our [privacy policy](https://positron.posit.co/privacy.html#positron-data-collection) for details."),
 			tags: ['usesOnlineServices'],
 			included: !isWeb
 		},

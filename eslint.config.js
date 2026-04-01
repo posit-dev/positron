@@ -833,8 +833,6 @@ export default tseslint.config(
 			'src/vs/workbench/test/browser/workbenchTestServices.ts',
 			'src/vs/workbench/test/common/workbenchTestServices.ts',
 			'src/vs/workbench/test/electron-browser/workbenchTestServices.ts',
-			'src/vs/workbench/workbench.web.main.internal.ts',
-			'src/vs/workbench/workbench.web.main.ts',
 			// Server
 			'src/vs/server/node/remoteAgentEnvironmentImpl.ts',
 			'src/vs/server/node/remoteExtensionHostAgentServer.ts',
@@ -966,6 +964,7 @@ export default tseslint.config(
 					],
 					'verbs': [
 						'accept',
+						'archive',
 						'change',
 						'close',
 						'collapse',
@@ -1286,7 +1285,11 @@ export default tseslint.config(
 				{
 					'selector': 'JSXOpeningElement > JSXIdentifier[name="PositronActionBar"]',
 					'message': 'PositronActionBar does not display actions at narrow widths gracefully. The action buttons will get cut off at narrower widths. Use PositronDynamicActionBar instead and configure overflowContextMenuItem on actions to allow them to move to an overflow menu when space is limited.'
-				}
+				},
+				{
+					'selector': 'JSXOpeningElement > JSXIdentifier[name="PositronButton"]',
+					'message': 'Use Button from positronComponents/button/button.tsx instead, which better follows accessibility standards.'
+				},
 				// --- End Positron ---
 			],
 			'no-restricted-globals': [
@@ -1515,11 +1518,12 @@ export default tseslint.config(
 					// - electron-main
 					'when': 'hasNode',
 					'allow': [
-						'@vscode/watcher',
+						'@parcel/watcher',
 						'@vscode/sqlite3',
 						'@vscode/vscode-languagedetection',
 						'@vscode/ripgrep',
 						'@vscode/iconv-lite-umd',
+						'@vscode/native-watchdog',
 						'@vscode/policy-watcher',
 						'@vscode/proxy-agent',
 						'@vscode/spdlog',
@@ -1538,7 +1542,6 @@ export default tseslint.config(
 						'minimist',
 						'node:module',
 						'native-keymap',
-						'native-watchdog',
 						'net',
 						'node-pty',
 						'os',
@@ -1937,7 +1940,7 @@ export default tseslint.config(
 						'vs/workbench/api/~',
 						'vs/workbench/services/*/~',
 						'vs/workbench/contrib/*/~',
-						'vs/workbench/workbench.common.main.js'
+						'vs/workbench/workbench.web.main.js'
 					]
 				},
 				{
@@ -1964,7 +1967,7 @@ export default tseslint.config(
 					]
 				},
 				{
-					'target': 'src/vs/{loader.d.ts,monaco.d.ts,nls.ts,nls.messages.ts}',
+					'target': 'src/vs/{monaco.d.ts,nls.ts}',
 					'restrictions': []
 				},
 				{
@@ -2014,8 +2017,16 @@ export default tseslint.config(
 					'restrictions': [
 						'test/e2e/**',
 						'@vscode/*',
+						'@parcel/*',
 						'@playwright/*',
 						'@anthropic-ai/*', // For LLM evaluation tests
+						'*' // node modules
+					]
+				},
+				{
+					'target': 'test/sanity/**',
+					'restrictions': [
+						'test/sanity/**',
 						'*' // node modules
 					]
 				},
@@ -2024,6 +2035,7 @@ export default tseslint.config(
 					'restrictions': [
 						'test/automation/**',
 						'@vscode/*',
+						'@parcel/*',
 						'playwright-core/**',
 						'@playwright/*',
 						'@anthropic-ai/*',
@@ -2035,6 +2047,7 @@ export default tseslint.config(
 					'restrictions': [
 						'test/integration/**',
 						'@vscode/*',
+						'@parcel/*',
 						'@playwright/*',
 						'*' // node modules
 					]
@@ -2044,6 +2057,7 @@ export default tseslint.config(
 					'restrictions': [
 						'test/monaco/**',
 						'@vscode/*',
+						'@parcel/*',
 						'@playwright/*',
 						'*' // node modules
 					]
@@ -2054,6 +2068,7 @@ export default tseslint.config(
 						'test/automation',
 						'test/mcp/**',
 						'@vscode/*',
+						'@parcel/*',
 						'@playwright/*',
 						'@modelcontextprotocol/sdk/**/*',
 						'*' // node modules
@@ -2191,6 +2206,23 @@ export default tseslint.config(
 			'@typescript-eslint/prefer-optional-chain': 'warn',
 			'@typescript-eslint/prefer-readonly': 'warn',
 			'@typescript-eslint/consistent-generic-constructors': ['warn', 'constructor'],
+		}
+	},
+	// Allow querySelector/querySelectorAll in test files - it's acceptable for test assertions
+	{
+		files: [
+			'src/**/test/**/*.ts',
+			'extensions/**/test/**/*.ts',
+		],
+		rules: {
+			'no-restricted-syntax': [
+				'warn',
+				// Keep the Intl helper restriction even in tests
+				{
+					'selector': `NewExpression[callee.object.name='Intl']`,
+					'message': 'Use safeIntl helper instead for safe and lazy use of potentially expensive Intl methods.'
+				},
+			],
 		}
 	},
 );

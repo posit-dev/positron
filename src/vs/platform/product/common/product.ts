@@ -69,12 +69,12 @@ else {
 	// Running out of sources
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
-			version: '1.108.0-dev',
+			version: '1.109.2-dev',
 			// --- Start Positron ---
 			// This only applies to dev builds where it is not possible to read the
 			// product configuration. Release builds replace the product configuration
 			// during the build. See INSERT_PRODUCT_CONFIGURATION above.
-			positronVersion: '2026.03.0',
+			positronVersion: '2026.04.0',
 			positronBuildNumber: '0',
 			date: new Date().toISOString(),
 			nameShort: 'Positron Dev',
@@ -94,7 +94,45 @@ else {
 				'https://posit.co',
 				'https://login.posit.cloud',
 				'https://login.staging.posit.cloud'
-			]
+			],
+			defaultChatAgent: {
+				extensionId: 'positron.positron-assistant',
+				chatExtensionId: 'positron.positron-assistant',
+				chatExtensionOutputId: '',
+				documentationUrl: '',
+				skusDocumentationUrl: '',
+				publicCodeMatchesUrl: '',
+				manageSettingsUrl: '',
+				managePlanUrl: '',
+				manageOverageUrl: '',
+				upgradePlanUrl: '',
+				signUpUrl: '',
+				termsStatementUrl: '',
+				privacyStatementUrl: '',
+				provider: {
+					default: { id: 'positron.assistant', name: 'Positron Assistant' },
+					enterprise: { id: 'positron.assistant', name: 'Positron Assistant' },
+					google: { id: '', name: '' },
+					apple: { id: '', name: '' },
+				},
+				providerUriSetting: 'github-enterprise.uri',
+				providerScopes: [['read:user', 'user:email', 'repo', 'workflow'], ['user:email'], ['read:user']],
+				entitlementUrl: '',
+				entitlementSignupLimitedUrl: '',
+				tokenEntitlementUrl: '',
+				mcpRegistryDataUrl: '',
+				chatQuotaExceededContext: '',
+				completionsQuotaExceededContext: '',
+				walkthroughCommand: '',
+				completionsMenuCommand: '',
+				completionsRefreshTokenCommand: '',
+				chatRefreshTokenCommand: '',
+				generateCommitMessageCommand: '',
+				resolveMergeConflictsCommand: '',
+				completionsAdvancedSetting: '',
+				completionsEnablementSetting: '',
+				nextEditSuggestionsSetting: '',
+			}
 			// --- End Positron ---
 		});
 	}

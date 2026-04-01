@@ -19,12 +19,11 @@ import vfs from 'vinyl-fs';
 import packageJson from '../package.json' with { type: 'json' };
 import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import * as extensions from './lib/extensions.ts';
-import VinylFile from 'vinyl';
 import jsonEditor from 'gulp-json-editor';
 import buildfile from './buildfile.ts';
 
 // --- Start Positron ---
-import { positronBuildNumber } from './utils.ts';
+import { positronBuildNumber, releaseChannel } from './utils.ts';
 // --- End Positron ---
 
 const REPO_ROOT = path.dirname(import.meta.dirname);
@@ -44,6 +43,7 @@ export const vscodeWebResourceIncludes = [
 	// Positron Help
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/*.html',
 	'out-build/vs/workbench/browser/media/*.svg',
+	'out-build/esm-package-dependencies/**',
 	// --- End Positron ---
 
 	// NLS
@@ -95,7 +95,6 @@ const vscodeWebEntryPoints = [
 	buildfile.workerBackgroundTokenization,
 	buildfile.keyboardMaps,
 	buildfile.workbenchWeb,
-	buildfile.entrypoint('vs/workbench/workbench.web.main.internal') // TODO@esm remove line when we stop supporting web-amd-esm-bridge
 ].flat();
 
 /**
@@ -111,6 +110,7 @@ export const createVSCodeWebFileContentMapper = (extensionsRoot: string, product
 					// --- Start Positron ---
 					positronVersion,
 					positronBuildNumber,
+					quality: releaseChannel,
 					// --- End Positron ---
 					version,
 					commit,
@@ -160,21 +160,8 @@ function packageTask(sourceFolderName: string, destinationFolderName: string) {
 
 		const extensions = gulp.src('.build/web/extensions/**', { base: '.build/web', dot: true });
 
-		const loader = gulp.src('build/loader.min', { base: 'build', dot: true }).pipe(rename('out/vs/loader.js')); // TODO@esm remove line when we stop supporting web-amd-esm-bridge
-
-		const sources = es.merge(src, extensions, loader)
-			.pipe(filter(['**', '!**/*.{js,css}.map'], { dot: true }))
-			// TODO@esm remove me once we stop supporting our web-esm-bridge
-			.pipe(es.through(function (file) {
-				if (file.relative === 'out/vs/workbench/workbench.web.main.internal.css') {
-					this.emit('data', new VinylFile({
-						contents: file.contents,
-						path: file.path.replace('workbench.web.main.internal.css', 'workbench.web.main.css'),
-						base: file.base
-					}));
-				}
-				this.emit('data', file);
-			}));
+		const sources = es.merge(src, extensions)
+			.pipe(filter(['**', '!**/*.{js,css}.map'], { dot: true }));
 
 		const name = product.nameShort;
 		const packageJsonStream = gulp.src(['remote/web/package.json'], { base: 'remote/web' })

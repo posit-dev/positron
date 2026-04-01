@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -18,6 +18,15 @@ const getHiddenR = () => process.env.POSITRON_HIDDEN_R;
 export const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
 export const IDLE_STATUS_ICON = '.codicon-positron-runtime-status-idle';
 export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-disconnected';
+
+// Quickpick labels - keep in sync with languageRuntimeActions.ts
+const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
+const START_NEW_CONSOLE_SESSION_LABEL = 'Start New Console Session';
+const NEW_CONSOLE_SESSION_ITEM_LABEL = 'New Console Session...';
+
+// Quickpick label regex patterns used in SessionQuickPick
+const SESSION_QUICK_MENU_PATTERN = new RegExp(`(${INTERPRETER_SESSIONS_LABEL})|(${START_NEW_CONSOLE_SESSION_LABEL})`);
+const START_NEW_CONSOLE_SESSION_PATTERN = new RegExp(START_NEW_CONSOLE_SESSION_LABEL);
 
 /**
  * Class to manage console sessions
@@ -631,7 +640,8 @@ export class Sessions {
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {
-				await this.page.getByTestId(`console-tab-${sessionId}`).click();
+				// Use force to bypass notification toasts that may overlay the tab
+				await this.page.getByTestId(`console-tab-${sessionId}`).click({ force: true });
 			}
 
 			const metadata = await this.extractMetadataFromDialog();
@@ -1050,8 +1060,8 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private get quickInputTitleBar(): Locator { return this.code.driver.page.locator('.quick-input-titlebar'); }
-	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/); }
-	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(/Start New Interpreter Session/); }
+	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(SESSION_QUICK_MENU_PATTERN); }
+	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(START_NEW_CONSOLE_SESSION_PATTERN); }
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -1070,9 +1080,9 @@ export class SessionQuickPick {
 				}
 
 				if (viewAllRuntimes) {
-					await this.code.driver.page.getByRole('textbox', { name: /(Select Interpreter Session|New Interpreter Session)/ }).fill('New Session');
+					await this.code.driver.page.getByRole('textbox', { name: SESSION_QUICK_MENU_PATTERN }).fill('New Session');
 					await this.code.driver.page.keyboard.press('Enter');
-					await expect(this.code.driver.page.getByText(/Start New Interpreter Session/)).toBeVisible({ timeout: 1000 });
+					await expect(this.code.driver.page.getByText(START_NEW_CONSOLE_SESSION_PATTERN)).toBeVisible({ timeout: 1000 });
 				}
 			}, 'Open Session QuickPick Menu').toPass({ intervals: [500], timeout: 10000 });
 		});
@@ -1118,7 +1128,7 @@ export class SessionQuickPick {
 
 			// Filter out the one with "New Session..."
 			const filteredSessions = activeSessions
-				.filter(session => !session.name.includes('New Interpreter Session...'));
+				.filter(session => !session.name.includes(NEW_CONSOLE_SESSION_ITEM_LABEL));
 
 			await this.closeSessionQuickPickMenu();
 			return filteredSessions;

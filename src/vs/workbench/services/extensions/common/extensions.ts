@@ -367,6 +367,7 @@ export class ExtensionPointContribution<T> {
 export interface IWillActivateEvent {
 	readonly event: string;
 	readonly activation: Promise<void>;
+	readonly activationKind: ActivationKind;
 }
 
 export interface IResponsiveStateChangeEvent {

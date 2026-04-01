@@ -551,7 +551,7 @@ export async function getBlob(params: CommonParams, url: string, ociCacheDir: st
 		// https://github.com/devcontainers/spec/blob/main/docs/specs/devcontainer-templates.md#the-optionalpaths-property
 		const directoriesToOmit = omitDuringExtraction.filter(f => f.endsWith('/*')).map(f => f.slice(0, -1));
 		const filesToOmit = omitDuringExtraction.filter(f => !f.endsWith('/*'));
-		
+
 		output.write(`omitDuringExtraction: '${omitDuringExtraction.join(', ')}`, LogLevel.Trace);
 		output.write(`Files to omit: '${filesToOmit.join(', ')}'`, LogLevel.Info);
 		if (directoriesToOmit.length) {
@@ -563,8 +563,9 @@ export async function getBlob(params: CommonParams, url: string, ociCacheDir: st
 			{
 				file: tempTarballPath,
 				cwd: destCachePath,
-				filter: (tPath: string, stat: tar.FileStat) => {
-					output.write(`Testing '${tPath}'(${stat.type})`, LogLevel.Trace);
+				filter: (tPath, stat) => {
+					const entryType = 'type' in stat ? stat.type : (stat.isFile() ? 'File' : stat.isDirectory() ? 'Directory' : 'Other');
+					output.write(`Testing '${tPath}'(${entryType})`, LogLevel.Trace);
 					const cleanedPath = tPath
 						.replace(/\\/g, '/')
 						.replace(/^\.\//, '');
@@ -574,7 +575,8 @@ export async function getBlob(params: CommonParams, url: string, ociCacheDir: st
 						return false; // Skip
 					}
 
-					if (stat.type.toString() === 'File') {
+					const isFile = 'type' in stat ? stat.type === 'File' : stat.isFile();
+					if (isFile) {
 						files.push(tPath);
 					}
 
@@ -594,7 +596,7 @@ export async function getBlob(params: CommonParams, url: string, ociCacheDir: st
 			{
 				file: tempTarballPath,
 				cwd: ociCacheDir,
-				filter: (tPath: string, _: tar.FileStat) => {
+				filter: (tPath, _) => {
 					return tPath === `./${metadataFile}`;
 				}
 			});

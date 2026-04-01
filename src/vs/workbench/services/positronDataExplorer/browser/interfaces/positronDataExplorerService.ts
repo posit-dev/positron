@@ -60,6 +60,14 @@ export interface IPositronDataExplorerService {
 	setInstanceForVar(instanceId: string, variableId: string): void;
 
 	/**
+	 * Gets the instance for the specified canonical variable path within a session.
+	 *
+	 * @param sessionId The runtime session ID.
+	 * @param variablePath The encoded variable path.
+	 */
+	getInstanceForVariablePath(sessionId: string, variablePath: string[]): IPositronDataExplorerInstance | undefined;
+
+	/**
 	 * Open a URI in the data explorer using the positron-duckdb extension.
 	 * @param uri The URI, usually a file in the workspace.
 	 */

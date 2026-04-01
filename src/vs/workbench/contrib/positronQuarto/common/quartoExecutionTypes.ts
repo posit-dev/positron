@@ -185,7 +185,7 @@ export interface IQuartoExecutionManager {
 	 * @param codeRanges Ranges of code to execute (can be partial cells)
 	 * @param token Optional cancellation token
 	 */
-	executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken): Promise<void>;
+	executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken, executionMetadata?: Record<string, unknown>[]): Promise<void>;
 
 	/**
 	 * Cancel execution for a document.

@@ -103,6 +103,7 @@ import { IEphemeralStateService } from '../../platform/ephemeralState/common/eph
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
 import { PositronMemoryUsageServerService } from '../../platform/positronMemoryUsage/node/positronMemoryUsageServerService.js';
 import { POSITRON_MEMORY_INFO_CHANNEL_NAME, PositronMemoryInfoChannel } from '../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
+// eslint-disable-next-line no-duplicate-imports
 import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentEnvironment.js';
 // --- End Positron ---
 
@@ -280,7 +281,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 
 		socketServer.registerChannel(REMOTE_TERMINAL_CHANNEL_NAME, new RemoteTerminalChannel(environmentService, logService, ptyHostService, productService, extensionManagementService, configurationService));
 
-		const remoteExtensionsScanner = new RemoteExtensionsScannerService(instantiationService.createInstance(ExtensionManagementCLI, logService), environmentService, userDataProfilesService, extensionsScannerService, logService, extensionGalleryService, languagePackService, extensionManagementService);
+		const remoteExtensionsScanner = new RemoteExtensionsScannerService(instantiationService.createInstance(ExtensionManagementCLI, productService.extensionsForceVersionByQuality ?? [], logService), environmentService, userDataProfilesService, extensionsScannerService, logService, extensionGalleryService, languagePackService, extensionManagementService);
 		socketServer.registerChannel(RemoteExtensionsScannerChannelName, new RemoteExtensionsScannerChannel(remoteExtensionsScanner, (ctx: RemoteAgentConnectionContext) => getUriTransformer(ctx.remoteAuthority)));
 
 		socketServer.registerChannel(NativeMcpDiscoveryHelperChannelName, instantiationService.createInstance(NativeMcpDiscoveryHelperChannel, (ctx: RemoteAgentConnectionContext) => getUriTransformer(ctx.remoteAuthority)));
@@ -424,6 +425,11 @@ function twodigits(n: number): string {
 async function cleanupOlderLogs(logsPath: string): Promise<void> {
 	const currentLog = path.basename(logsPath);
 	const logsRoot = path.dirname(logsPath);
+
+	if (!await Promises.exists(logsRoot)) {
+		return; // Logs root doesn't exist yet, nothing to clean up
+	}
+
 	const children = await Promises.readdir(logsRoot);
 	const allSessions = children.filter(name => /^\d{8}T\d{6}$/.test(name));
 	const oldSessions = allSessions.sort().filter((d) => d !== currentLog);

@@ -87,7 +87,7 @@ async function launchBrowser(options: LaunchOptions, serverUrl: string) {
 		fullUrl = serverUrl;
 	} else {
 		// Default VS Code server behavior (e.g., port 8080)
-		const workspaceParam = workspacePath.endsWith('.code-workspace') ? 'workspace' : 'folder';
+		const workspaceParam = workspacePath!.endsWith('.code-workspace') ? 'workspace' : 'folder';
 		const separator = serverUrl.includes('?') ? '&' : '?';
 		fullUrl = `${serverUrl}${separator}${workspaceParam}=${URI.file(workspacePath!).path}&payload=${payloadParam}`;
 	}

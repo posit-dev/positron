@@ -21,12 +21,12 @@ import vfs from 'vinyl-fs';
 import packageJson from '../package.json' with { type: 'json' };
 import flatmap from 'gulp-flatmap';
 import gunzip from 'gulp-gunzip';
-import untar from 'gulp-untar';
+import { untar } from './lib/util.ts';
 import File from 'vinyl';
 import * as fs from 'fs';
 import glob from 'glob';
 import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
-import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } from './gulpfile.extensions.ts';
+import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, copyExtensionBinariesTask } from './gulpfile.extensions.ts';
 import { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } from './gulpfile.vscode.web.ts';
 import * as cp from 'child_process';
 import log from 'fancy-log';
@@ -35,9 +35,7 @@ import { fetchUrls, fetchGithub } from './lib/fetch.ts';
 import jsonEditor from 'gulp-json-editor';
 
 // --- Start Positron ---
-import { positronBuildNumber } from './utils.ts';
-// eslint-disable-next-line no-duplicate-imports
-import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
+import { positronBuildNumber, releaseChannel } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
@@ -68,10 +66,6 @@ const BUILD_TARGETS = [
 ];
 
 const serverResourceIncludes = [
-	// --- Start PWB ---
-	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
-	// --- End PWB ---
-
 	// NLS
 	'out-build/nls.messages.json',
 	'out-build/nls.keys.json',
@@ -93,8 +87,33 @@ const serverResourceIncludes = [
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-rc.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-login.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration.fish',
-
 ];
+
+// --- Start PWB ---
+// Web resources including PWB-specific files (for reh-web-pwb builds)
+const pwbWebResourceIncludes = [
+	...serverResourceIncludes,
+	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
+];
+
+/**
+ * Helper function to check if a build type is a web type.
+ * @param type The build type to check
+ * @returns true if the type is a web build type (reh-web or reh-web-pwb)
+ */
+function isWebType(type: string): boolean {
+	return type === 'reh-web' || type === 'reh-web-pwb';
+}
+
+/**
+ * Helper function to check if a build type is the PWB-specific web type.
+ * @param type The build type to check
+ * @returns true if the type is reh-web-pwb
+ */
+function isPwbWebType(type: string): boolean {
+	return type === 'reh-web-pwb';
+}
+// --- End PWB ---
 
 const serverResourceExcludes = [
 	'!out-build/vs/**/{electron-browser,electron-main,electron-utility}/**',
@@ -111,9 +130,6 @@ const serverResources = [
 const serverWithWebResourceIncludes = [
 	...serverResourceIncludes,
 	'out-build/vs/code/browser/workbench/*.html',
-	// --- Start Positron ---
-	'out-build/esm-package-dependencies/**',
-	// --- End Positron ---
 	...vscodeWebResourceIncludes
 ];
 
@@ -126,6 +142,21 @@ const serverWithWebResources = [
 	...serverWithWebResourceIncludes,
 	...serverWithWebResourceExcludes
 ];
+
+// --- Start PWB ---
+// Server with web resources for reh-web-pwb (includes PWB-specific rsLoginCheck.js)
+const pwbServerWithWebResourceIncludes = [
+	...pwbWebResourceIncludes,
+	'out-build/vs/code/browser/workbench/*.html',
+	...vscodeWebResourceIncludes
+];
+
+const pwbServerWithWebResources = [
+	...pwbServerWithWebResourceIncludes,
+	...serverWithWebResourceExcludes
+];
+// --- End PWB ---
+
 const serverEntryPoints = buildfile.codeServer;
 
 const webEntryPoints = [
@@ -304,9 +335,11 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
 			.filter((extensionPath) => {
-				if (type === 'reh-web') {
+				// --- Start PWB ---
+				if (isWebType(type)) {
 					return true; // web: ship all extensions for now
 				}
+				// --- End PWB ---
 
 				// Skip shipping UI extensions because the client side will have them anyways
 				// and they'd just increase the download without being used
@@ -351,7 +384,6 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const extensions = gulp.src([...extensionPaths, ...bootstrapExtensionPaths], { base: '.build', dot: true });
 
 		// --- End Positron ---
-
 		const extensionsCommonDependencies = gulp.src('.build/extensions/node_modules/**', { base: '.build', dot: true });
 		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.{js,css}.map'], { dot: true }));
@@ -373,7 +405,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		let packageJsonContents = '';
 		// --- Start Positron ---
 		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
-		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
+		const packageJsonBase = isWebType(type) ? 'remote/reh-web' : 'remote';
 		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
 			// --- End Positron ---
 			.pipe(jsonEditor({ name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' }))
@@ -385,7 +417,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		let productJsonContents = '';
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
 			// --- Start Positron ---
-			.pipe(jsonEditor({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber }))
+			.pipe(jsonEditor({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber, quality: releaseChannel }))
 			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();
@@ -400,7 +432,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
 		// --- Start Positron ---
-		const productionDependencies = getProductionDependencies(type === 'reh-web' ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
+		const productionDependencies = getProductionDependencies(isWebType(type) ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
 		const deps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
 			// --- End Positron ---
@@ -416,7 +448,9 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const node = gulp.src(`${nodePath}/**`, { base: nodePath, dot: true });
 
 		let web: NodeJS.ReadWriteStream[] = [];
-		if (type === 'reh-web') {
+		// --- Start PWB ---
+		if (isWebType(type)) {
+			// --- End PWB ---
 			web = [
 				'resources/server/favicon.ico',
 				// --- Start Positron ---
@@ -526,7 +560,9 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 	return result;
 }
 
-['reh', 'reh-web'].forEach(type => {
+// --- Start PWB ---
+['reh', 'reh-web', 'reh-web-pwb'].forEach(type => {
+	// --- End PWB ---
 	const bundleTask = task.define(`bundle-vscode-${type}`, task.series(
 		util.rimraf(`out-vscode-${type}`),
 		optimize.bundleTask(
@@ -538,10 +574,12 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 						...(type === 'reh' ? serverEntryPoints : serverWithWebEntryPoints),
 						...bootstrapEntryPoints
 					],
-					resources: type === 'reh' ? serverResources : serverWithWebResources,
-					// --- Start Positron ---
-					fileContentMapper: createVSCodeWebFileContentMapper(type === 'reh-web' ? '.build/web/extensions' : '.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
-					// --- End Positron ---
+					// --- Start PWB ---
+					// reh-web-pwb uses pwbServerWithWebResources (includes rsLoginCheck.js for PWB)
+					// reh-web uses serverWithWebResources (no rsLoginCheck.js)
+					resources: type === 'reh' ? serverResources : (isPwbWebType(type) ? pwbServerWithWebResources : serverWithWebResources),
+					fileContentMapper: createVSCodeWebFileContentMapper('.build/extensions', isWebType(type) ? tweakProductForServerWeb(product) : product)
+					// --- End PWB ---
 				}
 			}
 		)
@@ -572,11 +610,11 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 			gulp.task(serverTaskCI);
 
 			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				// --- Start Positron ---
+				// --- Start PWB ---
 				// Only mangle when minified is true. This matches the behavior of gulpfile.vscode:628.
-				// minified ? compileBuildWithManglingTask,
+				// compileBuildWithManglingTask,
 				minified ? compileBuildWithManglingTask : compileBuildWithoutManglingTask,
-				// --- End Positron ---
+				// --- End PWB ---
 				cleanExtensionsBuildTask,
 				compileNonNativeExtensionsBuildTask,
 				compileExtensionMediaBuildTask,

@@ -78,6 +78,18 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	private _identifier?: string;
 
 	/**
+	 * Tracks whether this editor has marked its data explorer instance visible.
+	 * Used to balance visibility calls when an instance is shared by multiple editors.
+	 */
+	private _hasMarkedInstanceVisible = false;
+
+	/**
+	 * Tracks whether setEditorVisible(false) has temporarily decremented the
+	 * ref-count. Prevents double-decrement when clearInput also fires.
+	 */
+	private _editorHiddenByVisibility = false;
+
+	/**
 	 * Gets the is focused context key.
 	 */
 	private readonly _isFocusedContextKey: IContextKey<boolean>;
@@ -424,6 +436,13 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 						this._fileHasHeaderRowContextKey.set(hasHeaderRow)
 					)
 				);
+
+				// Mark the instance as visible now that the editor is active.
+				// This will trigger any deferred refresh operations.
+				if (!this._hasMarkedInstanceVisible) {
+					positronDataExplorerInstance.setVisible(true);
+					this._hasMarkedInstanceVisible = true;
+				}
 			} else {
 				this._positronReactRenderer.render(
 					<PositronDataExplorerClosed
@@ -442,6 +461,17 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Clears the input.
 	 */
 	override clearInput(): void {
+		// Mark the instance as not visible before disposing.
+		// Skip decrement if setEditorVisible(false) already did it.
+		if (this._identifier && this._hasMarkedInstanceVisible) {
+			const instance = this._positronDataExplorerService.getInstance(this._identifier);
+			if (instance && !this._editorHiddenByVisibility) {
+				instance.setVisible(false);
+			}
+		}
+		this._hasMarkedInstanceVisible = false;
+		this._editorHiddenByVisibility = false;
+
 		// Dispose the PositronReactRenderer.
 		this.disposePositronReactRenderer();
 
@@ -456,6 +486,21 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	protected override setEditorVisible(visible: boolean): void {
 		// Call the base class's method.
 		super.setEditorVisible(visible);
+
+		if (!this._identifier || !this._hasMarkedInstanceVisible) {
+			return;
+		}
+		const instance = this._positronDataExplorerService.getInstance(this._identifier);
+		if (!instance) {
+			return;
+		}
+		if (!visible && !this._editorHiddenByVisibility) {
+			instance.setVisible(false);
+			this._editorHiddenByVisibility = true;
+		} else if (visible && this._editorHiddenByVisibility) {
+			instance.setVisible(true);
+			this._editorHiddenByVisibility = false;
+		}
 	}
 
 	//#endregion EditorPane Overrides

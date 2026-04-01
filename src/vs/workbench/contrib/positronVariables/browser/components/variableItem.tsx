@@ -147,32 +147,43 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @param item The variable item to view or open.
 	 */
 	const viewVariableItem = async (item: IVariableItem) => {
-		// Check for an existing viewer instance.
+		// Check for an existing viewer instance by variable ID (existing behavior).
 		const explorerService = services.positronDataExplorerService;
 		const instance = explorerService.getInstanceForVar(item.id);
 		if (instance) {
-			// There's an existing viewer instance, so activate it.
 			instance.requestFocus();
-		} else {
-			// Open a viewer for the variable item.
-			let viewerId: string | undefined;
-			try {
-				viewerId = await item.view();
-			} catch (err) {
-				services.notificationService.error(localize(
-					'positron.variables.viewerError',
-					"An error occurred while opening the viewer. Try restarting your session."
-				));
-			}
+			return;
+		}
 
-			// If a binding was returned, save the binding between the viewer and the
-			// variable item. Note that it's valid for backends to not return any ID
-			// if no comm was open. This happens with Ark when the user views a
-			// function object: a virtual document is opened in an editor but is not
-			// managed by a comm.
-			if (viewerId) {
-				explorerService.setInstanceForVar(viewerId, item.id);
+		// Check for an existing viewer by canonical variable path.
+		// This catches instances opened from inline notebook data explorers.
+		const sessionId = props.positronVariablesInstance.session.sessionId;
+		if (item.path.length > 0) {
+			const pathInstance = explorerService.getInstanceForVariablePath(sessionId, item.path);
+			if (pathInstance) {
+				pathInstance.requestFocus();
+				return;
 			}
+		}
+
+		// Open a viewer for the variable item.
+		let viewerId: string | undefined;
+		try {
+			viewerId = await item.view();
+		} catch (err) {
+			services.notificationService.error(localize(
+				'positron.variables.viewerError',
+				"An error occurred while opening the viewer. Try restarting your session."
+			));
+		}
+
+		// If a binding was returned, save the binding between the viewer and the
+		// variable item. Note that it's valid for backends to not return any ID
+		// if no comm was open. This happens with Ark when the user views a
+		// function object: a virtual document is opened in an editor but is not
+		// managed by a comm.
+		if (viewerId) {
+			explorerService.setInstanceForVar(viewerId, item.id);
 		}
 	};
 

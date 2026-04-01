@@ -14,6 +14,13 @@
 	.positron-notebook-outputs-section {
 		position: relative;
 
+		/* Show scrollbar when hovering anywhere in the output section (including the
+		 * action bar), not just the scrollable container itself. */
+		&:hover .positron-notebook-scrollable-fade {
+			--_positron-notebook-scrollbar-thumb-bg: var(--vscode-scrollbarSlider-background);
+			transition: --_positron-notebook-scrollbar-thumb-bg 100ms linear;
+		}
+
 		&.no-outputs {
 			/* Dont show empty outputs at all */
 			display: none;
@@ -21,7 +28,6 @@
 
 		&.single-data-explorer .positron-notebook-code-cell-outputs-inner:has(.inline-data-explorer-container) {
 			padding: 8px 0 0 0;
-			margin-inline: 0;
 			overflow: hidden; /* Data explorer handles its own scrolling */
 		}
 
@@ -40,12 +46,14 @@
 	}
 
 	.positron-notebook-code-cell-outputs-inner {
+		font-family: var(--vscode-positronNotebook-text-output-font-family, var(--monaco-monospace-font));
 		padding-inline: 0.5rem;
 		padding-block: 0.5rem;
 
-		/* Avoid overlap with border which is overlaid from another element so
-		the layout doesn't automatically avoid it*/
-		margin-inline: 1px;
+		&.output-scrolling {
+			max-height: var(--vscode-positronNotebook-output-max-height);
+			overflow-y: auto;
+		}
 		overflow-x: auto;
 
 		& .notebook-error,
@@ -71,23 +79,25 @@
 			}
 		}
 
-		/* Button to show hidden outputs styled as a link */
-		.show-hidden-output-button {
+		/* Muted label shown when output is collapsed, clickable to expand. */
+		.collapsed-output-label {
+			font-family: system-ui, sans-serif !important;
 			font-size: 12px;
-			color: var(--vscode-textLink-foreground);
-			background: none;
-			border: none;
+			font-style: italic;
+			opacity: 0.75;
 			padding: 0;
+
+			&:hover {
+				opacity: 1;
+				color: var(--vscode-textLink-foreground);
+			}
 		}
 
-		.show-hidden-output-button:hover {
-			text-decoration: underline;
-		}
-
-		/* override the global .monaco-workbench button focus outline style */
-		.show-hidden-output-button:focus,
-		.show-hidden-output-button:focus-visible {
-			outline-offset: 2px !important;
+		/* Scale plot images to fit the output viewport without exceeding
+		 * their natural size or changing their aspect ratio. */
+		& > img {
+			max-width: 100%;
+			height: auto;
 		}
 	}
 }
