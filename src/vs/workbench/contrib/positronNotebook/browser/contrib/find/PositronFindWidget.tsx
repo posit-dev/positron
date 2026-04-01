@@ -20,9 +20,10 @@ import { Codicon } from '../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../nls.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
-import { useResize } from '../../useResize.js';
+import { getWindow } from '../../../../../../base/browser/dom.js';
+import { createStyleSheet } from '../../../../../../base/browser/domStylesheets.js';
 
 // Localized strings
 const previousMatchLabel = localize('positronNotebook.find.previousMatch', "Previous Match");
@@ -78,12 +79,44 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 	const closeButtonRef = useRef<HTMLButtonElement>(null);
 	const replaceButtonRef = useRef<HTMLButtonElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const { handleRef: sashRef, sizeOverride: widgetWidth } = useResize({
-		axis: 'horizontal',
-		edge: 'start',
-		containerRef,
-		minSize: FIND_WIDGET_MIN_WIDTH,
-	});
+	const [widgetWidth, setWidgetWidth] = useState<number | undefined>(undefined);
+
+	const sashPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+		if (e.pointerType === 'mouse' && e.buttons !== 1) {
+			return;
+		}
+		e.preventDefault();
+
+		const sash = e.currentTarget;
+		const container = containerRef.current;
+		if (!container) {
+			return;
+		}
+
+		const body = getWindow(sash).document.body;
+		const startX = e.clientX;
+		const startWidth = container.offsetWidth;
+		const styleSheet = createStyleSheet(body);
+
+		const onPointerMove = (me: PointerEvent) => {
+			me.preventDefault();
+			// Left-edge sash: dragging left grows the widget.
+			const newWidth = Math.max(FIND_WIDGET_MIN_WIDTH, startWidth - (me.clientX - startX));
+			styleSheet.textContent = `* { cursor: ew-resize !important; user-select: none !important; }`;
+			container.style.width = newWidth + 'px';
+			setWidgetWidth(newWidth);
+		};
+
+		const onLostCapture = () => {
+			sash.removeEventListener('pointermove', onPointerMove);
+			sash.removeEventListener('lostpointercapture', onLostCapture);
+			body.removeChild(styleSheet);
+		};
+
+		sash.setPointerCapture(e.pointerId);
+		sash.addEventListener('pointermove', onPointerMove);
+		sash.addEventListener('lostpointercapture', onLostCapture);
+	}, []);
 
 	useImperativeHandle(ref, () => ({
 		focusFindInput() {
@@ -252,7 +285,7 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 			className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}
 			style={widgetWidth !== undefined ? { width: widgetWidth } : undefined}
 		>
-			<div ref={sashRef} className='find-widget-sash' />
+			<div className='find-widget-sash' onPointerDown={sashPointerDown} />
 			{props.replace && (
 				<ActionButton
 					ariaLabel={toggleReplaceLabel}
