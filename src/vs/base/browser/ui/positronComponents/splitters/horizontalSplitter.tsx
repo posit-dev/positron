@@ -62,11 +62,16 @@ export const HorizontalSplitter = (props: {
 		const clientY = e.clientY;
 		const styleSheet = createStyleSheet(body);
 
+		// Track whether any meaningful drag occurred, so we can distinguish
+		// a click (or double-click) from a drag on pointer release.
+		let didDrag = false;
+
 		/**
 		 * pointermove event handler.
 		 * @param e A PointerEvent that describes a user interaction with the pointer.
 		 */
 		const pointerMoveHandler = (e: PointerEvent) => {
+			didDrag = true;
 			// Consume the event.
 			e.preventDefault();
 			e.stopPropagation();
@@ -106,21 +111,25 @@ export const HorizontalSplitter = (props: {
 			sizer.removeEventListener('pointermove', pointerMoveHandler);
 			sizer.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
-			// Calculate the new height.
-			let newHeight = calculateNewHeight(e);
-
-			// Adjust the new height to be within limits.
-			if (newHeight < resizeParams.minimumHeight) {
-				newHeight = resizeParams.minimumHeight;
-			} else if (newHeight > resizeParams.maximumHeight) {
-				newHeight = resizeParams.maximumHeight;
-			}
-
 			// Remove the style sheet.
 			body.removeChild(styleSheet);
 
-			// Call the onEndResize callback.
-			props.onResize(newHeight);
+			// Only commit the final height if the user actually dragged.
+			// This avoids interfering with click and double-click interactions.
+			if (didDrag) {
+				// Calculate the new height.
+				let newHeight = calculateNewHeight(e);
+
+				// Adjust the new height to be within limits.
+				if (newHeight < resizeParams.minimumHeight) {
+					newHeight = resizeParams.minimumHeight;
+				} else if (newHeight > resizeParams.maximumHeight) {
+					newHeight = resizeParams.maximumHeight;
+				}
+
+				// Call the onEndResize callback.
+				props.onResize(newHeight);
+			}
 		};
 
 		/**
@@ -150,7 +159,7 @@ export const HorizontalSplitter = (props: {
 	// Render.
 	return (
 		<div className='horizontal-splitter'>
-			{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- TODO: add full keyboard accessibility (role, tabindex, arrow keys) */}
+			{/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
 			<div
 				className={positronClassNames(
 					'sizer',
