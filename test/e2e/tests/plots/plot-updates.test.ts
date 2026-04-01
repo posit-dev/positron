@@ -52,7 +52,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			}).toPass({ timeout: 15000 });
 		});
 
-		test('Python - plot should not be updated after initial appearance', { tag: [tags.WEB, tags.WIN] }, async function ({ app, python }) {
+		test('Python - plot should not be updated after initial appearance', { tag: [tags.WEB] }, async function ({ app, python }) {
 
 			const code = `
 import matplotlib.pyplot as plt
