@@ -390,12 +390,30 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			return;
 		}
 
-		// Check if the notebook is the active editor and not already the foreground session.
+		// Avoid unnecessary work if the session is already the foreground session.
+		if (this._runtimeSessionService.foregroundSession?.sessionId === session.sessionId) {
+			return;
+		}
+
 		const notebookName = basename(notebookUri);
 		const activeEditor = this._editorService.activeEditor;
-		if (isNotebookEditorInput(activeEditor) && isEqual(activeEditor.resource, notebookUri) && this._runtimeSessionService.foregroundSession?.sessionId !== session.sessionId) {
+
+		// Check if a Positron/legacy notebook editor for this URI is the active editor.
+		if (isNotebookEditorInput(activeEditor) && isEqual(activeEditor.resource, notebookUri)) {
 			this._logService.trace(`[ForegroundSessionContribution] Notebook session started/ready for (${notebookName}), setting foreground session: ${session.sessionId}`);
 			this._runtimeSessionService.foregroundSession = session;
+			return;
+		}
+
+		// Check if a Quarto code editor for this URI is the active editor.
+		// Quarto files are not notebook editor inputs, so we need to check separately.
+		if (usingQuartoInlineOutput(this._configurationService)) {
+			const activeCodeEditor = this._codeEditorService.getActiveCodeEditor();
+			const model = activeCodeEditor?.getModel();
+			if (model && isEqual(model.uri, notebookUri) && isQuartoDocument(model.uri.path, model.getLanguageId())) {
+				this._logService.trace(`[ForegroundSessionContribution] Quarto session started/ready for (${notebookName}), setting foreground session: ${session.sessionId}`);
+				this._runtimeSessionService.foregroundSession = session;
+			}
 		}
 	}
 
