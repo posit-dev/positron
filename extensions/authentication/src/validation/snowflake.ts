@@ -38,7 +38,7 @@ export async function validateSnowflakeApiKey(
 		);
 	}
 
-	const endpoint = `${baseUrl}/models`;
+	const endpoint = `${baseUrl}/chat/completions`;
 
 	const controller = new AbortController();
 	const timeout = setTimeout(
@@ -46,15 +46,19 @@ export async function validateSnowflakeApiKey(
 	);
 	try {
 		const response = await fetch(endpoint, {
-			method: 'GET',
+			method: 'POST',
 			headers: {
 				'Authorization': `Bearer ${apiKey}`,
 				'Content-Type': 'application/json',
 			},
+			body: JSON.stringify({ model: '', messages: [] }),
 			signal: controller.signal,
 		});
 
-		if (response.ok) {
+		// A 400/422 means the server authenticated us but rejected
+		// the empty request body -- credentials are valid.
+		if (response.ok || response.status === 400
+			|| response.status === 422) {
 			return;
 		}
 

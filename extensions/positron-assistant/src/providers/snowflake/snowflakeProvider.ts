@@ -10,10 +10,6 @@ import { OpenAIProvider } from '@ai-sdk/openai';
 import { OpenAICompatibleModelProvider } from '../openai/openaiCompatibleProvider.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
-/**
- * Validates a Snowflake account identifier format.
- * Matches the strict validation in the auth extension's snowflakeCredentials.ts.
- */
 function isValidSnowflakeAccount(account: string): boolean {
 	if (!account || typeof account !== 'string') {
 		return false;
@@ -22,9 +18,6 @@ function isValidSnowflakeAccount(account: string): boolean {
 		/^[a-zA-Z0-9_-]+$/.test(account);
 }
 
-/**
- * Derives the default Snowflake Cortex base URL from the account in settings or env.
- */
 function getSnowflakeDefaultBaseUrl(): string {
 	const creds = vscode.workspace
 		.getConfiguration('authentication.snowflake')
