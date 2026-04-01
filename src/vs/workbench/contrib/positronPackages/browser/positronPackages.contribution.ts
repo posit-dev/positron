@@ -194,7 +194,7 @@ class RefreshPackagesAction extends Action2 {
 				}
 			}, () => cts.dispose(true));
 		} finally {
-			cts.dispose();
+			cts.dispose(true);
 		}
 	}
 }
@@ -252,8 +252,6 @@ class InstallPackageAction extends Action2 {
 						);
 					} catch (e) {
 						notifications.error(e);
-					} finally {
-						cts.dispose(true);
 					}
 				}, () => cts.dispose(true));
 			};
@@ -334,7 +332,7 @@ class UninstallPackageAction extends Action2 {
 			notifications.error(error);
 			throw error;
 		} finally {
-			cts.dispose();
+			cts.dispose(true);
 		}
 	}
 }
@@ -458,7 +456,7 @@ class UpdateAllPackagesAction extends Action2 {
 				}
 			}, () => cts.dispose(true));
 		} finally {
-			cts.dispose();
+			cts.dispose(true);
 		}
 	}
 }
