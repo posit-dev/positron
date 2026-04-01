@@ -253,7 +253,7 @@ class InstallPackageAction extends Action2 {
 					} catch (e) {
 						notifications.error(e);
 					}
-				}, () => cts.dispose(true));
+				}, () => cts.cancel());
 			};
 
 			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
@@ -314,7 +314,7 @@ class UninstallPackageAction extends Action2 {
 					} catch (e) {
 						notifications.error(e);
 					}
-				}, () => cts.dispose(true));
+				}, () => cts.cancel());
 			};
 
 			const argPackage = args.at(0) as string | undefined;
@@ -396,7 +396,7 @@ class UpdatePackageAction extends Action2 {
 					} catch (e) {
 						notifications.error(e);
 					}
-				}, () => cts.dispose(true));
+				}, () => cts.cancel());
 			};
 
 			const arg0 = args.at(0) as string | undefined;
