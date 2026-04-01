@@ -179,21 +179,23 @@ class RefreshPackagesAction extends Action2 {
 
 		const cts = new CancellationTokenSource();
 
-		return progress.withProgress({
-			title: nls.localize('positronPackages.refreshingPackages', 'Refreshing Packages...'),
-			location: ProgressLocation.Notification,
-			cancellable: true,
-			delay: 500
-		}, async () => {
-			try {
-				return await service.refreshPackages(cts.token);
-			} catch (error) {
-				notifications.error(error);
-				throw error;
-			} finally {
-				cts.dispose(true);
-			}
-		}, () => cts.cancel());
+		try {
+			return await progress.withProgress({
+				title: nls.localize('positronPackages.refreshingPackages', 'Refreshing Packages...'),
+				location: ProgressLocation.Notification,
+				cancellable: true,
+				delay: 500
+			}, async () => {
+				try {
+					return await service.refreshPackages(cts.token);
+				} catch (error) {
+					notifications.error(error);
+					throw error;
+				}
+			}, () => cts.dispose(true));
+		} finally {
+			cts.dispose();
+		}
 	}
 }
 
@@ -331,8 +333,9 @@ class UninstallPackageAction extends Action2 {
 		} catch (error) {
 			notifications.error(error);
 			throw error;
+		} finally {
+			cts.dispose();
 		}
-
 	}
 }
 
@@ -434,25 +437,29 @@ class UpdateAllPackagesAction extends Action2 {
 
 		const cts = new CancellationTokenSource();
 
-		await progress.withProgress({
-			title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
-			location: ProgressLocation.Notification,
-			cancellable: true,
-			delay: 500
-		}, async () => {
-			try {
-				await service.updateAllPackages(cts.token);
-				showRestartSessionNotificationForUpdateAll(
-					notifications,
-					runtimeSessionService,
-					commandService,
-					service
-				);
-			} catch (e) {
-				notifications.error(e);
-				throw e;
-			}
-		}, () => cts.dispose(true));
+		try {
+			await progress.withProgress({
+				title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
+				location: ProgressLocation.Notification,
+				cancellable: true,
+				delay: 500
+			}, async () => {
+				try {
+					await service.updateAllPackages(cts.token);
+					showRestartSessionNotificationForUpdateAll(
+						notifications,
+						runtimeSessionService,
+						commandService,
+						service
+					);
+				} catch (e) {
+					notifications.error(e);
+					throw e;
+				}
+			}, () => cts.dispose(true));
+		} finally {
+			cts.dispose();
+		}
 	}
 }
 
