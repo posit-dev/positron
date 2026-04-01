@@ -1188,8 +1188,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Actually shutdown the session.
 		try {
 			await this.shutdownRuntimeSession(session, exitReason);
-			shutdownPromise.complete();
 			this._logService.debug(`Notebook ${notebookUri.toString()} has been shut down`);
+
+			// Delete the session after shutdown so that the associated console
+			// instance (if any) is also cleaned up. The notebook is closed, so
+			// the session is no longer useful.
+			try {
+				await this.deleteSession(session.sessionId);
+			} catch (deleteErr) {
+				this._logService.debug(`Could not delete notebook session ${session.sessionId}: ${deleteErr}`);
+			}
+
+			shutdownPromise.complete();
 		} catch (error) {
 			this._logService.error(`Failed to shutdown notebook ${notebookUri.toString()}. Reason: ${error}`);
 			shutdownPromise.error(error);
