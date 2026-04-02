@@ -461,7 +461,10 @@ configurationRegistry.registerConfiguration({
 		},
 		[ChatConfiguration.ChatViewSessionsEnabled]: {
 			type: 'boolean',
-			default: true,
+			// --- Start Positron ---
+			// default: true,
+			default: false,
+			// --- End Positron ---
 			description: nls.localize('chat.viewSessions.enabled', "Show chat agent sessions when chat is empty or to the side when chat view is wide enough."),
 		},
 		[ChatConfiguration.ChatViewSessionsOrientation]: {

@@ -18,17 +18,19 @@
 	white-space: pre-wrap;
 }
 
-.notebook-output-truncation-message {
-	display: block;
-	font-size: 0.95em;
-	opacity: 0.8;
+/* Clickable "Show N more lines" message shown when output is truncated. */
+.positron-notebook-text-output .notebook-output-truncation-message {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	/* Override the parent's monospace font and Button's unset !important. */
+	font-family: system-ui, sans-serif !important;
+	font-size: 11px;
+	line-height: 11px;
+	color: var(--vscode-editorCodeLens-foreground);
+	padding: 4px 0;
+	user-select: none;
 }
-
-/* Use theme link colors */
-.notebook-output-truncation-message a {
+.positron-notebook-text-output .notebook-output-truncation-message:hover {
 	color: var(--vscode-textLink-foreground);
-}
-.notebook-output-truncation-message a:hover,
-.notebook-output-truncation-message a:active {
-	color: var(--vscode-textLink-activeForeground);
 }
