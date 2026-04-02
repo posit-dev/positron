@@ -365,9 +365,9 @@
 			]
 		},
 		"namespace-call": {
-			"match": "(?<![A-Za-z0-9._-])([A-Za-z](?:[A-Za-z0-9.]*[A-Za-z0-9])?)(:::?)",
+			"match": "(?<![A-Za-z0-9._])([A-Za-z._][A-Za-z0-9._]*)(:::?)",
 			"captures": {
-				"1": { "name": "support.class.r" },
+				"1": { "name": "entity.name.namespace.r" },
 				"2": { "name": "keyword.operator" }
 			}
 		},
