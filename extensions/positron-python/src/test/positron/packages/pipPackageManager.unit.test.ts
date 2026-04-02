@@ -10,13 +10,13 @@ import { interfaces } from 'inversify';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { IPythonExecutionFactory, IPythonExecutionService } from '../../client/common/process/types';
-import { ITerminalService, ITerminalServiceFactory } from '../../client/common/terminal/types';
-import { IServiceContainer } from '../../client/ioc/types';
-import { PipPackageManager } from '../../client/positron/packages/pipPackageManager';
-import { MessageEmitter, PackageSession } from '../../client/positron/packages/types';
-import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
-import { mock } from './utils';
+import { IPythonExecutionFactory, IPythonExecutionService } from '../../../client/common/process/types';
+import { ITerminalService, ITerminalServiceFactory } from '../../../client/common/terminal/types';
+import { IServiceContainer } from '../../../client/ioc/types';
+import { PipPackageManager } from '../../../client/positron/packages/pipPackageManager';
+import { MessageEmitter, PackageSession } from '../../../client/positron/packages/types';
+import * as workspaceApis from '../../../client/common/vscodeApis/workspaceApis';
+import { mock } from '../utils';
 
 suite('Pip Package Manager', () => {
     let pipPackageManager: PipPackageManager;
