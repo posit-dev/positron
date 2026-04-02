@@ -515,7 +515,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						'pythonInterpreterSubStep.description',
 						"Select {0}",
 						whatToSelect
-					)
+					);
 				})()}
 				feedback={interpreterStepFeedback()}
 				title={(() => {
@@ -524,7 +524,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						'pythonInterpreterSubStep.title',
 						"Python {0}",
 						interpreterOrVersion
-					)
+					);
 				})()}
 				titleId='pythonEnvironment-interpreterOrVersion'
 			>

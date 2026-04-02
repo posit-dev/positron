@@ -88,5 +88,5 @@ export const PositronWelcomePageStart = () => {
 				? (<WelcomePageWorkspace />)
 				: (<WelcomePageNoWorkspace />)}
 		</div>
-	)
+	);
 };

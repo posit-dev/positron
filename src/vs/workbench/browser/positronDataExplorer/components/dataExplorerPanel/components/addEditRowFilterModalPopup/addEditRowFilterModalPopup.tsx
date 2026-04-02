@@ -126,7 +126,7 @@ const isTwoParams = (filterType: RowFilterDescrType | undefined) => {
 		return false;
 	}
 	return filterNumParams(filterType) === 2;
-}
+};
 
 /**
  * AddEditRowFilterModalPopupProps interface.

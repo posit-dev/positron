@@ -36,7 +36,7 @@ export const showConvertToCodeModalDialog = async (
 	dataExplorerClientInstance: IPositronDataExplorerInstance,
 ): Promise<void> => {
 	// Create the renderer.
-	const renderer = new PositronModalReactRenderer()
+	const renderer = new PositronModalReactRenderer();
 
 	// Show the copy as code dialog.
 	renderer.render(
@@ -51,7 +51,7 @@ export const showConvertToCodeModalDialog = async (
  * ConvertToCodeDialogProps interface.
  */
 interface ConvertToCodeDialogProps {
-	dataExplorerClientInstance: IPositronDataExplorerInstance
+	dataExplorerClientInstance: IPositronDataExplorerInstance;
 	renderer: PositronModalReactRenderer;
 }
 
@@ -160,7 +160,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 			return (selectedSyntax as CodeSyntaxName).code_syntax_name;
 		}
 		return localize('positron.dataExplorer.selectCodeSyntax', 'Select Code Syntax');
-	}
+	};
 
 	const onSelectionChanged = async (item: DropDownListBoxItem<string, CodeSyntaxName>) => {
 		const typedItem = item as DropDownListBoxItem<string, CodeSyntaxName>;

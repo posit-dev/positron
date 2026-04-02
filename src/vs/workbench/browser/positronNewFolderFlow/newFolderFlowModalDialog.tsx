@@ -20,7 +20,7 @@ import { PositronModalReactRenderer } from '../../../base/browser/positronModalR
  */
 export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 	// Create the renderer.
-	const renderer = new PositronModalReactRenderer()
+	const renderer = new PositronModalReactRenderer();
 
 	// Show the new folder flow modal dialog.
 	renderer.render(

@@ -18,7 +18,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js'
+import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
@@ -59,7 +59,7 @@ export const ConsoleInstanceInfoButton = () => {
 		}
 
 		// Get the channels from the session.
-		let channels: LanguageRuntimeSessionChannel[] = []
+		let channels: LanguageRuntimeSessionChannel[] = [];
 		try {
 			channels = intersectionOutputChannels(await session.listOutputChannels());
 		} catch (err) {
@@ -81,7 +81,7 @@ export const ConsoleInstanceInfoButton = () => {
 				session={session}
 			/>
 		);
-	}
+	};
 
 	// Render.
 	return (
@@ -94,7 +94,7 @@ export const ConsoleInstanceInfoButton = () => {
 			tooltip={positronConsoleInfo}
 			onPressed={handlePressed}
 		/>
-	)
+	);
 };
 
 interface ConsoleInstanceInfoModalPopupProps {
@@ -121,7 +121,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
 		props.renderer.dispose();
-	}
+	};
 
 	// Render.
 	return (
@@ -174,5 +174,5 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 				</div>
 			</div>
 		</PositronModalPopup>
-	)
+	);
 };
