@@ -75,15 +75,24 @@ export class Toasts {
 
 	async clickButton(button: string) {
 		await test.step(`Click notification button: ${button}`, async () => {
-			// Try notification center first (for smoke test mode where toasts are disabled)
+			// Check if the toast button is immediately accessible
+			const toastButton = this.getOptionButton(button);
+			if (await toastButton.isVisible()) {
+				await toastButton.click();
+				return;
+			}
+
+			// Open notification center and try clicking there (handles smoke test mode
+			// and cases where the toast is obscured by the editor)
+			await this.openNotificationCenter();
 			const notificationCenterButton = this.notificationsCenter.getByRole('button', { name: button });
-			if (await this.notificationsCenter.isVisible() && await notificationCenterButton.isVisible()) {
+			if (await notificationCenterButton.isVisible()) {
 				await notificationCenterButton.click();
-				// Close notification center after clicking to ensure clean state
 				await this.closeNotificationCenter();
 			} else {
-				// Fall back to toast notification
-				await this.getOptionButton(button).click();
+				// Fall back to toast notification (waits up to the default timeout)
+				await this.closeNotificationCenter();
+				await toastButton.click();
 			}
 		});
 	}
@@ -112,8 +121,22 @@ export class Toasts {
 
 	async closeWithHeader(header: string | RegExp) {
 		const toast = this.toastNotification.filter({ hasText: header });
-		await toast.hover();
-		await toast.locator('.codicon-notifications-clear').click();
+		if (await toast.isVisible()) {
+			await toast.hover();
+			await toast.locator('.codicon-notifications-clear').click();
+			return;
+		}
+
+		// In smoke test mode, toasts are disabled. Check the notification center instead.
+		await this.openNotificationCenter();
+		const centerItem = this.notificationsCenter.locator('.notification-list-item').filter({ hasText: header });
+		try {
+			await centerItem.waitFor({ state: 'visible', timeout: 3000 });
+			await centerItem.locator('.codicon-notifications-clear').click();
+		} catch {
+			this.code.logger.log(`Notification "${header}" not found in notification center`);
+		}
+		await this.closeNotificationCenter();
 	}
 
 	// --- Verifications ---

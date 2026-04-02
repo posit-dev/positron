@@ -32,10 +32,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		this._runApplicationDisposableByName.forEach(disposable => disposable.dispose());
 	}
 
-	private isShellIntegrationSupported(): boolean {
-		return this._globalState.get('shellIntegrationSupported', true);
-	}
-
 	public setShellIntegrationSupported(supported: boolean): Thenable<void> {
 		return this._globalState.update('shellIntegrationSupported', supported);
 	}
@@ -387,14 +383,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		// Check if shell integration is enabled in the workspace.
 		const isShellIntegrationEnabled = vscode.workspace.getConfiguration().get<boolean>(Config.ShellIntegrationEnabled, true);
 
-		// Check if shell integration was detected as supported in a previous application run.
-		const isShellIntegrationSupported = this.isShellIntegrationSupported();
-
 		if (isShellIntegrationEnabled) {
-			if (!isShellIntegrationSupported) {
-				// Show a message indicating that shell integration is not supported.
-				showShellIntegrationNotSupportedMessage();
-			}
+			// Shell integration is enabled; we'll attempt to use it and show the 'not supported'
+			// message in the else branch if the terminal doesn't fire the shell integration event.
 		} else {
 			// Show a message to enable shell integration and rerun the application.
 			showEnableShellIntegrationMessage(async () => {
@@ -403,7 +394,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			});
 		}
 
-		return isShellIntegrationEnabled && isShellIntegrationSupported;
+		// Return whether shell integration is enabled. We do not gate on the stored
+		// 'shellIntegrationSupported' flag here: gating on it would permanently bypass the
+		// shell integration wait once it timed out once, leaving the user stuck even after
+		// switching to a supported shell.
+		return isShellIntegrationEnabled;
 	}
 
 	private async previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, options: AppPreviewOptions) {

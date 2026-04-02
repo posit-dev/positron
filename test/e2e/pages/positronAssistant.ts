@@ -776,11 +776,17 @@ export class Assistant {
 					await btn.locator.isEnabled().catch(() => false);
 				if (isClickable) {
 					const buttonStart = Date.now();
-					await btn.locator.click();
-					await page.waitForTimeout(100);
-					buttonInteractionMs += Date.now() - buttonStart;
-					clicks[btn.name]++;
-					buttonClicked = true;
+					try {
+						// Use a short timeout: button may become disabled between the isEnabled
+						// check above and the actual click action (TOCTOU race condition)
+						await btn.locator.click({ timeout: 2000 });
+						await page.waitForTimeout(100);
+						buttonInteractionMs += Date.now() - buttonStart;
+						clicks[btn.name]++;
+						buttonClicked = true;
+					} catch {
+						// Button became disabled/detached between check and click; retry on next loop iteration
+					}
 					break;
 				}
 			}
@@ -1068,7 +1074,7 @@ export class Assistant {
 
 			// Check if this is a separator (vendor header)
 			if (classAttr.includes('separator')) {
-				const labelText = await item.locator('span.separator-label').textContent();
+				const labelText = await item.locator('span.separator-text').textContent();
 				inVendorSection = labelText?.trim().toLowerCase() === vendor.toLowerCase();
 				continue;
 			}
@@ -1130,7 +1136,7 @@ export class Assistant {
 		let chatExportFile: string | null = null;
 		await expect(async () => {
 			await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
-			await this.toasts.waitForAppear('Chat log exported to:');
+			await this.toasts.waitForAppear('Chat log exported to:', { timeout: 10000 });
 			await this.toasts.closeWithHeader('Chat log exported to:');
 			chatExportFile = await this.findChatExportFile(exportFolder);
 			expect(chatExportFile).not.toBeNull();

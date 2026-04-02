@@ -18,7 +18,7 @@ import { EvalTestCase, RunResult } from '../types';
  * automatically-provided context, without calling getNotebookCells.
  */
 const prompt = 'What is the total revenue shown in my notebook? Just tell me the answer, don\'t add or modify any cells.';
-const mode = 'Edit';
+const mode = 'Agent';
 
 export const rNotebookAutomaticContext: EvalTestCase = {
 	id: 'r-notebook-automatic-context',

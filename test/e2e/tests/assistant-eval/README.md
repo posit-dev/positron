@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-04-02T15:47:05.140Z
+> 9 test cases · Auto-generated on 2026-04-02T19:02:25.333Z
 
 ## Hallucination
 
@@ -73,7 +73,7 @@ Load the forested package and make some plots of the forested data
 ## Notebooks
 
 <details>
-<summary><strong>py-notebook-get-cells</strong> · Edit · Ensure getNotebookCells is called for large not...</summary>
+<summary><strong>py-notebook-get-cells</strong> · Agent · Ensure getNotebookCells is called for large not...</summary>
 
 ### Intent
 
@@ -101,7 +101,7 @@ What is the value calculated in cell 21 (index 20) of my notebook?
 </details>
 
 <details>
-<summary><strong>r-notebook-automatic-context</strong> · Edit · Ensure small notebooks have automatic context w...</summary>
+<summary><strong>r-notebook-automatic-context</strong> · Agent · Ensure small notebooks have automatic context w...</summary>
 
 ### Intent
 
@@ -129,7 +129,7 @@ What is the total revenue shown in my notebook? Just tell me the answer, don't a
 </details>
 
 <details>
-<summary><strong>r-notebook-create</strong> · Edit · Ensure createNotebook tool is used to create ne...</summary>
+<summary><strong>r-notebook-create</strong> · Agent · Ensure createNotebook tool is used to create ne...</summary>
 
 ### Intent
 
