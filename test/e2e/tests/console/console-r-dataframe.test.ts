@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Pane: R Data Frame Output #12799', {
+test.describe('Console Pane: R Data Frame Output', {
 	tag: [tags.CONSOLE, tags.ARK]
 }, () => {
 
