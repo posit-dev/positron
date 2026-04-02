@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
-import { getConfiguration, getWorkspaceFolders, stat } from '../../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolders } from '../../common/vscodeApis/workspaceApis';
 import { IServiceContainer } from '../../ioc/types';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
@@ -151,7 +151,7 @@ export class PipPackageManager implements IPackageManager {
         const requirementsUri = vscode.Uri.joinPath(workspaceFolder.uri, 'requirements.txt');
 
         try {
-            await stat(requirementsUri);
+            await vscode.workspace.fs.stat(requirementsUri);
             return true;
         } catch {
             return false;

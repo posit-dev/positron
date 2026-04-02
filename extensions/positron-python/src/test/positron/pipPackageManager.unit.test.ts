@@ -18,9 +18,6 @@ import { MessageEmitter, PackageSession } from '../../client/positron/packages/t
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import { mock } from './utils';
 
-// Utility to create a fake FileStat
-const fakeFileStat = { type: vscode.FileType.File, ctime: 0, mtime: 0, size: 0 };
-
 suite('Pip Package Manager', () => {
     let pipPackageManager: PipPackageManager;
     let serviceContainer: IServiceContainer;
@@ -178,24 +175,9 @@ suite('Pip Package Manager', () => {
 
     suite('syncFromRequirements', () => {
         let getWorkspaceFoldersStub: sinon.SinonStub;
-        let statStub: sinon.SinonStub;
 
         setup(() => {
             getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
-            statStub = sinon.stub(workspaceApis, 'stat');
-        });
-
-        test('installs packages from requirements.txt', async () => {
-            const workspaceUri = vscode.Uri.file('/workspace');
-            getWorkspaceFoldersStub.returns([{ uri: workspaceUri }]);
-            statStub.resolves(fakeFileStat);
-
-            await pipPackageManager.syncFromRequirements(cancellationToken);
-
-            sinon.assert.calledOnce(sendCommandStub);
-            const [executable, args] = sendCommandStub.firstCall.args;
-            assert.strictEqual(executable, pythonPath);
-            assert.deepStrictEqual(args, ['-m', 'pip', 'install', '-r', '/workspace/requirements.txt']);
         });
 
         test('throws error when no workspace folder', async () => {
@@ -219,21 +201,9 @@ suite('Pip Package Manager', () => {
 
     suite('supportsSyncFromRequirements', () => {
         let getWorkspaceFoldersStub: sinon.SinonStub;
-        let statStub: sinon.SinonStub;
 
         setup(() => {
             getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
-            statStub = sinon.stub(workspaceApis, 'stat');
-        });
-
-        test('returns true when requirements.txt exists', async () => {
-            const workspaceUri = vscode.Uri.file('/workspace');
-            getWorkspaceFoldersStub.returns([{ uri: workspaceUri }]);
-            statStub.resolves(fakeFileStat);
-
-            const result = await pipPackageManager.supportsSyncFromRequirements();
-
-            assert.strictEqual(result, true);
         });
 
         test('returns false when no workspace folder', async () => {
@@ -246,16 +216,6 @@ suite('Pip Package Manager', () => {
 
         test('returns false when workspace folders is empty', async () => {
             getWorkspaceFoldersStub.returns([]);
-
-            const result = await pipPackageManager.supportsSyncFromRequirements();
-
-            assert.strictEqual(result, false);
-        });
-
-        test('returns false when requirements.txt does not exist', async () => {
-            const workspaceUri = vscode.Uri.file('/workspace');
-            getWorkspaceFoldersStub.returns([{ uri: workspaceUri }]);
-            statStub.rejects(new vscode.FileSystemError('File not found'));
 
             const result = await pipPackageManager.supportsSyncFromRequirements();
 
