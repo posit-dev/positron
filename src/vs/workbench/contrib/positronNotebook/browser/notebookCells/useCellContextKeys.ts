@@ -7,7 +7,8 @@
 import React from 'react';
 
 // Other dependencies.
-import { autorun } from '../../../../../base/common/observable.js';
+import { Event } from '../../../../../base/common/event.js';
+import { autorun, observableFromEvent } from '../../../../../base/common/observable.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
@@ -51,13 +52,14 @@ export function useCellContextKeys(
 		// Bind the cell-specific context keys
 		const keys = bindCellContextKeys(scopedContextKeyService);
 
-		// Keep context keys in sync with cell state
-		disposables.add(autorun(reader => {
-			if (!keys) {
-				return;
-			}
+		/* Observable of the global outputScrolling option. */
+		const globalOutputScrollingObs = observableFromEvent(
+			Event.filter(notebookInstance.notebookOptions.onDidChangeOptions, e => Boolean(e.outputScrolling), disposables),
+			() => notebookInstance.notebookOptions.getLayoutConfiguration().outputScrolling
+		);
 
-			if (!cell || cell.index === -1) {
+		disposables.add(autorun(reader => {
+			if (cell.index === -1) {
 				resetCellContextKeys(keys);
 				return;
 			}
@@ -69,6 +71,8 @@ export function useCellContextKeys(
 			const cells = notebookInstance.cells.read(reader);
 			const outputs = cell.isCodeCell() ? cell.outputs.read(reader) : [];
 			const outputIsCollapsed = cell.isCodeCell() ? cell.outputIsCollapsed.read(reader) : false;
+			const outputScrolling = cell.isCodeCell() ? cell.outputScrolling.read(reader) : undefined;
+			const globalOutputScrolling = globalOutputScrollingObs.read(reader);
 
 			keys.isCode.set(cell.isCodeCell());
 			keys.isMarkdown.set(cell.isMarkdownCell());
@@ -86,6 +90,7 @@ export function useCellContextKeys(
 			keys.hasOutputs.set(outputs.length > 0);
 			keys.imageOutputCount.set(outputs.filter(o => o.parsed.type === 'image').length);
 			keys.outputIsCollapsed.set(outputIsCollapsed);
+			keys.outputScrolling.set(outputScrolling ?? globalOutputScrolling);
 		}));
 
 		// Set the state to let other components know that the context keys are ready

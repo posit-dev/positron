@@ -23,6 +23,7 @@ import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
 import { PromptRenderer } from './promptRender.js';
 import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage } from './tools/notebookUtils.js';
+import { resolveToolInputPaths } from './pathUtils.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -695,6 +696,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 				log.debug(`[tool] Invoking tool ${req.name} with input: ${JSON.stringify(req.input, null, 2)}`);
 
+				// --- Start Positron ---
+				// Resolve relative paths in Copilot tool inputs to absolute paths
+				// Copilot tools expect absolute paths because they're designed to receive
+				// resolved input from Copilot's internal resolveInput() mechanism.
+				// When invoked from Positron Assistant, we need to handle this resolution ourselves.
+				const resolvedInput = resolveToolInputPaths(req.name, req.input);
+				// --- End Positron ---
+
 				// VS Code Core tools always throw errors, while many extension
 				// tools just return error messages as normal tool results.
 				// Capture errors and pass along to the model to react to
@@ -702,7 +711,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				let result: vscode.LanguageModelToolResult;
 				try {
 					result = await vscode.lm.invokeTool(req.name, {
-						input: req.input,
+						input: resolvedInput,
 						toolInvocationToken: request.toolInvocationToken,
 						model: request.model,
 						chatRequestId: request.id,

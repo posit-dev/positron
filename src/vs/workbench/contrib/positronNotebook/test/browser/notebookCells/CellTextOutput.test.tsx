@@ -7,15 +7,13 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import assert from 'assert';
+import sinon from 'sinon';
 import { flushSync } from 'react-dom';
-import { Emitter, Event } from '../../../../../../base/common/event.js';
-import { CommandsRegistry } from '../../../../../../platform/commands/common/commands.js';
+import { Emitter } from '../../../../../../base/common/event.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../../base/test/common/utils.js';
 import { setupReactRenderer } from '../../../../../../base/test/browser/react.js';
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { TestInstantiationService } from '../../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
-import { TestCommandService } from '../../../../../../editor/test/browser/editorTestServices.js';
 import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
@@ -39,10 +37,6 @@ class CellTextOutputFixture {
 
 	get truncationMessage() {
 		return this.container.querySelector<HTMLElement>('.notebook-output-truncation-message');
-	}
-
-	get settingsLink() {
-		return this.container.querySelector<HTMLAnchorElement>('.notebook-output-truncation-message a');
 	}
 
 	get quickFixContainer() {
@@ -69,16 +63,12 @@ suite('CellTextOutput', () => {
 
 	let optionsEmitter: Emitter<NotebookOptionsChangeEvent>;
 	let layoutConfig: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>;
-	let commandService: TestCommandService;
 	let configurationService: TestConfigurationService;
 	let contextKeyService: MockContextKeyService;
 
 	setup(() => {
 		optionsEmitter = disposables.add(new Emitter<NotebookOptionsChangeEvent>());
 		layoutConfig = { outputLineLimit: 30, outputScrolling: false, outputWordWrap: false };
-
-		const instantiationService = disposables.add(new TestInstantiationService());
-		commandService = new TestCommandService(instantiationService);
 
 		configurationService = new TestConfigurationService();
 		contextKeyService = disposables.add(new MockContextKeyService());
@@ -87,6 +77,7 @@ suite('CellTextOutput', () => {
 	function renderCellTextOutput(
 		props: ParsedTextOutput,
 		options?: Partial<NotebookLayoutConfiguration & NotebookDisplayOptions>,
+		onShowFullOutput: () => void = () => { },
 	) {
 		if (options !== undefined) {
 			layoutConfig = { ...layoutConfig, ...options };
@@ -95,9 +86,11 @@ suite('CellTextOutput', () => {
 			onDidChangeOptions: optionsEmitter.event,
 			getLayoutConfiguration: () => layoutConfig,
 		} as unknown as NotebookOptions;
-		const instance = { notebookOptions } as unknown as IPositronNotebookInstance;
+		const instance = {
+			notebookOptions,
+			hoverManager: { showHover: () => { }, hideHover: () => { } },
+		} as unknown as IPositronNotebookInstance;
 		const services = {
-			commandService,
 			configurationService,
 			contextKeyService,
 		} as unknown as PositronReactServices;
@@ -105,7 +98,11 @@ suite('CellTextOutput', () => {
 		const container = render(
 			<PositronReactServicesContext.Provider value={services}>
 				<NotebookInstanceProvider instance={instance}>
-					<CellTextOutput {...props} />
+					<CellTextOutput
+						{...props}
+						outputScrolling={layoutConfig.outputScrolling ?? false}
+						onShowFullOutput={onShowFullOutput}
+					/>
 				</NotebookInstanceProvider>
 			</PositronReactServicesContext.Provider>
 		);
@@ -154,26 +151,30 @@ suite('CellTextOutput', () => {
 		assert.strictEqual(runs[1].textContent, ' plain');
 	});
 
-	test('truncates long output when scrolling is disabled', async () => {
-		disposables.add(CommandsRegistry.registerCommand('workbench.action.openSettings', () => { }));
-
+	test('truncates long output when scrolling is disabled', () => {
+		const onShowFullOutput = sinon.stub();
 		const content = makeLines(35);
 		const fixture = renderCellTextOutput(
 			{ content, type: 'stdout' },
 			{ outputLineLimit: 30, outputScrolling: false },
+			onShowFullOutput,
 		);
 
 		const message = fixture.truncationMessage;
 		assert.ok(message, 'Expected truncation message');
-		assert.ok(message.textContent?.includes('5 lines truncated'), 'Expected truncation count');
+		assert.ok(message.textContent?.includes('5 more lines'), 'Expected truncation count');
 
-		const link = fixture.settingsLink;
-		assert.ok(link, 'Expected "Change behavior" link');
+		// 50/50 split: top 15 lines (1-15), bottom 15 lines (21-35), lines 16-20 hidden
+		const text = fixture.outputContainer.textContent ?? '';
+		assert.ok(text.includes('line 1'), 'Expected first line to be visible');
+		assert.ok(text.includes('line 15'), 'Expected line 15 (last top line) to be visible');
+		assert.ok(!text.includes('line 16\n'), 'Expected line 16 to be truncated');
+		assert.ok(!text.includes('line 20\n'), 'Expected line 20 to be truncated');
+		assert.ok(text.includes('line 21'), 'Expected line 21 (first bottom line) to be visible');
+		assert.ok(text.includes('line 35'), 'Expected last line to be visible');
 
-		const commandPromise = Event.toPromise(commandService.onWillExecuteCommand);
-		link.click();
-		const event = await commandPromise;
-		assert.strictEqual(event.commandId, 'workbench.action.openSettings');
+		message.click();
+		assert.ok(onShowFullOutput.calledOnce, 'Expected onShowFullOutput to be called');
 	});
 
 	test('does not truncate when scrolling is enabled', () => {

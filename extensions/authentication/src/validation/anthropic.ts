@@ -4,10 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-
-const ANTHROPIC_MODELS_ENDPOINT = 'https://api.anthropic.com/v1/models';
-const ANTHROPIC_API_VERSION = '2023-06-01';
-const KEY_VALIDATION_TIMEOUT_MS = 5000;
+import * as positron from 'positron';
+import { ANTHROPIC_API_VERSION, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 
 class ApiKeyValidationError extends Error {
 	constructor(message: string) {
@@ -16,11 +14,16 @@ class ApiKeyValidationError extends Error {
 	}
 }
 
-export async function validateAnthropicApiKey(apiKey: string): Promise<void> {
+export async function validateAnthropicApiKey(apiKey: string, config: positron.ai.LanguageModelConfig): Promise<void> {
+	const rawBaseUrl = (config.baseUrl ?? 'https://api.anthropic.com')
+		.replace(/\/v1\/?$/, '')
+		.replace(/\/+$/, '');
+	const modelsEndpoint = `${rawBaseUrl}/v1/models`;
+
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
 	try {
-		const response = await fetch(ANTHROPIC_MODELS_ENDPOINT, {
+		const response = await fetch(modelsEndpoint, {
 			method: 'GET',
 			headers: {
 				'x-api-key': apiKey,

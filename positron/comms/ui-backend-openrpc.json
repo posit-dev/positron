@@ -27,6 +27,27 @@
 			}
 		},
 		{
+			"name": "frontend_ready",
+			"summary": "Notification that the frontend is ready",
+			"description": "This notification is sent by the frontend after the UI comm has been established. The backend uses this signal to run session initialization hooks that may need to communicate with the frontend via RPCs (e.g. rstudioapi calls).",
+			"params": [
+				{
+					"name": "start_type",
+					"description": "The type of session start: 'new' for new sessions, 'restart' for restarted sessions, 'reconnect' for reconnected sessions",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "frontend_ready_result",
+					"description": "Unused response to notification",
+					"type": "null"
+				}
+			}
+		},
+		{
 			"name": "call_method",
 			"summary": "Run a method in the interpreter and return the result to the frontend",
 			"description": "Unlike other RPC methods, `call_method` calls into methods implemented in the interpreter and returns the result back to the frontend using an implementation-defined serialization scheme.",

@@ -53,6 +53,18 @@ export function CellActionButton({ action, cell, hoverManager, showSeparator }: 
 	const successTimeoutRef = useRef<Timeout | undefined>(undefined);
 
 	const handleActionClick = useCallback(async () => {
+		// Focus this notebook's container so it becomes the active editor.
+		// The Button component calls preventDefault() on mousedown which
+		// prevents the browser from transferring focus to the button.
+		// Without this, commands dispatch against the wrong notebook in
+		// side-by-side scenarios. Only move focus when the active element
+		// is outside the container (mouse click); skip for keyboard
+		// activation where focus is already on the button inside it.
+		const container = instance.currentContainer;
+		if (container && !container.contains(container.ownerDocument.activeElement)) {
+			container.focus();
+		}
+
 		// Actions assume cell is selected, so ensure this is the case
 		instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 

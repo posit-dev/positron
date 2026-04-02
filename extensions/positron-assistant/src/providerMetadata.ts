@@ -55,7 +55,7 @@ export const PROVIDER_METADATA = {
 		id: 'amazon-bedrock',
 		displayName: 'Amazon Bedrock',
 		settingName: 'amazonBedrock',
-		providerVariablesSettingName: 'positron.assistant.providerVariables.bedrock',
+		providerVariablesSettingName: 'authentication.aws.credentials',
 	},
 	anthropic: {
 		id: 'anthropic-api',
@@ -106,6 +106,7 @@ export const PROVIDER_METADATA = {
 		id: 'snowflake-cortex',
 		displayName: 'Snowflake Cortex',
 		settingName: 'snowflakeCortex',
+		providerVariablesSettingName: 'authentication.snowflake.credentials',
 	},
 } as const satisfies Record<string, ProviderInfo>;
 
