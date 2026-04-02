@@ -36,7 +36,9 @@ import { LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID, LANGUAGE_RUNTIME_
 import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/browser/dropdownWithPrimaryActionViewItem.js';
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
-import { MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { RunOnceScheduler } from '../../../../base/common/async.js';
+import { PositronConsoleFindWidget } from './positronConsoleFindWidget.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -106,6 +108,16 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * This is used to determine if we show the "+" session dropdown button.
 	 */
 	private _positronConsoleInstancesExistContextKey: IContextKey<boolean>;
+
+	/**
+	 * The find widget for searching console output.
+	 */
+	private _findWidget: PositronConsoleFindWidget | undefined;
+
+	/**
+	 * Disposables for the active console instance's runtime items listener.
+	 */
+	private readonly _runtimeItemsDisposable = this._register(new MutableDisposable<DisposableStore>());
 
 	//#endregion Private Properties
 
@@ -232,6 +244,12 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._register(this.positronConsoleService.onDidDeletePositronConsoleInstance(() => {
 			this.updateConsoleInstancesExistContext();
 		}));
+
+		// Refresh find results when the active console instance changes.
+		this._register(this.positronConsoleService.onDidChangeActivePositronConsoleInstance(() => {
+			this._setupRuntimeItemsListener();
+			this._findWidget?.refreshSearch();
+		}));
 	}
 
 	/**
@@ -264,6 +282,16 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			<PositronConsole reactComponentContainer={this} />
 		);
 
+		// Create and attach the find widget.
+		try {
+			this._findWidget = this._register(
+				this.instantiationService.createInstance(PositronConsoleFindWidget, this._positronConsoleContainer)
+			);
+			container.appendChild(this._findWidget.getDomNode());
+		} catch (error) {
+			this.notificationService.error(localize('console.findWidgetCreationFailed', 'Failed to create find widget: {0}', error instanceof Error ? error.message : String(error)));
+		}
+
 		// Create a focus tracker that updates the PositronConsoleFocused context key.
 		const focusTracker = this._register(DOM.trackFocus(this.element));
 		this._register(focusTracker.onDidFocus(() => this.focusChanged(true)));
@@ -271,6 +299,9 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 
 		// Initialize context key state
 		this.updateConsoleInstancesExistContext();
+
+		// Set up the runtime items listener for the initial active instance.
+		this._setupRuntimeItemsListener();
 	}
 
 	/**
@@ -301,6 +332,9 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._width = width;
 		this._height = height;
 
+		// Layout the find widget.
+		this._findWidget?.layout(width);
+
 		// Raise the onSizeChanged event.
 		this._onSizeChangedEmitter.fire({
 			width,
@@ -330,6 +364,66 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		return super.createActionViewItem(action, options);
 	}
 
+	//#endregion Overrides
+
+	//#region Find Widget
+
+	/**
+	 * Shows and focuses the find widget.
+	 */
+	revealFindWidget(): void {
+		this._findWidget?.reveal();
+	}
+
+	/**
+	 * Hides the find widget.
+	 */
+	hideFindWidget(): void {
+		this._findWidget?.hide();
+		// Return focus to the console input.
+		this.positronConsoleService.activePositronConsoleInstance?.focusInput();
+	}
+
+	/**
+	 * Navigates to the next or previous find match.
+	 */
+	findNext(): void {
+		this._findWidget?.find(false);
+	}
+
+	/**
+	 * Navigates to the previous find match.
+	 */
+	findPrevious(): void {
+		this._findWidget?.find(true);
+	}
+
+	//#endregion Find Widget
+
+	//#region Private Methods
+
+	/**
+	 * Sets up a listener to refresh find results when runtime items change
+	 * in the active console instance.
+	 */
+	private _setupRuntimeItemsListener(): void {
+		const store = new DisposableStore();
+		this._runtimeItemsDisposable.value = store;
+
+		const activeInstance = this.positronConsoleService.activePositronConsoleInstance;
+		if (activeInstance) {
+			// Debounce find refresh to avoid expensive DOM tree-walks during
+			// heavy console output (the source event is already throttled, but
+			// re-searching the full DOM on every burst is still costly).
+			const scheduler = store.add(new RunOnceScheduler(() => {
+				this._findWidget?.refreshSearch();
+			}, 100));
+			store.add(activeInstance.onDidChangeRuntimeItems(() => {
+				scheduler.schedule();
+			}));
+		}
+	}
+
 	private updateSessionDropdown(dropdownAction: Action): void {
 		// Grab the current runtime.
 		const currentRuntime = this.runtimeSessionService.foregroundSession?.runtimeMetadata;
@@ -343,7 +437,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			// Remove duplicates, and current runtime.
 			.filter((runtime, index, runtimes) =>
 				runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
-			)
+			);
 
 		// Add current runtime first, if present.
 		// Allows for "plus" + enter behavior to clone session.
@@ -403,5 +497,5 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._positronConsoleInstancesExistContextKey.set(hasInstances);
 	}
 
-	//#endregion Public Overrides
+	//#endregion Private Methods
 }

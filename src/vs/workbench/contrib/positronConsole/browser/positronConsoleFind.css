@@ -1,0 +1,22 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Position the find widget at the top-right of the console container,
+	offset from the right edge to avoid overlapping the scrollbar gutter. */
+.positron-console-container > .simple-find-part-wrapper {
+	position: absolute;
+	top: 0;
+	right: 28px;
+	z-index: 100;
+}
+
+/* Highlight styles for find matches using the CSS Custom Highlight API */
+::highlight(positron-console-find-match) {
+	background-color: var(--vscode-editor-findMatchHighlightBackground);
+}
+
+::highlight(positron-console-find-match-active) {
+	background-color: var(--vscode-editor-findMatchBackground);
+}

@@ -6,6 +6,7 @@
 .positron-console-container {
 	display: flex;
 	flex-direction: column;
+	position: relative;
 }
 
 .positron-console-container .console-action-bar-container {
