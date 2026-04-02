@@ -198,10 +198,10 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 			nextButtonConfig: {
 				onClick: nextStep,
 				disable: okNextButtonDisabled,
-				title: (() => localize(
+				title: localize(
 					'positronNewFolderFlow.nextButtonTitle',
 					"Next"
-				))()
+				)
 			}
 		};
 	} else {
@@ -212,10 +212,10 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 					props.accept();
 				},
 				disable: okNextButtonDisabled,
-				title: (() => localize(
+				title: localize(
 					'positronNewFolderFlow.createButtonTitle',
 					"Create"
-				))()
+				)
 			}
 		};
 	}
@@ -226,11 +226,10 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 			backButtonConfig={{ onClick: props.back }}
 			cancelButtonConfig={{ onClick: props.cancel }}
 			{...okNextButtonConfig}
-			title={(() =>
-				localize(
-					'folderNameLocationStep.title',
-					"Folder Name and Location"
-				))()}
+			title={localize(
+				'folderNameLocationStep.title',
+				"Folder Name and Location"
+			)}
 		>
 			<PositronFlowSubStep
 				feedback={
@@ -244,11 +243,10 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 						</FlowFormattedText>
 						: undefined
 				}
-				title={(() =>
-					localize(
-						'folderNameLocationSubStep.folderName.label',
-						"Folder Name"
-					))()}
+				title={localize(
+					'folderNameLocationSubStep.folderName.label',
+					"Folder Name"
+				)}
 			>
 				<LabeledTextInput
 					autoFocus
@@ -257,12 +255,11 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 							folderNameFeedback.type === FlowFormattedTextType.Error) ||
 						Boolean(nameValidationErrorMsg)
 					}
-					label={(() =>
-						localize(
-							'folderNameLocationSubStep.folderName.description',
-							"Enter the name of your new {0} folder",
-							context.folderTemplate
-						))()}
+					label={localize(
+						'folderNameLocationSubStep.folderName.description',
+						"Enter the name of your new {0} folder",
+						context.folderTemplate
+					)}
 					// Don't let the user create a folder with a location that is too long.
 					maxLength={maxFolderPathLength}
 					type='text'
@@ -277,11 +274,10 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 							{parentPathErrorMsg}
 						</FlowFormattedText> :
 						<FlowFormattedText type={FlowFormattedTextType.Info}>
-							{(() =>
-								localize(
-									'folderNameLocationSubStep.parentFolder.feedback',
-									"New folder will be created at "
-								))()}
+							{localize(
+								'folderNameLocationSubStep.parentFolder.feedback',
+								"New folder will be created at "
+							)}
 							<PathDisplay
 								pathComponents={[
 									parentFolder,
@@ -291,21 +287,19 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 							/>
 						</FlowFormattedText>
 				}
-				title={(() =>
-					localize(
-						'folderNameLocationSubStep.parentFolder.label',
-						"Location"
-					))()}
+				title={localize(
+					'folderNameLocationSubStep.parentFolder.label',
+					"Location"
+				)}
 			>
 				<LabeledFolderInput
 					skipValidation
 					error={Boolean(parentPathErrorMsg)}
-					label={(() =>
-						localize(
-							'folderNameLocationSubStep.parentFolder.description',
-							"Select the location of your new {0} folder",
-							context.folderTemplate
-						))()}
+					label={localize(
+						'folderNameLocationSubStep.parentFolder.description',
+						"Select the location of your new {0} folder",
+						context.folderTemplate
+					)}
 					value={parentFolder}
 					onBrowse={browseHandler}
 					onChange={(e) => onChangeParentFolder(e.target.value)}
@@ -317,21 +311,19 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 				{/* TODO: display a warning/message if the user doesn't have git set up */}
 				<Checkbox
 					initialChecked={context.initGitRepo}
-					label={(() =>
-						localize(
-							'folderNameLocationSubStep.initGitRepo.label',
-							"Initialize Git repository"
-						))()}
+					label={localize(
+						'folderNameLocationSubStep.initGitRepo.label',
+						"Initialize Git repository"
+					)}
 					onChanged={(checked) => context.initGitRepo = checked}
 				/>
 				{context.folderTemplate === FolderTemplate.PythonProject && (
 					<Checkbox
 						initialChecked={context.createPyprojectToml}
-						label={(() =>
-							localize(
-								'folderNameLocationSubStep.createPyprojectToml.label',
-								"Create pyproject.toml file"
-							))()}
+						label={localize(
+							'folderNameLocationSubStep.createPyprojectToml.label',
+							"Create pyproject.toml file"
+						)}
 						onChanged={(checked) => context.createPyprojectToml = checked}
 					/>
 				)}

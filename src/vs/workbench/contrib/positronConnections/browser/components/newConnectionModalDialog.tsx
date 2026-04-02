@@ -81,7 +81,7 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 	return <PositronModalDialog
 		height={NEW_CONNECTION_MODAL_DIALOG_HEIGHT}
 		renderer={props.renderer}
-		title={(() => localize('positron.newConnectionModalDialog.title', "Create New Connection"))()}
+		title={localize('positron.newConnectionModalDialog.title', "Create New Connection")}
 		width={NEW_CONNECTION_MODAL_DIALOG_WIDTH}
 		onCancel={cancelHandler}
 	>

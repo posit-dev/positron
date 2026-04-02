@@ -100,12 +100,12 @@ export const RowFilterBar = () => {
 				<OKModalDialog
 					height={150}
 					renderer={renderer}
-					title={(() => localize('positron.dataExplorer.filtering.addFilter', "Add Filter"))()}
+					title={localize('positron.dataExplorer.filtering.addFilter', "Add Filter")}
 					width={350}
 					onAccept={() => renderer.dispose()}
 					onCancel={() => renderer.dispose()}
 				>
-					<div>{(() => localize('positron.dataExplorer.filtering.filterLimit', "The maximum number of filters has been reached."))()}</div>
+					<div>{localize('positron.dataExplorer.filtering.filterLimit', "The maximum number of filters has been reached.")}</div>
 				</OKModalDialog>
 			);
 		} else {
@@ -265,7 +265,7 @@ export const RowFilterBar = () => {
 		<div ref={ref} className='row-filter-bar'>
 			<Button
 				ref={rowFilterButtonRef}
-				ariaLabel={(() => localize('positron.dataExplorer.manageFilters', "Manage Filters"))()}
+				ariaLabel={localize('positron.dataExplorer.manageFilters', "Manage Filters")}
 				className='row-filter-button'
 				disabled={!canFilter}
 				hoverManager={context.instance.tableDataDataGridInstance.hoverManager}
@@ -299,7 +299,7 @@ export const RowFilterBar = () => {
 				)}
 				<Button
 					ref={addFilterButtonRef}
-					ariaLabel={(() => localize('positron.dataExplorer.addFilter', "Add Filter"))()}
+					ariaLabel={localize('positron.dataExplorer.addFilter', "Add Filter")}
 					className='add-row-filter-button'
 					disabled={!canFilter}
 					hoverManager={context.instance.tableDataDataGridInstance.hoverManager}

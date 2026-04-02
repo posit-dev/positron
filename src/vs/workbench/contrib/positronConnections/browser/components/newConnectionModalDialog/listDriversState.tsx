@@ -93,7 +93,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	return <div className='connections-new-connection-list-drivers'>
 		<div className='title'>
 			<h1>
-				{(() => localize('positron.newConnectionModalDialog.listDrivers.title', "Choose a Database Driver"))()}
+				{localize('positron.newConnectionModalDialog.listDrivers.title', "Choose a Database Driver")}
 			</h1>
 		</div>
 		<div className='select-language'>
@@ -115,7 +115,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 					});
 				})}
 				selectedIdentifier={languageId}
-				title={(() => localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language"))()}
+				title={localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language")}
 				onSelectionChanged={(item) => onLanguageChangeHandler(item.options.identifier)}
 			>
 			</DropDownListBox>
@@ -132,7 +132,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 						/>
 					)) :
 					<div className='no-drivers'>
-						{(() => localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available"))()}
+						{localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available")}
 					</div>
 			}
 		</div>
@@ -141,7 +141,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 				className='button action-bar-button'
 				onPressed={props.onCancel}
 			>
-				{(() => localize('positron.resumeConnectionModalDialog.cancel', "Cancel"))()}
+				{localize('positron.resumeConnectionModalDialog.cancel', "Cancel")}
 			</Button>
 		</div>
 	</div>;

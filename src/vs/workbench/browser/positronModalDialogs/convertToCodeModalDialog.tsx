@@ -205,10 +205,10 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 		<PositronModalDialog
 			height={400}
 			renderer={props.renderer}
-			title={(() => localize(
+			title={localize(
 				'positronConvertToCodeModalDialogTitle',
 				"Convert to Code"
-			))()}
+			)}
 			width={400}
 		>
 			<ContentArea>

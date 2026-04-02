@@ -151,7 +151,7 @@ const NewFolderFlowModalDialog = (props: NewFolderFlowModalDialogProps) => {
 	return (
 		<PositronModalDialog
 			height={580}
-			renderer={props.renderer} title={(() => localize('positron.newFolderFromTemplate', "New Folder From Template"))()}
+			renderer={props.renderer} title={localize('positron.newFolderFromTemplate', "New Folder From Template")}
 			width={700}
 			onCancel={cancelHandler}
 		>

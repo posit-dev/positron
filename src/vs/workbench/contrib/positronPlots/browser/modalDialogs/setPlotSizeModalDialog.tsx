@@ -96,7 +96,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 			tabIndex={0}
 			onPressed={acceptHandler}
 		>
-			{(() => localize('positronOK', "OK"))()}
+			{localize('positronOK', "OK")}
 		</Button>
 	);
 	const cancelButton = (
@@ -105,7 +105,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 			tabIndex={0}
 			onPressed={cancelHandler}
 		>
-			{(() => localize('positronCancel', "Cancel"))()}
+			{localize('positronCancel', "Cancel")}
 		</Button>
 	);
 
@@ -114,7 +114,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 		<PositronModalDialog
 			height={200}
 			renderer={props.renderer}
-			title={(() => localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size"))()}
+			title={localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size")}
 			width={350}
 			onCancel={cancelHandler}>
 			<ContentArea>
@@ -123,17 +123,17 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 						<tr>
 							<td>
 								<LabeledTextInput autoFocus={true}
-									label={(() => localize(
+									label={localize(
 										'positronPlotWidth',
 										"Width"
-									))()} min={100} type='number'
+									)} min={100} type='number'
 									value={width} onChange={(el) => setWidth(el.target.valueAsNumber)} />
 							</td>
 							<td>
-								<LabeledTextInput label={(() => localize(
+								<LabeledTextInput label={localize(
 									'positronPlotHeight',
 									"Height"
-								))()}
+								)}
 									min={100} type='number'
 									value={height} onChange={(el) => setHeight(el.target.valueAsNumber)} />
 							</td>
@@ -149,7 +149,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 						tabIndex={0}
 						onPressed={deleteHandler}
 					>
-						{(() => localize('positronDeletePlotSize', "Delete"))()}
+						{localize('positronDeletePlotSize', "Delete")}
 					</Button>
 				</div>
 				<div className='right'>
