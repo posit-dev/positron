@@ -188,8 +188,9 @@ suite('Pip Package Manager', () => {
 
             sinon.assert.calledOnce(sendCommandStub);
             const [executable, args] = sendCommandStub.firstCall.args;
+            const expectedPath = vscode.Uri.joinPath(workspaceUri, 'requirements.txt').fsPath;
             assert.strictEqual(executable, pythonPath);
-            assert.deepStrictEqual(args, ['-m', 'pip', 'install', '-r', '/workspace/requirements.txt']);
+            assert.deepStrictEqual(args, ['-m', 'pip', 'install', '-r', expectedPath]);
         });
 
         test('throws error when no workspace folder', async () => {
