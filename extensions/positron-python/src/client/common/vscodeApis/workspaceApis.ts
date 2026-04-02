@@ -114,3 +114,7 @@ export function openNotebookDocument(notebook: any, content?: vscode.NotebookDat
 export function copy(source: vscode.Uri, dest: vscode.Uri, options?: { overwrite?: boolean }): Thenable<void> {
     return vscode.workspace.fs.copy(source, dest, options);
 }
+
+export function stat(uri: vscode.Uri): Thenable<vscode.FileStat> {
+    return vscode.workspace.fs.stat(uri);
+}

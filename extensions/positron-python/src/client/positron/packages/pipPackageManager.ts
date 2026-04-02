@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
+import { getConfiguration, getWorkspaceFolders, stat } from '../../common/vscodeApis/workspaceApis';
 import { IServiceContainer } from '../../ioc/types';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
@@ -141,7 +142,7 @@ export class PipPackageManager implements IPackageManager {
     }
 
     async supportsSyncFromRequirements(): Promise<boolean> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
+        const workspaceFolders = getWorkspaceFolders();
         if (!workspaceFolders || workspaceFolders.length === 0) {
             return false;
         }
@@ -150,7 +151,7 @@ export class PipPackageManager implements IPackageManager {
         const requirementsUri = vscode.Uri.joinPath(workspaceFolder.uri, 'requirements.txt');
 
         try {
-            await vscode.workspace.fs.stat(requirementsUri);
+            await stat(requirementsUri);
             return true;
         } catch {
             return false;
@@ -179,7 +180,7 @@ export class PipPackageManager implements IPackageManager {
      * Get the path to requirements.txt in the workspace root, or undefined if not found.
      */
     private _getRequirementsPath(): string | undefined {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
+        const workspaceFolders = getWorkspaceFolders();
         if (!workspaceFolders || workspaceFolders.length === 0) {
             return undefined;
         }
@@ -226,7 +227,7 @@ export class PipPackageManager implements IPackageManager {
      * Get proxy flags if a proxy is configured.
      */
     private _getProxyFlags(): string[] {
-        const proxy = vscode.workspace.getConfiguration('http').get<string>('proxy', '');
+        const proxy = getConfiguration('http').get<string>('proxy', '');
         if (proxy) {
             return ['--proxy', proxy];
         }
