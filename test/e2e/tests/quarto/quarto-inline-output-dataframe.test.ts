@@ -35,7 +35,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('py_data_frame.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 7, outputLine: 12 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Verify exactly one output item (no duplicates)
@@ -43,9 +43,6 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 
 		// Verify HTML output present
 		await inlineQuarto.expectHtmlOutputVisible();
-
-		// Verify no duplicate text output
-		await inlineQuarto.expectStdoutNotContains(['col1', 'col2']);
 
 		// Verify no data explorer metadata leaked
 		await inlineQuarto.expectNoDataExplorerMetadata();

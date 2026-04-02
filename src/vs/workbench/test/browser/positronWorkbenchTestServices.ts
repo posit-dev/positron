@@ -33,7 +33,7 @@ import { IConfigurationService } from '../../../platform/configuration/common/co
 import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestConfigurationService } from '../../../platform/configuration/test/common/testConfigurationService.js';
 import { IPositronConsoleService } from '../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { PositronConsoleService } from '../../services/positronConsole/browser/positronConsoleService.js';
+import { TestPositronConsoleService } from '../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
 import { TestNotebookExecutionService } from '../common/positronWorkbenchTestServices.js';
@@ -97,7 +97,7 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IPositronWebviewPreloadService, disposables.add(instantiationService.createInstance(PositronWebviewPreloadService)));
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
-	instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
+	instantiationService.stub(IPositronConsoleService, new TestPositronConsoleService());
 	instantiationService.stub(IQuartoExecutionManager, disposables.add(instantiationService.createInstance(QuartoExecutionManager)));
 	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
 

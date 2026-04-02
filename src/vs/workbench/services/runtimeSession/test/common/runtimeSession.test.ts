@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -442,11 +442,12 @@ suite('Positron - RuntimeSessionService', () => {
 				if (mode === LanguageRuntimeSessionMode.Console) {
 					// TODO: getConsoleSessionForRuntime currently includes uninitialized sessions. Should it?
 					assertConsoleSessionForRuntime(runtime.runtimeId, session1);
+					assertNotebookSessionForNotebookUri(notebookUri, undefined);
 				} else if (mode === LanguageRuntimeSessionMode.Notebook) {
 					assertConsoleSessionForRuntime(runtime.runtimeId, undefined);
+					assertNotebookSessionForNotebookUri(notebookUri, session1);
 				}
 				assertHasStartingOrRunningConsole(false);
-				assertNotebookSessionForNotebookUri(notebookUri, undefined);
 
 				sinon.assert.calledOnceWithExactly(didFailStartRuntime, session1);
 				sinon.assert.callOrder(willStartSession, didFailStartRuntime);
@@ -456,16 +457,28 @@ suite('Positron - RuntimeSessionService', () => {
 				willStartSessionDisposable.dispose();
 				const session2 = await start(runtime);
 
-				if (action === 'select' || action === 'restore') {
+				const isNotebookWithFailedSessionInMap =
+					mode === LanguageRuntimeSessionMode.Notebook &&
+					(action === 'start' || action === 'restore');
+
+				if (action === 'select' || action === 'restore' || isNotebookWithFailedSessionInMap) {
 					// Selecting/restoring the same session multiple times overwrites the session in activeSessions.
 					// TODO: Should this be the case for selecting?
 					assertActiveSessions([session1]);
+
+					if (isNotebookWithFailedSessionInMap) {
+						assert.strictEqual(session1.sessionId, session2.sessionId);
+						assert.strictEqual(session2.getRuntimeState(), RuntimeState.Uninitialized);
+						assertNotebookSessionForNotebookUri(notebookUri, session1);
+					} else {
+						assertCurrentSession(runtime, notebookUri, session2);
+						assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
+					}
 				} else {
 					assertActiveSessions([session1, session2]);
+					assertCurrentSession(runtime, notebookUri, session2);
+					assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
 				}
-
-				assertCurrentSession(runtime, notebookUri, session2);
-				assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
 			});
 
 			test(`${action} ${mode} concurrently encounters session.start() error`, async function () {
@@ -897,35 +910,37 @@ suite('Positron - RuntimeSessionService', () => {
 
 			await restartSession(session.sessionId);
 
-			// The existing session should remain exited.
-			assert.strictEqual(session.getRuntimeState(), state);
-
-			// A new session should be starting.
-			let newSession: ILanguageRuntimeSession | undefined;
-			if (mode === LanguageRuntimeSessionMode.Console) {
-				newSession = runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
+			if (mode === LanguageRuntimeSessionMode.Notebook) {
+				assert.strictEqual(session.getRuntimeState(), state);
+				sinon.assert.notCalled(willStartSession2);
+				assertActiveSessions([session]);
+				assertNotebookSessionForNotebookUri(notebookUri, session);
 			} else {
-				newSession = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+				// The existing session should remain in uninitialized state.
+				assert.strictEqual(session.getRuntimeState(), state);
+
+				// A new session should be starting.
+				const newSession = runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
+				assert.ok(newSession);
+				disposables.add(newSession);
+
+				sinon.assert.calledOnce(willStartSession2);
+				const event = willStartSession2.getCall(0).args[0];
+				assert.strictEqual(event.session, newSession);
+				// Since we restarted from an uninitialized state, the start mode is 'starting'.
+				assert.strictEqual(event.startMode, RuntimeStartMode.Starting);
+				assert.strictEqual(event.hasConsole, true);
+				assert.strictEqual(event.activate, true);
+
+				assert.strictEqual(newSession.dynState.sessionName, session.dynState.sessionName);
+				assert.strictEqual(newSession.metadata.sessionMode, session.metadata.sessionMode);
+				assert.strictEqual(newSession.metadata.notebookUri, session.metadata.notebookUri);
+				assert.strictEqual(newSession.runtimeMetadata, session.runtimeMetadata);
+
+				assertActiveSessions([session, newSession]);
+				assertCurrentSession(runtime, notebookUri, newSession);
+				assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
 			}
-			assert.ok(newSession);
-			disposables.add(newSession);
-
-			sinon.assert.calledOnce(willStartSession2);
-			const event = willStartSession2.getCall(0).args[0];
-			assert.strictEqual(event.session, newSession);
-			// Since we restarted from an uninitialized state, the start mode is 'starting'.
-			assert.strictEqual(event.startMode, RuntimeStartMode.Starting);
-			assert.strictEqual(event.hasConsole, mode === LanguageRuntimeSessionMode.Console);
-			assert.strictEqual(event.activate, true);
-
-			assert.strictEqual(newSession.dynState.sessionName, session.dynState.sessionName);
-			assert.strictEqual(newSession.metadata.sessionMode, session.metadata.sessionMode);
-			assert.strictEqual(newSession.metadata.notebookUri, session.metadata.notebookUri);
-			assert.strictEqual(newSession.runtimeMetadata, session.runtimeMetadata);
-
-			assertActiveSessions([session, newSession]);
-			assertCurrentSession(runtime, notebookUri, newSession);
-			assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
 		});
 
 		test(`restart ${mode} in 'starting' state`, async () => {
@@ -1044,7 +1059,7 @@ suite('Positron - RuntimeSessionService', () => {
 		await shutdownNotebook();
 
 		assertActiveSessions([session]);
-		assertNotebookSessionForNotebookUri(notebookUri, undefined);
+		assertNotebookSessionForNotebookUri(notebookUri, session);
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
 	});
 
@@ -1052,15 +1067,15 @@ suite('Positron - RuntimeSessionService', () => {
 		const session = await startNotebook(runtime);
 		await waitForRuntimeState(session, RuntimeState.Ready);
 
-		const [, newSession] = await Promise.all([
+		const [, selectedSession] = await Promise.all([
 			shutdownNotebook(),
 			selectRuntime(runtime, notebookUri),
 		]);
 
-		assertActiveSessions([session, newSession]);
-		assertNotebookSessionForNotebookUri(notebookUri, newSession);
+		assertActiveSessions([session]);
+		assertNotebookSessionForNotebookUri(notebookUri, session);
+		assert.strictEqual(session.sessionId, selectedSession.sessionId);
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
-		assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
 	});
 
 	test('shutdown notebook while selecting notebook', async () => {
@@ -1070,7 +1085,7 @@ suite('Positron - RuntimeSessionService', () => {
 		]);
 
 		assertActiveSessions([session]);
-		assertNotebookSessionForNotebookUri(notebookUri, undefined);
+		assertNotebookSessionForNotebookUri(notebookUri, session);
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
 	});
 

@@ -70,7 +70,7 @@ export class PositronNotebooks extends Notebooks {
 	cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private outputActionBar = (index: number) => this.cell.nth(index).locator('.cell-output-action-bar');
 	outputCollapsedLabel = (index: number) => this.cellOutput(index).getByText('Output collapsed');
-	outputTruncationMessage = (index: number) => this.cellOutput(index).getByText(/\.\.\. [\d,.\s\u00A0]+ lines truncated/);
+	outputTruncationMessage = (index: number) => this.cellOutput(index).getByText(/\.\.\. Show [\d,.\s\u00A0]+ more lines/);
 	outputCollapseToggle = (index: number) => this.cell.nth(index).locator('.cell-output-collapse-button-container').getByRole('button');
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
@@ -1640,10 +1640,21 @@ class KernelBase {
 	/**
 	 * Verify: Kernel badge contains expected text.
 	 */
-	async expectBadgeToContain(text: string, timeout = DEFAULT_TIMEOUT): Promise<void> {
+	async expectBadgeToContain(text: RegExp | string, timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step(`Expect kernel badge to contain: ${text}`, async () => {
 			await expect(this.statusBadge).toContainText(text, { timeout });
 		});
+	}
+
+	/**
+	 * Verify: Kernel status and badge text are as expected.
+	 */
+	async expectToBe(name: RegExp | string, options?: { status: SessionState; timeout?: number }): Promise<void> {
+		const { status, timeout = DEFAULT_TIMEOUT } = options ?? {};
+		if (status) {
+			await this.expectStatusToBe(status, timeout);
+		}
+		await this.expectBadgeToContain(name, timeout);
 	}
 }
 

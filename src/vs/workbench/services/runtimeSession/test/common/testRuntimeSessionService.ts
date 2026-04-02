@@ -22,6 +22,8 @@ import { IWorkspaceTrustManagementService } from '../../../../../platform/worksp
 import { IExtensionService } from '../../../extensions/common/extensions.js';
 import { LanguageRuntimeService } from '../../../languageRuntime/common/languageRuntime.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { IPositronConsoleService } from '../../../positronConsole/browser/interfaces/positronConsoleService.js';
+import { TestPositronConsoleService } from '../../../positronConsole/test/browser/testPositronConsoleService.js';
 import { IPositronModalDialogsService } from '../../../positronModalDialogs/common/positronModalDialogs.js';
 import { RuntimeSessionService } from '../../common/runtimeSession.js';
 import { IRuntimeSessionService, RuntimeStartMode } from '../../common/runtimeSessionService.js';
@@ -51,6 +53,7 @@ export function createRuntimeServices(
 	instantiationService.stub(IFileService, disposables.add(new TestDirectoryFileService()));
 	instantiationService.stub(IPathService, new TestPathService());
 	instantiationService.stub(ILanguageRuntimeService, disposables.add(instantiationService.createInstance(LanguageRuntimeService)));
+	instantiationService.stub(IPositronConsoleService, new TestPositronConsoleService());
 	instantiationService.stub(IPositronModalDialogsService, new TestPositronModalDialogService());
 	instantiationService.stub(ICommandService, new TestCommandService(instantiationService));
 	instantiationService.stub(IKeybindingService, new MockKeybindingService());
