@@ -248,6 +248,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		// Refresh find results when the active console instance changes.
 		this._register(this.positronConsoleService.onDidChangeActivePositronConsoleInstance(() => {
 			this._setupRuntimeItemsListener();
+			this._findWidget?.observeConsoleInstance();
 			this._findWidget?.refreshSearch();
 		}));
 	}

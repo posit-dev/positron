@@ -3,12 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Position the find widget at the top-right of the console container,
-	offset from the right edge to avoid overlapping the scrollbar gutter. */
-.positron-console-container > .simple-find-part-wrapper {
+/* Make the pane body a positioning context for the find widget. */
+.pane-body:has(> .positron-console-container) {
+	position: relative;
+}
+
+/* Position the find widget below the action bar (28px). The right offset
+	is set dynamically by the widget to avoid overlapping the tab list. */
+.pane-body:has(> .positron-console-container) > .simple-find-part-wrapper {
 	position: absolute;
-	top: 0;
-	right: 28px;
+	top: 28px;
 	z-index: 100;
 }
 

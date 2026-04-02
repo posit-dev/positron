@@ -47,6 +47,8 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 	private _matches: ISearchMatch[] = [];
 	private _currentMatchIndex: number = -1;
 	private _consoleContainer: HTMLElement;
+	private _resizeObserver: ResizeObserver | undefined;
+	private _observedElement: HTMLElement | undefined;
 
 	constructor(
 		consoleContainer: HTMLElement,
@@ -172,6 +174,7 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 
 		super.reveal(input);
 		this._findWidgetVisible.set(true);
+		this.observeConsoleInstance();
 
 		if (input && input.length > 0) {
 			this._performSearch();
@@ -187,7 +190,46 @@ export class PositronConsoleFindWidget extends SimpleFindWidget {
 		this._findWidgetVisible.reset();
 	}
 
+	/**
+	 * Update the horizontal position of the find widget so it stays within
+	 * the console pane area and does not overlap the tab list.
+	 */
+	private _updatePosition(): void {
+		const searchContainer = this._getSearchContainer();
+		if (searchContainer) {
+			const containerWidth = this._consoleContainer.offsetWidth;
+			const paneWidth = searchContainer.offsetWidth;
+			const rightOffset = containerWidth - paneWidth + 28;
+			this.getDomNode().style.right = `${rightOffset}px`;
+		}
+	}
+
+	/**
+	 * Start observing the active console instance element for size changes
+	 * so the find widget repositions when the splitter is dragged.
+	 */
+	public observeConsoleInstance(): void {
+		const searchContainer = this._getSearchContainer();
+		if (searchContainer === this._observedElement) {
+			return;
+		}
+		this._disposeResizeObserver();
+		if (searchContainer) {
+			this._observedElement = searchContainer;
+			this._resizeObserver = new ResizeObserver(() => this._updatePosition());
+			this._resizeObserver.observe(searchContainer);
+		}
+		this._updatePosition();
+	}
+
+	private _disposeResizeObserver(): void {
+		this._resizeObserver?.disconnect();
+		this._resizeObserver = undefined;
+		this._observedElement = undefined;
+	}
+
 	override dispose(): void {
+		this._disposeResizeObserver();
 		this._clearHighlights();
 		super.dispose();
 	}
