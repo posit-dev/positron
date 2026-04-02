@@ -70,14 +70,14 @@ suite('Positron - PositronPackagesInstance', () => {
 		});
 
 		test('fires onDidRefreshPackagesInstance event', async () => {
-			const refreshedPackages = await Event.toPromise(
-				Event.filter(packagesInstance.onDidRefreshPackagesInstance, () => true)
-			);
+			// Set up promise before triggering refresh
+			const refreshedPackagesPromise = Event.toPromise(packagesInstance.onDidRefreshPackagesInstance);
 
-			// Trigger refresh
+			// Trigger refresh (don't await - let it run while we wait for the event)
 			packagesInstance.refreshPackages();
 
-			const result = await refreshedPackages;
+			// Now await the event
+			const result = await refreshedPackagesPromise;
 			assert.deepStrictEqual(result, testPackages);
 		});
 
