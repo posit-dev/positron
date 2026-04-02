@@ -434,9 +434,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return;
 		}
 
-		// Add all ranges to queued state with decorations
+		// Add all ranges to queued state with decorations.
+		// Use effectiveCodeRange (excluding option lines like #| label: ...) so
+		// the queued range matches what _withExecutionTracking will remove later.
 		for (const execution of filteredExecutions) {
-			this._addToQueuedRanges(execution.cell.id, execution.codeRange);
+			this._addToQueuedRanges(execution.cell.id, execution.effectiveCodeRange);
 			this._addToQueue(documentUri, execution.cell.id);
 			// Only set state to Queued if cell is not already running
 			// (if it's running, the queued range decoration will still show)
@@ -466,7 +468,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				if (token?.isCancellationRequested) {
 					// Mark remaining queued ranges as idle
 					for (const e of filteredExecutions) {
-						this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+						this._removeFromQueuedRanges(e.cell.id, e.effectiveCodeRange);
 					}
 					break;
 				}
@@ -479,7 +481,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					this._logService.debug(
 						`[QuartoExecutionManager] Inline cell ${execution.cell.id} was cancelled while queued (state: ${currentState}), skipping`
 					);
-					this._removeFromQueuedRanges(execution.cell.id, execution.codeRange);
+					this._removeFromQueuedRanges(execution.cell.id, execution.effectiveCodeRange);
 					continue;
 				}
 
@@ -503,7 +505,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						const currentIndex = filteredExecutions.indexOf(execution);
 						for (let i = currentIndex + 1; i < filteredExecutions.length; i++) {
 							const e = filteredExecutions[i];
-							this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+							this._removeFromQueuedRanges(e.cell.id, e.effectiveCodeRange);
 							this._setCellState(e.cell.id, CellExecutionState.Idle, documentUri);
 						}
 						break;
@@ -521,7 +523,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						const currentIndex = filteredExecutions.indexOf(execution);
 						for (let i = currentIndex + 1; i < filteredExecutions.length; i++) {
 							const e = filteredExecutions[i];
-							this._removeFromQueuedRanges(e.cell.id, e.codeRange);
+							this._removeFromQueuedRanges(e.cell.id, e.effectiveCodeRange);
 							this._setCellState(e.cell.id, CellExecutionState.Idle, documentUri);
 						}
 						break;
