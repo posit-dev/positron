@@ -49,9 +49,22 @@ export class Toasts {
 	// --- Actions ---
 
 	async waitForAppear(title?: string | RegExp, { timeout = 20000 } = {}) {
-		title
-			? await this.toastNotification.getByText(title).waitFor({ state: 'attached', timeout })
-			: await this.toastNotification.waitFor({ state: 'attached', timeout });
+		const toastLocator = title
+			? this.toastNotification.filter({ hasText: title })
+			: this.toastNotification;
+
+		// Also check notification center (in smoke test mode, toasts are disabled)
+		await this.openNotificationCenter();
+		const centerLocator = title
+			? this.notificationsCenter.locator('.notification-list-item').filter({ hasText: title })
+			: this.notificationsCenter.locator('.notification-list-item');
+
+		await Promise.race([
+			toastLocator.waitFor({ state: 'attached', timeout }),
+			centerLocator.waitFor({ state: 'attached', timeout }),
+		]);
+
+		await this.closeNotificationCenter();
 	}
 
 	async waitForDisappear(title?: string | RegExp, { timeout = 20000 } = {}) {
@@ -107,11 +120,20 @@ export class Toasts {
 
 	async expectToastWithTitle(title?: string | RegExp, timeoutMs = 3000) {
 		await test.step(`Verify toast ${title ? `visible: ${title}` : 'visible'}`, async () => {
-			if (title) {
-				await expect(this.toastNotification.filter({ hasText: title })).toBeVisible({ timeout: timeoutMs });
-			} else {
-				await expect(this.toastNotification).toBeVisible({ timeout: timeoutMs });
+			const toastLocator = title ? this.toastNotification.filter({ hasText: title }) : this.toastNotification;
+			const toastVisible = await toastLocator.isVisible();
+			if (toastVisible) {
+				await expect(toastLocator).toBeVisible({ timeout: timeoutMs });
+				return;
 			}
+
+			// In smoke test mode, toasts are disabled. Check the notification center instead.
+			await this.openNotificationCenter();
+			const centerLocator = title
+				? this.notificationsCenter.locator('.notification-list-item').filter({ hasText: title })
+				: this.notificationsCenter.locator('.notification-list-item');
+			await expect(centerLocator).toBeVisible({ timeout: timeoutMs });
+			await this.closeNotificationCenter();
 		});
 	}
 
@@ -137,7 +159,7 @@ export class Toasts {
 				const buttons = [
 					importSettingsNotification.getByRole('button', { name: 'Compare settings' }),
 					importSettingsNotification.getByRole('button', { name: 'Later' }),
-					importSettingsNotification.getByRole('button', { name: "Don't show again" }),
+					importSettingsNotification.getByRole('button', { name: 'Don\'t show again' }),
 				];
 
 				for (const btn of buttons) {

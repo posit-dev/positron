@@ -142,6 +142,9 @@ export function buildModelPickerItems(
 	canManageModels: boolean,
 	commandService: ICommandService,
 	chatEntitlementService: IChatEntitlementService,
+	// --- Start Positron ---
+	vendorDisplayNames?: ReadonlyMap<string, string>,
+	// --- End Positron ---
 ): IActionListItem<IActionWidgetDropdownAction>[] {
 	const items: IActionListItem<IActionWidgetDropdownAction>[] = [];
 	if (models.length === 0) {
@@ -175,7 +178,7 @@ export function buildModelPickerItems(
 			if (model.metadata.vendor !== lastVendor) {
 				lastVendor = model.metadata.vendor;
 				const providerIcon = getProviderIcon(model.metadata.vendor);
-				const providerLabel = model.metadata.auth?.providerLabel ?? model.metadata.vendor;
+				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
 				items.push({
 					kind: ActionListItemKind.Separator,
 					label: providerLabel,
@@ -251,7 +254,7 @@ export function buildModelPickerItems(
 				const entry = controlModels[model.metadata.id];
 				// --- Start Positron ---
 				const vendor = model.metadata.vendor;
-				const providerLabel = model.metadata.auth?.providerLabel ?? vendor;
+				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(vendor) ?? vendor;
 				// --- End Positron ---
 				if (entry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
 					promotedItems.push({ kind: 'unavailable', id: model.metadata.id, entry, reason: 'update', vendor, providerLabel });
@@ -294,7 +297,7 @@ export function buildModelPickerItems(
 				markPlaced(model.identifier, model.metadata.id);
 				// --- Start Positron ---
 				const vendor = model.metadata.vendor;
-				const providerLabel = model.metadata.auth?.providerLabel ?? vendor;
+				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(vendor) ?? vendor;
 				// --- End Positron ---
 				if (entry.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
 					promotedItems.push({ kind: 'unavailable', id: entryId, entry, reason: 'update', vendor, providerLabel });
@@ -405,7 +408,7 @@ export function buildModelPickerItems(
 				if (model.metadata.vendor !== otherLastVendor) {
 					otherLastVendor = model.metadata.vendor;
 					const providerIcon = getProviderIcon(model.metadata.vendor);
-					const providerLabel = model.metadata.auth?.providerLabel ?? model.metadata.vendor;
+					const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
 					items.push({
 						kind: ActionListItemKind.Separator,
 						label: providerLabel,
@@ -687,6 +690,9 @@ export class ModelPickerWidget extends Disposable {
 			this._delegate.canManageModels(),
 			this._commandService,
 			this._entitlementService,
+			// --- Start Positron ---
+			new Map(this._languageModelsService.getVendors().map(v => [v.vendor, v.displayName])),
+			// --- End Positron ---
 		);
 
 		const listOptions = {

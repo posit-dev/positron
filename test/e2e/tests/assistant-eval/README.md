@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-04-01T15:23:58.339Z
+> 9 test cases · Auto-generated on 2026-04-02T15:47:05.140Z
 
 ## Hallucination
 
@@ -157,7 +157,7 @@ Create a new R notebook for me.
 </details>
 
 <details>
-<summary><strong>r-notebook-edit-cells</strong> · Edit · Ensure editNotebookCells is used when editing n...</summary>
+<summary><strong>r-notebook-edit-cells</strong> · Agent · Ensure editNotebookCells is used when editing n...</summary>
 
 ### Intent
 
@@ -220,7 +220,7 @@ Run cell 2 of my notebook and tell me what the output is.
 ## Tools
 
 <details>
-<summary><strong>python-edit-file</strong> · Edit · Ensure editFile tool is called when editing files</summary>
+<summary><strong>python-edit-file</strong> · Agent · Ensure editFile tool is called when editing files</summary>
 
 ### Intent
 

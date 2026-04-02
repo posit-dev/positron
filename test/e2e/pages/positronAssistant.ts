@@ -966,6 +966,9 @@ export class Assistant {
 		// Wait for the dropdown menu to appear
 		await this.code.driver.currentPage.locator(MODEL_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
 
+		// Expand the "Other Models" section so all models are visible
+		await this._expandOtherModelsSection();
+
 		// Find and click the item with the matching text
 		const items = this.code.driver.currentPage.locator(MODEL_DROPDOWN_ITEM);
 		const count = await items.count();
@@ -986,12 +989,29 @@ export class Assistant {
 	}
 
 	/**
+	 * Expands the "Other Models" collapsible section in the model picker if it is collapsed.
+	 * The dropdown must already be open before calling this method.
+	 */
+	private async _expandOtherModelsSection(): Promise<void> {
+		const collapsedToggle = this.code.driver.currentPage.locator(
+			'.monaco-list-row.action'
+		).filter({ hasText: 'Other Models' }).locator('.codicon-chevron-right');
+		if (await collapsedToggle.count() > 0) {
+			const toggleRow = this.code.driver.currentPage.locator(
+				'.monaco-list-row.action'
+			).filter({ hasText: 'Other Models' });
+			await toggleRow.click({ force: true });
+		}
+	}
+
+	/**
 	 * Asserts that a model item with the given text exists in the picker dropdown.
 	 * The dropdown must already be open before calling this method.
 	 * @param text The text to match (string for contains, RegExp for exact matching)
 	 */
 	async expectModelInPicker(text: string | RegExp): Promise<void> {
 		await test.step(`Expect model in picker: ${text}`, async () => {
+			await this._expandOtherModelsSection();
 			const locator = this.code.driver.currentPage.locator('.monaco-list-row.action span.title', { hasText: text });
 			await expect(locator).toHaveCount(1);
 		});
@@ -1004,6 +1024,7 @@ export class Assistant {
 	 */
 	async expectVendorSeparator(vendor: string): Promise<void> {
 		await test.step(`Expect vendor separator: ${vendor}`, async () => {
+			await this._expandOtherModelsSection();
 			const locator = this.code.driver.currentPage.locator('.monaco-list-row.separator span.separator-label', { hasText: vendor });
 			await expect(locator).toHaveCount(1);
 		});
@@ -1035,6 +1056,7 @@ export class Assistant {
 	 * @param vendor The vendor name to filter by (e.g., 'Echo', 'Anthropic')
 	 */
 	async getModelPickerItemsForVendor(vendor: string): Promise<Array<{ label: string; isDefault: boolean }>> {
+		await this._expandOtherModelsSection();
 		const allRows = this.code.driver.currentPage.locator('.action-widget .monaco-list-row');
 		const count = await allRows.count();
 		const vendorModels: Array<{ label: string; isDefault: boolean }> = [];
