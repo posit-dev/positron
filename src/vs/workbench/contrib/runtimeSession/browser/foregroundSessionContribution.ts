@@ -11,6 +11,7 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -82,6 +83,9 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 
 	/** Tracks disposables for each legacy notebook editor's focus listener */
 	private readonly _legacyNotebookDisposables = new Map<string, DisposableStore>();
+
+	/** Tracks disposables for each code editor's focus listener (for Quarto files) */
+	private readonly _quartoCodeEditorDisposables = new Map<string, DisposableStore>();
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -178,6 +182,25 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 		}
 
 		// --- End Legacy Notebook Editor Focus Handling ---
+
+		// --- Start Quarto Editor Focus Handling ---
+
+		// Listen for code editor additions so we can track focus events for Quarto files
+		this._register(this._codeEditorService.onCodeEditorAdd((editor) => {
+			this._registerQuartoEditorFocusListener(editor);
+		}));
+
+		// Listen for code editor removals so we can unregister focus listeners for Quarto files
+		this._register(this._codeEditorService.onCodeEditorRemove((editor) => {
+			this._unregisterQuartoEditorFocusListener(editor);
+		}));
+
+		// Register focus listeners for any code editors that already exist
+		for (const editor of this._codeEditorService.listCodeEditors()) {
+			this._registerQuartoEditorFocusListener(editor);
+		}
+
+		// --- End Quarto Editor Focus Handling ---
 
 		// After setting up all the listeners, we should check the active editor and set the correct foreground session on startup.
 		// This is important for the case where the active editor is a notebook, so that the notebook session is set as foreground on startup.
@@ -338,6 +361,72 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 			}
 		} else {
 			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}) but no session found for URI`);
+		}
+	}
+
+	/**
+	 * Register a focus listener for a code editor.
+	 * When the editor gains focus, we check if it is a Quarto file and set the foreground session.
+	 */
+	private _registerQuartoEditorFocusListener(editor: ICodeEditor): void {
+		const editorId = editor.getId();
+		if (this._quartoCodeEditorDisposables.has(editorId)) {
+			return;
+		}
+
+		const disposables = new DisposableStore();
+		disposables.add(editor.onDidFocusEditorWidget(() => {
+			this._handleQuartoEditorFocus(editor);
+		}));
+		this._quartoCodeEditorDisposables.set(editorId, disposables);
+	}
+
+	/**
+	 * Unregister the focus listener for a code editor.
+	 */
+	private _unregisterQuartoEditorFocusListener(editor: ICodeEditor): void {
+		const editorId = editor.getId();
+		const disposables = this._quartoCodeEditorDisposables.get(editorId);
+		if (disposables) {
+			disposables.dispose();
+			this._quartoCodeEditorDisposables.delete(editorId);
+		}
+	}
+
+	/**
+	 * Handle Quarto code editor focus.
+	 * Sets the Quarto session as the foreground session if the editor's file is a Quarto document.
+	 */
+	private _handleQuartoEditorFocus(editor: ICodeEditor): void {
+		if (!usingQuartoInlineOutput(this._configurationService)) {
+			return;
+		}
+
+		const model = editor.getModel();
+		if (!model || !isQuartoDocument(model.uri.path, model.getLanguageId())) {
+			return;
+		}
+
+		const uri = model.uri;
+		const fileName = basename(uri);
+
+		// Guard against stale focus events, same as the notebook focus handlers.
+		const activeEditor = this._editorService.activeEditor;
+		if (!activeEditor || !isEqual(activeEditor.resource, uri)) {
+			this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}) but not the active editor, ignoring stale focus event`);
+			return;
+		}
+
+		const session = this._quartoKernelManager.getSessionForDocument(uri);
+		if (session) {
+			if (this._runtimeSessionService.foregroundSession?.sessionId !== session.sessionId) {
+				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}), setting foreground session: ${session.sessionId}`);
+				this._runtimeSessionService.foregroundSession = session;
+			} else {
+				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}), already the foreground session: ${session.sessionId}`);
+			}
+		} else {
+			this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}) but no session found`);
 		}
 	}
 
