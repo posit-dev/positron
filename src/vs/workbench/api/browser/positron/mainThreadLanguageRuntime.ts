@@ -155,6 +155,14 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 	searchPackageVersions(name: string, token: CancellationToken): Promise<string[]> {
 		return this._proxy.$searchPackageVersions(this._handle, name, token);
 	}
+
+	supportsSyncFromRequirements(): Promise<boolean> {
+		return this._proxy.$supportsSyncFromRequirements(this._handle);
+	}
+
+	syncFromRequirements(requirementsPath: string, token: CancellationToken): Promise<void> {
+		return this._proxy.$syncFromRequirements(this._handle, requirementsPath, token);
+	}
 }
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the

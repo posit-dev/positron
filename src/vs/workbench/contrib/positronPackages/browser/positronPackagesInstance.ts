@@ -22,6 +22,8 @@ export interface IPositronPackagesInstance {
 	updateAllPackages(token?: CancellationToken): Promise<void>;
 	searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
+	syncFromRequirements(requirementsPath: string, token?: CancellationToken): Promise<void>;
+	supportsSyncFromRequirements(): Promise<boolean>;
 
 	readonly onDidRefreshPackagesInstance: Event<ILanguageRuntimePackage[]>;
 
@@ -34,6 +36,8 @@ export interface IPositronPackagesInstance {
 	readonly onDidChangeUpdateState: Event<boolean>;
 
 	readonly onDidChangeUpdateAllState: Event<boolean>;
+
+	readonly onDidChangeSyncState: Event<boolean>;
 }
 
 export class PositronPackagesInstance extends Disposable implements IPositronPackagesInstance {
@@ -58,6 +62,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	private readonly _onDidChangeUpdateAllState = this._register(new Emitter<boolean>());
 
+	private readonly _onDidChangeSyncState = this._register(new Emitter<boolean>());
+
 	constructor(
 		session: ILanguageRuntimeSession,
 		logService: ILogService,
@@ -79,6 +85,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	readonly onDidChangeUpdateState = this._onDidChangeUpdateState.event;
 
 	readonly onDidChangeUpdateAllState = this._onDidChangeUpdateAllState.event;
+
+	readonly onDidChangeSyncState = this._onDidChangeSyncState.event;
 
 	/**
 	 * Gets the packages.
@@ -227,6 +235,36 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			return [];
 		}
 		return results;
+	}
+
+	async supportsSyncFromRequirements(): Promise<boolean> {
+		const packageManager = this._session.getPackageManager?.();
+		if (!packageManager) {
+			return false;
+		}
+		return packageManager.supportsSyncFromRequirements();
+	}
+
+	async syncFromRequirements(requirementsPath: string, token?: CancellationToken): Promise<void> {
+		const packageManager = this.getPackageManagerOrThrow();
+		const effectiveToken = token ?? CancellationToken.None;
+
+		// Loading
+		this._onDidChangeSyncState.fire(true);
+
+		try {
+			await packageManager.syncFromRequirements(requirementsPath, effectiveToken);
+			if (effectiveToken.isCancellationRequested) {
+				return;
+			}
+
+			// Refresh packages after sync
+			this._packages = await packageManager.getPackages(effectiveToken);
+			this._onDidRefreshPackagesInstance.fire(this._packages);
+		} finally {
+			// Completed
+			this._onDidChangeSyncState.fire(false);
+		}
 	}
 
 	/**

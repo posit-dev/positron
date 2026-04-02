@@ -78,4 +78,25 @@ export interface IPackageManager {
      * @returns Array of version strings
      */
     searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
+
+    /**
+     * Check if syncing from a requirements file is supported.
+     *
+     * This method should return true if the package manager supports syncing
+     * from a requirements file AND a requirements file exists in the workspace.
+     *
+     * @returns Promise that resolves to true if sync is supported and available
+     */
+    supportsSyncFromRequirements?(): Promise<boolean>;
+
+    /**
+     * Sync packages from a requirements file (e.g., requirements.txt).
+     *
+     * This is an optional method that package managers can implement to support
+     * installing packages from a requirements file.
+     *
+     * @param requirementsPath Path to the requirements file
+     * @param token Optional cancellation token
+     */
+    syncFromRequirements?(requirementsPath: string, token?: vscode.CancellationToken): Promise<void>;
 }

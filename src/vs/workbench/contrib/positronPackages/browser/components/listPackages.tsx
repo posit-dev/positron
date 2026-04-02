@@ -68,6 +68,11 @@ const positronPackageActions = localize(
 	'Package Actions',
 );
 
+const positronSyncPackages = localize(
+	'positronSyncPackages',
+	'Sync Packages',
+);
+
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const {
 		activeInstance,
@@ -85,8 +90,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const [updateLoading, setUpdateLoading] = useState<boolean>(false);
 	const [updateAllLoading, setUpdateAllLoading] = useState<boolean>(false);
 	const [uninstallLoading, setUninstallLoading] = useState<boolean>(false);
+	const [syncLoading, setSyncLoading] = useState<boolean>(false);
 
-	const loading = refreshLoading || installLoading || updateLoading || updateAllLoading || uninstallLoading;
+	const loading = refreshLoading || installLoading || updateLoading || updateAllLoading || uninstallLoading || syncLoading;
 
 	useEffect(() => {
 		if (!activeInstance) {
@@ -114,8 +120,24 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		disposables.add(activeInstance.onDidChangeUninstallState((isLoading) => {
 			setUninstallLoading(isLoading);
 		}));
+		disposables.add(activeInstance.onDidChangeSyncState((isLoading) => {
+			setSyncLoading(isLoading);
+		}));
 
 		return () => disposables.dispose();
+	}, [activeInstance]);
+
+	// Track if sync is available (supported by package manager and requirements.txt exists)
+	const [syncVisible, setSyncVisible] = useState<boolean>(false);
+
+	useEffect(() => {
+		if (!activeInstance) {
+			setSyncVisible(false);
+			return;
+		}
+
+		// The package manager handles all checks (method support + requirements.txt existence)
+		activeInstance.supportsSyncFromRequirements().then(setSyncVisible);
 	}, [activeInstance]);
 
 	useEffect(() => {
@@ -307,8 +329,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				activeSession={activeInstance?.session}
 				busy={loading}
 				selectedItem={selectedItem}
+				syncVisible={syncVisible}
 				onInstallPackage={() => services.commandService.executeCommand('positronPackages.installPackage')}
 				onRefreshPackages={() => services.commandService.executeCommand('positronPackages.refreshPackages')}
+				onSyncPackages={() => services.commandService.executeCommand('positronPackages.syncPackages')}
 				onUninstallPackage={() => {
 					const packageName = getSelectedItemPackageName(selectedItem);
 					if (packageName) {
@@ -347,8 +371,10 @@ interface ActionBarProps {
 	busy: boolean;
 	activeSession?: ILanguageRuntimeSession;
 	selectedItem?: string;
+	syncVisible: boolean;
 	onInstallPackage: () => void;
 	onRefreshPackages: () => void;
+	onSyncPackages: () => void;
 	onUninstallPackage: () => void;
 	onUpdateAllPackages: () => void;
 	onUpdatePackage: () => void;
@@ -358,8 +384,10 @@ const ActionBar = ({
 	busy,
 	activeSession,
 	selectedItem,
+	syncVisible,
 	onInstallPackage,
 	onRefreshPackages,
+	onSyncPackages,
 	onUpdateAllPackages,
 	onUpdatePackage,
 	onUninstallPackage,
@@ -378,6 +406,16 @@ const ActionBar = ({
 						<PackagesInstanceMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						{syncVisible && (
+							<ActionBarButton
+								align='right'
+								ariaLabel={positronSyncPackages}
+								disabled={busy || !activeSession}
+								icon={ThemeIcon.fromId('sync')}
+								tooltip={positronSyncPackages}
+								onPressed={onSyncPackages}
+							/>
+						)}
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRefreshPackages}

@@ -771,6 +771,25 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return packageManager.searchPackageVersions(name, token);
 	}
 
+	async $supportsSyncFromRequirements(handle: number): Promise<boolean> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'check sync support');
+		// If the package manager implements supportsSyncFromRequirements, use it
+		// (it may check for requirements.txt existence, etc.)
+		if (typeof packageManager.supportsSyncFromRequirements === 'function') {
+			return packageManager.supportsSyncFromRequirements();
+		}
+		// Otherwise, just check if the method exists
+		return typeof packageManager.syncFromRequirements === 'function';
+	}
+
+	async $syncFromRequirements(handle: number, requirementsPath: string, token: CancellationToken): Promise<void> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'sync from requirements');
+		if (!packageManager.syncFromRequirements) {
+			throw new Error('Package manager does not support syncFromRequirements');
+		}
+		return packageManager.syncFromRequirements(requirementsPath, token);
+	}
+
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);

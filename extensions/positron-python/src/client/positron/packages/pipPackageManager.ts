@@ -140,6 +140,36 @@ export class PipPackageManager implements IPackageManager {
         return searchPyPIVersions(name, token);
     }
 
+    async supportsSyncFromRequirements(): Promise<boolean> {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            return false;
+        }
+
+        const workspaceFolder = workspaceFolders[0];
+        const requirementsUri = vscode.Uri.joinPath(workspaceFolder.uri, 'requirements.txt');
+
+        try {
+            await vscode.workspace.fs.stat(requirementsUri);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    async syncFromRequirements(requirementsPath: string, token?: vscode.CancellationToken): Promise<void> {
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+
+        await this._ensurePip();
+
+        const flags = await this._getInstallFlags();
+        const args = ['install', '-r', requirementsPath, ...flags];
+
+        await this._executePipInTerminal(args, token);
+    }
+
     // =========================================================================
     // Private helper methods
     // =========================================================================

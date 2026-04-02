@@ -341,6 +341,23 @@ export interface ILanguageRuntimePackageManager {
 	 * @param token Optional cancellation token
 	 */
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
+
+	/**
+	 * Check if the package manager supports syncing from a requirements file.
+	 * @returns Promise that resolves to true if syncFromRequirements is supported
+	 */
+	supportsSyncFromRequirements(): Promise<boolean>;
+
+	/**
+	 * Sync packages from a requirements file (e.g., requirements.txt).
+	 *
+	 * This is an optional method that package managers can implement to support
+	 * installing packages from a requirements file.
+	 *
+	 * @param requirementsPath Path to the requirements file
+	 * @param token Optional cancellation token
+	 */
+	syncFromRequirements(requirementsPath: string, token?: CancellationToken): Promise<void>;
 }
 
 /**

@@ -81,5 +81,17 @@ export interface IPositronPackagesService {
 	 */
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
+	/**
+	 * Check if the active session supports syncing from requirements.
+	 */
+	supportsSyncFromRequirements(): Promise<boolean>;
+
+	/**
+	 * Sync packages from a requirements file.
+	 * @param requirementsPath Path to the requirements file
+	 * @param token Optional cancellation token
+	 */
+	syncFromRequirements(requirementsPath: string, token?: CancellationToken): Promise<void>;
+
 	getInstances(): IPositronPackagesInstance[];
 }

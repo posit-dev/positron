@@ -116,6 +116,8 @@ export interface ExtHostLanguageRuntimeShape {
 	$updateAllPackages(handle: number, token: CancellationToken): Promise<void>;
 	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
+	$supportsSyncFromRequirements(handle: number): Promise<boolean>;
+	$syncFromRequirements(handle: number, requirementsPath: string, token: CancellationToken): Promise<void>;
 }
 
 // This is the interface that the main process exposes to the extension host

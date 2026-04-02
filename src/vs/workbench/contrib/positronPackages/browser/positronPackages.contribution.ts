@@ -7,17 +7,20 @@ import { CancellationTokenSource } from '../../../../base/common/cancellation.js
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { URI } from '../../../../base/common/uri.js';
 import * as nls from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -73,6 +76,7 @@ export const PACKAGES_UPDATE_COMMAND_ID = 'positronPackages.updatePackage';
 export const PACKAGES_UPDATE_ALL_COMMAND_ID = 'positronPackages.updateAllPackages';
 export const PACKAGES_UNINSTALL_COMMAND_ID = 'positronPackages.uninstallPackage';
 export const PACKAGES_REFRESH_COMMAND_ID = 'positronPackages.refreshPackages';
+export const PACKAGES_SYNC_COMMAND_ID = 'positronPackages.syncPackages';
 
 const PACKAGES_CATEGORY = nls.localize2('packages', 'Packages');
 
@@ -475,9 +479,113 @@ class UpdateAllPackagesAction extends Action2 {
 	}
 }
 
+class SyncPackagesAction extends Action2 {
+	constructor() {
+		super({
+			id: PACKAGES_SYNC_COMMAND_ID,
+			title: nls.localize2('syncPackages', 'Sync Packages'),
+			category: PACKAGES_CATEGORY,
+			f1: true,
+			precondition: POSITRON_PACKAGES_ENABLED,
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
+		const notifications = accessor.get<INotificationService>(INotificationService);
+		const progress = accessor.get<IProgressService>(IProgressService);
+		const runtimeSessionService = accessor.get<IRuntimeSessionService>(IRuntimeSessionService);
+		const commandService = accessor.get<ICommandService>(ICommandService);
+		const workspaceService = accessor.get<IWorkspaceContextService>(IWorkspaceContextService);
+		const fileService = accessor.get<IFileService>(IFileService);
+
+		// Check if sync is supported
+		if (!await service.supportsSyncFromRequirements()) {
+			notifications.error(nls.localize('positronPackages.syncNotSupported', 'Sync from requirements is not supported by the current package manager.'));
+			return;
+		}
+
+		// Get the workspace folder
+		const workspaceFolders = workspaceService.getWorkspace().folders;
+		if (workspaceFolders.length === 0) {
+			notifications.error(nls.localize('positronPackages.noWorkspace', 'No workspace folder found.'));
+			return;
+		}
+
+		// Use the first workspace folder (or the active one if we had context)
+		const workspaceFolder = workspaceFolders[0];
+		const requirementsUri = URI.joinPath(workspaceFolder.uri, 'requirements.txt');
+
+		// Check if requirements.txt exists
+		const exists = await fileService.exists(requirementsUri);
+		if (!exists) {
+			notifications.error(nls.localize('positronPackages.noRequirementsTxt', 'No requirements.txt file found in workspace root.'));
+			return;
+		}
+
+		const cts = new CancellationTokenSource();
+
+		try {
+			await progress.withProgress({
+				title: nls.localize('positronPackages.syncingPackages', 'Syncing Packages from requirements.txt...'),
+				location: ProgressLocation.Notification,
+				cancellable: true,
+				delay: 500
+			}, async () => {
+				try {
+					await service.syncFromRequirements(requirementsUri.fsPath, cts.token);
+					showRestartSessionNotificationForSync(
+						notifications,
+						runtimeSessionService,
+						commandService,
+						service
+					);
+				} catch (e) {
+					notifications.error(cleanErrorMessage(e));
+					throw e;
+				}
+			}, () => cts.cancel());
+		} finally {
+			cts.dispose(true);
+		}
+	}
+}
+
+/**
+ * Shows a notification suggesting the user restart their session after syncing packages.
+ */
+function showRestartSessionNotificationForSync(
+	notifications: INotificationService,
+	runtimeSessionService: IRuntimeSessionService,
+	commandService: ICommandService,
+	packagesService: IPositronPackagesService
+): void {
+	const session = packagesService.activeSession;
+	if (!session) {
+		return;
+	}
+
+	const message = nls.localize(
+		'positronPackages.restartSessionSync',
+		'Packages were synced from requirements.txt. A session restart may be required for changes to take effect.'
+	);
+
+	notifications.prompt(
+		Severity.Info,
+		message,
+		[{
+			label: nls.localize('positronPackages.restartSession', 'Restart Session'),
+			run: async () => {
+				await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
+				await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after sync from requirements');
+			}
+		}]
+	);
+}
+
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);
 registerAction2(UninstallPackageAction);
 registerAction2(UpdatePackageAction);
 registerAction2(UpdateAllPackagesAction);
+registerAction2(SyncPackagesAction);
 registerSingleton(IPositronPackagesService, PositronPackagesService, InstantiationType.Delayed);
