@@ -160,8 +160,8 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 		return this._proxy.$supportsSyncFromRequirements(this._handle);
 	}
 
-	syncFromRequirements(requirementsPath: string, token: CancellationToken): Promise<void> {
-		return this._proxy.$syncFromRequirements(this._handle, requirementsPath, token);
+	syncFromRequirements(token: CancellationToken): Promise<void> {
+		return this._proxy.$syncFromRequirements(this._handle, token);
 	}
 }
 

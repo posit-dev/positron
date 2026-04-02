@@ -7,20 +7,17 @@ import { CancellationTokenSource } from '../../../../base/common/cancellation.js
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
-import { URI } from '../../../../base/common/uri.js';
 import * as nls from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -495,30 +492,10 @@ class SyncPackagesAction extends Action2 {
 		const progress = accessor.get<IProgressService>(IProgressService);
 		const runtimeSessionService = accessor.get<IRuntimeSessionService>(IRuntimeSessionService);
 		const commandService = accessor.get<ICommandService>(ICommandService);
-		const workspaceService = accessor.get<IWorkspaceContextService>(IWorkspaceContextService);
-		const fileService = accessor.get<IFileService>(IFileService);
 
-		// Check if sync is supported
+		// Check if sync is supported (includes checking for requirements.txt)
 		if (!await service.supportsSyncFromRequirements()) {
-			notifications.error(nls.localize('positronPackages.syncNotSupported', 'Sync from requirements is not supported by the current package manager.'));
-			return;
-		}
-
-		// Get the workspace folder
-		const workspaceFolders = workspaceService.getWorkspace().folders;
-		if (workspaceFolders.length === 0) {
-			notifications.error(nls.localize('positronPackages.noWorkspace', 'No workspace folder found.'));
-			return;
-		}
-
-		// Use the first workspace folder (or the active one if we had context)
-		const workspaceFolder = workspaceFolders[0];
-		const requirementsUri = URI.joinPath(workspaceFolder.uri, 'requirements.txt');
-
-		// Check if requirements.txt exists
-		const exists = await fileService.exists(requirementsUri);
-		if (!exists) {
-			notifications.error(nls.localize('positronPackages.noRequirementsTxt', 'No requirements.txt file found in workspace root.'));
+			notifications.error(nls.localize('positronPackages.syncNotSupported', 'Sync from requirements is not supported. Ensure a requirements.txt file exists in the workspace root.'));
 			return;
 		}
 
@@ -532,7 +509,7 @@ class SyncPackagesAction extends Action2 {
 				delay: 500
 			}, async () => {
 				try {
-					await service.syncFromRequirements(requirementsUri.fsPath, cts.token);
+					await service.syncFromRequirements(cts.token);
 					showRestartSessionNotificationForSync(
 						notifications,
 						runtimeSessionService,

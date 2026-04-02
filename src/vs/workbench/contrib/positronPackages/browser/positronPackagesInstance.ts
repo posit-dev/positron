@@ -22,7 +22,7 @@ export interface IPositronPackagesInstance {
 	updateAllPackages(token?: CancellationToken): Promise<void>;
 	searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
-	syncFromRequirements(requirementsPath: string, token?: CancellationToken): Promise<void>;
+	syncFromRequirements(token?: CancellationToken): Promise<void>;
 	supportsSyncFromRequirements(): Promise<boolean>;
 
 	readonly onDidRefreshPackagesInstance: Event<ILanguageRuntimePackage[]>;
@@ -245,7 +245,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		return packageManager.supportsSyncFromRequirements();
 	}
 
-	async syncFromRequirements(requirementsPath: string, token?: CancellationToken): Promise<void> {
+	async syncFromRequirements(token?: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow();
 		const effectiveToken = token ?? CancellationToken.None;
 
@@ -253,7 +253,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._onDidChangeSyncState.fire(true);
 
 		try {
-			await packageManager.syncFromRequirements(requirementsPath, effectiveToken);
+			await packageManager.syncFromRequirements(effectiveToken);
 			if (effectiveToken.isCancellationRequested) {
 				return;
 			}

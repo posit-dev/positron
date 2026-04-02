@@ -88,10 +88,9 @@ export interface IPositronPackagesService {
 
 	/**
 	 * Sync packages from a requirements file.
-	 * @param requirementsPath Path to the requirements file
 	 * @param token Optional cancellation token
 	 */
-	syncFromRequirements(requirementsPath: string, token?: CancellationToken): Promise<void>;
+	syncFromRequirements(token?: CancellationToken): Promise<void>;
 
 	getInstances(): IPositronPackagesInstance[];
 }

@@ -157,9 +157,14 @@ export class PipPackageManager implements IPackageManager {
         }
     }
 
-    async syncFromRequirements(requirementsPath: string, token?: vscode.CancellationToken): Promise<void> {
+    async syncFromRequirements(token?: vscode.CancellationToken): Promise<void> {
         if (token?.isCancellationRequested) {
             throw new vscode.CancellationError();
+        }
+
+        const requirementsPath = this._getRequirementsPath();
+        if (!requirementsPath) {
+            throw new Error('No requirements.txt file found in workspace root.');
         }
 
         await this._ensurePip();
@@ -168,6 +173,17 @@ export class PipPackageManager implements IPackageManager {
         const args = ['install', '-r', requirementsPath, ...flags];
 
         await this._executePipInTerminal(args, token);
+    }
+
+    /**
+     * Get the path to requirements.txt in the workspace root, or undefined if not found.
+     */
+    private _getRequirementsPath(): string | undefined {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            return undefined;
+        }
+        return vscode.Uri.joinPath(workspaceFolders[0].uri, 'requirements.txt').fsPath;
     }
 
     // =========================================================================

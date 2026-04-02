@@ -1228,12 +1228,12 @@ declare module 'positron' {
 		 * Sync packages from a requirements file (e.g., requirements.txt).
 		 *
 		 * This is an optional method that package managers can implement to support
-		 * installing packages from a requirements file.
+		 * installing packages from a requirements file. The package manager is
+		 * responsible for locating the requirements file in the workspace.
 		 *
-		 * @param requirementsPath Path to the requirements file
 		 * @param token Optional cancellation token
 		 */
-		syncFromRequirements?(requirementsPath: string, token?: vscode.CancellationToken): Thenable<void>;
+		syncFromRequirements?(token?: vscode.CancellationToken): Thenable<void>;
 	}
 
 	/**

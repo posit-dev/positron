@@ -352,12 +352,12 @@ export interface ILanguageRuntimePackageManager {
 	 * Sync packages from a requirements file (e.g., requirements.txt).
 	 *
 	 * This is an optional method that package managers can implement to support
-	 * installing packages from a requirements file.
+	 * installing packages from a requirements file. The package manager is
+	 * responsible for locating the requirements file in the workspace.
 	 *
-	 * @param requirementsPath Path to the requirements file
 	 * @param token Optional cancellation token
 	 */
-	syncFromRequirements(requirementsPath: string, token?: CancellationToken): Promise<void>;
+	syncFromRequirements(token?: CancellationToken): Promise<void>;
 }
 
 /**

@@ -782,12 +782,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return typeof packageManager.syncFromRequirements === 'function';
 	}
 
-	async $syncFromRequirements(handle: number, requirementsPath: string, token: CancellationToken): Promise<void> {
+	async $syncFromRequirements(handle: number, token: CancellationToken): Promise<void> {
 		const packageManager = this.getPackageManagerOrThrow(handle, 'sync from requirements');
 		if (!packageManager.syncFromRequirements) {
 			throw new Error('Package manager does not support syncFromRequirements');
 		}
-		return packageManager.syncFromRequirements(requirementsPath, token);
+		return packageManager.syncFromRequirements(token);
 	}
 
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {
