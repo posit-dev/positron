@@ -50,6 +50,7 @@ export enum TestTags {
 	POSITRON_NOTEBOOKS = '@:positron-notebooks',
 	OUTLINE = '@:outline',
 	OUTPUT = '@:output',
+	PACKAGES_PANE = '@:packages-pane',
 	PDF = '@:pdf',
 	PLOTS = '@:plots',
 	PROBLEMS = '@:problems',

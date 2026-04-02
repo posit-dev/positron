@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Environment Pane', {
-	tag: [tags.WEB, tags.WIN]
+	tag: [tags.WEB, tags.WIN, tags.PACKAGES_PANE]
 }, () => {
 
 	const getPackagesButton = (page: any) => page.locator('a.action-label.codicon-package');
