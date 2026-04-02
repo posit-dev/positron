@@ -180,6 +180,18 @@ suite('Pip Package Manager', () => {
             getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
         });
 
+        test('installs packages from requirements.txt', async () => {
+            const workspaceUri = vscode.Uri.file('/workspace');
+            getWorkspaceFoldersStub.returns([{ uri: workspaceUri }]);
+
+            await pipPackageManager.syncFromRequirements(cancellationToken);
+
+            sinon.assert.calledOnce(sendCommandStub);
+            const [executable, args] = sendCommandStub.firstCall.args;
+            assert.strictEqual(executable, pythonPath);
+            assert.deepStrictEqual(args, ['-m', 'pip', 'install', '-r', '/workspace/requirements.txt']);
+        });
+
         test('throws error when no workspace folder', async () => {
             getWorkspaceFoldersStub.returns(undefined);
 
