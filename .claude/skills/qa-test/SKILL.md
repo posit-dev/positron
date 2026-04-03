@@ -16,9 +16,34 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 /qa-test #12345
 /qa-test --quick #12345
 /qa-test --browser firefox #11593
+/qa-test --build "Verify plots render correctly"
 ```
 
 ## Workflow
+
+### Step 0: Choose Target
+
+If `--build` flag is present, skip the prompt and use build mode.
+
+Otherwise, **ask the user** which target to run against using `AskUserQuestion`:
+- **Local dev instance (Recommended)** -- runs against the local development build (default, no extra setup)
+- **Built app** -- runs against an installed Positron build (e.g. `/Applications/Positron.app` on macOS)
+
+**When running in build mode:**
+
+1. Set `BUILD=/Applications/Positron.app` (macOS) in the Playwright launch command in Step 2:
+```bash
+BUILD=/Applications/Positron.app EXPLORE_TITLE="QA #12381: ..." npx playwright test test/e2e/tests/explore/explore.test.ts --project e2e-electron 2>&1 &
+```
+
+2. Log the version of the built app before starting:
+```bash
+.claude/skills/qa-test-plan/scripts/detect_versions.sh
+```
+This outputs JSON with `positronVersion`, `positronBuild`, `osVersion`. Report it to the user:
+```
+Target: Built app -- Positron 2026.02.0 (build 10), macOS 26.2
+```
 
 ### Step 1: Parse Input and Plan Test Steps
 
@@ -98,11 +123,18 @@ Browser: Firefox (inferred from issue mentioning "Firefox on Workbench")
 
 Launch the Playwright test in the background. **Always** set `EXPLORE_TITLE` to a short, descriptive name (issue number + brief summary).
 
-**For Electron (default):**
+**For Electron (default -- local dev):**
 ```bash
 cd /Users/marieidleman/Develop/positron
 rm -f /tmp/explore-runner-port
 EXPLORE_TITLE="QA #12381: Ctrl+C in .qmd with inline output" npx playwright test test/e2e/tests/explore/explore.test.ts --project e2e-electron 2>&1 &
+```
+
+**For Electron (built app -- macOS):**
+```bash
+cd /Users/marieidleman/Develop/positron
+rm -f /tmp/explore-runner-port
+BUILD=/Applications/Positron.app EXPLORE_TITLE="QA #12381: Ctrl+C in .qmd with inline output" npx playwright test test/e2e/tests/explore/explore.test.ts --project e2e-electron 2>&1 &
 ```
 
 **For browser mode (Firefox, Chromium, WebKit):**
