@@ -1,0 +1,33 @@
+{
+	"extends": "./src/tsconfig.base.json",
+	"compilerOptions": {
+		"esModuleInterop": true,
+		"jsx": "react-jsx",
+		"removeComments": false,
+		"preserveConstEnums": true,
+		"sourceMap": false,
+		"allowJs": true,
+		"resolveJsonModule": true,
+		"isolatedModules": false,
+		"outDir": "./out/vs",
+		"types": [
+			"@webgpu/types",
+			"semver",
+			"sinon",
+			"trusted-types",
+			"winreg",
+			"wicg-file-system-access"
+		]
+	},
+	"include": [
+		"./src/*.ts",
+		"./src/typings",
+		"./src/vs/**/*.ts",
+		"./src/vs/**/*.tsx",
+		"./src/positron-dts/positron.d.ts",
+		"./src/positron-dts/ui-comm.d.ts",
+		"./src/vscode-dts/vscode.proposed.*.d.ts",
+		"./src/vscode-dts/vscode.d.ts",
+		"./vitest.config.ts"
+	]
+}
