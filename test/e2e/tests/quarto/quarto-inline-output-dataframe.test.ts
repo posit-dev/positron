@@ -50,7 +50,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 		// Re-enable inline data explorer
 		await settings.set({
 			'positron.notebook.inlineDataExplorer.enabled': true
-		});
+		}, { reload: 'web' });
 	});
 
 	test('Python - Verify DataFrame shows inline data explorer', {
