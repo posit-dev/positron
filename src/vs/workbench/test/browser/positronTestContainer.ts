@@ -46,30 +46,46 @@ class PositronTestContainerBuilder {
 		return this;
 	}
 
-	/** Build the container. Returns get(), instantiationService, and disposables. */
+	/**
+	 * Build the container. Returns get(), instantiationService, and disposables.
+	 *
+	 * Must be called at describe-level (not inside beforeEach). The builder registers
+	 * its own beforeEach hook to create a fresh instantiation service and apply presets
+	 * each test, so the disposable store created by ensureNoLeakedDisposables() is
+	 * always initialized before service setup runs.
+	 */
 	build(): TestContainerResult {
 		const disposables = ensureNoLeakedDisposables();
+		const stubs = this._stubs;
+		const useRuntimeServices = this._useRuntimeServices;
+		const useWorkbenchServices = this._useWorkbenchServices;
 
-		let instantiationService: TestInstantiationService;
+		// Mutable slot -- reassigned in beforeEach so each test starts fresh.
+		let _instantiationService: TestInstantiationService;
 
-		if (this._useWorkbenchServices) {
-			instantiationService = positronWorkbenchInstantiationService(disposables);
-		} else if (this._useRuntimeServices) {
-			instantiationService = new TestInstantiationService(new ServiceCollection());
-			createRuntimeServices(instantiationService, disposables);
-		} else {
-			instantiationService = new TestInstantiationService(new ServiceCollection());
-		}
+		beforeEach(() => {
+			if (useWorkbenchServices) {
+				_instantiationService = positronWorkbenchInstantiationService(disposables);
+			} else if (useRuntimeServices) {
+				_instantiationService = new TestInstantiationService(new ServiceCollection());
+				createRuntimeServices(_instantiationService, disposables);
+			} else {
+				_instantiationService = new TestInstantiationService(new ServiceCollection());
+			}
 
-		for (const { id, impl } of this._stubs) {
-			instantiationService.stub(id, impl);
-		}
+			for (const { id, impl } of stubs) {
+				_instantiationService.stub(id, impl);
+			}
+		});
 
-		return {
-			get: <T>(id: ServiceIdentifier<T>) => instantiationService.get(id),
-			instantiationService,
+		// Return a result object whose properties delegate to the mutable slot.
+		// This is safe because tests only access these after beforeEach has run.
+		const result: TestContainerResult = {
+			get instantiationService() { return _instantiationService; },
+			get: <T>(id: ServiceIdentifier<T>) => _instantiationService.get(id),
 			disposables,
 		};
+		return result;
 	}
 }
 
