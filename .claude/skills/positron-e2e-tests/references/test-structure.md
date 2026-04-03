@@ -22,7 +22,7 @@ test/e2e/tests/
 
 ```typescript
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) <CURRENT YEAR> Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -84,7 +84,7 @@ test.describe('Feature Name - Subsection', {
 });
 ```
 
-Replace "2026" with the current year.
+Replace "<CURRENT YEAR>" with the current year.
 
 ## Import Rules
 
