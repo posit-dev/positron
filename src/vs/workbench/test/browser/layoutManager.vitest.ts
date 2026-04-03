@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, it } from 'vitest';
-import { expect } from 'vitest';
 import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
 
 /**

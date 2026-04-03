@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, it } from 'vitest';
-import { expect } from 'vitest';
 import { URI } from '../../../../base/common/uri.js';
 import { IExtensionManifest } from '../../common/extensions.js';
 import { validatePositronExtensionManifest } from '../../common/positronExtensionValidator.js';

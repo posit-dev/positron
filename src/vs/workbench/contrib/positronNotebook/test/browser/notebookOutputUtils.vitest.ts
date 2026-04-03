@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, it } from 'vitest';
-import { expect } from 'vitest';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, it, beforeEach, afterEach } from 'vitest';
-import { expect } from 'vitest';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';

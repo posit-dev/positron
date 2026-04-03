@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, it } from 'vitest';
-import { expect } from 'vitest';
 import { MenuId, MenuRegistry, isIMenuItem } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyValue, IContext } from '../../../../../platform/contextkey/common/contextkey.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';

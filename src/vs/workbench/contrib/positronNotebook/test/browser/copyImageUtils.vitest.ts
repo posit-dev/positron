@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, it } from 'vitest';
-import { expect } from 'vitest';
 import { isCopyImageMenuArg, toBase64DataUrl } from '../../browser/copyImageUtils.js';
 
 describe('copyImageUtils', () => {

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, it } from 'vitest';
-import { expect } from 'vitest';
 import { qmdToNotebook } from '../../common/qmdToNotebook.js';
 import { notebookToQmd, isFrontmatterCell } from '../../common/notebookToQmd.js';
 import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js';
