@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,7 @@ import { RuntimeState } from '../../languageRuntime/common/languageRuntimeServic
 import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IPositronConsoleService } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, RuntimeClientType } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, RuntimeClientType, RuntimeStartMode } from './runtimeSessionService.js';
 
 /**
  * Utility class for tracking the state and disposables associated with an
@@ -27,6 +27,13 @@ export class ActiveRuntimeSession extends Disposable {
 	public state: RuntimeState;
 
 	public workingDirectory: string = '';
+
+	/**
+	 * The mode in which this session most recently started. Used to convey
+	 * session context (new, restart, reconnect) to the backend when the UI
+	 * comm opens.
+	 */
+	public startMode: RuntimeStartMode = RuntimeStartMode.Starting;
 
 	private readonly _onDidReceiveRuntimeEventEmitter = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
 	private readonly _onUiClientStartedEmitter = this._register(new Emitter<UiClientInstance>());
@@ -145,12 +152,34 @@ export class ActiveRuntimeSession extends Disposable {
 	/**
 	 * Interior implementation of the UI client start method.
 	 */
+	/**
+	 * Maps the internal RuntimeStartMode to an external start type for
+	 * the comm_open payload. Runtimes use this to distinguish new
+	 * sessions from restarts and reconnections.
+	 */
+	private getStartType(): string {
+		switch (this.startMode) {
+			case RuntimeStartMode.Restarting:
+				return 'restart';
+			case RuntimeStartMode.Reconnecting:
+				return 'reconnect';
+			default:
+				return 'new';
+		}
+	}
+
 	private async startUiClientImpl(): Promise<string> {
-		// Create the frontend client. The second argument is empty for now; we
-		// could use this to pass in any initial state we want to pass to the
-		// frontend client (such as information on window geometry, etc.)
+		// Pass initial state in the comm_open data so the backend can
+		// act on it as soon as the UI comm is established.
+		const consoleWidth = this._consoleService?.getConsoleWidth() ?? 80;
+		const startType = this.getStartType();
+		const commOpenData = {
+			console_width: consoleWidth,
+			start_type: startType,
+		};
+		this._logService.debug(`UI comm_open data: ${JSON.stringify(commOpenData, null, 2)}`);
 		const client = await this.session.createClient<IUiClientMessageInput, IUiClientMessageOutput>
-			(RuntimeClientType.Ui, {});
+			(RuntimeClientType.Ui, commOpenData);
 
 		// Create the UI client instance wrapping the client instance.
 		const uiClient = new UiClientInstance(client, this._commandService, this._logService, this._openerService, this._configurationService,
@@ -276,6 +305,13 @@ export class ActiveRuntimeSession extends Disposable {
 
 		// Forward UI client to interested services
 		this._onUiClientStartedEmitter.fire(uiClient);
+
+		// Notify the backend that the frontend is ready. The backend
+		// uses this signal to run session init hooks that may need to
+		// make RPCs back to the frontend (e.g. rstudioapi calls).
+		uiClient.frontendReady(startType).catch(err => {
+			this._logService.warn(`frontendReady RPC failed: ${err}`);
+		});
 
 		return client.getClientId();
 	}

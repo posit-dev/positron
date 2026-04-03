@@ -99,6 +99,10 @@
         "command": "positronNotebook.selectKernel" // Select Notebook Kernel
     },
     {
+        "key": "cmd+shift+g",
+        "command": "positronNotebook.triggerGhostCell" // Trigger Ghost Cell Suggestion
+    },
+    {
         "key": "cmd+j s",
         "command": "workbench.debug.viewlet.action.removeAllBreakpoints" // Debugger: Clear All Breakpoints
     },    {

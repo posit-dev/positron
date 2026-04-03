@@ -1043,11 +1043,15 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			resource_roots: undefined,
 		};
 
-		// Create a notebook output webview for the output
+		// Create a notebook output webview for the output.
+		// viewType ensures renderers registered for the jupyter-notebook type
+		// are resolved (e.g. Plotly) and that notebook static preloads (e.g.
+		// RequireJS from ms-toolsai.jupyter-renderers) are injected.
 		const notebookWebview = await this._webviewService.createNotebookOutputWebview({
 			id: runtimeMessage.id,
 			runtime: session,
 			output: runtimeMessage,
+			viewType: 'jupyter-notebook',
 		});
 
 		if (!notebookWebview) {

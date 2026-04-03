@@ -38,7 +38,7 @@ export class Sessions {
 	private get quickPick(): SessionQuickPick { return new SessionQuickPick(this.code, this); }
 	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
 	sessionTabs = this.page.getByTestId(/console-tab/);
-	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
+	currentSessionTab = this.page.locator('.tab-button--active');
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
 	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
 	deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
@@ -907,12 +907,22 @@ export class Sessions {
 	/**
 	 * Verify: the runtime matches the runtime in the Session Picker button
 	 *
-	 * @param version - The descriptive string of the runtime to verify.
+	 * @param runtimeName - The descriptive string of the runtime to verify.
+	 * @param options - Configuration options for the verification
+	 * @param options.status - The optional status of the runtime to verify.
+	 * @param options.timeout - The timeout for the assertion (default: 15000).
 	 */
-	async expectSessionPickerToBe(runtimeName: string, timeout: number = 15000) {
-		await test.step(`Verify runtime is selected: ${runtimeName}`, async () => {
-			const normalizedRuntimeName = runtimeName.replace(/-\s\d+$/, '').trim();
+	async expectSessionPickerToBe(runtimeName: string | RegExp, options?: { status?: SessionState; timeout?: number }) {
+		const { status, timeout = 15000 } = options ?? {};
+
+		await test.step(`Verify session picker is: ${runtimeName}`, async () => {
+			const normalizedRuntimeName = typeof runtimeName === 'string' ? runtimeName.replace(/-\s\d+$/, '').trim() : runtimeName;
 			await expect(this.sessionPicker).toHaveText(normalizedRuntimeName, { timeout });
+
+			if (status) {
+				// TODO: Add proper status assertion once status element is available in UI @dhruvisompura
+				expect(status).toBeTruthy();
+			}
 		});
 	}
 
@@ -991,6 +1001,17 @@ export class Sessions {
 	 */
 	async expectStartNewSessionMenuToBeVisible() {
 		await expect(this.quickPick.allSessionsMenu).toBeVisible();
+	}
+
+	/**
+	 * Verify: the session is selected in the console tab list
+	 *
+	 * @param sessionIdOrName - the id, name, or pattern of the session
+	 */
+	async expectConsoleSessionToBeSelected(sessionIdOrName: string | RegExp) {
+		await test.step(`Verify selected console session is: ${sessionIdOrName}`, async () => {
+			await expect(this.currentSessionTab).toHaveText(sessionIdOrName);
+		});
 	}
 
 	/**

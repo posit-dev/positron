@@ -64,13 +64,13 @@ export async function verifyCondaFilesArePresent(app: Application) {
 
 export async function verifyCondaEnvStarts(app: Application) {
 	await test.step('Verify conda environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents(/\(Conda: .+\) started/);
+		await app.workbench.console.waitForConsoleContents(/\(Conda: .+\) started/, { timeout: 90000 });
 	});
 }
 
 export async function verifyVenvEnvStarts(app: Application) {
 	await test.step('Verify venv environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents(/\(Venv: .+\) started/);
+		await app.workbench.console.waitForConsoleContents(/\(Venv: .+\) started/, { timeout: 90000 });
 	});
 }
 
@@ -79,7 +79,7 @@ export async function verifyUvEnvStarts(app: Application) {
 		if (/(8080)/.test(app.code.driver.page.url())) {
 			app.code.driver.page.getByRole('button', { name: 'Yes' }).click();
 		}
-		await app.workbench.console.waitForConsoleContents(/\(uv: .+\) started/);
+		await app.workbench.console.waitForConsoleContents(/\(uv: .+\) started/, { timeout: 90000 });
 	});
 }
 

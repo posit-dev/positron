@@ -54,6 +54,17 @@ export interface DidChangePlotsRenderSettingsParams {
 }
 
 /**
+ * Parameters for the FrontendReady method.
+ */
+export interface FrontendReadyParams {
+	/**
+	 * The type of session start: 'new' for new sessions, 'restart' for
+	 * restarted sessions, 'reconnect' for reconnected sessions
+	 */
+	start_type: string;
+}
+
+/**
  * Parameters for the CallMethod method.
  */
 export interface CallMethodParams {
@@ -989,6 +1000,7 @@ export enum UiFrontendRequest {
 
 export enum UiBackendRequest {
 	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
+	FrontendReady = 'frontend_ready',
 	CallMethod = 'call_method',
 	EvaluateCode = 'evaluate_code'
 }
@@ -1027,6 +1039,23 @@ export class PositronUiComm extends PositronBaseComm {
 	 */
 	didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<null> {
 		return super.performRpc('did_change_plots_render_settings', ['settings'], [settings]);
+	}
+
+	/**
+	 * Notification that the frontend is ready
+	 *
+	 * This notification is sent by the frontend after the UI comm has been
+	 * established. The backend uses this signal to run session
+	 * initialization hooks that may need to communicate with the frontend
+	 * via RPCs (e.g. rstudioapi calls).
+	 *
+	 * @param startType The type of session start: 'new' for new sessions,
+	 * 'restart' for restarted sessions, 'reconnect' for reconnected sessions
+	 *
+	 * @returns Unused response to notification
+	 */
+	frontendReady(startType: string): Promise<null> {
+		return super.performRpc('frontend_ready', ['start_type'], [startType]);
 	}
 
 	/**

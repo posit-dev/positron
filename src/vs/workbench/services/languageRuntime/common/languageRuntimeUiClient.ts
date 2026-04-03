@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -266,6 +266,16 @@ export class UiClientInstance extends Disposable {
 		}
 
 		return uri;
+	}
+
+	/**
+	 * Notify the backend that the frontend is ready.
+	 *
+	 * @param startType The type of session start ('new', 'restart', or
+	 * 'reconnect')
+	 */
+	public frontendReady(startType: string): Promise<null> {
+		return this._comm.frontendReady(startType);
 	}
 
 	/**

@@ -9,11 +9,14 @@ import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, FOUNDRY_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
-import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey } from './validation';
+import { normalizeToV1Url, validateAnthropicApiKey, validateFoundryApiKey, validateSnowflakeApiKey } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
 import { PositOAuthProvider } from './positOAuthProvider';
+import * as fs from 'fs';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
+import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -23,12 +26,18 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerPositAIProvider(context);
 	registerFoundryProvider(context);
 
-	// Migrate settings before registering the AWS provider so it
-	// reads the migrated profile/region during initialization.
+	// Migrate settings before registering providers so they
+	// read the migrated values during initialization.
 	await migrateAwsSettings().catch(err =>
 		log.error(`AWS settings migration failed: ${err}`)
 	);
 	registerAwsProvider(context);
+
+	await migrateSnowflakeSettings().catch(err =>
+		log.error(`Snowflake settings migration failed: ${err}`)
+	);
+	registerSnowflakeProvider(context);
+
 	log.info('Authentication extension activated');
 
 	context.subscriptions.push(
@@ -222,4 +231,80 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 				.then(undefined, err => log.error(`Failed to sync Foundry endpoint: ${err}`));
 		}
 	}
+}
+
+function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
+	let lastTomlCheck: number | undefined;
+	let pendingMtime: number | undefined;
+
+	const provider = new AuthProvider(
+		'snowflake-cortex', 'Snowflake Cortex', context,
+		undefined,
+		{
+			resolve: async () => {
+				const credentials = await detectSnowflakeCredentials();
+				if (!credentials) {
+					throw new Error('No Snowflake credentials found');
+				}
+				// Sync detected account to global settings for baseUrl
+				// derivation. Use inspect() to read only the global scope
+				// so workspace-scoped values are not copied into global.
+				if (credentials.account) {
+					const cfg = vscode.workspace.getConfiguration(
+						'authentication.snowflake'
+					);
+					const inspection = cfg.inspect<Record<string, string>>(
+						'credentials'
+					);
+					const globalValue = inspection?.globalValue ?? {};
+					if (globalValue.SNOWFLAKE_ACCOUNT !== credentials.account) {
+						await cfg.update('credentials',
+							{ ...globalValue, SNOWFLAKE_ACCOUNT: credentials.account },
+							vscode.ConfigurationTarget.Global
+						).then(undefined, err =>
+							log.error(`Failed to sync Snowflake account: ${err}`)
+						);
+					}
+				}
+				// Advance mtime only after successful resolve so a failed
+				// attempt retries on the next getSessions call.
+				if (pendingMtime !== undefined) {
+					lastTomlCheck = pendingMtime;
+					pendingMtime = undefined;
+				}
+				return credentials.token;
+			},
+			shouldRefresh: async () => {
+				const tomlPath = getSnowflakeConnectionsTomlPath();
+				if (!tomlPath) {
+					return false;
+				}
+				try {
+					const stats = await fs.promises.stat(tomlPath);
+					const mtime = stats.mtime.getTime();
+					if (!lastTomlCheck || mtime > lastTomlCheck) {
+						pendingMtime = mtime;
+						return true;
+					}
+					return false;
+				} catch {
+					return false;
+				}
+			},
+		}
+	);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			'snowflake-cortex', 'Snowflake Cortex', provider,
+			{ supportsMultipleAccounts: false }
+		),
+		provider
+	);
+	registerAuthProvider('snowflake-cortex', provider, {
+		validateApiKey: validateSnowflakeApiKey,
+	});
+	provider.resolveChainCredentials().catch(err =>
+		log.debug(`[Snowflake] Initial credential resolution failed: ${err}`)
+	);
+	log.info('Registered auth provider: snowflake-cortex');
 }

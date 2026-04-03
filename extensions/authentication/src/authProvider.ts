@@ -31,6 +31,8 @@ export interface WorkbenchCredentialConfig {
 export interface CredentialChainConfig {
 	readonly resolve: () => Promise<string>;
 	readonly refreshIntervalMs?: number;
+	/** Optional check called in getSessions to decide whether to re-resolve. */
+	readonly shouldRefresh?: () => Promise<boolean>;
 	/**
 	 * When true, prevents the user from signing out while the chain
 	 * can still resolve. Use for static env var credentials that will
@@ -104,10 +106,18 @@ export class AuthProvider
 		_scopes?: readonly string[],
 		options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession[]> {
-		// Credential chain (e.g. AWS)
-		if (this.credentialChain && this._chainSession) {
-			log.debug(`[${this.displayName}] getSessions: returned chain session`);
-			return [this._chainSession];
+		// Credential chain (e.g. AWS, Snowflake)
+		if (this.credentialChain) {
+			if (this.credentialChain.shouldRefresh) {
+				const needsRefresh = await this.credentialChain.shouldRefresh();
+				if (needsRefresh) {
+					await this.resolveChainCredentials();
+				}
+			}
+			if (this._chainSession) {
+				log.debug(`[${this.displayName}] getSessions: returned chain session`);
+				return [this._chainSession];
+			}
 		}
 
 		// Workbench-managed credentials

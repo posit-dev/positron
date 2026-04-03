@@ -485,6 +485,7 @@ import './contrib/positronNewProject/browser/positronNewProject.contribution.js'
 import './contrib/positronKeybindings/browser/positronKeybindings.contribution.js';
 import './contrib/positronQuarto/browser/positronQuarto.contribution.js';
 import './contrib/positronQuartoNotebook/common/quartoNotebookContribution.js';
+import './contrib/runtimeSession/browser/foregroundSessionContribution.js';
 
 // Workbench services
 import './services/languageRuntime/common/languageRuntime.js';

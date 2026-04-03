@@ -486,6 +486,11 @@ export interface IRuntimeSessionService {
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined;
 
 	/**
+	 * Gets the last active console session, regardless of language.
+	 */
+	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined;
+
+	/**
 	 * Gets a specific notebook session by notebook URI. Currently, only one
 	 * notebook session can exist per notebook URI.
 	 */
@@ -633,6 +638,18 @@ export interface IRuntimeSessionService {
 	 * @returns A promise that resolves when the session has exited.
 	 */
 	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
+
+	/**
+	 * Removes the notebook session from the notebook session tracking map.
+	 *
+	 * This should be called when a notebook editor is closed to clean up the session
+	 * record from `_notebookSessionsByNotebookUri` since notebook sessions are now
+	 * kept in the map after they exit (to support showing exited session info in
+	 * the interpreter picker).
+	 *
+	 * @param notebookUri The notebook's URI.
+	 */
+	removeNotebookSessionFromNotebookMap(notebookUri: URI): void;
 
 	/**
 	 * Updates the URI of a notebook session to maintain session continuity when
