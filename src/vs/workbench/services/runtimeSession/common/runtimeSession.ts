@@ -1210,8 +1210,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Actually shutdown the session.
 		try {
 			await this.shutdownRuntimeSession(session, exitReason);
-			shutdownPromise.complete();
 			this._logService.debug(`Notebook ${notebookUri.toString()} has been shut down`);
+
+			// Delete the session after shutdown so that the associated console
+			// instance (if any) is also cleaned up.
+			try {
+				await this.deleteSession(session.sessionId);
+			} catch (deleteErr) {
+				this._logService.debug(`Could not delete notebook session ${session.sessionId}: ${deleteErr}`);
+			}
+
+			shutdownPromise.complete();
 		} catch (error) {
 			this._logService.error(`Failed to shutdown notebook ${notebookUri.toString()}. Reason: ${error}`);
 			shutdownPromise.error(error);
@@ -2114,6 +2123,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			} else {
 				// Remove the key entirely from the map since there are no sessions for the runtime
 				this._consoleSessionsByRuntimeId.delete(session.runtimeMetadata.runtimeId);
+				// Clear the last active console session when there are no console sessions left
+				this._lastActiveConsoleSession = undefined;
 			}
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			if (session.metadata.notebookUri) {

@@ -19,7 +19,7 @@ import {
 	RuntimeStartMode,
 } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -151,13 +151,13 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			// (the latter handles untitled documents that don't have a .qmd extension)
 			if (uri && (isQuartoOrRmdFile(uri.path) || this._documentKernels.has(uri))) {
 				// Delay cleanup slightly to handle editor tabs being moved
-				const handle = setTimeout(() => {
+				const handle = setTimeout(async () => {
 					this._pendingCleanupTimeouts.delete(handle);
 					// Check if the document is still open in any editor
 					const stillOpen = this._editorService.findEditors(uri).length > 0;
 					if (!stillOpen) {
 						this._logService.debug(`[QuartoKernelManager] Document closed, cleaning up: ${uri.toString()}`);
-						this.shutdownKernelForDocument(uri);
+						await this.shutdownKernelForDocument(uri);
 					}
 				}, 100);
 				this._pendingCleanupTimeouts.add(handle);
@@ -576,18 +576,25 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// Update state
 		this._setKernelState(documentUri, QuartoKernelState.ShuttingDown);
 
-		if (info.session) {
-			try {
-				await info.session.shutdown();
-			} catch (error) {
-				this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
-			}
+		try {
+			// Use the runtime session service to shut down the notebook session
+			// so the associated console instance (if any) is also cleaned up.
+			await this._runtimeSessionService.shutdownNotebookSession(
+				documentUri,
+				RuntimeExitReason.Shutdown,
+				'Quarto kernel shutdown',
+			);
+		} catch (error) {
+			this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
+		} finally {
+			// For cleanup, we want to. dispose of listeners, then fire the state-change
+			// event while the _documentKernels entry is still present, then delete the entry.
+			// _setKernelState must run before _documentKernels.delete so that the state change
+			// event fires.
+			info.disposables.dispose();
+			this._setKernelState(documentUri, QuartoKernelState.None);
+			this._documentKernels.delete(documentUri);
 		}
-
-		// Clean up
-		info.disposables.dispose();
-		this._documentKernels.delete(documentUri);
-		this._setKernelState(documentUri, QuartoKernelState.None);
 	}
 
 	async restartKernelForDocument(

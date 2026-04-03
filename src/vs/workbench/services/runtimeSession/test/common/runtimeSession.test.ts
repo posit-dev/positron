@@ -1043,7 +1043,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 		await shutdownNotebook();
 
-		assertActiveSessions([session]);
+		assertActiveSessions([]);
 		assertNotebookSessionForNotebookUri(notebookUri, undefined);
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
 	});
@@ -1057,7 +1057,7 @@ suite('Positron - RuntimeSessionService', () => {
 			selectRuntime(runtime, notebookUri),
 		]);
 
-		assertActiveSessions([session, newSession]);
+		assertActiveSessions([newSession]);
 		assertNotebookSessionForNotebookUri(notebookUri, newSession);
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
 		assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
@@ -1069,7 +1069,7 @@ suite('Positron - RuntimeSessionService', () => {
 			shutdownNotebook(),
 		]);
 
-		assertActiveSessions([session]);
+		assertActiveSessions([]);
 		assertNotebookSessionForNotebookUri(notebookUri, undefined);
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
 	});
