@@ -22,6 +22,7 @@ from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
+    DidChangePlotsRenderSettingsEvent,
     EvaluateCodeRequest,
     OpenEditorParams,
     ShowHtmlFileDestination,
@@ -249,6 +250,9 @@ class UiService:
 
         elif isinstance(request, EvaluateCodeRequest):
             self._evaluate_code(request.params.code)
+
+        elif isinstance(request, DidChangePlotsRenderSettingsEvent):
+            self.kernel.plots_service.update_render_settings(request.params.settings)
 
         else:
             logger.warning(f"Unhandled request: {request}")
