@@ -136,8 +136,22 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			return;
 		}
 
-		// The package manager handles all checks (method support + requirements.txt existence)
-		activeInstance.supportsSyncFromRequirements().then(setSyncVisible);
+		// Helper to check sync support
+		const checkSyncSupport = () => {
+			activeInstance.supportsSyncFromRequirements().then(setSyncVisible);
+		};
+
+		// Check immediately
+		checkSyncSupport();
+
+		// Also re-check when packages are refreshed, since the package manager
+		// may not be available until the runtime is ready
+		const disposables = new DisposableStore();
+		disposables.add(activeInstance.onDidRefreshPackagesInstance(() => {
+			checkSyncSupport();
+		}));
+
+		return () => disposables.dispose();
 	}, [activeInstance]);
 
 	useEffect(() => {
