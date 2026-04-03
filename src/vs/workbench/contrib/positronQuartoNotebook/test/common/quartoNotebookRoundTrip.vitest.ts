@@ -1,16 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { describe, it } from 'vitest';
+import { expect } from 'vitest';
 import { qmdToNotebook } from '../../common/qmdToNotebook.js';
 import { notebookToQmd, isFrontmatterCell } from '../../common/notebookToQmd.js';
 import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js';
 
-suite('Round-trip serialization', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('Round-trip serialization', () => {
 
 	function codeCell(code: string, language: string): ICellDto2 {
 		return { cellKind: CellKind.Code, source: code, language, mime: undefined, outputs: [] };
@@ -24,15 +23,15 @@ suite('Round-trip serialization', () => {
 		return { cells, metadata: {} };
 	}
 
-	test('qmd -> notebook -> qmd should preserve exact content', () => {
+	it('qmd -> notebook -> qmd should preserve exact content', () => {
 		const original = '# Hello\n\n```{python}\nprint("world")\n```\n';
 		const { cells } = qmdToNotebook(original);
 		const serialized = notebookToQmd(notebook(cells));
 
-		assert.strictEqual(serialized, original);
+		expect(serialized).toBe(original);
 	});
 
-	test('notebook -> qmd -> notebook should preserve exact content', () => {
+	it('notebook -> qmd -> notebook should preserve exact content', () => {
 		const cells: ICellDto2[] = [
 			markdownCell('# Hello'),
 			codeCell('print("world")', 'python'),
@@ -41,41 +40,41 @@ suite('Round-trip serialization', () => {
 		const serialized = notebookToQmd(notebook(cells));
 		const { cells: roundTripped } = qmdToNotebook(serialized);
 
-		assert.strictEqual(roundTripped.length, cells.length);
+		expect(roundTripped.length).toBe(cells.length);
 		for (let i = 0; i < cells.length; i++) {
-			assert.strictEqual(roundTripped[i].cellKind, cells[i].cellKind);
-			assert.strictEqual(roundTripped[i].source, cells[i].source);
-			assert.strictEqual(roundTripped[i].language, cells[i].language);
+			expect(roundTripped[i].cellKind).toBe(cells[i].cellKind);
+			expect(roundTripped[i].source).toBe(cells[i].source);
+			expect(roundTripped[i].language).toBe(cells[i].language);
 		}
 	});
 
-	test('should round-trip document with frontmatter', () => {
+	it('should round-trip document with frontmatter', () => {
 		const original = '---\ntitle: Test Document\nauthor: Test Author\n---\n\n# Content\n\n```{python}\nprint("hello")\n```\n';
 		const { cells } = qmdToNotebook(original);
 		const serialized = notebookToQmd(notebook(cells));
 		const { cells: roundTripped } = qmdToNotebook(serialized);
 
-		assert.strictEqual(roundTripped.length, 3);
-		assert.ok(isFrontmatterCell(roundTripped[0]));
-		assert.ok(roundTripped[0].source.includes('title: Test Document'));
-		assert.ok(roundTripped[0].source.includes('author: Test Author'));
-		assert.strictEqual(roundTripped[1].cellKind, CellKind.Markup);
-		assert.strictEqual(roundTripped[2].cellKind, CellKind.Code);
+		expect(roundTripped.length).toBe(3);
+		expect(isFrontmatterCell(roundTripped[0])).toBeTruthy();
+		expect(roundTripped[0].source.includes('title: Test Document')).toBeTruthy();
+		expect(roundTripped[0].source.includes('author: Test Author')).toBeTruthy();
+		expect(roundTripped[1].cellKind).toBe(CellKind.Markup);
+		expect(roundTripped[2].cellKind).toBe(CellKind.Code);
 	});
 
-	test('should preserve frontmatter formatting on round-trip', () => {
+	it('should preserve frontmatter formatting on round-trip', () => {
 		const original = '---\n# Comment preserved\ntitle: "Test"\nitems:\n  - one\n  - two\n---\n\nContent';
 		const { cells } = qmdToNotebook(original);
 		const serialized = notebookToQmd(notebook(cells));
 
-		assert.ok(serialized.includes('# Comment preserved'));
-		assert.ok(serialized.includes('title: "Test"'));
-		assert.ok(serialized.includes('items:'));
-		assert.ok(serialized.includes('  - one'));
-		assert.ok(serialized.includes('  - two'));
+		expect(serialized.includes('# Comment preserved')).toBeTruthy();
+		expect(serialized.includes('title: "Test"')).toBeTruthy();
+		expect(serialized.includes('items:')).toBeTruthy();
+		expect(serialized.includes('  - one')).toBeTruthy();
+		expect(serialized.includes('  - two')).toBeTruthy();
 	});
 
-	test('should preserve extra newlines in markdown content', () => {
+	it('should preserve extra newlines in markdown content', () => {
 		const cells: ICellDto2[] = [
 			markdownCell('# Title\n\n\n\nParagraph with extra newlines above.'),
 		];
@@ -83,22 +82,21 @@ suite('Round-trip serialization', () => {
 		const serialized = notebookToQmd(notebook(cells));
 		const { cells: roundTripped } = qmdToNotebook(serialized);
 
-		assert.strictEqual(roundTripped.length, 1);
-		assert.strictEqual(roundTripped[0].source, '# Title\n\n\n\nParagraph with extra newlines above.');
+		expect(roundTripped.length).toBe(1);
+		expect(roundTripped[0].source).toBe('# Title\n\n\n\nParagraph with extra newlines above.');
 	});
 
-	test('should preserve plain fences (no braces) on round-trip', () => {
+	it('should preserve plain fences (no braces) on round-trip', () => {
 		// A plain fence like ```python (no braces) is non-executable documentation.
 		// It must NOT become ```{python} (executable Quarto block) after round-trip.
 		const original = '# Example\n\n```python\nprint("hello")\n```\n';
 		const { cells } = qmdToNotebook(original);
 		const serialized = notebookToQmd(notebook(cells));
 
-		assert.strictEqual(serialized, original,
-			'Plain fence ```python should not become executable ```{python} after round-trip');
+		expect(serialized).toBe(original);
 	});
 
-	test('should preserve leading whitespace in markdown content', () => {
+	it('should preserve leading whitespace in markdown content', () => {
 		const cells: ICellDto2[] = [
 			markdownCell('   Indented text'),
 		];
@@ -106,16 +104,16 @@ suite('Round-trip serialization', () => {
 		const serialized = notebookToQmd(notebook(cells));
 		const { cells: roundTripped } = qmdToNotebook(serialized);
 
-		assert.strictEqual(roundTripped.length, 1);
-		assert.strictEqual(roundTripped[0].source, '   Indented text');
+		expect(roundTripped.length).toBe(1);
+		expect(roundTripped[0].source).toBe('   Indented text');
 	});
 
-	test.skip('should preserve extra blank lines between cells on round-trip', () => {
+	it.skip('should preserve extra blank lines between cells on round-trip', () => {
 		const original = '# Heading\n\n\n\n```{python}\nx = 1\n```\n';
 
 		const { cells } = qmdToNotebook(original);
 		const serialized = notebookToQmd(notebook(cells));
 
-		assert.strictEqual(serialized, original);
+		expect(serialized).toBe(original);
 	});
 });

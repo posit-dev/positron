@@ -1,15 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { describe, it } from 'vitest';
+import { expect } from 'vitest';
 import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js';
 import { notebookToQmd } from '../../common/notebookToQmd.js';
 
-suite('notebookToQmd', () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
+describe('notebookToQmd', () => {
 
 	function codeCell(code: string, language: string, metadata?: Record<string, unknown>): ICellDto2 {
 		return { cellKind: CellKind.Code, source: code, language, mime: undefined, outputs: [], metadata };
@@ -27,103 +26,103 @@ suite('notebookToQmd', () => {
 		return { cells, metadata: {} };
 	}
 
-	suite('Basic serialization', () => {
+	describe('Basic serialization', () => {
 
-		test('should serialize code cell to fenced code block', () => {
+		it('should serialize code cell to fenced code block', () => {
 			const result = notebookToQmd(notebook([codeCell('print("hello")', 'python')]));
 
-			assert.strictEqual(result, '```{python}\nprint("hello")\n```\n');
+			expect(result).toBe('```{python}\nprint("hello")\n```\n');
 		});
 
-		test('should serialize markdown cell as-is', () => {
+		it('should serialize markdown cell as-is', () => {
 			const result = notebookToQmd(notebook([markdownCell('# Title\n\nSome paragraph text.')]));
 
-			assert.strictEqual(result, '# Title\n\nSome paragraph text.\n');
+			expect(result).toBe('# Title\n\nSome paragraph text.\n');
 		});
 
-		test('should serialize R code cell', () => {
+		it('should serialize R code cell', () => {
 			const result = notebookToQmd(notebook([codeCell('plot(x)', 'r')]));
 
-			assert.strictEqual(result, '```{r}\nplot(x)\n```\n');
+			expect(result).toBe('```{r}\nplot(x)\n```\n');
 		});
 
-		test('should serialize Julia code cell', () => {
+		it('should serialize Julia code cell', () => {
 			const result = notebookToQmd(notebook([codeCell('println("hi")', 'julia')]));
 
-			assert.strictEqual(result, '```{julia}\nprintln("hi")\n```\n');
+			expect(result).toBe('```{julia}\nprintln("hi")\n```\n');
 		});
 
-		test('should serialize plain code block without braces', () => {
+		it('should serialize plain code block without braces', () => {
 			const result = notebookToQmd(notebook([codeCell('some code', 'text')]));
 
-			assert.strictEqual(result, '```{text}\nsome code\n```\n');
+			expect(result).toBe('```{text}\nsome code\n```\n');
 		});
 
-		test('should preserve multiline code content exactly', () => {
+		it('should preserve multiline code content exactly', () => {
 			const code = 'def foo():\n    return 42\n\nprint(foo())';
 			const result = notebookToQmd(notebook([codeCell(code, 'python')]));
 
-			assert.ok(result.includes(code));
+			expect(result.includes(code)).toBeTruthy();
 		});
 
-		test('should handle code cell with execution options in content', () => {
+		it('should handle code cell with execution options in content', () => {
 			const code = '#| echo: false\n#| eval: true\nprint("hello")';
 			const result = notebookToQmd(notebook([codeCell(code, 'python')]));
 
-			assert.ok(result.includes('#| echo: false'));
-			assert.ok(result.includes('#| eval: true'));
+			expect(result.includes('#| echo: false')).toBeTruthy();
+			expect(result.includes('#| eval: true')).toBeTruthy();
 		});
 
-		test('should preserve Quarto div syntax in markdown', () => {
+		it('should preserve Quarto div syntax in markdown', () => {
 			const content = '::: {.callout-note}\nThis is a callout.\n:::';
 			const result = notebookToQmd(notebook([markdownCell(content)]));
 
-			assert.ok(result.includes('::: {.callout-note}'));
-			assert.ok(result.includes(':::'));
+			expect(result.includes('::: {.callout-note}')).toBeTruthy();
+			expect(result.includes(':::')).toBeTruthy();
 		});
 
 	});
 
-	suite('Cell markers', () => {
+	describe('Cell markers', () => {
 
-		test('should insert <!-- cell --> between consecutive markdown cells', () => {
+		it('should insert <!-- cell --> between consecutive markdown cells', () => {
 			const result = notebookToQmd(notebook([
 				markdownCell('# Cell 1'),
 				markdownCell('# Cell 2'),
 			]));
 
-			assert.strictEqual(result, '# Cell 1\n\n<!-- cell -->\n\n# Cell 2\n');
+			expect(result).toBe('# Cell 1\n\n<!-- cell -->\n\n# Cell 2\n');
 		});
 
-		test('should not insert marker between markdown and code cells', () => {
+		it('should not insert marker between markdown and code cells', () => {
 			const result = notebookToQmd(notebook([
 				markdownCell('# Intro'),
 				codeCell('x = 1', 'python'),
 			]));
 
-			assert.ok(!result.includes('<!-- cell -->'));
-			assert.strictEqual(result, '# Intro\n\n```{python}\nx = 1\n```\n');
+			expect(!result.includes('<!-- cell -->')).toBeTruthy();
+			expect(result).toBe('# Intro\n\n```{python}\nx = 1\n```\n');
 		});
 
-		test('should not insert marker between code and markdown cells', () => {
+		it('should not insert marker between code and markdown cells', () => {
 			const result = notebookToQmd(notebook([
 				codeCell('x = 1', 'python'),
 				markdownCell('# Results'),
 			]));
 
-			assert.ok(!result.includes('<!-- cell -->'));
+			expect(!result.includes('<!-- cell -->')).toBeTruthy();
 		});
 
-		test('should not insert marker between consecutive code cells', () => {
+		it('should not insert marker between consecutive code cells', () => {
 			const result = notebookToQmd(notebook([
 				codeCell('x = 1', 'python'),
 				codeCell('y = 2', 'r'),
 			]));
 
-			assert.ok(!result.includes('<!-- cell -->'));
+			expect(!result.includes('<!-- cell -->')).toBeTruthy();
 		});
 
-		test('should handle three consecutive markdown cells', () => {
+		it('should handle three consecutive markdown cells', () => {
 			const result = notebookToQmd(notebook([
 				markdownCell('# One'),
 				markdownCell('# Two'),
@@ -131,10 +130,10 @@ suite('notebookToQmd', () => {
 			]));
 
 			const markers = (result.match(/<!-- cell -->/g) || []).length;
-			assert.strictEqual(markers, 2, 'Should have 2 markers for 3 consecutive markdown cells');
+			expect(markers).toBe(2);
 		});
 
-		test('should preserve empty markdown cells', () => {
+		it('should preserve empty markdown cells', () => {
 			const result = notebookToQmd(notebook([
 				markdownCell('# Title'),
 				markdownCell(''),
@@ -142,14 +141,14 @@ suite('notebookToQmd', () => {
 			]));
 
 			const markers = (result.match(/<!-- cell -->/g) || []).length;
-			assert.strictEqual(markers, 2);
+			expect(markers).toBe(2);
 		});
 
 	});
 
-	suite('Mixed content', () => {
+	describe('Mixed content', () => {
 
-		test('should interleave markdown and code cells correctly', () => {
+		it('should interleave markdown and code cells correctly', () => {
 			const result = notebookToQmd(notebook([
 				markdownCell('# Intro'),
 				codeCell('x = 1', 'python'),
@@ -157,29 +156,29 @@ suite('notebookToQmd', () => {
 				codeCell('plot(x)', 'r'),
 			]));
 
-			assert.ok(result.includes('# Intro'));
-			assert.ok(result.includes('```{python}'));
-			assert.ok(result.includes('## Results'));
-			assert.ok(result.includes('```{r}'));
-			assert.ok(!result.includes('<!-- cell -->'));
+			expect(result.includes('# Intro')).toBeTruthy();
+			expect(result.includes('```{python}')).toBeTruthy();
+			expect(result.includes('## Results')).toBeTruthy();
+			expect(result.includes('```{r}')).toBeTruthy();
+			expect(!result.includes('<!-- cell -->')).toBeTruthy();
 		});
 
 	});
 
-	suite('Frontmatter', () => {
+	describe('Frontmatter', () => {
 
-		test('should serialize frontmatter cell', () => {
+		it('should serialize frontmatter cell', () => {
 			const result = notebookToQmd(notebook([frontmatterCell('---\ntitle: Test Document\nauthor: Test Author\n---'), markdownCell('# Content')]));
 
-			assert.ok(result.startsWith('---\n'));
-			assert.ok(result.includes('title: Test Document'));
-			assert.ok(result.includes('author: Test Author'));
+			expect(result.startsWith('---\n')).toBeTruthy();
+			expect(result.includes('title: Test Document')).toBeTruthy();
+			expect(result.includes('author: Test Author')).toBeTruthy();
 		});
 
-		test('should not emit empty frontmatter cell', () => {
+		it('should not emit empty frontmatter cell', () => {
 			const result = notebookToQmd(notebook([frontmatterCell(''), markdownCell('# Content')]));
 
-			assert.strictEqual(result, '\n\n# Content\n');
+			expect(result).toBe('\n\n# Content\n');
 		});
 
 	});
