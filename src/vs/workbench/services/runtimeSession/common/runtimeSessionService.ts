@@ -640,18 +640,6 @@ export interface IRuntimeSessionService {
 	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
 
 	/**
-	 * Removes the notebook session from the notebook session tracking map.
-	 *
-	 * This should be called when a notebook editor is closed to clean up the session
-	 * record from `_notebookSessionsByNotebookUri` since notebook sessions are now
-	 * kept in the map after they exit (to support showing exited session info in
-	 * the interpreter picker).
-	 *
-	 * @param notebookUri The notebook's URI.
-	 */
-	removeNotebookSessionFromNotebookMap(notebookUri: URI): void;
-
-	/**
 	 * Updates the URI of a notebook session to maintain session continuity when
 	 * a notebook is saved under a new URI.
 	 *

@@ -409,19 +409,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Deletes the notebook session record from the notebook sessions map.
-	 *
-	 * @param notebookUri The notebook's URI.
-	 */
-	removeNotebookSessionFromNotebookMap(notebookUri: URI): void {
-		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
-		if (session) {
-			this._logService.debug(`Deleting notebook session record for ${notebookUri.toString()} (session ${session.metadata.sessionId})`);
-			this._notebookSessionsByNotebookUri.delete(notebookUri);
-		}
-	}
-
-	/**
 	 * List all active runtime sessions.
 	 *
 	 * @returns The active sessions.
@@ -489,28 +476,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			const activeSession =
 				this.getNotebookSessionForNotebookUri(notebookUri);
 			if (activeSession) {
+				// If the active session is for the same runtime, we don't need to do anything.
 				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
-					// The active session is for the same runtime. Nothing to do, regardless of
-					// whether it is running or exited. If it is exited, the caller is responsible
-					// for restarting it (e.g. via restartSession).
 					return;
 				}
 
-				const isExited = activeSession.getRuntimeState() === RuntimeState.Exited;
-				if (isExited) {
-					// The previous session for a different runtime has exited. Clean it up from
-					// both session maps before starting the new one so that startup validation
-					// doesn't treat it as an already-running session.
-					if (this._activeSessionsBySessionId.delete(activeSession.sessionId)) {
-						this.removeNotebookSessionFromNotebookMap(activeSession.metadata.notebookUri);
-						activeSession.dispose();
-						this._onDidDeleteRuntimeSessionEmitter.fire(activeSession.sessionId);
-					}
-				} else {
-					// The active session is for a different runtime and is still running.
-					// Shut it down before starting the new one.
-					await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
-				}
+				await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
 			}
 		} else {
 			// Check if there is a console session for this runtime already
@@ -1307,15 +1278,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		if (this._activeSessionsBySessionId.delete(sessionId)) {
 			// Clean up if necessary (should already by done once the runtime is exited).
-			this.removeConsoleSessionFromRuntimeMap(session);
-
-			// For notebook sessions, also delete the session from the notebook map.
-			// Notebook sessions are kept in the map after exit (to support showing
-			// exited session info), so we need to explicitly delete them here.
-			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
-				session.metadata.notebookUri) {
-				this.removeNotebookSessionFromNotebookMap(session.metadata.notebookUri);
-			}
+			this.updateSessionMapsAfterExit(session);
 
 			// Dispose of the session.
 			session.dispose();
@@ -1337,15 +1300,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Check if there is an active session for the notebook.
 		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
 		if (session) {
-			if (session.getRuntimeState() === RuntimeState.Exited) {
-				// Notebook sessions are kept in the map after exit to support showing session
-				// info in the interpreter picker. An exited session cannot be shut down, so
-				// treat it as if no session exists.
-				this._logService.debug(`Found an exited session for notebook ${notebookUri.toString()}, treating as no active session`);
-			} else {
-				this._logService.debug(`Found an active session for notebook ${notebookUri.toString()}`);
-				return session;
-			}
+			this._logService.debug(`Found an active session for notebook ${notebookUri.toString()}`);
+			return session;
 		}
 
 		// Check if there is a starting session for the notebook.
@@ -1789,19 +1745,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Append the new session to the list of existing sessions if it hasn't been added
 				this.addSessionToConsoleSessionMap(session);
 			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				// For notebook sessions, we add the session to the notebook session map in
-				// attachToSession() instead of here so we can find sessions that are starting
-				// but not yet ready.
-				this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
+				if (isNotebookLanguageRuntimeSession(session)) {
+					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
+					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
+				} else {
+					this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
+						`does not have a notebook URI.`);
+				}
 			}
 
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(session);
 
 			// Make the newly-started runtime the foreground runtime if it's a console session.
-			// We do not handle notebook sessions here because they have their own rules for
-			// determining when they should be the foreground session which is done in  the
-			// foregroundSessionContribution.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				// Make this the foreground session if there isn't one already,
 				// or if the caller requested to activate it.
@@ -1873,32 +1829,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		);
 		activeSession.startMode = startMode;
 		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
-		// If the active session is a notebook session, also add it to the notebook
-		// session map at this time so we can find it by notebook URI. This allows us
-		// to show sessions that have yet to start for notebooks in the UI, such as
-		// the interpreter picker
-		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			if (isNotebookLanguageRuntimeSession(session)) {
-				// If there is an existing session for this notebook URI, clean it up
-				// before replacing it. This keeps _activeSessionsBySessionId and
-				// _notebookSessionsByNotebookUri in sync.
-				const existingSession = this._notebookSessionsByNotebookUri.get(session.metadata.notebookUri);
-				if (existingSession && existingSession.sessionId !== session.sessionId) {
-					this._logService.info(`Replacing notebook session ${existingSession.sessionId} with ${session.metadata.sessionId} for ${session.metadata.notebookUri}`);
-					if (this._activeSessionsBySessionId.delete(existingSession.sessionId)) {
-						this.removeNotebookSessionFromNotebookMap(existingSession.metadata.notebookUri);
-						existingSession.dispose();
-						this._onDidDeleteRuntimeSessionEmitter.fire(existingSession.sessionId);
-					}
-				}
-				this._logService.info(`Notebook session for ${session.metadata.notebookUri} added to notebook map: ${session.metadata.sessionId}`);
-				this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
-			} else {
-				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
-					`does not have a notebook URI.`);
-			}
-		}
-
 		this._register(activeSession);
 		this._register(activeSession.onDidReceiveRuntimeEvent(evt => {
 			this._onDidReceiveRuntimeEventEmitter.fire(evt);
@@ -1964,7 +1894,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					break;
 
 				case RuntimeState.Exited:
-					this.removeConsoleSessionFromRuntimeMap(session);
+					this.updateSessionMapsAfterExit(session);
 					break;
 			}
 
@@ -1985,7 +1915,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}));
 
 		activeSession.register(session.onDidEndSession(async exit => {
-			this.removeConsoleSessionFromRuntimeMap(session);
+			this.updateSessionMapsAfterExit(session);
 
 			// Note that we need to do the following on the next tick since we
 			// need to ensure all the event handlers for the state change we are
@@ -2166,11 +2096,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Removes the console session from the `_consoleSessionsByRuntimeId` map.
+	 * Updates the session maps for active consoles/notebooks after a
+	 * session exits.
 	 *
-	 * @param session The session to remove.
+	 * @param session The session to update.
 	 */
-	private removeConsoleSessionFromRuntimeMap(session: ILanguageRuntimeSession) {
+	private updateSessionMapsAfterExit(session: ILanguageRuntimeSession) {
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			const runtimeConsoleSessions = this._consoleSessionsByRuntimeId.
 				get(session.runtimeMetadata.runtimeId) || [];
@@ -2183,14 +2114,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			} else {
 				// Remove the key entirely from the map since there are no sessions for the runtime
 				this._consoleSessionsByRuntimeId.delete(session.runtimeMetadata.runtimeId);
-				// Clear the last active console session when there are no console sessions left
-				this._lastActiveConsoleSession = undefined;
+			}
+		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			if (session.metadata.notebookUri) {
+				this._logService.info(`Notebook session for ${session.metadata.notebookUri} exited.`);
+				this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
+			} else {
+				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
+					`does not have a notebook URI.`);
 			}
 		}
 	}
 
 	/**
-	 * Adds a session to the _consoleSessionsByRuntimeId if it hasn't been added already.
+	 * Adds a session to the _consoleSessionsByRuntimeId if it hasn't been added
 	 *
 	 * @param session The session to add.
 	 */

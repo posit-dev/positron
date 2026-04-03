@@ -219,10 +219,6 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	removeNotebookSessionFromNotebookMap(_notebookUri: any): void {
-		throw new Error('Method not implemented.');
-	}
-
 	updateActiveLanguages(): void {
 		throw new Error('Method not implemented.');
 	}
