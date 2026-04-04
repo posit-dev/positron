@@ -441,6 +441,32 @@ Step 3: Verify x in Variables pane ....... PASS (400ms)
 - Notifications: (none)
 - Focused panel: console
 
+### POM Recommendations
+[Only include if you had to fall back to raw Playwright actions, retry with
+a different approach, or work around a missing/insufficient POM method.
+Skip this section if all steps used POM methods successfully.]
+
+File: test/e2e/pages/<pom>.ts
+
+/**
+ * Action: <What this method does, one line.>
+ * <Why it's needed -- what ambiguity or gap it fixes.>
+ * @param <name> - <description>
+ */
+async <methodName>(<params>): Promise<void> {
+	await test.step(`<Human-readable step label>`, async () => {
+		<implementation using scoped locators>
+	});
+}
+
+Rules:
+- Actions: docstring starts with `Action:`, descriptive method name
+- Verifications: docstring starts with `Verify:`, method named `expect<Thing>()`
+- Always wrap body in `test.step()` with a readable label
+- Use `@param` tags for each parameter
+- Use scoped locators (container-first) to avoid ambiguity
+- Return `Promise<void>`
+
 ### Rough edges
 - [Any UX issues, slow transitions, or unexpected behaviors noticed]
 - [Even on passing tests, report anything that felt wrong]
