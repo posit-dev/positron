@@ -209,7 +209,7 @@ export async function executePom(app: Application, request: PomRequest): Promise
 
 	return await test.step(label, async () => {
 		const start = Date.now();
-		const workbench = app.workbench as any;
+		const workbench: Record<string, unknown> = app.workbench as Record<string, unknown>;
 
 		// 1. Discovery: list POMs when pom is "?"
 		if (request.pom === '?') {
@@ -370,7 +370,7 @@ export async function executeBatch(app: Application, request: BatchRequest): Pro
  */
 async function executePomDirect(app: Application, step: BatchStep): Promise<ActionResult> {
 	const start = Date.now();
-	const workbench = app.workbench as any;
+	const workbench: Record<string, unknown> = app.workbench as Record<string, unknown>;
 	const pomPath = step.pom!;
 	const method = step.method!;
 
