@@ -106,7 +106,11 @@ export function transpileTask(src: string, out: string, esbuild?: boolean): task
 	const task = () => {
 
 		const transpile = createCompile(src, { build: false, emitError: true, transpileOnly: { esbuild: !!esbuild }, preserveEnglish: false });
-		const srcPipe = gulp.src(`${src}/**`, { base: `${src}` });
+		// --- Start Positron ---
+		// Exclude .vitest.ts/.vitest.tsx files -- they use Vitest globals (describe/it/expect)
+		// and have their own tsconfig (tsconfig.vitest.json). See docs/superpowers/specs/.
+		const srcPipe = gulp.src([`${src}/**`, `!${src}/**/*.vitest.ts`, `!${src}/**/*.vitest.tsx`], { base: `${src}` });
+		// --- End Positron ---
 
 		return srcPipe
 			.pipe(transpile())
@@ -126,7 +130,11 @@ export function compileTask(src: string, out: string, build: boolean, options: {
 		}
 
 		const compile = createCompile(src, { build, emitError: true, transpileOnly: false, preserveEnglish: !!options.preserveEnglish });
-		const srcPipe = gulp.src(`${src}/**`, { base: `${src}` });
+		// --- Start Positron ---
+		// Exclude .vitest.ts/.vitest.tsx files -- they use Vitest globals (describe/it/expect)
+		// and have their own tsconfig (tsconfig.vitest.json). See docs/superpowers/specs/.
+		const srcPipe = gulp.src([`${src}/**`, `!${src}/**/*.vitest.ts`, `!${src}/**/*.vitest.tsx`], { base: `${src}` });
+		// --- End Positron ---
 		const generator = new MonacoGenerator(false);
 		if (src === 'src') {
 			generator.execute();
@@ -171,8 +179,11 @@ export function watchTask(out: string, build: boolean, srcPath: string = 'src'):
 	const task = () => {
 		const compile = createCompile(srcPath, { build, emitError: false, transpileOnly: false, preserveEnglish: false });
 
-		const src = gulp.src(`${srcPath}/**`, { base: srcPath });
-		const watchSrc = watch(`${srcPath}/**`, { base: srcPath, readDelay: 200 });
+		// --- Start Positron ---
+		// Exclude .vitest.ts/.vitest.tsx files from compilation and watch.
+		const src = gulp.src([`${srcPath}/**`, `!${srcPath}/**/*.vitest.ts`, `!${srcPath}/**/*.vitest.tsx`], { base: srcPath });
+		const watchSrc = watch([`${srcPath}/**`, `!${srcPath}/**/*.vitest.ts`, `!${srcPath}/**/*.vitest.tsx`], { base: srcPath, readDelay: 200 });
+		// --- End Positron ---
 
 		const generator = new MonacoGenerator(true);
 		generator.execute();
