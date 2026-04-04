@@ -17,7 +17,10 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 /qa-test --quick #12345
 /qa-test --browser firefox #11593
 /qa-test --build "Verify plots render correctly"
+/qa-test --save #12345
 ```
+
+The `--save` flag writes a standalone `.test.ts` file after a successful run (see Step 6).
 
 ## Workflow
 
@@ -48,27 +51,32 @@ Target: Built app -- Positron 2026.02.0 (build 10), macOS 26.2
 ### Step 1: Parse Input and Plan Test Steps
 
 **If free-text description:**
-Parse into 3-8 concrete, ordered test steps. Prefer POM actions for structured steps; use raw actions for exploration or recovery.
-
-**Then group steps into batches.** Each batch is a `POST /batch` call. Only split into a new batch when you need to inspect the result before deciding the next action. Most test scenarios need 2-4 batches, not 8+ individual calls.
-
-Example grouping for "start R, create df, open in Data Explorer, show summary, pin row":
-- **Batch 1** (setup): `executeCode` + `waitForVariableRow`
-- **Batch 2** (explore): `doubleClickVariableRow` + `summaryPanel.show` + `expandColumnProfile` + `expectColumnProfileToBeExpanded`
-- **Batch 3** (pin + verify): `pinRow` + `expectRowsToBePinned`
-
-That's 3 round-trips instead of 8. **Default to batching; single-step only when branching.**
+Parse into 3-8 concrete, ordered test steps. Each step becomes one entry in the `/run-plan` steps array.
 
 **If issue number with `--quick`:**
 1. Fetch the issue: `gh issue view <number> --repo posit-dev/positron --json title,body,labels`
 2. Parse the issue body to identify expected behavior
 3. **Validate testability** (see below)
-4. Plan test steps using the action catalog
+4. Plan test steps
 
 **If issue number (default):**
 1. Run the `qa-test-plan` skill to generate a verification guide
 2. **Validate testability** (see below)
 3. Parse the guide into executable steps
+
+**Generate POM reference if missing:**
+```bash
+if [ ! -f test/e2e/tests/qa-generated/pom-reference.md ]; then
+  npx tsx scripts/generate-pom-reference.ts
+fi
+```
+
+**Read the POM reference** to get exact method names, parameter types, and available POMs:
+```bash
+Read test/e2e/tests/qa-generated/pom-reference.md
+```
+
+Use the reference to pick exact method names and parameter types for every POM step. **NEVER guess method names or parameter types** -- always consult the reference first.
 
 #### Testability Check
 
@@ -147,7 +155,7 @@ Note: `ALLOW_EXPLORE=1` is required for browser projects -- it removes the explo
 
 **Important:** Never use just the issue number. Always include a brief summary (under 60 chars).
 
-Wait for the runner to be ready by polling the port file. The `/health` response includes the full POM catalog, so save it:
+**Poll for readiness.** The app fixture handles startup readiness, so once the port file exists and `/health` returns ok, the app is ready:
 ```bash
 for i in $(seq 1 60); do
   if [ -f /tmp/explore-runner-port ]; then
@@ -155,7 +163,6 @@ for i in $(seq 1 60); do
     HEALTH=$(curl -s "http://localhost:$PORT/health" 2>/dev/null)
     if echo "$HEALTH" | grep -q ok; then
       echo "Runner ready on port $PORT"
-      echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(f'{k}: {', '.join(v)}') for k,v in d.get('catalog',{}).items()]" > /tmp/explore-catalog.txt 2>/dev/null
       break
     fi
   fi
@@ -163,9 +170,12 @@ for i in $(seq 1 60); do
 done
 ```
 
-This launches Positron as a real Electron app. It takes ~30-60 seconds to start. The catalog is available immediately -- no separate fetch needed.
+This launches Positron as a real Electron app. It takes ~30-60 seconds to start.
 
-**While the runner starts**, prepare batch payloads, plan test steps, and build `jq` commands. The runner startup is dead time -- use it. Only the final `curl` call needs the port.
+**While the runner starts**, generate the POM reference if it was missing (this fills dead time):
+```bash
+npx tsx scripts/generate-pom-reference.ts &
+```
 
 Once ready, send a description so the report shows what is being tested. Use `jq` with `$'...'` for multi-line descriptions:
 ```bash
@@ -175,26 +185,50 @@ jq -n --arg desc $'Verify panel hiding behavior when closing editors:\n- Panel m
 | curl -s -X POST "http://localhost:$PORT/describe" -H 'Content-Type: application/json' -d @-
 ```
 
-### Step 3: Execute Test Steps
+### Step 3: Execute Test via /run-plan (Primary)
 
-**Execute batches from your plan, not individual steps.** Use `POST /batch` for each group of steps that don't require branching. Only fall back to single `POST /pom` or `POST /action` calls when you need to inspect a result before deciding the next action (e.g., error recovery, conditional logic).
+Use `POST /run-plan` to execute the entire test in one HTTP call. This replaces the batch-per-group workflow. A happy-path test run is **4 tool calls total**: launch + poll, read POM reference, POST /run-plan, POST /done.
 
-The runner has **three routes**: `POST /batch` (preferred), `POST /pom` for single POM calls, and `POST /action` for custom/raw actions.
+#### /run-plan Request Format
 
-#### JSON payloads: `jq` for dynamic content, plain `curl` for static
-
-Use **plain `curl -d`** when the JSON has no dynamic strings (no user code, no quotes, no newlines):
 ```bash
-curl -s -X POST "http://localhost:$PORT/pom" \
+PORT=$(cat /tmp/explore-runner-port)
+curl -s -X POST "http://localhost:$PORT/run-plan" \
   -H 'Content-Type: application/json' \
-  -d '{"pom": "sessions", "method": "start", "args": ["python"], "title": "Start Python session"}'
+  -d '{
+    "title": "QA #12345: Variable appears after execution",
+    "stepTimeout": 10000,
+    "steps": [
+      {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python session"},
+      {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Execute x = 42"},
+      {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Verify x in Variables pane"}
+    ]
+  }'
 ```
 
-Use **`jq -n` piped to `curl -d @-`** when the payload contains code, text with quotes/newlines, or any dynamic strings. `jq --arg` handles JSON escaping (quotes, special chars) automatically:
+**Request fields:**
+- `title` (required): Descriptive label for the plan in the Playwright report (e.g., "QA #12345: Variable appears after execution")
+- `steps` (required): Array of step objects (same `BatchStep` type as `/batch`)
+- `stepTimeout` (optional): Default timeout in ms for all steps (default 10000)
+- `resetBefore` (optional): Run state reset before executing (set true on retries)
+
+**Step fields:**
+- `type` (required): `"pom"` or `"action"`
+- For `"pom"`: `pom`, `method`, `args`, `scope` (same as `/pom` route)
+- For `"action"`: `action`, `params` (same as `/action` route)
+- `title` (optional): Human-readable label for Playwright report
+- `timeout` (optional): Per-step timeout override in ms (falls back to `stepTimeout`)
+
+#### Dynamic content with jq
+
+Use **`jq -n` piped to `curl -d @-`** when the payload contains code, text with quotes/newlines, or any dynamic strings:
 ```bash
-jq -n --arg code $'x = "hello"\nprint(x)' \
-  '{pom: "notebooksPositron", method: "addCodeToCell", args: [1, $code], title: "Add code to cell"}' \
-| curl -s -X POST "http://localhost:$PORT/pom" -H 'Content-Type: application/json' -d @-
+jq -n --arg code $'x = 42\nprint(x)' \
+  '{title: "Run code and verify", stepTimeout: 10000, steps: [
+    {type: "pom", pom: "console", method: "executeCode", args: ["Python", $code], title: "Execute code"},
+    {type: "pom", pom: "variables", method: "expectVariableToBe", args: ["x", "42"], timeout: 5000, title: "Verify x"}
+  ]}' \
+| curl -s -X POST "http://localhost:$PORT/run-plan" -H 'Content-Type: application/json' -d @-
 ```
 
 **IMPORTANT: `jq --arg` does NOT interpret `\n` as newlines.** Use bash `$'...'` quoting for any string containing newlines:
@@ -203,10 +237,103 @@ jq -n --arg code $'x = "hello"\nprint(x)' \
 
 **Rule of thumb:** If the value contains quotes, newlines, backslashes, or comes from a variable -- use `jq` with `$'...'` quoting. Otherwise plain `curl` is fine and faster.
 
-#### Route 1: POM calls (`POST /pom`) -- preferred
+#### /run-plan Response Format
 
-Call any POM method directly. No wrappers needed -- the router resolves `app.workbench[pom]` and calls `method(...args)` via reflection.
+**Success (all steps pass):**
+```json
+{
+  "passed": 3, "failed": 0,
+  "steps": [
+    {"title": "Start Python", "success": true, "duration": 2100},
+    {"title": "Execute code", "success": true, "duration": 800},
+    {"title": "Verify variable", "success": true, "duration": 400}
+  ],
+  "totalDuration": 3300,
+  "state": {
+    "activeEditor": null, "consoleLinesCount": 12,
+    "variableCount": 1, "variableNames": ["x"],
+    "sessionCount": 1, "activeSession": "Python: idle",
+    "notifications": [], "openTabs": [], "focusedPanel": "console"
+  }
+}
+```
 
+**Failure (at step 2 of 3):**
+```json
+{
+  "passed": 1, "failed": 1,
+  "steps": [
+    {"title": "Start Python", "success": true, "duration": 2100},
+    {"title": "Execute code", "success": false, "error": "Timeout 10000ms exceeded", "duration": 10023}
+  ],
+  "skipped": 1, "totalDuration": 12123,
+  "state": {
+    "variableCount": 0, "variableNames": [],
+    "notifications": ["Interpreter disconnected"],
+    "activeSession": "Python: idle"
+  }
+}
+```
+
+The enriched `state` object provides diagnostic context without needing snapshots or screenshots:
+- `variableNames` -- check which variables are set
+- `activeSession` -- confirm session language and status (e.g., "Python: idle", "R: busy")
+- `notifications` -- spot error toasts or interpreter messages
+- `openTabs` -- see which editors are open
+- `focusedPanel` -- confirm focus landed where expected
+
+#### Scoping for side-by-side notebooks
+
+Add `"scope": 0` or `"scope": 1` to scope all locators to a specific editor group:
+```json
+{"type": "pom", "pom": "notebooksPositron", "method": "addCodeToCell", "args": [0, "y = 100"], "scope": 1, "title": "Add code to right notebook"}
+```
+
+#### When to assert
+
+Add a verification step after an action when:
+1. **The target is ambiguous** -- e.g., two notebooks open, verify code landed in the right one
+2. **The test hinges on the result** -- a later step depends on this having worked
+3. **Shared state changed** -- verify with `expectVariable`, `getSessionCount`, etc.
+
+Do NOT assert after every action -- `clickTab`, `startSession`, `expectEditorGroupCount` have built-in waits.
+
+### Step 3b: Failure Handling and Retries
+
+If `/run-plan` returns failures:
+
+1. **Read the error and enriched state.** The `state` fields (`variableNames`, `activeSession`, `notifications`, `openTabs`, `focusedPanel`) often reveal the root cause without needing a snapshot.
+
+2. **Retry budget: 2 attempts max.** On first failure, analyze the error and correct the plan:
+   - Wrong method name or args? Fix from the POM reference.
+   - Timeout too short? Increase the per-step `timeout`.
+   - Session not ready? Add a wait step or increase session start timeout.
+
+3. **Retry with `resetBefore: true`** to clean up state before re-running:
+```bash
+curl -s -X POST "http://localhost:$PORT/run-plan" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "title": "QA #12345 (retry)",
+    "resetBefore": true,
+    "stepTimeout": 10000,
+    "steps": [...]
+  }'
+```
+
+The `resetBefore` flag closes editors, clears console, and restores default layout before running.
+
+4. **If both attempts fail**: switch to Explore Mode (Step 3c) for interactive diagnosis, or report the failure.
+
+### Step 3c: Explore Mode (Fallback)
+
+Use explore mode when `/run-plan` fails and you need to diagnose interactively. This is NOT the primary workflow -- use `/run-plan` first, always.
+
+The runner has three additional routes for interactive exploration: `POST /pom` for single POM calls, `POST /action` for custom/raw actions, and `POST /batch` for multi-step sequences.
+
+#### POM calls (`POST /pom`)
+
+Call any POM method directly:
 ```bash
 PORT=$(cat /tmp/explore-runner-port)
 curl -s -X POST "http://localhost:$PORT/pom" \
@@ -215,31 +342,15 @@ curl -s -X POST "http://localhost:$PORT/pom" \
 ```
 
 **Request fields:**
-- `pom` (required): Workbench property name -- `"sessions"`, `"console"`, `"variables"`, `"dataExplorer"`, `"plots"`, `"notebooksPositron"`, `"editors"`, `"hotKeys"`, `"quickaccess"`, `"settings"`, `"assistant"`, etc. Supports **dotted paths** for sub-objects: `"dataExplorer.grid"`, `"dataExplorer.summaryPanel"`, `"dataExplorer.filters"`. The catalog lists all available sub-objects.
+- `pom` (required): Workbench property name -- `"sessions"`, `"console"`, `"variables"`, `"dataExplorer"`, `"plots"`, `"notebooksPositron"`, `"editors"`, `"hotKeys"`, `"quickaccess"`, `"settings"`, `"assistant"`, etc. Supports **dotted paths** for sub-objects: `"dataExplorer.grid"`, `"dataExplorer.summaryPanel"`, `"dataExplorer.filters"`.
 - `method` (required): Method name on the POM class
 - `args` (optional): Positional arguments array (default `[]`)
-- `scope` (optional): Editor group index for side-by-side scoping (calls `scopedTo(editorGroup(N))`)
+- `scope` (optional): Editor group index for side-by-side scoping
 - `title` (optional): Human-readable label for Playwright report
 
-**Scoping for side-by-side notebooks:** Add `"scope": 0` or `"scope": 1` to scope all locators to a specific editor group. Only works on POMs that support `scopedTo()` (currently `notebooksPositron`).
+#### Custom + Raw actions (`POST /action`)
 
-```bash
-# Add code to the RIGHT notebook (group 1) -- scoped, no global cell.nth(0) leakage
-jq -n --arg code 'y = 100' \
-  '{pom: "notebooksPositron", method: "addCodeToCell", args: [0, $code], scope: 1, title: "Add code to right notebook"}' \
-| curl -s -X POST "http://localhost:$PORT/pom" -H 'Content-Type: application/json' -d @-
-```
-
-**Error handling:** If the POM or method doesn't exist, the response includes available options:
-```json
-{"success": false, "error": "Unknown method: \"foo\" on POM \"sessions\". Available: deleteAll, expectAllReady, ..."}
-```
-
-**Always use the catalog to find method names and signatures.** The catalog is fetched at startup from `/health` and saved to `/tmp/explore-catalog.txt`. It includes both top-level POMs and dotted sub-objects (e.g. `dataExplorer.grid`, `dataExplorer.summaryPanel`). Never hardcode or guess method names -- they change.
-
-#### Route 2: Custom + Raw actions (`POST /action`)
-
-For actions with custom logic (path resolution, multi-step flows) and raw Playwright:
+For actions with custom logic and raw Playwright:
 
 ```bash
 # Static params -- plain curl:
@@ -265,7 +376,7 @@ jq -n --arg code 'print("hello world")' \
 | `getChatResponseText` | `{}` | Get assistant response (needs workspace path) |
 | `getAvailableTools` | `{}` | Get assistant tools (needs workspace path) |
 
-**Raw Playwright actions** (flexible, for recovery):
+**Raw Playwright actions** (flexible, for recovery and debugging):
 
 | Action | Params | Description |
 |--------|--------|-------------|
@@ -283,161 +394,59 @@ jq -n --arg code 'print("hello world")' \
 | `resizeWindow` | `{"width": 600, "height": 800}` | Resize Electron window |
 | `getWindowSize` | `{}` | Get window dimensions |
 
-#### Route 3: Batch execution (`POST /batch`) -- fastest
+#### Batch execution (`POST /batch`)
 
-Send multiple steps in one request. The server executes them sequentially, skips `observeState` on intermediate steps, and stops at the first failure. Use this for predetermined setup/action sequences where you don't need to branch between steps.
-
+Send multiple steps in one request for interactive sequences:
 ```bash
-# Static batch -- plain curl (always include a "title" for the report):
 curl -s -X POST "http://localhost:$PORT/batch" \
   -H 'Content-Type: application/json' \
-  -d '{"title": "Reorder cells", "steps": [
-    {"type": "pom", "pom": "notebooksPositron", "method": "addCell", "args": ["markdown"], "title": "Add markdown cell"},
-    {"type": "pom", "pom": "notebooksPositron", "method": "selectCellAtIndex", "args": [0], "title": "Select cell 0"},
-    {"type": "action", "action": "press", "params": {"key": "Alt+ArrowDown"}, "title": "Move cell down"}
+  -d '{"title": "Debug step", "steps": [
+    {"type": "action", "action": "snapshot", "params": {"maxLength": 8000}, "title": "Snapshot UI"},
+    {"type": "pom", "pom": "console", "method": "waitForReady", "args": [">>>"], "title": "Wait for console"}
   ]}'
-
-# Dynamic batch with code -- jq piped to curl (use $'...' for newlines):
-jq -n --arg code $'x = 42\nprint(x)' \
-  '{steps: [
-    {type: "action", action: "addCodeToCell", params: {cellIndex: 0, code: $code, clearCell: true}, title: "Add code to cell 0"},
-    {type: "pom", pom: "notebooksPositron", method: "runCodeAtIndex", args: [0], title: "Run cell 0"},
-    {type: "pom", pom: "notebooksPositron", method: "expectOutputAtIndex", args: [0, ["42"]], title: "Verify output"}
-  ]}' \
-| curl -s -X POST "http://localhost:$PORT/batch" -H 'Content-Type: application/json' -d @-
 ```
-
-**Request fields:**
-- `title` (required): Descriptive label for the batch group in the Playwright report (e.g., "Setup notebook and add code", "Verify headings and reorder cells")
-- `steps` (required): Array of step objects
-
-**Step fields:**
-- `type` (required): `"pom"` or `"action"`
-- For `"pom"`: `pom`, `method`, `args`, `scope` (same as `/pom` route)
-- For `"action"`: `action`, `params` (same as `/action` route)
-- `title` (optional): Label for individual step in the Playwright report
-
-**Response (success):**
-```json
-{
-  "completed": [
-    {"success": true, "result": "ok", "state": {}, "duration": 242},
-    {"success": true, "result": "ok", "state": {}, "duration": 85},
-    {"success": true, "result": "Pressed: Alt+ArrowDown", "state": {}, "duration": 53}
-  ],
-  "skipped": 0,
-  "state": {"activeEditor": "Untitled-1.ipynb", "variableCount": 1, "plotVisible": false}
-}
-```
-
-**Response (fail-fast at step 2 of 5):**
-```json
-{
-  "completed": [
-    {"success": true, "result": "ok", "state": {}, "duration": 242}
-  ],
-  "failed": {"success": false, "error": "...", "state": {...}, "index": 1, "duration": 5023},
-  "skipped": 3,
-  "state": {"activeEditor": "Untitled-1.ipynb"}
-}
-```
-
-Note: intermediate `completed` steps have empty `state: {}` -- state is only observed once at the end (or at the failure point). This eliminates ~500ms of overhead per step.
-
-**When to batch vs single-step:**
-- **Batch**: setup sequences, cell creation + content + run, multi-step assertions that don't branch
-- **Single-step**: steps where the next action depends on the result, recovery flows, debugging
-
-#### Response format (all routes)
-
-```json
-{
-  "success": true,
-  "result": "ok",
-  "state": {
-    "activeEditor": "Untitled-1",
-    "consoleLinesCount": 5,
-    "variableCount": 0,
-    "plotVisible": false
-  },
-  "duration": 1234
-}
-```
-
-#### Decision tree
-
-1. **Default: batch.** Group all consecutive steps that don't require branching into a single `POST /batch`. This is the right choice 80% of the time.
-2. **Need to branch on a result?** -> Single `POST /pom` or `POST /action`, then decide next batch.
-3. **Error recovery?** -> Single `POST /action` with Raw actions (`snapshot`, `clickText`, `press`).
-4. **Side-by-side notebooks?** -> `POST /batch` with `"scope": N` to scope locators to an editor group.
-
-#### When to assert
-
-Add a verification step after an action when:
-1. **The target is ambiguous** -- e.g., two notebooks open, verify code landed in the right one
-2. **The test hinges on the result** -- a later step depends on this having worked
-3. **Shared state changed** -- verify with `expectVariable`, `getSessionCount`, etc.
-
-Do NOT assert after every action -- `clickTab`, `startSession`, `expectEditorGroupCount` have built-in waits.
-
-#### Discover before calling -- NEVER guess method names
-
-The full POM catalog is included in the `/health` response automatically -- no separate fetch needed. It's available the moment the runner is ready (saved to `/tmp/explore-catalog.txt` by the poll loop above).
-
-To re-fetch or filter the catalog mid-session:
-```bash
-PORT=$(cat /tmp/explore-runner-port)
-# Filtered to specific POMs:
-curl -s "http://localhost:$PORT/catalog?pom=sessions,console,variables" | python3 -m json.tool
-```
-
-The catalog is a JSON object mapping POM names to method signatures:
-```json
-{
-  "sessions": [
-    "select(sessionIdOrName, waitForSessionIdle = false)",
-    "start(sessions, options)",
-    "expectStatusToBe(sessionIdOrName, expectedStatus, options)",
-    ...
-  ],
-  "console": [
-    "executeCode(languageName, code, options)",
-    "clickDuplicateSessionButton()",
-    ...
-  ],
-  ...
-}
-```
-
-**Use the catalog for every POM call.** Pick method names from the catalog -- never guess. The catalog is pre-computed at startup (synchronous prototype reflection, takes milliseconds).
-
-**If unsure about a method's parameter types or values**, read the POM source file in `test/e2e/pages/` before calling. The catalog shows parameter names but not TypeScript union types.
-
-**The workflow:**
-1. The catalog arrives with the `/health` response -- no extra call needed
-2. For every POM call, pick the method from the catalog -- never guess
-3. If parameter types are unclear (e.g., union types like `"active" | "idle"`), read the POM source in `test/e2e/pages/`
-4. Call with the correct name and args
 
 #### POM first, raw never (for assertions)
 
-Do NOT use raw selectors, evaluate, or screenshots for verification when a POM method exists. Look for `expect*` and `waitFor*` methods in the catalog -- these are assertion methods with built-in retries.
+Do NOT use raw selectors, evaluate, or screenshots for verification when a POM method exists. Look for `expect*` and `waitFor*` methods in the POM reference -- these are assertion methods with built-in retries.
 
 Raw actions (`snapshot`, `takeScreenshot`) are for **debugging failures**, not for assertions.
 
-**Always include a `title`** on every request for readable Playwright reports.
-
 ### Step 4: Report Results
 
-For each test step, report:
+Use the `/run-plan` response fields to report results. For each step:
 ```
-Step N: [description]
-  Action: [action name and params]
+Step N: [title]
   Result: PASS / FAIL
-  Evidence: [result string or error]
+  Duration: [duration]ms
+  Error: [error message, if failed]
 ```
 
-If any step fails, take a `snapshot` to see UI state, then `takeScreenshot` for visual evidence.
+Summary format:
+```
+## QA Test: #12345 -- Variable appears after execution
+
+Target: Local dev (Electron)
+Browser: e2e-electron
+
+### Results: 3/3 PASSED (3.3s total)
+
+Step 1: Start Python session ............ PASS (2100ms)
+Step 2: Execute x = 42 .................. PASS (800ms)
+Step 3: Verify x in Variables pane ....... PASS (400ms)
+
+### State after test
+- Active session: Python: idle
+- Variables: x
+- Notifications: (none)
+- Focused panel: console
+
+### Rough edges
+- [Any UX issues, slow transitions, or unexpected behaviors noticed]
+- [Even on passing tests, report anything that felt wrong]
+```
+
+If any step fails, include the error message and enriched state. Use `snapshot` or `takeScreenshot` only if the enriched state is not sufficient to diagnose.
 
 ### Step 5: Cleanup
 
@@ -445,11 +454,50 @@ If any step fails, take a `snapshot` to see UI state, then `takeScreenshot` for 
 curl -s -X POST "http://localhost:$PORT/done"
 ```
 
+### Step 6: Save Test (--save flag)
+
+If the `--save` flag was provided and the test passed, write a standalone `.test.ts` file.
+
+**File path:** `test/e2e/tests/qa-generated/qa-<issueNumber>-<slug>.test.ts`
+- `<slug>` is a short kebab-case summary (e.g., `variable-pane-update`)
+- Example: `test/e2e/tests/qa-generated/qa-12345-variable-pane-update.test.ts`
+
+**Format:**
+```typescript
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { test } from './_qa.setup';
+
+test('QA #12345: Variable appears after execution', async ({ app }) => {
+	await test.step('Start Python session', async () => {
+		await app.workbench.sessions.start('python');
+	});
+
+	await test.step('Execute x = 42', async () => {
+		await app.workbench.console.executeCode('Python', 'x = 42');
+	});
+
+	await test.step('Verify x in Variables pane', async () => {
+		await app.workbench.variables.expectVariableToBe('x', '42');
+	});
+});
+```
+
+**Rules:**
+- Import from `./_qa.setup`, not `../_test.setup`
+- Use tabs for indentation
+- Each step wrapped in `test.step()`
+- Map POM steps to `app.workbench[pom].method(...args)`
+- Map action steps to the equivalent Playwright calls
+
 ## Error Handling
 
 - **Runner not starting**: Ensure build daemons are running (`npm run build-start`).
-- **Action fails**: Use `snapshot` to see the UI, handle obstacles with raw actions, retry.
-- **Unknown action**: The response lists all available actions.
+- **Action fails**: Read the enriched state first. Use `snapshot` in explore mode to see the UI if state is insufficient.
+- **Unknown POM or method**: The response lists available options. Cross-check with pom-reference.md.
 - **Runner timeout**: Auto-stops after 10 minutes. Send `/health` to keep alive.
 
 ## Artifacts
@@ -458,13 +506,13 @@ Playwright trace is captured automatically. Use `takeScreenshot` or `snapshot` f
 
 ## Tips
 
-- `state` object after every action shows console lines, variable count, active editor, plot visibility.
-- POM methods via `/pom` wait for completion -- no manual delays needed.
-- `snapshot` returns the accessibility tree -- search for roles, names, states.
-- Raw actions default to 5s timeout, POM actions to 10s. Override with `timeout` param.
+- The enriched `state` object after `/run-plan` shows variable names, session status, notifications, open tabs, and focused panel -- often enough to diagnose failures without snapshots.
+- POM methods via `/pom` and `/run-plan` wait for completion -- no manual delays needed.
+- `snapshot` returns the accessibility tree -- search for roles, names, states. Use in explore mode only.
+- Raw actions default to 5s timeout, POM actions to 10s. Override with `timeout` field on any step.
 - Data Explorer `columnIndex` is 1-based. `rowIndex`/`colIndex` for cells are 0-based.
 - Pinned row headers show the **source row index**: Python/pandas is 0-based (row position 1 -> header "1"), R is 1-based (row position 1 -> header "2"). Use the matching index system when calling `expectRowsToBePinned`.
 - String variables display with language-specific quoting: Python shows `'hello'` (single quotes), R shows `"hello"` (double quotes). Include the quotes when calling `expectVariableToBe`.
-- To discover methods: send `{"pom": "X", "method": "?"}` -- the error lists all available methods.
-- To discover POMs: send `{"pom": "?", "method": "?"}` -- the error lists all workbench properties.
-- POM source files are in `test/e2e/pages/` -- read them to check method signatures.
+- POM reference file at `test/e2e/tests/qa-generated/pom-reference.md` has full TypeScript signatures -- always read it before planning steps.
+- POM source files are in `test/e2e/pages/` -- read them if you need to check union types or complex parameter shapes beyond what the reference shows.
+- **Always include a `title`** on every step and on the `/run-plan` request for readable Playwright reports.
