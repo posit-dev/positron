@@ -242,7 +242,25 @@ Positron merges upstream VS Code roughly every month (1.106, 1.107, 1.108, 1.109
 | `test-vitest:run` | `vitest run` | CI and one-shot runs |
 | `test-vitest:coverage` | `vitest run --coverage` | Coverage reports |
 
-**Developer experience**: Run `npm run test-vitest`, edit a file, see results instantly. No `npm run build-start` first.
+### Developer Workflow: Before vs. After
+
+**Before (Mocha):**
+```
+1. npm run build-start              # start build daemons (30-60s first time)
+2. Edit code
+3. npm run build-check              # wait for recompilation (blocks)
+4. ./scripts/test.sh --run src/path/to/file.test.ts
+5. Read results, go back to step 2
+```
+Every iteration requires step 3 (wait for daemon) and step 4 (manual re-run).
+
+**After (Vitest):**
+```
+1. npm run test-vitest              # starts watch mode (one-time)
+2. Edit code
+3. Results appear automatically on save
+```
+Step 1 is once per session. From then on, every save triggers an instant re-run of affected tests. No build daemons, no manual commands, no waiting.
 
 ---
 
