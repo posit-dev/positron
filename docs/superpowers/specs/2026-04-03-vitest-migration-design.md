@@ -50,7 +50,7 @@ Positron's testing strategy follows a three-layer pyramid. The rule is simple: *
 
 **CI cost**: ~30 seconds standalone.
 
-**Current coverage**: 67 files, 937 tests across Tiers 0-3 (pure logic through full workbench service integration).
+**Current coverage**: 72 files, 961 tests across Tiers 0-3 plus extracted extension tests.
 
 ### Layer 2: Extension Host Tests (Mocha, needs Electron)
 
@@ -524,15 +524,17 @@ All 67 original `.test.ts` / `.test.tsx` Positron files, replaced by their `.vit
 
 The Vitest migration (Layer 1 of the pyramid) is complete. These are the next moves to improve the full testing experience, in priority order:
 
-### 1. Extract pure logic extension tests to Vitest
+### 1. Extract pure logic extension tests to Vitest (done)
 
-~10-12 test files across positron-assistant and positron-r don't import `vscode` or `positron` at all. They're pure logic tests running through the full Electron extension host, taking 20-30 seconds when they could take 200ms in Vitest.
+5 extension test files were migrated from the Electron extension host to Vitest:
+- positron-assistant: snowflake, autoconfiguredProviders, openai-fetch-utils (3 files)
+- positron-r: hyperlink, rversions (2 files)
 
-**Confirmed safe to move** (no `vscode`/`positron` imports):
-- positron-assistant: snowflake.test.ts, anthropicVercel.test.ts, autoconfiguredProviders.test.ts, awsBedrock.test.ts, notebookContextFilter.test.ts, openai-fetch-utils.test.ts
-- positron-r: hyperlink.test.ts, rversions.test.ts
+These tests had no direct `vscode`/`positron` imports. Their source modules had transitive dependencies on `vscode`/`positron`, handled by lightweight stubs (`src/vs/base/test/common/vscode-stub.ts`, `positron-stub.ts`).
 
-These test the same logic with the same assertions -- only the runner changes (Node.js instead of Electron).
+3 additional files (anthropicVercel, awsBedrock, notebookContextFilter) were found to directly import `positron` and require the audit in step #4.
+
+**Current totals**: 72 test files, 961 tests passing in Vitest (~50 seconds, no Electron).
 
 ### 2. Testing pyramid decision tree in CLAUDE.md (done)
 
