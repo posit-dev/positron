@@ -538,14 +538,14 @@ Some tests had no direct `vscode`/`positron` imports but their source modules ha
 
 A condensed "Where should I put my test?" decision tree has been added to the Testing section of CLAUDE.md. It directs developers to Vitest by default, extension host tests only when `vscode`/`positron` APIs are genuinely needed, and E2E for user-visible workflows.
 
-### 3. Create extension test documentation
+### 3. Create extension test documentation (done)
 
-Today there is almost no guidance for writing extension tests:
-- positron-r has a one-line README ("run this command")
-- positron-assistant, positron-code-cells, positron-catalog-explorer have no test docs
-- No troubleshooting guide for common issues (timeout on extension activation, R runtime discovery, Electron crashes)
+CLAUDE.md files created for 3 Positron extensions with test guidance:
+- `extensions/positron-assistant/CLAUDE.md` -- 6 Vitest + 20 extension host tests, decision tree for new tests
+- `extensions/positron-r/CLAUDE.md` -- 2 Vitest + 8 extension host tests, troubleshooting for R discovery
+- `extensions/positron-code-cells/CLAUDE.md` -- 6 extension host tests, guidance for future Vitest extraction
 
-Each Positron extension with tests should have a brief testing section covering: how to run tests, how to add a new test, what requires the extension host vs. what can be Vitest.
+Each doc covers: how to run tests, which are Vitest vs extension host, how to add a new test, and how to run a single test.
 
 ### 4. Audit extension tests that import `vscode` for convenience (done)
 
