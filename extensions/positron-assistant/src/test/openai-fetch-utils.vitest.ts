@@ -3,11 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+// @vitest-environment node
+
 import { fixPossiblyBrokenChatCompletionChunk, PossiblyBrokenChatCompletionChunk } from '../openai-fetch-utils.js';
 
-suite('OpenAI Fetch Utils', () => {
-	test('fixPossiblyBrokenChatCompletionChunk fixes empty arguments for no-arg tools', () => {
+describe('OpenAI Fetch Utils', () => {
+	it('fixPossiblyBrokenChatCompletionChunk fixes empty arguments for no-arg tools', () => {
 		const brokenChunk: PossiblyBrokenChatCompletionChunk = {
 			id: 'test-id',
 			choices: [{
@@ -36,10 +37,10 @@ suite('OpenAI Fetch Utils', () => {
 		const choice = fixedChunk.choices[0];
 		const toolCall = choice.delta.tool_calls![0];
 
-		assert.strictEqual(toolCall.function?.arguments, '{}', 'Empty arguments should be converted to "{}" for no-arg tool');
+		expect(toolCall.function?.arguments).toBe('{}');
 	});
 
-	test('fixPossiblyBrokenChatCompletionChunk does NOT fix empty arguments for tools with args', () => {
+	it('fixPossiblyBrokenChatCompletionChunk does NOT fix empty arguments for tools with args', () => {
 		const chunk: PossiblyBrokenChatCompletionChunk = {
 			id: 'test-id',
 			choices: [{
@@ -68,10 +69,10 @@ suite('OpenAI Fetch Utils', () => {
 		const choice = fixedChunk.choices[0];
 		const toolCall = choice.delta.tool_calls![0];
 
-		assert.strictEqual(toolCall.function?.arguments, '', 'Empty arguments should be preserved for tool with args');
+		expect(toolCall.function?.arguments).toBe('');
 	});
 
-	test('fixPossiblyBrokenChatCompletionChunk preserves valid arguments', () => {
+	it('fixPossiblyBrokenChatCompletionChunk preserves valid arguments', () => {
 		const chunk: PossiblyBrokenChatCompletionChunk = {
 			id: 'test-id',
 			choices: [{
@@ -99,6 +100,6 @@ suite('OpenAI Fetch Utils', () => {
 		const choice = fixedChunk.choices[0];
 		const toolCall = choice.delta.tool_calls![0];
 
-		assert.strictEqual(toolCall.function?.arguments, '{"foo":"bar"}', 'Valid arguments should be preserved');
+		expect(toolCall.function?.arguments).toBe('{"foo":"bar"}');
 	});
 });

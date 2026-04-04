@@ -3,35 +3,37 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+// @vitest-environment node
+
 import * as sinon from 'sinon';
 import { createOpenAICompatibleFetch } from '../openai-fetch-utils.js';
 
-suite('Snowflake Provider', () => {
+describe('Snowflake Provider', () => {
 
-	teardown(() => {
+	afterEach(() => {
 		sinon.restore();
 	});
 
-	suite('Error Message Enhancement', () => {
+	describe('Error Message Enhancement', () => {
 		// extractSnowflakeError is now a private function in snowflakeProvider.ts.
 		// These error scenarios are covered by integration-level tests and the
 		// auth extension's credential tests. The streaming fix test below
 		// verifies the OpenAI-compatible fetch layer used by the provider.
+		it.todo('covered by integration-level tests and auth extension credential tests');
 	});
 
-	suite('OpenAI Compatible Fetch - Snowflake Streaming Fix', () => {
+	describe('OpenAI Compatible Fetch - Snowflake Streaming Fix', () => {
 		let fetchStub: sinon.SinonStub;
 
-		setup(() => {
+		beforeEach(() => {
 			fetchStub = sinon.stub(global, 'fetch');
 		});
 
-		teardown(() => {
+		afterEach(() => {
 			fetchStub.restore();
 		});
 
-		test('transforms empty role fields in streaming response', async () => {
+		it('transforms empty role fields in streaming response', async () => {
 			const mockStreamingData = `data: {"choices":[{"delta":{"content":"Hi","role":"","tool_calls":null},"index":0}],"created":1234567890,"id":"test-id","model":"openai-gpt-5","object":"chat.completion.chunk"}
 
 data: [DONE]
@@ -53,7 +55,7 @@ data: [DONE]
 				body: JSON.stringify({})
 			});
 
-			assert.strictEqual(response.status, 200);
+			expect(response.status).toBe(200);
 
 			// Read the transformed stream
 			const reader = response.body?.getReader();
@@ -69,8 +71,8 @@ data: [DONE]
 			const transformedText = chunks.join('');
 
 			// Verify that empty role field was transformed to "assistant"
-			assert.ok(transformedText.includes('"role":"assistant"'), 'Empty role should be transformed to "assistant"');
-			assert.ok(!transformedText.includes('"role":""'), 'Should not contain empty role field');
+			expect(transformedText.includes('"role":"assistant"')).toBeTruthy();
+			expect(!transformedText.includes('"role":""')).toBeTruthy();
 		});
 	});
 });

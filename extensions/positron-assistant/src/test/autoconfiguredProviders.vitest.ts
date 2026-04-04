@@ -3,16 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+// @vitest-environment node
+
 import { createAutomaticModelConfigs } from '../providers/index.js';
 import { SnowflakeModelProvider } from '../providers/snowflake/snowflakeProvider.js';
 import { CopilotModelProvider } from '../copilot.js';
 
-suite('Autoconfigured Providers', () => {
+describe('Autoconfigured Providers', () => {
 	let originalSnowflakeAutoconfigure: typeof SnowflakeModelProvider.autoconfigure;
 	let originalCopilotAutoconfigure: typeof CopilotModelProvider.autoconfigure;
 
-	setup(() => {
+	beforeEach(() => {
 		originalSnowflakeAutoconfigure = SnowflakeModelProvider.autoconfigure;
 		originalCopilotAutoconfigure = CopilotModelProvider.autoconfigure;
 
@@ -26,20 +27,20 @@ suite('Autoconfigured Providers', () => {
 		CopilotModelProvider.autoconfigure = async () => ({ configured: false });
 	});
 
-	teardown(() => {
+	afterEach(() => {
 		SnowflakeModelProvider.autoconfigure = originalSnowflakeAutoconfigure;
 		CopilotModelProvider.autoconfigure = originalCopilotAutoconfigure;
 	});
 
-	test('autoconfigured providers include toolCalls: true', async () => {
+	it('autoconfigured providers include toolCalls: true', async () => {
 		const configs = await createAutomaticModelConfigs();
 
 		const snowflakeConfig = configs.find(c => c.provider === 'snowflake-cortex');
-		assert.ok(snowflakeConfig, 'Snowflake config should be created');
-		assert.strictEqual(snowflakeConfig.toolCalls, true, 'Snowflake toolCalls should be true');
+		expect(snowflakeConfig).toBeTruthy();
+		expect(snowflakeConfig.toolCalls).toBe(true);
 	});
 
-	test('ANTHROPIC_BASE_URL env var populates baseUrl in autoconfigured model', async () => {
+	it('ANTHROPIC_BASE_URL env var populates baseUrl in autoconfigured model', async () => {
 		const originalApiKey = process.env.ANTHROPIC_API_KEY;
 		const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
 		try {
@@ -48,8 +49,8 @@ suite('Autoconfigured Providers', () => {
 
 			const configs = await createAutomaticModelConfigs();
 			const anthropicConfig = configs.find((c) => c.provider === 'anthropic-api');
-			assert.ok(anthropicConfig, 'Anthropic config should be created');
-			assert.strictEqual(anthropicConfig.baseUrl, 'https://proxy.example.com');
+			expect(anthropicConfig).toBeTruthy();
+			expect(anthropicConfig.baseUrl).toBe('https://proxy.example.com');
 		} finally {
 			if (originalApiKey === undefined) {
 				delete process.env.ANTHROPIC_API_KEY;
@@ -64,7 +65,7 @@ suite('Autoconfigured Providers', () => {
 		}
 	});
 
-	test('no baseUrl when only ANTHROPIC_API_KEY is set', async () => {
+	it('no baseUrl when only ANTHROPIC_API_KEY is set', async () => {
 		const originalApiKey = process.env.ANTHROPIC_API_KEY;
 		const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
 		try {
@@ -73,8 +74,8 @@ suite('Autoconfigured Providers', () => {
 
 			const configs = await createAutomaticModelConfigs();
 			const anthropicConfig = configs.find((c) => c.provider === 'anthropic-api');
-			assert.ok(anthropicConfig, 'Anthropic config should be created');
-			assert.strictEqual(anthropicConfig.baseUrl, undefined);
+			expect(anthropicConfig).toBeTruthy();
+			expect(anthropicConfig.baseUrl).toBe(undefined);
 		} finally {
 			if (originalApiKey === undefined) {
 				delete process.env.ANTHROPIC_API_KEY;

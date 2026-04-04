@@ -5,6 +5,10 @@
 
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
 	test: {
@@ -20,6 +24,21 @@ export default defineConfig({
 	},
 	resolve: {
 		extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+		alias: [
+			{ find: 'vscode', replacement: resolve(__dirname, 'src/vs/base/test/common/vscode-stub.ts') },
+			{ find: 'positron', replacement: resolve(__dirname, 'src/vs/base/test/common/positron-stub.ts') },
+			// The git extension API is imported for types only; stub it so vitest can resolve it
+			{
+				find: /.*\/git\/src\/api\/git\.js$/,
+				replacement: resolve(__dirname, 'src/vs/base/test/common/git-api-stub.ts'),
+			},
+		],
+		// Include extension node_modules directories so vitest can resolve
+		// packages that are installed per-extension (e.g., 'ai', 'openai')
+		modules: [
+			resolve(__dirname, 'node_modules'),
+			resolve(__dirname, 'extensions/positron-assistant/node_modules'),
+		],
 	},
 	esbuild: {
 		tsconfigRaw: {
