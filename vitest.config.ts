@@ -27,6 +27,10 @@ export default defineConfig({
 		alias: [
 			{ find: 'vscode', replacement: resolve(__dirname, 'src/vs/base/test/common/vscode-stub.ts') },
 			{ find: 'positron', replacement: resolve(__dirname, 'src/vs/base/test/common/positron-stub.ts') },
+			{ find: 'p-queue', replacement: resolve(__dirname, 'src/vs/base/test/common/p-queue-stub.ts') },
+			{ find: 'split2', replacement: resolve(__dirname, 'src/vs/base/test/common/split2-stub.ts') },
+			{ find: 'vscode-languageclient/node', replacement: resolve(__dirname, 'src/vs/base/test/common/vscode-languageclient-stub.ts') },
+			{ find: 'vscode-languageclient', replacement: resolve(__dirname, 'src/vs/base/test/common/vscode-languageclient-stub.ts') },
 			// The git extension API is imported for types only; stub it so vitest can resolve it
 			{
 				find: /.*\/git\/src\/api\/git\.js$/,
@@ -38,6 +42,7 @@ export default defineConfig({
 		modules: [
 			resolve(__dirname, 'node_modules'),
 			resolve(__dirname, 'extensions/positron-assistant/node_modules'),
+			resolve(__dirname, 'extensions/positron-r/node_modules'),
 		],
 	},
 	esbuild: {

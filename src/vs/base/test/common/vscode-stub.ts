@@ -102,3 +102,14 @@ export const CancellationTokenSource = class {
 export const ThemeIcon = class {
 	constructor(public id: string) { }
 };
+
+const editKindStub = {
+	append: (..._parts: string[]) => editKindStub,
+	intersects: (_other: unknown) => false,
+	contains: (_other: unknown) => false,
+};
+
+export const DocumentDropOrPasteEditKind = {
+	Empty: editKindStub,
+	Text: editKindStub,
+};

@@ -3,35 +3,32 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './mocha-setup';
-
-import * as assert from 'assert';
 import { parseRVersionsFile } from '../provider-rversions';
 
-suite('r-versions file parsing', () => {
+describe('r-versions file parsing', () => {
 
-	test('parses a single entry with Path only', () => {
+	it('parses a single entry with Path only', () => {
 		const content = 'Path: /opt/R/4.3.0';
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, undefined);
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe(undefined);
 	});
 
-	test('parses a single entry with Path and Label', () => {
+	it('parses a single entry with Path and Label', () => {
 		const content = [
 			'Path: /opt/R/4.3.0',
 			'Label: R 4.3.0 (Production)',
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0 (Production)');
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe('R 4.3.0 (Production)');
 	});
 
-	test('parses multiple entries separated by blank lines', () => {
+	it('parses multiple entries separated by blank lines', () => {
 		const content = [
 			'Path: /opt/R/4.3.0',
 			'Label: R 4.3.0',
@@ -41,14 +38,14 @@ suite('r-versions file parsing', () => {
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 2);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0');
-		assert.strictEqual(entries[1].path, '/opt/R/4.4.0');
-		assert.strictEqual(entries[1].label, 'R 4.4.0');
+		expect(entries.length).toBe(2);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe('R 4.3.0');
+		expect(entries[1].path).toBe('/opt/R/4.4.0');
+		expect(entries[1].label).toBe('R 4.4.0');
 	});
 
-	test('parses all supported fields', () => {
+	it('parses all supported fields', () => {
 		const content = [
 			'Path: /opt/R/4.3.0',
 			'Label: R 4.3.0 (Production)',
@@ -58,28 +55,28 @@ suite('r-versions file parsing', () => {
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0 (Production)');
-		assert.strictEqual(entries[0].script, '/opt/scripts/setup-r.sh');
-		assert.strictEqual(entries[0].repo, '/etc/rstudio/repos.conf');
-		assert.strictEqual(entries[0].library, '/opt/R/4.3.0/site-library:/shared/r-libs');
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe('R 4.3.0 (Production)');
+		expect(entries[0].script).toBe('/opt/scripts/setup-r.sh');
+		expect(entries[0].repo).toBe('/etc/rstudio/repos.conf');
+		expect(entries[0].library).toBe('/opt/R/4.3.0/site-library:/shared/r-libs');
 	});
 
-	test('parses entry with Module instead of Path', () => {
+	it('parses entry with Module instead of Path', () => {
 		const content = [
 			'Module: r/4.3.0',
 			'Label: R 4.3.0 (Module)',
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].module, 'r/4.3.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0 (Module)');
-		assert.strictEqual(entries[0].path, undefined);
+		expect(entries.length).toBe(1);
+		expect(entries[0].module).toBe('r/4.3.0');
+		expect(entries[0].label).toBe('R 4.3.0 (Module)');
+		expect(entries[0].path).toBe(undefined);
 	});
 
-	test('handles case-insensitive field names', () => {
+	it('handles case-insensitive field names', () => {
 		const content = [
 			'path: /opt/R/4.3.0',
 			'LABEL: R 4.3.0',
@@ -88,12 +85,12 @@ suite('r-versions file parsing', () => {
 		const entries = parseRVersionsFile(content);
 
 		// Keys are case-insensitive; if same key appears twice, last value wins
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.4.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0');
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.4.0');
+		expect(entries[0].label).toBe('R 4.3.0');
 	});
 
-	test('skips entries without Path or Module', () => {
+	it('skips entries without Path or Module', () => {
 		const content = [
 			'Label: Orphaned Label',
 			'Script: /some/script.sh',
@@ -103,22 +100,22 @@ suite('r-versions file parsing', () => {
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, 'Valid Entry');
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe('Valid Entry');
 	});
 
-	test('handles empty content', () => {
+	it('handles empty content', () => {
 		const entries = parseRVersionsFile('');
-		assert.strictEqual(entries.length, 0);
+		expect(entries.length).toBe(0);
 	});
 
-	test('handles whitespace-only content', () => {
+	it('handles whitespace-only content', () => {
 		const entries = parseRVersionsFile('   \n\n   \n');
-		assert.strictEqual(entries.length, 0);
+		expect(entries.length).toBe(0);
 	});
 
-	test('handles multiple blank lines between entries', () => {
+	it('handles multiple blank lines between entries', () => {
 		const content = [
 			'Path: /opt/R/4.3.0',
 			'',
@@ -127,35 +124,35 @@ suite('r-versions file parsing', () => {
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 2);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[1].path, '/opt/R/4.4.0');
+		expect(entries.length).toBe(2);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[1].path).toBe('/opt/R/4.4.0');
 	});
 
-	test('trims whitespace from keys and values', () => {
+	it('trims whitespace from keys and values', () => {
 		const content = [
 			'  Path  :   /opt/R/4.3.0',
 			'  Label:R 4.3.0  ',
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0');
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe('R 4.3.0');
 	});
 
-	test('handles values containing colons', () => {
+	it('handles values containing colons', () => {
 		const content = [
 			'Path: /opt/R/4.3.0',
 			'Library: /path/one:/path/two:/path/three',
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].library, '/path/one:/path/two:/path/three');
+		expect(entries.length).toBe(1);
+		expect(entries[0].library).toBe('/path/one:/path/two:/path/three');
 	});
 
-	test('ignores unknown field names', () => {
+	it('ignores unknown field names', () => {
 		const content = [
 			'Path: /opt/R/4.3.0',
 			'UnknownField: some value',
@@ -163,12 +160,12 @@ suite('r-versions file parsing', () => {
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0');
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe('R 4.3.0');
 	});
 
-	test('ignores lines without colons', () => {
+	it('ignores lines without colons', () => {
 		const content = [
 			'Path: /opt/R/4.3.0',
 			'This line has no colon',
@@ -176,12 +173,12 @@ suite('r-versions file parsing', () => {
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0');
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe('R 4.3.0');
 	});
 
-	test('ignores comment lines starting with #', () => {
+	it('ignores comment lines starting with #', () => {
 		const content = [
 			'# This is a comment',
 			'Path: /opt/R/4.3.0',
@@ -190,12 +187,12 @@ suite('r-versions file parsing', () => {
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 1);
-		assert.strictEqual(entries[0].path, '/opt/R/4.3.0');
-		assert.strictEqual(entries[0].label, 'R 4.3.0');
+		expect(entries.length).toBe(1);
+		expect(entries[0].path).toBe('/opt/R/4.3.0');
+		expect(entries[0].label).toBe('R 4.3.0');
 	});
 
-	test('parses file based on Posit Workbench r-versions template', () => {
+	it('parses file based on Posit Workbench r-versions template', () => {
 		// Based on rstudio-pro/src/cpp/server/extras/conf/r-versions
 		const content = [
 			'# This file contains entries that specify which versions of R are available for sessions to use.',
@@ -227,16 +224,16 @@ suite('r-versions file parsing', () => {
 		].join('\n');
 		const entries = parseRVersionsFile(content);
 
-		assert.strictEqual(entries.length, 2);
+		expect(entries.length).toBe(2);
 
-		assert.strictEqual(entries[0].path, '/opt/R/R-2.15.3');
-		assert.strictEqual(entries[0].label, 'My special R Version');
-		assert.strictEqual(entries[0].module, 'testmodule');
-		assert.strictEqual(entries[0].script, '~/rload.sh');
+		expect(entries[0].path).toBe('/opt/R/R-2.15.3');
+		expect(entries[0].label).toBe('My special R Version');
+		expect(entries[0].module).toBe('testmodule');
+		expect(entries[0].script).toBe('~/rload.sh');
 
-		assert.strictEqual(entries[1].path, '/opt/R/R-2.15.3-alternate');
-		assert.strictEqual(entries[1].label, 'My special R Version Alternate');
-		assert.strictEqual(entries[1].script, '/opt/R/R-2.15.3-alternate/preload.sh');
-		assert.strictEqual(entries[1].module, undefined);
+		expect(entries[1].path).toBe('/opt/R/R-2.15.3-alternate');
+		expect(entries[1].label).toBe('My special R Version Alternate');
+		expect(entries[1].script).toBe('/opt/R/R-2.15.3-alternate/preload.sh');
+		expect(entries[1].module).toBe(undefined);
 	});
 });
