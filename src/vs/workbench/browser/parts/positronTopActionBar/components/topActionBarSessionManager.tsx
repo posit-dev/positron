@@ -16,7 +16,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ActionBarCommandButton } from '../../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, ISessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -58,6 +58,33 @@ const getSessionLabel = (session: ILanguageRuntimeSession | undefined): string =
 };
 
 /**
+ * Gets the label text from display info (used for exited notebook sessions).
+ */
+const getDisplayInfoLabel = (info: ISessionDisplayInfo | undefined): string => {
+	if (!info) {
+		return startSession;
+	}
+	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
+		const notebookName = basename(info.notebookUri.path);
+		return `${notebookName} - ${info.sessionName}`;
+	}
+	return info.sessionName;
+};
+
+/**
+ * Gets the session mode icon from display info.
+ */
+const getDisplayInfoIcon = (info: ISessionDisplayInfo | undefined) => {
+	if (!info) {
+		return Codicon.arrowSwap;
+	}
+	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+		return Codicon.notebook;
+	}
+	return Codicon.positronNewConsole;
+};
+
+/**
  * This component allows users to manage the foreground session.
  * - displays the current foreground session (console or notebook)
  * - allows users to switch between console sessions
@@ -90,6 +117,17 @@ export const TopActionBarSessionManager = () => {
 				setActiveSession(session);
 				setLabelText(getSessionLabel(session));
 				setSessionIcon(getSessionModeIcon(session));
+			})
+		);
+
+		// Listen for display info changes. This is the primary source of truth
+		// for the interpreter picker label and icon. It fires both when a live
+		// foreground session changes (synced from the setter) and when falling
+		// back to cached info for an exited notebook session.
+		disposableStore.add(
+			services.runtimeSessionService.onDidChangeForegroundSessionDisplayInfo(info => {
+				setLabelText(getDisplayInfoLabel(info));
+				setSessionIcon(getDisplayInfoIcon(info));
 			})
 		);
 

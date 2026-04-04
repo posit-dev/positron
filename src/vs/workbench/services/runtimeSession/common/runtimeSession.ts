@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, RuntimeStartupPhase } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, ISessionDisplayInfo } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../positronModalDialogs/common/positronModalDialogs.js';
@@ -110,6 +110,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// owning the session.
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<INotebookLanguageRuntimeSession>();
 
+	// A map of the last known session display info per notebook URI. This is set when a
+	// notebook session is attached and updated when the session exits. It persists after
+	// the session is deleted/disposed, allowing UI components to show what runtime was
+	// last used for a notebook.
+	private readonly _lastNotebookSessionByNotebookUri = new ResourceMap<ISessionDisplayInfo>();
+
 	// An map of sessions that have been disconnected from the extension host,
 	// from sessionId to session. We keep these around so we can reconnect them when
 	// the extension host comes back online.
@@ -138,6 +144,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// The event emitter for the onDidChangeForegroundSession event.
 	private readonly _onDidChangeForegroundSessionEmitter =
 		this._register(new Emitter<ILanguageRuntimeSession | undefined>);
+
+	// The event emitter for the onDidChangeForegroundSessionDisplayInfo event.
+	private readonly _onDidChangeForegroundSessionDisplayInfoEmitter =
+		this._register(new Emitter<ISessionDisplayInfo | undefined>);
+
+	// The current foreground session display info.
+	private _foregroundSessionDisplayInfo: ISessionDisplayInfo | undefined;
 
 	// The event emitter for the onDidDeleteRuntime event.
 	private readonly _onDidDeleteRuntimeSessionEmitter =
@@ -303,6 +316,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
 
+	// An event that fires when the foreground session display info changes.
+	readonly onDidChangeForegroundSessionDisplayInfo = this._onDidChangeForegroundSessionDisplayInfoEmitter.event;
+
 	// An event that fires when a runtime is deleted.
 	readonly onDidDeleteRuntimeSession = this._onDidDeleteRuntimeSessionEmitter.event;
 
@@ -393,6 +409,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined {
 		return this._lastActiveConsoleSession;
+	}
+
+	/**
+	 * Gets the last known session display info for a notebook URI.
+	 * This persists after the session has been deleted/disposed.
+	 */
+	getLastNotebookSessionInfo(notebookUri: URI): ISessionDisplayInfo | undefined {
+		return this._lastNotebookSessionByNotebookUri.get(notebookUri);
 	}
 
 	/**
@@ -834,6 +858,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Fire the onDidChangeForegroundSession event.
 		this._onDidChangeForegroundSessionEmitter.fire(this._foregroundSession);
+
+		// Sync display info from the live session.
+		if (session) {
+			this.foregroundSessionDisplayInfo = {
+				sessionName: session.dynState.sessionName,
+				sessionMode: session.metadata.sessionMode,
+				notebookUri: session.metadata.notebookUri,
+				runtimeId: session.runtimeMetadata.runtimeId,
+				languageName: session.runtimeMetadata.languageName,
+				languageId: session.runtimeMetadata.languageId,
+				base64EncodedIconSvg: session.runtimeMetadata.base64EncodedIconSvg,
+				sessionState: session.getRuntimeState(),
+			};
+		} else {
+			this.foregroundSessionDisplayInfo = undefined;
+		}
 	}
 
 	/**
@@ -881,6 +921,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	get foregroundSession(): ILanguageRuntimeSession | undefined {
 		return this._foregroundSession;
+	}
+
+	get foregroundSessionDisplayInfo(): ISessionDisplayInfo | undefined {
+		return this._foregroundSessionDisplayInfo;
+	}
+
+	set foregroundSessionDisplayInfo(info: ISessionDisplayInfo | undefined) {
+		this._foregroundSessionDisplayInfo = info;
+		this._onDidChangeForegroundSessionDisplayInfoEmitter.fire(info);
 	}
 
 	get implicitStartupSuppressed(): boolean {
@@ -1757,6 +1806,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				if (isNotebookLanguageRuntimeSession(session)) {
 					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
 					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
+					this._saveNotebookSessionInfo(session);
 				} else {
 					this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
 						`does not have a notebook URI.`);
@@ -2129,12 +2179,38 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			if (session.metadata.notebookUri) {
 				this._logService.info(`Notebook session for ${session.metadata.notebookUri} exited.`);
+				// Update the cached session info state before removing the session from the active map.
+				const sessionInfo = this._lastNotebookSessionByNotebookUri.get(session.metadata.notebookUri);
+				if (sessionInfo) {
+					sessionInfo.sessionState = RuntimeState.Exited;
+				}
 				this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
 			} else {
 				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
 					`does not have a notebook URI.`);
 			}
 		}
+	}
+
+	/**
+	 * Saves the display info for a notebook session into
+	 * `_lastNotebookSessionByNotebookUri` so it can be shown after
+	 * the session is disposed.
+	 */
+	private _saveNotebookSessionInfo(session: ILanguageRuntimeSession): void {
+		if (!session.metadata.notebookUri) {
+			return;
+		}
+		this._lastNotebookSessionByNotebookUri.set(session.metadata.notebookUri, {
+			sessionName: session.dynState.sessionName,
+			sessionMode: session.metadata.sessionMode,
+			notebookUri: session.metadata.notebookUri,
+			runtimeId: session.runtimeMetadata.runtimeId,
+			languageName: session.runtimeMetadata.languageName,
+			languageId: session.runtimeMetadata.languageId,
+			base64EncodedIconSvg: session.runtimeMetadata.base64EncodedIconSvg,
+			sessionState: session.getRuntimeState(),
+		});
 	}
 
 	/**
