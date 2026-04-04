@@ -538,6 +538,7 @@ test('QA #12345: Variable appears after execution', async ({ app }) => {
 - Destructure `app.workbench` at the top of the test body for cleaner calls
 - Do NOT wrap POM calls in `test.step()` -- POM methods already have their own internal `test.step()` wrappers
 - Map action steps to the equivalent Playwright calls
+- Add a short comment before each logical group of actions (one comment per line-group, not per call). The comment describes intent, not code. Separate groups with a blank line. Style reference: `test/e2e/tests/variables/variables-filter.test.ts`
 
 ## Error Handling
 
