@@ -262,6 +262,14 @@ Every iteration requires step 3 (wait for daemon) and step 4 (manual re-run).
 ```
 Step 1 is once per session. From then on, every save triggers an instant re-run of affected tests. No build daemons, no manual commands, no waiting.
 
+**When you need both:** Vitest covers Positron-specific tests. The 814 upstream VS Code tests still run on Mocha via the build daemon + Electron pipeline. Most Positron changes don't affect upstream tests, so `npm run test-vitest` is sufficient for day-to-day work. But if you're changing a shared interface, modifying test infrastructure, or adding a dependency to an upstream class, you should also run the upstream tests:
+
+```
+npm run build-start && npm run build-check && ./scripts/test.sh
+```
+
+CI always runs both, so upstream regressions are caught even if you skip this locally.
+
 ---
 
 ### Layer 2: PositronTestContainer (Builder Pattern)
