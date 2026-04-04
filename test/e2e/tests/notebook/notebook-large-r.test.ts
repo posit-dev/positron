@@ -8,7 +8,7 @@ import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	snapshots: false
+	snapshots: true
 });
 
 // test is too heavy for web

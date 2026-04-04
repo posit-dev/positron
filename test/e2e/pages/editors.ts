@@ -45,6 +45,12 @@ export class Editors {
 		});
 	}
 
+	async runCurrentFile(): Promise<void> {
+		await test.step('Run current file in console', async () => {
+			await this.code.driver.page.getByRole('button', { name: /Run.*Console|Source R File/ }).click();
+		});
+	};
+
 	async verifyTab(
 		tabName: string | RegExp,
 		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
@@ -181,6 +187,24 @@ export class Editors {
 	async expectEditorToContain(text: string): Promise<void> {
 		await test.step(`Verify editor contains: ${text}`, async () => {
 			await expect(this.code.driver.page.locator('[id="workbench.parts.editor"]').getByRole('code').getByText(text)).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: editor group at `index` has the `active` CSS class.
+	 */
+	async expectEditorGroupActive(index: number, timeout?: number): Promise<void> {
+		await test.step(`Expect editor group ${index} to be active`, async () => {
+			await expect(this.editorGroup(index)).toHaveClass(/\bactive\b/, { timeout });
+		});
+	}
+
+	/**
+	 * Verify: editor group at `index` has the `inactive` CSS class.
+	 */
+	async expectEditorGroupInactive(index: number): Promise<void> {
+		await test.step(`Expect editor group ${index} to be inactive`, async () => {
+			await expect(this.editorGroup(index)).toHaveClass(/\binactive\b/);
 		});
 	}
 

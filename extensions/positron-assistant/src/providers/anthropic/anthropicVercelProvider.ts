@@ -9,6 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAnthropic, AnthropicProvider } from '@ai-sdk/anthropic';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
+import { getProviderTimeoutMs } from '../../providerConfig.js';
 import {
 	DEFAULT_ANTHROPIC_MODEL_NAME,
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
@@ -68,14 +69,22 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: PROVIDER_METADATA.anthropic,
-		supportedOptions: ['apiKey', 'autoconfigure'],
+		supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
 			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
+			baseUrl: 'https://api.anthropic.com',
 			toolCalls: true,
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
+
+	get baseUrl(): string | undefined {
+		return (this._config.baseUrl
+			?? AnthropicAIModelProvider.source.defaults.baseUrl)
+			?.replace(/\/v1\/?$/, '')
+			.replace(/\/+$/, '');
+	}
 
 	/**
 	 * Creates a new Anthropic provider instance.
@@ -86,7 +95,34 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
 		// Initialize native client for API operations like model listing
-		this._client = new Anthropic({ apiKey: _config.apiKey });
+		this._client = new Anthropic({
+			apiKey: _config.apiKey,
+			baseURL: this.baseUrl,
+		});
+	}
+
+	protected override async validateCredentials() {
+		if (!this._config.apiKey?.trim()) {
+			return false;
+		}
+		// Custom endpoints may use non-standard key formats
+		if (this._config.baseUrl) {
+			return true;
+		}
+		return this._config.apiKey.startsWith('sk-ant-');
+	}
+
+	override async resolveConnection(token: vscode.CancellationToken) {
+		const timeoutMs = getProviderTimeoutMs();
+		try {
+			await this._client.withOptions({ timeout: timeoutMs }).models.list();
+		} catch (error) {
+			// Custom endpoints may not expose /v1/models; treat 404 as connected
+			if (this._config.baseUrl && error instanceof Anthropic.APIError && error.status === 404) {
+				return;
+			}
+			return error as Error;
+		}
 	}
 
 	/**
@@ -96,7 +132,12 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	 * This is called automatically during construction.
 	 */
 	protected override initializeProvider() {
-		this.aiProvider = createAnthropic({ apiKey: this._config.apiKey });
+		// Vercel SDK expects baseURL to include /v1
+		// (default is https://api.anthropic.com/v1)
+		this.aiProvider = createAnthropic({
+			apiKey: this._config.apiKey,
+			baseURL: `${this.baseUrl}/v1`,
+		});
 	}
 
 	/**

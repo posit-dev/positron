@@ -61,8 +61,8 @@ type CacheControllableBlockParam = Anthropic.TextBlockParam |
  * **Configuration:**
  * - Provider ID: `anthropic-api` (not `anthropic` which is used by Copilot Chat)
  * - Required: API key from Anthropic Console
- * - Optional: Model selection, tool calling toggle
- * - Supports: Environment variable autoconfiguration (ANTHROPIC_API_KEY)
+ * - Optional: Base URL (for custom deployments/proxies), model selection, tool calling toggle
+ * - Supports: Environment variable autoconfiguration (ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL)
  *
  * @see {@link ModelProvider} for base class documentation
  * @see https://docs.anthropic.com/ for Anthropic API documentation
@@ -73,14 +73,22 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: PROVIDER_METADATA.anthropic,
-		supportedOptions: ['apiKey', 'autoconfigure'],
+		supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
 			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
+			baseUrl: 'https://api.anthropic.com',
 			toolCalls: true,
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: false }
 		},
 	};
+
+	get baseUrl(): string | undefined {
+		return (this._config.baseUrl
+			?? AnthropicModelProvider.source.defaults.baseUrl)
+			?.replace(/\/v1\/?$/, '')
+			.replace(/\/+$/, '');
+	}
 
 	constructor(
 		_config: ModelConfig,
@@ -88,12 +96,21 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		client?: Anthropic, // For testing only - production uses constructor initialization
 	) {
 		super(_config, _context);
-		this._client = client ?? new Anthropic({ apiKey: _config.apiKey });
+		this._client = client ?? new Anthropic({
+			apiKey: _config.apiKey,
+			baseURL: this.baseUrl,
+		});
 	}
 
 	protected override async validateCredentials() {
-		// Validate Anthropic API key format
-		return !!this._config.apiKey && this._config.apiKey.startsWith('sk-ant-');
+		if (!this._config.apiKey?.trim()) {
+			return false;
+		}
+		// Custom endpoints may use non-standard key formats
+		if (this._config.baseUrl) {
+			return true;
+		}
+		return this._config.apiKey.startsWith('sk-ant-');
 	}
 
 	protected override getDefaultMatch(): string {
@@ -106,6 +123,10 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		try {
 			await this._client.withOptions({ timeout: timeoutMs }).models.list();
 		} catch (error) {
+			// Custom endpoints may not expose /v1/models; treat 404 as connected
+			if (this._config.baseUrl && error instanceof Anthropic.APIError && error.status === 404) {
+				return;
+			}
 			return error as Error;
 		}
 	}

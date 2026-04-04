@@ -25,22 +25,22 @@ const WelcomePageWorkspace = () => {
 				actions={[
 					{
 						renderIcon: () => <LogoPythonProject />,
-						label: (() => localize('positron.welcome.newPythonNotebook', "Python Notebook"))(),
+						label: localize('positron.welcome.newPythonNotebook', "Python Notebook"),
 						run: () => services.commandService.executeCommand('ipynb.newUntitledIpynb', 'python'),
 						id: 'welcome.newPythonNotebook',
 						tooltip: localize('positron.welcome.newPythonNotebookDescription', "Create a new Python notebook"),
 					},
 					{
 						renderIcon: () => <LogoRProject />,
-						label: (() => localize('positron.welcome.newRNotebook', "R Notebook"))(),
+						label: localize('positron.welcome.newRNotebook', "R Notebook"),
 						run: () => services.commandService.executeCommand('ipynb.newUntitledIpynb', 'r'),
 						id: 'welcome.newRNotebook',
 						tooltip: localize('positron.welcome.newRNotebookDescription', "Create a new R notebook"),
 					},
 				]}
-				ariaLabel={(() => localize('positron.welcome.newNotebookDescription', "Create a Python or R Notebook"))()}
+				ariaLabel={localize('positron.welcome.newNotebookDescription', "Create a Python or R Notebook")}
 				codicon='positron-new-notebook'
-				label={(() => localize('positron.welcome.newNotebook', "New Notebook"))()}
+				label={localize('positron.welcome.newNotebook', "New Notebook")}
 			/>
 			<WelcomeButton
 				ariaLabel={localize('positron.welcome.newFile', "New File")}
@@ -88,5 +88,5 @@ export const PositronWelcomePageStart = () => {
 				? (<WelcomePageWorkspace />)
 				: (<WelcomePageNoWorkspace />)}
 		</div>
-	)
+	);
 };

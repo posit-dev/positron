@@ -151,13 +151,13 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			// (the latter handles untitled documents that don't have a .qmd extension)
 			if (uri && (isQuartoOrRmdFile(uri.path) || this._documentKernels.has(uri))) {
 				// Delay cleanup slightly to handle editor tabs being moved
-				const handle = setTimeout(() => {
+				const handle = setTimeout(async () => {
 					this._pendingCleanupTimeouts.delete(handle);
 					// Check if the document is still open in any editor
 					const stillOpen = this._editorService.findEditors(uri).length > 0;
 					if (!stillOpen) {
 						this._logService.debug(`[QuartoKernelManager] Document closed, cleaning up: ${uri.toString()}`);
-						this.shutdownKernelForDocument(uri);
+						await this.shutdownKernelForDocument(uri);
 					}
 				}, 100);
 				this._pendingCleanupTimeouts.add(handle);
@@ -576,18 +576,22 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// Update state
 		this._setKernelState(documentUri, QuartoKernelState.ShuttingDown);
 
-		if (info.session) {
-			try {
+		try {
+			if (info.session) {
 				await info.session.shutdown();
-			} catch (error) {
-				this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
 			}
+		} catch (error) {
+			this._logService.warn(`[QuartoKernelManager] Error shutting down kernel: ${error}`);
+		} finally {
+			// Remove the session from the runtime session service's notebook map.
+			// This must always happen so that subsequent restart attempts can start
+			// a fresh session rather than finding the exited session in the map.
+			this._runtimeSessionService.removeNotebookSessionFromNotebookMap(documentUri);
+			info.disposables.dispose();
+			// set the kernel state before deleting the entry so the state-change event fires
+			this._setKernelState(documentUri, QuartoKernelState.None);
+			this._documentKernels.delete(documentUri);
 		}
-
-		// Clean up
-		info.disposables.dispose();
-		this._documentKernels.delete(documentUri);
-		this._setKernelState(documentUri, QuartoKernelState.None);
 	}
 
 	async restartKernelForDocument(

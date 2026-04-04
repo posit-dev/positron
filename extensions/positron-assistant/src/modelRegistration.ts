@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
+import { createAutomaticModelConfigs, getModelProviders, newLanguageModelChatProvider } from './providers';
 import { getModelConfigurations } from './config';
 import { ModelConfig, StoredModelConfig } from './configTypes.js';
 import { newCompletionProvider } from './completion';
@@ -158,12 +158,6 @@ export async function registerModels(context: vscode.ExtensionContext) {
 			await registerModelWithAPI(config, context);
 			registeredModels.push(config);
 			if (autoModelConfigs.includes(config)) {
-				// In addition, track auto-configured models separately
-				// at a module level so that we can expose them via
-				// getAutoconfiguredModels()
-				// This is needed since auto-configured models are not
-				// stored in persistent storage like manually configured models
-				// are, and configuration data needs to be retrieved from memory.
 				addAutoconfiguredModel(config);
 			}
 		} catch (e) {
@@ -173,8 +167,7 @@ export async function registerModels(context: vscode.ExtensionContext) {
 		}
 	}
 
-	// Set context for if we have chat models available for use
-	// Check both Positron-registered models and other language models (e.g., Copilot)
+	// Set context for if we have chat models available for use.
 	const hasPositronChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
 	let hasOtherChatModels = false;
 
@@ -194,10 +187,15 @@ export async function registerModels(context: vscode.ExtensionContext) {
  * Re-register models for a specific provider only.
  * This is more efficient than registerModels(), but only one provider's state changes.
  *
+ * When `authProviderId` is provided and no stored or auto-configured models
+ * exist, a default config is created from the provider's source metadata
+ * if an auth session is available.
+ *
  * @param context The extension context
  * @param providerId The provider ID to re-register (e.g., 'snowflake-cortex')
+ * @param authProviderId Optional auth provider ID for session-based fallback
  */
-export async function registerModelsForProvider(context: vscode.ExtensionContext, providerId: string) {
+export async function registerModelsForProvider(context: vscode.ExtensionContext, providerId: string, authProviderId?: string) {
 	// Dispose only models for this provider
 	disposeModels(providerId);
 	// Also remove from autoconfigured models list
@@ -225,11 +223,40 @@ export async function registerModelsForProvider(context: vscode.ExtensionContext
 			}
 		}
 
+		// Session-based fallback: if no configs found and an auth
+		// provider ID was given, create a default config from
+		// provider metadata when a session exists.
+		const sessionConfigs = new Set<ModelConfig>();
+		if (modelConfigs.length === 0 && authProviderId) {
+			const provider = getModelProviders().find(
+				p => p.source.provider.id === providerId
+			);
+			if (provider) {
+				const session = await vscode.authentication.getSession(
+					authProviderId, [], { silent: true }
+				);
+				if (session) {
+					const config: ModelConfig = {
+						id: providerId,
+						provider: providerId,
+						type: provider.source.type,
+						name: provider.source.provider.displayName,
+						model: provider.source.defaults.model,
+						toolCalls: provider.source.defaults.toolCalls,
+						completions: provider.source.defaults.completions,
+						apiKey: '',
+					};
+					modelConfigs.push(config);
+					sessionConfigs.add(config);
+				}
+			}
+		}
+
 		// Register models for this provider
 		for (const config of modelConfigs) {
 			try {
 				await registerModelWithAPI(config, context);
-				if (autoModelConfigs.includes(config)) {
+				if (autoModelConfigs.includes(config) || sessionConfigs.has(config)) {
 					addAutoconfiguredModel(config);
 				}
 				log.info(`[Model Registration] Re-registered model for provider: ${providerId}`);

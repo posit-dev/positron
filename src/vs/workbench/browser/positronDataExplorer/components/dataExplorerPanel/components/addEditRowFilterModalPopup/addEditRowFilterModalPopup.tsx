@@ -126,7 +126,7 @@ const isTwoParams = (filterType: RowFilterDescrType | undefined) => {
 		return false;
 	}
 	return filterNumParams(filterType) === 2;
-}
+};
 
 /**
  * AddEditRowFilterModalPopupProps interface.
@@ -831,10 +831,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					ref={dropDownColumnSelectorRef}
 					dataExplorerClientInstance={props.dataExplorerClientInstance}
 					selectedColumnSchema={selectedColumnSchema}
-					title={(() => localize(
+					title={localize(
 						'positron.addEditRowFilter.selectColumn',
 						"Select Column"
-					))()}
+					)}
 					onSelectedColumnSchemaChanged={columnSchema => {
 						// Set the selected column schema.
 						setSelectedColumnSchema(columnSchema);
@@ -851,10 +851,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					disabled={selectedColumnSchema === undefined}
 					entries={conditionEntries()}
 					selectedIdentifier={selectedFilterType}
-					title={(() => localize(
+					title={localize(
 						'positron.addEditRowFilter.selectCondition',
 						"Select Condition"
-					))()}
+					)}
 					onSelectionChanged={handleSelectionChanged}
 				/>
 
@@ -867,10 +867,10 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					className='solid button-apply-row-filter'
 					onPressed={applyRowFilter}
 				>
-					{(() => localize(
+					{localize(
 						'positron.addEditRowFilter.applyFilter',
 						"Apply Filter"
-					))()}
+					)}
 				</Button>
 			</div>
 		</PositronModalPopup>

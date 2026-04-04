@@ -206,6 +206,9 @@ class UiBackendRequest(str, enum.Enum):
     # have changed.
     DidChangePlotsRenderSettings = "did_change_plots_render_settings"
 
+    # Notification that the frontend is ready
+    FrontendReady = "frontend_ready"
+
     # Run a method in the interpreter and return the result to the frontend
     CallMethod = "call_method"
 
@@ -238,6 +241,41 @@ class DidChangePlotsRenderSettingsRequest(BaseModel):
 
     method: Literal[UiBackendRequest.DidChangePlotsRenderSettings] = Field(
         description="The JSON-RPC method name (did_change_plots_render_settings)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class FrontendReadyParams(BaseModel):
+    """
+    This notification is sent by the frontend after the UI comm has been
+    established. The backend uses this signal to run session
+    initialization hooks that may need to communicate with the frontend
+    via RPCs (e.g. rstudioapi calls).
+    """
+
+    start_type: StrictStr = Field(
+        description="The type of session start: 'new' for new sessions, 'restart' for restarted sessions, 'reconnect' for reconnected sessions",
+    )
+
+
+class FrontendReadyRequest(BaseModel):
+    """
+    This notification is sent by the frontend after the UI comm has been
+    established. The backend uses this signal to run session
+    initialization hooks that may need to communicate with the frontend
+    via RPCs (e.g. rstudioapi calls).
+    """
+
+    params: FrontendReadyParams = Field(
+        description="Parameters to the FrontendReady method",
+    )
+
+    method: Literal[UiBackendRequest.FrontendReady] = Field(
+        description="The JSON-RPC method name (frontend_ready)",
     )
 
     jsonrpc: str = Field(
@@ -316,6 +354,7 @@ class UiBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
         DidChangePlotsRenderSettingsRequest,
+        FrontendReadyRequest,
         CallMethodRequest,
         EvaluateCodeRequest,
     ] = Field(..., discriminator="method")
@@ -669,6 +708,10 @@ PreviewSource.update_forward_refs()
 DidChangePlotsRenderSettingsParams.update_forward_refs()
 
 DidChangePlotsRenderSettingsRequest.update_forward_refs()
+
+FrontendReadyParams.update_forward_refs()
+
+FrontendReadyRequest.update_forward_refs()
 
 CallMethodParams.update_forward_refs()
 

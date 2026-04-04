@@ -37,6 +37,7 @@ import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
 import { MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { IForegroundSessionContribution } from '../../runtimeSession/browser/foregroundSessionContribution.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -143,6 +144,14 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._positronConsoleFocusedContextKey.set(focused);
 
 		if (focused) {
+			// When the console pane gains focus, ensure the foreground session matches
+			// the active console instance. If the user clicked a console tab, that already
+			// set the foreground session via onDidChangeActivePositronConsoleInstance. This
+			// handles the case where the user clicks elsewhere in the console pane (not a tab).
+			const activeInstance = this.positronConsoleService.activePositronConsoleInstance;
+			if (activeInstance?.attachedRuntimeSession) {
+				this.foregroundSessionContribution.setForegroundSession(activeInstance.attachedRuntimeSession);
+			}
 			this._onFocusedEmitter.fire();
 		}
 	}
@@ -187,6 +196,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IForegroundSessionContribution private readonly foregroundSessionContribution: IForegroundSessionContribution,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
@@ -343,7 +353,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			// Remove duplicates, and current runtime.
 			.filter((runtime, index, runtimes) =>
 				runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
-			)
+			);
 
 		// Add current runtime first, if present.
 		// Allows for "plus" + enter behavior to clone session.

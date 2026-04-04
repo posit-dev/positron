@@ -122,7 +122,7 @@ test.describe('Quarto - Inline Output: Popout', {
 		await expect(inlineQuarto.popoutButton).not.toBeVisible({ timeout: 5000 });
 	});
 
-	test.skip('Python - Verify popout button opens interactive HTML in viewer panel',
+	test('Python - Verify popout button opens interactive HTML in viewer panel',
 		{
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12373' }]
 		}, async function ({ app, openFile }) {

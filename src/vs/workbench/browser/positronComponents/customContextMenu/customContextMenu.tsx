@@ -7,7 +7,7 @@
 import './customContextMenu.css';
 
 // React.
-import React, { useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -20,6 +20,9 @@ import { CustomContextMenuItem, CustomContextMenuItemOptions } from './customCon
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { AnchorMode, AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
+
+// Constants.
+const SUBMENU_HOVER_DELAY = 300;
 
 /**
  * CustomContextMenuEntry type.
@@ -68,6 +71,7 @@ export class CustomContextMenuSubmenu {
  * CustomContextMenuProps interface.
  */
 export interface CustomContextMenuProps {
+	readonly isSubmenu?: boolean;
 	readonly anchorElement: HTMLElement;
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
@@ -87,6 +91,7 @@ export interface CustomContextMenuProps {
 
 /**
  * Shows a custom context menu.
+ * @param isSubmenu Whether this context menu is a submenu.
  * @param anchorElement The anchor element.
  * @param anchorPoint The anchor point.
  * @param popupPosition The popup position.
@@ -96,8 +101,10 @@ export interface CustomContextMenuProps {
  * @param entries The context menu entries.
  * @param onClose The callback to call when the context menu is closed/disposed.
  * @param onDismissParentMenus Callback to dismiss parent menus when an item is selected.
+ * @returns The PositronModalReactRenderer for the custom context menu that can be disposed to close the context menu (and its submenu hierarchy).
  */
 export const showCustomContextMenu = ({
+	isSubmenu,
 	anchorElement,
 	anchorPoint,
 	popupPosition,
@@ -108,21 +115,22 @@ export const showCustomContextMenu = ({
 	entries,
 	onClose,
 	onDismissParentMenus,
-}: CustomContextMenuProps) => {
+}: CustomContextMenuProps): PositronModalReactRenderer => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
+		allowPointerPassthrough: isSubmenu,
 		container: PositronReactServices.services.workbenchLayoutService.getContainer(DOM.getWindow(anchorElement)),
 		parent: anchorElement,
 		onDisposed: onClose
 	});
 
 	// Supply the default width.
-	if (!width) {
+	if (width === undefined) {
 		width = 'auto';
 	}
 
 	// Supply the default min width.
-	if (!minWidth) {
+	if (minWidth === undefined) {
 		minWidth = 'auto';
 	}
 
@@ -141,6 +149,9 @@ export const showCustomContextMenu = ({
 			onDismissParentMenus={onDismissParentMenus}
 		/>
 	);
+
+	// Return the renderer so callers can dispose it (and its submenu hierarchy).
+	return renderer;
 };
 
 /**
@@ -165,8 +176,22 @@ interface CustomContextMenuModalPopupProps {
  * @returns The rendered component.
  */
 const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) => {
-	// Context hooks.
+	// Services.
 	const services = usePositronReactServicesContext();
+
+	// The active submenu renderer.
+	const activeSubmenuRendererRef = useRef<PositronModalReactRenderer | undefined>(undefined);
+
+	/**
+	 * Closes the active submenu.
+	 */
+	const closeActiveSubmenu = useCallback(() => {
+		// If there is an active submenu, dispose it and clear the ref.
+		if (activeSubmenuRendererRef.current !== undefined) {
+			activeSubmenuRendererRef.current.dispose();
+			activeSubmenuRendererRef.current = undefined;
+		}
+	}, []);
 
 	/**
 	 * Dismisses this modal popup.
@@ -194,7 +219,14 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	 */
 	const MenuSeparator = () => {
 		// Render.
-		return <div className='custom-context-menu-separator' role='separator' />;
+		return (
+			<div
+				className='custom-context-menu-separator'
+				role='separator'
+				// When the mouse enters a menu separator, close the active submenu.
+				onMouseEnter={closeActiveSubmenu}
+			/>
+		);
 	};
 
 	/**
@@ -209,11 +241,11 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	const MenuItem = (options: CustomContextMenuItemOptions) => {
 		// Get the shortcut, if there is a command ID.
 		let shortcut = '';
-		if (options.commandId) {
+		if (!!options.commandId) {
 			const keybinding = services.keybindingService.lookupKeybinding(options.commandId);
-			if (keybinding) {
+			if (!!keybinding) {
 				let label = keybinding.getLabel();
-				if (label) {
+				if (!!label) {
 					if (isMacintosh) {
 						label = label.replace('⇧', '⇧ ');
 						label = label.replace('⌥', '⌥ ');
@@ -232,11 +264,13 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 					{ 'checkable': options.checked !== undefined }
 				)}
 				disabled={options.disabled}
+				// When the mouse enters a menu item, close the active submenu.
+				onMouseEnter={closeActiveSubmenu}
 				onPressed={e => {
 					// Ensure we close the menu and the parent menus when a menu item selection is made.
 					dismissAllMenus();
 					options.onWillSelect?.();
-					if (options.commandId) {
+					if (options.commandId !== undefined) {
 						services.commandService.executeCommand(options.commandId);
 					}
 					options.onSelected(e);
@@ -287,18 +321,65 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		// Reference to the submenu item that will be used to position the actual submenu popup.
 		const buttonRef = useRef<HTMLButtonElement>(null);
 
+		// The submenu renderer ref.
+		const submenuRendererRef = useRef<PositronModalReactRenderer | undefined>(undefined);
+
+		// Timer for the hover delay before opening a submenu. This prevents submenus from
+		// flickering open and closed as the user moves the mouse through the menu vertically.
+		const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+		/**
+		 * Starts the hover timer to open the submenu after a delay.
+		 */
+		const startHoverTimer = () => {
+			// Cancel pending hover timer.
+			cancelHoverTimer();
+
+			// Do nothing if the submenu item is disabled.
+			if (options.disabled === true) {
+				return;
+			}
+
+			// Start a new hover timer to open the submenu after a delay.
+			hoverTimerRef.current = setTimeout(openSubmenu, SUBMENU_HOVER_DELAY);
+		};
+
+		/**
+		 * Cancels the hover timer.
+		 */
+		const cancelHoverTimer = () => {
+			// If there is a hover timer, cancel it and clear the ref.
+			if (hoverTimerRef.current !== undefined) {
+				clearTimeout(hoverTimerRef.current);
+				hoverTimerRef.current = undefined;
+			}
+		};
+
+		// Cancel hover timer on unmount.
+		useEffect(() => cancelHoverTimer, []);
+
 		/**
 		 * Opens the submenu (another custom context menu) positioned relative to this menu item.
 		 */
 		const openSubmenu = () => {
+			// Do nothing if the submenu item is disabled or if the button ref is not set yet.
 			if (options.disabled || !buttonRef.current) {
 				return;
 			}
 
+			// If this item's submenu is already the active one, return. Don't close and reopen it (which causes a flicker).
+			if (submenuRendererRef.current !== undefined && submenuRendererRef.current === activeSubmenuRendererRef.current) {
+				return;
+			}
+
+			// Close the active submenu before opening this submenu.
+			closeActiveSubmenu();
+
 			// Show the submenu by creating a new custom context menu instance.
 			// We use 'avoid' anchor mode to position the submenu adjacent to the parent menu item,
 			// instead of below the parent menu item so the parent menu item is not covered up.
-			showCustomContextMenu({
+			const renderer = showCustomContextMenu({
+				isSubmenu: true,
 				anchorElement: buttonRef.current,
 				popupPosition: 'auto',
 				popupAlignment: 'auto',
@@ -307,7 +388,15 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				entries: options.entries(),
 				// Passing down a function that will allow the submenu to dismiss the parent menus.
 				onDismissParentMenus: dismissAllMenus,
+				// On close, clear the submenu renderer ref.
+				onClose: () => {
+					submenuRendererRef.current = undefined;
+				},
 			});
+
+			// Set the submenu renderer ref and the active submenu renderer ref to this submenu's renderer.
+			submenuRendererRef.current = renderer;
+			activeSubmenuRendererRef.current = renderer;
 		};
 
 		/**
@@ -317,8 +406,11 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		 * @param e The keyboard event.
 		 */
 		const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+			// Cancel hover timer on keydown.
+			cancelHoverTimer();
+
 			// Do nothing if the submenu item is disabled.
-			if (options.disabled) {
+			if (!!options.disabled) {
 				return;
 			}
 
@@ -338,6 +430,8 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				className='custom-context-menu-item'
 				disabled={options.disabled}
 				onKeyDown={handleKeyDown}
+				onMouseEnter={startHoverTimer}
+				onMouseLeave={cancelHoverTimer}
 				onPressed={openSubmenu}
 			>
 				{options.icon &&

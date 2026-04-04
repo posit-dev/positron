@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -72,7 +72,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 		};
 
 		// Watch for new kernels being added so we can update the quick-pick
-		notebookKernelService.onDidAddKernel(gatherKernelPicks);
+		const onDidAddKernelDisposable = notebookKernelService.onDidAddKernel(gatherKernelPicks);
 
 		gatherKernelPicks();
 
@@ -84,15 +84,15 @@ class SelectPositronNotebookKernelAction extends Action2 {
 					// Link kernel with notebook
 					notebookKernelService.selectKernelForNotebook(selectedKernel, notebook);
 					didSelectKernel = true;
+					activeNotebook.grabFocus();
 				}
 				quickPick.hide();
-				quickPick.dispose();
-				resolve(true);
 			});
 
 			quickPick.show();
 
 			quickPick.onDidHide(() => {
+				onDidAddKernelDisposable.dispose();
 				quickPick.dispose();
 				resolve(didSelectKernel);
 			});
