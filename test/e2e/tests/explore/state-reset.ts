@@ -7,7 +7,6 @@ import { Application } from '../../infra/application';
 
 const RESET_STEP_TIMEOUT = 2000;
 const SESSION_RESET_TIMEOUT = 6000;
-const STARTUP_MESSAGING_TIMEOUT = 30000;
 
 /**
  * Attempt to resolve a Promise within a timeout.
@@ -81,12 +80,6 @@ export async function resetState(app: Application): Promise<string[]> {
 		await app.workbench.quickaccess.runCommand('workbench.action.focusActiveEditorGroup');
 	}, RESET_STEP_TIMEOUT);
 	actions.push(focusedEditor ? 'Focused editor area' : 'Focus editor: skipped');
-
-	// 7. Wait for startup messaging to clear (interpreter discovery, etc.)
-	const startupCleared = await withTimeout(async () => {
-		await app.workbench.sessions.expectNoStartUpMessaging();
-	}, STARTUP_MESSAGING_TIMEOUT);
-	actions.push(startupCleared ? 'Startup messaging cleared' : 'Startup messaging: skipped (timeout)');
 
 	return actions;
 }
