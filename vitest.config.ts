@@ -10,7 +10,11 @@ export default defineConfig({
 	test: {
 		globals: true,
 		environment: 'happy-dom',
-		include: ['src/vs/**/*.vitest.ts', 'src/vs/**/*.vitest.tsx'],
+		include: [
+			'src/vs/**/*.vitest.ts',
+			'src/vs/**/*.vitest.tsx',
+			'extensions/positron-*/src/test/**/*.vitest.ts',
+		],
 		setupFiles: ['./src/vs/base/test/common/vitestSetup.ts'],
 		testTimeout: 10000,
 	},
