@@ -592,12 +592,12 @@ The largest Positron modules with zero unit tests, ranked by source file count:
 | positronVariables (contrib/UI) | 21 | 0 | All deps already mocked. Mainly UI wiring and actions. |
 | positronPreview | 19 | 1 | Needs NotebookOutputWebviewService mock |
 | positronVariables (service) | 12 | 2 | Needs RuntimeNotebookKernelService, QuartoExecutionManager mocks |
-| positronPackages | 12 | Not audited | |
-| positronLayout (service) | 12 | Not audited | |
-| positronPlots (service) | 11 | Not audited | |
-| positronHistory (contrib) | 9 | Not audited | |
-| positronHelp | 8 | Not audited | |
+| positronPackages | 12 | 0 | All deps already mocked. Only needs RuntimeSessionService + LogService. |
+| positronLayout (service) | 12 | 2 | Needs WorkbenchLayoutService, ViewDescriptorService mocks |
+| positronPlots (service) | 11 | 4 | Needs ClipboardService, ContextKeyService, FileDialogService, PositronPreviewService. Has 17 total deps but 13 are already mocked. |
+| positronHistory (contrib) | 9 | 1 | Needs PositronHistoryService mock (the service itself is empty) |
+| positronHelp | 8 | 1 | Needs PositronDocsService mock. All other 9 deps already available. |
 
-The existing `positronWorkbenchInstantiationService()` (wrapped by our builder's `.withWorkbenchServices()`) already stubs 124+ services. Most untested modules can be tested with what exists today -- only 5 new mocks total are needed across the top 5 modules.
+The existing `positronWorkbenchInstantiationService()` (wrapped by our builder's `.withWorkbenchServices()`) already stubs 124+ services. Across all 10 untested modules, only **13 new mocks** are needed total. Three modules (positronDataExplorer, positronVariables contrib, positronPackages) need zero new mocks and can be tested immediately.
 
 **Recommended starting point**: positronDataExplorer (35 files, 0 new mocks, existing test helpers already in Vitest).
