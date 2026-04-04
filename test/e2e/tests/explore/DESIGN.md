@@ -94,3 +94,19 @@ Manual QA testing is slow and doesn't scale. We wanted AI (Claude Code) to drive
 | Agent | Claude only | Claude only | Any (ACP) | Claude only |
 | Multi-browser | Custom setup each | Browser only | Yes | Electron + browser |
 | CI ready | No | No | Yes | Not yet |
+
+## v2: Run-Plan Architecture (2026-04)
+
+The original explore runner used per-step HTTP calls (2-4 round-trips via `/batch`).
+v2 adds a `/run-plan` endpoint that executes the entire test in one HTTP call,
+with per-step timeouts, state reset between retries, and an enriched observer.
+
+See `docs/superpowers/specs/2026-04-03-qa-test-v2-design.md` for the full spec.
+
+Key additions:
+- `POST /run-plan` -- one-shot test execution with structured report
+- `state-reset.ts` -- best-effort cleanup between retry attempts
+- `scripts/generate-pom-reference.ts` -- type-rich POM API reference for AI
+- Enriched observer with variable names, session status, notifications, tabs
+- Per-step timeout overrides (default 10s, configurable per step)
+- Retry budget of 2 attempts with automatic state reset

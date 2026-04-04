@@ -138,6 +138,81 @@ Every action returns:
 The `state` object is the key feedback loop -- the AI reads it to decide if a step
 passed and what to do next.
 
+## Run Plan (One-Shot Test Execution)
+
+The `/run-plan` endpoint executes an entire test in a single HTTP call.
+This is the primary endpoint for AI-driven QA -- it replaces per-step
+`/pom` and `/action` calls for deterministic test scenarios.
+
+### Request
+
+```
+POST /run-plan
+{
+  "title": "QA #12345: Variable appears after execution",
+  "stepTimeout": 10000,
+  "resetBefore": false,
+  "steps": [
+    {"type": "pom", "pom": "sessions", "method": "start", "args": ["python"], "timeout": 20000, "title": "Start Python"},
+    {"type": "pom", "pom": "console", "method": "executeCode", "args": ["Python", "x = 42"], "title": "Run code"},
+    {"type": "pom", "pom": "variables", "method": "expectVariableToBe", "args": ["x", "42"], "timeout": 5000, "title": "Check variable"}
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string (required) | Label for the Playwright report |
+| `steps` | array (required) | Ordered steps (same schema as `/batch`) |
+| `resetBefore` | boolean (default false) | Run state cleanup before steps |
+| `stepTimeout` | number (default 10000) | Default timeout per step in ms |
+
+Per-step `timeout` overrides `stepTimeout` for individual steps.
+
+### Response (success)
+
+```json
+{
+  "passed": 3,
+  "failed": 0,
+  "steps": [
+    {"title": "Start Python", "success": true, "duration": 2100},
+    {"title": "Run code", "success": true, "duration": 800},
+    {"title": "Check variable", "success": true, "duration": 400}
+  ],
+  "totalDuration": 3300,
+  "state": {"variableCount": 1, "variableNames": ["x"], "activeSession": "Python: idle"}
+}
+```
+
+### Response (failure at step 2 of 3)
+
+```json
+{
+  "passed": 1,
+  "failed": 1,
+  "steps": [
+    {"title": "Start Python", "success": true, "duration": 2100},
+    {"title": "Run code", "success": false, "error": "Timeout 10000ms exceeded", "duration": 10023}
+  ],
+  "skipped": 1,
+  "totalDuration": 12123,
+  "state": {"variableCount": 0, "notifications": ["Interpreter disconnected"]}
+}
+```
+
+### State Reset
+
+When `resetBefore: true`, the server runs cleanup before executing steps:
+1. Dismiss overlays (3x Escape)
+2. Close all editors
+3. Clear notifications
+4. Delete all sessions
+5. Toggle bottom panel
+6. Focus editor area
+
+Each cleanup step has a short timeout and fails silently.
+
 ## Claude Code Permissions
 
 The skill sends multiple `Bash` and `curl` commands per test run. To avoid being
