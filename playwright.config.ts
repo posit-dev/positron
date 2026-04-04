@@ -35,6 +35,7 @@ const baseIgnore = [
 	'**/assistant-eval/**',
 	// Explore tests are on-demand QA tools, excluded unless ALLOW_EXPLORE is set
 	...process.env.ALLOW_EXPLORE ? [] : ['**/explore/**'],
+	'**/qa-generated/**',
 ];
 
 let reporter: ReporterDescription[];

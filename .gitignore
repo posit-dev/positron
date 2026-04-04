@@ -40,6 +40,9 @@ pwb-version
 !.claude/settings.json
 .claude/skills/qa-test-plan/output/
 demo-videos/
+# AI-generated QA test files (on-demand, not for CI)
+test/e2e/tests/qa-generated/*.test.ts
+test/e2e/tests/qa-generated/pom-reference.md
 # Often used for agent and personal notes
 /thoughts
 
