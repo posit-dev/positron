@@ -106,7 +106,7 @@ The core value is eliminating the compilation bottleneck. This benefits all Type
 
 ### Why not replace upstream VS Code tests too?
 
-Positron merges upstream VS Code roughly every month (1.106, 1.107, 1.108, 1.109...). Modifying 814 upstream test files would cause hundreds of merge conflicts on every upstream merge. The fork boundary is the natural framework boundary:
+Positron merges upstream VS Code roughly every month (1.106, 1.107, 1.108, 1.109...). Modifying 814 upstream test files would cause hundreds of merge conflicts on every upstream merge. We already see this cost: 18 upstream test files currently have `// --- Start Positron ---` markers where we had to modify constructor args, stub Positron services, or change expected values. Each of those is a merge conflict waiting to happen. The fork boundary is the natural framework boundary:
 
 - Positron code = Vitest
 - Upstream VS Code code = Mocha (untouched)
