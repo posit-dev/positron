@@ -575,10 +575,12 @@ Write a standalone `.test.ts` file when saving (via `--save` flag, or user said 
 
 import { test } from './_qa.setup';
 
-test('QA #12345: Variable appears after execution', async ({ app }) => {
-	const { sessions, console, variables } = app.workbench;
+test.use({ suiteId: __filename });
 
-	await sessions.start('python');
+test('QA #12345: Variable appears after execution', async function ({ app, python }) {
+	const { console, variables } = app.workbench;
+
+	// Execute code and verify variable
 	await console.executeCode('Python', 'x = 42');
 	await variables.expectVariableToBe('x', '42');
 });
@@ -586,7 +588,14 @@ test('QA #12345: Variable appears after execution', async ({ app }) => {
 
 **Rules:**
 - Import from `./_qa.setup`, not `../_test.setup`
+- Always include `test.use({ suiteId: __filename })` for app isolation
+- Use `function` syntax (not arrow functions) for fixture access
 - Use tabs for indentation
+- **Use fixtures instead of manual session starts:**
+  - Test needs Python? Use the `python` fixture -- it auto-starts the interpreter
+  - Test needs R? Use the `r` fixture
+  - Test needs both? Use `sessions` fixture and start manually
+  - Test doesn't need an interpreter? Just use `app`
 - Destructure `app.workbench` at the top of the test body for cleaner calls
 - Do NOT wrap POM calls in `test.step()` -- POM methods already have their own internal `test.step()` wrappers
 - Map action steps to the equivalent Playwright calls
