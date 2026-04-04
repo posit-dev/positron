@@ -436,12 +436,14 @@ async function executeActionDirect(app: Application, step: BatchStep): Promise<A
 export async function executeRunPlan(app: Application, request: RunPlanRequest): Promise<RunPlanResult> {
 	const startTime = Date.now();
 
-	// 1. Optional state reset
+	// 1. Optional state reset (indicates a retry attempt)
 	let resetActions: string[] | undefined;
 	if (request.resetBefore) {
-		resetActions = await test.step('State reset', async () => {
+		resetActions = await test.step('--- Attempt 2 ---', async () => {
 			return await resetState(app);
 		});
+		// Reset step counter so retry steps start from 1
+		stepCounter = 0;
 	}
 
 	// 2. Execute steps sequentially with per-step timeouts
