@@ -429,11 +429,25 @@ Summary format:
 Target: Local dev (Electron)
 Browser: e2e-electron
 
-### Results: 3/3 PASSED (3.3s total)
+### Result: PASSED (3/3 steps, 3.3s)
 
 Step 1: Start Python session ............ PASS (2100ms)
 Step 2: Execute x = 42 .................. PASS (800ms)
 Step 3: Verify x in Variables pane ....... PASS (400ms)
+```
+
+When any step fails, change the header to make the failure obvious:
+
+```
+### Result: FAILED (2/3 steps passed, 1 FAILED, 12.1s)
+
+  Failed step: "Verify outline contains [Introduction, Data Loading, Analysis]"
+  Error: Timeout 10000ms exceeded
+  State: notifications=["Interpreter disconnected"], variableCount=0
+
+Step 1: Start Python session ............ PASS (2100ms)
+Step 2: Execute x = 42 .................. PASS (800ms)
+Step 3: Verify x in Variables pane ....... FAIL (10023ms)
 
 ### State after test
 - Active session: Python: idle
