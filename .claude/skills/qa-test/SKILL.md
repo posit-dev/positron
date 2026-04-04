@@ -518,17 +518,19 @@ If the `--save` flag was provided and the test passed, write a standalone `.test
 import { test } from './_qa.setup';
 
 test('QA #12345: Variable appears after execution', async ({ app }) => {
-	await app.workbench.sessions.start('python');
-	await app.workbench.console.executeCode('Python', 'x = 42');
-	await app.workbench.variables.expectVariableToBe('x', '42');
+	const { sessions, console, variables } = app.workbench;
+
+	await sessions.start('python');
+	await console.executeCode('Python', 'x = 42');
+	await variables.expectVariableToBe('x', '42');
 });
 ```
 
 **Rules:**
 - Import from `./_qa.setup`, not `../_test.setup`
 - Use tabs for indentation
+- Destructure `app.workbench` at the top of the test body for cleaner calls
 - Do NOT wrap POM calls in `test.step()` -- POM methods already have their own internal `test.step()` wrappers
-- Map POM steps to `app.workbench[pom].method(...args)` -- direct calls, no extra wrapping
 - Map action steps to the equivalent Playwright calls
 
 ## Error Handling
