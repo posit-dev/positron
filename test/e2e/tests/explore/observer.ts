@@ -21,6 +21,7 @@ export async function observeState(app: Application): Promise<AppState> {
 		try {
 			const state = await Promise.race([
 				page.evaluate(() => {
+					// -- Existing probes --
 					const activeTab = document.querySelector('.tab.active .label-name');
 					const activeEditor = activeTab?.textContent?.trim();
 
@@ -32,14 +33,71 @@ export async function observeState(app: Application): Promise<AppState> {
 						: undefined;
 
 					const variableSelector = '.variables-instance[style*="z-index: 1"] .variable-item:not(.disabled)';
-					const variableCount = document.querySelectorAll(variableSelector).length;
+					const variableElements = document.querySelectorAll(variableSelector);
+					const variableCount = variableElements.length;
 
 					const plotImg = document.querySelector('.plot-instance img');
 					const plotVisible = plotImg
 						? (plotImg as HTMLElement).offsetWidth > 0 && (plotImg as HTMLElement).offsetHeight > 0
 						: false;
 
-					return { activeEditor, consoleLinesCount, lastConsoleOutput, variableCount, plotVisible };
+					// -- New probes --
+
+					// Variable names (up to 20)
+					const variableNames: string[] = [];
+					variableElements.forEach((el, i) => {
+						if (i >= 20) { return; }
+						const name = el.querySelector('.name-column-value, .name-value')?.textContent?.trim();
+						if (name) { variableNames.push(name); }
+					});
+
+					// Session count and active session
+					const sessionTabs = document.querySelectorAll('[data-testid*="console-tab"]');
+					const sessionCount = sessionTabs.length;
+					const activeSessionTab = document.querySelector('[data-testid*="console-tab"] .tab-button--active');
+					const activeSession = activeSessionTab?.closest('[data-testid*="console-tab"]')?.textContent?.trim();
+
+					// Notifications
+					const notifications: string[] = [];
+					document.querySelectorAll('.notification-toast .notification-list-item-message, .notifications-toasts .notification-toast-message').forEach((el, i) => {
+						if (i >= 5) { return; }
+						const text = (el as HTMLElement).textContent?.trim();
+						if (text) { notifications.push(text); }
+					});
+
+					// Open tabs
+					const openTabs: string[] = [];
+					document.querySelectorAll('.tab .label-name').forEach((el, i) => {
+						if (i >= 10) { return; }
+						const text = (el as HTMLElement).textContent?.trim();
+						if (text) { openTabs.push(text); }
+					});
+
+					// Focused panel
+					let focusedPanel: string | undefined;
+					const activeElement = document.activeElement;
+					if (activeElement) {
+						const panelMap: Array<[string, string]> = [
+							['.console-instance', 'console'],
+							['.terminal-wrapper', 'terminal'],
+							['.editor-instance', 'editor'],
+							['.variables-instance', 'variables'],
+							['.plot-instance', 'plots'],
+						];
+						for (const [selector, name] of panelMap) {
+							if (activeElement.closest(selector)) {
+								focusedPanel = name;
+								break;
+							}
+						}
+					}
+
+					return {
+						activeEditor, consoleLinesCount, lastConsoleOutput,
+						variableCount, variableNames, plotVisible,
+						sessionCount, activeSession, notifications,
+						openTabs, focusedPanel,
+					};
 				}),
 				new Promise<AppState>((resolve) =>
 					setTimeout(() => resolve({}), PROBE_TIMEOUT)
