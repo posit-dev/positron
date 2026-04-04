@@ -1,4 +1,4 @@
-# Design Spec: Vitest for Positron Unit Tests
+# Design Spec: Positron Testing Strategy
 
 ## Problem
 
@@ -19,6 +19,98 @@ Positron inherits VS Code's Mocha-based unit test infrastructure. While this ser
 - Any developer (including QA engineers) can write a Positron unit test without help within 30 minutes
 - The untested Positron modules start getting coverage
 - The feedback loop from code change to test result is under 5 seconds locally
+
+---
+
+## The Testing Pyramid
+
+Positron's testing strategy follows a three-layer pyramid. The rule is simple: **test at the lowest layer that can catch the bug.**
+
+```
+            /\
+           /  \        E2E (Playwright)
+          / UI \       "Does the app work for the user?"
+         /------\
+        /        \     Extension Host Tests (Mocha)
+       / Extension\    "Does the extension work inside VS Code?"
+      /   Host     \
+     /--------------\
+    /                \  Vitest (Tiers 0-3)
+   /  Unit + Service  \ "Does the logic work?"
+  /____________________\
+```
+
+### Layer 1: Vitest (fast, no Electron)
+
+**What it tests**: Pure functions, service logic, data transformations, state management, React components. Anything that doesn't require `import * as vscode from 'vscode'` or `import * as positron from 'positron'`.
+
+**When to use**: This should be the DEFAULT for new Positron tests. If your code can be tested without the extension host, it belongs here.
+
+**Feedback loop**: Instant. Watch mode re-runs on save. No build daemons, no Electron, no compilation step.
+
+**CI cost**: ~30 seconds standalone.
+
+**Current coverage**: 67 files, 937 tests across Tiers 0-3 (pure logic through full workbench service integration).
+
+### Layer 2: Extension Host Tests (Mocha, needs Electron)
+
+**What it tests**: Code that MUST interact with the real VS Code or Positron extension APIs -- extension activation, command registration, workspace APIs, editor document manipulation, language server integration.
+
+**When to use**: Only when your test imports `vscode` or `positron` and genuinely needs those APIs to function. If your test imports `vscode` just to read a configuration value, consider extracting the logic so it can be tested in Vitest with the config passed as a parameter.
+
+**Feedback loop**: 20-30 seconds (Electron startup + extension activation). Use `npm run test-extension -- -l <extension> --grep '<pattern>'` to run a single test.
+
+**CI cost**: 60-second timeout per extension, run sequentially.
+
+**Current coverage**: ~50 files across 7 Positron extensions.
+
+**Known issue**: ~10-12 files in positron-assistant and positron-r are pure logic tests that don't actually need the extension host. These should be extracted down to Vitest (see Next Steps).
+
+### Layer 3: E2E (Playwright, full application)
+
+**What it tests**: User-visible workflows that span multiple systems -- opening a file, running code in the console, viewing plots, navigating the data explorer. Tests the whole application as a user would use it.
+
+**When to use**: When you need to verify that the pieces work TOGETHER from the user's perspective. Not for testing individual functions or service logic.
+
+**Feedback loop**: Minutes (full app startup, test execution, teardown).
+
+**CI cost**: 40-minute timeout with sharding.
+
+**Current coverage**: 170 files across test/e2e/.
+
+### The Decision Tree
+
+```
+"I need to write a test for X"
+    |
+    v
+Does your code import 'vscode' or 'positron' APIs?
+    |
+    +-- No --> Vitest (Layer 1)
+    |
+    +-- Yes --> Does it NEED those APIs, or just use them for convenience?
+                    |
+                    +-- Convenience (e.g., reading config) --> Extract the logic, test in Vitest
+                    |
+                    +-- Genuinely needs them --> Extension Host Test (Layer 2)
+                                                    |
+                                                    v
+                                          Is this testing a user-visible workflow?
+                                                    |
+                                                    +-- No --> Extension Host Test (Layer 2)
+                                                    +-- Yes --> E2E (Layer 3)
+```
+
+### Why This Matters
+
+Tests at the wrong layer are either too slow or too shallow:
+
+| Anti-pattern | Problem | Fix |
+|---|---|---|
+| Pure logic tested in extension host | 20-30s startup for a 100ms test | Move to Vitest |
+| Service integration tested in E2E | Flaky, slow, hard to debug | Move to Vitest Tier 2-3 |
+| Extension activation tested in Vitest | Can't test -- no vscode APIs | Keep in extension host |
+| UI workflow tested with unit tests | Can't catch integration bugs | Keep in E2E |
 
 ---
 
