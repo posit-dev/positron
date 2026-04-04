@@ -8,7 +8,7 @@ Positron inherits VS Code's Mocha-based unit test infrastructure. While this ser
 
 2. **Running a test is slow.** Tests require background build daemons to compile TypeScript to JavaScript before execution. The feedback loop is: edit code -> wait for daemon to recompile (30-60s first run) -> run test inside Electron. There is no watch mode.
 
-3. **CI is expensive.** The unit test job has a 40-minute timeout. It downloads Electron, installs xvfb, compiles the entire project, installs Playwright browsers, and sets up R -- all before a single test runs.
+3. **CI is heavyweight.** The unit test job downloads Electron, installs xvfb, compiles the entire project, installs Playwright browsers, and sets up R -- all before a single test runs.
 
 4. **Coverage gaps grow.** 20 Positron contrib modules and 14 Positron extensions have zero unit tests. Teams default to E2E tests because unit tests are too hard to write and too slow to iterate on.
 
@@ -74,7 +74,7 @@ Positron's testing strategy follows a three-layer pyramid. The rule is simple: *
 
 **Feedback loop**: Minutes (full app startup, test execution, teardown).
 
-**CI cost**: 40-minute timeout with sharding.
+**CI cost**: Minutes per suite, with sharding.
 
 **Current coverage**: 170 files across test/e2e/.
 
@@ -193,7 +193,7 @@ The core value is eliminating the compilation bottleneck. This benefits all Type
 | Build daemon required | Can't fix -- Mocha runs compiled JS | Eliminated -- esbuild transpiles on the fly |
 | No watch mode | Can't fix well -- daemon must recompile first | Built-in, HMR-based, instant |
 | 124-service mock monster | Could add builder pattern | Same builders + `vi.mock()` for module-level mocking |
-| 40-min CI with Electron/xvfb | Can't fix -- Mocha runner IS Electron | ~30s CI step, plain Node.js process |
+| CI requires Electron/xvfb/compilation | Can't fix -- Mocha runner IS Electron | ~2 min CI step, plain Node.js process |
 | `suite/test` TDD style | Stuck | `describe/it` -- industry standard, team already knows it |
 
 ### Why not replace upstream VS Code tests too?
