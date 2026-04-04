@@ -86,6 +86,16 @@ paraphrase method names.** For example, the method is `doubleClickVariableRow`, 
 `doubleClickVariable`. The method is `waitForCurrentStaticPlot`, not `waitForStaticPlot`.
 If you are not 100% certain of the exact method name, grep the reference before using it.
 
+**CRITICAL: Read the `--` description after each method signature before choosing it.**
+The description tells you WHEN to use the method. If it says "See also: X", read X too.
+Common mistakes the skill keeps making:
+- `waitForCurrentStaticPlot` is for the full-size editor viewer ONLY. For plots in the
+  sidebar Plots pane (the default location), use `waitForCurrentPlot`. When in doubt,
+  always use `waitForCurrentPlot` -- it covers both sidebar and editor.
+- `clickDatabaseIconForVariableRow` is unreliable. Use `doubleClickVariableRow` instead.
+- `expectVariableToBe` values must match exactly. Python DataFrames display as
+  `[N rows x M columns] pandas.DataFrame`, not abbreviated formats.
+
 #### Testability Check
 
 Before starting the runner, confirm the issue can actually be tested with this framework.
@@ -559,8 +569,14 @@ curl -s -X POST "http://localhost:$PORT/done"
 Use `AskUserQuestion` with this exact question:
 > "Would you like to save this as a reusable test file?"
 
-**Do NOT skip this prompt.** Wait for the user's answer before proceeding.
-If yes, generate the `.test.ts` file following Step 6 format.
+**Do NOT skip this prompt.** This applies even if:
+- The test required retries (the corrected steps are what gets saved)
+- Some steps failed but the core scenario worked (save the passing steps)
+- The result was "PASSED after retry"
+
+Wait for the user's answer before proceeding.
+If yes, generate the `.test.ts` file following Step 6 format, using the CORRECTED
+method names and values from the successful retry (not the original failed attempt).
 
 ### Step 6: Save Test
 
