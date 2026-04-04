@@ -74,6 +74,7 @@ function resolveImportPath(importPath: string, baseDir: string): string | null {
 interface MethodSignature {
 	name: string;
 	signature: string;
+	jsdoc: string | null;
 }
 
 interface SubObject {
@@ -119,6 +120,7 @@ function extractMethods(source: string, targetClassName?: string): MethodSignatu
 	// Find the target class and track brace depth through the whole class
 	let inClass = false;
 	let depth = 0; // depth 1 = class body level
+	let pendingJsdoc: string | null = null;
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
@@ -151,8 +153,31 @@ function extractMethods(source: string, targetClassName?: string): MethodSignatu
 
 			const trimmed = line.trim();
 
-			// Skip empty lines, comments, decorators
-			if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/**')) {
+			// Skip empty lines, single-line comments, decorators
+			if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('@')) {
+				continue;
+			}
+
+			// Capture JSDoc blocks
+			if (trimmed.startsWith('/**')) {
+				// Collect the full JSDoc block
+				let jsdocBlock = trimmed;
+				if (!trimmed.includes('*/')) {
+					for (let j = i + 1; j < lines.length; j++) {
+						const jsdocLine = lines[j].trim();
+						jsdocBlock += '\n' + jsdocLine;
+						if (jsdocLine.includes('*/')) {
+							i = j; // advance outer loop past the JSDoc block
+							break;
+						}
+					}
+				}
+				pendingJsdoc = jsdocBlock;
+				continue;
+			}
+
+			// Skip lines that are mid-JSDoc (continuation lines starting with *)
+			if (trimmed.startsWith('*')) {
 				continue;
 			}
 
@@ -176,6 +201,7 @@ function extractMethods(source: string, targetClassName?: string): MethodSignatu
 			);
 
 			if (!methodMatch) {
+				pendingJsdoc = null; // JSDoc was for a non-method member, discard
 				continue;
 			}
 
@@ -204,7 +230,8 @@ function extractMethods(source: string, targetClassName?: string): MethodSignatu
 			// Extract just the signature portion (up to the opening brace or semicolon)
 			const cleaned = cleanSignature(signature);
 			if (cleaned) {
-				methods.push({ name: methodName, signature: cleaned });
+				methods.push({ name: methodName, signature: cleaned, jsdoc: pendingJsdoc });
+				pendingJsdoc = null;
 			}
 		}
 	}
@@ -425,7 +452,68 @@ function findGetterSubObjects(source: string, filePath: string, targetClassName?
 }
 
 // ---------------------------------------------------------------------------
-// 5. Generate the reference for all POMs
+// 5. JSDoc helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract a one-line description from a JSDoc block.
+ * Takes the first meaningful line, stripping Action:/Verify: prefixes for the reference.
+ */
+function extractJsdocSummary(jsdoc: string): string | null {
+	const lines = jsdoc.split('\n');
+	for (const line of lines) {
+		const cleaned = line
+			.replace(/^\/\*\*\s*/, '')  // opening /**
+			.replace(/\*\/\s*$/, '')     // closing */
+			.replace(/^\*\s?/, '')       // continuation *
+			.trim();
+
+		// Skip empty lines, @param, @see, @example, @returns tags
+		if (!cleaned || cleaned.startsWith('@')) {
+			continue;
+		}
+
+		// Strip Action:/Verify: prefix for the reference
+		return cleaned.replace(/^(?:Action|Verify):\s*/i, '');
+	}
+	return null;
+}
+
+/**
+ * Extract @see references from a JSDoc block.
+ */
+function extractJsdocSeeAlso(jsdoc: string): string[] {
+	const sees: string[] = [];
+	for (const line of jsdoc.split('\n')) {
+		const cleaned = line.replace(/^\s*\*?\s*/, '').trim();
+		const seeMatch = cleaned.match(/^@see\s+(\S+.*)/);
+		if (seeMatch) {
+			sees.push(seeMatch[1]);
+		}
+	}
+	return sees;
+}
+
+/**
+ * Format a method entry for the markdown reference, including JSDoc summary and @see links.
+ */
+function formatMethodLine(method: MethodSignature): string {
+	let line = `- ${method.signature}`;
+	if (method.jsdoc) {
+		const summary = extractJsdocSummary(method.jsdoc);
+		const sees = extractJsdocSeeAlso(method.jsdoc);
+		if (summary) {
+			line += ` -- ${summary}`;
+		}
+		if (sees.length > 0) {
+			line += ` (See also: ${sees.join(', ')})`;
+		}
+	}
+	return line;
+}
+
+// ---------------------------------------------------------------------------
+// 6. Generate the reference for all POMs
 // ---------------------------------------------------------------------------
 
 interface PomSection {
@@ -499,7 +587,7 @@ function generateReference(): void {
 			lines.push('- (no public methods found)');
 		} else {
 			for (const method of section.methods) {
-				lines.push(`- ${method.signature}`);
+				lines.push(formatMethodLine(method));
 			}
 		}
 
@@ -513,7 +601,7 @@ function generateReference(): void {
 				lines.push('- (no public methods found)');
 			} else {
 				for (const method of sub.methods) {
-					lines.push(`- ${method.signature}`);
+					lines.push(formatMethodLine(method));
 				}
 			}
 		}
