@@ -439,7 +439,7 @@ export async function executeRunPlan(app: Application, request: RunPlanRequest):
 	// 1. Optional state reset (indicates a retry attempt)
 	let resetActions: string[] | undefined;
 	if (request.resetBefore) {
-		resetActions = await test.step('--- Attempt 2 ---', async () => {
+		resetActions = await test.step('--- Retry ---', async () => {
 			return await resetState(app);
 		});
 		// Reset step counter so retry steps start from 1
