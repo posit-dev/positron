@@ -47,7 +47,92 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 	- `npm run test-vitest:run`: single run
 	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
 	- `npx vitest run --grep '<pattern>'`: run tests matching a pattern
-	- New Positron tests should use `.vitest.ts` extension and the `createTestContainer()` builder from `src/vs/workbench/test/browser/positronTestContainer.ts`
+	- New Positron tests should use `.vitest.ts` extension -- see the tier guide below
+
+### Positron Vitest Tiers
+
+All Positron-specific tests use Vitest (`.vitest.ts`). Choose the tier that matches your test's needs:
+
+**Tier 0 -- Pure Logic** (no DI, no disposables)
+
+For testing pure functions, parsers, utilities, and data transformations. Import the module, call the function, assert the result. No service container, no disposable tracking needed.
+
+```typescript
+import { hasUpdate } from '../../common/positronVersion.js';
+
+describe('positronVersion', () => {
+	it('detects newer version', () => {
+		expect(hasUpdate({ version: '2024.11.0' }, '2024.09.0')).toBe(true);
+	});
+});
+```
+
+**Tier 1 -- Light DI** (1-5 manual stubs)
+
+For testing code that depends on a few services. Create a container, stub only what you need. Disposable tracking is handled automatically by the builder.
+
+```typescript
+import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
+import { ILogService, NullLogService } from '<path>/platform/log/common/log.js';
+
+describe('MyService', () => {
+	const ctx = createTestContainer()
+		.stub(ILogService, new NullLogService())
+		.build();
+
+	it('does the thing', () => {
+		const service = ctx.instantiationService.createInstance(MyService);
+		expect(service.doThing()).toBe(expected);
+	});
+});
+```
+
+**Tier 2 -- Runtime Services** (18 pre-configured stubs)
+
+For testing code that interacts with language runtimes, sessions, or the console. The `.withRuntimeServices()` preset wires up ILanguageRuntimeService, IRuntimeSessionService, and 16 other services.
+
+```typescript
+import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
+import { startTestLanguageRuntimeSession } from '<path>/runtimeSession/test/common/testRuntimeSessionService.js';
+
+describe('MyRuntimeFeature', () => {
+	const ctx = createTestContainer().withRuntimeServices().build();
+
+	it('starts a session', async () => {
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		expect(session).toBeDefined();
+	});
+});
+```
+
+**Tier 3 -- Full Workbench** (124+ pre-configured stubs)
+
+For testing code that needs the full Positron workbench (notebooks, plots, variables, webviews, etc.). The `.withWorkbenchServices()` preset includes everything from Tier 2 plus notebook services, editor services, and all Positron-specific services.
+
+```typescript
+import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
+import { IPositronVariablesService } from '<path>/positronVariables/common/interfaces/positronVariablesService.js';
+
+describe('MyWorkbenchFeature', () => {
+	const ctx = createTestContainer().withWorkbenchServices().build();
+	let variablesService: IPositronVariablesService;
+
+	beforeEach(() => {
+		variablesService = ctx.get(IPositronVariablesService);
+	});
+
+	it('initializes empty', () => {
+		expect(variablesService.activePositronVariablesInstance).toBeUndefined();
+	});
+});
+```
+
+**Key rules across all tiers:**
+- Use the lowest tier that works -- simpler tests are easier to maintain and faster to run
+- The builder result (`ctx`) uses lazy getters -- access `ctx.instantiationService` inside `beforeEach`/`it`, not at describe-level via destructuring
+- `ctx.disposables` is auto-cleaned after each test -- pass it to helpers like `startTestLanguageRuntimeSession()` that need it
+- Override any preset service with `.stub(IService, mock)` after a preset call
+- Upstream VS Code tests stay on Mocha (`.test.ts`) -- only Positron tests use Vitest
 - Extension tests (`extensions/<extension-name>/*.test.ts`, preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- For positron-python, see that extension's CLAUDE.md
 - E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
