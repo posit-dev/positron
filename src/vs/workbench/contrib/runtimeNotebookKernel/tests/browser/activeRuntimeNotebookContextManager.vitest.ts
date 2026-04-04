@@ -10,6 +10,9 @@ import { generateUuid } from '../../../../../base/common/uuid.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { TextResourceEditorInput } from '../../../../common/editor/textResourceEditorInput.js';
@@ -48,10 +51,13 @@ class MockRuntimeSession extends Disposable implements Partial<ILanguageRuntimeS
 	private _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());
 	private _onDidCompleteStartup = this._register(new Emitter<ILanguageRuntimeInfo>());
 	private _onDidEndSession = this._register(new Emitter<ILanguageRuntimeExit>());
+	private _onDidReceiveRuntimeClientEvent = this._register(new Emitter<any>());
 	metadata: IRuntimeSessionMetadata;
+	dynState = { currentWorkingDirectory: '/test' };
 	onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
 	onDidCompleteStartup = this._onDidCompleteStartup.event;
 	onDidEndSession = this._onDidEndSession.event;
+	onDidReceiveRuntimeClientEvent = this._onDidReceiveRuntimeClientEvent.event;
 
 	constructor(notebookUri: URI | undefined, sessionMode: LanguageRuntimeSessionMode) {
 		super();
@@ -90,7 +96,9 @@ class MockRuntimeSession extends Disposable implements Partial<ILanguageRuntimeS
 class MockRuntimeSessionService extends Disposable implements Partial<IRuntimeSessionService> {
 	private _sessions: Map<string, ILanguageRuntimeSession> = new Map();
 	_onDidStartRuntime = this._register(new Emitter<ILanguageRuntimeSession>());
+	_onDidUpdateNotebookSessionUri = this._register(new Emitter<any>());
 	onDidStartRuntime = this._onDidStartRuntime.event;
+	onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUri.event;
 
 	get activeSessions() { return Array.from(this._sessions.values()); }
 
@@ -136,6 +144,8 @@ describe('ActiveRuntimeNotebookContextManager', () => {
 		instantiationService.stub(IEditorService, editorService);
 		instantiationService.stub(IRuntimeSessionService, runtimeSessionService as any);
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
+		instantiationService.stub(ILogService, new NullLogService());
+		instantiationService.stub(IConfigurationService, new TestConfigurationService());
 
 		manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
 	});
