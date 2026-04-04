@@ -26,7 +26,7 @@ test.describe('Data Explorer - Sparklines', {
 
 		await executeCode('Python', pythonScript);
 
-		await variables.doubleClickVariableRow('pythonData');
+		await variables.openVariableInDataExplorer('pythonData');
 		await editors.verifyTab('Data: pythonData', { isVisible: true });
 
 		await hotKeys.closePrimarySidebar();
@@ -42,7 +42,7 @@ test.describe('Data Explorer - Sparklines', {
 
 		await executeCode('R', rScript);
 
-		await variables.doubleClickVariableRow('rData');
+		await variables.openVariableInDataExplorer('rData');
 		await editors.verifyTab(`Data: rData`, { isVisible: true });
 
 		await hotKeys.closePrimarySidebar();

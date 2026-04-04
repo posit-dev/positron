@@ -26,7 +26,7 @@ test.describe('Data Explorer - Python Pandas', {
 
 			// execute code to create a DataFrame
 			await executeCode('Python', df);
-			await variables.doubleClickVariableRow('df');
+			await variables.openVariableInDataExplorer('df');
 			await editors.verifyTab('Data: df', { isVisible: true });
 			await hotKeys.closeSecondarySidebar();
 
@@ -57,7 +57,7 @@ test.describe('Data Explorer - Python Pandas', {
 
 			// execute code to create a DataFrame with empty fields
 			await console.executeCode('Python', emptyFieldsScript);
-			await variables.doubleClickVariableRow('emptyFields');
+			await variables.openVariableInDataExplorer('emptyFields');
 			await editors.verifyTab('Data: emptyFields', { isVisible: true, isSelected: true });
 			await dataExplorer.maximize(false);
 
@@ -102,7 +102,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await notebooks.executeActiveCell();
 
 		// open the DataFrame in data explorer and verify data
-		await variables.doubleClickVariableRow('df');
+		await variables.openVariableInDataExplorer('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 		await hotKeys.notebookLayout();
 		await dataExplorer.grid.verifyTableDataLength(11);
@@ -131,13 +131,13 @@ test.describe('Data Explorer - Python Pandas', {
 			// execute code to create a DataFrame
 			await console.executeCode('Python', mtcarsDf);
 			await variables.focusVariablesView();
-			await variables.doubleClickVariableRow('Data_Frame');
+			await variables.openVariableInDataExplorer('Data_Frame');
 			await editors.verifyTab('Data: Data_Frame', { isVisible: true });
 
 			// move focus out of the the data explorer pane and verify focus returns via variable double click
 			await editors.newUntitledFile();
 			await variables.focusVariablesView();
-			await variables.doubleClickVariableRow('Data_Frame');
+			await variables.openVariableInDataExplorer('Data_Frame');
 			await editors.verifyTab('Data: Data_Frame', { isVisible: true });
 		});
 
@@ -147,7 +147,7 @@ test.describe('Data Explorer - Python Pandas', {
 
 			// execute code to create a DataFrame with blank spaces
 			await console.executeCode('Python', blankSpacesScript);
-			await variables.doubleClickVariableRow('df');
+			await variables.openVariableInDataExplorer('df');
 			await editors.verifyTab('Data: df', { isVisible: true });
 			await dataExplorer.grid.verifyTableData([
 				{ 'x': 'a·' },

@@ -33,12 +33,11 @@ Tracked issues, missing capabilities, and improvement ideas for the explore runn
   - `expectGhostCellOptInVisible()` / `expectGhostCellOptInNotVisible()`
   - Test with: `#12025` (opt-in prompt appears on first notebook with ghost cells)
 
-- [ ] **`clickDatabaseIconForVariableRow` unreliable -- prefer `doubleClickVariableRow`.**
-  During QA testing, `clickDatabaseIconForVariableRow("df")` timed out after 15s while
-  `doubleClickVariableRow("df")` opened the Data Explorer immediately. The database icon
-  may have visibility or hover-trigger issues. For now, use `doubleClickVariableRow` as the
-  reliable way to open a variable in Data Explorer. Investigate whether the icon click needs
-  a hover-to-reveal step or if the locator is stale.
+- [x] **`clickDatabaseIconForVariableRow` unreliable -- prefer `openVariableInDataExplorer`.**
+  RESOLVED: Renamed `doubleClickVariableRow` to `openVariableInDataExplorer` for clarity.
+  The old name caused the AI to abbreviate it as `doubleClickVariable` (wrong). The new
+  name describes intent, not mechanism. `clickDatabaseIconForVariableRow` remains but its
+  JSDoc warns it is unreliable and points to the renamed method.
 
 - [x] **`waitForCurrentStaticPlot` vs `waitForCurrentPlot` -- confusing distinction.**
   RESOLVED: Renamed `waitForCurrentStaticPlot` to `waitForPlotInFullSizeViewer` to make

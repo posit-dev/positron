@@ -768,7 +768,7 @@ Total POMs: 49
 - getFlatVariables(): Promise<Map<string, FlatVariables>> -- Collect all visible variables in the current group into a flat map keyed by name.
 - focusVariablesView() -- Focus the Variables panel using the keyboard shortcut.
 - waitForVariableRow(variableName: string): Promise<Locator> -- Wait for a variable row to become visible and return its locator.
-- doubleClickVariableRow(variableName: string) -- Double-click a variable row to open it in the Data Explorer. (See also: clickDatabaseIconForVariableRow for the icon-based alternative, which can be unreliable)
+- openVariableInDataExplorer(variableName: string) -- Double-click a variable row to open it in the Data Explorer. (See also: clickDatabaseIconForVariableRow for the icon-based alternative, which can be unreliable)
 - hasProgressBar(): Promise<boolean> -- Check whether the variables panel is currently showing a progress bar (loading state).
 - toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) -- Expand or collapse a variable row by clicking its chevron icon. (See also: expandVariable, collapseVariable)
 - expandVariable(variableName: string) -- Expand a variable row to reveal its children. No-ops if already expanded. (See also: collapseVariable, toggleVariable)
@@ -779,7 +779,7 @@ Total POMs: 49
 - selectVariablesGroup(name: string) -- Switch the variables panel to a different group (e.g. "Globals", "Locals"). (See also: selectSession for switching between interpreter sessions)
 - getVariablesGroupList() -- Open the variables group dropdown and return all available group names.
 - setFilterText(filterText: string) -- Type text into the variables filter input to narrow the displayed variable list.
-- clickDatabaseIconForVariableRow(rowName: string) -- Click the database icon on a variable row to open it in the Data Explorer. (See also: doubleClickVariableRow for the reliable alternative)
+- clickDatabaseIconForVariableRow(rowName: string) -- Click the database icon on a variable row to open it in the Data Explorer. (See also: openVariableInDataExplorer for the reliable alternative)
 - clickSessionLink() -- Click the "Session" link in the active view switcher to navigate to the session panel.
 - clickDeleteAllVariables() -- Click the "Delete all objects" button to clear all variables from the current session.
 - expectRuntimeToBe(expectation: 'visible' | 'not.visible', sessionName: string | RegExp) -- Confirm the runtime is visible in the variables pane.

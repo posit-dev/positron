@@ -21,7 +21,7 @@ test.describe('Data Explorer - Python Polars', {
 		await runCommand('python.execInConsole');
 
 		// open the data frame in the data explorer
-		await variables.doubleClickVariableRow('df');
+		await variables.openVariableInDataExplorer('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 		await dataExplorer.maximize(false);
 	});

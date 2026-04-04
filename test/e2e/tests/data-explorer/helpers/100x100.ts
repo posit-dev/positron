@@ -24,7 +24,7 @@ export const testDataExplorer = async (
 	}
 
 	// Open the data frame.
-	await app.workbench.variables.doubleClickVariableRow(dataFrameName);
+	await app.workbench.variables.openVariableInDataExplorer(dataFrameName);
 	await app.workbench.editors.verifyTab(dataFrameName, { isVisible: true });
 
 	// Maximize the data explorer.

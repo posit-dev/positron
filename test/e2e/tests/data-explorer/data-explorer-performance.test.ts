@@ -76,7 +76,7 @@ test.describe('Data Explorer: Performance', { tag: [] }, () => {
 
 				// Record data loading
 				await metric.dataExplorer.loadData(async () => {
-					await variables.doubleClickVariableRow(testCase.varName);
+					await variables.openVariableInDataExplorer(testCase.varName);
 					await editors.verifyTab(`Data: ${testCase.varName}`, { isVisible: true, isSelected: true });
 					await dataExplorer.waitForIdle();
 				}, testCase.varType);

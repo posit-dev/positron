@@ -82,14 +82,14 @@ Read test/e2e/tests/qa-generated/pom-reference.md
 Use the reference to pick exact method names and parameter types for every POM step. **NEVER guess method names or parameter types** -- always consult the reference first.
 
 **CRITICAL: Copy-paste method names from the reference. Do NOT abbreviate, shorten, or
-paraphrase method names.** For example, the method is `doubleClickVariableRow`, not
+paraphrase method names.** For example, the method is `openVariableInDataExplorer`, not
 `doubleClickVariable`. The method is `waitForPlotInFullSizeViewer`, not `waitForFullSizeViewer`.
 If you are not 100% certain of the exact method name, grep the reference before using it.
 
 **CRITICAL: Read the `--` description after each method signature before choosing it.**
 The description tells you WHEN to use the method. If it says "See also: X", read X too.
 Common mistakes:
-- `clickDatabaseIconForVariableRow` is unreliable. Use `doubleClickVariableRow` instead.
+- `clickDatabaseIconForVariableRow` is unreliable. Use `openVariableInDataExplorer` instead.
 - `expectVariableToBe` values must match exactly. Python DataFrames display as
   `[N rows x M columns] pandas.DataFrame`, not abbreviated formats.
 

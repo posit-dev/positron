@@ -179,7 +179,7 @@ test.describe('Positron Notebooks: Inline Data Explorer', {
 		});
 
 		await test.step('Double-click variable in Variables pane reuses existing tab', async () => {
-			await variables.doubleClickVariableRow('df');
+			await variables.openVariableInDataExplorer('df');
 			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 			await expect(async () => {
 				await expect(page.getByRole('tab', { name: 'Data: df' })).toHaveCount(1);

@@ -97,7 +97,7 @@ export class Variables {
 	 * @param variableName the exact name of the variable to open
 	 * @see clickDatabaseIconForVariableRow for the icon-based alternative, which can be unreliable
 	 */
-	async doubleClickVariableRow(variableName: string) {
+	async openVariableInDataExplorer(variableName: string) {
 		await test.step(`Double click variable: ${variableName}`, async () => {
 			await this.hotKeys.showSecondarySidebar();
 			const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
@@ -252,9 +252,9 @@ export class Variables {
 
 	/**
 	 * Action: Click the database icon on a variable row to open it in the Data Explorer.
-	 * WARNING: This method can be unreliable and may time out. Prefer `doubleClickVariableRow` instead.
+	 * WARNING: This method can be unreliable and may time out. Prefer `openVariableInDataExplorer` instead.
 	 * @param rowName the exact name of the variable row
-	 * @see doubleClickVariableRow for the reliable alternative
+	 * @see openVariableInDataExplorer for the reliable alternative
 	 */
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';

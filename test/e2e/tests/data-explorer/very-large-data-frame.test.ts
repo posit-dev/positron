@@ -47,7 +47,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await runCommand('python.execInConsole');
 
 			const { duration_ms } = await metric.dataExplorer.loadData(async () => {
-				await variables.doubleClickVariableRow('df');
+				await variables.openVariableInDataExplorer('df');
 				await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 				await dataExplorer.waitForIdle();
 			}, 'py.pandas.DataFrame');
@@ -65,7 +65,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 			// Record how long it takes to load the data
 			const { duration_ms } = await metric.dataExplorer.loadData(async () => {
-				await variables.doubleClickVariableRow('df2');
+				await variables.openVariableInDataExplorer('df2');
 				await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
 				await dataExplorer.waitForIdle();
 			}, 'r.tibble');
@@ -83,7 +83,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await runCommand('python.execInConsole');
 
 			const { duration_ms } = await metric.dataExplorer.loadData(async () => {
-				await variables.doubleClickVariableRow('df_large');
+				await variables.openVariableInDataExplorer('df_large');
 				await editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
 				await dataExplorer.waitForIdle();
 			}, 'py.pandas.DataFrame');
@@ -100,7 +100,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await runCommand('r.sourceCurrentFile');
 
 			const { duration_ms } = await metric.dataExplorer.loadData(async () => {
-				await variables.doubleClickVariableRow('df3_large');
+				await variables.openVariableInDataExplorer('df3_large');
 				await editors.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
 				await dataExplorer.waitForIdle();
 			}, 'r.tibble');
