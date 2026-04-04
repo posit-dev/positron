@@ -18,9 +18,12 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 /qa-test --browser firefox #11593
 /qa-test --build "Verify plots render correctly"
 /qa-test --save #12345
+/qa-test --no-save --build "Quick smoke test"
 ```
 
-The `--save` flag writes a standalone `.test.ts` file after a successful run (see Step 6).
+- `--save`: Always save a `.test.ts` file after a successful run (no prompt)
+- `--no-save`: Never save, never prompt
+- No flag: Prompt the user to save after a successful run
 
 ## Workflow
 
@@ -542,19 +545,22 @@ If any step fails, include the error message and enriched state. Use `snapshot` 
 
 ### Step 5: Cleanup
 
-Before sending `/done`, if the session used explore mode (Step 3c) or the `--explore` flag, ask the user:
+**Save behavior depends on the flag:**
+- `--save`: Always save the test file after a successful run (skip prompt, go to Step 6)
+- `--no-save`: Never save, never prompt
+- No flag (default): If the test passed, ask the user:
 
-> "Would you like to save the successful steps as a reusable test file?"
+> "Would you like to save this as a reusable test file?"
 
-If yes, generate the `.test.ts` file following Step 6 format, using the POM calls that worked during exploration (not the raw Playwright fallbacks).
+If yes, generate the `.test.ts` file following Step 6 format.
 
 ```bash
 curl -s -X POST "http://localhost:$PORT/done"
 ```
 
-### Step 6: Save Test (--save flag or user request)
+### Step 6: Save Test
 
-If the `--save` flag was provided and the test passed, write a standalone `.test.ts` file.
+Write a standalone `.test.ts` file when saving (via `--save` flag, or user said yes to prompt).
 
 **File path:** `test/e2e/tests/qa-generated/qa-<issueNumber>-<slug>.test.ts`
 - `<slug>` is a short kebab-case summary (e.g., `variable-pane-update`)
