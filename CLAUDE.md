@@ -145,6 +145,55 @@ describe('MyWorkbenchFeature', () => {
 - `ctx.disposables` is auto-cleaned after each test -- pass it to helpers like `startTestLanguageRuntimeSession()` that need it
 - Override any preset service with `.stub(IService, mock)` after a preset call
 - Upstream VS Code tests stay on Mocha (`.test.ts`) -- only Positron tests use Vitest
+
+### How to mock (the incremental approach)
+
+You don't need to understand all 124 services. You build mocks incrementally -- start with nothing and let the test tell you what's missing.
+
+**Step 1: Start with a tier preset and run the test.**
+
+```typescript
+const ctx = createTestContainer().withRuntimeServices().build();
+```
+
+If the test passes, you're done. Most dependencies are already handled.
+
+**Step 2: If it fails with "X is not a function" or "Cannot read properties of undefined", a service is missing.**
+
+Add an empty stub for just that service:
+
+```typescript
+const ctx = createTestContainer()
+	.withRuntimeServices()
+	.stub(IMissingService, {} as IMissingService)
+	.build();
+```
+
+Run again. If it passes, you're done. The empty stub works when the code has the dependency but your test path doesn't call it.
+
+**Step 3: If it still fails because the code calls a specific method, add just that method.**
+
+```typescript
+.stub(IMissingService, {
+	getDoc: () => undefined,
+} as IMissingService)
+```
+
+**Step 4: If the code listens to an event, add an Emitter.**
+
+```typescript
+import { Emitter } from '<path>/base/common/event.js';
+
+const onDidChange = new Emitter<void>();
+.stub(IMissingService, {
+	getDoc: () => undefined,
+	onDidChange: onDidChange.event,
+} as IMissingService)
+```
+
+Now your test can trigger the event with `onDidChange.fire()` to test reactive behavior.
+
+**The pattern: empty -> add methods -> add events.** You never mock more than what the test actually needs. If you're writing 20 lines of mock setup, you're probably over-mocking -- step back and check if a higher tier preset already covers it.
 - Extension tests (`extensions/<extension-name>/*.test.ts`, preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- For positron-python, see that extension's CLAUDE.md
 - E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
