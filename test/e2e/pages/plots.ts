@@ -83,9 +83,20 @@ export class Plots {
 	 * Matches plots rendered in the sidebar or editor. This is the default
 	 * plot assertion for matplotlib, seaborn, ggplot2, and other plot types.
 	 * @see waitForCurrentStaticPlot for static-only plots in the full-size viewer
+	 * @see expectCurrentPlotVisible to assert the plot is visible as a test verification
 	 */
 	async waitForCurrentPlot() {
 		await test.step('Wait for current plot to be visible', async () => {
+			await expect(this.code.driver.page.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	/**
+	 * Verify: A plot is visible in the Plots pane.
+	 * @see waitForCurrentPlot to wait for a plot before interacting with it
+	 */
+	async expectCurrentPlotVisible() {
+		await test.step('Expect current plot to be visible', async () => {
 			await expect(this.code.driver.page.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
 		});
 	}
@@ -95,9 +106,20 @@ export class Plots {
 	 * Only matches `.static-plot-instance img` -- does not match webview plots or
 	 * sidebar thumbnails. Use waitForCurrentPlot for general plot assertions.
 	 * @see waitForCurrentPlot for general plot detection (sidebar + editor)
+	 * @see expectCurrentStaticPlotVisible to assert the static plot is visible as a test verification
 	 */
 	async waitForCurrentStaticPlot() {
 		await test.step('Wait for current static plot to be visible', async () => {
+			await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	/**
+	 * Verify: A static (non-webview) plot image is visible in the full-size plot viewer.
+	 * @see waitForCurrentStaticPlot to wait for a static plot before interacting with it
+	 */
+	async expectCurrentStaticPlotVisible() {
+		await test.step('Expect current static plot to be visible', async () => {
 			await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
 		});
 	}
@@ -174,9 +196,21 @@ export class Plots {
 	/**
 	 * Verify: No plots are visible in the Plots pane.
 	 * @param options.timeout - How long to wait for plots to disappear. Default: 15000ms
+	 * @see expectNoPlots to assert no plots are visible as a test verification
 	 */
 	async waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {
 		await expect(this.code.driver.page.locator(CURRENT_PLOT)).not.toBeVisible({ timeout });
+	}
+
+	/**
+	 * Verify: No plots are visible in the Plots pane.
+	 * @param options.timeout - How long to wait for plots to disappear. Default: 15000ms
+	 * @see waitForNoPlots to wait for plots to disappear before proceeding
+	 */
+	async expectNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {
+		await test.step('Expect no plots to be visible', async () => {
+			await expect(this.code.driver.page.locator(CURRENT_PLOT)).not.toBeVisible({ timeout });
+		});
 	}
 
 	/** Action: Capture the current plot as a screenshot buffer. */
@@ -349,9 +383,22 @@ export class Plots {
 		});
 	}
 
-	/** Action: Wait for a plot image to appear in an editor tab (not the sidebar). */
+	/**
+	 * Action: Wait for a plot image to appear in an editor tab (not the sidebar).
+	 * @see expectPlotInEditorVisible to assert the plot is visible as a test verification
+	 */
 	async waitForPlotInEditor() {
 		await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
+	}
+
+	/**
+	 * Verify: A plot image is visible in an editor tab (not the sidebar).
+	 * @see waitForPlotInEditor to wait for a plot in the editor before interacting with it
+	 */
+	async expectPlotInEditorVisible() {
+		await test.step('Expect plot to be visible in editor', async () => {
+			await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
+		});
 	}
 
 	/**
