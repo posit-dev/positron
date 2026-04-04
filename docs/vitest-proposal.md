@@ -46,6 +46,14 @@ Current workflow:
 
 There is no watch mode. The first run takes 30-60 seconds for daemon startup. There's no way to make this fast -- Mocha runs against compiled JavaScript in the `out/` directory, so compilation is a hard prerequisite.
 
+### We can't even find all our tests
+
+The command to run Positron unit tests (`./scripts/test-positron.sh`) uses `--grep 'Positron'` to filter by suite name. But many Positron-authored test suites don't include "Positron" in their name -- `suite('ANSIOutput', ...)`, `suite('parseQuarto', ...)`, `suite('Driver Manager', ...)`, etc.
+
+The result: **`test-positron.sh` only finds 416 of our 937 tests.** More than half of Positron's unit tests are invisible to the tool meant to run them. There's no reliable way to run "all Positron tests" in the current infrastructure without knowing which files have the Posit copyright header.
+
+With Vitest, this is solved by file extension: `*.vitest.ts` = Positron test. `npm run test-vitest:run` runs all 937 -- no grep, no guessing.
+
 ### CI is expensive
 
 The unit test CI job has a 40-minute timeout. It downloads Electron, installs a virtual display server (xvfb), compiles the entire project, installs Playwright browsers, and sets up R -- all before a single test runs. Positron's 67 test files ride along in a pipeline built for 814 upstream VS Code tests.
