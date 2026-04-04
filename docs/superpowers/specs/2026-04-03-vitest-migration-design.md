@@ -12,7 +12,7 @@ Positron inherits VS Code's Mocha-based unit test infrastructure. While this ser
 
 4. **Coverage gaps grow.** 20 Positron contrib modules and 14 Positron extensions have zero unit tests. Teams default to E2E tests because unit tests are too hard to write and too slow to iterate on.
 
-5. **We can't find all our tests.** The command `./scripts/test-positron.sh` uses `--grep 'Positron'` to filter by Mocha suite name. But many Positron-authored suites don't include "Positron" in their name (e.g., `suite('ANSIOutput', ...)`, `suite('parseQuarto', ...)`). Result: the grep finds only 416 of 937 Positron tests -- more than half are invisible. With Vitest, the `.vitest.ts` file extension is the boundary -- no grep, no guessing.
+5. **We can't find all our tests.** The command `./scripts/test-positron.sh` uses `--grep 'Positron'` to filter by Mocha suite name. But many Positron-authored suites don't include "Positron" in their name (e.g., `suite('ANSIOutput', ...)`, `suite('parseQuarto', ...)`). Result: the grep finds only 416 of 937 Positron tests -- more than half are invisible. The script could be fixed (e.g., matching copyright headers), but it illustrates how the inherited infrastructure wasn't designed for Positron. With Vitest, the `.vitest.ts` file extension is the natural boundary -- no grep, no guessing.
 
 ### Success Criteria
 

@@ -50,9 +50,9 @@ There is no watch mode. The first run takes 30-60 seconds for daemon startup. Th
 
 The command to run Positron unit tests (`./scripts/test-positron.sh`) uses `--grep 'Positron'` to filter by suite name. But many Positron-authored test suites don't include "Positron" in their name -- `suite('ANSIOutput', ...)`, `suite('parseQuarto', ...)`, `suite('Driver Manager', ...)`, etc.
 
-The result: **`test-positron.sh` only finds 416 of our 937 tests.** More than half of Positron's unit tests are invisible to the tool meant to run them. There's no reliable way to run "all Positron tests" in the current infrastructure without knowing which files have the Posit copyright header.
+The result: **`test-positron.sh` only finds 416 of our 937 tests.** More than half of Positron's unit tests are invisible to the tool meant to run them. The script could be fixed (e.g., by matching copyright headers instead of suite names), but it illustrates how the inherited infrastructure wasn't designed with Positron's needs in mind.
 
-With Vitest, this is solved by file extension: `*.vitest.ts` = Positron test. `npm run test-vitest:run` runs all 937 -- no grep, no guessing.
+With Vitest, this is solved naturally by file extension: `*.vitest.ts` = Positron test. `npm run test-vitest:run` runs all 937 -- no grep, no guessing.
 
 ### CI is expensive
 
