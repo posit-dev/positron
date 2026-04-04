@@ -585,15 +585,18 @@ Total POMs: 49
 ## plots (pages/plots.ts)
 - clickSessionNameButton() -- Click the session name button displayed on the current plot.
 - clickOriginFileButton() -- Click the origin file button to navigate to the source file.
-- waitForCurrentPlot() -- Wait for any plot to appear in the Plots pane. (See also: waitForCurrentStaticPlot for static-only plots in the full-size viewer)
-- waitForCurrentStaticPlot() -- Wait for a static (non-webview) plot image in the full-size plot viewer. (See also: waitForCurrentPlot for general plot detection (sidebar + editor))
+- waitForCurrentPlot() -- Wait for any plot to appear in the Plots pane. (See also: waitForCurrentStaticPlot for static-only plots in the full-size viewer, expectCurrentPlotVisible to assert the plot is visible as a test verification)
+- expectCurrentPlotVisible() -- A plot is visible in the Plots pane. (See also: waitForCurrentPlot to wait for a plot before interacting with it)
+- waitForCurrentStaticPlot() -- Wait for a static (non-webview) plot image in the full-size plot viewer. (See also: waitForCurrentPlot for general plot detection (sidebar + editor), expectCurrentStaticPlotVisible to assert the static plot is visible as a test verification)
+- expectCurrentStaticPlotVisible() -- A static (non-webview) plot image is visible in the full-size plot viewer. (See also: waitForCurrentStaticPlot to wait for a static plot before interacting with it)
 - expectOriginButtonVisible() -- The origin file button is visible in the Plots pane.
 - expectOriginButtonContain(text: string) -- The origin file button contains the expected text.
 - getWebviewPlotLocator(selector: string): Locator -- Get a locator for an element inside a webview plot.
 - getDeepWebWebviewPlotLocator(selector: string): Locator -- Get a locator for an element inside a deeply nested webview plot.
 - waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible', RWeb = false) -- Wait for a webview-based plot to appear. (See also: waitForCurrentPlot for static image plots (matplotlib, ggplot2))
 - clearPlots() -- Clear all plots from the Plots pane. No-op if no plots exist.
-- waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) -- No plots are visible in the Plots pane.
+- waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) -- No plots are visible in the Plots pane. (See also: expectNoPlots to assert no plots are visible as a test verification)
+- expectNoPlots({ timeout = 15000 }: { timeout?: number } = {}) -- No plots are visible in the Plots pane. (See also: waitForNoPlots to wait for plots to disappear before proceeding)
 - getCurrentPlotAsBuffer(): Promise<Buffer> -- Capture the current plot as a screenshot buffer.
 - getCurrentStaticPlotAsBuffer(): Promise<Buffer> -- Capture the current static plot as a screenshot buffer. (See also: getCurrentPlotAsBuffer for the general version)
 - copyCurrentPlotToClipboard() -- Click the copy-to-clipboard button on the current plot.
@@ -604,7 +607,8 @@ Total POMs: 49
 - openPlotIn(plotLocation: PlotLocations) -- Open the current plot in a specified location.
 - clickOpenInEditorButton() -- Click the main "Open in editor tab" button (no dropdown).
 - verifyOpenPlotDropdownCheckedOption(expectedOption: PlotLocations) -- The "Open in Editor" dropdown has the expected option checked.
-- waitForPlotInEditor() -- Wait for a plot image to appear in an editor tab (not the sidebar).
+- waitForPlotInEditor() -- Wait for a plot image to appear in an editor tab (not the sidebar). (See also: expectPlotInEditorVisible to assert the plot is visible as a test verification)
+- expectPlotInEditorVisible() -- A plot image is visible in an editor tab (not the sidebar). (See also: waitForPlotInEditor to wait for a plot in the editor before interacting with it)
 - expectPlotThumbnailsCountToBe(count: number) -- The expected number of plot thumbnails are visible.
 - enlargePlotArea() -- Enlarge the Plots pane area by dragging sashes inward.
 - restorePlotArea() -- Restore the Plots pane area to its original size after enlarging.
