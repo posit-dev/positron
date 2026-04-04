@@ -83,15 +83,12 @@ Use the reference to pick exact method names and parameter types for every POM s
 
 **CRITICAL: Copy-paste method names from the reference. Do NOT abbreviate, shorten, or
 paraphrase method names.** For example, the method is `doubleClickVariableRow`, not
-`doubleClickVariable`. The method is `waitForCurrentStaticPlot`, not `waitForStaticPlot`.
+`doubleClickVariable`. The method is `waitForPlotInFullSizeViewer`, not `waitForFullSizeViewer`.
 If you are not 100% certain of the exact method name, grep the reference before using it.
 
 **CRITICAL: Read the `--` description after each method signature before choosing it.**
 The description tells you WHEN to use the method. If it says "See also: X", read X too.
-Common mistakes the skill keeps making:
-- `waitForCurrentStaticPlot` is for the full-size editor viewer ONLY. For plots in the
-  sidebar Plots pane (the default location), use `waitForCurrentPlot`. When in doubt,
-  always use `waitForCurrentPlot` -- it covers both sidebar and editor.
+Common mistakes:
 - `clickDatabaseIconForVariableRow` is unreliable. Use `doubleClickVariableRow` instead.
 - `expectVariableToBe` values must match exactly. Python DataFrames display as
   `[N rows x M columns] pandas.DataFrame`, not abbreviated formats.

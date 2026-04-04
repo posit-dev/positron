@@ -585,10 +585,10 @@ Total POMs: 49
 ## plots (pages/plots.ts)
 - clickSessionNameButton() -- Click the session name button displayed on the current plot.
 - clickOriginFileButton() -- Click the origin file button to navigate to the source file.
-- waitForCurrentPlot() -- Wait for any plot to appear in the Plots pane. (See also: waitForCurrentStaticPlot for static-only plots in the full-size viewer, expectCurrentPlotVisible to assert the plot is visible as a test verification)
+- waitForCurrentPlot() -- Wait for any plot to appear in the Plots pane. (See also: waitForPlotInFullSizeViewer for plots opened in the full-size editor viewer only, expectCurrentPlotVisible to assert the plot is visible as a test verification)
 - expectCurrentPlotVisible() -- A plot is visible in the Plots pane. (See also: waitForCurrentPlot to wait for a plot before interacting with it)
-- waitForCurrentStaticPlot() -- Wait for a static (non-webview) plot image in the full-size plot viewer. (See also: waitForCurrentPlot for general plot detection (sidebar + editor), expectCurrentStaticPlotVisible to assert the static plot is visible as a test verification)
-- expectCurrentStaticPlotVisible() -- A static (non-webview) plot image is visible in the full-size plot viewer. (See also: waitForCurrentStaticPlot to wait for a static plot before interacting with it)
+- waitForPlotInFullSizeViewer() -- Wait for a static (non-webview) plot image in the full-size plot viewer. (See also: waitForCurrentPlot for general plot detection (sidebar + editor), expectPlotInFullSizeViewerVisible to assert the static plot is visible as a test verification)
+- expectPlotInFullSizeViewerVisible() -- A static (non-webview) plot image is visible in the full-size plot viewer. (See also: waitForPlotInFullSizeViewer to wait for a static plot before interacting with it)
 - expectOriginButtonVisible() -- The origin file button is visible in the Plots pane.
 - expectOriginButtonContain(text: string) -- The origin file button contains the expected text.
 - getWebviewPlotLocator(selector: string): Locator -- Get a locator for an element inside a webview plot.
@@ -598,7 +598,7 @@ Total POMs: 49
 - waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) -- No plots are visible in the Plots pane. (See also: expectNoPlots to assert no plots are visible as a test verification)
 - expectNoPlots({ timeout = 15000 }: { timeout?: number } = {}) -- No plots are visible in the Plots pane. (See also: waitForNoPlots to wait for plots to disappear before proceeding)
 - getCurrentPlotAsBuffer(): Promise<Buffer> -- Capture the current plot as a screenshot buffer.
-- getCurrentStaticPlotAsBuffer(): Promise<Buffer> -- Capture the current static plot as a screenshot buffer. (See also: getCurrentPlotAsBuffer for the general version)
+- getFullSizeViewerPlotAsBuffer(): Promise<Buffer> -- Capture the current static plot as a screenshot buffer. (See also: getCurrentPlotAsBuffer for the general version)
 - copyCurrentPlotToClipboard() -- Click the copy-to-clipboard button on the current plot.
 - savePlotFromPlotsPane({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) -- Save the current plot from the Plots pane sidebar. (See also: savePlotFromEditor to save from an editor tab instead)
 - savePlotFromEditor({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) -- Save the current plot from the editor tab. (See also: savePlotFromPlotsPane to save from the sidebar instead)

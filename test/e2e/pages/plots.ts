@@ -10,7 +10,7 @@ import { fail } from 'assert';
 import { ContextMenu } from './dialog-contextMenu.js';
 
 const CURRENT_PLOT = '.plot-instance img';
-const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';
+const FULL_SIZE_VIEWER_PLOT = '.plot-instance.static-plot-instance img';
 const CLEAR_PLOTS = '.positron-plots-container .positron-dynamic-action-bar .codicon-clear-all';
 const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show next plot"]';
 const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show previous plot"]';
@@ -82,7 +82,7 @@ export class Plots {
 	 * Action: Wait for any plot to appear in the Plots pane.
 	 * Matches plots rendered in the sidebar or editor. This is the default
 	 * plot assertion for matplotlib, seaborn, ggplot2, and other plot types.
-	 * @see waitForCurrentStaticPlot for static-only plots in the full-size viewer
+	 * @see waitForPlotInFullSizeViewer for plots opened in the full-size editor viewer only
 	 * @see expectCurrentPlotVisible to assert the plot is visible as a test verification
 	 */
 	async waitForCurrentPlot() {
@@ -106,21 +106,21 @@ export class Plots {
 	 * Only matches `.static-plot-instance img` -- does not match webview plots or
 	 * sidebar thumbnails. Use waitForCurrentPlot for general plot assertions.
 	 * @see waitForCurrentPlot for general plot detection (sidebar + editor)
-	 * @see expectCurrentStaticPlotVisible to assert the static plot is visible as a test verification
+	 * @see expectPlotInFullSizeViewerVisible to assert the static plot is visible as a test verification
 	 */
-	async waitForCurrentStaticPlot() {
+	async waitForPlotInFullSizeViewer() {
 		await test.step('Wait for current static plot to be visible', async () => {
-			await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator(FULL_SIZE_VIEWER_PLOT)).toBeVisible({ timeout: 30000 });
 		});
 	}
 
 	/**
 	 * Verify: A static (non-webview) plot image is visible in the full-size plot viewer.
-	 * @see waitForCurrentStaticPlot to wait for a static plot before interacting with it
+	 * @see waitForPlotInFullSizeViewer to wait for a static plot before interacting with it
 	 */
-	async expectCurrentStaticPlotVisible() {
+	async expectPlotInFullSizeViewerVisible() {
 		await test.step('Expect current static plot to be visible', async () => {
-			await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator(FULL_SIZE_VIEWER_PLOT)).toBeVisible({ timeout: 30000 });
 		});
 	}
 
@@ -222,8 +222,8 @@ export class Plots {
 	 * Action: Capture the current static plot as a screenshot buffer.
 	 * @see getCurrentPlotAsBuffer for the general version
 	 */
-	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
-		return this.code.driver.page.locator(CURRENT_STATIC_PLOT).screenshot();
+	async getFullSizeViewerPlotAsBuffer(): Promise<Buffer> {
+		return this.code.driver.page.locator(FULL_SIZE_VIEWER_PLOT).screenshot();
 	}
 
 	/** Action: Click the copy-to-clipboard button on the current plot. */

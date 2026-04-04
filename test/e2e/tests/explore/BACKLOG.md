@@ -40,9 +40,7 @@ Tracked issues, missing capabilities, and improvement ideas for the explore runn
   reliable way to open a variable in Data Explorer. Investigate whether the icon click needs
   a hover-to-reveal step or if the locator is stale.
 
-- [ ] **`waitForCurrentStaticPlot` vs `waitForCurrentPlot` -- confusing distinction.**
-  `waitForCurrentStaticPlot` looks for `.plot-instance.static-plot-instance img` which does
-  not match matplotlib plots rendered in the secondary sidebar Plots section.
-  `waitForCurrentPlot` works in that context. The naming does not make the difference clear
-  to test authors. Consider documenting when to use each, or unifying them so
-  `waitForCurrentPlot` is the default recommendation for most plot assertions.
+- [x] **`waitForCurrentStaticPlot` vs `waitForCurrentPlot` -- confusing distinction.**
+  RESOLVED: Renamed `waitForCurrentStaticPlot` to `waitForPlotInFullSizeViewer` to make
+  the location distinction clear. `waitForCurrentPlot` remains the default for most
+  plot assertions.
