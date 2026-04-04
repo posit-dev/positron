@@ -48,18 +48,20 @@ Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
 
 ### Running tests
 
-- Ensure build daemons are running before testing upstream or extension tests (NOT needed for Vitest)
-- Core tests (`src/**/*.ts`):
-	- `./scripts/test.sh`: run all tests
-	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
-	- `./scripts/test.sh --run src/path/to/<file>.test.ts --grep '<pattern>'`: run specific tests in a file
-	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension with `--runGlob`)
-- Positron Vitest tests (`src/**/*.vitest.ts`, no build daemon needed):
+- **Positron Vitest tests** (`*.vitest.ts`, no build daemon needed):
 	- `npm run test-vitest`: watch mode (re-runs on save)
 	- `npm run test-vitest:run`: single run
 	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
 	- `npx vitest run --grep '<pattern>'`: run tests matching a pattern
 	- New Positron tests should use `.vitest.ts` extension -- see the tier guide below
+- **Upstream VS Code tests** (`*.test.ts`, requires build daemons):
+	- `./scripts/test.sh`: run all upstream tests
+	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
+	- `./scripts/test.sh --run src/path/to/<file>.test.ts --grep '<pattern>'`: run specific tests in a file
+	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension with `--runGlob`)
+- **Extension tests** (`extensions/<extension-name>/*.test.ts`): `npm run test-extension -- -l <extension-name> --grep <pattern>`
+	- For positron-python, see that extension's CLAUDE.md
+- **E2E tests** (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
 ### Positron Vitest Tiers
 
@@ -194,9 +196,6 @@ const onDidChange = new Emitter<void>();
 Now your test can trigger the event with `onDidChange.fire()` to test reactive behavior.
 
 **The pattern: empty -> add methods -> add events.** You never mock more than what the test actually needs. If you're writing 20 lines of mock setup, you're probably over-mocking -- step back and check if a higher tier preset already covers it.
-- Extension tests (`extensions/<extension-name>/*.test.ts`, preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
-	- For positron-python, see that extension's CLAUDE.md
-- E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
 ## Directory Structure
 
