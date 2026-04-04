@@ -16,7 +16,7 @@ Positron inherits VS Code's Mocha-based unit test infrastructure. While this ser
 
 ### Success Criteria
 
-- Any developer (including QA engineers) can write a Positron unit test without help within 10 minutes
+- Any developer/QA can write a Positron unit test without help within 10 minutes
 - The untested Positron modules start getting coverage
 - The feedback loop from code change to test result is under 5 seconds locally
 
