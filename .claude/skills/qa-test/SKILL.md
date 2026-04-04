@@ -446,6 +446,24 @@ Step 2: Execute x = 42 .................. PASS (800ms)
 Step 3: Verify x in Variables pane ....... PASS (400ms)
 ```
 
+**IMPORTANT: If a retry was needed**, even if the final result is PASSED, change the
+header to indicate a retry occurred and include a Retry Summary:
+
+```
+### Result: PASSED after retry (13/13 steps, 10.2s)
+
+  Retry reason: Step 3 "Verify df in Variables pane" failed on first attempt.
+  Original value: "3 columns" -- Actual: "[3 rows x 3 columns] pandas.DataFrame"
+  Fix applied: Corrected expected value and re-ran with resetBefore: true.
+
+Step 1: Start Python session ............ PASS (2860ms)
+...
+```
+
+The retry summary MUST appear whenever `/run-plan` was called more than once. This is
+critical for POM Health tracking -- without it, method confusion and wrong assumptions
+are invisible. Never report a retried run as a clean pass.
+
 When any step fails, change the header to make the failure obvious:
 
 ```
