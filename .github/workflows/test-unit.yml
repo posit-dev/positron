@@ -109,6 +109,10 @@ jobs:
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
           .github/cache-scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
 
+      - name: 🧪 Run Vitest Tests (Positron)
+        id: vitest-tests
+        run: npm run test-vitest:run
+
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 

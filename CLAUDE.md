@@ -42,6 +42,12 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts --grep '<pattern>'`: run specific tests in a file
 	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension with `--runGlob`)
+- Positron Vitest tests (`src/**/*.vitest.ts`, no build daemon needed):
+	- `npm run test-vitest`: watch mode (re-runs on save)
+	- `npm run test-vitest:run`: single run
+	- `npx vitest run src/path/to/<file>.vitest.ts`: run a specific file
+	- `npx vitest run --grep '<pattern>'`: run tests matching a pattern
+	- New Positron tests should use `.vitest.ts` extension and the `createTestContainer()` builder from `src/vs/workbench/test/browser/positronTestContainer.ts`
 - Extension tests (`extensions/<extension-name>/*.test.ts`, preferred for extension development except positron-python): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- For positron-python, see that extension's CLAUDE.md
 - E2E tests (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
