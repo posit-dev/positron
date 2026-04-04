@@ -81,6 +81,11 @@ Read test/e2e/tests/qa-generated/pom-reference.md
 
 Use the reference to pick exact method names and parameter types for every POM step. **NEVER guess method names or parameter types** -- always consult the reference first.
 
+**CRITICAL: Copy-paste method names from the reference. Do NOT abbreviate, shorten, or
+paraphrase method names.** For example, the method is `doubleClickVariableRow`, not
+`doubleClickVariable`. The method is `waitForCurrentStaticPlot`, not `waitForStaticPlot`.
+If you are not 100% certain of the exact method name, grep the reference before using it.
+
 #### Testability Check
 
 Before starting the runner, confirm the issue can actually be tested with this framework.
@@ -450,22 +455,7 @@ Step 3: Verify x in Variables pane ....... PASS (400ms)
 ```
 
 **IMPORTANT: If a retry was needed**, even if the final result is PASSED, change the
-header to indicate a retry occurred and include a Retry Summary:
-
-```
-### Result: PASSED after retry (13/13 steps, 10.2s)
-
-  Retry reason: Step 3 "Verify df in Variables pane" failed on first attempt.
-  Original value: "3 columns" -- Actual: "[3 rows x 3 columns] pandas.DataFrame"
-  Fix applied: Corrected expected value and re-ran with resetBefore: true.
-
-Step 1: Start Python session ............ PASS (2860ms)
-...
-```
-
-The retry summary MUST appear whenever `/run-plan` was called more than once. This is
-critical for POM Health tracking -- without it, method confusion and wrong assumptions
-are invisible. Never report a retried run as a clean pass.
+header to `PASSED after retry` so the user knows it was not a clean pass.
 
 When any step fails, change the header to make the failure obvious:
 
@@ -539,24 +529,38 @@ under `## POM Gaps`:
 ### Rough edges
 - [Any UX issues, slow transitions, or unexpected behaviors noticed]
 - [Even on passing tests, report anything that felt wrong]
+
+### Retry summary
+[REQUIRED if /run-plan was called more than once. Put this at the bottom
+of the report so the clean results are visible first.]
+
+**Attempt 1 failed at:** Step N "<title>"
+- Error: <error message>
+- Root cause: <what was wrong -- wrong expected value, wrong method name, timeout too short, etc.>
+
+**Fix applied:** <what was changed for the retry>
+
+This section MUST appear whenever a retry occurred. Never omit it.
 ```
 
 If any step fails, include the error message and enriched state. Use `snapshot` or `takeScreenshot` only if the enriched state is not sufficient to diagnose.
 
-### Step 5: Cleanup
-
-**Save behavior depends on the flag:**
-- `--save`: Always save the test file after a successful run (skip prompt, go to Step 6)
-- `--no-save`: Never save, never prompt
-- No flag (default): If the test passed, ask the user:
-
-> "Would you like to save this as a reusable test file?"
-
-If yes, generate the `.test.ts` file following Step 6 format.
+### Step 5: Cleanup and Save Prompt
 
 ```bash
 curl -s -X POST "http://localhost:$PORT/done"
 ```
+
+**After reporting results and sending `/done`, handle saving:**
+- `--save`: Save the test file immediately (go to Step 6, no prompt needed)
+- `--no-save`: Do not save, do not prompt. Done.
+- **No flag (default): You MUST ask the user using `AskUserQuestion`:**
+
+Use `AskUserQuestion` with this exact question:
+> "Would you like to save this as a reusable test file?"
+
+**Do NOT skip this prompt.** Wait for the user's answer before proceeding.
+If yes, generate the `.test.ts` file following Step 6 format.
 
 ### Step 6: Save Test
 
