@@ -434,92 +434,89 @@ async function executeActionDirect(app: Application, step: BatchStep): Promise<A
  *   - Fail-fast: stops at first failure, observes state, returns report
  */
 export async function executeRunPlan(app: Application, request: RunPlanRequest): Promise<RunPlanResult> {
-	const planLabel = request.title || 'Run Plan';
 	const startTime = Date.now();
 
-	return await test.step(planLabel, async () => {
-		// 1. Optional state reset
-		let resetActions: string[] | undefined;
-		if (request.resetBefore) {
-			resetActions = await test.step('State reset', async () => {
-				return await resetState(app);
-			});
-		}
+	// 1. Optional state reset
+	let resetActions: string[] | undefined;
+	if (request.resetBefore) {
+		resetActions = await test.step('State reset', async () => {
+			return await resetState(app);
+		});
+	}
 
-		// 2. Execute steps sequentially with per-step timeouts
-		const stepResults: RunPlanStepResult[] = [];
-		const defaultTimeout = request.stepTimeout ?? 10000;
+	// 2. Execute steps sequentially with per-step timeouts
+	const stepResults: RunPlanStepResult[] = [];
+	const defaultTimeout = request.stepTimeout ?? 10000;
 
-		for (let i = 0; i < request.steps.length; i++) {
-			const step = request.steps[i];
-			const timeout = step.timeout ?? defaultTimeout;
-			const stepStart = Date.now();
-			const title = step.title || `Step ${i + 1}`;
+	for (let i = 0; i < request.steps.length; i++) {
+		const step = request.steps[i];
+		const timeout = step.timeout ?? defaultTimeout;
+		const stepStart = Date.now();
+		const title = step.title || `Step ${i + 1}`;
 
-			let actionResult: ActionResult;
-			try {
-				actionResult = await Promise.race([
-					step.type === 'pom'
-						? executePomDirect(app, step)
-						: executeActionDirect(app, step),
-					createStepTimeout(timeout),
-				]);
-			} catch (err: any) {
-				// Thrown error: timeout or POM method failure
-				stepResults.push({
-					title,
-					success: false,
-					error: err.message ?? String(err),
-					duration: Date.now() - stepStart,
-				});
-				const state = await observeState(app);
-				return {
-					passed: stepResults.filter(s => s.success).length,
-					failed: 1,
-					steps: stepResults,
-					skipped: request.steps.length - i - 1,
-					totalDuration: Date.now() - startTime,
-					state,
-					resetActions,
-				};
-			}
-
-			// Returned error (e.g., unknown POM or method)
-			if (!actionResult.success) {
-				stepResults.push({
-					title,
-					success: false,
-					error: actionResult.error,
-					duration: Date.now() - stepStart,
-				});
-				const state = await observeState(app);
-				return {
-					passed: stepResults.filter(s => s.success).length,
-					failed: 1,
-					steps: stepResults,
-					skipped: request.steps.length - i - 1,
-					totalDuration: Date.now() - startTime,
-					state,
-					resetActions,
-				};
-			}
-
+		let actionResult: ActionResult;
+		try {
+			actionResult = await Promise.race([
+				step.type === 'pom'
+					? executePomDirect(app, step)
+					: executeActionDirect(app, step),
+				createStepTimeout(timeout),
+			]);
+		} catch (err: any) {
+			// Thrown error: timeout or POM method failure
 			stepResults.push({
 				title,
-				success: true,
+				success: false,
+				error: err.message ?? String(err),
 				duration: Date.now() - stepStart,
 			});
+			const state = await observeState(app);
+			return {
+				passed: stepResults.filter(s => s.success).length,
+				failed: 1,
+				steps: stepResults,
+				skipped: request.steps.length - i - 1,
+				totalDuration: Date.now() - startTime,
+				state,
+				resetActions,
+			};
 		}
 
-		// 3. All steps passed -- observe final state
-		const state = await observeState(app);
-		return {
-			passed: stepResults.length,
-			failed: 0,
-			steps: stepResults,
-			totalDuration: Date.now() - startTime,
-			state,
-			resetActions,
-		};
-	});
+		// Returned error (e.g., unknown POM or method)
+		if (!actionResult.success) {
+			stepResults.push({
+				title,
+				success: false,
+				error: actionResult.error,
+				duration: Date.now() - stepStart,
+			});
+			const state = await observeState(app);
+			return {
+				passed: stepResults.filter(s => s.success).length,
+				failed: 1,
+				steps: stepResults,
+				skipped: request.steps.length - i - 1,
+				totalDuration: Date.now() - startTime,
+				state,
+				resetActions,
+			};
+		}
+
+		stepResults.push({
+			title,
+			success: true,
+			duration: Date.now() - stepStart,
+		});
+	}
+
+	// 3. All steps passed -- observe final state
+	const state = await observeState(app);
+	return {
+		passed: stepResults.length,
+		failed: 0,
+		steps: stepResults,
+		totalDuration: Date.now() - startTime,
+		state,
+		resetActions,
+	};
 }
