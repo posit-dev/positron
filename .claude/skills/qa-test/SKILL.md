@@ -92,7 +92,7 @@ Before starting the runner, confirm the issue can actually be tested with this f
 
 **Might work locally -- ask the user before blocking:**
 
-- **Requires AI provider credentials**: the user's Positron instance may already have API keys configured. Ask: "This issue involves AI features (ghost cells, assistant, etc.). Do you have an AI provider configured in Positron? If so, the explore runner will use your local settings." Pass any needed env vars (e.g., `ANTHROPIC_API_KEY`) in the runner launch command.
+- **Requires AI features** (ghost cells, assistant, copilot): built apps typically have AI providers pre-configured. If not already using `--build` mode, suggest it: "This issue involves AI features. Use `--build` to test against the installed app which has AI providers configured."
 - **Requires external services**: databases, cloud APIs -- ask if the user has access locally before assuming they don't.
 - **Requires specific data**: large files, proprietary datasets -- ask if the data exists in the workspace.
 
