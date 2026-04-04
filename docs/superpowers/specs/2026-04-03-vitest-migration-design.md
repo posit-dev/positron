@@ -534,10 +534,9 @@ The Vitest migration (Layer 1 of the pyramid) is complete. These are the next mo
 
 These test the same logic with the same assertions -- only the runner changes (Node.js instead of Electron).
 
-### 2. Add the testing pyramid decision tree to CLAUDE.md
+### 2. Testing pyramid decision tree in CLAUDE.md (done)
 
-The spec has the full strategy, but CLAUDE.md is what developers and LLMs read at the point of writing code. Add a condensed decision tree:
-- Does your code import `vscode`/`positron`? No -> Vitest. Yes -> Does it genuinely need those APIs? No -> extract logic, test in Vitest. Yes -> extension host test. Testing a user workflow? -> E2E.
+A condensed "Where should I put my test?" decision tree has been added to the Testing section of CLAUDE.md. It directs developers to Vitest by default, extension host tests only when `vscode`/`positron` APIs are genuinely needed, and E2E for user-visible workflows.
 
 ### 3. Create extension test documentation
 
