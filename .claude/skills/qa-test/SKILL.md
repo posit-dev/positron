@@ -80,15 +80,21 @@ Use the reference to pick exact method names and parameter types for every POM s
 
 #### Testability Check
 
-Before starting the runner, confirm the issue can actually be tested with this framework. **Stop and tell the user** if the issue:
+Before starting the runner, confirm the issue can actually be tested with this framework.
+
+**Definitely untestable -- stop and tell the user:**
 
 - **Requires a different OS**: WSL, Windows-only, Linux-only issues cannot be tested on macOS
 - **Requires remote connections**: SSH, WSL, Docker remote host, Codespaces
 - **Requires specific hardware**: GPU, multiple monitors, specific screen sizes beyond `resizeWindow`
 - **Is a packaging/deployment issue**: CDN URLs, installers, update mechanisms, server downloads
-- **Requires external services**: specific databases, cloud APIs, authenticated services not in the workspace
 - **Is purely about build/CI**: GitHub Actions, CI pipelines, build scripts
-- **Requires specific data that doesn't exist**: proprietary datasets, large files, credentials
+
+**Might work locally -- ask the user before blocking:**
+
+- **Requires AI provider credentials**: the user's Positron instance may already have API keys configured. Ask: "This issue involves AI features (ghost cells, assistant, etc.). Do you have an AI provider configured in Positron? If so, the explore runner will use your local settings." Pass any needed env vars (e.g., `ANTHROPIC_API_KEY`) in the runner launch command.
+- **Requires external services**: databases, cloud APIs -- ask if the user has access locally before assuming they don't.
+- **Requires specific data**: large files, proprietary datasets -- ask if the data exists in the workspace.
 
 If the issue is untestable, respond with:
 ```
