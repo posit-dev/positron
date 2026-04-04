@@ -44,6 +44,10 @@ export class Variables {
 		this.memorySizeLabel = this.code.driver.page.locator('.memory-size-label');
 	}
 
+	/**
+	 * Action: Collect all visible variables in the current group into a flat map keyed by name.
+	 * @returns a map of variable name to `{ value, type }`
+	 */
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
 		const variables = new Map<string, FlatVariables>();
 		await expect(this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).first()).toBeVisible();
@@ -69,17 +73,30 @@ export class Variables {
 		return variables;
 	}
 
+	/**
+	 * Action: Focus the Variables panel using the keyboard shortcut.
+	 */
 	async focusVariablesView() {
 		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
 		await this.code.driver.page.keyboard.press('V');
 	}
 
+	/**
+	 * Action: Wait for a variable row to become visible and return its locator.
+	 * @param variableName the exact name of the variable to wait for
+	 */
 	async waitForVariableRow(variableName: string): Promise<Locator> {
 		const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
 		await expect(desiredRow).toBeVisible();
 		return desiredRow;
 	}
 
+	/**
+	 * Action: Double-click a variable row to open it in the Data Explorer.
+	 * This is the RELIABLE way to open a variable in the Data Explorer.
+	 * @param variableName the exact name of the variable to open
+	 * @see clickDatabaseIconForVariableRow for the icon-based alternative, which can be unreliable
+	 */
 	async doubleClickVariableRow(variableName: string) {
 		await test.step(`Double click variable: ${variableName}`, async () => {
 			await this.hotKeys.showSecondarySidebar();
@@ -88,11 +105,23 @@ export class Variables {
 		});
 	}
 
+	/**
+	 * Verify: Check whether the variables panel is currently showing a progress bar (loading state).
+	 * @returns `true` if the progress bar is visible, `false` otherwise
+	 */
 	async hasProgressBar(): Promise<boolean> {
 		const progressBar = this.code.driver.page.locator('.variables-core .monaco-progress-container');
 		return await progressBar.isVisible();
 	}
 
+	/**
+	 * Action: Expand or collapse a variable row by clicking its chevron icon.
+	 * No-ops if the variable is already in the desired state.
+	 * @param variableName the exact name of the variable to toggle
+	 * @param action `'expand'` to show children, `'collapse'` to hide them
+	 * @see expandVariable
+	 * @see collapseVariable
+	 */
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await test.step(`${action} variable: ${variableName}`, async () => {
 			await this.waitForVariableRow(variableName);
@@ -116,10 +145,22 @@ export class Variables {
 		});
 	}
 
+	/**
+	 * Action: Expand a variable row to reveal its children. No-ops if already expanded.
+	 * @param variableName the exact name of the variable to expand
+	 * @see collapseVariable
+	 * @see toggleVariable
+	 */
 	async expandVariable(variableName: string) {
 		await this.toggleVariable({ variableName, action: 'expand' });
 	}
 
+	/**
+	 * Action: Collapse a variable row to hide its children. No-ops if already collapsed.
+	 * @param variableName the exact name of the variable to collapse
+	 * @see expandVariable
+	 * @see toggleVariable
+	 */
 	async collapseVariable(variableName: string) {
 		await this.toggleVariable({ variableName, action: 'collapse' });
 	}
@@ -158,6 +199,10 @@ export class Variables {
 		return result;
 	}
 
+	/**
+	 * Action: Return the label of the currently selected variables group.
+	 * @returns the inner text of the active group selector button
+	 */
 	async getCurrentVariablesGroup(): Promise<string> {
 		const group = await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).innerText();
 		return group;
@@ -174,6 +219,11 @@ export class Variables {
 		});
 	}
 
+	/**
+	 * Action: Switch the variables panel to a different group (e.g. "Globals", "Locals").
+	 * @param name the label of the group to select
+	 * @see selectSession for switching between interpreter sessions
+	 */
 	async selectVariablesGroup(name: string) {
 		await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).click();
 		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).first().isVisible();
@@ -181,6 +231,10 @@ export class Variables {
 		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).first().click();
 	}
 
+	/**
+	 * Action: Open the variables group dropdown and return all available group names.
+	 * @returns an array of group label strings
+	 */
 	async getVariablesGroupList() {
 		await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).click();
 		const groupList = await this.code.driver.page.locator('a.action-menu-item').all();
@@ -188,19 +242,36 @@ export class Variables {
 		return groupNames;
 	}
 
+	/**
+	 * Action: Type text into the variables filter input to narrow the displayed variable list.
+	 * @param filterText the string to filter by
+	 */
 	async setFilterText(filterText: string) {
 		await this.code.driver.page.locator(VARIABLES_FILTER_SELECTOR).fill(filterText);
 	}
 
+	/**
+	 * Action: Click the database icon on a variable row to open it in the Data Explorer.
+	 * WARNING: This method can be unreliable and may time out. Prefer `doubleClickVariableRow` instead.
+	 * @param rowName the exact name of the variable row
+	 * @see doubleClickVariableRow for the reliable alternative
+	 */
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
 		await this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
 	}
 
+	/**
+	 * Action: Click the "Session" link in the active view switcher to navigate to the session panel.
+	 */
 	async clickSessionLink() {
 		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
 	}
 
+	/**
+	 * Action: Click the "Delete all objects" button to clear all variables from the current session.
+	 * WARNING: This is a destructive action -- all variables in the current session will be removed.
+	 */
 	async clickDeleteAllVariables() {
 		await this.code.driver.page.getByLabel('Delete all objects').click();
 	}
@@ -240,6 +311,11 @@ export class Variables {
 		});
 	}
 
+	/**
+	 * Verify: Confirm that a variable does NOT appear in the current variables group.
+	 * @param variableName the name of the variable that should be absent
+	 * @see expectVariableToBe for asserting a variable exists with a specific value
+	 */
 	async expectVariableToNotExist(variableName: string) {
 		await test.step(`Verify variable does not exist: ${variableName}`, async () => {
 			await this.focusVariablesView();

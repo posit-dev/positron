@@ -37,6 +37,12 @@ export class Editors {
 		});
 	}
 
+	/**
+	 * Action: click a tab by name without ensuring keyboard focus lands in the editor.
+	 * Use this when you only need the tab to be active (e.g. to close it or inspect its state)
+	 * and do not need the editor to have keyboard focus.
+	 * @see {@link selectTab} to click a tab AND guarantee editor keyboard focus
+	 */
 	async clickTab(tabName: string): Promise<void> {
 		await test.step(`Click tab: ${tabName}`, async () => {
 			const tabLocator = this.code.driver.page.getByRole('tab', { name: tabName });
@@ -45,12 +51,23 @@ export class Editors {
 		});
 	}
 
+	/**
+	 * Action: click the "Run in Console" or "Source R File" toolbar button to execute the
+	 * currently active editor file in the console.
+	 */
 	async runCurrentFile(): Promise<void> {
 		await test.step('Run current file in console', async () => {
 			await this.code.driver.page.getByRole('button', { name: /Run.*Console|Source R File/ }).click();
 		});
 	};
 
+	/**
+	 * Verify: a tab exists (or does not exist) and is selected (or is not selected).
+	 * Checks both visibility and the `selected` CSS class on the tab element.
+	 * @param tabName - Tab label to locate, as a plain string or regex
+	 * @param isVisible - Whether the tab should be visible (default: `true`)
+	 * @param isSelected - Whether the tab should have the `selected` class (default: `true`)
+	 */
 	async verifyTab(
 		tabName: string | RegExp,
 		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
@@ -68,10 +85,22 @@ export class Editors {
 		});
 	}
 
+	/**
+	 * Utility: escape a plain string so it can be used safely inside a `RegExp` constructor
+	 * without any characters being treated as regex metacharacters.
+	 */
 	escapeRegex(s: string) {
 		return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	}
 
+	/**
+	 * Verify: the currently active (focused) tab matches the given file name and dirty state.
+	 * Asserts that exactly one active tab exists, that it is visible, and that its
+	 * `data-resource-name` attribute ends with (or matches) `fileName`.
+	 * @param isDirty - When `true`, also requires the tab to have the `dirty` CSS class
+	 * @see {@link waitForActiveEditor} to additionally assert the editor textarea has focus
+	 * @see {@link waitForEditorFocus} to assert both the active tab and editor focus together
+	 */
 	async waitForActiveTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> {
 		const { page } = this.code.driver;
 		const base = `.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"]`;
@@ -86,6 +115,11 @@ export class Editors {
 
 		await expect(active).toHaveAttribute('data-resource-name', attrMatcher);
 	}
+	/**
+	 * Verify: the active tab for `fileName` is visible and does NOT have the `dirty` CSS class.
+	 * Useful after saving to confirm the unsaved-changes indicator has cleared.
+	 * @see {@link waitForActiveTab} for the general-purpose variant
+	 */
 	async waitForActiveTabNotDirty(fileName: string): Promise<void> {
 		await expect(
 			this.code.driver.page.locator(
@@ -94,6 +128,10 @@ export class Editors {
 		).toBeVisible();
 	}
 
+	/**
+	 * Action: open a new untitled file via the platform keyboard shortcut (Cmd+N / Ctrl+N)
+	 * and wait for its editor to receive focus.
+	 */
 	async newUntitledFile(): Promise<void> {
 		if (process.platform === 'darwin') {
 			await this.code.driver.page.keyboard.press('Meta+N');
@@ -104,16 +142,34 @@ export class Editors {
 		await this.waitForEditorFocus('Untitled-1');
 	}
 
+	/**
+	 * Verify: the tab for `fileName` is active AND the Monaco editor textarea for that file
+	 * has keyboard focus. Combines {@link waitForActiveTab} and {@link waitForActiveEditor}.
+	 * @see {@link waitForActiveTab} to check only the active tab
+	 * @see {@link waitForActiveEditor} to check only the editor focus
+	 */
 	async waitForEditorFocus(fileName: string): Promise<void> {
 		await this.waitForActiveTab(fileName, undefined);
 		await this.waitForActiveEditor(fileName);
 	}
 
+	/**
+	 * Verify: the Monaco editor instance for `fileName` has keyboard focus (its native edit
+	 * context is focused). Does not check the tab state.
+	 * @see {@link waitForActiveTab} to check the active tab instead
+	 * @see {@link waitForEditorFocus} to assert both the tab and editor focus together
+	 */
 	async waitForActiveEditor(fileName: string): Promise<any> {
 		const selector = `.editor-instance .monaco-editor[data-uri$="${fileName}"] .native-edit-context`;
 		await expect(this.code.driver.page.locator(selector)).toBeFocused();
 	}
 
+	/**
+	 * Action: click a tab by file name and retry until the editor has keyboard focus.
+	 * More robust than {@link clickTab}: retries the click and uses Cmd/Ctrl+1 to recover
+	 * if another component steals focus before the editor is ready.
+	 * @see {@link clickTab} for a single click without focus guarantee
+	 */
 	async selectTab(fileName: string): Promise<void> {
 
 		// Selecting a tab and making an editor have keyboard focus
@@ -128,6 +184,13 @@ export class Editors {
 		}).toPass();
 	}
 
+	/**
+	 * Verify: a tab with the given file name is visible in the tab bar (not necessarily active).
+	 * Supports both plain string (ends-with match on `data-resource-name`) and `RegExp`.
+	 * @param isDirty - When `true`, also requires the tab to have the `dirty` CSS class
+	 * @see {@link waitForSCMTab} to locate a tab by its `aria-label` prefix instead
+	 * @see {@link waitForActiveTab} to assert the tab is also the currently active one
+	 */
 	async waitForTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> {
 		const { page } = this.code.driver;
 		const base = `.tabs-container div.tab${isDirty ? '.dirty' : ''}`;
@@ -162,10 +225,19 @@ export class Editors {
 		}
 	}
 
+	/**
+	 * Verify: an SCM-managed tab whose `aria-label` starts with `fileName` is visible.
+	 * Use this instead of {@link waitForTab} when the resource name is not available as a
+	 * `data-resource-name` attribute (e.g. diff editor tabs opened by the SCM view).
+	 * @see {@link waitForTab} to locate a tab by its `data-resource-name` attribute
+	 */
 	async waitForSCMTab(fileName: string): Promise<void> {
 		await expect(this.code.driver.page.locator(`.tabs-container div.tab[aria-label^="${fileName}"]`)).toBeVisible();
 	}
 
+	/**
+	 * Action: save the currently focused editor via the platform keyboard shortcut (Cmd+S / Ctrl+S).
+	 */
 	async saveOpenedFile(): Promise<any> {
 		if (process.platform === 'darwin') {
 			await this.code.driver.page.keyboard.press('Meta+S');
@@ -174,6 +246,9 @@ export class Editors {
 		}
 	}
 
+	/**
+	 * Verify: the autocomplete suggestion widget contains exactly `count` visible items.
+	 */
 	async expectSuggestionListCount(count: number): Promise<void> {
 		await test.step(`Expect editor suggestion list to have ${count} items`, async () => {
 			await expect(this.suggestionList).toHaveCount(count);
@@ -208,6 +283,11 @@ export class Editors {
 		});
 	}
 
+	/**
+	 * Verify: the file-type icon in the active editor tab has a CSS class matching `iconClass`.
+	 * Useful for confirming the correct language icon is shown for a given file type.
+	 * @param iconClass - Regex to match against the full class string of the icon element
+	 */
 	async expectActiveEditorIconClassToMatch(iconClass: RegExp): Promise<void> {
 		await test.step(`Expect active editor icon to match: ${iconClass}`, async () => {
 			await expect(this.activeEditor.locator(this.editorIcon)).toHaveClass(iconClass);
