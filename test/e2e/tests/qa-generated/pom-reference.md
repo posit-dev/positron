@@ -93,32 +93,32 @@ Total POMs: 49
 - clickDuplicateSessionButton() -- Duplicate the active session via the `+` button in the console.
 - createFile( runtime: 'Python' | 'R', fileName: string ) -- Create a single file via console
 - expectSessionContextMenuToContain(runtimes: MenuItemState[]) -- The session context menu contains the expected runtimes.
-- executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; waitForReady?: boolean; maximizeConsole?: boolean }): Promise<void>
-- logConsoleContents()
-- typeToConsole(text: string, pressEnter = false, delay = 10)
-- clearInput()
-- sendEnterKey()
-- waitForReady(prompt: string, timeout = 30000): Promise<void>
-- waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void>
-- waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void>
-- doubleClickConsoleText(text: string)
-- waitForConsoleContents( consoleTextOrRegex: string | RegExp, options: { timeout?: number; expectedCount?: number; exact?: boolean; } = {} ): Promise<string[]>
-- waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string>
-- waitForConsoleExecution({ timeout = 20000 }: { timeout?: number } = {}): Promise<void>
-- waitForHistoryContents(expectedText: string, count = 1, timeout = 30000): Promise<string[]>
-- maximizeConsole()
-- sendInterrupt()
-- pasteCodeToConsole(code: string, sendEnterKey = false)
-- pasteInMonaco( locator: Locator, text: string, maxRetries = 3 ): Promise<void>
-- getLastClickableLink()
-- waitForExecutionStarted(timeout = 30000): Promise<void>
-- waitForExecutionComplete(timeout = 30000): Promise<void>
-- focus()
-- clickConsoleTab()
-- interruptExecution()
-- expectSuggestionListCount(count: number): Promise<void>
-- expectSuggestionListToContain(label: string): Promise<void>
-- expectConsoleToContainError(error: string): Promise<void>
+- executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; waitForReady?: boolean; maximizeConsole?: boolean }): Promise<void> -- Execute code in the console via the quick-input command palette. Waits for the (See also: waitForReady to wait for the prompt independently, pasteCodeToConsole to paste code directly into the console input)
+- logConsoleContents() -- Log all visible console text to the test logger. Useful for debugging failures.
+- typeToConsole(text: string, pressEnter = false, delay = 10) -- Type text into the console input character-by-character, simulating keyboard input. (See also: pasteCodeToConsole to insert text instantly without keystroke simulation)
+- clearInput() -- Clear the current console input line (select-all then delete). (See also: clearButton to clear the entire console output history)
+- sendEnterKey() -- Press Enter in the console to submit the current input line.
+- waitForReady(prompt: string, timeout = 30000): Promise<void> -- Wait for the console to display the language prompt, indicating the runtime is (See also: waitForReadyAndStarted to also confirm a "started" message appeared, waitForReadyAndRestarted to also confirm a "restarted" message appeared)
+- waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void> -- Wait for the console to show the ready prompt AND for a "started" message to (See also: waitForReady for prompt-only readiness, waitForReadyAndRestarted to wait for a "restarted" message instead)
+- waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void> -- Wait for the console to show the ready prompt AND for a "restarted" message to (See also: waitForReady for prompt-only readiness, waitForReadyAndStarted to wait for a "started" message instead)
+- doubleClickConsoleText(text: string) -- Double-click a span of text in the console output. Useful for selecting a word or
+- waitForConsoleContents( consoleTextOrRegex: string | RegExp, options: { timeout?: number; expectedCount?: number; exact?: boolean; } = {} ): Promise<string[]> -- Wait for specific text or a regex pattern to appear in the console output. Returns (See also: waitForCurrentConsoleLineContents to check only the active input line)
+- waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> -- Wait for the active console input line to contain the expected text. Returns the (See also: waitForConsoleContents to check anywhere in the console output)
+- waitForConsoleExecution({ timeout = 20000 }: { timeout?: number } = {}): Promise<void> -- Wait for the currently running console execution to finish by polling until the (See also: waitForExecutionComplete which checks the interrupt runtime icon directly)
+- waitForHistoryContents(expectedText: string, count = 1, timeout = 30000): Promise<string[]> -- Wait for history completion items to appear in the console, filtered to those
+- maximizeConsole() -- Maximize the console panel by clicking the maximize button in the bottom bar.
+- sendInterrupt() -- Send a keyboard interrupt (Ctrl+C) to the active console session via the hotkey. (See also: interruptExecution to click the "Interrupt execution" toolbar button instead)
+- pasteCodeToConsole(code: string, sendEnterKey = false) -- Paste code into the console input using clipboard injection. Faster and more (See also: typeToConsole to simulate character-by-character keyboard input instead, executeCode to run code via the quick-input command palette)
+- pasteInMonaco( locator: Locator, text: string, maxRetries = 3 ): Promise<void> -- Paste text into a Monaco editor element via a synthetic ClipboardEvent. Retries (See also: pasteCodeToConsole for the higher-level helper that targets the console input)
+- getLastClickableLink() -- Get a locator for the last clickable hyperlink in the active console output.
+- waitForExecutionStarted(timeout = 30000): Promise<void> -- Wait until the runtime interrupt button becomes visible, indicating that code (See also: waitForExecutionComplete to wait for execution to finish)
+- waitForExecutionComplete(timeout = 30000): Promise<void> -- Wait until the runtime interrupt button is hidden, indicating that code execution (See also: waitForExecutionStarted to wait for execution to begin, waitForConsoleExecution for an equivalent check via the aria-label button)
+- focus() -- Focus the console panel using the keyboard hotkey. Prefer this over (See also: clickConsoleTab to bring the Console tab to the foreground when it may be hidden)
+- clickConsoleTab() -- Click the Console tab to bring it to the foreground. Includes a retry loop to (See also: focus to focus the console via hotkey without needing to click the tab)
+- interruptExecution() -- Click the "Interrupt execution" toolbar button to stop a running script. (See also: sendInterrupt to interrupt via keyboard shortcut without requiring button visibility)
+- expectSuggestionListCount(count: number): Promise<void> -- Assert that the autocomplete suggestion list contains exactly `count` items. (See also: expectSuggestionListToContain to assert a specific item is present by label)
+- expectSuggestionListToContain(label: string): Promise<void> -- Assert that the autocomplete suggestion list contains an item matching `label`. (See also: expectSuggestionListCount to assert the total number of suggestions)
+- expectConsoleToContainError(error: string): Promise<void> -- Assert that an error message matching `error` is visible in the console output. (See also: waitForConsoleContents to wait for arbitrary text (not just errors) in output)
 
 ## contextMenu (pages/dialog-contextMenu.ts)
 - triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem', menuTriggerButton = 'left' }: ContextMenuClick): Promise<void> -- Triggers a context menu and clicks a specified menu item.
@@ -159,26 +159,26 @@ Total POMs: 49
 - close(): Promise<void> -- Closes the Databot tab (tab is on the main page, not in the webview).
 
 ## dataExplorer (pages/dataExplorer.ts)
-- maximize(showSummaryPanel: boolean = true): Promise<void>
-- waitForIdle(timeout = 60000): Promise<void>
-- expectStatusBarToHaveText(expectedText: string | RegExp, timeout = 15000): Promise<void>
+- maximize(showSummaryPanel: boolean = true): Promise<void> -- Maximize the data explorer by switching to stacked layout, closing sidebars and the
+- waitForIdle(timeout = 60000): Promise<void> -- Wait until the data grid reports an idle status.
+- expectStatusBarToHaveText(expectedText: string | RegExp, timeout = 15000): Promise<void> -- Assert that the status bar displays the expected text.
 
 ### dataExplorer.filters (pages/dataExplorer.ts)
 - add(options: { columnName: string; condition: string; value?: string; metricRecord?: RecordMetric; metricTargetType?: MetricTargetType }): Promise<void> -- Add a filter to the data explorer. Only works for a single filter at the moment. Optionally record metric.
-- clearAll()
+- clearAll() -- Clear all active column sorting and column filters, if any are present.
 
 ### dataExplorer.editorActionBar (pages/dataExplorer.ts)
-- clickButton(buttonLabel: 'Convert to Code' | 'Clear Column Sorting' | 'Open as Plain Text File'): Promise<void>
-- expectToHaveButton(buttonName: string, isVisible: boolean = true)
-- verifyCanOpenAsPlaintext(searchString: string | RegExp)
+- clickButton(buttonLabel: 'Convert to Code' | 'Clear Column Sorting' | 'Open as Plain Text File'): Promise<void> -- Click one of the named buttons in the editor action bar.
+- expectToHaveButton(buttonName: string, isVisible: boolean = true) -- Assert that a button with the given name is visible (or not visible) in the editor
+- verifyCanOpenAsPlaintext(searchString: string | RegExp) -- Click "Open as Plain Text File" and assert that the given text is visible in the
 
 ### dataExplorer.grid (pages/dataExplorer.ts)
-- jumpToStart(): Promise<void>
-- clickLowerRightCorner()
-- clickUpperLeftCorner()
+- jumpToStart(): Promise<void> -- Press Cmd+Home (macOS) or Ctrl+Home (other platforms) to scroll the grid back to
+- clickLowerRightCorner() -- Click the scrollbar corner widget at the lower-right of the data grid.
+- clickUpperLeftCorner() -- Click the corner widget at the upper-left of the data grid (above row headers,
 - sortColumnBy(columnIndex: number, sortBy: 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting') -- Sort the specified column by the given sort option.
-- clickCell(rowPosition: number, columnPosition: number, withShift = false) -- Click a cell by its visual position (position is 0-based)
-- clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) -- Click a cell by its index (Index is 0-based)
+- clickCell(rowPosition: number, columnPosition: number, withShift = false) -- Click a cell by its visual position (position is 0-based) (See also: {@link clickCellByIndex} to click by stable data index (unaffected by sort/pin))
+- clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) -- Click a cell by its index (Index is 0-based) (See also: {@link clickCell} to click by visual position (changes with sort/pin))
 - shiftClickCell(rowIndex: number, columnIndex: number) -- Shift-click a cell by its visual position (Index is 0-based)
 - selectColumnAction(colIndex: number, action: ColumnRightMenuOption) -- Select a column action from the right-click menu.
 - pinColumn(colPosition: number) -- Pin a column by its position
@@ -189,54 +189,54 @@ Total POMs: 49
 - selectRange({ start, end }: { start: CellPosition; end: CellPosition }) -- Select a range of cells
 - clickColumnHeader(columnTitle: string, options?: { button: 'left' | 'right' }) -- Click a column header by its title
 - clickRowHeader(rowIndex: number) -- Click a row header by its position
-- getRowCount(): Promise<number>
-- getColumnCount(): Promise<number>
-- getData(): Promise<object[]>
-- getColumnHeaders(): Promise<string[]>
+- getRowCount(): Promise<number> -- Return the total number of rows as reported by the status bar.
+- getColumnCount(): Promise<number> -- Return the total number of columns as reported by the status bar.
+- getData(): Promise<object[]> -- Return all currently-visible grid data as an array of row objects keyed by column
+- getColumnHeaders(): Promise<string[]> -- Return an array of all column header names currently visible in the grid.
 - expectColumnHeadersToBe(expectedHeaders: string[]) -- Verify that the column headers match the expected headers.
-- verifyTableDataLength(expectedLength: number)
-- verifyTableDataRowValue(rowIndex: number, expectedData: CellData)
+- verifyTableDataLength(expectedLength: number) -- Assert that the number of rows returned by {@link getData} equals `expectedLength`.
+- verifyTableDataRowValue(rowIndex: number, expectedData: CellData) -- Assert that the row at `rowIndex` in the grid data contains the expected cell values.
 - expectCellContentAtIndexToBe(expectedContent: string, cellIndex?: number): Promise<void> -- Verify that the nth cell (default: last) has the expected content.
-- expectCellContentToBe({ rowIndex, colIndex, value }: { rowIndex: number; colIndex: number; value: string | number }): Promise<void>
-- expectRangeToBeSelected(expectedRange: { rows: number[]; cols: number[] }): Promise<void>
-- verifyTableData(expectedData: Array<{ [key: string]: string | number }>, timeout = 60000)
+- expectCellContentToBe({ rowIndex, colIndex, value }: { rowIndex: number; colIndex: number; value: string | number }): Promise<void> -- Assert that the cell identified by its data indices contains the expected value. (See also: {@link clickCellByIndex} for clicking by stable data index, {@link expectCellContentAtIndexToBe} for checking by DOM order)
+- expectRangeToBeSelected(expectedRange: { rows: number[]; cols: number[] }): Promise<void> -- Assert that the selection overlay covers exactly the given rows and columns.
+- verifyTableData(expectedData: Array<{ [key: string]: string | number }>, timeout = 60000) -- Assert that the full grid data matches `expectedData` row by row and cell by cell.
 - expectColumnsToBePinned(expectedTitles: string[]) -- Assert that only the given columns are pinned, in order.
-- expectRowsToBePinned(expectedRows: number[], indexOffset = 0)
-- expectColumnCountToBe(expectedCount: number)
-- expectRowOrderToBe(expectedOrder: number[], indexOffset = 0)
-- expectCellToBeSelected(row: number, col: number)
+- expectRowsToBePinned(expectedRows: number[], indexOffset = 0) -- Assert that the pinned row headers display the expected row numbers in order.
+- expectColumnCountToBe(expectedCount: number) -- Assert that the number of column headers in the grid equals `expectedCount`.
+- expectRowOrderToBe(expectedOrder: number[], indexOffset = 0) -- Assert that the row headers display the given row numbers in the given order.
+- expectCellToBeSelected(row: number, col: number) -- Assert that the cell at the given visual position has the cursor-border overlay,
 
 ### dataExplorer.convertToCodeModal (pages/dataExplorer.ts)
-- clickOK()
-- clickCancel()
-- expectToBeVisible()
-- expectSyntaxHighlighting()
+- clickOK() -- Click the "Copy Code" button to confirm and dismiss the Convert to Code modal. (See also: {@link clickCancel} to dismiss without copying)
+- clickCancel() -- Click the "Cancel" button to dismiss the Convert to Code modal without copying. (See also: {@link clickOK} to confirm and copy code)
+- expectToBeVisible() -- Assert that the Convert to Code modal is visible, including the code box and both
+- expectSyntaxHighlighting() -- Assert that the code in the modal has syntax highlighting active (more than one
 
 ### dataExplorer.summaryPanel (pages/dataExplorer.ts)
-- hide(): Promise<void>
-- show(position: 'left' | 'right' = 'left'): Promise<void>
-- search(filterText: string)
-- clearSearch()
-- sortBy(sortBy: ColumnSort)
-- clearSort()
-- expandColumnProfile(rowNumber = 0): Promise<void>
-- waitForVectorHistogramVisible(timeout = 10000): Promise<void>
-- hoverHistogramBinWithRange(expectedMin: string, expectedMax: string): Promise<void>
-- getColumnMissingPercent(rowNumber: number): Promise<string>
-- getColumnProfileInfo(rowNumber: number): Promise<ColumnProfile>
-- expectSortToBeBy(sortBy: ColumnSort)
-- expectColumnCountToBe(count: number)
-- expectColumnNameToBe(columnProfileIndex: number, expectedName: string)
-- expectColumnOrderToBe(columnNames: string[])
-- expectColumnToBe({ index, name, expanded }: { index: number; name: string; expanded: boolean })
-- expectScrollbarToBeVisible(visible = true)
-- verifyMissingPercent(expectedValues: Array<{ column: number; expected: string }>)
-- expectColumnProfileToBeExpanded(columnProfileIndex: number)
-- expectColumnProfileToBeCollapsed(columnProfileIndex: number)
-- verifyColumnData(expectedValues: Array<{ column: number; expected: { [key: string]: string } }>)
-- verifySparklineHoverDialog(verificationText: string[]): Promise<void>
-- verifySparklineHeights(expectedHeights: Array<{ column: number; expected: string[] }>)
-- verifyNullPercentHoverDialog(): Promise<void>
+- hide(): Promise<void> -- Hide the summary panel using the keyboard shortcut. (See also: {@link show} to make the panel visible again)
+- show(position: 'left' | 'right' = 'left'): Promise<void> -- Show the summary panel using the keyboard shortcut, docking it on the specified side. (See also: {@link hide} to hide the panel)
+- search(filterText: string) -- Type a search term into the summary panel filter input and press Enter.
+- clearSearch() -- Clear the search filter input in the summary panel.
+- sortBy(sortBy: ColumnSort) -- Set the sort order of the summary panel via the context menu.
+- clearSort() -- Reset the summary panel sort order to the original (unsorted) state.
+- expandColumnProfile(rowNumber = 0): Promise<void> -- Toggle the expand/collapse icon for the column profile at the given row. (See also: {@link getColumnProfileInfo} to expand and read full profile data)
+- waitForVectorHistogramVisible(timeout = 10000): Promise<void> -- Wait until at least one vector histogram sparkline is visible in the summary panel.
+- hoverHistogramBinWithRange(expectedMin: string, expectedMax: string): Promise<void> -- Hover over histogram bins until a tooltip with the given min/max range is found.
+- getColumnMissingPercent(rowNumber: number): Promise<string> -- Return the missing-value percentage text for the given summary panel row.
+- getColumnProfileInfo(rowNumber: number): Promise<ColumnProfile> -- Expand the column profile for the given row, read all profile labels/values and (See also: {@link expandColumnProfile} to toggle without reading data)
+- expectSortToBeBy(sortBy: ColumnSort) -- Assert that the summary panel sort button displays the given sort option.
+- expectColumnCountToBe(count: number) -- Assert that the summary panel shows the expected number of column summaries.
+- expectColumnNameToBe(columnProfileIndex: number, expectedName: string) -- Assert that the column summary at the given index displays the expected column name.
+- expectColumnOrderToBe(columnNames: string[]) -- Assert that the summary panel column names appear in the exact given order.
+- expectColumnToBe({ index, name, expanded }: { index: number; name: string; expanded: boolean }) -- Assert a single column summary entry by its index, checking both its name and
+- expectScrollbarToBeVisible(visible = true) -- Assert that the summary panel vertical scrollbar is visible or not visible.
+- verifyMissingPercent(expectedValues: Array<{ column: number; expected: string }>) -- Assert the missing-value percentage text for each specified summary panel row.
+- expectColumnProfileToBeExpanded(columnProfileIndex: number) -- Assert that the column profile at `columnProfileIndex` is expanded (chevron-down, (See also: {@link expectColumnProfileToBeCollapsed})
+- expectColumnProfileToBeCollapsed(columnProfileIndex: number) -- Assert that the column profile at `columnProfileIndex` is collapsed (chevron-right, (See also: {@link expectColumnProfileToBeExpanded})
+- verifyColumnData(expectedValues: Array<{ column: number; expected: { [key: string]: string } }>) -- For each specified column, expand its profile and assert the label-value pairs match
+- verifySparklineHoverDialog(verificationText: string[]): Promise<void> -- Hover over the first sparkline in the summary panel and assert that its tooltip
+- verifySparklineHeights(expectedHeights: Array<{ column: number; expected: string[] }>) -- For each specified column, expand its profile and assert the sparkline bar heights
+- verifyNullPercentHoverDialog(): Promise<void> -- Hover over the first null-percent indicator in the summary panel and assert that
 
 ## debug (pages/debug.ts)
 - setBreakpointOnLine(lineNumber: number, index = 0): Promise<void>
@@ -293,24 +293,24 @@ Total POMs: 49
 ## editors (pages/editors.ts)
 - editorGroup(index: number): Locator -- Get a specific editor group by index.
 - expectEditorGroupCount(count: number, timeout = 5000): Promise<void> -- the expected number of editor groups are visible.
-- clickTab(tabName: string): Promise<void>
-- runCurrentFile(): Promise<void>
-- verifyTab( tabName: string | RegExp, { isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean } ): Promise<void>
-- escapeRegex(s: string)
-- waitForActiveTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void>
-- waitForActiveTabNotDirty(fileName: string): Promise<void>
-- newUntitledFile(): Promise<void>
-- waitForEditorFocus(fileName: string): Promise<void>
-- waitForActiveEditor(fileName: string): Promise<any>
-- selectTab(fileName: string): Promise<void>
-- waitForTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void>
-- waitForSCMTab(fileName: string): Promise<void>
-- saveOpenedFile(): Promise<any>
-- expectSuggestionListCount(count: number): Promise<void>
+- clickTab(tabName: string): Promise<void> -- click a tab by name without ensuring keyboard focus lands in the editor. (See also: {@link selectTab} to click a tab AND guarantee editor keyboard focus)
+- runCurrentFile(): Promise<void> -- click the "Run in Console" or "Source R File" toolbar button to execute the
+- verifyTab( tabName: string | RegExp, { isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean } ): Promise<void> -- a tab exists (or does not exist) and is selected (or is not selected).
+- escapeRegex(s: string) -- Utility: escape a plain string so it can be used safely inside a `RegExp` constructor
+- waitForActiveTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> -- the currently active (focused) tab matches the given file name and dirty state. (See also: {@link waitForActiveEditor} to additionally assert the editor textarea has focus, {@link waitForEditorFocus} to assert both the active tab and editor focus together)
+- waitForActiveTabNotDirty(fileName: string): Promise<void> -- the active tab for `fileName` is visible and does NOT have the `dirty` CSS class. (See also: {@link waitForActiveTab} for the general-purpose variant)
+- newUntitledFile(): Promise<void> -- open a new untitled file via the platform keyboard shortcut (Cmd+N / Ctrl+N)
+- waitForEditorFocus(fileName: string): Promise<void> -- the tab for `fileName` is active AND the Monaco editor textarea for that file (See also: {@link waitForActiveTab} to check only the active tab, {@link waitForActiveEditor} to check only the editor focus)
+- waitForActiveEditor(fileName: string): Promise<any> -- the Monaco editor instance for `fileName` has keyboard focus (its native edit (See also: {@link waitForActiveTab} to check the active tab instead, {@link waitForEditorFocus} to assert both the tab and editor focus together)
+- selectTab(fileName: string): Promise<void> -- click a tab by file name and retry until the editor has keyboard focus. (See also: {@link clickTab} for a single click without focus guarantee)
+- waitForTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> -- a tab with the given file name is visible in the tab bar (not necessarily active). (See also: {@link waitForSCMTab} to locate a tab by its `aria-label` prefix instead, {@link waitForActiveTab} to assert the tab is also the currently active one)
+- waitForSCMTab(fileName: string): Promise<void> -- an SCM-managed tab whose `aria-label` starts with `fileName` is visible. (See also: {@link waitForTab} to locate a tab by its `data-resource-name` attribute)
+- saveOpenedFile(): Promise<any> -- save the currently focused editor via the platform keyboard shortcut (Cmd+S / Ctrl+S).
+- expectSuggestionListCount(count: number): Promise<void> -- the autocomplete suggestion widget contains exactly `count` visible items.
 - expectEditorToContain(text: string): Promise<void> -- editor contains the specified text
 - expectEditorGroupActive(index: number, timeout?: number): Promise<void> -- editor group at `index` has the `active` CSS class.
 - expectEditorGroupInactive(index: number): Promise<void> -- editor group at `index` has the `inactive` CSS class.
-- expectActiveEditorIconClassToMatch(iconClass: RegExp): Promise<void>
+- expectActiveEditorIconClassToMatch(iconClass: RegExp): Promise<void> -- the file-type icon in the active editor tab has a CSS class matching `iconClass`.
 
 ## explorer (pages/explorer.ts)
 - verifyExplorerFilesExist(files: string[])
@@ -583,32 +583,32 @@ Total POMs: 49
 - selectFirstNLines(lineCount: number): Promise<void> -- Select the first N lines of output text
 
 ## plots (pages/plots.ts)
-- clickSessionNameButton()
-- clickOriginFileButton()
-- waitForCurrentPlot()
-- waitForCurrentStaticPlot()
-- expectOriginButtonVisible()
-- expectOriginButtonContain(text: string)
-- getWebviewPlotLocator(selector: string): Locator
-- getDeepWebWebviewPlotLocator(selector: string): Locator
-- waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible', RWeb = false)
-- clearPlots()
-- waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {})
-- getCurrentPlotAsBuffer(): Promise<Buffer>
-- getCurrentStaticPlotAsBuffer(): Promise<Buffer>
-- copyCurrentPlotToClipboard()
-- savePlotFromPlotsPane({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean })
-- savePlotFromEditor({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean })
-- clickGoToFileButton()
-- setThePlotZoom(zoomLevel: ZoomLevels)
-- openPlotIn(plotLocation: PlotLocations)
-- clickOpenInEditorButton()
-- verifyOpenPlotDropdownCheckedOption(expectedOption: PlotLocations)
-- waitForPlotInEditor()
-- expectPlotThumbnailsCountToBe(count: number)
-- enlargePlotArea()
-- restorePlotArea()
-- alterPlotArea(xDelta: number, yDelta: number)
+- clickSessionNameButton() -- Click the session name button displayed on the current plot.
+- clickOriginFileButton() -- Click the origin file button to navigate to the source file.
+- waitForCurrentPlot() -- Wait for any plot to appear in the Plots pane. (See also: waitForCurrentStaticPlot for static-only plots in the full-size viewer)
+- waitForCurrentStaticPlot() -- Wait for a static (non-webview) plot image in the full-size plot viewer. (See also: waitForCurrentPlot for general plot detection (sidebar + editor))
+- expectOriginButtonVisible() -- The origin file button is visible in the Plots pane.
+- expectOriginButtonContain(text: string) -- The origin file button contains the expected text.
+- getWebviewPlotLocator(selector: string): Locator -- Get a locator for an element inside a webview plot.
+- getDeepWebWebviewPlotLocator(selector: string): Locator -- Get a locator for an element inside a deeply nested webview plot.
+- waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible', RWeb = false) -- Wait for a webview-based plot to appear. (See also: waitForCurrentPlot for static image plots (matplotlib, ggplot2))
+- clearPlots() -- Clear all plots from the Plots pane. No-op if no plots exist.
+- waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) -- No plots are visible in the Plots pane.
+- getCurrentPlotAsBuffer(): Promise<Buffer> -- Capture the current plot as a screenshot buffer.
+- getCurrentStaticPlotAsBuffer(): Promise<Buffer> -- Capture the current static plot as a screenshot buffer. (See also: getCurrentPlotAsBuffer for the general version)
+- copyCurrentPlotToClipboard() -- Click the copy-to-clipboard button on the current plot.
+- savePlotFromPlotsPane({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) -- Save the current plot from the Plots pane sidebar. (See also: savePlotFromEditor to save from an editor tab instead)
+- savePlotFromEditor({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) -- Save the current plot from the editor tab. (See also: savePlotFromPlotsPane to save from the sidebar instead)
+- clickGoToFileButton() -- Click the "Go to file" button on the current plot.
+- setThePlotZoom(zoomLevel: ZoomLevels) -- Set the zoom level for the current plot.
+- openPlotIn(plotLocation: PlotLocations) -- Open the current plot in a specified location.
+- clickOpenInEditorButton() -- Click the main "Open in editor tab" button (no dropdown).
+- verifyOpenPlotDropdownCheckedOption(expectedOption: PlotLocations) -- The "Open in Editor" dropdown has the expected option checked.
+- waitForPlotInEditor() -- Wait for a plot image to appear in an editor tab (not the sidebar).
+- expectPlotThumbnailsCountToBe(count: number) -- The expected number of plot thumbnails are visible.
+- enlargePlotArea() -- Enlarge the Plots pane area by dragging sashes inward.
+- restorePlotArea() -- Restore the Plots pane area to its original size after enlarging.
+- alterPlotArea(xDelta: number, yDelta: number) -- Resize the Plots pane area by dragging sashes.
 
 ## popups (pages/dialog-popups.ts)
 - getPopupItem(label: string | RegExp): Locator
@@ -761,26 +761,26 @@ Total POMs: 49
 - (no public methods found)
 
 ## variables (pages/variables.ts)
-- getFlatVariables(): Promise<Map<string, FlatVariables>>
-- focusVariablesView()
-- waitForVariableRow(variableName: string): Promise<Locator>
-- doubleClickVariableRow(variableName: string)
-- hasProgressBar(): Promise<boolean>
-- toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' })
-- expandVariable(variableName: string)
-- collapseVariable(variableName: string)
+- getFlatVariables(): Promise<Map<string, FlatVariables>> -- Collect all visible variables in the current group into a flat map keyed by name.
+- focusVariablesView() -- Focus the Variables panel using the keyboard shortcut.
+- waitForVariableRow(variableName: string): Promise<Locator> -- Wait for a variable row to become visible and return its locator.
+- doubleClickVariableRow(variableName: string) -- Double-click a variable row to open it in the Data Explorer. (See also: clickDatabaseIconForVariableRow for the icon-based alternative, which can be unreliable)
+- hasProgressBar(): Promise<boolean> -- Check whether the variables panel is currently showing a progress bar (loading state).
+- toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) -- Expand or collapse a variable row by clicking its chevron icon. (See also: expandVariable, collapseVariable)
+- expandVariable(variableName: string) -- Expand a variable row to reveal its children. No-ops if already expanded. (See also: collapseVariable, toggleVariable)
+- collapseVariable(variableName: string) -- Collapse a variable row to hide its children. No-ops if already collapsed. (See also: expandVariable, toggleVariable)
 - getVariableChildren(parentVariable: string, collapseParent = true): Promise<{ [key: string]: { value: string; type: string } }> -- Gets the data (value and type) for the children of a parent variable.
-- getCurrentVariablesGroup(): Promise<string>
+- getCurrentVariablesGroup(): Promise<string> -- Return the label of the currently selected variables group.
 - selectSession(name: string) -- Select a session in the variables pane.
-- selectVariablesGroup(name: string)
-- getVariablesGroupList()
-- setFilterText(filterText: string)
-- clickDatabaseIconForVariableRow(rowName: string)
-- clickSessionLink()
-- clickDeleteAllVariables()
+- selectVariablesGroup(name: string) -- Switch the variables panel to a different group (e.g. "Globals", "Locals"). (See also: selectSession for switching between interpreter sessions)
+- getVariablesGroupList() -- Open the variables group dropdown and return all available group names.
+- setFilterText(filterText: string) -- Type text into the variables filter input to narrow the displayed variable list.
+- clickDatabaseIconForVariableRow(rowName: string) -- Click the database icon on a variable row to open it in the Data Explorer. (See also: doubleClickVariableRow for the reliable alternative)
+- clickSessionLink() -- Click the "Session" link in the active view switcher to navigate to the session panel.
+- clickDeleteAllVariables() -- Click the "Delete all objects" button to clear all variables from the current session.
 - expectRuntimeToBe(expectation: 'visible' | 'not.visible', sessionName: string | RegExp) -- Confirm the runtime is visible in the variables pane.
 - expectVariableToBe(variableName: string, value: string | RegExp, timeout: number = 15000) -- Confirm the variable is visible and has the expected value.
-- expectVariableToNotExist(variableName: string)
+- expectVariableToNotExist(variableName: string) -- Confirm that a variable does NOT appear in the current variables group. (See also: expectVariableToBe for asserting a variable exists with a specific value)
 - expectSessionToBe(sessionName: string | RegExp) -- Confirm the session is selected in the variables pane.
 - expectMemoryMeterReady() -- Wait for the memory meter to be visible and showing a real value (not loading state).
 - openMemoryDropdown() -- Open the memory usage dropdown by clicking the memory meter.
