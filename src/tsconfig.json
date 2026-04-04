@@ -38,4 +38,12 @@
 		"./vscode-dts/vscode.proposed.*.d.ts",
 		"./vscode-dts/vscode.d.ts"
 	],
+	// --- Start Positron ---
+	// Vitest tests use their own tsconfig (tsconfig.vitest.json) with Vitest globals.
+	// Exclude them from the main build to avoid "Cannot find name 'expect'" errors.
+	"exclude": [
+		"./vs/**/*.vitest.ts",
+		"./vs/**/*.vitest.tsx"
+	],
+	// --- End Positron ---
 }
