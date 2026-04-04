@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
 import * as positron from 'positron';
 import { AWSModelProvider } from '../providers/aws/awsBedrockProvider';
 import { BedrockClient } from '@aws-sdk/client-bedrock';
@@ -11,23 +10,23 @@ import { ModelConfig } from '../configTypes';
 import { ErrorContext } from '../providers/base/errorContext';
 import { AttributedAwsCredentialIdentity } from '@aws-sdk/types';
 
-suite('AWSModelProvider', () => {
-	suite('deriveInferenceProfileRegion', () => {
-		test('returns "us" for us-east-1', () => {
+describe('AWSModelProvider', () => {
+	describe('deriveInferenceProfileRegion', () => {
+		it('returns "us" for us-east-1', () => {
 			const result = AWSModelProvider.deriveInferenceProfileRegion('us-east-1');
-			assert.strictEqual(result, 'us');
+			expect(result).toBe('us');
 		});
 
-		test('returns "apac" for ap-northeast-1', () => {
+		it('returns "apac" for ap-northeast-1', () => {
 			const result = AWSModelProvider.deriveInferenceProfileRegion('ap-northeast-1');
-			assert.strictEqual(result, 'apac');
+			expect(result).toBe('apac');
 		});
 	});
 
-	suite('parseProviderError', () => {
+	describe('parseProviderError', () => {
 		let provider: AWSModelProvider;
 
-		setup(() => {
+		beforeEach(() => {
 			// Create a minimal provider instance for testing
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
@@ -49,20 +48,20 @@ suite('AWSModelProvider', () => {
 			} as BedrockClient;
 		});
 
-		test('returns undefined for non-Error objects', async () => {
+		it('returns undefined for non-Error objects', async () => {
 			const result = await provider.parseProviderError('not an error');
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 
-		test('returns undefined for errors without a message', async () => {
+		it('returns undefined for errors without a message', async () => {
 			const error = new Error();
 			error.name = 'TestError';
 			error.message = '';
 			const result = await provider.parseProviderError(error);
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 
-		test('handles generic CredentialsProviderError with profile and region context', async () => {
+		it('handles generic CredentialsProviderError with profile and region context', async () => {
 			// Set SSO credential source to test SSO-specific guidance
 			// eslint-disable-next-line local/code-no-any-casts
 			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
@@ -72,15 +71,15 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
-			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
-			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
-			assert.ok(result.includes('configure'), 'Expected link text for settings');
-			assert.ok(result.includes('aws sso login'), 'Expected SSO login instructions in error message');
+			expect(result).toBeTruthy();
+			expect(result!.includes('test-profile')).toBeTruthy();
+			expect(result!.includes('us-west-2')).toBeTruthy();
+			expect(result!.includes('command:workbench.action.openSettings')).toBeTruthy();
+			expect(result!.includes('configure')).toBeTruthy();
+			expect(result!.includes('aws sso login')).toBeTruthy();
 		});
 
-		test('includes default profile when profile is not set', async () => {
+		it('includes default profile when profile is not set', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			provider.bedrockClient = {
 				config: {
@@ -99,11 +98,11 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('default'), 'Expected "default" profile in error message');
+			expect(result).toBeTruthy();
+			expect(result!.includes('default')).toBeTruthy();
 		});
 
-		test('handles region as async function', async () => {
+		it('handles region as async function', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			provider.bedrockClient = {
 				config: {
@@ -117,11 +116,11 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('eu-central-1'), 'Expected async region in error message');
+			expect(result).toBeTruthy();
+			expect(result!.includes('eu-central-1')).toBeTruthy();
 		});
 
-		test('uses default region when region is not set', async () => {
+		it('uses default region when region is not set', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			provider.bedrockClient = {
 				config: {
@@ -135,22 +134,22 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('us-east-1'), 'Expected default region in error message');
+			expect(result).toBeTruthy();
+			expect(result!.includes('us-east-1')).toBeTruthy();
 		});
 
-		test('wraps non-CredentialsProviderError messages with "Amazon Bedrock error" prefix', async () => {
+		it('wraps non-CredentialsProviderError messages with "Amazon Bedrock error" prefix', async () => {
 			const error = new Error('Model not found');
 			error.name = 'ModelNotFoundException';
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('Amazon Bedrock error'), 'Expected "Amazon Bedrock error" prefix');
-			assert.ok(result.includes('Model not found'), 'Expected original error message');
+			expect(result).toBeTruthy();
+			expect(result!.includes('Amazon Bedrock error')).toBeTruthy();
+			expect(result!.includes('Model not found')).toBeTruthy();
 		});
 
-		test('returns generic Bedrock error for unrecognized error names', async () => {
+		it('returns generic Bedrock error for unrecognized error names', async () => {
 			// An error with an unrecognized name and no special status code falls through
 			// to the generic "Amazon Bedrock error" handler.
 			// eslint-disable-next-line local/code-no-any-casts
@@ -160,12 +159,12 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('Amazon Bedrock error'), 'Expected generic "Amazon Bedrock error" prefix');
-			assert.ok(result.includes('Unauthorized'), 'Expected original error message');
+			expect(result).toBeTruthy();
+			expect(result!.includes('Amazon Bedrock error')).toBeTruthy();
+			expect(result!.includes('Unauthorized')).toBeTruthy();
 		});
 
-		test('handles IAM AccessDeniedException with documentation link', async () => {
+		it('handles IAM AccessDeniedException with documentation link', async () => {
 			const error = new Error(
 				'User: arn:aws:sts:::assumed-role/EC2_SSM_Role/session is not authorized to perform: bedrock:ListFoundationModels because no identity-based policy allows the bedrock:ListFoundationModels action'
 			);
@@ -173,41 +172,41 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
-			assert.ok(result.includes('test-profile'), 'Expected profile name in error message');
-			assert.ok(result.includes('us-west-2'), 'Expected region in error message');
-			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
-			assert.ok(result.includes('positron.posit.co'), 'Expected documentation URL');
-			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command link for settings');
+			expect(result).toBeTruthy();
+			expect(result!.includes('authorization failed')).toBeTruthy();
+			expect(result!.includes('test-profile')).toBeTruthy();
+			expect(result!.includes('us-west-2')).toBeTruthy();
+			expect(result!.includes('required permissions documentation')).toBeTruthy();
+			expect(result!.includes('positron.posit.co')).toBeTruthy();
+			expect(result!.includes('command:workbench.action.openSettings')).toBeTruthy();
 			// Should not include technical details
-			assert.ok(!result.includes('EC2_SSM_Role'), 'Should not include user ARN');
-			assert.ok(!result.includes('Denied action'), 'Should not include denied action label');
+			expect(result!.includes('EC2_SSM_Role')).toBe(false);
+			expect(result!.includes('Denied action')).toBe(false);
 		});
 
-		test('handles IAM errors without specific action match', async () => {
+		it('handles IAM errors without specific action match', async () => {
 			const error = new Error('Access denied to Bedrock');
 			error.name = 'UnauthorizedException';
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
-			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
+			expect(result).toBeTruthy();
+			expect(result!.includes('authorization failed')).toBeTruthy();
+			expect(result!.includes('required permissions documentation')).toBeTruthy();
 		});
 
-		test('handles errors with "is not authorized to perform" phrase', async () => {
+		it('handles errors with "is not authorized to perform" phrase', async () => {
 			const error = new Error('You are not authorized to perform: bedrock:InvokeModel');
 			error.name = 'SomeOtherError';
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('authorization failed'), 'Expected authorization failure message');
-			assert.ok(result.includes('required permissions documentation'), 'Expected documentation link text');
+			expect(result).toBeTruthy();
+			expect(result!.includes('authorization failed')).toBeTruthy();
+			expect(result!.includes('required permissions documentation')).toBeTruthy();
 		});
 
-		test('returns undefined for non-Error plain objects (AI_APICallError duck type)', async () => {
+		it('returns undefined for non-Error plain objects (AI_APICallError duck type)', async () => {
 			// Plain objects that are not real ai.APICallError instances and not Error instances
 			// are not handled by the AWS provider and return undefined.
 			// eslint-disable-next-line local/code-no-any-casts
@@ -225,10 +224,10 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.strictEqual(result, undefined, 'Expected undefined for duck-typed non-Error plain objects');
+			expect(result).toBe(undefined);
 		});
 
-		test('IAM error includes markdown formatting and command links', async () => {
+		it('IAM error includes markdown formatting and command links', async () => {
 			const error = new Error(
 				'User: arn:aws:iam::123456789012:user/alice is not authorized to perform: bedrock:InvokeModel'
 			);
@@ -236,25 +235,25 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
+			expect(result).toBeTruthy();
 
 			// Verify command link to settings
-			assert.ok(result.includes('[configure'), 'Expected link text');
-			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected command URI');
+			expect(result!.includes('[configure')).toBeTruthy();
+			expect(result!.includes('command:workbench.action.openSettings')).toBeTruthy();
 
 			// Verify documentation link
-			assert.ok(result.includes('[required permissions documentation]'), 'Expected documentation link');
-			assert.ok(result.includes('positron.posit.co'), 'Expected documentation URL');
+			expect(result!.includes('[required permissions documentation]')).toBeTruthy();
+			expect(result!.includes('positron.posit.co')).toBeTruthy();
 
 			// Verify paragraph breaks
-			assert.ok(result.includes('\n\n'), 'Expected paragraph breaks');
+			expect(result!.includes('\n\n')).toBeTruthy();
 
 			// Should not include technical details
-			assert.ok(!result.includes('**User:**'), 'Should not include user ARN label');
-			assert.ok(!result.includes('**Denied action:**'), 'Should not include denied action label');
+			expect(result!.includes('**User:**')).toBe(false);
+			expect(result!.includes('**Denied action:**')).toBe(false);
 		});
 
-		test('connection test context is used to check if in connection test', async () => {
+		it('connection test context is used to check if in connection test', async () => {
 			const error = new Error(
 				'User: arn:aws:iam::123456789012:user/alice is not authorized to perform: bedrock:InvokeModel'
 			);
@@ -269,12 +268,12 @@ suite('AWSModelProvider', () => {
 			// Should not show notification when in connection test
 			const result = await provider.parseProviderError(error, context);
 
-			assert.ok(result, 'Expected error message to be returned');
+			expect(result).toBeTruthy();
 			// Manual verification: In a real scenario, we would verify that
 			// vscode.window.showErrorMessage is not called, but that requires mocking
 		});
 
-		test('credentials error uses authentication template', async () => {
+		it('credentials error uses authentication template', async () => {
 			// Set SSO credential source to test SSO-specific guidance
 			// eslint-disable-next-line local/code-no-any-casts
 			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
@@ -284,16 +283,16 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('authentication failed'), 'Expected authentication failure message');
-			assert.ok(result.includes('test-profile'), 'Expected profile name');
-			assert.ok(result.includes('us-west-2'), 'Expected region');
-			assert.ok(result.includes('command:workbench.action.openSettings'), 'Expected settings link');
-			assert.ok(result.includes('command:workbench.action.terminal.new'), 'Expected terminal link');
-			assert.ok(result.includes('aws sso login'), 'Expected SSO login instructions');
+			expect(result).toBeTruthy();
+			expect(result!.includes('authentication failed')).toBeTruthy();
+			expect(result!.includes('test-profile')).toBeTruthy();
+			expect(result!.includes('us-west-2')).toBeTruthy();
+			expect(result!.includes('command:workbench.action.openSettings')).toBeTruthy();
+			expect(result!.includes('command:workbench.action.terminal.new')).toBeTruthy();
+			expect(result!.includes('aws sso login')).toBeTruthy();
 		});
 
-		test('includes credential type in error messages when available', async () => {
+		it('includes credential type in error messages when available', async () => {
 			// Set a credential source on the provider
 			// eslint-disable-next-line local/code-no-any-casts
 			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_SSO: 's' });
@@ -303,11 +302,11 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('SSO'), 'Expected credential type in error message');
+			expect(result).toBeTruthy();
+			expect(result!.includes('SSO')).toBeTruthy();
 		});
 
-		test('includes credential-specific guidance for environment variables', async () => {
+		it('includes credential-specific guidance for environment variables', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_ENV_VARS: 'g' });
 
@@ -316,15 +315,15 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('environment variables'), 'Expected credential type');
-			assert.ok(result.includes('AWS_ACCESS_KEY_ID'), 'Expected env var guidance');
-			assert.ok(result.includes('AWS_SECRET_ACCESS_KEY'), 'Expected env var guidance');
+			expect(result).toBeTruthy();
+			expect(result!.includes('environment variables')).toBeTruthy();
+			expect(result!.includes('AWS_ACCESS_KEY_ID')).toBeTruthy();
+			expect(result!.includes('AWS_SECRET_ACCESS_KEY')).toBeTruthy();
 			// Should not suggest SSO login for environment variables
-			assert.ok(!result.includes('aws sso login'), 'Should not suggest SSO login for env vars');
+			expect(result!.includes('aws sso login')).toBe(false);
 		});
 
-		test('includes credential-specific guidance for shared credentials file', async () => {
+		it('includes credential-specific guidance for shared credentials file', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_PROFILE: 'n' });
 
@@ -333,14 +332,14 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('shared credentials file'), 'Expected credential type');
-			assert.ok(result.includes('~/.aws/credentials'), 'Expected credentials file path');
+			expect(result).toBeTruthy();
+			expect(result!.includes('shared credentials file')).toBeTruthy();
+			expect(result!.includes('~/.aws/credentials')).toBeTruthy();
 			// Should not suggest SSO login for shared credentials file
-			assert.ok(!result.includes('aws sso login'), 'Should not suggest SSO login for shared credentials');
+			expect(result!.includes('aws sso login')).toBe(false);
 		});
 
-		test('includes credential-specific guidance for EC2 instance metadata', async () => {
+		it('includes credential-specific guidance for EC2 instance metadata', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_IMDS: '0' });
 
@@ -349,12 +348,12 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('EC2 instance metadata'), 'Expected credential type');
-			assert.ok(result.includes('IAM role'), 'Expected EC2 guidance');
+			expect(result).toBeTruthy();
+			expect(result!.includes('EC2 instance metadata')).toBeTruthy();
+			expect(result!.includes('IAM role')).toBeTruthy();
 		});
 
-		test('includes credential-specific guidance for credential process', async () => {
+		it('includes credential-specific guidance for credential process', async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			(provider as any)._credentialSourcePromise = Promise.resolve({ CREDENTIALS_PROCESS: 'w' });
 
@@ -363,14 +362,14 @@ suite('AWSModelProvider', () => {
 
 			const result = await provider.parseProviderError(error);
 
-			assert.ok(result, 'Expected error message to be returned');
-			assert.ok(result.includes('credential process'), 'Expected credential type');
-			assert.ok(result.includes('~/.aws/config'), 'Expected config file guidance');
+			expect(result).toBeTruthy();
+			expect(result!.includes('credential process')).toBeTruthy();
+			expect(result!.includes('~/.aws/config')).toBeTruthy();
 		});
 	});
 
-	suite('getCredentialSource', () => {
-		test('detects environment variable credentials', async () => {
+	describe('getCredentialSource', () => {
+		it('detects environment variable credentials', async () => {
 			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
 				accessKeyId: 'test',
 				secretAccessKey: 'test',
@@ -390,11 +389,11 @@ suite('AWSModelProvider', () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			const result = await (provider as any).getCredentialSource(mockProvider);
 
-			assert.ok(result, 'Expected credential source to be returned');
-			assert.strictEqual(result.CREDENTIALS_ENV_VARS, 'g');
+			expect(result).toBeTruthy();
+			expect(result.CREDENTIALS_ENV_VARS).toBe('g');
 		});
 
-		test('detects SSO credentials', async () => {
+		it('detects SSO credentials', async () => {
 			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
 				accessKeyId: 'test',
 				secretAccessKey: 'test',
@@ -414,11 +413,11 @@ suite('AWSModelProvider', () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			const result = await (provider as any).getCredentialSource(mockProvider);
 
-			assert.ok(result, 'Expected credential source to be returned');
-			assert.strictEqual(result.CREDENTIALS_SSO, 's');
+			expect(result).toBeTruthy();
+			expect(result.CREDENTIALS_SSO).toBe('s');
 		});
 
-		test('detects EC2 instance metadata credentials', async () => {
+		it('detects EC2 instance metadata credentials', async () => {
 			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
 				accessKeyId: 'test',
 				secretAccessKey: 'test',
@@ -438,11 +437,11 @@ suite('AWSModelProvider', () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			const result = await (provider as any).getCredentialSource(mockProvider);
 
-			assert.ok(result, 'Expected credential source to be returned');
-			assert.strictEqual(result.CREDENTIALS_IMDS, '0');
+			expect(result).toBeTruthy();
+			expect(result.CREDENTIALS_IMDS).toBe('0');
 		});
 
-		test('detects shared credentials file', async () => {
+		it('detects shared credentials file', async () => {
 			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
 				accessKeyId: 'test',
 				secretAccessKey: 'test',
@@ -462,11 +461,11 @@ suite('AWSModelProvider', () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			const result = await (provider as any).getCredentialSource(mockProvider);
 
-			assert.ok(result, 'Expected credential source to be returned');
-			assert.strictEqual(result.CREDENTIALS_PROFILE, 'n');
+			expect(result).toBeTruthy();
+			expect(result.CREDENTIALS_PROFILE).toBe('n');
 		});
 
-		test('returns undefined when $source is missing', async () => {
+		it('returns undefined when $source is missing', async () => {
 			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => ({
 				accessKeyId: 'test',
 				secretAccessKey: 'test'
@@ -485,10 +484,10 @@ suite('AWSModelProvider', () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			const result = await (provider as any).getCredentialSource(mockProvider);
 
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 
-		test('returns undefined when credential resolution fails', async () => {
+		it('returns undefined when credential resolution fails', async () => {
 			const mockProvider = async (): Promise<AttributedAwsCredentialIdentity> => {
 				throw new Error('Credential resolution failed');
 			};
@@ -506,14 +505,14 @@ suite('AWSModelProvider', () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			const result = await (provider as any).getCredentialSource(mockProvider);
 
-			assert.strictEqual(result, undefined);
+			expect(result).toBe(undefined);
 		});
 	});
 
-	suite('provider routing', () => {
+	describe('provider routing', () => {
 		let provider: AWSModelProvider;
 
-		setup(() => {
+		beforeEach(() => {
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
 				name: 'Test Provider',
@@ -525,16 +524,16 @@ suite('AWSModelProvider', () => {
 			provider = new AWSModelProvider(config);
 		});
 
-		test('routes Anthropic models to the Bedrock Anthropic provider', () => {
+		it('routes Anthropic models to the Bedrock Anthropic provider', () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			const model = (provider as any).aiProvider('us.anthropic.claude-sonnet-4-20250514-v1:0');
-			assert.strictEqual(model.provider, 'bedrock.anthropic.messages');
+			expect(model.provider).toBe('bedrock.anthropic.messages');
 		});
 
-		test('routes non-Anthropic models to the generic Bedrock provider', () => {
+		it('routes non-Anthropic models to the generic Bedrock provider', () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			const model = (provider as any).aiProvider('us.meta.llama3-1-70b-instruct-v1:0');
-			assert.strictEqual(model.provider, 'amazon-bedrock');
+			expect(model.provider).toBe('amazon-bedrock');
 		});
 	});
 });

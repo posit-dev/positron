@@ -25,3 +25,11 @@ export const ai = {
 	getEnabledProviders: () => Promise.resolve([]),
 	addLanguageModelConfig: () => { },
 };
+
+export const notebooks = {
+	NotebookCellType: {
+		Code: 'code',
+		Markup: 'markup',
+		Markdown: 'markdown',
+	} as const,
+};

@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
 import * as positron from 'positron';
 import { filterNotebookContext, MAX_NOTEBOOK_CONTEXT_CHARS, MAX_NON_SELECTED_CELL_CONTENT_CHARS } from '../notebookContextFilter';
 
@@ -47,9 +46,9 @@ function createMockContext(
 	};
 }
 
-suite('notebookContextFilter', () => {
-	suite('filterNotebookContext - Content-Aware Filtering', () => {
-		test('should preserve small notebooks under budget', () => {
+describe('notebookContextFilter', () => {
+	describe('filterNotebookContext - Content-Aware Filtering', () => {
+		it('should preserve small notebooks under budget', () => {
 			const cells = [
 				createMockCell(0, 'small content'),
 				createMockCell(1, 'another small cell')
@@ -58,12 +57,12 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.strictEqual(result.allCells?.length, 2);
-			assert.strictEqual(result.allCells?.[0].content, 'small content');
-			assert.strictEqual(result.allCells?.[1].content, 'another small cell');
+			expect(result.allCells?.length).toBe(2);
+			expect(result.allCells?.[0].content).toBe('small content');
+			expect(result.allCells?.[1].content).toBe('another small cell');
 		});
 
-		test('should truncate non-selected cells when over budget', () => {
+		it('should truncate non-selected cells when over budget', () => {
 			// Create cells with large content that exceeds budget
 			const largeContent = 'x'.repeat(30_000); // 30K chars per cell
 			const cells = [
@@ -75,21 +74,21 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.ok(result.allCells);
+			expect(result.allCells).toBeTruthy();
 			// Selected cell should be preserved fully
-			const selectedCell = result.allCells.find(c => c.index === 1);
-			assert.ok(selectedCell);
-			assert.strictEqual(selectedCell.content, largeContent);
+			const selectedCell = result.allCells!.find(c => c.index === 1);
+			expect(selectedCell).toBeTruthy();
+			expect(selectedCell!.content).toBe(largeContent);
 
 			// Non-selected cells should be truncated
-			const nonSelectedCells = result.allCells.filter(c => c.index !== 1);
+			const nonSelectedCells = result.allCells!.filter(c => c.index !== 1);
 			for (const cell of nonSelectedCells) {
-				assert.ok(cell.content.length <= MAX_NON_SELECTED_CELL_CONTENT_CHARS);
-				assert.ok(cell.content.includes('[truncated]'));
+				expect(cell.content.length <= MAX_NON_SELECTED_CELL_CONTENT_CHARS).toBeTruthy();
+				expect(cell.content.includes('[truncated]')).toBeTruthy();
 			}
 		});
 
-		test('should preserve all selected cells fully', () => {
+		it('should preserve all selected cells fully', () => {
 			const largeContent = 'x'.repeat(20_000);
 			const cells = [
 				createMockCell(0, largeContent),
@@ -101,17 +100,17 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.ok(result.allCells);
-			const selectedCell1 = result.allCells.find(c => c.index === 1);
-			const selectedCell2 = result.allCells.find(c => c.index === 2);
+			expect(result.allCells).toBeTruthy();
+			const selectedCell1 = result.allCells!.find(c => c.index === 1);
+			const selectedCell2 = result.allCells!.find(c => c.index === 2);
 
-			assert.ok(selectedCell1);
-			assert.ok(selectedCell2);
-			assert.strictEqual(selectedCell1.content, largeContent);
-			assert.strictEqual(selectedCell2.content, largeContent);
+			expect(selectedCell1).toBeTruthy();
+			expect(selectedCell2).toBeTruthy();
+			expect(selectedCell1!.content).toBe(largeContent);
+			expect(selectedCell2!.content).toBe(largeContent);
 		});
 
-		test('should reduce cell count if still over budget after truncation', () => {
+		it('should reduce cell count if still over budget after truncation', () => {
 			// Create many cells with large content
 			const largeContent = 'x'.repeat(15_000);
 			const cells: positron.notebooks.NotebookCell[] = [];
@@ -122,19 +121,19 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.ok(result.allCells);
+			expect(result.allCells).toBeTruthy();
 			// Selected cell should always be included
-			const selectedCell = result.allCells.find(c => c.index === 5);
-			assert.ok(selectedCell);
-			assert.strictEqual(selectedCell.content, largeContent);
+			const selectedCell = result.allCells!.find(c => c.index === 5);
+			expect(selectedCell).toBeTruthy();
+			expect(selectedCell!.content).toBe(largeContent);
 
 			// Total size should be within budget
-			const totalSize = result.allCells.reduce((sum, cell) => sum + cell.content.length, 0);
+			const totalSize = result.allCells!.reduce((sum, cell) => sum + cell.content.length, 0);
 			// Allow some overhead for XML formatting
-			assert.ok(totalSize < MAX_NOTEBOOK_CONTEXT_CHARS * 1.5, `Total size ${totalSize} should be reasonable`);
+			expect(totalSize < MAX_NOTEBOOK_CONTEXT_CHARS * 1.5).toBeTruthy();
 		});
 
-		test('should handle empty cells', () => {
+		it('should handle empty cells', () => {
 			const cells = [
 				createMockCell(0, ''),
 				createMockCell(1, 'content')
@@ -143,11 +142,11 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.ok(result.allCells);
-			assert.strictEqual(result.allCells.length, 2);
+			expect(result.allCells).toBeTruthy();
+			expect(result.allCells!.length).toBe(2);
 		});
 
-		test('should handle context with no allCells', () => {
+		it('should handle context with no allCells', () => {
 			const context: positron.notebooks.NotebookContext = {
 				uri: 'test://notebook.ipynb',
 				cellCount: 5,
@@ -159,10 +158,10 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.strictEqual(result.allCells, undefined);
+			expect(result.allCells).toBe(undefined);
 		});
 
-		test('should handle large notebooks without selection', () => {
+		it('should handle large notebooks without selection', () => {
 			const cells: positron.notebooks.NotebookCell[] = [];
 			for (let i = 0; i < 30; i++) {
 				cells.push(createMockCell(i, `content ${i}`));
@@ -172,10 +171,10 @@ suite('notebookContextFilter', () => {
 			const result = filterNotebookContext(context);
 
 			// Large notebooks without selection should have allCells removed
-			assert.strictEqual(result.allCells, undefined);
+			expect(result.allCells).toBe(undefined);
 		});
 
-		test('should apply sliding window for large notebooks with selection', () => {
+		it('should apply sliding window for large notebooks with selection', () => {
 			const cells: positron.notebooks.NotebookCell[] = [];
 			for (let i = 0; i < 50; i++) {
 				cells.push(createMockCell(i, `content ${i}`));
@@ -184,16 +183,16 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.ok(result.allCells);
+			expect(result.allCells).toBeTruthy();
 			// Should include cells around index 25 (sliding window)
-			const indices = result.allCells.map(c => c.index);
-			assert.ok(indices.includes(25), 'Should include selected cell');
+			const indices = result.allCells!.map(c => c.index);
+			expect(indices.includes(25)).toBeTruthy();
 			// Should be a window around the selected cell
-			assert.ok(Math.min(...indices) < 25);
-			assert.ok(Math.max(...indices) > 25);
+			expect(Math.min(...indices) < 25).toBeTruthy();
+			expect(Math.max(...indices) > 25).toBeTruthy();
 		});
 
-		test('should handle edge case: single very large selected cell', () => {
+		it('should handle edge case: single very large selected cell', () => {
 			const hugeContent = 'x'.repeat(100_000); // 100K chars
 			const cells = [
 				createMockCell(0, hugeContent, positron.notebooks.NotebookCellType.Code, 'selected')
@@ -202,12 +201,12 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.ok(result.allCells);
+			expect(result.allCells).toBeTruthy();
 			// Selected cell should be preserved even if it's huge
-			assert.strictEqual(result.allCells[0].content, hugeContent);
+			expect(result.allCells![0].content).toBe(hugeContent);
 		});
 
-		test('should handle mixed cell types', () => {
+		it('should handle mixed cell types', () => {
 			const largeContent = 'x'.repeat(20_000);
 			const cells = [
 				createMockCell(0, largeContent, positron.notebooks.NotebookCellType.Code),
@@ -218,12 +217,11 @@ suite('notebookContextFilter', () => {
 
 			const result = filterNotebookContext(context);
 
-			assert.ok(result.allCells);
-			const selectedMarkdownCell = result.allCells.find(c => c.index === 1);
-			assert.ok(selectedMarkdownCell);
-			assert.strictEqual(selectedMarkdownCell.type, positron.notebooks.NotebookCellType.Markdown);
-			assert.strictEqual(selectedMarkdownCell.content, largeContent);
+			expect(result.allCells).toBeTruthy();
+			const selectedMarkdownCell = result.allCells!.find(c => c.index === 1);
+			expect(selectedMarkdownCell).toBeTruthy();
+			expect(selectedMarkdownCell!.type).toBe(positron.notebooks.NotebookCellType.Markdown);
+			expect(selectedMarkdownCell!.content).toBe(largeContent);
 		});
 	});
 });
-

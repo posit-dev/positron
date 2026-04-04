@@ -36,7 +36,13 @@ export const window = {
 };
 
 export const l10n = {
-	t: (message: string, ..._args: any[]) => message,
+	t: (message: string, ...args: any[]) => {
+		// Simulate vscode.l10n.t by substituting {0}, {1}, ... placeholders with args
+		return message.replace(/\{(\d+)\}/g, (_match, index) => {
+			const i = parseInt(index, 10);
+			return i < args.length ? String(args[i]) : _match;
+		});
+	},
 };
 
 export const workspace = {
