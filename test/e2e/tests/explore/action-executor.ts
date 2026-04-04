@@ -77,6 +77,30 @@ export function listPoms(workbench: any): string[] {
 		.sort();
 }
 
+/**
+ * Normalize args for methods where shell quoting commonly mangles values.
+ * For expectVariableToBe, if the value arg (index 1) is a bare string that
+ * doesn't already contain quotes, convert it to a RegExp that accepts the
+ * value with or without surrounding single/double quotes. This prevents
+ * failures when shell/jq processing strips quote characters.
+ */
+function normalizeArgs(method: string, args: unknown[]): unknown[] {
+	if (method === 'expectVariableToBe' && args.length >= 2 && typeof args[1] === 'string') {
+		const val = args[1] as string;
+		// Already has quotes or is a non-string value (number, list, DataFrame, etc.) -- leave it
+		if (/^['"]/.test(val) || /['"]$/.test(val)) {
+			return args;
+		}
+		// Bare string -- could be a number/boolean/structured value, or a string that lost quotes.
+		// Only wrap if it looks like a simple word (no brackets, no dots-with-numbers pattern).
+		if (/^\w[\w\s]*$/.test(val) && !/^\d/.test(val) && !/^(TRUE|FALSE|True|False|None|NULL|NA|NaN|Inf)$/.test(val)) {
+			const escaped = val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			return [...args.slice(0, 1), new RegExp(`^['"]?${escaped}['"]?$`), ...args.slice(2)];
+		}
+	}
+	return args;
+}
+
 /** Resolve a possibly-dotted POM path like "sessions" or "dataExplorer". */
 function resolvePom(workbench: any, pomPath: string): { target: any; error?: string } {
 	const segments = pomPath.split('.');
@@ -246,7 +270,8 @@ export async function executePom(app: Application, request: PomRequest): Promise
 
 		// 6. Call the method
 		try {
-			const raw = await target[request.method](...(request.args ?? []));
+			const args = normalizeArgs(request.method, request.args ?? []);
+			const raw = await target[request.method](...args);
 			const result = stringify(raw);
 			const state = await observeState(app);
 			return { success: true, result, state, duration: Date.now() - start };
@@ -386,7 +411,8 @@ async function executePomDirect(app: Application, step: BatchStep): Promise<Acti
 			};
 		}
 
-		const raw = await target[method](...(step.args ?? []));
+		const args = normalizeArgs(method, step.args ?? []);
+		const raw = await target[method](...args);
 		return { success: true, result: stringify(raw), state: {}, duration: Date.now() - start };
 	});
 }

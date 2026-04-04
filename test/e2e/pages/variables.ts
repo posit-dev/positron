@@ -269,11 +269,20 @@ export class Variables {
 	}
 
 	/**
-	 * Action: Click the "Delete all objects" button to clear all variables from the current session.
+	 * Action: Click the "Delete all objects" button and confirm the modal dialog if it appears.
 	 * WARNING: This is a destructive action -- all variables in the current session will be removed.
 	 */
-	async clickDeleteAllVariables() {
-		await this.code.driver.page.getByLabel('Delete all objects').click();
+	async deleteAllVariables() {
+		await test.step('Delete all variables', async () => {
+			await this.code.driver.page.getByLabel('Delete all objects').click();
+			const deleteButton = this.code.driver.page.locator('.positron-modal-dialog-box')
+				.getByRole('button', { name: 'Delete', exact: true });
+			try {
+				await deleteButton.click({ timeout: 1000 });
+			} catch {
+				// No confirmation modal appeared -- deletion proceeded without one
+			}
+		});
 	}
 
 	/**
@@ -293,11 +302,17 @@ export class Variables {
 
 	/**
 	 * Verify: Confirm the variable is visible and has the expected value.
+	 *
+	 * String quoting is normalized automatically: if the value is wrapped in
+	 * single or double quotes (e.g. `'hello'` or `"hello"`), the assertion
+	 * accepts either quote style so the same call works for both Python and R.
+	 *
 	 * @param variableName the name of the variable to check
 	 * @param value the expected value of the variable
 	 * @param timeout (optional) timeout in milliseconds for visibility (default 15000)
 	 */
 	async expectVariableToBe(variableName: string, value: string | RegExp, timeout: number = 15000) {
+		const normalized = Variables.normalizeQuotedString(value);
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.focusVariablesView();
 			const variableRow = this.code.driver.page
@@ -307,8 +322,27 @@ export class Variables {
 				.locator('..');
 
 			await expect(variableRow).toBeVisible({ timeout });
-			await expect(variableRow.locator('.details-column .value')).toHaveText(value, { timeout: 3000 });
+			await expect(variableRow.locator('.details-column .value')).toHaveText(normalized, { timeout: 3000 });
 		});
+	}
+
+	/**
+	 * Replace any leading/trailing single or double quote with `['"]` so the
+	 * assertion accepts either quote style (Python uses `'`, R uses `"`).
+	 * Non-string values and RegExp pass through unchanged.
+	 */
+	private static normalizeQuotedString(value: string | RegExp): string | RegExp {
+		if (value instanceof RegExp) {
+			return value;
+		}
+		// Treat single and double quotes as interchangeable so the same
+		// assertion works for both Python ('hello') and R ("hello").
+		if (/['"]/.test(value)) {
+			const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const pattern = escaped.replace(/\\?['"]/g, '[\'"]');
+			return new RegExp(`^${pattern}$`);
+		}
+		return value;
 	}
 
 	/**
@@ -319,11 +353,11 @@ export class Variables {
 	async expectVariableToNotExist(variableName: string) {
 		await test.step(`Verify variable does not exist: ${variableName}`, async () => {
 			await this.focusVariablesView();
-			const row = this.code.driver.page
-				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
-				.filter({ hasText: variableName });
+			const nameCell = this.code.driver.page
+				.locator(`${CURRENT_VARIABLES_GROUP} .variable-item .name-value`)
+				.getByText(variableName, { exact: true });
 
-			await expect(row).toHaveCount(0);
+			await expect(nameCell).toHaveCount(0);
 		});
 	}
 

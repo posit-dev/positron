@@ -109,6 +109,10 @@ export class PositronNotebooks extends Notebooks {
 	private ghostCellDismissButton = this.code.driver.page.locator('.ghost-cell-dismiss-button');
 	private ghostCellAutomaticButton = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-button.left');
 	private ghostCellOnDemandButton = this.code.driver.page.locator('.ghost-cell-mode-toggle .toggle-button.right');
+	private ghostCellOptIn = this.code.driver.page.locator('.ghost-cell-opt-in');
+	private ghostCellOptInEnableButton = this.code.driver.page.locator('.ghost-cell-opt-in-button.default');
+	private ghostCellOptInNotNowButton = this.code.driver.page.locator('.ghost-cell-opt-in-actions .ghost-cell-opt-in-button:not(.default):nth-child(2)');
+	private ghostCellOptInDontAskButton = this.code.driver.page.locator('.ghost-cell-opt-in-actions .ghost-cell-opt-in-button:not(.default):nth-child(3)');
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -1567,6 +1571,48 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Verify: Ghost cell is not visible.
+	 */
+	async expectGhostCellNotVisible(): Promise<void> {
+		await test.step('Verify ghost cell is not visible', async () => {
+			await expect(this.ghostCellHeader).not.toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell opt-in prompt is visible.
+	 */
+	async expectGhostCellOptInVisible(): Promise<void> {
+		await test.step('Verify ghost cell opt-in prompt is visible', async () => {
+			await expect(this.ghostCellOptIn).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell opt-in prompt is not visible.
+	 */
+	async expectGhostCellOptInNotVisible(): Promise<void> {
+		await test.step('Verify ghost cell opt-in prompt is not visible', async () => {
+			await expect(this.ghostCellOptIn).not.toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: Ghost cell info dialog content matches expectations.
+	 * Checks for section headings in the "About Ghost Cell Suggestions" modal.
+	 * @param expectations - Array of text strings expected in the dialog
+	 */
+	async expectGhostCellInfoDialogContent(expectations: string[]): Promise<void> {
+		await test.step('Verify ghost cell info dialog content', async () => {
+			const dialog = this.code.driver.page.locator('.positron-modal-dialog-box');
+			await expect(dialog).toBeVisible();
+			for (const text of expectations) {
+				await expect(dialog).toContainText(text);
+			}
+		});
+	}
+
 	// #endregion
 
 	// #region Ghost Cell Actions
@@ -1605,6 +1651,51 @@ export class PositronNotebooks extends Notebooks {
 	async getSuggestion(): Promise<void> {
 		await test.step('Request suggestion', async () => {
 			await this.ghostCellGetSuggestion.click();
+		});
+	}
+
+	/**
+	 * Action: Dismiss the current ghost cell suggestion.
+	 */
+	async dismissGhostCellSuggestion(): Promise<void> {
+		await test.step('Dismiss ghost cell suggestion', async () => {
+			await this.ghostCellDismiss.click();
+		});
+	}
+
+	/**
+	 * Action: Click the ghost cell info button to open the info dialog.
+	 */
+	async clickGhostCellInfoButton(): Promise<void> {
+		await test.step('Click ghost cell info button', async () => {
+			await this.ghostCellInfoButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click "Enable" on the ghost cell opt-in prompt.
+	 */
+	async enableGhostCellSuggestions(): Promise<void> {
+		await test.step('Enable ghost cell suggestions via opt-in prompt', async () => {
+			await this.ghostCellOptInEnableButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click "Not now" on the ghost cell opt-in prompt.
+	 */
+	async dismissGhostCellOptIn(): Promise<void> {
+		await test.step('Dismiss ghost cell opt-in prompt (Not now)', async () => {
+			await this.ghostCellOptInNotNowButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click "Don't ask again" on the ghost cell opt-in prompt.
+	 */
+	async disableGhostCellOptIn(): Promise<void> {
+		await test.step('Disable ghost cell opt-in prompt (Don\'t ask again)', async () => {
+			await this.ghostCellOptInDontAskButton.click();
 		});
 	}
 

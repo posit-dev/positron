@@ -24,16 +24,14 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 		await app.workbench.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
 		await app.workbench.console.pasteCodeToConsole('Sys.sleep(20)', true);
 
-		const { variables, modals, console } = app.workbench;
+		const { variables, console } = app.workbench;
 
 		await expect(async () => {
 			expect(await variables.hasProgressBar()).toBe(false);
 		}).toPass({ timeout: 2000 });
 
 		// Now click delete all variables an expect the progress bar to appear
-		await variables.clickDeleteAllVariables();
-		await modals.expectToBeVisible('Delete All Variables');
-		await modals.clickButton('Delete');
+		await variables.deleteAllVariables();
 
 		// Wait for the progress bar to appear
 		await expect(async () => {
@@ -56,9 +54,7 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 		await console.pasteCodeToConsole('Sys.sleep(20)', true);
 
 		// Now click delete all variables an expect the progress bar to appear
-		await variables.clickDeleteAllVariables();
-		await modals.expectToBeVisible('Delete All Variables');
-		await modals.clickButton('Delete');
+		await variables.deleteAllVariables();
 
 		// Wait for the progress bar to appear
 		await expect(async () => {

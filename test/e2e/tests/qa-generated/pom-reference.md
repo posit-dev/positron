@@ -558,9 +558,18 @@ Total POMs: 49
 - expectGhostCellMode(automatic: boolean): Promise<void> -- Ghost cell mode is set to the expected value.
 - expectGhostCellAwaitingRequest(): Promise<void> -- "AI suggestion available on request" UI is visible.
 - expectGhostCellToContainText(expectedText: string): Promise<void> -- Ghost cell contains expected text.
+- expectGhostCellNotVisible(): Promise<void> -- Ghost cell is not visible.
+- expectGhostCellOptInVisible(): Promise<void> -- Ghost cell opt-in prompt is visible.
+- expectGhostCellOptInNotVisible(): Promise<void> -- Ghost cell opt-in prompt is not visible.
+- expectGhostCellInfoDialogContent(expectations: string[]): Promise<void> -- Ghost cell info dialog content matches expectations.
 - selectGhostCellMode(automatic: boolean): Promise<void> -- Select ghost cell mode.
 - acceptGhostCellSuggestion(): Promise<void> -- Accept ghost cell suggestion (clicks Accept and Run).
 - getSuggestion(): Promise<void> -- Request a suggestion by clicking "Get Suggestion" button.
+- dismissGhostCellSuggestion(): Promise<void> -- Dismiss the current ghost cell suggestion.
+- clickGhostCellInfoButton(): Promise<void> -- Click the ghost cell info button to open the info dialog.
+- enableGhostCellSuggestions(): Promise<void> -- Click "Enable" on the ghost cell opt-in prompt.
+- dismissGhostCellOptIn(): Promise<void> -- Click "Not now" on the ghost cell opt-in prompt.
+- disableGhostCellOptIn(): Promise<void> -- Click "Don't ask again" on the ghost cell opt-in prompt.
 - getScrollTop(): Promise<number> -- Get the current scroll position of the notebook cells container.
 
 ## notebooksVscode (pages/notebooksVscode.ts)
@@ -781,7 +790,7 @@ Total POMs: 49
 - setFilterText(filterText: string) -- Type text into the variables filter input to narrow the displayed variable list.
 - clickDatabaseIconForVariableRow(rowName: string) -- Click the database icon on a variable row to open it in the Data Explorer. (See also: openVariableInDataExplorer for the reliable alternative)
 - clickSessionLink() -- Click the "Session" link in the active view switcher to navigate to the session panel.
-- clickDeleteAllVariables() -- Click the "Delete all objects" button to clear all variables from the current session.
+- deleteAllVariables() -- Click the "Delete all objects" button and confirm the modal dialog if it appears.
 - expectRuntimeToBe(expectation: 'visible' | 'not.visible', sessionName: string | RegExp) -- Confirm the runtime is visible in the variables pane.
 - expectVariableToBe(variableName: string, value: string | RegExp, timeout: number = 15000) -- Confirm the variable is visible and has the expected value.
 - expectVariableToNotExist(variableName: string) -- Confirm that a variable does NOT appear in the current variables group. (See also: expectVariableToBe for asserting a variable exists with a specific value)

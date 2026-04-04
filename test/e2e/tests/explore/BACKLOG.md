@@ -13,25 +13,17 @@ Tracked issues, missing capabilities, and improvement ideas for the explore runn
 
 ## POM Gaps
 
-- [ ] **Ghost cell POM methods missing.**
-  No POM exists for interacting with ghost cells. During QA #12025 testing, we had to
-  use raw selectors (`.ghost-cell-info-button`, `.ghost-cell-container`) and the command
-  palette (`positronNotebook.showGhostCellInfo`) instead of proper POM methods. Needed:
-  - `expectGhostCellVisible()` / `expectGhostCellNotVisible()`
-  - `clickGhostCellInfoButton()` -- opens the info modal dialog
-  - `acceptGhostCellSuggestion()` / `dismissGhostCellSuggestion()`
-  - `expectGhostCellInfoDialogContent(expectations)` -- verify dialog sections
-  - Test with: `#12025` (ghost cell info pane content)
+- [x] **Ghost cell POM methods missing.**
+  RESOLVED: Added `expectGhostCellNotVisible()`, `dismissGhostCellSuggestion()`,
+  `clickGhostCellInfoButton()`, and `expectGhostCellInfoDialogContent(expectations)`
+  to `notebooksPositron.ts`. `expectGhostCellVisible()` and `acceptGhostCellSuggestion()`
+  already existed.
 
-- [ ] **Ghost cell opt-in/enable flow not in POM.**
-  First-time notebook users see a "Suggest code as you work?" opt-in prompt with
-  Enable / Not now / Don't ask again buttons. There is no POM method to handle this.
-  Needed:
-  - `enableGhostCellSuggestions()` -- clicks Enable on the opt-in prompt
-  - `dismissGhostCellOptIn()` -- clicks Not now
-  - `disableGhostCellOptIn()` -- clicks Don't ask again
-  - `expectGhostCellOptInVisible()` / `expectGhostCellOptInNotVisible()`
-  - Test with: `#12025` (opt-in prompt appears on first notebook with ghost cells)
+- [x] **Ghost cell opt-in/enable flow not in POM.**
+  RESOLVED: Added locators for the opt-in prompt (`.ghost-cell-opt-in`, button selectors)
+  and methods `enableGhostCellSuggestions()`, `dismissGhostCellOptIn()`,
+  `disableGhostCellOptIn()`, `expectGhostCellOptInVisible()`,
+  `expectGhostCellOptInNotVisible()` to `notebooksPositron.ts`.
 
 - [x] **`clickDatabaseIconForVariableRow` unreliable -- prefer `openVariableInDataExplorer`.**
   RESOLVED: Renamed `doubleClickVariableRow` to `openVariableInDataExplorer` for clarity.
@@ -43,3 +35,7 @@ Tracked issues, missing capabilities, and improvement ideas for the explore runn
   RESOLVED: Renamed `waitForCurrentStaticPlot` to `waitForPlotInFullSizeViewer` to make
   the location distinction clear. `waitForCurrentPlot` remains the default for most
   plot assertions.
+
+- [x] **Missing: deleteAllVariables (variables.ts)**
+  RESOLVED: Added `deleteAllVariables()` to `variables.ts` that clicks the button AND
+  confirms the modal dialog. Removed `clickDeleteAllVariables` to eliminate confusion.
