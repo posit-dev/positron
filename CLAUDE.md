@@ -36,7 +36,19 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 ## Testing
 
-- Ensure build daemons are running before testing
+### Where should I put my test?
+
+Test at the **lowest layer** that can catch the bug:
+
+1. **Vitest** (`*.vitest.ts`) -- DEFAULT for Positron code. Does your code import `vscode` or `positron`? If no, use Vitest. If yes but only for config/convenience, extract the logic and test it in Vitest.
+2. **Extension host** (`npm run test-extension`) -- Only when your test genuinely needs VS Code/Positron extension APIs (extension activation, workspace APIs, editor documents).
+3. **E2E** (Playwright) -- Only for user-visible workflows that span multiple systems.
+
+Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
+
+### Running tests
+
+- Ensure build daemons are running before testing upstream or extension tests (NOT needed for Vitest)
 - Core tests (`src/**/*.ts`):
 	- `./scripts/test.sh`: run all tests
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file

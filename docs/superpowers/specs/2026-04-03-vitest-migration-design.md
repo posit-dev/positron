@@ -504,7 +504,7 @@ All 67 original `.test.ts` / `.test.tsx` Positron files, replaced by their `.vit
 
 - **Upstream VS Code tests** -- all 814 files stay on Mocha, untouched
 - **E2E tests** -- Playwright infrastructure unaffected
-- **Extension tests** -- `npm run test-extension` pipeline unchanged
+- **Extension tests** -- `npm run test-extension` pipeline unchanged (for now -- see Next Steps)
 - **Build system** -- build daemons, compilation, packaging unchanged
 - **`scripts/test.sh`** -- continues running upstream Mocha tests
 
@@ -517,3 +517,42 @@ All 67 original `.test.ts` / `.test.tsx` Positron files, replaced by their `.vit
 3. `./scripts/test.sh` -- upstream Mocha tests still pass (no regression)
 4. Each migration phase validated: migrated tests produce same pass/fail results
 5. CI workflow runs Vitest step successfully alongside existing pipeline
+
+---
+
+## Next Steps
+
+The Vitest migration (Layer 1 of the pyramid) is complete. These are the next moves to improve the full testing experience, in priority order:
+
+### 1. Extract pure logic extension tests to Vitest
+
+~10-12 test files across positron-assistant and positron-r don't import `vscode` or `positron` at all. They're pure logic tests running through the full Electron extension host, taking 20-30 seconds when they could take 200ms in Vitest.
+
+**Confirmed safe to move** (no `vscode`/`positron` imports):
+- positron-assistant: snowflake.test.ts, anthropicVercel.test.ts, autoconfiguredProviders.test.ts, awsBedrock.test.ts, notebookContextFilter.test.ts, openai-fetch-utils.test.ts
+- positron-r: hyperlink.test.ts, rversions.test.ts
+
+These test the same logic with the same assertions -- only the runner changes (Node.js instead of Electron).
+
+### 2. Add the testing pyramid decision tree to CLAUDE.md
+
+The spec has the full strategy, but CLAUDE.md is what developers and LLMs read at the point of writing code. Add a condensed decision tree:
+- Does your code import `vscode`/`positron`? No -> Vitest. Yes -> Does it genuinely need those APIs? No -> extract logic, test in Vitest. Yes -> extension host test. Testing a user workflow? -> E2E.
+
+### 3. Create extension test documentation
+
+Today there is almost no guidance for writing extension tests:
+- positron-r has a one-line README ("run this command")
+- positron-assistant, positron-code-cells, positron-catalog-explorer have no test docs
+- No troubleshooting guide for common issues (timeout on extension activation, R runtime discovery, Electron crashes)
+
+Each Positron extension with tests should have a brief testing section covering: how to run tests, how to add a new test, what requires the extension host vs. what can be Vitest.
+
+### 4. Audit extension tests that import `vscode` for convenience (future investigation)
+
+Some extension tests import `vscode` only to read configuration values (e.g., `vscode.workspace.getConfiguration()`). The logic under test doesn't need `vscode` -- it just needs the config value passed as a parameter. These could be refactored:
+- Extract the logic so the function takes config as a parameter
+- Test the logic in Vitest (fast)
+- Keep a thin extension host test that verifies the config is read correctly (if needed)
+
+This requires a per-file audit to confirm which `vscode` imports are convenience vs. genuine. Not yet scoped.
