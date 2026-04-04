@@ -496,11 +496,17 @@ If any step fails, include the error message and enriched state. Use `snapshot` 
 
 ### Step 5: Cleanup
 
+Before sending `/done`, if the session used explore mode (Step 3c) or the `--explore` flag, ask the user:
+
+> "Would you like to save the successful steps as a reusable test file?"
+
+If yes, generate the `.test.ts` file following Step 6 format, using the POM calls that worked during exploration (not the raw Playwright fallbacks).
+
 ```bash
 curl -s -X POST "http://localhost:$PORT/done"
 ```
 
-### Step 6: Save Test (--save flag)
+### Step 6: Save Test (--save flag or user request)
 
 If the `--save` flag was provided and the test passed, write a standalone `.test.ts` file.
 
