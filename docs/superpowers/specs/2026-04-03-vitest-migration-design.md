@@ -578,3 +578,26 @@ Each doc covers: how to run tests, which are Vitest vs extension host, how to ad
 The 3 files that imported `positron` (anthropicVercel, awsBedrock, notebookContextFilter) were audited. All 3 only used enum values (`PositronLanguageModelType.Chat`, `notebooks.NotebookCellType.Code`) that the positron stub already provides. They were migrated to Vitest successfully.
 
 Future extension tests that import `vscode` for convenience (e.g., reading config via `vscode.workspace.getConfiguration()`) can follow the same pattern: add the needed API to the stub, or extract the logic so config is passed as a parameter.
+
+---
+
+## Coverage Gaps
+
+The largest Positron modules with zero unit tests, ranked by source file count:
+
+| Module | Source Files | New Mocks Needed | Notes |
+|--------|-------------|-----------------|-------|
+| positronDataExplorer (service) | 35 | 0 | All deps already mocked. Has existing cache-layer tests. Best place to start. |
+| positronConsole (service) | 27 | 2 | Needs ExecutionHistoryService, RuntimeStartupService mocks |
+| positronVariables (contrib/UI) | 21 | 0 | All deps already mocked. Mainly UI wiring and actions. |
+| positronPreview | 19 | 1 | Needs NotebookOutputWebviewService mock |
+| positronVariables (service) | 12 | 2 | Needs RuntimeNotebookKernelService, QuartoExecutionManager mocks |
+| positronPackages | 12 | Not audited | |
+| positronLayout (service) | 12 | Not audited | |
+| positronPlots (service) | 11 | Not audited | |
+| positronHistory (contrib) | 9 | Not audited | |
+| positronHelp | 8 | Not audited | |
+
+The existing `positronWorkbenchInstantiationService()` (wrapped by our builder's `.withWorkbenchServices()`) already stubs 124+ services. Most untested modules can be tested with what exists today -- only 5 new mocks total are needed across the top 5 modules.
+
+**Recommended starting point**: positronDataExplorer (35 files, 0 new mocks, existing test helpers already in Vitest).
