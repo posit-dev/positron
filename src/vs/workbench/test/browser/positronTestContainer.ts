@@ -21,7 +21,7 @@ interface TestContainerResult {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- service stubs are inherently untyped
-type ServiceStub = { id: ServiceIdentifier<any>; impl: unknown };
+type ServiceStub = { id: ServiceIdentifier<any>; impl: any };
 
 class PositronTestContainerBuilder {
 	private _useRuntimeServices = false;
