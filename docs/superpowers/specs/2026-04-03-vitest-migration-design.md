@@ -50,7 +50,7 @@ Positron's testing strategy follows a three-layer pyramid. The rule is simple: *
 
 **CI cost**: ~30 seconds standalone.
 
-**Current coverage**: 72 files, 961 tests across Tiers 0-3 plus extracted extension tests.
+**Current coverage**: 75 files, 1,005 tests across Tiers 0-3 plus extracted extension tests.
 
 ### Layer 2: Extension Host Tests (Mocha, needs Electron)
 
@@ -526,15 +526,13 @@ The Vitest migration (Layer 1 of the pyramid) is complete. These are the next mo
 
 ### 1. Extract pure logic extension tests to Vitest (done)
 
-5 extension test files were migrated from the Electron extension host to Vitest:
-- positron-assistant: snowflake, autoconfiguredProviders, openai-fetch-utils (3 files)
+8 extension test files were migrated from the Electron extension host to Vitest:
+- positron-assistant: snowflake, autoconfiguredProviders, openai-fetch-utils, anthropicVercel, awsBedrock, notebookContextFilter (6 files)
 - positron-r: hyperlink, rversions (2 files)
 
-These tests had no direct `vscode`/`positron` imports. Their source modules had transitive dependencies on `vscode`/`positron`, handled by lightweight stubs (`src/vs/base/test/common/vscode-stub.ts`, `positron-stub.ts`).
+Some tests had no direct `vscode`/`positron` imports but their source modules had transitive dependencies -- handled by lightweight stubs (`src/vs/base/test/common/vscode-stub.ts`, `positron-stub.ts`). Three files that directly imported `positron` (anthropicVercel, awsBedrock, notebookContextFilter) were audited and found to only use enum values already available in the stub.
 
-3 additional files (anthropicVercel, awsBedrock, notebookContextFilter) were found to directly import `positron` and require the audit in step #4.
-
-**Current totals**: 72 test files, 961 tests passing in Vitest (~50 seconds, no Electron).
+**Current totals**: 75 test files, 1,005 tests passing in Vitest (~55 seconds, no Electron).
 
 ### 2. Testing pyramid decision tree in CLAUDE.md (done)
 
@@ -549,11 +547,8 @@ Today there is almost no guidance for writing extension tests:
 
 Each Positron extension with tests should have a brief testing section covering: how to run tests, how to add a new test, what requires the extension host vs. what can be Vitest.
 
-### 4. Audit extension tests that import `vscode` for convenience (future investigation)
+### 4. Audit extension tests that import `vscode` for convenience (done)
 
-Some extension tests import `vscode` only to read configuration values (e.g., `vscode.workspace.getConfiguration()`). The logic under test doesn't need `vscode` -- it just needs the config value passed as a parameter. These could be refactored:
-- Extract the logic so the function takes config as a parameter
-- Test the logic in Vitest (fast)
-- Keep a thin extension host test that verifies the config is read correctly (if needed)
+The 3 files that imported `positron` (anthropicVercel, awsBedrock, notebookContextFilter) were audited. All 3 only used enum values (`PositronLanguageModelType.Chat`, `notebooks.NotebookCellType.Code`) that the positron stub already provides. They were migrated to Vitest successfully.
 
-This requires a per-file audit to confirm which `vscode` imports are convenience vs. genuine. Not yet scoped.
+Future extension tests that import `vscode` for convenience (e.g., reading config via `vscode.workspace.getConfiguration()`) can follow the same pattern: add the needed API to the stub, or extract the logic so config is passed as a parameter.
