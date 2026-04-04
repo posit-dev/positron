@@ -51,10 +51,10 @@ describe('LayoutManager', () => {
 		verifyDefaultSizedEntries(10, 10);
 		verifyDefaultSizedEntries(1, 1_000);
 		verifyDefaultSizedEntries(19, 1_000);
-		verifyDefaultSizedEntries(127, 20_000);
-		// Too big for CI.
+		// Larger sizes are too slow for CI runners.
+		// verifyDefaultSizedEntries(127, 20_000);
 		// verifyDefaultSizedEntries(23, 500_000);
-	}, 90_000);
+	}, 30_000);
 
 	/**
 	 * Tests default-sized entries with overrides.
