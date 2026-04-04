@@ -7,8 +7,8 @@ import * as http from 'http';
 import * as fs from 'fs';
 import { TestInfo } from '@playwright/test';
 import { Application } from '../../infra/application';
-import { executeAction, executeBatch, executePom, listPoms, listMethodsWithSignatures } from './action-executor';
-import { ActionRequest, BatchRequest, PomRequest } from './types';
+import { executeAction, executeBatch, executePom, executeRunPlan, listPoms, listMethodsWithSignatures } from './action-executor';
+import { ActionRequest, BatchRequest, PomRequest, RunPlanRequest } from './types';
 
 /** Build a full catalog of all POMs and their methods at startup.
  *  Also enumerates getter-based sub-objects (e.g. dataExplorer.grid, dataExplorer.summaryPanel)
@@ -110,6 +110,20 @@ export function startServer(app: Application, testInfo: TestInfo): { donePromise
 			return;
 		}
 
+		if (req.method === 'POST' && req.url === '/run-plan') {
+			try {
+				const body = await readBody(req);
+				const request: RunPlanRequest = JSON.parse(body);
+				const result = await executeRunPlan(app, request);
+				res.writeHead(200);
+				res.end(JSON.stringify(result));
+			} catch (err: any) {
+				res.writeHead(400);
+				res.end(JSON.stringify({ error: err.message }));
+			}
+			return;
+		}
+
 		if (req.method === 'POST' && req.url === '/describe') {
 			try {
 				const body = await readBody(req);
@@ -160,7 +174,7 @@ export function startServer(app: Application, testInfo: TestInfo): { donePromise
 		}
 
 		res.writeHead(404);
-		res.end(JSON.stringify({ error: 'Not found. Use POST /pom, POST /action, POST /batch, POST /describe, POST /done, GET /health, or GET /catalog' }));
+		res.end(JSON.stringify({ error: 'Not found. Use POST /pom, POST /action, POST /batch, POST /run-plan, POST /describe, POST /done, GET /health, or GET /catalog' }));
 	});
 
 	server.listen(0, () => {
