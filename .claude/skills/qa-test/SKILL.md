@@ -331,6 +331,10 @@ The `resetBefore` flag closes editors, clears console, and restores default layo
 
 4. **If both attempts fail**: switch to Explore Mode (Step 3c) for interactive diagnosis, or report the failure.
 
+5. **Track divergences for POM Health reporting.** When a retry succeeds with a different
+   POM method or a raw Playwright fallback, note the original method, the replacement,
+   and whether either had JSDoc in the reference. Report this in Step 4 under POM Health.
+
 ### Step 3c: Explore Mode (Fallback)
 
 Use explore mode when `/run-plan` fails and you need to diagnose interactively. This is NOT the primary workflow -- use `/run-plan` first, always.
@@ -486,6 +490,30 @@ Rules:
 - Use `@param` tags for each parameter
 - Use scoped locators (container-first) to avoid ambiguity
 - Return `Promise<void>`
+
+### POM Health
+[Include when the skill retried a step with a different POM method, or fell
+back to raw Playwright actions. Categorize each finding. Skip this section
+if all steps used POM methods successfully on the first attempt.]
+
+**Method Confusion** (retried with a different POM method that succeeded):
+- CONFUSION: Called `<original>` (failed), retried with `<replacement>` (passed).
+  JSDoc on original: <present/missing>. JSDoc on replacement: <present/missing>.
+  Recommendation: <Add @see cross-references / Update JSDoc to clarify distinction>
+
+**POM Gap** (fell back to raw Playwright because no POM method existed):
+- GAP: Used raw `<action>` with selector `<selector>` because no POM method covers <intent>.
+  Suggested POM: <pom>.ts
+  Suggested method: `<methodName>(<params>): Promise<void>`
+
+When a POM Gap is detected, also auto-append it to `test/e2e/tests/explore/BACKLOG.md`
+under `## POM Gaps`:
+
+- [ ] **Missing: <methodName> (<pom>.ts)**
+  During QA test "<test title>", no POM method existed for <intent>.
+  Used raw `<action>` with `<selector>`.
+  Suggested signature: `<methodName>(<params>): Promise<void>`
+  Discovered: <date>
 
 ### Rough edges
 - [Any UX issues, slow transitions, or unexpected behaviors noticed]
