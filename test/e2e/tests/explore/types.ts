@@ -45,6 +45,8 @@ export interface BatchStep {
 	params?: Record<string, any>;
 	/** Human-readable label for the Playwright report. */
 	title?: string;
+	/** Per-step timeout override in ms. Falls back to RunPlanRequest.stepTimeout or 10000. */
+	timeout?: number;
 }
 
 export interface BatchRequest {
@@ -64,11 +66,58 @@ export interface BatchResult {
 	state: AppState;
 }
 
+export interface RunPlanRequest {
+	/** Descriptive label for the test group in the Playwright report. */
+	title: string;
+	/** Ordered steps to execute. */
+	steps: BatchStep[];
+	/** Run state reset before executing steps (set true on retries). */
+	resetBefore?: boolean;
+	/** Default timeout in ms for all steps (default 10000). */
+	stepTimeout?: number;
+}
+
+export interface RunPlanStepResult {
+	/** Human-readable step label. */
+	title: string;
+	success: boolean;
+	error?: string;
+	duration: number;
+}
+
+export interface RunPlanResult {
+	/** Number of steps that passed. */
+	passed: number;
+	/** Number of steps that failed (0 or 1 due to fail-fast). */
+	failed: number;
+	/** Per-step results in execution order. */
+	steps: RunPlanStepResult[];
+	/** Number of steps skipped after failure. */
+	skipped?: number;
+	/** Total wall-clock time including reset. */
+	totalDuration: number;
+	/** Observed application state after last executed step. */
+	state: AppState;
+	/** Cleanup actions taken if resetBefore was true. */
+	resetActions?: string[];
+}
+
 export interface AppState {
 	activeEditor?: string;
 	consoleLinesCount?: number;
 	lastConsoleOutput?: string;
 	variableCount?: number;
 	plotVisible?: boolean;
+	/** Up to 20 variable names from the active Variables pane. */
+	variableNames?: string[];
+	/** Number of active sessions. */
+	sessionCount?: number;
+	/** Active session label and status, e.g. "Python: idle". */
+	activeSession?: string;
+	/** Visible notification/toast messages. */
 	notifications?: string[];
+	/** Tab labels of all open editors. */
+	openTabs?: string[];
+	/** Which panel has focus: "console", "terminal", "editor", etc. */
+	focusedPanel?: string;
 }
