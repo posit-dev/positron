@@ -236,9 +236,11 @@ Apply these priorities:
 Then continue to Step 2 (Start the Explore Runner) as normal. The diff analysis
 replaces the free-text/issue parsing -- everything downstream is identical.
 
-**Generate POM reference if missing:**
+**Generate POM reference if missing or stale:**
 ```bash
-if [ ! -f test/e2e/tests/_generated/pom-reference.md ]; then
+# Regenerate if missing OR if any POM source file is newer than the reference
+REF=test/e2e/tests/_generated/pom-reference.md
+if [ ! -f "$REF" ] || [ -n "$(find test/e2e/pages -name '*.ts' -newer "$REF" 2>/dev/null | head -1)" ]; then
   npx tsx scripts/generate-pom-reference.ts
 fi
 ```
