@@ -1,7 +1,7 @@
 # POM Reference
 
 Auto-generated from POM source files. Do not edit manually.
-Generated: 2026-04-04
+Generated: 2026-04-05
 
 Total POMs: 49
 
@@ -581,6 +581,7 @@ Total POMs: 49
 - expectOutlineElementToBeVisible(text: string, visible = true): Promise<void>
 - expectOutlineToBeEmpty(): Promise<void>
 - expectOutlineElementCountToBe(count: number): Promise<void>
+- clickOutlineElement(text: string): Promise<void> -- Click an outline element by its label text.
 - expectOutlineToContain(expected: string[]): Promise<void>
 
 ## output (pages/output.ts)
