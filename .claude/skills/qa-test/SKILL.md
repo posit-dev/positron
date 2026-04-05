@@ -846,7 +846,7 @@ OS Version(s): <os>
 ### Link(s) to test cases run or created:
 
 <details>
-<summary><file path, e.g. test/e2e/tests/_generated/0405_9638-notebook-outline.test.ts></summary>
+<summary><code><file path, e.g. test/e2e/tests/_generated/0405_9638-notebook-outline.test.ts></code></summary>
 
 \`\`\`typescript
 <paste the full contents of the saved .test.ts file here>
