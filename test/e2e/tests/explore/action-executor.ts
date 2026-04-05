@@ -101,6 +101,28 @@ function normalizeArgs(method: string, args: unknown[]): unknown[] {
 	return args;
 }
 
+/**
+ * Resolve POM references in args. Any arg that is an object with a `$pom` key
+ * (e.g., `{"$pom": "settings"}`) is replaced with the actual POM instance from
+ * the workbench. This allows POM methods that take other POMs as parameters to
+ * be called through the runner.
+ */
+function resolvePomRefs(workbench: Record<string, unknown>, args: unknown[]): unknown[] {
+	return args.map(arg => {
+		if (arg !== null && typeof arg === 'object' && !Array.isArray(arg) && Object.prototype.hasOwnProperty.call(arg, '$pom')) {
+			const pomPath = (arg as Record<string, unknown>)['$pom'];
+			if (typeof pomPath === 'string') {
+				const { target, error } = resolvePom(workbench, pomPath);
+				if (error) {
+					throw new Error(`Cannot resolve $pom reference "${pomPath}": ${error}`);
+				}
+				return target;
+			}
+		}
+		return arg;
+	});
+}
+
 /** Resolve a possibly-dotted POM path like "sessions" or "dataExplorer". */
 function resolvePom(workbench: any, pomPath: string): { target: any; error?: string } {
 	const segments = pomPath.split('.');
@@ -270,7 +292,7 @@ export async function executePom(app: Application, request: PomRequest): Promise
 
 		// 6. Call the method
 		try {
-			const args = normalizeArgs(request.method, request.args ?? []);
+			const args = normalizeArgs(request.method, resolvePomRefs(workbench, request.args ?? []));
 			const raw = await target[request.method](...args);
 			const result = stringify(raw);
 			const state = await observeState(app);
@@ -411,7 +433,7 @@ async function executePomDirect(app: Application, step: BatchStep): Promise<Acti
 			};
 		}
 
-		const args = normalizeArgs(method, step.args ?? []);
+		const args = normalizeArgs(method, resolvePomRefs(workbench, step.args ?? []));
 		const raw = await target[method](...args);
 		return { success: true, result: stringify(raw), state: {}, duration: Date.now() - start };
 	});

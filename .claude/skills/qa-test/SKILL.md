@@ -256,6 +256,14 @@ the full test bodies) to identify setup patterns. Common patterns to look for:
 - `enablePositronNotebooks(settings)` -- Positron notebooks behind feature flag
 - `settings.set({...})` -- feature flags or configuration
 - `assistant.loginModelProvider(...)` -- AI provider setup
+
+**POM references in args:** When a POM method takes another POM as a parameter (e.g.,
+`enablePositronNotebooks(settings)`), use `{"$pom": "<name>"}` in the args array.
+The runner resolves it to the actual POM instance at runtime:
+```json
+{"type": "pom", "pom": "notebooksPositron", "method": "enablePositronNotebooks", "args": [{"$pom": "settings"}]}
+```
+This works for any POM name available on the workbench (settings, sessions, console, etc.).
 - Custom fixtures (`python`, `r`, `sessions`) in the test signature
 
 Apply the same setup patterns in the generated test. If an existing test uses
