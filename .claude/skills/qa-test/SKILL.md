@@ -236,6 +236,31 @@ Apply these priorities:
 Then continue to Step 2 (Start the Explore Runner) as normal. The diff analysis
 replaces the free-text/issue parsing -- everything downstream is identical.
 
+**Check existing tests for setup patterns:**
+
+Before generating the test, look for existing test files in the same feature area
+to discover required setup (feature flags, settings, fixtures, beforeAll hooks).
+
+```bash
+# Find existing tests in the area. Map the changed component to a test directory:
+#   notebooks/positron -> test/e2e/tests/notebooks-positron/
+#   dataExplorer       -> test/e2e/tests/data-explorer/
+#   variables          -> test/e2e/tests/variables/
+#   console            -> test/e2e/tests/console/
+#   plots              -> test/e2e/tests/plots/
+ls test/e2e/tests/<area>/*.test.ts 2>/dev/null | head -3
+```
+
+Read one or two of those files (just the imports and beforeAll/beforeEach hooks, not
+the full test bodies) to identify setup patterns. Common patterns to look for:
+- `enablePositronNotebooks(settings)` -- Positron notebooks behind feature flag
+- `settings.set({...})` -- feature flags or configuration
+- `assistant.loginModelProvider(...)` -- AI provider setup
+- Custom fixtures (`python`, `r`, `sessions`) in the test signature
+
+Apply the same setup patterns in the generated test. If an existing test uses
+`enablePositronNotebooks` in `beforeAll`, the generated test needs it too.
+
 **Generate POM reference if missing or stale:**
 ```bash
 # Regenerate if missing OR if any POM source file is newer than the reference
