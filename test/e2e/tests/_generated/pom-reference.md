@@ -3,7 +3,7 @@
 Auto-generated from POM source files. Do not edit manually.
 Generated: 2026-04-05
 
-Total POMs: 49
+Total POMs: 50
 
 ---
 
@@ -562,6 +562,8 @@ Total POMs: 49
 - expectGhostCellOptInVisible(): Promise<void> -- Ghost cell opt-in prompt is visible.
 - expectGhostCellOptInNotVisible(): Promise<void> -- Ghost cell opt-in prompt is not visible.
 - expectGhostCellInfoDialogContent(expectations: string[]): Promise<void> -- Ghost cell info dialog content matches expectations.
+- expectGhostCellInfoDialogElement(selector: string): Promise<void> -- A specific element exists within the ghost cell info dialog.
+- closeGhostCellInfoDialog(): Promise<void> -- Close the ghost cell info dialog by clicking "Got it".
 - selectGhostCellMode(automatic: boolean): Promise<void> -- Select ghost cell mode.
 - acceptGhostCellSuggestion(): Promise<void> -- Accept ghost cell suggestion (clicks Accept and Run).
 - getSuggestion(): Promise<void> -- Request a suggestion by clicking "Get Suggestion" button.
@@ -591,6 +593,20 @@ Total POMs: 49
 - scrollToTop(): Promise<void> -- Scroll to the top of the output pane
 - copySelectedText(): Promise<string> -- Copy selected text from the output pane and return it
 - selectFirstNLines(lineCount: number): Promise<void> -- Select the first N lines of output text
+
+## packages (pages/packages.ts)
+- open(): Promise<void> -- Open the Packages pane in the sidebar.
+- selectPackage(name: string): Promise<void> -- Click a package row by name to select it.
+- rightClickPackage(name: string, menuItem: string): Promise<void> -- Right-click a package and choose a context menu item.
+- refresh(): Promise<void> -- Click the Refresh Packages button.
+- getPackageCount(): Promise<number> -- Get the count of visible package items.
+- getPackageNames(): Promise<string[]> -- Get all visible package names as an array.
+- getSessionLabel(): Promise<string> -- Get the session label text (e.g. "Python 3.10.15 (Pyenv)", "R 4.4.2").
+- expectPackageToBeVisible(name: string, visible = true): Promise<void> -- A package with the given name is visible (or not visible) in the list.
+- expectPackageCountGreaterThan(count: number): Promise<void> -- The package count is at least the given number.
+- expectPackageToBeSelected(): Promise<void> -- The selected package row is highlighted.
+- expectSessionLabelToContain(text: string): Promise<void> -- The session label contains the expected text.
+- expectToBeVisible(): Promise<void> -- The Packages pane is visible in the sidebar.
 
 ## plots (pages/plots.ts)
 - clickSessionNameButton() -- Click the session name button displayed on the current plot.
