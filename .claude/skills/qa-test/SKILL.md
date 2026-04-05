@@ -864,9 +864,17 @@ If no test file was saved, replace the collapsible section with `n/a`.
 - "Rough edges" replaces "Notes" -- focus on UX observations, not internal metrics
 - Never include retry counts, step durations, or tool call counts -- those are internal
 - Always include the "Rough edges" section even if empty ("None observed")
-- **Output via Bash `cat` heredoc** so the raw markdown is copy-pasteable from the terminal.
-  Do NOT output as a markdown chat response -- it renders the HTML and makes it impossible to copy.
-  Use: `cat << 'EOF'\n<comment content>\nEOF`
+- **Write to a temp file and copy to clipboard.** Do NOT output as a markdown chat
+  response -- it renders the HTML and makes it impossible to copy. Instead:
+  ```bash
+  # Write to temp file (reliable fallback)
+  cat << 'EOF' > /tmp/verification-comment.md
+  <comment content>
+  EOF
+  # Copy to clipboard (platform-aware, best-effort)
+  cat /tmp/verification-comment.md | pbcopy 2>/dev/null || cat /tmp/verification-comment.md | clip 2>/dev/null || cat /tmp/verification-comment.md | xclip -selection clipboard 2>/dev/null || true
+  echo "Verification comment copied to clipboard and saved to /tmp/verification-comment.md"
+  ```
 
 ## Error Handling
 
