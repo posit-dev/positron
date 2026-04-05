@@ -19,11 +19,16 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 /qa-test --build "Verify plots render correctly"
 /qa-test --save #12345
 /qa-test --no-save --build "Quick smoke test"
+/qa-test --diff
+/qa-test --diff --build
+/qa-test --diff feature/my-branch
+/qa-test --diff --save
 ```
 
 - `--save`: Always save a `.test.ts` file after a successful run (no prompt)
 - `--no-save`: Never save, never prompt
 - No flag: Prompt the user to save after a successful run
+- `--diff`: Generate test plan from branch diff vs main (see Step 1)
 
 ## Workflow
 
