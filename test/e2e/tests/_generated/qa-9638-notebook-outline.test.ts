@@ -39,16 +39,13 @@ test('QA #9638: Clicking outline entries navigates to corresponding cells', asyn
 
 	// Click outline entries and verify cell navigation
 	await outline.focus();
-	const secondSection = outline.outlineElement.filter({ hasText: 'Second Section' });
-	await secondSection.click();
+	await outline.clickOutlineElement('Second Section');
 	await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: true });
 
-	const codeEntry = outline.outlineElement.filter({ hasText: 'x = 42' });
-	await codeEntry.click();
+	await outline.clickOutlineElement('x = 42');
 	await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true });
 
-	const yEntry = outline.outlineElement.filter({ hasText: 'y = 100' });
-	await yEntry.click();
+	await outline.clickOutlineElement('y = 100');
 	await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true });
 });
 
