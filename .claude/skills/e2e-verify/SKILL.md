@@ -1,5 +1,5 @@
 ---
-name: qa-test
+name: e2e-verify
 description: AI-driven on-demand QA testing for Positron -- drives the IDE via POM reflection, custom actions, and raw Playwright
 allowed-tools: ["Bash", "Read", "WebFetch"]
 user-invocable: true
@@ -7,24 +7,26 @@ user-invocable: true
 
 # QA Test
 
+> **See also:** For hand-writing permanent e2e tests with Playwright, see the `e2e-author` skill.
+
 Performs on-demand QA testing by driving Positron through test scenarios using the explore runner. Accepts a natural-language description or a GitHub issue number.
 
 ## Input Formats
 
 ```
-/qa-test "Verify that the Variables pane updates after running x = 42 in the Python console"
-/qa-test #12345
-/qa-test #12345 --deep
-/qa-test --build #12345
-/qa-test --browser firefox #11593
-/qa-test --build "Verify plots render correctly"
-/qa-test --save #12345
-/qa-test --no-save --build "Quick smoke test"
-/qa-test --branch
-/qa-test --branch --build
-/qa-test --branch feature/my-branch
-/qa-test --branch --build #9638
-/qa-test --branch --deep
+/e2e-verify "Verify that the Variables pane updates after running x = 42 in the Python console"
+/e2e-verify #12345
+/e2e-verify #12345 --deep
+/e2e-verify --build #12345
+/e2e-verify --browser firefox #11593
+/e2e-verify --build "Verify plots render correctly"
+/e2e-verify --save #12345
+/e2e-verify --no-save --build "Quick smoke test"
+/e2e-verify --branch
+/e2e-verify --branch --build
+/e2e-verify --branch feature/my-branch
+/e2e-verify --branch --build #9638
+/e2e-verify --branch --deep
 ```
 
 - `--save`: Always save a `.test.ts` file after a successful run (no prompt)
@@ -269,6 +271,14 @@ This works for any POM name available on the workbench (settings, sessions, cons
 Apply the same setup patterns in the generated test. If an existing test uses
 `enablePositronNotebooks` in `beforeAll`, the generated test needs it too.
 
+**Shared test references:**
+
+When generating tests or choosing POM methods, consult these shared reference docs:
+- `../shared-e2e-references/test-conventions.md` -- imports, suiteId, commenting style, test.step() rules
+- `../shared-e2e-references/fixtures.md` -- fixture selection, session ID patterns, setup patterns
+- `../shared-e2e-references/pom-patterns.md` -- POM method selection, confusable methods, POM-first rules
+- `../shared-e2e-references/common-mistakes.md` -- 32 gotchas to avoid
+
 **Generate POM reference if missing or stale:**
 ```bash
 # Regenerate if missing OR if any POM source file is newer than the reference
@@ -285,17 +295,7 @@ Read test/e2e/tests/_generated/pom-reference.md
 
 Use the reference to pick exact method names and parameter types for every POM step. **NEVER guess method names or parameter types** -- always consult the reference first.
 
-**CRITICAL: Copy-paste method names from the reference. Do NOT abbreviate, shorten, or
-paraphrase method names.** For example, the method is `openVariableInDataExplorer`, not
-`doubleClickVariable`. The method is `waitForPlotInFullSizeViewer`, not `waitForFullSizeViewer`.
-If you are not 100% certain of the exact method name, grep the reference before using it.
-
-**CRITICAL: Read the `--` description after each method signature before choosing it.**
-The description tells you WHEN to use the method. If it says "See also: X", read X too.
-Common mistakes:
-- `clickDatabaseIconForVariableRow` is unreliable. Use `openVariableInDataExplorer` instead.
-- `expectVariableToBe` values must match exactly. Python DataFrames display as
-  `[N rows x M columns] pandas.DataFrame`, not abbreviated formats.
+**CRITICAL:** Follow all POM method selection rules in `../shared-e2e-references/pom-patterns.md`.
 
 #### Testability Check
 
@@ -823,30 +823,12 @@ test('QA #12345: Variable appears after execution', async function ({ app, pytho
 ```
 
 **Rules:**
+- Follow all conventions in `../shared-e2e-references/test-conventions.md`
+- Follow fixture selection rules in `../shared-e2e-references/fixtures.md`
 - Import from `./_qa.setup`, not `../_test.setup`
 - Always include `test.use({ suiteId: __filename })` for app isolation
-- Use `function` syntax (not arrow functions) for fixture access
-- Use tabs for indentation
-- **Use fixtures instead of manual session starts:**
-  - Test needs Python? Use the `python` fixture -- it auto-starts the interpreter
-  - Test needs R? Use the `r` fixture
-  - Test needs both? Use `sessions` fixture and start manually
-  - Test doesn't need an interpreter? Just use `app`
-  - **If the test needs session IDs** (multi-session, switching, restart by ID), use
-    `sessions.start()` with destructuring instead of fixtures + lookup:
-    ```typescript
-    // GOOD: get session ID directly from start
-    const [pySession] = await sessions.start(['python']);
-    await sessions.select(pySession.sessionId);
-
-    // BAD: start via fixture then fish for ID
-    // const pythonSessionId = (await sessions.getAllSessionIdsAndNames())
-    //     .find(s => s.name.includes('Python'))!.id;
-    ```
-- Destructure `app.workbench` at the top of the test body for cleaner calls
-- Do NOT wrap POM calls in `test.step()` -- POM methods already have their own internal `test.step()` wrappers
 - Map action steps to the equivalent Playwright calls
-- Add a short comment before each logical group of actions (one comment per line-group, not per call). The comment describes intent, not code. Separate groups with a blank line. Style reference: `test/e2e/tests/variables/variables-filter.test.ts`
+- File path: `test/e2e/tests/_generated/MMDD_<issue>-<slug>.test.ts`
 
 ## Verification Comment
 
@@ -928,8 +910,5 @@ Playwright trace is captured automatically. Use `takeScreenshot` or `snapshot` f
 - Raw actions default to 5s timeout, POM actions to 10s. Override with `timeout` field on any step.
 - Data Explorer `columnIndex` is 1-based. `rowIndex`/`colIndex` for cells are 0-based.
 - Pinned row headers show the **source row index**: Python/pandas is 0-based (row position 1 -> header "1"), R is 1-based (row position 1 -> header "2"). Use the matching index system when calling `expectRowsToBePinned`.
-- String variables display with language-specific quoting: Python shows `'hello'` (single quotes), R shows `"hello"` (double quotes). Include the quotes when calling `expectVariableToBe`.
-- POM reference file at `test/e2e/tests/_generated/pom-reference.md` has full TypeScript signatures -- always read it before planning steps.
-- POM source files are in `test/e2e/pages/` -- read them if you need to check union types or complex parameter shapes beyond what the reference shows.
 - **Always include a `title`** on every step and on the `/run-plan` request for readable Playwright reports.
 - When a test needs to interact with specific sessions by ID (switch, restart, delete), use `sessions.start()` with destructuring to capture the ID directly: `const [pySession] = await sessions.start(['python'])`. Do NOT start sessions via fixtures and then look up IDs with `getAllSessionIdsAndNames()`.
