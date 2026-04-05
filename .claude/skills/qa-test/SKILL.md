@@ -57,17 +57,31 @@ This outputs JSON with `positronVersion`, `positronBuild`, `osVersion`. Report i
 Target: Built app -- Positron 2026.02.0 (build 10), macOS 26.2
 ```
 
-If `--branch` flag is present, this is a diff-based test. The branch to analyze defaults
-to the current branch. If a branch name follows `--branch` (e.g., `--branch feature/my-branch`),
-use that branch instead. If an issue number follows (e.g., `--branch #9638` or
-`--branch --build #9638`), fetch that issue as enrichment context alongside the diff.
+If `--branch` flag is present, this is a **diff-driven** test. The diff is the primary
+signal; issue/PR context is enrichment only. `--branch` accepts an optional argument
+that determines where the diff comes from:
+
+- **No argument** (`--branch`): Diff current branch vs main
+- **Branch name** (`--branch feature/my-branch`): Diff that branch vs main
+- **Issue number** (`--branch #9638`): Find the PR that closed this issue, extract its
+  diff. Also fetches the issue body as enrichment context. Works for merged PRs too.
+
+To resolve an issue number to a diff:
+```bash
+# Find PRs linked to the issue
+gh pr list --search "9638" --state all --repo posit-dev/positron --json number,title,headRefName --limit 5
+# Get the diff from the most relevant PR
+gh pr diff <pr-number> --repo posit-dev/positron
+# Get the issue for enrichment
+gh issue view 9638 --repo posit-dev/positron --json title,body,labels
+```
 
 The `--branch` flag composes with all other flags:
-- `--branch --build`: Analyze diff, run tests against built app
-- `--branch --build #9638`: Analyze diff, enrich with issue context, run against built app
+- `--branch --build`: Analyze current branch diff, run tests against built app
+- `--branch --build #9638`: Get diff from issue's PR, run against built app
 - `--branch --save`: Analyze diff, auto-save test file
 - `--branch --browser firefox`: Analyze diff, run in Firefox
-- `--branch feature/my-branch`: Analyze a specific branch instead of current
+- `--branch feature/my-branch`: Analyze a specific branch
 
 If `--branch` is used without `--build`, ask the user which target to run against
 (same as the default flow).
@@ -94,24 +108,40 @@ Analyze the current branch's changes vs main to generate a test plan. The diff i
 primary signal -- PR context and issue context are enrichment only.
 
 1. **Extract the diff:**
+
+The diff source depends on what argument was passed to `--branch`:
+
+**If no argument or a branch name:**
 ```bash
-# Get branch name and commit count
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-COMMITS_AHEAD=$(git rev-list --count main..HEAD)
+# Determine the target branch (default: current branch)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)  # or the specified branch name
+COMMITS_AHEAD=$(git rev-list --count main..$BRANCH)
 
 # File list for area mapping
-git diff main...HEAD --name-only
+git diff main...$BRANCH --name-only
 
 # Full diff for semantic analysis (cap at 2000 lines to stay focused)
-git diff main...HEAD | head -2000
+git diff main...$BRANCH | head -2000
+```
+
+**If an issue number (e.g., `--branch #9638`):**
+```bash
+# Find the PR that closed this issue
+gh pr list --search "9638" --state all --repo posit-dev/positron --json number,title,headRefName --limit 5
+
+# Get the diff from the most relevant PR
+gh pr diff <pr-number> --repo posit-dev/positron | head -2000
+
+# Get file list
+gh pr diff <pr-number> --repo posit-dev/positron --name-only
 ```
 
 2. **Fetch enrichment context (secondary signals, if available):**
 ```bash
-# PR context
+# PR context (auto-detected from branch, or already known from issue resolution)
 gh pr view --json title,body,number,comments 2>/dev/null
 
-# Issue context (if issue number was passed, e.g., --branch #9638)
+# Issue context (if issue number was passed with --branch)
 gh issue view <number> --repo posit-dev/positron --json title,body,labels 2>/dev/null
 ```
 If no PR exists and no issue number was passed, skip -- the diff alone is sufficient.
