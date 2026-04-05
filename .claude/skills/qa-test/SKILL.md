@@ -815,6 +815,46 @@ test('QA #12345: Variable appears after execution', async function ({ app, pytho
 - Map action steps to the equivalent Playwright calls
 - Add a short comment before each logical group of actions (one comment per line-group, not per call). The comment describes intent, not code. Separate groups with a blank line. Style reference: `test/e2e/tests/variables/variables-filter.test.ts`
 
+## Verification Comment
+
+When the user asks for a verification comment (to post on an issue or PR), generate
+it using this GitHub Markdown format. Run `detect_versions.sh` if you haven't already.
+
+**Format:**
+```markdown
+### Verified Fixed
+Positron Version(s): <version> (build <build>)
+OS Version(s): <os>
+
+### Test scenario(s)
+
+**Primary verification:**
+- <Main scenario that directly tests the fix/feature>
+- <Another key scenario>
+
+**Edge cases:**
+- <Edge case 1>
+- <Edge case 2>
+
+**Regression checks:**
+- <Related area that should still work>
+
+### Rough edges
+- <Any UX concerns, surprising behaviors, or minor issues noticed during testing>
+- <Even on passing tests -- note anything that felt off>
+
+### Link(s) to test cases run or created:
+<link to generated .test.ts file, or n/a>
+```
+
+**Rules:**
+- Use plain bullet points, not checkboxes or tables
+- Omit sections that have no content (e.g., skip "Edge cases" if there were none)
+- Keep scenario descriptions concise -- one line each, describe what was tested not how
+- "Rough edges" replaces "Notes" -- focus on UX observations, not internal metrics
+- Never include retry counts, step durations, or tool call counts -- those are internal
+- Always include the "Rough edges" section even if empty ("None observed")
+
 ## Error Handling
 
 - **Runner not starting**: Ensure build daemons are running (`npm run build-start`).
