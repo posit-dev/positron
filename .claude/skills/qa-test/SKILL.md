@@ -844,10 +844,9 @@ OS Version(s): <os>
 - <Even on passing tests -- note anything that felt off>
 
 ### Link(s) to test cases run or created:
-<link to generated .test.ts file, or n/a>
 
 <details>
-<summary>Generated test code</summary>
+<summary><file path, e.g. test/e2e/tests/_generated/0405_9638-notebook-outline.test.ts></summary>
 
 \`\`\`typescript
 <paste the full contents of the saved .test.ts file here>
@@ -856,7 +855,7 @@ OS Version(s): <os>
 </details>
 ```
 
-If no test file was saved, omit the collapsible section entirely.
+If no test file was saved, replace the collapsible section with `n/a`.
 
 **Rules:**
 - Use plain bullet points, not checkboxes or tables
