@@ -14,7 +14,8 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 ```
 /qa-test "Verify that the Variables pane updates after running x = 42 in the Python console"
 /qa-test #12345
-/qa-test --quick #12345
+/qa-test #12345 --deep
+/qa-test --build #12345
 /qa-test --browser firefox #11593
 /qa-test --build "Verify plots render correctly"
 /qa-test --save #12345
@@ -23,13 +24,14 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 /qa-test --branch --build
 /qa-test --branch feature/my-branch
 /qa-test --branch --build #9638
-/qa-test --branch --save
+/qa-test --branch --deep
 ```
 
 - `--save`: Always save a `.test.ts` file after a successful run (no prompt)
 - `--no-save`: Never save, never prompt
 - No flag: Prompt the user to save after a successful run
-- `--branch`: Generate test plan from branch diff vs main. Optionally pass a branch name or issue number for enrichment context (see Step 1)
+- `--branch`: Test current branch's changes vs main. Optionally pass a branch name or issue number (see Step 1)
+- `--deep`: Exhaustive mode -- gathers all signals (PR comments, linked issues, linked PRs) and generates a thorough test plan (10-15+ steps with edge cases). Without this flag, tests are diff-driven and targeted (5-10 steps)
 
 ## Workflow
 
@@ -89,18 +91,35 @@ If `--branch` is used without `--build`, ask the user which target to run agains
 ### Step 1: Parse Input and Plan Test Steps
 
 **If free-text description:**
-Parse into 3-8 concrete, ordered test steps. Each step becomes one entry in the `/run-plan` steps array.
+Parse into 5-10 concrete, ordered test steps. Each step becomes one entry in the `/run-plan` steps array.
 
-**If issue number with `--quick`:**
-1. Fetch the issue: `gh issue view <number> --repo posit-dev/positron --json title,body,labels`
-2. Parse the issue body to identify expected behavior
+**If issue number (default -- diff-driven):**
+1. Find the PR that closed/addresses this issue:
+```bash
+gh pr list --search "<number>" --state all --repo posit-dev/positron --json number,title,headRefName --limit 5
+```
+2. Get the PR diff (primary signal):
+```bash
+gh pr diff <pr-number> --repo posit-dev/positron | head -2000
+```
+3. Fetch the issue body for enrichment:
+```bash
+gh issue view <number> --repo posit-dev/positron --json title,body,labels
+```
+4. **Validate testability** (see below)
+5. Analyze the diff and show transparent reasoning (see "If --branch flag" section below for the full analysis flow)
+6. Generate 5-10 test steps from the diff analysis
+
+If no linked PR is found, fall back to generating a test plan from the issue
+description alone (same as the old `--quick` behavior).
+
+**If issue number with `--deep`:**
+1. Run the `qa-test-plan` skill to generate a full verification guide
+2. Fetch ALL context: issue body, PR diff, PR comments, linked issues, linked PRs
 3. **Validate testability** (see below)
-4. Plan test steps
-
-**If issue number (default):**
-1. Run the `qa-test-plan` skill to generate a verification guide
-2. **Validate testability** (see below)
-3. Parse the guide into executable steps
+4. Show transparent analysis with all signals labeled
+5. Generate an exhaustive test plan: 10-15+ steps with edge cases, blast radius
+   smoke tests, and regression checks
 
 **If --branch flag:**
 
@@ -202,8 +221,8 @@ explore runner.
 
 6. **Generate test plan:**
 
-Based on the analysis, generate 3-8 test steps using the same format as the
-free-text path. Apply these priorities:
+Based on the analysis, generate 5-10 test steps (or 10-15+ if `--deep` was passed).
+Apply these priorities:
 - **Deep tests first**: Exercise the specific new/modified behavior and edge cases
 - **Smoke tests second**: Quick happy-path checks for blast radius areas
 - **Suggest existing tests**: If you spot existing test files that cover the changed
