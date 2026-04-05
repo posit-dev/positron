@@ -39,3 +39,24 @@ Tracked issues, missing capabilities, and improvement ideas for the explore runn
 - [x] **Missing: deleteAllVariables (variables.ts)**
   RESOLVED: Added `deleteAllVariables()` to `variables.ts` that clicks the button AND
   confirms the modal dialog. Removed `clickDeleteAllVariables` to eliminate confusion.
+
+## Diff Mode (Future)
+
+- [ ] **File-to-area mapping file for CI automation.**
+  A structured JSON mapping from path patterns to test areas (e.g.,
+  `src/vs/workbench/contrib/positronVariables/**` -> `variables`).
+  Enables deterministic file classification without AI reasoning.
+  Required for GitHub Action integration where there is no AI in the loop.
+
+- [ ] **Existing test discovery.**
+  Automatically grep test files for changed method/component names and suggest
+  re-running those existing e2e tests before generating new exploratory ones.
+  Fastest signal for regressions.
+
+- [ ] **GitHub Action integration.**
+  Run `--diff` mode automatically on PRs and post results as an advisory PR comment.
+  Depends on the file-to-area mapping file for deterministic behavior.
+
+- [ ] **Cross-PR release testing.**
+  Analyze all PRs merged since the last release tag to generate a comprehensive
+  regression test plan covering all changed areas.
