@@ -56,6 +56,16 @@ This outputs JSON with `positronVersion`, `positronBuild`, `osVersion`. Report i
 Target: Built app -- Positron 2026.02.0 (build 10), macOS 26.2
 ```
 
+If `--diff` flag is present, this is a diff-based test. The branch to analyze defaults
+to the current branch. If a branch name follows `--diff` (e.g., `--diff feature/my-branch`),
+use that branch instead. The `--diff` flag composes with all other flags:
+- `--diff --build`: Analyze diff, run tests against built app
+- `--diff --save`: Analyze diff, auto-save test file
+- `--diff --browser firefox`: Analyze diff, run in Firefox
+
+If `--diff` is used without `--build`, ask the user which target to run against
+(same as the default flow).
+
 ### Step 1: Parse Input and Plan Test Steps
 
 **If free-text description:**
