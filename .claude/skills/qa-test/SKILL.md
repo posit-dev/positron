@@ -782,6 +782,17 @@ test('QA #12345: Variable appears after execution', async function ({ app, pytho
   - Test needs R? Use the `r` fixture
   - Test needs both? Use `sessions` fixture and start manually
   - Test doesn't need an interpreter? Just use `app`
+  - **If the test needs session IDs** (multi-session, switching, restart by ID), use
+    `sessions.start()` with destructuring instead of fixtures + lookup:
+    ```typescript
+    // GOOD: get session ID directly from start
+    const [pySession] = await sessions.start(['python']);
+    await sessions.select(pySession.sessionId);
+
+    // BAD: start via fixture then fish for ID
+    // const pythonSessionId = (await sessions.getAllSessionIdsAndNames())
+    //     .find(s => s.name.includes('Python'))!.id;
+    ```
 - Destructure `app.workbench` at the top of the test body for cleaner calls
 - Do NOT wrap POM calls in `test.step()` -- POM methods already have their own internal `test.step()` wrappers
 - Map action steps to the equivalent Playwright calls
@@ -810,3 +821,4 @@ Playwright trace is captured automatically. Use `takeScreenshot` or `snapshot` f
 - POM reference file at `test/e2e/tests/qa-generated/pom-reference.md` has full TypeScript signatures -- always read it before planning steps.
 - POM source files are in `test/e2e/pages/` -- read them if you need to check union types or complex parameter shapes beyond what the reference shows.
 - **Always include a `title`** on every step and on the `/run-plan` request for readable Playwright reports.
+- When a test needs to interact with specific sessions by ID (switch, restart, delete), use `sessions.start()` with destructuring to capture the ID directly: `const [pySession] = await sessions.start(['python'])`. Do NOT start sessions via fixtures and then look up IDs with `getAllSessionIdsAndNames()`.
