@@ -238,14 +238,14 @@ replaces the free-text/issue parsing -- everything downstream is identical.
 
 **Generate POM reference if missing:**
 ```bash
-if [ ! -f test/e2e/tests/qa-generated/pom-reference.md ]; then
+if [ ! -f test/e2e/tests/_generated/pom-reference.md ]; then
   npx tsx scripts/generate-pom-reference.ts
 fi
 ```
 
 **Read the POM reference** to get exact method names, parameter types, and available POMs:
 ```bash
-Read test/e2e/tests/qa-generated/pom-reference.md
+Read test/e2e/tests/_generated/pom-reference.md
 ```
 
 Use the reference to pick exact method names and parameter types for every POM step. **NEVER guess method names or parameter types** -- always consult the reference first.
@@ -748,9 +748,9 @@ method names and values from the successful retry (not the original failed attem
 
 Write a standalone `.test.ts` file when saving (via `--save` flag, or user said yes to prompt).
 
-**File path:** `test/e2e/tests/qa-generated/qa-<issueNumber>-<slug>.test.ts`
+**File path:** `test/e2e/tests/_generated/qa-<issueNumber>-<slug>.test.ts`
 - `<slug>` is a short kebab-case summary (e.g., `variable-pane-update`)
-- Example: `test/e2e/tests/qa-generated/qa-12345-variable-pane-update.test.ts`
+- Example: `test/e2e/tests/_generated/qa-12345-variable-pane-update.test.ts`
 
 **Format:**
 ```typescript
@@ -818,7 +818,7 @@ Playwright trace is captured automatically. Use `takeScreenshot` or `snapshot` f
 - Data Explorer `columnIndex` is 1-based. `rowIndex`/`colIndex` for cells are 0-based.
 - Pinned row headers show the **source row index**: Python/pandas is 0-based (row position 1 -> header "1"), R is 1-based (row position 1 -> header "2"). Use the matching index system when calling `expectRowsToBePinned`.
 - String variables display with language-specific quoting: Python shows `'hello'` (single quotes), R shows `"hello"` (double quotes). Include the quotes when calling `expectVariableToBe`.
-- POM reference file at `test/e2e/tests/qa-generated/pom-reference.md` has full TypeScript signatures -- always read it before planning steps.
+- POM reference file at `test/e2e/tests/_generated/pom-reference.md` has full TypeScript signatures -- always read it before planning steps.
 - POM source files are in `test/e2e/pages/` -- read them if you need to check union types or complex parameter shapes beyond what the reference shows.
 - **Always include a `title`** on every step and on the `/run-plan` request for readable Playwright reports.
 - When a test needs to interact with specific sessions by ID (switch, restart, delete), use `sessions.start()` with destructuring to capture the ID directly: `const [pySession] = await sessions.start(['python'])`. Do NOT start sessions via fixtures and then look up IDs with `getAllSessionIdsAndNames()`.

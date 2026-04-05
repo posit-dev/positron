@@ -15,7 +15,7 @@
  *   npx tsx scripts/generate-pom-reference.ts
  *
  * Output:
- *   test/e2e/tests/qa-generated/pom-reference.md
+ *   test/e2e/tests/_generated/pom-reference.md
  */
 
 import * as fs from 'fs';
@@ -23,7 +23,7 @@ import * as path from 'path';
 
 const E2E_ROOT = path.resolve(__dirname, '../test/e2e');
 const WORKBENCH_PATH = path.join(E2E_ROOT, 'infra/workbench.ts');
-const OUTPUT_DIR = path.join(E2E_ROOT, 'tests/qa-generated');
+const OUTPUT_DIR = path.join(E2E_ROOT, 'tests/_generated');
 const OUTPUT_PATH = path.join(OUTPUT_DIR, 'pom-reference.md');
 
 // ---------------------------------------------------------------------------

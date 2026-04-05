@@ -52,7 +52,7 @@ The app launches exactly once. Retries, exploration, and recovery all reuse the 
 
 **Purpose:** Eliminate parameter guessing (pain point #2).
 
-**Location:** `test/e2e/tests/qa-generated/pom-reference.md` (gitignored, regenerated on demand)
+**Location:** `test/e2e/tests/_generated/pom-reference.md` (gitignored, regenerated on demand)
 
 **Format:** Compact, AI-optimized markdown with full TypeScript signatures:
 
@@ -319,7 +319,7 @@ Each probe has a 500ms timeout and fails silently. Total observer overhead stays
 | Vague/open-ended prompt | Explore (single-step) |
 | Failed deterministic (after 2 retries) | Explore (single-step) |
 
-**`--save` flag:** When present and the test passes, the AI also writes a standalone `.test.ts` file to `test/e2e/tests/qa-generated/` that can be run independently. This "graduates" a QA test into a reusable e2e test.
+**`--save` flag:** When present and the test passes, the AI also writes a standalone `.test.ts` file to `test/e2e/tests/_generated/` that can be run independently. This "graduates" a QA test into a reusable e2e test.
 
 **Output format:**
 
@@ -344,8 +344,8 @@ Rough edges noticed during testing:
 | File | Purpose |
 |------|---------|
 | `scripts/generate-pom-reference.ts` | Generates POM reference from source files |
-| `test/e2e/tests/qa-generated/_qa.setup.ts` | Stable re-export of `_test.setup` for saved tests |
-| `test/e2e/tests/qa-generated/pom-reference.md` | Generated POM reference (gitignored) |
+| `test/e2e/tests/_generated/_qa.setup.ts` | Stable re-export of `_test.setup` for saved tests |
+| `test/e2e/tests/_generated/pom-reference.md` | Generated POM reference (gitignored) |
 
 ### Modified files
 
@@ -356,7 +356,7 @@ Rough edges noticed during testing:
 | `test/e2e/tests/explore/observer.ts` | Add 6 new probes (variableNames, activeSession, notifications, openTabs, focusedPanel, sessionCount) |
 | `test/e2e/tests/explore/types.ts` | Add `RunPlanRequest`, `RunPlanResult` interfaces, expand `AppState` |
 | `.claude/skills/qa-test/SKILL.md` | Rewrite workflow for run-plan-first approach |
-| `.gitignore` | Add `test/e2e/tests/qa-generated/` |
+| `.gitignore` | Add `test/e2e/tests/_generated/` |
 | `test/e2e/tests/explore/DESIGN.md` | Update with v2 architecture |
 | `test/e2e/tests/explore/README.md` | Add `/run-plan` endpoint documentation |
 
@@ -374,7 +374,7 @@ Rough edges noticed during testing:
 - **Existing e2e tests:** Zero impact. The explore runner is excluded from CI.
 - **POM classes:** No modifications. The reference file reads them; it doesn't change them.
 - **The explore runner's existing endpoints:** `/action`, `/pom`, `/batch`, `/health`, `/done` all stay. `/run-plan` is additive.
-- **CI pipelines:** No changes. `qa-generated/` is gitignored and CI-excluded.
+- **CI pipelines:** No changes. `_generated/` is gitignored and CI-excluded.
 
 ## Open Questions
 

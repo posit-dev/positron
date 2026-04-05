@@ -20,7 +20,7 @@
 | `test/e2e/pages/variables.ts` | Modify | Add JSDoc to all public methods |
 | `test/e2e/pages/dataExplorer.ts` | Modify | Add JSDoc to all public methods |
 | `test/e2e/pages/editors.ts` | Modify | Add JSDoc to all public methods |
-| `test/e2e/tests/qa-generated/pom-reference.md` | Regenerated | Enriched output with descriptions |
+| `test/e2e/tests/_generated/pom-reference.md` | Regenerated | Enriched output with descriptions |
 | `.claude/skills/qa-test/SKILL.md` | Modify | Add post-run POM Health section and BACKLOG auto-filing |
 
 ---
@@ -213,10 +213,10 @@ Run:
 npx tsx scripts/generate-pom-reference.ts
 ```
 
-Expected: The output file `test/e2e/tests/qa-generated/pom-reference.md` now includes `-- description` after signatures for methods that have JSDoc. Check a few known JSDoc'd methods from `sessions.ts`:
+Expected: The output file `test/e2e/tests/_generated/pom-reference.md` now includes `-- description` after signatures for methods that have JSDoc. Check a few known JSDoc'd methods from `sessions.ts`:
 
 ```bash
-grep "start(" test/e2e/tests/qa-generated/pom-reference.md
+grep "start(" test/e2e/tests/_generated/pom-reference.md
 ```
 
 Expected: The `start` method line should now include `-- Starts one or more sessions` or similar.
@@ -224,7 +224,7 @@ Expected: The `start` method line should now include `-- Starts one or more sess
 Also check that methods without JSDoc still appear as bare signatures:
 
 ```bash
-grep "waitForCurrentPlot" test/e2e/tests/qa-generated/pom-reference.md
+grep "waitForCurrentPlot" test/e2e/tests/_generated/pom-reference.md
 ```
 
 Expected: No description appended (plots.ts has no JSDoc yet).
@@ -232,7 +232,7 @@ Expected: No description appended (plots.ts has no JSDoc yet).
 - [ ] **Step 7: Commit**
 
 ```bash
-git add scripts/generate-pom-reference.ts test/e2e/tests/qa-generated/pom-reference.md
+git add scripts/generate-pom-reference.ts test/e2e/tests/_generated/pom-reference.md
 git commit -m "feat(e2e): include JSDoc descriptions in POM reference generator"
 ```
 
@@ -397,7 +397,7 @@ async alterPlotArea(xDelta: number, yDelta: number)
 
 ```bash
 npx tsx scripts/generate-pom-reference.ts
-grep -A1 "waitForCurrentPlot\|waitForCurrentStaticPlot" test/e2e/tests/qa-generated/pom-reference.md
+grep -A1 "waitForCurrentPlot\|waitForCurrentStaticPlot" test/e2e/tests/_generated/pom-reference.md
 ```
 
 Expected: Both methods now have descriptions and `(See also: ...)` cross-references.
@@ -405,7 +405,7 @@ Expected: Both methods now have descriptions and `(See also: ...)` cross-referen
 - [ ] **Step 3: Commit**
 
 ```bash
-git add test/e2e/pages/plots.ts test/e2e/tests/qa-generated/pom-reference.md
+git add test/e2e/pages/plots.ts test/e2e/tests/_generated/pom-reference.md
 git commit -m "docs(e2e): add JSDoc to all public methods in plots.ts"
 ```
 
@@ -436,7 +436,7 @@ Read the file to understand each method's behavior before writing JSDoc. Add `@s
 
 ```bash
 npx tsx scripts/generate-pom-reference.ts
-grep "executeCode" test/e2e/tests/qa-generated/pom-reference.md
+grep "executeCode" test/e2e/tests/_generated/pom-reference.md
 ```
 
 Expected: `executeCode` line now includes description.
@@ -444,7 +444,7 @@ Expected: `executeCode` line now includes description.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add test/e2e/pages/console.ts test/e2e/tests/qa-generated/pom-reference.md
+git add test/e2e/pages/console.ts test/e2e/tests/_generated/pom-reference.md
 git commit -m "docs(e2e): add JSDoc to all public methods in console.ts"
 ```
 
@@ -472,7 +472,7 @@ Key methods:
 
 ```bash
 npx tsx scripts/generate-pom-reference.ts
-grep "doubleClickVariableRow\|clickDatabaseIcon" test/e2e/tests/qa-generated/pom-reference.md
+grep "doubleClickVariableRow\|clickDatabaseIcon" test/e2e/tests/_generated/pom-reference.md
 ```
 
 Expected: Both methods have descriptions with `@see` cross-references.
@@ -480,7 +480,7 @@ Expected: Both methods have descriptions with `@see` cross-references.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add test/e2e/pages/variables.ts test/e2e/tests/qa-generated/pom-reference.md
+git add test/e2e/pages/variables.ts test/e2e/tests/_generated/pom-reference.md
 git commit -m "docs(e2e): add JSDoc to all public methods in variables.ts"
 ```
 
@@ -511,7 +511,7 @@ This file is large. Work through it class by class:
 
 ```bash
 npx tsx scripts/generate-pom-reference.ts
-grep "expandColumnProfile\|maximize" test/e2e/tests/qa-generated/pom-reference.md
+grep "expandColumnProfile\|maximize" test/e2e/tests/_generated/pom-reference.md
 ```
 
 Expected: Descriptions appear for documented methods.
@@ -519,7 +519,7 @@ Expected: Descriptions appear for documented methods.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add test/e2e/pages/dataExplorer.ts test/e2e/tests/qa-generated/pom-reference.md
+git add test/e2e/pages/dataExplorer.ts test/e2e/tests/_generated/pom-reference.md
 git commit -m "docs(e2e): add JSDoc to all public methods in dataExplorer.ts"
 ```
 
@@ -546,13 +546,13 @@ Key methods:
 
 ```bash
 npx tsx scripts/generate-pom-reference.ts
-grep "clickTab\|selectTab" test/e2e/tests/qa-generated/pom-reference.md
+grep "clickTab\|selectTab" test/e2e/tests/_generated/pom-reference.md
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add test/e2e/pages/editors.ts test/e2e/tests/qa-generated/pom-reference.md
+git add test/e2e/pages/editors.ts test/e2e/tests/_generated/pom-reference.md
 git commit -m "docs(e2e): add JSDoc to all public methods in editors.ts"
 ```
 
@@ -600,13 +600,13 @@ Update the JSDoc on the original `waitFor*` method to add `@see expectCurrentPlo
 
 ```bash
 npx tsx scripts/generate-pom-reference.ts
-grep "expectCurrentPlotVisible" test/e2e/tests/qa-generated/pom-reference.md
+grep "expectCurrentPlotVisible" test/e2e/tests/_generated/pom-reference.md
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add test/e2e/pages/plots.ts test/e2e/pages/console.ts test/e2e/pages/variables.ts test/e2e/pages/dataExplorer.ts test/e2e/pages/editors.ts test/e2e/tests/qa-generated/pom-reference.md
+git add test/e2e/pages/plots.ts test/e2e/pages/console.ts test/e2e/pages/variables.ts test/e2e/pages/dataExplorer.ts test/e2e/pages/editors.ts test/e2e/tests/_generated/pom-reference.md
 git commit -m "feat(e2e): add expect* counterparts for waitFor* methods used as assertions"
 ```
 
@@ -684,10 +684,10 @@ npx tsx scripts/generate-pom-reference.ts
 - [ ] **Step 2: Spot-check the reference for correctness**
 
 Check that:
-1. Methods with JSDoc have descriptions: `grep " -- " test/e2e/tests/qa-generated/pom-reference.md | head -20`
-2. Methods without JSDoc are bare signatures: `grep -v " -- " test/e2e/tests/qa-generated/pom-reference.md | grep "^- " | head -10`
-3. `@see` references appear as `(See also: ...)`: `grep "See also" test/e2e/tests/qa-generated/pom-reference.md`
-4. New `expect*` methods appear: `grep "expectCurrentPlotVisible" test/e2e/tests/qa-generated/pom-reference.md`
+1. Methods with JSDoc have descriptions: `grep " -- " test/e2e/tests/_generated/pom-reference.md | head -20`
+2. Methods without JSDoc are bare signatures: `grep -v " -- " test/e2e/tests/_generated/pom-reference.md | grep "^- " | head -10`
+3. `@see` references appear as `(See also: ...)`: `grep "See also" test/e2e/tests/_generated/pom-reference.md`
+4. New `expect*` methods appear: `grep "expectCurrentPlotVisible" test/e2e/tests/_generated/pom-reference.md`
 
 - [ ] **Step 3: Run a quick qa-test to validate the skill reads the enriched reference**
 
@@ -699,6 +699,6 @@ Check that:
 - [ ] **Step 4: Commit final reference**
 
 ```bash
-git add test/e2e/tests/qa-generated/pom-reference.md
+git add test/e2e/tests/_generated/pom-reference.md
 git commit -m "chore(e2e): regenerate POM reference with JSDoc descriptions"
 ```
