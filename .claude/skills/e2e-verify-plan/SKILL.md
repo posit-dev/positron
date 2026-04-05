@@ -1,5 +1,5 @@
 ---
-name: qa-test-plan
+name: e2e-verify-plan
 description: Generates clear, actionable verification guides for QA testing of Positron bug fixes and features
 ---
 

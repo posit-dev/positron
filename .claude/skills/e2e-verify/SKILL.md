@@ -54,7 +54,7 @@ BUILD=/Applications/Positron.app EXPLORE_TITLE="QA #12381: ..." npx playwright t
 
 2. Log the version of the built app before starting:
 ```bash
-.claude/skills/qa-test-plan/scripts/detect_versions.sh
+.claude/skills/e2e-verify-plan/scripts/detect_versions.sh
 ```
 This outputs JSON with `positronVersion`, `positronBuild`, `osVersion`. Report it to the user:
 ```
@@ -116,7 +116,7 @@ If no linked PR is found, fall back to generating a test plan from the issue
 description alone.
 
 **If issue number with `--deep`:**
-1. Run the `qa-test-plan` skill to generate a full verification guide
+1. Run the `e2e-verify-plan` skill to generate a full verification guide
 2. Fetch ALL context: issue body, PR diff, PR comments, linked issues, linked PRs
 3. **Validate testability** (see below)
 4. Show transparent analysis with all signals labeled
