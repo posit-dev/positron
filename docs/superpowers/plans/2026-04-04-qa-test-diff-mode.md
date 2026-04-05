@@ -36,7 +36,7 @@ In the `## Input Formats` section, add the `--branch` examples after the existin
 ```
 /qa-test "Verify that the Variables pane updates after running x = 42 in the Python console"
 /qa-test #12345
-/qa-test --quick #12345
+/qa-test #12345 --deep
 /qa-test --browser firefox #11593
 /qa-test --build "Verify plots render correctly"
 /qa-test --save #12345

@@ -54,7 +54,7 @@ Tracked issues, missing capabilities, and improvement ideas for the explore runn
   Fastest signal for regressions.
 
 - [ ] **GitHub Action integration.**
-  Run `--diff` mode automatically on PRs and post results as an advisory PR comment.
+  Run `--branch` mode automatically on PRs and post results as an advisory PR comment.
   Depends on the file-to-area mapping file for deterministic behavior.
 
 - [ ] **Cross-PR release testing.**

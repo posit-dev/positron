@@ -111,7 +111,7 @@ gh issue view <number> --repo posit-dev/positron --json title,body,labels
 6. Generate 5-10 test steps from the diff analysis
 
 If no linked PR is found, fall back to generating a test plan from the issue
-description alone (same as the old `--quick` behavior).
+description alone.
 
 **If issue number with `--deep`:**
 1. Run the `qa-test-plan` skill to generate a full verification guide
