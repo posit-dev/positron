@@ -1613,9 +1613,31 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Verify: A specific element exists within the ghost cell info dialog.
+	 * Use for checking elements beyond text content (e.g., kbd badges, links).
+	 * @param selector - CSS selector scoped to the dialog
+	 */
+	async expectGhostCellInfoDialogElement(selector: string): Promise<void> {
+		await test.step(`Verify ghost cell info dialog contains element: ${selector}`, async () => {
+			const dialog = this.code.driver.page.locator('.positron-modal-dialog-box');
+			await expect(dialog.locator(selector)).toBeVisible();
+		});
+	}
+
 	// #endregion
 
 	// #region Ghost Cell Actions
+
+	/**
+	 * Action: Close the ghost cell info dialog by clicking "Got it".
+	 */
+	async closeGhostCellInfoDialog(): Promise<void> {
+		await test.step('Close ghost cell info dialog', async () => {
+			await this.code.driver.page.locator('.positron-modal-dialog-box')
+				.getByRole('button', { name: 'Got it' }).click();
+		});
+	}
 
 	/**
 	 * Action: Select ghost cell mode.
