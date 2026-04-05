@@ -864,6 +864,9 @@ If no test file was saved, replace the collapsible section with `n/a`.
 - "Rough edges" replaces "Notes" -- focus on UX observations, not internal metrics
 - Never include retry counts, step durations, or tool call counts -- those are internal
 - Always include the "Rough edges" section even if empty ("None observed")
+- **Output via Bash `cat` heredoc** so the raw markdown is copy-pasteable from the terminal.
+  Do NOT output as a markdown chat response -- it renders the HTML and makes it impossible to copy.
+  Use: `cat << 'EOF'\n<comment content>\nEOF`
 
 ## Error Handling
 
