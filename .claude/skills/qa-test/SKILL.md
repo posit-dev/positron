@@ -845,7 +845,18 @@ OS Version(s): <os>
 
 ### Link(s) to test cases run or created:
 <link to generated .test.ts file, or n/a>
+
+<details>
+<summary>Generated test code</summary>
+
+\`\`\`typescript
+<paste the full contents of the saved .test.ts file here>
+\`\`\`
+
+</details>
 ```
+
+If no test file was saved, omit the collapsible section entirely.
 
 **Rules:**
 - Use plain bullet points, not checkboxes or tables
