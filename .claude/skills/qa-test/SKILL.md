@@ -760,9 +760,14 @@ method names and values from the successful retry (not the original failed attem
 
 Write a standalone `.test.ts` file when saving (via `--save` flag, or user said yes to prompt).
 
-**File path:** `test/e2e/tests/_generated/qa-<issueNumber>-<slug>.test.ts`
-- `<slug>` is a short kebab-case summary (e.g., `variable-pane-update`)
-- Example: `test/e2e/tests/_generated/qa-12345-variable-pane-update.test.ts`
+**File path:** `test/e2e/tests/_generated/MMDD_<issue>-<slug>.test.ts`
+- `MMDD` is the current date (e.g., `0405`)
+- `<issue>` is the issue number if available, omit if free-text or `--branch` without issue
+- `<slug>` is a short kebab-case summary (e.g., `variable-filter`)
+- Examples:
+  - `test/e2e/tests/_generated/0405_9638-notebook-outline.test.ts`
+  - `test/e2e/tests/_generated/0404_console-sessions.test.ts`
+  - `test/e2e/tests/_generated/0405_data-explorer-summary.test.ts`
 
 **Format:**
 ```typescript
