@@ -72,6 +72,97 @@ Parse into 3-8 concrete, ordered test steps. Each step becomes one entry in the 
 2. **Validate testability** (see below)
 3. Parse the guide into executable steps
 
+**If --diff flag:**
+
+Analyze the current branch's changes vs main to generate a test plan. The diff is the
+primary signal -- PR context is enrichment only.
+
+1. **Extract the diff:**
+```bash
+# Get branch name and commit count
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+COMMITS_AHEAD=$(git rev-list --count main..HEAD)
+
+# File list for area mapping
+git diff main...HEAD --name-only
+
+# Full diff for semantic analysis (cap at 2000 lines to stay focused)
+git diff main...HEAD | head -2000
+```
+
+2. **Fetch PR context (secondary signal, if available):**
+```bash
+gh pr view --json title,body,number,comments 2>/dev/null
+```
+If no PR exists, skip -- the diff alone is sufficient.
+
+3. **Classify changed files:**
+
+Group each changed file into one of these categories:
+- **User-facing**: `src/vs/workbench/**`, `extensions/**` -- behavioral code, test these
+- **Shared component**: `src/vs/base/**`, `src/vs/platform/**`, shared dialogs/modals -- note blast radius
+- **Test infrastructure**: `test/e2e/pages/**`, `test/e2e/tests/explore/**` -- skip testing
+- **Build/CI**: `build/**`, `scripts/**`, `.github/**` -- skip testing
+- **Docs only**: `*.md`, `*.txt` -- skip testing
+
+4. **Analyze diff hunks for user-facing files:**
+
+For each user-facing file, read the actual diff hunks and determine:
+- What methods, components, or behaviors were added, changed, or removed
+- Whether the change is behavioral (logic) vs cosmetic (CSS, labels, strings)
+- Whether it touches error handling, timeouts, or state management
+- Blast radius: does this file affect shared components used by other features?
+
+5. **Show transparent analysis to the user:**
+
+Print this analysis BEFORE generating the test plan so the user sees exactly what
+drove the plan. Use this format:
+
+```
+## Diff Analysis: <branch-name> (<N> commits ahead of main)
+
+### Changes detected (user-facing)
+- `src/.../file.ts`: <what changed -- e.g., "Added timeout parameter to show() method">
+- `src/.../other.ts`: <what changed>
+
+### Infrastructure changes (not testing)
+- `test/e2e/pages/variables.ts`: POM update
+- `build/gulpfile.js`: Build config
+
+### Blast radius
+- <area> (<reason> -- e.g., "shared modal component used by 4 dialogs")
+- <area> (<reason>)
+
+### PR context (secondary signal)
+- PR #<number>: "<title>"
+- <summary of body if relevant>
+- Comments: <count> (<brief note if any mention blast radius or related areas>)
+```
+
+If the branch has NO user-facing changes (only infrastructure/docs), tell the user:
+```
+No user-facing changes detected on this branch. All changes are in test
+infrastructure, build scripts, or documentation. Nothing to test with the
+explore runner.
+```
+
+6. **Generate test plan:**
+
+Based on the analysis, generate 3-8 test steps using the same format as the
+free-text path. Apply these priorities:
+- **Deep tests first**: Exercise the specific new/modified behavior and edge cases
+- **Smoke tests second**: Quick happy-path checks for blast radius areas
+- **Suggest existing tests**: If you spot existing test files that cover the changed
+  areas (e.g., `test/e2e/tests/variables/variables-filter.test.ts`), mention them:
+  ```
+  Existing tests that cover this area (run separately):
+  - test/e2e/tests/variables/variables-filter.test.ts
+  - test/e2e/tests/data-explorer/data-explorer-summary.test.ts
+  ```
+
+Then continue to Step 2 (Start the Explore Runner) as normal. The diff analysis
+replaces the free-text/issue parsing -- everything downstream is identical.
+
 **Generate POM reference if missing:**
 ```bash
 if [ ! -f test/e2e/tests/qa-generated/pom-reference.md ]; then
