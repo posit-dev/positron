@@ -1,6 +1,6 @@
-# QA Test Diff Mode (`--diff`)
+# QA Test Diff Mode (`--branch`)
 
-Add a `--diff` flag to the existing `/qa-test` skill that generates test plans from branch diffs instead of issue descriptions or free text.
+Add a `--branch` flag to the existing `/qa-test` skill that generates test plans from branch diffs instead of issue descriptions or free text.
 
 ## Problem
 
@@ -14,13 +14,13 @@ The diff is the ground truth of what changed. It should be a first-class entry p
 ## Invocation
 
 ```
-/qa-test --diff                    # current branch vs main, local dev
-/qa-test --diff --build            # current branch vs main, built app
-/qa-test --diff feature/my-branch  # specific branch vs main
-/qa-test --diff --save             # auto-save test file after
+/qa-test --branch                    # current branch vs main, local dev
+/qa-test --branch --build            # current branch vs main, built app
+/qa-test --branch feature/my-branch  # specific branch vs main
+/qa-test --branch --save             # auto-save test file after
 ```
 
-All existing flags (`--build`, `--save`, `--no-save`, `--browser`) compose with `--diff`.
+All existing flags (`--build`, `--save`, `--no-save`, `--browser`) compose with `--branch`.
 
 ## Design
 
@@ -107,11 +107,11 @@ After showing the analysis and proposed plan, proceed to run immediately (same a
 
 ### Skill integration
 
-The `--diff` flag adds a new path in Step 1 of the qa-test skill ("Parse Input and Plan Test Steps"). Everything downstream -- runner launch, `/run-plan` execution, reporting, save prompt -- is unchanged.
+The `--branch` flag adds a new path in Step 1 of the qa-test skill ("Parse Input and Plan Test Steps"). Everything downstream -- runner launch, `/run-plan` execution, reporting, save prompt -- is unchanged.
 
 ```
 Step 1 (modified):
-  If --diff:
+  If --branch:
     1. Extract diff (git diff main...HEAD)
     2. Fetch PR context if available (gh pr view)
     3. Analyze diff and show transparent summary
@@ -138,5 +138,5 @@ These are listed in the analysis output as "not testing" so the user sees they w
 
 - **File-to-area mapping file**: A structured JSON mapping from path patterns to test areas. Enables deterministic classification without AI reasoning. Required for CI automation where there's no AI in the loop.
 - **Existing test discovery**: Automatically find and suggest re-running existing e2e tests that cover the changed code (grep test files for changed method/component names).
-- **GitHub Action integration**: Run `--diff` mode automatically on PRs and post results as an advisory PR comment. Depends on the mapping file for deterministic behavior.
+- **GitHub Action integration**: Run `--branch` mode automatically on PRs and post results as an advisory PR comment. Depends on the mapping file for deterministic behavior.
 - **Cross-PR analysis**: For release testing, analyze all PRs merged since the last release to generate a comprehensive regression test plan.

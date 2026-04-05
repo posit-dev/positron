@@ -1,10 +1,10 @@
-# QA Test `--diff` Mode Implementation Plan
+# QA Test `--branch` Mode Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a `--diff` flag to the `/qa-test` skill that generates test plans from branch diffs with transparent reasoning.
+**Goal:** Add a `--branch` flag to the `/qa-test` skill that generates test plans from branch diffs with transparent reasoning.
 
-**Architecture:** Modify the existing SKILL.md to add a `--diff` path in Step 1. The diff analysis runs as inline Claude reasoning (no new code files). All downstream steps (runner launch, execution, reporting) are unchanged.
+**Architecture:** Modify the existing SKILL.md to add a `--branch` path in Step 1. The diff analysis runs as inline Claude reasoning (no new code files). All downstream steps (runner launch, execution, reporting) are unchanged.
 
 **Tech Stack:** Git CLI, `gh` CLI, existing explore runner infrastructure.
 
@@ -14,21 +14,21 @@
 
 | File | Action | Responsibility |
 |------|--------|---------------|
-| `.claude/skills/qa-test/SKILL.md` | Modify | Add `--diff` input format, diff analysis instructions in Step 1 |
+| `.claude/skills/qa-test/SKILL.md` | Modify | Add `--branch` input format, diff analysis instructions in Step 1 |
 | `test/e2e/tests/explore/BACKLOG.md` | Modify | Add future work items from spec |
 
 No new files needed. The diff analysis is Claude reasoning guided by skill instructions, not executable code.
 
 ---
 
-### Task 1: Add `--diff` to Input Formats section
+### Task 1: Add `--branch` to Input Formats section
 
 **Files:**
 - Modify: `.claude/skills/qa-test/SKILL.md` (Input Formats section, ~lines 14-26)
 
 - [ ] **Step 1: Add diff invocations to the Input Formats block**
 
-In the `## Input Formats` section, add the `--diff` examples after the existing ones:
+In the `## Input Formats` section, add the `--branch` examples after the existing ones:
 
 ```markdown
 ## Input Formats
@@ -41,16 +41,16 @@ In the `## Input Formats` section, add the `--diff` examples after the existing 
 /qa-test --build "Verify plots render correctly"
 /qa-test --save #12345
 /qa-test --no-save --build "Quick smoke test"
-/qa-test --diff
-/qa-test --diff --build
-/qa-test --diff feature/my-branch
-/qa-test --diff --save
+/qa-test --branch
+/qa-test --branch --build
+/qa-test --branch feature/my-branch
+/qa-test --branch --save
 ```
 
 - `--save`: Always save a `.test.ts` file after a successful run (no prompt)
 - `--no-save`: Never save, never prompt
 - No flag: Prompt the user to save after a successful run
-- `--diff`: Generate test plan from branch diff vs main (see Step 1)
+- `--branch`: Generate test plan from branch diff vs main (see Step 1)
 ```
 
 - [ ] **Step 2: Verify the edit is correct**
@@ -61,7 +61,7 @@ Read the modified section and confirm the new lines are in the right place and t
 
 ```bash
 git add .claude/skills/qa-test/SKILL.md
-git commit -m "feat(qa-test): add --diff invocations to input formats"
+git commit -m "feat(qa-test): add --branch invocations to input formats"
 ```
 
 ---
@@ -71,14 +71,14 @@ git commit -m "feat(qa-test): add --diff invocations to input formats"
 **Files:**
 - Modify: `.claude/skills/qa-test/SKILL.md` (Step 1 section, after the "If issue number (default):" block, before "Generate POM reference if missing:")
 
-- [ ] **Step 1: Add the `--diff` conditional block**
+- [ ] **Step 1: Add the `--branch` conditional block**
 
-Insert a new `**If --diff flag:**` block in Step 1, after the existing issue-number blocks and before the POM reference generation. This is the core of the feature -- it tells Claude how to analyze the diff and generate a test plan.
+Insert a new `**If --branch flag:**` block in Step 1, after the existing issue-number blocks and before the POM reference generation. This is the core of the feature -- it tells Claude how to analyze the diff and generate a test plan.
 
 Add this block right before the `**Generate POM reference if missing:**` line:
 
 ````markdown
-**If --diff flag:**
+**If --branch flag:**
 
 Analyze the current branch's changes vs main to generate a test plan. The diff is the
 primary signal -- PR context is enrichment only.
@@ -173,7 +173,7 @@ replaces the free-text/issue parsing -- everything downstream is identical.
 - [ ] **Step 2: Verify the edit integrates correctly**
 
 Read the full Step 1 section and confirm:
-- The `--diff` block appears after the issue-number blocks
+- The `--branch` block appears after the issue-number blocks
 - The `**Generate POM reference if missing:**` block still follows after
 - No existing blocks were accidentally removed
 - The markdown nesting and code fences are correct
@@ -182,43 +182,43 @@ Read the full Step 1 section and confirm:
 
 ```bash
 git add .claude/skills/qa-test/SKILL.md
-git commit -m "feat(qa-test): add --diff analysis path to Step 1"
+git commit -m "feat(qa-test): add --branch analysis path to Step 1"
 ```
 
 ---
 
-### Task 3: Handle `--diff` in ARGUMENTS parsing
+### Task 3: Handle `--branch` in ARGUMENTS parsing
 
 **Files:**
 - Modify: `.claude/skills/qa-test/SKILL.md` (the ARGUMENTS line at the very end, and the Step 0 section)
 
 - [ ] **Step 1: Update ARGUMENTS documentation**
 
-The skill receives arguments via the `ARGUMENTS:` line at the top of the loaded skill. The `--diff` flag needs to be recognized in the same way `--build`, `--save`, `--browser` are. No code change needed -- the skill is a prompt, and Claude parses the arguments naturally. But we should update Step 0 to handle `--diff` properly.
+The skill receives arguments via the `ARGUMENTS:` line at the top of the loaded skill. The `--branch` flag needs to be recognized in the same way `--build`, `--save`, `--browser` are. No code change needed -- the skill is a prompt, and Claude parses the arguments naturally. But we should update Step 0 to handle `--branch` properly.
 
 Add to Step 0 ("Choose Target"), right after the `--build` handling:
 
 ```markdown
-If `--diff` flag is present, this is a diff-based test. The branch to analyze defaults
-to the current branch. If a branch name follows `--diff` (e.g., `--diff feature/my-branch`),
-use that branch instead. The `--diff` flag composes with all other flags:
-- `--diff --build`: Analyze diff, run tests against built app
-- `--diff --save`: Analyze diff, auto-save test file
-- `--diff --browser firefox`: Analyze diff, run in Firefox
+If `--branch` flag is present, this is a diff-based test. The branch to analyze defaults
+to the current branch. If a branch name follows `--branch` (e.g., `--branch feature/my-branch`),
+use that branch instead. The `--branch` flag composes with all other flags:
+- `--branch --build`: Analyze diff, run tests against built app
+- `--branch --save`: Analyze diff, auto-save test file
+- `--branch --browser firefox`: Analyze diff, run in Firefox
 
-If `--diff` is used without `--build`, ask the user which target to run against
+If `--branch` is used without `--build`, ask the user which target to run against
 (same as the default flow).
 ```
 
 - [ ] **Step 2: Verify the edit is in the right place**
 
-Read Step 0 and confirm the `--diff` handling appears logically after the `--build` handling and before Step 1.
+Read Step 0 and confirm the `--branch` handling appears logically after the `--build` handling and before Step 1.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add .claude/skills/qa-test/SKILL.md
-git commit -m "feat(qa-test): handle --diff flag in Step 0 target selection"
+git commit -m "feat(qa-test): handle --branch flag in Step 0 target selection"
 ```
 
 ---
@@ -247,7 +247,7 @@ Add a `## Diff Mode (Future)` section at the end of the backlog file:
   Fastest signal for regressions.
 
 - [ ] **GitHub Action integration.**
-  Run `--diff` mode automatically on PRs and post results as an advisory PR comment.
+  Run `--branch` mode automatically on PRs and post results as an advisory PR comment.
   Depends on the file-to-area mapping file for deterministic behavior.
 
 - [ ] **Cross-PR release testing.**
@@ -264,13 +264,13 @@ git commit -m "docs(explore-runner): add diff-mode future work to backlog"
 
 ---
 
-### Task 5: Smoke test the `--diff` flag
+### Task 5: Smoke test the `--branch` flag
 
 This is a manual verification that the skill works end-to-end.
 
-- [ ] **Step 1: Run the skill with `--diff`**
+- [ ] **Step 1: Run the skill with `--branch`**
 
-Invoke: `/qa-test --diff --build`
+Invoke: `/qa-test --branch --build`
 
 This should:
 1. Show the diff analysis for the current branch (`feature/explore-runner-qa`)
@@ -300,5 +300,5 @@ If the smoke test reveals issues with the skill instructions (wrong wording, mis
 
 ```bash
 git add .claude/skills/qa-test/SKILL.md
-git commit -m "fix(qa-test): adjust --diff instructions based on smoke test"
+git commit -m "fix(qa-test): adjust --branch instructions based on smoke test"
 ```

@@ -19,16 +19,17 @@ Performs on-demand QA testing by driving Positron through test scenarios using t
 /qa-test --build "Verify plots render correctly"
 /qa-test --save #12345
 /qa-test --no-save --build "Quick smoke test"
-/qa-test --diff
-/qa-test --diff --build
-/qa-test --diff feature/my-branch
-/qa-test --diff --save
+/qa-test --branch
+/qa-test --branch --build
+/qa-test --branch feature/my-branch
+/qa-test --branch --build #9638
+/qa-test --branch --save
 ```
 
 - `--save`: Always save a `.test.ts` file after a successful run (no prompt)
 - `--no-save`: Never save, never prompt
 - No flag: Prompt the user to save after a successful run
-- `--diff`: Generate test plan from branch diff vs main (see Step 1)
+- `--branch`: Generate test plan from branch diff vs main. Optionally pass a branch name or issue number for enrichment context (see Step 1)
 
 ## Workflow
 
@@ -56,14 +57,19 @@ This outputs JSON with `positronVersion`, `positronBuild`, `osVersion`. Report i
 Target: Built app -- Positron 2026.02.0 (build 10), macOS 26.2
 ```
 
-If `--diff` flag is present, this is a diff-based test. The branch to analyze defaults
-to the current branch. If a branch name follows `--diff` (e.g., `--diff feature/my-branch`),
-use that branch instead. The `--diff` flag composes with all other flags:
-- `--diff --build`: Analyze diff, run tests against built app
-- `--diff --save`: Analyze diff, auto-save test file
-- `--diff --browser firefox`: Analyze diff, run in Firefox
+If `--branch` flag is present, this is a diff-based test. The branch to analyze defaults
+to the current branch. If a branch name follows `--branch` (e.g., `--branch feature/my-branch`),
+use that branch instead. If an issue number follows (e.g., `--branch #9638` or
+`--branch --build #9638`), fetch that issue as enrichment context alongside the diff.
 
-If `--diff` is used without `--build`, ask the user which target to run against
+The `--branch` flag composes with all other flags:
+- `--branch --build`: Analyze diff, run tests against built app
+- `--branch --build #9638`: Analyze diff, enrich with issue context, run against built app
+- `--branch --save`: Analyze diff, auto-save test file
+- `--branch --browser firefox`: Analyze diff, run in Firefox
+- `--branch feature/my-branch`: Analyze a specific branch instead of current
+
+If `--branch` is used without `--build`, ask the user which target to run against
 (same as the default flow).
 
 ### Step 1: Parse Input and Plan Test Steps
@@ -82,10 +88,10 @@ Parse into 3-8 concrete, ordered test steps. Each step becomes one entry in the 
 2. **Validate testability** (see below)
 3. Parse the guide into executable steps
 
-**If --diff flag:**
+**If --branch flag:**
 
 Analyze the current branch's changes vs main to generate a test plan. The diff is the
-primary signal -- PR context is enrichment only.
+primary signal -- PR context and issue context are enrichment only.
 
 1. **Extract the diff:**
 ```bash
@@ -100,11 +106,15 @@ git diff main...HEAD --name-only
 git diff main...HEAD | head -2000
 ```
 
-2. **Fetch PR context (secondary signal, if available):**
+2. **Fetch enrichment context (secondary signals, if available):**
 ```bash
+# PR context
 gh pr view --json title,body,number,comments 2>/dev/null
+
+# Issue context (if issue number was passed, e.g., --branch #9638)
+gh issue view <number> --repo posit-dev/positron --json title,body,labels 2>/dev/null
 ```
-If no PR exists, skip -- the diff alone is sufficient.
+If no PR exists and no issue number was passed, skip -- the diff alone is sufficient.
 
 3. **Classify changed files:**
 
@@ -147,6 +157,10 @@ drove the plan. Use this format:
 - PR #<number>: "<title>"
 - <summary of body if relevant>
 - Comments: <count> (<brief note if any mention blast radius or related areas>)
+
+### Issue context (if provided)
+- Issue #<number>: "<title>"
+- <summary of expected behavior from issue body>
 ```
 
 If the branch has NO user-facing changes (only infrastructure/docs), tell the user:
