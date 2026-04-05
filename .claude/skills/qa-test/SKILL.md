@@ -679,9 +679,19 @@ Rules:
 - Return `Promise<void>`
 
 ### POM Health
-[Include when the skill retried a step with a different POM method, or fell
-back to raw Playwright actions. Categorize each finding. Skip this section
-if all steps used POM methods successfully on the first attempt.]
+**REQUIRED whenever ANY of these occurred during the test run:**
+- A retry used a different POM method than the first attempt
+- A raw Playwright action (`clickRole`, `clickText`, `clickSelector`, `waitForSelector`,
+  `evaluate`, `snapshot`) was used for something a POM method SHOULD cover
+- A POM method failed due to ambiguous matching (strict mode violation)
+
+**If none of these occurred, skip this section.** But if ANY did, you MUST include it --
+even if the test ultimately passed. A passing test that used a raw workaround is a
+POM gap that should be fixed.
+
+**Self-check:** Before finalizing the report, scan every step in the retry summary.
+For each retry fix, ask: "Did I use a raw Playwright action where a POM method should
+exist?" If yes, that's a POM Gap entry.
 
 **Method Confusion** (retried with a different POM method that succeeded):
 - CONFUSION: Called `<original>` (failed), retried with `<replacement>` (passed).
@@ -689,7 +699,7 @@ if all steps used POM methods successfully on the first attempt.]
   Recommendation: <Add @see cross-references / Update JSDoc to clarify distinction>
 
 **POM Gap** (fell back to raw Playwright because no POM method existed):
-- GAP: Used raw `<action>` with selector `<selector>` because no POM method covers <intent>.
+- GAP: Used raw `<action>` with selector/role `<details>` because no POM method covers <intent>.
   Suggested POM: <pom>.ts
   Suggested method: `<methodName>(<params>): Promise<void>`
 
