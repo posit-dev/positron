@@ -400,6 +400,9 @@ For free-text tests (no issue number), use `test.describe('Verify: <description>
   // Verify variable appears
   await variables.expectVariableToBe('x', '42');
   ```
+- **Do NOT rename `console` when destructuring.** Use `const { console } = app.workbench`
+  directly -- do not alias it as `consoleView`, `consolePom`, etc. The existing codebase
+  uses `console` everywhere and shadowing the global `console` is fine in test files.
 
 ## Verification Comment
 
