@@ -10,8 +10,9 @@ import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -167,8 +168,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Maximum number of lines to display for text output before truncating
 	private _maxLines: number;
 
+	// Whether this view zone is showing only a status bar (no output content)
+	private _isStatusOnly = false;
+
 	// Inner styled container (separate from domNode so Monaco's height doesn't stretch it)
 	private readonly _styledContainer: HTMLElement;
+
+	// Status bar element showing execution state, duration, and timestamp
+	private readonly _statusBar: HTMLElement;
+	private readonly _statusIcon: HTMLSpanElement;
+	private readonly _statusText: HTMLElement;
 
 	// Icon element inside the close button (for switching between close and stop icons)
 	private _buttonIcon!: HTMLSpanElement;
@@ -257,6 +266,18 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._saveButton.style.display = 'none';
 
 		this._styledContainer.appendChild(buttonContainer);
+
+		// Create status bar for execution info (hidden by default)
+		this._statusBar = document.createElement('div');
+		this._statusBar.className = 'quarto-output-status-bar';
+		this._statusBar.style.display = 'none';
+		this._statusIcon = document.createElement('span');
+		this._statusIcon.className = 'codicon code-cell-footer-icon';
+		this._statusBar.appendChild(this._statusIcon);
+		this._statusText = document.createElement('span');
+		this._statusText.className = 'code-cell-footer-text';
+		this._statusBar.appendChild(this._statusText);
+		this._styledContainer.appendChild(this._statusBar);
 
 		// Create output container
 		this._outputContainer = document.createElement('div');
@@ -393,6 +414,80 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Set execution information to display in the status bar.
+	 * Hides the status bar when no meaningful info is available (e.g. cached outputs).
+	 */
+	setExecutionInfo(state: CellExecutionState, startTime?: number, endTime?: number): void {
+		// Hide status bar when idle with no timing info
+		if (state === CellExecutionState.Idle && !startTime) {
+			this._statusBar.style.display = 'none';
+			this._updateStatusOnlyState();
+			this._updateHeight();
+			return;
+		}
+
+		this._statusBar.style.display = '';
+
+		// Update icon
+		this._statusIcon.className = 'codicon code-cell-footer-icon';
+		switch (state) {
+			case CellExecutionState.Running:
+				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.sync).split(' '), 'running');
+				this._statusText.textContent = localize('quartoRunning', 'Running...');
+				break;
+			case CellExecutionState.Queued:
+				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.clock).split(' '), 'pending');
+				this._statusText.textContent = localize('quartoQueued', 'Queued');
+				break;
+			case CellExecutionState.Completed: {
+				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.check).split(' '), 'success');
+				this._statusText.innerHTML = '';
+				this._buildDurationText(startTime, endTime);
+				break;
+			}
+			case CellExecutionState.Error: {
+				this._statusIcon.classList.add(...ThemeIcon.asClassName(Codicon.error).split(' '), 'error');
+				this._statusText.innerHTML = '';
+				this._buildDurationText(startTime, endTime);
+				break;
+			}
+			default:
+				this._statusBar.style.display = 'none';
+				break;
+		}
+
+		this._updateStatusOnlyState();
+		this._updateHeight();
+	}
+
+	/**
+	 * Build duration and timestamp text elements inside the status text span.
+	 */
+	private _buildDurationText(startTime?: number, endTime?: number): void {
+		if (startTime && endTime) {
+			const duration = endTime - startTime;
+			const durationSpan = document.createElement('span');
+			durationSpan.className = 'code-cell-footer-duration';
+			durationSpan.textContent = formatCellDuration(duration);
+			this._statusText.appendChild(durationSpan);
+
+			const timestampSpan = document.createElement('span');
+			timestampSpan.textContent = getRelativeTime(endTime);
+			this._statusText.appendChild(timestampSpan);
+		}
+	}
+
+	/**
+	 * Update the status-only CSS class based on whether we have outputs.
+	 */
+	private _updateStatusOnlyState(): void {
+		const hasStatus = this._statusBar.style.display !== 'none';
+		const hasOutputs = this._outputs.length > 0;
+		this._isStatusOnly = hasStatus && !hasOutputs;
+		this._styledContainer.classList.toggle('quarto-output-status-only', this._isStatusOnly);
+	}
+
+	/**
 	 * Update the visual appearance for recomputing state.
 	 */
 	private _updateRecomputingState(): void {
@@ -472,8 +567,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		this._outputs.push(output);
 		this._renderOutput(output);
-		// Update error-only class after adding new output
-		this._styledContainer.classList.toggle('quarto-output-error-only', this._isErrorOnly());
+		this._updateStatusOnlyState();
 		this._updateHeight();
 		this._announceOutput(output);
 	}
@@ -503,8 +597,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._isRecomputing = false;
 		this._styledContainer.classList.remove('quarto-output-recomputing');
 
-		// Hide the view zone when outputs are cleared
-		this.hide();
+		// Update status-only state (may still show status bar)
+		this._updateStatusOnlyState();
+
+		// Hide the view zone when outputs are cleared (unless showing status only)
+		if (!this._isStatusOnly) {
+			this.hide();
+		} else {
+			this._updateHeight();
+		}
 
 		this._onClear?.();
 	}
@@ -1074,7 +1175,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._updateHeight();
 		});
 
-		this._resizeObserver.observe(this._outputContainer);
+		this._resizeObserver.observe(this._styledContainer);
 	}
 
 	private _disposeResizeObserver(): void {
@@ -1105,26 +1206,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._disposeAllReactRenderers();
 		dom.clearNode(this._outputContainer);
 
-		// Check if all outputs are errors only
-		const isErrorOnly = this._isErrorOnly();
-		this._styledContainer.classList.toggle('quarto-output-error-only', isErrorOnly);
-
 		for (const output of this._outputs) {
 			this._renderOutput(output);
 		}
-	}
-
-	/**
-	 * Check if all outputs contain only error items.
-	 */
-	private _isErrorOnly(): boolean {
-		if (this._outputs.length === 0) {
-			return false;
-		}
-		return this._outputs.every(output =>
-			output.items.length > 0 &&
-			output.items.every(item => item.mime === 'application/vnd.code.notebook.error')
-		);
 	}
 
 	private _renderOutput(output: ICellOutput): void {

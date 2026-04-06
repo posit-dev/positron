@@ -172,20 +172,6 @@
 	-webkit-user-select: text;
 }
 
-/* Widget-level error styling (when only output is an error) */
-.quarto-inline-output.quarto-output-error-only {
-	background: var(--vscode-inputValidation-errorBackground);
-	border-color: var(--vscode-inputValidation-errorBorder);
-}
-
-/* Remove individual error styling when widget has error style */
-.quarto-inline-output.quarto-output-error-only .quarto-output-error {
-	padding: 0;
-	background: transparent;
-	border: none;
-	border-radius: 0;
-}
-
 /* Image output container */
 .quarto-output-image-container {
 	display: flex;
@@ -362,16 +348,81 @@
 	mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 30%, rgba(0, 0, 0, 0.7) 60%, black 100%);
 }
 
-/* Widget-level error styling (when only output is an error) */
-.quarto-inline-output.quarto-output-error-only {
-	background: var(--vscode-inputValidation-errorBackground);
-	border-color: var(--vscode-inputValidation-errorBorder);
+/* Status bar for execution info (duration, timestamp, success/fail) */
+.quarto-output-status-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 24px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	cursor: default;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
-/* Remove individual error styling when widget has error style */
-.quarto-inline-output.quarto-output-error-only .quarto-output-error {
-	padding: 0;
+/* Reuse notebook footer icon classes scoped to quarto status bar */
+.quarto-output-status-bar .code-cell-footer-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	font-size: 16px;
+}
+
+.quarto-output-status-bar .codicon.code-cell-footer-icon.success {
+	color: var(--vscode-notebookStatusSuccessIcon-foreground);
+}
+
+.quarto-output-status-bar .codicon.code-cell-footer-icon.error {
+	color: var(--vscode-notebookStatusErrorIcon-foreground);
+}
+
+.quarto-output-status-bar .codicon.code-cell-footer-icon.pending {
+	color: var(--vscode-notebookStatusRunningIcon-foreground);
+}
+
+.quarto-output-status-bar .codicon.code-cell-footer-icon.running {
+	color: var(--vscode-notebookStatusRunningIcon-foreground);
+	animation: quarto-status-spin 1.5s linear infinite;
+}
+
+@keyframes quarto-status-spin {
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+/* Status text container with duration and timestamp */
+.quarto-output-status-bar .code-cell-footer-text {
+	display: flex;
+	align-items: center;
+	gap: 13px;
+	white-space: nowrap;
+}
+
+/* Duration text with separator */
+.quarto-output-status-bar .code-cell-footer-duration {
+	position: relative;
+}
+
+/* Vertical separator between duration and timestamp */
+.quarto-output-status-bar .code-cell-footer-duration::after {
+	content: '';
+	position: absolute;
+	right: -7px;
+	top: 1px;
+	bottom: 1px;
+	width: 1px;
+	background-color: var(--vscode-widget-border);
+}
+
+/* Status-only view zone: no output border/background, just the status bar */
+.quarto-inline-output.quarto-output-status-only {
 	background: transparent;
 	border: none;
-	border-radius: 0;
+	padding: 0;
+	margin: 4px 0;
 }

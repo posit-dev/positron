@@ -267,10 +267,15 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				const currentState = event.execution.state;
 				const isRunning = currentState === CellExecutionState.Running;
 
-				// Update view zone button state
-				const viewZone = this._viewZones.get(cellId);
+				// Update view zone button state and execution info
+				let viewZone = this._viewZones.get(cellId);
 				if (viewZone) {
 					viewZone.setExecuting(isRunning);
+					viewZone.setExecutionInfo(
+						currentState,
+						event.execution.startTime,
+						event.execution.endTime,
+					);
 				}
 
 				// When execution starts, put existing output into recomputing state
@@ -292,12 +297,38 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 				// When execution finishes (Idle, Completed, or Error), if still in
 				// recomputing state (no new output arrived), clear the old outputs
-				const executionFinished = currentState === CellExecutionState.Idle ||
-					currentState === CellExecutionState.Completed ||
+				// but keep the view zone visible for the status bar
+				const executionFinished = currentState === CellExecutionState.Completed ||
 					currentState === CellExecutionState.Error;
 
 				if (executionFinished && viewZone?.isRecomputing) {
-					// No new output was produced - clear the old output and hide
+					// No new output was produced - clear old output but keep
+					// view zone for status display
+					viewZone.clearOutputs();
+					this._onDidChangeOutputs.fire({
+						cellId,
+						documentUri: this._documentUri!,
+						outputs: [],
+					});
+				}
+
+				// When execution finishes and there is no view zone yet,
+				// create one to show the status bar
+				if (executionFinished && !viewZone) {
+					viewZone = this._createViewZone(cellId);
+					if (viewZone) {
+						this._viewZones.set(cellId, viewZone);
+						viewZone.setExecutionInfo(
+							currentState,
+							event.execution.startTime,
+							event.execution.endTime,
+						);
+					}
+				}
+
+				// When state goes to Idle (e.g. after cancellation), hide
+				// status-only view zones since there's nothing meaningful to show
+				if (currentState === CellExecutionState.Idle && viewZone?.isRecomputing) {
 					viewZone.clearOutputs();
 					this._viewZones.delete(cellId);
 					this._onDidChangeOutputs.fire({
