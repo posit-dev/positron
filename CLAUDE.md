@@ -38,11 +38,11 @@ Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
 
 ### Where should I put my test?
 
-Test at the **lowest layer** that can catch the bug:
+The deciding question: **does it need Electron?**
 
-1. **Vitest** (`*.vitest.ts`) -- DEFAULT for Positron code. Does your code import `vscode` or `positron`? If no, use Vitest. If yes but only for config/convenience, extract the logic and test it in Vitest.
-2. **Extension host** (`npm run test-extension`) -- Only when your test genuinely needs VS Code/Positron extension APIs (extension activation, workspace APIs, editor documents).
-3. **E2E** (Playwright) -- Only for user-visible workflows that span multiple systems.
+1. **Vitest** (`*.vitest.ts`) -- DEFAULT for Positron code. No Electron needed. Covers everything from pure functions (Tier 0) to 124-service integration (Tier 3). If your code doesn't genuinely need `vscode`/`positron` APIs at runtime, it belongs here.
+2. **Extension host** (`npm run test-extension`) -- Needs Electron. Only when your test requires activated extensions, workspace APIs, or editor document manipulation.
+3. **E2E** (Playwright) -- Needs the full app. Only for user-visible workflows across multiple systems.
 
 Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
 
@@ -61,7 +61,7 @@ Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
 	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension with `--runGlob`)
 - **Extension tests** (`extensions/<extension-name>/*.test.ts`): `npm run test-extension -- -l <extension-name> --grep <pattern>`
 	- For positron-python, see that extension's CLAUDE.md
-- **E2E tests** (for UI integration testing): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
+- **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
 ### Positron Vitest Tiers
 
