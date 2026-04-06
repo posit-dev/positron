@@ -659,12 +659,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			this._proxy.$emitLanguageRuntimeResourceUsage(session.metadata.sessionId, usage);
 		});
 
-		// Register the runtime
-		const handle = this._runtimeSessions.length;
-		this._runtimeSessions.push(session);
-
-		this._eventClocks.push(0);
-
 		// Hook up the session's sync support change event, if available.
 		// The session is responsible for forwarding events from the package manager.
 		if (session.onDidChangeSyncSupport) {
@@ -672,6 +666,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				this._proxy.$emitSyncSupportChanged(sessionId, supported);
 			});
 		}
+
+		// Register the runtime
+		const handle = this._runtimeSessions.length;
+		this._runtimeSessions.push(session);
+
+		this._eventClocks.push(0);
 
 		return handle;
 	}
