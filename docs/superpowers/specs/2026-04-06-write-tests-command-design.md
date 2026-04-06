@@ -44,7 +44,7 @@ Tests to write:
 
   2. src/vs/workbench/contrib/positronConsole/common/linkDetector.ts
      → Tier 0 (pure function, no service dependencies)
-     → Already has test ✓ -- will check if your changes are covered
+     → Has linkDetector.vitest.ts -- will check if your changes need new test cases
 
   3. extensions/positron-assistant/src/providers/snowflake/snowflakeProvider.ts
      → Tier 1 (light deps, already has Vitest stub for positron module)
@@ -91,7 +91,6 @@ For each approved test:
 - Write Mocha tests for upstream VS Code code (warns instead, provides the run command)
 - Write E2E Playwright tests (different skill: `positron-e2e-tests`)
 - Auto-commit (dev reviews and commits when ready)
-- Modify existing tests (only creates new `.vitest.ts` files)
 
 ## File Location
 
