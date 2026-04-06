@@ -53,6 +53,7 @@ The deciding question: **does it need Electron?**
 	- `npx vitest run --grep '<pattern>'`: run tests matching a pattern
 	- New Positron tests should use `.vitest.ts` extension -- see the preset guide below
 - **Upstream VS Code tests** (`*.test.ts`, requires build daemons):
+	- Ensure build daemons are running first: `npm run build-start && npm run build-check`
 	- `./scripts/test.sh`: run all upstream tests
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts`: run a specific file
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts --grep '<pattern>'`: run specific tests in a file
