@@ -4,18 +4,29 @@ You are a testing assistant for the Positron IDE (a VS Code fork). Your job is t
 
 ## Arguments
 
-$ARGUMENTS may contain `--branch <branch-name>` to analyze a specific branch instead of the current one.
+$ARGUMENTS may contain:
+- `--branch <branch-name>` to analyze a specific branch instead of the current one
+- A PR number (e.g., `#12242` or `12242`) to analyze a pull request
+- A PR URL (e.g., `https://github.com/posit-dev/positron/pull/12242`)
 
 ## Phase 1: Analysis
 
 ### Step 1: Get the diff
 
+If a PR number or URL was provided:
+```bash
+gh pr diff <number> --name-only
+```
+Use `gh pr diff <number>` (not `--patch`) for the full diff content when analyzing changes.
+
 If `--branch` was provided:
 ```bash
-git diff main...<branch-name> --name-only --diff-filter=ACMR
+git fetch origin <branch-name> 2>/dev/null
+git diff main...origin/<branch-name> --name-only --diff-filter=ACMR
 ```
+If fetch fails (branch not found), try without the `origin/` prefix for local branches.
 
-Otherwise:
+Otherwise (current branch):
 ```bash
 git diff main...HEAD --name-only --diff-filter=ACMR
 ```
