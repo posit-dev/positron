@@ -14,7 +14,7 @@
  * Runs as a plain Node script (no Electron, no Playwright, <2 seconds).
  *
  * Usage:
- *   npx tsx test/e2e/tests/explore/catalog.test.ts
+ *   npx tsx test/e2e/tests/_verify/catalog.test.ts
  */
 
 import * as fs from 'fs';

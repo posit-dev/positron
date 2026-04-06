@@ -45,7 +45,7 @@ If no PR exists and no issue number was passed, skip -- the diff alone is suffic
 Group each changed file into one of these categories:
 - **User-facing**: `src/vs/workbench/**`, `extensions/**` -- behavioral code, test these
 - **Shared component**: `src/vs/base/**`, `src/vs/platform/**`, shared dialogs/modals -- note blast radius
-- **Test infrastructure**: `test/e2e/pages/**`, `test/e2e/tests/explore/**` -- skip testing
+- **Test infrastructure**: `test/e2e/pages/**`, `test/e2e/tests/_verify/**` -- skip testing
 - **Build/CI**: `build/**`, `scripts/**`, `.github/**` -- skip testing
 - **Docs only**: `*.md`, `*.txt` -- skip testing
 

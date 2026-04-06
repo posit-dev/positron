@@ -103,7 +103,7 @@ POM gap that should be fixed.
 
 ## Backlog Auto-Append
 
-When a POM Gap is detected, also auto-append it to `test/e2e/tests/explore/BACKLOG.md`
+When a POM Gap is detected, also auto-append it to `test/e2e/tests/_verify/BACKLOG.md`
 under `## POM Gaps`:
 
 - [ ] **Missing: <methodName> (<pom>.ts)**

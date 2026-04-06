@@ -10,7 +10,7 @@ Models (POMs) as simple REST actions. Claude Code plans test steps, sends them a
 Claude Code (AI)                     Explore Runner (Playwright test)
   |                                    |
   |  npx playwright test               |
-  |  explore.test.ts (background)      |
+  |  verify.test.ts (background)      |
   |  --------------------------------> |  launches Electron + HTTP server
   |                                    |  writes port to /tmp/explore-runner-port
   |  POST /action                      |
@@ -31,7 +31,7 @@ Claude Code (AI)                     Explore Runner (Playwright test)
 
 | File | Purpose |
 |------|---------|
-| `explore.test.ts` | Playwright test entry point. Uses the `app` fixture to get a full Application instance, starts the HTTP server, waits for `/done` or 10-minute timeout. |
+| `verify.test.ts` | Playwright test entry point. Uses the `app` fixture to get a full Application instance, starts the HTTP server, waits for `/done` or 10-minute timeout. |
 | `server.ts` | HTTP server (~85 lines, Node built-in `http`). Three endpoints: `POST /action`, `POST /done`, `GET /health`. Writes port to `/tmp/explore-runner-port`. |
 | `action-catalog.ts` | 102 action handlers mapping action names to POM calls. Organized in tiers: POM actions (reliable), raw Playwright actions (flexible), escape hatches. |
 | `action-executor.ts` | Dispatcher. Looks up action in catalog, runs it, times it, catches errors, gathers state. |
@@ -72,7 +72,7 @@ Claude Code (AI)                     Explore Runner (Playwright test)
 
 ```bash
 # Terminal 1: Start the runner
-npx playwright test test/e2e/tests/explore/explore.test.ts --project e2e-electron
+npx playwright test test/e2e/tests/_verify/verify.test.ts --project e2e-electron
 
 # Terminal 2: Wait for port, then send actions
 PORT=$(cat /tmp/explore-runner-port)
