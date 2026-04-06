@@ -519,7 +519,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             // Forward the package manager's sync support change event to the session
             if (this._packageManager.onDidChangeSyncSupport) {
-                this._syncSupportDisposable = this._packageManager.onDidChangeSyncSupport(supported => {
+                this._syncSupportDisposable = this._packageManager.onDidChangeSyncSupport((supported) => {
                     this._syncSupportEmitter.fire(supported);
                 });
             }
