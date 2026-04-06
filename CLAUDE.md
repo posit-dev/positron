@@ -65,11 +65,11 @@ Full strategy: `docs/superpowers/specs/2026-04-03-vitest-migration-design.md`
 
 ### Positron Vitest Tiers
 
-All Positron-specific tests use Vitest (`.vitest.ts`). Choose the tier that matches your test's needs:
+All Positron-specific tests use Vitest (`.vitest.ts`). Three tiers -- pick the lowest one that works:
 
-**Tier 0 -- Pure Logic** (no DI, no disposables)
+**Bare** -- pure logic, no services
 
-For testing pure functions, parsers, utilities, and data transformations. Import the module, call the function, assert the result. No service container, no disposable tracking needed.
+For testing functions, parsers, utilities, data transformations. No builder needed.
 
 ```typescript
 import { hasUpdate } from '../../common/positronVersion.js';
@@ -81,29 +81,9 @@ describe('positronVersion', () => {
 });
 ```
 
-**Tier 1 -- Light DI** (1-5 manual stubs)
+**Runtime** -- language runtime and session services
 
-For testing code that depends on a few services. Create a container, stub only what you need. Disposable tracking is handled automatically by the builder.
-
-```typescript
-import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
-import { ILogService, NullLogService } from '<path>/platform/log/common/log.js';
-
-describe('MyService', () => {
-	const ctx = createTestContainer()
-		.stub(ILogService, new NullLogService())
-		.build();
-
-	it('does the thing', () => {
-		const service = ctx.instantiationService.createInstance(MyService);
-		expect(service.doThing()).toBe(expected);
-	});
-});
-```
-
-**Tier 2 -- Runtime Services** (18 pre-configured stubs)
-
-For testing code that interacts with language runtimes, sessions, or the console. The `.withRuntimeServices()` preset wires up ILanguageRuntimeService, IRuntimeSessionService, and 16 other services.
+For code that interacts with runtimes, sessions, or the console. The `.withRuntimeServices()` preset wires up 18 services. Add `.stub()` for anything extra.
 
 ```typescript
 import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
@@ -119,9 +99,9 @@ describe('MyRuntimeFeature', () => {
 });
 ```
 
-**Tier 3 -- Full Workbench** (124+ pre-configured stubs)
+**Workbench** -- full Positron stack
 
-For testing code that needs the full Positron workbench (notebooks, plots, variables, webviews, etc.). The `.withWorkbenchServices()` preset includes everything from Tier 2 plus notebook services, editor services, and all Positron-specific services.
+For code that needs notebooks, plots, variables, webviews, or the full workbench. The `.withWorkbenchServices()` preset includes everything from Runtime plus 100+ more services.
 
 ```typescript
 import { createTestContainer } from '<path>/test/browser/positronTestContainer.js';
@@ -141,11 +121,10 @@ describe('MyWorkbenchFeature', () => {
 });
 ```
 
-**Key rules across all tiers:**
-- Use the lowest tier that works -- simpler tests are easier to maintain and faster to run
+**Key rules:**
+- Any tier supports `.stub(IService, mock)` for adding or overriding individual services
 - The builder result (`ctx`) uses lazy getters -- access `ctx.instantiationService` inside `beforeEach`/`it`, not at describe-level via destructuring
 - `ctx.disposables` is auto-cleaned after each test -- pass it to helpers like `startTestLanguageRuntimeSession()` that need it
-- Override any preset service with `.stub(IService, mock)` after a preset call
 - Upstream VS Code tests stay on Mocha (`.test.ts`) -- only Positron tests use Vitest
 
 ### How to mock (the incremental approach)

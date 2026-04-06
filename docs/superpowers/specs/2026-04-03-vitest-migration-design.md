@@ -138,11 +138,10 @@ VS Code uses zero React. Positron adds React selectively for interactive, data-h
 
 | Tier | Files | Description | Example |
 |------|-------|-------------|---------|
-| **Tier 0 -- Pure Logic** | 20 | No DI. Import function, call it, assert. | `positronVersions.test.ts` -- version string comparison |
-| **Tier 1 -- Light DI** | 17 | 1-5 manual service stubs | `languageRuntime.test.ts` -- 2 stubs, tests LanguageRuntimeService |
-| **Tier 2 -- Runtime Services** | 8 | Uses `createRuntimeServices()` (18 stubs) | `runtimeSession.test.ts` -- session lifecycle |
-| **Tier 3 -- Full Workbench** | 16 | Uses `positronWorkbenchInstantiationService()` (124+ stubs) | `positronVariablesService.test.ts` -- notebook-integrated variables |
-| **React/DOM** | 12 | React components with DOM queries | `CellTextOutput.test.tsx` -- output rendering |
+| **Bare** | 37 | No services. Import function, call it, assert. | `positronVersions.vitest.ts` -- version string comparison |
+| **Runtime** | 8 | `.withRuntimeServices()` (18 pre-configured stubs) | `runtimeSession.vitest.ts` -- session lifecycle |
+| **Workbench** | 16 | `.withWorkbenchServices()` (124+ pre-configured stubs) | `positronVariablesService.vitest.ts` -- notebook-integrated variables |
+| **React/DOM** | 12 | React components with DOM queries | `CellTextOutput.vitest.tsx` -- output rendering |
 
 > Note: 6 files overlap between tiers and React categories. 67 unique files total.
 
