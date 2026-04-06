@@ -18,6 +18,7 @@ export default defineConfig({
 			'src/vs/**/*.vitest.ts',
 			'src/vs/**/*.vitest.tsx',
 			'extensions/positron-*/src/test/**/*.vitest.ts',
+			'extensions/positron-*/src/test/**/*.vitest.tsx',
 		],
 		setupFiles: ['./src/vs/base/test/common/vitestSetup.ts'],
 		testTimeout: 10000,
