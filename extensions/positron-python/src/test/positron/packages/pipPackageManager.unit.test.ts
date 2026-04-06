@@ -28,6 +28,7 @@ suite('Pip Package Manager', () => {
     let session: PackageSession;
     let sendCommandStub: sinon.SinonStub;
     let getConfigurationStub: sinon.SinonStub;
+    let getWorkspaceFoldersStub: sinon.SinonStub;
     let cancellationToken: vscode.CancellationToken;
 
     const pythonPath = '/path/to/python';
@@ -41,6 +42,10 @@ suite('Pip Package Manager', () => {
         getConfigurationStub.callsFake(() => ({
             get: () => '',
         }));
+
+        // Stub getWorkspaceFolders to return undefined by default
+        // This prevents the file watcher setup from failing in tests
+        getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders').returns(undefined);
 
         pythonExecutionService = mock<IPythonExecutionService>({
             isModuleInstalled: () => Promise.resolve(true),
@@ -174,12 +179,6 @@ suite('Pip Package Manager', () => {
     });
 
     suite('syncFromRequirements', () => {
-        let getWorkspaceFoldersStub: sinon.SinonStub;
-
-        setup(() => {
-            getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
-        });
-
         test('installs packages from requirements.txt', async () => {
             const workspaceUri = vscode.Uri.file('/workspace');
             getWorkspaceFoldersStub.returns([{ uri: workspaceUri }]);
@@ -213,12 +212,6 @@ suite('Pip Package Manager', () => {
     });
 
     suite('supportsSyncFromRequirements', () => {
-        let getWorkspaceFoldersStub: sinon.SinonStub;
-
-        setup(() => {
-            getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders');
-        });
-
         test('returns false when no workspace folder', async () => {
             getWorkspaceFoldersStub.returns(undefined);
 
