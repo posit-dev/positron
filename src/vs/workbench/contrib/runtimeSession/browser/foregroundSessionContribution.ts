@@ -292,7 +292,16 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}) but no session found for URI`);
+			// No active session. Check if there's saved info from a previous session
+			// so the interpreter picker can still show what runtime was last used.
+			const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(notebookUri);
+			if (sessionInfo) {
+				this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}), using cached session info`);
+				this._runtimeSessionService.foregroundSession = undefined;
+				this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+			} else {
+				this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}) but no session found for URI`);
+			}
 		}
 	}
 
@@ -360,7 +369,16 @@ class ForegroundSessionContribution extends Disposable implements IWorkbenchCont
 				this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}) but no session found for URI`);
+			// No active session. Check if there's saved info from a previous session
+			// so the interpreter picker can still show what runtime was last used.
+			const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(notebookUri);
+			if (sessionInfo) {
+				this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}), using cached session info`);
+				this._runtimeSessionService.foregroundSession = undefined;
+				this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
+			} else {
+				this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}) but no session found for URI`);
+			}
 		}
 	}
 
