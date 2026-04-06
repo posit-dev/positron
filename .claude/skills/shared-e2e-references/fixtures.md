@@ -105,7 +105,25 @@ test('bad pattern', async function ({ app, python, sessions }) {
 
 ## Settings Fixture
 
-Worker-scoped -- use in `beforeAll`, not in individual tests:
+Worker-scoped -- use in `beforeAll`, not in individual tests.
+
+**CRITICAL: `settings` fixture vs `app.workbench.settings`** -- These are DIFFERENT objects.
+The `settings` fixture (from the test function parameter) has `set()` with reload/waitForReady
+options. The `app.workbench.settings` POM has different methods (`mergeSetting`, `getSettings`).
+Methods like `enablePositronNotebooks(settings)` expect the **fixture**, not the workbench POM.
+
+```typescript
+// CORRECT: settings from fixture parameter
+test('example', async function ({ app, settings }) {
+	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+});
+
+// WRONG: settings from app.workbench is a different object
+test('example', async function ({ app }) {
+	const { notebooksPositron, settings } = app.workbench;
+	await notebooksPositron.enablePositronNotebooks(settings); // BREAKS -- wrong type
+});
+```
 
 ```typescript
 test.beforeAll(async ({ settings }) => {

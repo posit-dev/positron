@@ -667,6 +667,27 @@ await variables.expectVariableToBe('greeting', "'hello'");
 await variables.expectVariableToBe('greeting', '"hello"');
 ```
 
+### 33. Using `app.workbench.settings` Instead of the `settings` Fixture
+
+The `settings` fixture (from the test function parameter) and `app.workbench.settings` are DIFFERENT objects with different APIs. Methods like `enablePositronNotebooks(settings)` expect the **fixture**, not the workbench POM.
+
+**WRONG:**
+```typescript
+test('example', async function ({ app }) {
+	const { notebooksPositron, settings } = app.workbench;
+	await notebooksPositron.enablePositronNotebooks(settings); // BREAKS -- wrong type
+});
+```
+
+**CORRECT:**
+```typescript
+test('example', async function ({ app, settings }) {
+	await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+});
+```
+
+The fixture `settings` has `set()`, `clear()`, `backup()`, `restore()` with reload options. The workbench `settings` POM has `mergeSetting()`, `getSettings()`, `remove()`. Don't mix them up.
+
 ## Summary: Pre-Submit Checklist
 
 Before submitting a test, verify:
