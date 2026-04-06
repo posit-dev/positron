@@ -838,6 +838,18 @@ test('QA #12345: Variable appears after execution', async function ({ app, pytho
 - Always include `test.use({ suiteId: __filename })` for app isolation
 - Map action steps to the equivalent Playwright calls
 - File path: `test/e2e/tests/_generated/MMDD_<issue>-<slug>.test.ts`
+- **Do NOT wrap POM calls in `test.step()`.** POM methods already have internal
+  `test.step()` wrappers. Use comments to group steps, not `test.step()`:
+  ```typescript
+  // WRONG
+  await test.step('Verify variable', async () => {
+  	await variables.expectVariableToBe('x', '42');
+  });
+
+  // CORRECT
+  // Verify variable appears
+  await variables.expectVariableToBe('x', '42');
+  ```
 
 ## Verification Comment
 
