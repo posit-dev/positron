@@ -231,7 +231,7 @@ export async function executePom(app: Application, request: PomRequest): Promise
 
 	return await test.step(label, async () => {
 		const start = Date.now();
-		const workbench: Record<string, unknown> = app.workbench as Record<string, unknown>;
+		const workbench = app.workbench as unknown as Record<string, unknown>;
 
 		// 1. Discovery: list POMs when pom is "?"
 		if (request.pom === '?') {
@@ -274,7 +274,7 @@ export async function executePom(app: Application, request: PomRequest): Promise
 					duration: Date.now() - start,
 				};
 			}
-			const group = workbench.editors.editorGroup(request.scope);
+			const group = (app.workbench.editors as any).editorGroup(request.scope);
 			target = target.scopedTo(group);
 		}
 
@@ -392,7 +392,7 @@ export async function executeBatch(app: Application, request: BatchRequest): Pro
  */
 async function executePomDirect(app: Application, step: BatchStep): Promise<ActionResult> {
 	const start = Date.now();
-	const workbench: Record<string, unknown> = app.workbench as Record<string, unknown>;
+	const workbench = app.workbench as unknown as Record<string, unknown>;
 	const pomPath = step.pom!;
 	const method = step.method!;
 
@@ -419,7 +419,7 @@ async function executePomDirect(app: Application, step: BatchStep): Promise<Acti
 					duration: Date.now() - start,
 				};
 			}
-			const group = workbench.editors.editorGroup(step.scope);
+			const group = (app.workbench.editors as any).editorGroup(step.scope);
 			target = target.scopedTo(group);
 		}
 

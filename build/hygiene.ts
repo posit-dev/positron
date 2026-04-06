@@ -381,6 +381,21 @@ if (import.meta.main) {
 				const some = out.split(/\r?\n/).filter((l) => !!l);
 
 				// --- Start Positron ---
+				// Check if any test/e2e files changed and run TypeScript compilation
+				const hasE2eChanges = some.some(f => f.startsWith('test/e2e/'));
+				if (hasE2eChanges) {
+					console.log('Checking e2e test TypeScript compilation...');
+					try {
+						cp.execSync('npm --prefix test/e2e run compile', {
+							stdio: 'inherit',
+							timeout: 60000
+						});
+					} catch (e) {
+						console.error('e2e TypeScript compilation failed. Fix the errors above before committing.');
+						process.exit(1);
+					}
+				}
+
 				// Check if any assistant-eval test cases changed and regenerate catalog
 				const evalTestCasePattern = /^test\/e2e\/tests\/assistant-eval\/(?!_)[^/]+\/[^/]+\.ts$/;
 				const hasEvalChanges = some.some(f => evalTestCasePattern.test(f) && !f.includes('.test.'));

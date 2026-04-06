@@ -12,7 +12,7 @@ const title = process.env.EXPLORE_TITLE || 'wait for agent commands';
 
 test.use({ suiteId: __filename });
 
-test(`Explore runner - ${title}`, { tag: [TestTags.WEB, TestTags.CROSS_BROWSER] }, async ({ app }) => {
+test(`/e2e-test-verify runner - ${title}`, { tag: [TestTags.WEB, TestTags.CROSS_BROWSER] }, async ({ app }) => {
 	test.setTimeout(TEN_MINUTES);
 
 	// Tracing is already started by the test framework (_test.setup.ts).
@@ -26,7 +26,7 @@ test(`Explore runner - ${title}`, { tag: [TestTags.WEB, TestTags.CROSS_BROWSER] 
 		await Promise.race([
 			donePromise,
 			new Promise<void>((_, reject) =>
-				setTimeout(() => reject(new Error('Explore runner timed out after 10 minutes')), TEN_MINUTES)
+				setTimeout(() => reject(new Error('Verify runner timed out after 10 minutes')), TEN_MINUTES)
 			),
 		]);
 	} finally {
