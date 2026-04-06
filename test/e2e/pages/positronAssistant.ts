@@ -1019,7 +1019,14 @@ export class Assistant {
 		await test.step(`Expect model in picker: ${text}`, async () => {
 			await this._expandOtherModelsSection();
 			const locator = this.code.driver.currentPage.locator('.monaco-list-row.action span.title', { hasText: text });
-			await expect(locator).toHaveCount(1);
+			// Scroll incrementally to find items that may be off-screen in the virtualized list
+			await expect(async () => {
+				if (await locator.count() === 0) {
+					const scrollable = this.code.driver.currentPage.locator('.action-widget .monaco-scrollable-element');
+					await scrollable.evaluate(el => { el.scrollTop += 100; });
+				}
+				await expect(locator).toHaveCount(1, { timeout: 500 });
+			}).toPass({ timeout: 15000 });
 		});
 	}
 
