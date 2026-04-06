@@ -5,37 +5,31 @@
 
 import { expect, FrameLocator } from '@playwright/test';
 import { Code } from '../infra/code';
-import { QuickAccess } from './quickaccess';
 
-// Webview frame selectors (Databot renders inside a VS Code webview)
+// Webview frame selectors (Posit Assistant renders inside a VS Code webview)
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 
-// Tab selector (lives on the main page, not inside the webview)
-const DATABOT_TAB = 'div.tab[aria-label^="Databot"]';
+// Activity bar button and sidebar view
+const ACTIVITY_BAR_BUTTON = 'a.action-label[aria-label="Posit Assistant"]';
 
-// Sidebar action buttons (left side)
-const SIDEBAR_NEW_CHAT_BUTTON = '[data-sidebar="menu-button"]:has-text("New Conversation")';
-const SIDEBAR_SESSIONS_BUTTON = 'TODO_SIDEBAR_SESSIONS_BUTTON';
-const SIDEBAR_VARIABLES_BUTTON = 'TODO_SIDEBAR_VARIABLES_BUTTON';
-const SIDEBAR_HISTORY_BUTTON = 'TODO_SIDEBAR_HISTORY_BUTTON';
-const SIDEBAR_DOWNLOAD_BUTTON = '[data-sidebar="menu-button"]:has-text("Import/Export Conversation")';
-const SIDEBAR_SETTINGS_BUTTON = 'TODO_SIDEBAR_SETTINGS_BUTTON';
+// Header buttons
+const NEW_CHAT_BUTTON = 'button:has(svg.lucide-plus)';
+const HISTORY_BUTTON = 'button:has(svg.lucide-history)';
+const MORE_BUTTON = 'button:has(svg.lucide-ellipsis):has(.sr-only:text("More"))';
+const SETTINGS_BUTTON = 'button:has(svg.lucide-settings):has(.sr-only:text("Settings"))';
+
+// Workspace trust dialog
+const TRUST_DIALOG = '[role="dialog"]:has(h2:has-text("Do you trust this workspace?"))';
+const TRUST_BUTTON = 'button.bg-primary:has-text("Trust this workspace")';
 
 // Welcome/landing page elements
-const WELCOME_MESSAGE = 'TODO_WELCOME_MESSAGE';
-
-// Suggested question links
-const SUGGESTED_QUESTION_LINK = 'TODO_SUGGESTED_QUESTION_LINK';
+const WELCOME_TITLE = '.text-4xl:has-text("Posit Assistant")';
 
 // Chat input area
-const CHAT_INPUT = 'textarea[placeholder="Ask Databot... Type / to see commands"]';
+const CHAT_INPUT = 'textarea[placeholder="Ask Posit Assistant... Type / to see commands"]';
 const SEND_BUTTON = 'button:has(svg.lucide-arrow-up)';
 const STOP_BUTTON = 'button:has(svg.lucide-square)';
-
-// Bottom status bar
-const RUNTIME_INDICATOR = 'span[data-slot="tooltip-trigger"]';
-const MODEL_SELECTOR = '[data-slot="dropdown-menu-trigger"]:has(.flex)';
 
 // Chat message elements
 const CHAT_MESSAGE_USER = '.chat-message-user';
@@ -50,76 +44,113 @@ const CODE_BLOCK = '.monaco-editor[role="code"]';
 const CODE_BLOCK_COPY_BUTTON = 'button[aria-label="Copy"]';
 const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
+
+// Tool confirmation UI
 const TOOL_CONFIRM_TITLE = 'h4.font-semibold';
-// The tool confirmation UI uses a split button: the main "Allow" button (left half)
-// executes the default allow-once action; the chevron (right half) opens a dropdown
-// with "Allow once", "Allow for session", and "Always allow for project" options.
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
 const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
 
 /**
- * Page object for the Databot extension.
- * Databot is a chatbot assistant that renders inside a VS Code webview,
+ * Page object for the Posit Assistant extension.
+ * Posit Assistant is an AI chat assistant that renders inside a VS Code webview,
  * so most element access requires navigating through nested iframes.
  */
-export class Databot {
+export class PositAssistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess) { }
+	constructor(private code: Code) { }
 
 	/**
-	 * Gets the frame locator for the Databot webview content.
-	 * All Databot UI elements live inside this nested iframe.
+	 * Gets the frame locator for the Posit Assistant webview content.
+	 * All UI elements live inside this nested iframe.
 	 */
 	get frame(): FrameLocator {
 		return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	}
 
 	/**
-	 * Opens Databot in the editor panel via command palette.
+	 * Ensures the Posit Assistant sidebar view is open.
+	 * Clicks the activity bar icon if it is not already selected.
 	 */
 	async open(): Promise<void> {
-		await this.quickaccess.runCommand('Open Databot in Editor Panel');
-		await expect(this.code.driver.page.getByRole('tab', { name: 'Databot' })).toBeVisible();
+		const button = this.code.driver.page.locator(ACTIVITY_BAR_BUTTON);
+		const isSelected = await button.locator('..').getAttribute('aria-selected');
+		if (isSelected !== 'true') {
+			await button.click();
+		}
+		await expect(button.locator('..')).toHaveAttribute('aria-selected', 'true');
 	}
 
 	/**
-	 * Waits for Databot to be ready by verifying the chat input is visible.
+	 * Accepts the workspace trust dialog if it appears.
+	 * This dialog may or may not appear depending on workspace state.
+	 */
+	async acceptTrustDialogIfPresent(): Promise<void> {
+		const trustDialog = this.frame.locator(TRUST_DIALOG);
+		const isVisible = await trustDialog.isVisible().catch(() => false);
+		if (isVisible) {
+			await trustDialog.locator(TRUST_BUTTON).click();
+		}
+	}
+
+	/**
+	 * Waits for Posit Assistant to be ready by verifying the chat input is visible.
+	 * Handles the workspace trust dialog if it appears.
 	 * Works on both the landing page and a resumed chat session.
 	 * @param timeout Maximum time to wait in milliseconds (default: 30000)
 	 */
 	async waitForReady(timeout: number = 30000): Promise<void> {
+		await this.acceptTrustDialogIfPresent();
 		await expect(this.frame.locator(CHAT_INPUT)).toBeVisible({ timeout });
 		await expect(this.frame.locator(SEND_BUTTON)).toBeVisible({ timeout });
 		await expect(this.frame.locator(STOP_BUTTON)).not.toBeVisible({ timeout });
 	}
 
 	/**
-	 * Verifies that the Databot tab is visible (tab is on the main page, not in the webview).
-	 */
-	async expectTabVisible(): Promise<void> {
-		await expect(this.code.driver.page.locator(DATABOT_TAB)).toBeVisible();
-	}
-
-	/**
-	 * Verifies that the welcome message is displayed.
-	 * TODO: WELCOME_MESSAGE locator needs to be set from the actual DOM.
+	 * Verifies that the welcome title "Posit Assistant" is displayed on the landing page.
 	 */
 	async expectWelcomeVisible(): Promise<void> {
-		await expect(this.frame.locator(WELCOME_MESSAGE)).toBeVisible();
+		await expect(this.frame.locator(WELCOME_TITLE)).toBeVisible();
+	}
+
+	// --- Header actions ---
+
+	/**
+	 * Starts a new conversation by clicking the new chat button.
+	 * If the button is disabled (already on landing page), this is a no-op.
+	 */
+	async startNewConversation(): Promise<void> {
+		const button = this.frame.locator(NEW_CHAT_BUTTON);
+		if (await button.isDisabled()) {
+			return;
+		}
+		await button.click();
+		await this.waitForReady();
 	}
 
 	/**
-	 * Clicks a suggested question link by its text.
-	 * TODO: SUGGESTED_QUESTION_LINK locator needs to be set from the actual DOM.
-	 * @param questionText The text of the suggested question to click
+	 * Clicks the history button in the header.
 	 */
-	async clickSuggestedQuestion(questionText: string): Promise<void> {
-		await this.frame.locator(SUGGESTED_QUESTION_LINK).filter({ hasText: questionText }).click();
+	async clickHistory(): Promise<void> {
+		await this.frame.locator(HISTORY_BUTTON).click();
 	}
 
-	// Chat input
+	/**
+	 * Clicks the more/ellipsis button in the header.
+	 */
+	async clickMore(): Promise<void> {
+		await this.frame.locator(MORE_BUTTON).click();
+	}
+
+	/**
+	 * Clicks the settings button in the header.
+	 */
+	async clickSettings(): Promise<void> {
+		await this.frame.locator(SETTINGS_BUTTON).click();
+	}
+
+	// --- Chat input ---
 
 	/**
 	 * Enters a message in the chat input.
@@ -140,7 +171,6 @@ export class Databot {
 
 	/**
 	 * Clicks the stop button to cancel a running response.
-	 * The send button changes to a red square while Databot is responding.
 	 */
 	async clickStop(): Promise<void> {
 		await this.frame.locator(STOP_BUTTON).click();
@@ -175,7 +205,7 @@ export class Databot {
 		await this.frame.locator(STOP_BUTTON).waitFor({ state: 'hidden', timeout });
 	}
 
-	// Chat messages
+	// --- Chat messages ---
 
 	/**
 	 * Verifies that an assistant response is visible.
@@ -199,7 +229,7 @@ export class Databot {
 		await expect(this.frame.locator(CHAT_MESSAGE_USER)).toBeVisible();
 	}
 
-	// Inline plots
+	// --- Inline plots ---
 
 	/**
 	 * Verifies that an inline plot image is visible in the chat.
@@ -209,7 +239,7 @@ export class Databot {
 		await expect(this.frame.locator(INLINE_PLOT).first()).toBeVisible({ timeout });
 	}
 
-	// Code block actions
+	// --- Code block actions ---
 
 	/**
 	 * Clicks the copy button on a code block.
@@ -238,7 +268,7 @@ export class Databot {
 		await this.frame.locator(CODE_BLOCK_INSERT_FILE_BUTTON).nth(index).click();
 	}
 
-	// Tool confirmation
+	// --- Tool confirmation ---
 
 	/**
 	 * Verifies the tool confirmation dialog is visible.
@@ -267,101 +297,6 @@ export class Databot {
 	 */
 	async declineTool(): Promise<void> {
 		await this.frame.locator(TOOL_DECLINE_BUTTON).click();
-	}
-
-	// Sidebar actions
-
-	/**
-	 * Starts a new conversation if possible.
-	 * If the "New Conversation" button is disabled (already on landing page), this is a no-op.
-	 */
-	async startNewConversation(): Promise<void> {
-		const button = this.frame.locator(SIDEBAR_NEW_CHAT_BUTTON);
-		if (await button.isDisabled()) {
-			return;
-		}
-		await button.click();
-		await this.waitForReady();
-	}
-
-	/**
-	 * Clicks the sessions button in the sidebar.
-	 * TODO: SIDEBAR_SESSIONS_BUTTON locator needs to be set from the actual DOM.
-	 */
-	async clickSessions(): Promise<void> {
-		await this.frame.locator(SIDEBAR_SESSIONS_BUTTON).click();
-	}
-
-	/**
-	 * Clicks the variables button in the sidebar.
-	 * TODO: SIDEBAR_VARIABLES_BUTTON locator needs to be set from the actual DOM.
-	 */
-	async clickVariables(): Promise<void> {
-		await this.frame.locator(SIDEBAR_VARIABLES_BUTTON).click();
-	}
-
-	/**
-	 * Clicks the history button in the sidebar.
-	 * TODO: SIDEBAR_HISTORY_BUTTON locator needs to be set from the actual DOM.
-	 */
-	async clickHistory(): Promise<void> {
-		await this.frame.locator(SIDEBAR_HISTORY_BUTTON).click();
-	}
-
-	/**
-	 * Clicks the settings button in the sidebar.
-	 * TODO: SIDEBAR_SETTINGS_BUTTON locator needs to be set from the actual DOM.
-	 */
-	async clickSettings(): Promise<void> {
-		await this.frame.locator(SIDEBAR_SETTINGS_BUTTON).click();
-	}
-
-	/**
-	 * Clicks the import/export button in the sidebar.
-	 */
-	async clickDownload(): Promise<void> {
-		await this.frame.locator(SIDEBAR_DOWNLOAD_BUTTON).click();
-	}
-
-	// Status bar
-
-	/**
-	 * Gets the current model name from the model selector.
-	 */
-	async getModelName(): Promise<string> {
-		const model = this.frame.locator(MODEL_SELECTOR);
-		return await model.textContent() ?? '';
-	}
-
-	/**
-	 * Gets the current runtime from the status bar.
-	 */
-	async getRuntimeName(): Promise<string> {
-		const runtime = this.frame.locator(RUNTIME_INDICATOR);
-		return await runtime.textContent() ?? '';
-	}
-
-	/**
-	 * Verifies the model selector shows the expected model.
-	 * @param modelName The expected model name
-	 */
-	async expectModel(modelName: string): Promise<void> {
-		await expect(this.frame.locator(MODEL_SELECTOR)).toContainText(modelName);
-	}
-
-	/**
-	 * Verifies the runtime indicator shows the expected runtime.
-	 * @param runtimeName The expected runtime (e.g., "R 4.5.1" or "Python 3.12")
-	 */
-	async expectRuntime(runtimeName: string): Promise<void> {
-		await expect(this.frame.locator(RUNTIME_INDICATOR)).toContainText(runtimeName);
-	}
-
-	/**
-	 * Closes the Databot tab (tab is on the main page, not in the webview).
-	 */
-	async close(): Promise<void> {
-		await this.code.driver.page.locator(`${DATABOT_TAB} .codicon-close`).click();
 	}
 
 }

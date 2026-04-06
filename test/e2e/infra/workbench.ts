@@ -46,7 +46,7 @@ import { PositConnect } from '../pages/connect.js';
 import { Notebooks } from '../pages/notebooks.js';
 import { PositronNotebooks } from '../pages/notebooksPositron.js';
 import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
-import { Databot } from '../pages/databot.js';
+import { PositAssistant } from '../pages/positAssistant.js';
 import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
 
@@ -97,7 +97,7 @@ export class Workbench {
 	readonly assistant: Assistant;
 	readonly hotKeys: HotKeys;
 	readonly positConnect: PositConnect;
-	readonly databot: Databot;
+	readonly positAssistant: PositAssistant;
 	readonly inlineDataExplorer: InlineDataExplorer;
 	readonly inlineQuarto: InlineQuarto;
 
@@ -143,7 +143,7 @@ export class Workbench {
 		this.search = new Search(code);
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
 		this.positConnect = new PositConnect(code);
-		this.databot = new Databot(code, this.quickaccess);
+		this.positAssistant = new PositAssistant(code);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.page);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 	}
