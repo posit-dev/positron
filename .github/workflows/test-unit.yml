@@ -109,7 +109,7 @@ jobs:
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
           .github/cache-scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
 
-      - name: 🧪 Run Vitest Tests (Positron)
+      - name: 🧪 Run Positron Unit Tests (Vitest)
         id: vitest-tests
         run: npm run test-vitest:run
 
@@ -201,17 +201,17 @@ jobs:
             /opt/R
           key: ${{ runner.os }}-r-4.5.2-${{ steps.download-r-desc.outputs.description-hash }}
 
-      - name: 🧪 Run Unit Tests (Electron)
+      - name: 🧪 Run VS Code Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
 
-      - name: 🧪 Run Unit Tests (node.js)
+      - name: 🧪 Run VS Code Unit Tests (Node.js)
         id: nodejs-unit-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npm run test-node
 
-      - name: 🧪 Run Unit Tests (Browser, Chromium)
+      - name: 🧪 Run VS Code Unit Tests (Chromium)
         id: browser-unit-tests
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
