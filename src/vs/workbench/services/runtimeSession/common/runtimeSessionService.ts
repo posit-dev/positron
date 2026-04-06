@@ -273,19 +273,17 @@ export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession
 }
 
 /**
- * Lightweight session display info. Used to show session information
- * in the interpreter picker after the session has been disposed
- * (e.g. for exited notebook sessions).
+ * A lightweight object containing display-relevant properties from a session.
  */
-export interface ISessionDisplayInfo {
-	sessionName: string;
+export interface IRuntimeSessionDisplayInfo {
+	readonly sessionName: string;
 	readonly sessionMode: LanguageRuntimeSessionMode;
 	readonly notebookUri?: URI;
 	readonly runtimeId: string;
 	readonly languageName: string;
 	readonly languageId: string;
 	readonly base64EncodedIconSvg: string | undefined;
-	sessionState: RuntimeState;
+	readonly sessionState: RuntimeState;
 }
 
 export interface ILanguageRuntimePackage {
@@ -465,12 +463,12 @@ export interface IRuntimeSessionService {
 	// An event that fires when the foreground session display info changes.
 	// This can be driven by a live foreground session change or by falling
 	// back to cached session info for an exited notebook session.
-	readonly onDidChangeForegroundSessionDisplayInfo: Event<ISessionDisplayInfo | undefined>;
+	readonly onDidChangeForegroundSessionDisplayInfo: Event<IRuntimeSessionDisplayInfo | undefined>;
 
 	// The current display info for the foreground session. May contain
 	// session details from an exited session if an actual session is not
 	// available to be the foreground session.
-	foregroundSessionDisplayInfo: ISessionDisplayInfo | undefined;
+	foregroundSessionDisplayInfo: IRuntimeSessionDisplayInfo | undefined;
 
 	// An event that fires when a runtime session is deleted.
 	readonly onDidDeleteRuntimeSession: Event<string>;
@@ -527,7 +525,7 @@ export interface IRuntimeSessionService {
 	 * This persists after the session has exited and been disposed,
 	 * allowing UI components to show what runtime was last used.
 	 */
-	getLastNotebookSessionInfo(notebookUri: URI): ISessionDisplayInfo | undefined;
+	getLastNotebookSessionInfo(notebookUri: URI): IRuntimeSessionDisplayInfo | undefined;
 
 	/**
 	 * List all active runtime sessions.

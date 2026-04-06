@@ -16,7 +16,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ActionBarCommandButton } from '../../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
-import { ISessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -26,7 +26,7 @@ const startSession = localize('positron.console.startSession', "Start Session");
 /**
  * Gets the label text from session display info.
  */
-const getDisplayInfoLabel = (info: ISessionDisplayInfo | undefined): string => {
+const getDisplayInfoLabel = (info: IRuntimeSessionDisplayInfo | undefined): string => {
 	if (!info) {
 		return startSession;
 	}
@@ -40,7 +40,7 @@ const getDisplayInfoLabel = (info: ISessionDisplayInfo | undefined): string => {
 /**
  * Gets the session mode icon from display info.
  */
-const getDisplayInfoIcon = (info: ISessionDisplayInfo | undefined) => {
+const getDisplayInfoIcon = (info: IRuntimeSessionDisplayInfo | undefined) => {
 	if (!info) {
 		return Codicon.arrowSwap;
 	}

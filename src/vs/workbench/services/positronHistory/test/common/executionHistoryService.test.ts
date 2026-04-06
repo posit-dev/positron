@@ -9,7 +9,7 @@ import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, ISessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryService, ExecutionEntryType } from '../../common/executionHistoryService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -115,9 +115,9 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	readonly onDidStartUiClient = this._onDidStartUiClient.event;
 
 	foregroundSession: ILanguageRuntimeSession | undefined;
-	foregroundSessionDisplayInfo: ISessionDisplayInfo | undefined;
+	foregroundSessionDisplayInfo: IRuntimeSessionDisplayInfo | undefined;
 
-	private readonly _onDidChangeForegroundSessionDisplayInfo = new Emitter<ISessionDisplayInfo | undefined>();
+	private readonly _onDidChangeForegroundSessionDisplayInfo = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
 	readonly onDidChangeForegroundSessionDisplayInfo = this._onDidChangeForegroundSessionDisplayInfo.event;
 
 	implicitStartupSuppressed = false;
@@ -172,7 +172,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	getLastNotebookSessionInfo(_notebookUri: URI): ISessionDisplayInfo | undefined {
+	getLastNotebookSessionInfo(_notebookUri: URI): IRuntimeSessionDisplayInfo | undefined {
 		return undefined;
 	}
 
