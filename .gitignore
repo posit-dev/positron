@@ -59,3 +59,4 @@ product.json.backup
 # --- End Positron ---
 test-output.json
 .superset/
+docs/superpowers/
