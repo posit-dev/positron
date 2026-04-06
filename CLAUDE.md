@@ -59,7 +59,7 @@ The deciding question: **does it need Electron?**
 	- `./scripts/test.sh --run src/path/to/<file>.test.ts --grep '<pattern>'`: run specific tests in a file
 	- `./scripts/test.sh --runGlob <glob>.test.js`: run files matching a glob (use `.js` extension with `--runGlob`)
 - **Extension tests** (`extensions/<extension-name>/*.test.ts`): `npm run test-extension -- -l <extension-name> --grep <pattern>`
-	- For positron-python, see that extension's CLAUDE.md
+	- positron-python has its own test setup -- see `extensions/positron-python/CLAUDE.md`
 - **E2E tests** (full app, real browser): `npx playwright test test/e2e/tests/<test-name>.test.ts --project e2e-electron --grep '<pattern>'`
 
 ### Positron Vitest: The Builder
