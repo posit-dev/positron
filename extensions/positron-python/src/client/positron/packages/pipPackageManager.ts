@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
+import { DisposableStore } from '../../common/utils/resourceLifecycle';
 import { getConfiguration, getWorkspaceFolders } from '../../common/vscodeApis/workspaceApis';
 import { IServiceContainer } from '../../ioc/types';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
@@ -21,8 +22,8 @@ import { IPackageManager, MessageEmitter, PackageSession } from './types';
  */
 export class PipPackageManager implements IPackageManager {
     private _pythonService: IPythonExecutionService | undefined;
-    private readonly _disposables: vscode.Disposable[] = [];
-    private readonly _onDidChangeSyncSupport = new vscode.EventEmitter<boolean>();
+    private readonly _disposables = new DisposableStore();
+    private readonly _onDidChangeSyncSupport = this._disposables.add(new vscode.EventEmitter<boolean>());
     private _lastSyncSupported: boolean | undefined;
 
     readonly onDidChangeSyncSupport = this._onDidChangeSyncSupport.event;
@@ -33,7 +34,6 @@ export class PipPackageManager implements IPackageManager {
         private readonly _serviceContainer: IServiceContainer,
         private readonly _session: PackageSession,
     ) {
-        this._disposables.push(this._onDidChangeSyncSupport);
         this._setupFileWatcher();
     }
 
@@ -48,12 +48,11 @@ export class PipPackageManager implements IPackageManager {
 
         // Watch for requirements.txt in the workspace root
         const pattern = new vscode.RelativePattern(workspaceFolders[0], 'requirements.txt');
-        const fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
-        this._disposables.push(fileWatcher);
+        const fileWatcher = this._disposables.add(vscode.workspace.createFileSystemWatcher(pattern));
 
         // When the file is created or deleted, check if sync support changed
-        this._disposables.push(fileWatcher.onDidCreate(() => this._checkAndFireSyncSupportChange()));
-        this._disposables.push(fileWatcher.onDidDelete(() => this._checkAndFireSyncSupportChange()));
+        this._disposables.add(fileWatcher.onDidCreate(() => this._checkAndFireSyncSupportChange()));
+        this._disposables.add(fileWatcher.onDidDelete(() => this._checkAndFireSyncSupportChange()));
     }
 
     /**
@@ -71,7 +70,7 @@ export class PipPackageManager implements IPackageManager {
      * Dispose of all resources.
      */
     dispose(): void {
-        this._disposables.forEach(d => d.dispose());
+        this._disposables.dispose();
     }
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
